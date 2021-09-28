@@ -1210,7 +1210,7 @@ HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
   Type *IntPtr = getDataLayout().getIntPtrType(Ctx, 0);
 
   RegDDRef *ConstStrRef =
-      DRU.createAddressOfRef(ConstStrBlobIndex, 0, GenericRvalSymbase);
+      DRU.createAddressOfRef(ConstStr->getValueType(), ConstStrBlobIndex, 0, GenericRvalSymbase);
 
   auto &CU = getCanonExprUtils();
   ConstStrRef->addDimension(CU.createCanonExpr(IntPtr, 0));
@@ -1321,6 +1321,21 @@ HLInst *HLNodeUtils::createFPMinMaxVectorReduce(RegDDRef *VecRef,
   }
 
   return HInst;
+}
+
+HLInst *HLNodeUtils::createVectorInsert(RegDDRef *OpRef1, RegDDRef *SubVecRef,
+                                        unsigned Idx, const Twine &Name,
+                                        RegDDRef *LvalRef) {
+  assert(OpRef1->getDestType()->isVectorTy() &&
+         SubVecRef->getDestType()->isVectorTy() &&
+         "Illegal operand types for vector.insert");
+  SmallVector<Type *, 2> Tys = {OpRef1->getDestType(),
+                                SubVecRef->getDestType()};
+  Function *F = Intrinsic::getDeclaration(
+      &getModule(), Intrinsic::experimental_vector_insert, Tys);
+  RegDDRef *IdxRef =
+      getDDRefUtils().createConstDDRef(Type::getInt64Ty(getContext()), Idx);
+  return createCall(F, {OpRef1, SubVecRef, IdxRef}, Name, LvalRef);
 }
 
 struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
@@ -4748,10 +4763,10 @@ public:
 
       Loop->extractPreheaderAndPostexit();
 
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-      LORBuilder(*Loop).preserveLostLoopOptReport();
+      ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
       Changed = true;
@@ -4940,10 +4955,10 @@ public:
 
       SkipNode = Loop;
 
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-      LORBuilder(*Loop).preserveLostLoopOptReport();
+      ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
       Changed = true;
@@ -5139,10 +5154,10 @@ public:
 
       notifyWillRemoveNode(Loop);
 
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-      LORBuilder(*Loop).preserveLostLoopOptReport();
+      ORBuilder(*Loop).preserveLostOptReport();
 
       // Do not extract postexit as they will become dead nodes because of goto.
       Loop->replaceByFirstIteration(false);
@@ -5649,4 +5664,24 @@ bool HLNodeUtils::hasGotoOnAllBranches(HLNode *Node) {
   }
 
   return false;
+}
+
+bool HLNodeUtils::hasManyLifeTimeIntrinsics(const HLLoop *Loop) {
+  const unsigned NumInstsThreshold = 50;
+
+  if (Loop->getNumChildren() < NumInstsThreshold)
+    return false;
+
+  // Make sure if the first NumInstsThreshold instructions are
+  // lifetime_start intrinsics.
+  return std::all_of(Loop->child_begin(),
+                      std::next(Loop->child_begin(), NumInstsThreshold),
+               [](const HLNode& Node) {
+               if (const HLInst* HInst = dyn_cast<HLInst>(&Node)) {
+                 Intrinsic::ID Id;
+                 return HInst->isIntrinCall(Id)
+                   && Id == Intrinsic::lifetime_start;
+               }
+               return false; });
+
 }

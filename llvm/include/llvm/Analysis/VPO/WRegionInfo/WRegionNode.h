@@ -442,6 +442,8 @@ public:
                                                 {WRNERROR("DEFAULTMAP");      }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
+  virtual void setFilter(EXPR E)                {WRNERROR(QUAL_OMP_FILTER);   }
+  virtual EXPR getFilter()                const {WRNERROR(QUAL_OMP_FILTER);   }
   virtual void setFinal(EXPR E)                 {WRNERROR(QUAL_OMP_FINAL);    }
   virtual EXPR getFinal()                 const {WRNERROR(QUAL_OMP_FINAL);    }
   virtual void setGrainsize(EXPR E)             {WRNERROR(QUAL_OMP_GRAINSIZE);}
@@ -541,6 +543,12 @@ public:
   virtual bool getTreatDistributeParLoopAsDistribute() const {
     WRNERROR("TREAT_DISTRIBUTE_PAR_LOOP_AS_DISTRIBUTE");
   }
+  virtual void setHasTeamsReduction() {
+    WRNERROR("OFFLOAD_HAS_TEAMS_REDUCTION");
+  }
+  virtual bool getHasTeamsReduction() const {
+    WRNERROR("OFFLOAD_HAS_TEAMS_REDUCTION");
+  }
 
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual WRNLoopBindKind getLoopBind()   const {WRNERROR("LOOP_BIND");       }
@@ -593,9 +601,6 @@ public:
     WRNERROR(QUAL_OMP_THREAD_LIMIT);
   }
 #endif //INTEL_CUSTOMIZATION
-
-  virtual void setSPIRVSIMDWidth(unsigned) {WRNERROR("SPIRVSIMDWidth");}
-  virtual unsigned getSPIRVSIMDWidth() const {WRNERROR("SPIRVSIMDWidth");}
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
@@ -724,6 +729,11 @@ public:
 
   /// Returns the name for this WRN based on its SubClassID
   StringRef getName() const;
+
+  /// Similar to getName, but returns WRN name taking into account source
+  /// language differences. For example loop directives in C use word 'for' and
+  /// 'do' in Fortran.
+  StringRef getSourceName() const;
 
   /// Returns whether the WRegionNode is for an implicit construct.
   bool getIsImplicit() const { return IsImplicit; }
@@ -876,11 +886,13 @@ public:
     WRNPrefetch,
     WRNOrdered,
     WRNMaster,
+    WRNMasked,
     WRNSingle,
     WRNTaskgroup,
     WRNTaskwait,
     WRNTaskyield,
-    WRNInterop
+    WRNInterop,
+    WRNScope
   };
 
   /// WRN primary attributes

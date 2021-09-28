@@ -347,6 +347,12 @@ Value *llvm::findScalarElement(Value *V, unsigned EltNo) {
       if (Elt->isNullValue())
         return findScalarElement(Val, EltNo);
 
+  // If the vector is a splat then we can trivially find the scalar element.
+  if (isa<ScalableVectorType>(VTy))
+    if (Value *Splat = getSplatValue(V))
+      if (EltNo < VTy->getElementCount().getKnownMinValue())
+        return Splat;
+
   // Otherwise, we don't know.
   return nullptr;
 }
@@ -694,7 +700,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
 
       if (AttrList.hasAttributes()) {
         VecCall->setAttributes(
-            VecCall->getAttributes().addAttributes(
+            VecCall->getAttributes().addAttributesAtIndex(
                 VecCall->getContext(), I + 1, AttrList));
       }
     }
@@ -703,7 +709,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
 
 std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
   std::vector<Attribute> RetVal;
-  AttributeSet Attributes = F.getAttributes().getFnAttributes();
+  AttributeSet Attributes = F.getAttributes().getFnAttrs();
   AttributeSet::iterator ItA = Attributes.begin();
   AttributeSet::iterator EndA = Attributes.end();
   for (; ItA != EndA; ++ItA) {
@@ -871,11 +877,11 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall) {
 
 void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                  ArrayRef<AttributeSet> ArgAttrs) {
-  AttributeSet FnAttrs = Attrs.getFnAttributes().removeAttribute(
+  AttributeSet FnAttrs = Attrs.getFnAttrs().removeAttribute(
       VecCall->getContext(), "vector-variants");
 
-  VecCall->setAttributes(AttributeList::get(
-      VecCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
+  VecCall->setAttributes(AttributeList::get(VecCall->getContext(), FnAttrs,
+                                            Attrs.getRetAttrs(), ArgAttrs));
 }
 
 Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
@@ -890,7 +896,8 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   // an intrinsic.
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VL)) &&
+  if (TLI && !TLI->isFunctionVectorizable(
+        FnName, ElementCount::getFixed(VL)) &&
       !ID && !VecVariant && !isOpenCLReadChannel(FnName) &&
       !isOpenCLWriteChannel(FnName))
     return nullptr;
@@ -903,11 +910,14 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   if (VecVariant) {
-    std::string VFnName = *VecVariant->getName();
+    // Having getName() absent means that the vector variant was in the form
+    // "_ZGVbM4uu_" without the BaseName. Use function name then.
+    std::string VFnName = VecVariant->getName().hasValue() ?
+      *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
     Function *VectorF = M->getFunction(VFnName);
     if (!VectorF) {
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
       VectorF->copyAttributesFrom(OrigF);
     }
     return VectorF;
@@ -950,7 +960,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     Function *VectorF = M->getFunction(VFnName);
     if (!VectorF) {
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
     }
     // Note: The function signature is different for the vector version of
     // these functions. E.g., in the case of __read_pipe the 2nd parameter
@@ -966,6 +976,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     return VectorF;
   }
 
+  assert(TLI && "TLI is expected to be initialized.");
   // Generate a vector library call.
   StringRef VFnName =
       TLI->getVectorizedFunction(FnName, ElementCount::getFixed(VL),
@@ -982,7 +993,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
       VecRetTy = StructType::get(ElementType, ElementType);
     }
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-    VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+    VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
     VectorF->copyAttributesFrom(OrigF);
   }
   return VectorF;
@@ -1697,15 +1708,23 @@ void InterleavedAccessInfo::analyzeInterleaving(
     } // Iteration over A accesses.
   }   // Iteration over B accesses.
 
-  // Remove interleaved store groups with gaps.
-  for (auto *Group : StoreGroups)
-    if (Group->getNumMembers() != Group->getFactor()) {
-      LLVM_DEBUG(
-          dbgs() << "LV: Invalidate candidate interleaved store group due "
-                    "to gaps.\n");
-      releaseGroup(Group);
-    }
-  // Remove interleaved groups with gaps (currently only loads) whose memory
+  auto InvalidateGroupIfMemberMayWrap = [&](InterleaveGroup<Instruction> *Group,
+                                            int Index,
+                                            std::string FirstOrLast) -> bool {
+    Instruction *Member = Group->getMember(Index);
+    assert(Member && "Group member does not exist");
+    Value *MemberPtr = getLoadStorePointerOperand(Member);
+    if (getPtrStride(PSE, MemberPtr, TheLoop, Strides, /*Assume=*/false,
+                     /*ShouldCheckWrap=*/true))
+      return false;
+    LLVM_DEBUG(dbgs() << "LV: Invalidate candidate interleaved group due to "
+                      << FirstOrLast
+                      << " group member potentially pointer-wrapping.\n");
+    releaseGroup(Group);
+    return true;
+  };
+
+  // Remove interleaved groups with gaps whose memory
   // accesses may wrap around. We have to revisit the getPtrStride analysis,
   // this time with ShouldCheckWrap=true, since collectConstStrideAccesses does
   // not check wrapping (see documentation there).
@@ -1731,26 +1750,12 @@ void InterleavedAccessInfo::analyzeInterleaving(
     // So we check only group member 0 (which is always guaranteed to exist),
     // and group member Factor - 1; If the latter doesn't exist we rely on
     // peeling (if it is a non-reversed accsess -- see Case 3).
-    Value *FirstMemberPtr = getLoadStorePointerOperand(Group->getMember(0));
-    if (!getPtrStride(PSE, FirstMemberPtr, TheLoop, Strides, /*Assume=*/false,
-                      /*ShouldCheckWrap=*/true)) {
-      LLVM_DEBUG(
-          dbgs() << "LV: Invalidate candidate interleaved group due to "
-                    "first group member potentially pointer-wrapping.\n");
-      releaseGroup(Group);
+    if (InvalidateGroupIfMemberMayWrap(Group, 0, std::string("first")))
       continue;
-    }
-    Instruction *LastMember = Group->getMember(Group->getFactor() - 1);
-    if (LastMember) {
-      Value *LastMemberPtr = getLoadStorePointerOperand(LastMember);
-      if (!getPtrStride(PSE, LastMemberPtr, TheLoop, Strides, /*Assume=*/false,
-                        /*ShouldCheckWrap=*/true)) {
-        LLVM_DEBUG(
-            dbgs() << "LV: Invalidate candidate interleaved group due to "
-                      "last group member potentially pointer-wrapping.\n");
-        releaseGroup(Group);
-      }
-    } else {
+    if (Group->getMember(Group->getFactor() - 1))
+      InvalidateGroupIfMemberMayWrap(Group, Group->getFactor() - 1,
+                                     std::string("last"));
+    else {
       // Case 3: A non-reversed interleaved load group with gaps: We need
       // to execute at least one scalar epilogue iteration. This will ensure
       // we don't speculatively access memory out-of-bounds. We only need
@@ -1767,6 +1772,39 @@ void InterleavedAccessInfo::analyzeInterleaving(
           dbgs() << "LV: Interleaved group requires epilogue iteration.\n");
       RequiresScalarEpilogue = true;
     }
+  }
+
+  for (auto *Group : StoreGroups) {
+    // Case 1: A full group. Can Skip the checks; For full groups, if the wide
+    // store would wrap around the address space we would do a memory access at
+    // nullptr even without the transformation.
+    if (Group->getNumMembers() == Group->getFactor())
+      continue;
+
+    // Interleave-store-group with gaps is implemented using masked wide store.
+    // Remove interleaved store groups with gaps if
+    // masked-interleaved-accesses are not enabled by the target.
+    if (!EnablePredicatedInterleavedMemAccesses) {
+      LLVM_DEBUG(
+          dbgs() << "LV: Invalidate candidate interleaved store group due "
+                    "to gaps.\n");
+      releaseGroup(Group);
+      continue;
+    }
+
+    // Case 2: If first and last members of the group don't wrap this implies
+    // that all the pointers in the group don't wrap.
+    // So we check only group member 0 (which is always guaranteed to exist),
+    // and the last group member. Case 3 (scalar epilog) is not relevant for
+    // stores with gaps, which are implemented with masked-store (rather than
+    // speculative access, as in loads).
+    if (InvalidateGroupIfMemberMayWrap(Group, 0, std::string("first")))
+      continue;
+    for (int Index = Group->getFactor() - 1; Index > 0; Index--)
+      if (Group->getMember(Index)) {
+        InvalidateGroupIfMemberMayWrap(Group, Index, std::string("last"));
+        break;
+      }
   }
 }
 
@@ -1829,9 +1867,7 @@ std::string VFABI::mangleTLIVectorName(StringRef VectorName,
 
 void VFABI::getVectorVariantNames(
     const CallInst &CI, SmallVectorImpl<std::string> &VariantMappings) {
-  const StringRef S =
-      CI.getAttribute(AttributeList::FunctionIndex, VFABI::MappingsAttrName)
-          .getValueAsString();
+  const StringRef S = CI.getFnAttr(VFABI::MappingsAttrName).getValueAsString();
   if (S.empty())
     return;
 

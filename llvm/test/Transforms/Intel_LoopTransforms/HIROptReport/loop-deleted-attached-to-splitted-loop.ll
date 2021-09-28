@@ -24,7 +24,7 @@
 ; OPTREPORT-NEXT:         remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT-NEXT:         remark #15305: vectorization support: vector length 4{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN
-; OPTREPORT-NEXT:             remark #25532: Loop completely unrolled
+; OPTREPORT-NEXT:             remark #25436: Loop completely unrolled by 10
 ; OPTREPORT-NEXT:         LOOP END
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
@@ -35,19 +35,19 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
-; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]], [[M9:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
+; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]], [[M9:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.first_child", [[M5:!.*]]}
-; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
-; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
+; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
+; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
 ; CHECK: [[M9]] = !{!"intel.optreport.remarks", [[M10:!.*]], [[M11:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
 ; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}
 ; CHECK: [[M12:!.*]] = distinct !{[[M12]]{{.*}}[[M13:!.*]]{{.*}}}
-; CHECK: [[M13]] = distinct !{!"llvm.loop.optreport", [[M14:!.*]]}
-; CHECK: [[M14]] = distinct !{!"intel.loop.optreport", [[M15:!.*]]}
+; CHECK: [[M13]] = distinct !{!"intel.optreport.rootnode", [[M14:!.*]]}
+; CHECK: [[M14]] = distinct !{!"intel.optreport", [[M15:!.*]]}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
 ; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
 

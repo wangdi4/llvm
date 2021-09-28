@@ -50,13 +50,13 @@ DIR.OMP.SIMD.2:
   %"var$3.codim$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i64 0, i32 2
   store i64 0, i64* %"var$3.codim$", align 8
   %"var$3.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i64 0, i32 6, i64 0, i32 1
-  %"var$3.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$3.dim_info$.spacing$", i32 0)
+  %"var$3.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$3.dim_info$.spacing$", i32 0)
   store i64 4, i64* %"var$3.dim_info$.spacing$[]", align 1
   %"var$3.dim_info$.lower_bound$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i64 0, i32 6, i64 0, i32 2
-  %"var$3.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$3.dim_info$.lower_bound$", i32 0)
+  %"var$3.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$3.dim_info$.lower_bound$", i32 0)
   store i64 1, i64* %"var$3.dim_info$.lower_bound$[]", align 1
   %"var$3.dim_info$.extent$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i64 0, i32 6, i64 0, i32 0
-  %"var$3.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$3.dim_info$.extent$", i32 0)
+  %"var$3.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$3.dim_info$.extent$", i32 0)
   store i64 %slct4, i64* %"var$3.dim_info$.extent$[]", align 1
   %"var$3.addr_a0$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i64 0, i32 0
   store float* %"test_01_$A", float** %"var$3.addr_a0$", align 8
@@ -72,13 +72,13 @@ DIR.OMP.SIMD.2:
   %"var$5.codim$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i64 0, i32 2
   store i64 0, i64* %"var$5.codim$", align 8
   %"var$5.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i64 0, i32 6, i64 0, i32 1
-  %"var$5.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$5.dim_info$.spacing$", i32 0)
+  %"var$5.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$5.dim_info$.spacing$", i32 0)
   store i64 4, i64* %"var$5.dim_info$.spacing$[]", align 1
   %"var$5.dim_info$.lower_bound$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i64 0, i32 6, i64 0, i32 2
-  %"var$5.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$5.dim_info$.lower_bound$", i32 0)
+  %"var$5.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$5.dim_info$.lower_bound$", i32 0)
   store i64 1, i64* %"var$5.dim_info$.lower_bound$[]", align 1
   %"var$5.dim_info$.extent$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i64 0, i32 6, i64 0, i32 0
-  %"var$5.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$5.dim_info$.extent$", i32 0)
+  %"var$5.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$5.dim_info$.extent$", i32 0)
   store i64 %slct4, i64* %"var$5.dim_info$.extent$[]", align 1
   %"var$5.addr_a0$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i64 0, i32 0
   store float* %"test_01_$B", float** %"var$5.addr_a0$", align 8
@@ -123,13 +123,13 @@ bb10:                                             ; preds = %bb12, %bb6
 
 bb11:                                             ; preds = %bb10, %bb11
   %"test_01_$I_fetch" = load i64, i64* %"test_01_$I", align 1
-  %"var$5.addr_a0$_fetch[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"var$5.addr_a0$_fetch", i64 %"test_01_$I_fetch")
+  %"var$5.addr_a0$_fetch[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"var$5.addr_a0$_fetch", i64 %"test_01_$I_fetch")
   ; CHECK: load float, float* %"var$5.addr_a0$_fetch[]", align 1, !nontemporal
   %"var$5.addr_a0$_fetch[]_fetch" = load float, float* %"var$5.addr_a0$_fetch[]", align 1
   %mul26 = fmul fast float %"var$5.addr_a0$_fetch[]_fetch", %"var$5.addr_a0$_fetch[]_fetch"
   %add28 = fadd fast float %mul26, %"var$5.addr_a0$_fetch[]_fetch"
   %add29 = fadd fast float %add28, 1.000000e+00
-  %"var$3.addr_a0$_fetch[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"var$3.addr_a0$_fetch", i64 %"test_01_$I_fetch")
+  %"var$3.addr_a0$_fetch[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"var$3.addr_a0$_fetch", i64 %"test_01_$I_fetch")
   ; CHECK: store float %add29, float* %"var$3.addr_a0$_fetch[]", align 1, !nontemporal
   store float %add29, float* %"var$3.addr_a0$_fetch[]", align 1
   %"test_01_$I_fetch33" = load i64, i64* %"test_01_$I", align 1

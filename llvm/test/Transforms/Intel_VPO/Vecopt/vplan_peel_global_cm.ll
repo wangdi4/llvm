@@ -6,7 +6,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
-; VPLAN-CM-PEELING:  Selecting VF for VPlan #1
+; VPLAN-CM-PEELING:  Selecting VF for VPlan test:for.body.#{{[0-9]+}}
 ; VPLAN-CM-PEELING-NEXT:  Cost of Scalar VPlan: 51200000
 ; VPLAN-CM-PEELING-NEXT:  '#pragma vector always'/ '#pragma omp simd' is used for the given loop
 ; VPLAN-CM-PEELING-NEXT:  Selected peeling: Static(1)
@@ -31,7 +31,7 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-PEELING-NEXT:  Peeling will be performed.
 ; VPLAN-CM-PEELING-NEXT:  Selecting VPlan with VF=4
 ;
-; VPLAN-CM-NO-PEELING:  Selecting VF for VPlan #1
+; VPLAN-CM-NO-PEELING:  Selecting VF for VPlan test:for.body.#{{[0-9]+}}
 ; VPLAN-CM-NO-PEELING-NEXT:  Cost of Scalar VPlan: 51200000
 ; VPLAN-CM-NO-PEELING-NEXT:  '#pragma vector always'/ '#pragma omp simd' is used for the given loop
 ; VPLAN-CM-NO-PEELING-NEXT:  Selected peeling: None

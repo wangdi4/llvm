@@ -429,8 +429,8 @@ bool dtrans::PaddedMallocPass::isOutlineFunction(Function *F) {
 
   // Note: These attributes are set if the OpenMP outlining is done by the
   // backend (-fiopenmp).
-  if (FnAttr.hasAttribute(AttributeList::FunctionIndex, "mt-func") ||
-      FnAttr.hasAttribute(AttributeList::FunctionIndex, "task-mt-func"))
+  if (FnAttr.hasFnAttr("mt-func") ||
+      FnAttr.hasFnAttr("task-mt-func"))
     return true;
 
   return false;
@@ -897,7 +897,8 @@ bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
   // Construct BB with a check
   Builder.SetInsertPoint(CheckBB);
   Value *GEP = Builder.CreateGEP(
-      Arg, {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
+      ArgType->getPointerElementType(), Arg,
+      {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
   Value *Load = Builder.CreateLoad(ElemType, GEP);
   Value *IsNotNull = Builder.CreateIsNotNull(Load);
   Builder.CreateCondBr(IsNotNull, SetBB, EntryBB);

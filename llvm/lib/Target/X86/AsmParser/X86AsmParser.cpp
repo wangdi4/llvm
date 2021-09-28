@@ -2600,9 +2600,9 @@ bool X86AsmParser::ParseIntelOperand(OperandVector &Operands) {
                                    End, Size, SM.getSymName(),
                                    SM.getIdentifierInfo(), Operands);
 
-  // When parsing x64 MS-style assembly, all memory operands default to
-  // RIP-relative when interpreted as non-absolute references.
-  if (Parser.isParsingMasm() && is64BitMode()) {
+  // When parsing x64 MS-style assembly, all non-absolute references to a named
+  // variable default to RIP-relative.
+  if (Parser.isParsingMasm() && is64BitMode() && SM.getElementSize() > 0) {
     Operands.push_back(X86Operand::CreateMem(getPointerWidth(), RegNo, Disp,
                                              BaseReg, IndexReg, Scale, Start,
                                              End, Size,
@@ -2765,9 +2765,7 @@ bool X86AsmParser::HandleAVX512Operand(OperandVector &Operands) {
               .Case("1to4", "{1to4}")
               .Case("1to8", "{1to8}")
               .Case("1to16", "{1to16}")
-#if INTEL_CUSTOMIZATION
               .Case("1to32", "{1to32}")
-#endif // INTEL_CUSTOMIZATION
               .Default(nullptr);
       if (!BroadcastPrimitive)
         return TokError("Invalid memory broadcast primitive.");
@@ -3141,12 +3139,10 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
 
   unsigned ComparisonPredicate = ~0U;
 
-  // FIXME: Hack to recognize cmp<comparison code>{ss,sd,ps,pd}.
+  // FIXME: Hack to recognize cmp<comparison code>{sh,ss,sd,ph,ps,pd}.
   if ((PatchedName.startswith("cmp") || PatchedName.startswith("vcmp")) &&
       (PatchedName.endswith("ss") || PatchedName.endswith("sd") ||
-#if INTEL_CUSTOMIZATION
        PatchedName.endswith("sh") || PatchedName.endswith("ph") ||
-#endif // INTEL_CUSTOMIZATION
        PatchedName.endswith("ps") || PatchedName.endswith("pd"))) {
     bool IsVCMP = PatchedName[0] == 'v';
     unsigned CCIdx = IsVCMP ? 4 : 3;
@@ -3200,7 +3196,8 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
       .Case("gt_oq",    0x1E)
       .Case("true_us",  0x1F)
       .Default(~0U);
-    if (CC != ~0U && (IsVCMP || CC < 8)) {
+    if (CC != ~0U && (IsVCMP || CC < 8) &&
+        (IsVCMP || PatchedName.back() != 'h')) {
       if (PatchedName.endswith("ss"))
         PatchedName = IsVCMP ? "vcmpss" : "cmpss";
       else if (PatchedName.endswith("sd"))
@@ -3209,12 +3206,10 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
         PatchedName = IsVCMP ? "vcmpps" : "cmpps";
       else if (PatchedName.endswith("pd"))
         PatchedName = IsVCMP ? "vcmppd" : "cmppd";
-#if INTEL_CUSTOMIZATION
       else if (PatchedName.endswith("sh"))
-        PatchedName = IsVCMP ? "vcmpsh" : "cmpsh";
+        PatchedName = "vcmpsh";
       else if (PatchedName.endswith("ph"))
-        PatchedName = IsVCMP ? "vcmpph" : "cmpph";
-#endif // INTEL_CUSTOMIZATION
+        PatchedName = "vcmpph";
       else
         llvm_unreachable("Unexpected suffix!");
 
@@ -3928,6 +3923,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#endif // INTEL_CUSTOMIZATION
   case X86::VFCMADDCPHZ128m:
   case X86::VFCMADDCPHZ256m:
   case X86::VFCMADDCPHZm:
@@ -4098,7 +4094,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                               "distinct from source registers");
     break;
   }
-#endif // INTEL_CUSTOMIZATION
   }
 
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
@@ -4941,7 +4936,7 @@ bool X86AsmParser::parseDirectiveArch() {
 bool X86AsmParser::parseDirectiveNops(SMLoc L) {
   int64_t NumBytes = 0, Control = 0;
   SMLoc NumBytesLoc, ControlLoc;
-  const MCSubtargetInfo STI = getSTI();
+  const MCSubtargetInfo& STI = getSTI();
   NumBytesLoc = getTok().getLoc();
   if (getParser().checkForValidSection() ||
       getParser().parseAbsoluteExpression(NumBytes))
@@ -4967,7 +4962,7 @@ bool X86AsmParser::parseDirectiveNops(SMLoc L) {
   }
 
   /// Emit nops
-  getParser().getStreamer().emitNops(NumBytes, Control, L);
+  getParser().getStreamer().emitNops(NumBytes, Control, L, STI);
 
   return false;
 }
@@ -4980,11 +4975,11 @@ bool X86AsmParser::parseDirectiveEven(SMLoc L) {
 
   const MCSection *Section = getStreamer().getCurrentSectionOnly();
   if (!Section) {
-    getStreamer().InitSections(false);
+    getStreamer().initSections(false, getSTI());
     Section = getStreamer().getCurrentSectionOnly();
   }
   if (Section->UseCodeAlign())
-    getStreamer().emitCodeAlignment(2, 0);
+    getStreamer().emitCodeAlignment(2, &getSTI(), 0);
   else
     getStreamer().emitValueToAlignment(2, 0, 1, 0);
   return false;

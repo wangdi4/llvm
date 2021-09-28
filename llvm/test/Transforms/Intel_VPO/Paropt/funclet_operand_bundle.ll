@@ -23,10 +23,10 @@
 
 ;check that when running on windows every generated kmpc call that lies within a catch block has the funclet operand bundle.
 ;CHECK:  call void @__kmpc_for_static_init_{{.*}}(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 34, i32* %{{.*}}, i32* %{{.*}}, i32* %{{.*}}, i32* %{{.*}}, i32 1, i32 1) [ "funclet"(token %{{.*}}) ]
-;CHECK:  call void @__kmpc_for_static_fini(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}} ]
-;CHECK:  call void @__kmpc_barrier(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}}) ]
 ;CHECK:  call void @__kmpc_ordered(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}}) ]
 ;CHECK:  call void @__kmpc_end_ordered(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}} ]
+;CHECK:  call void @__kmpc_for_static_fini(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}} ]
+;CHECK:  call void @__kmpc_barrier(%struct.ident_t* @{{.*}}, i32 %{{.*}}) [ "funclet"(token %{{.*}}) ]
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"

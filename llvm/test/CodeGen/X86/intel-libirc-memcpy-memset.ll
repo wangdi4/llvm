@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: llc < %s -O0                                                  | FileCheck %s -check-prefix=NOLIBIRC
 ; RUN: llc < %s -O0                       -disable-simplify-libcalls | FileCheck %s -check-prefix=NOLIBIRC
 ; RUN: llc < %s -O0 -intel-libirc-allowed -disable-simplify-libcalls | FileCheck %s -check-prefix=NOLIBIRC
@@ -56,3 +58,4 @@ entry:
 
 ; Function Attrs: nounwind
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) #1
+; end INTEL_FEATURE_SW_ADVANCED

@@ -681,6 +681,9 @@ declare <32 x double> @_Z20work_group_broadcastDv32_dmmPS_(<32 x double> %src, i
 ; Function Attrs: nounwind
 declare <64 x double> @_Z20work_group_broadcastDv64_dmmPS_(<64 x double> %src, i64 %linear_local_id, i64 %linear_id, <64 x double>* %accum) #5
 
+; Function Attrs: nounwind
+declare <4 x i32> @_Z20work_group_broadcastDv4_immDv4_jPS_(<4 x i32> %src, i64 %linear_local_id, i64 %linear_id, <4 x i32> %mask, <4 x i32>* %accum) #5
+
 ; Function Attrs: nounwind readnone
 declare i32 @_Z21work_group_reduce_addi(i32 %src) #3
 

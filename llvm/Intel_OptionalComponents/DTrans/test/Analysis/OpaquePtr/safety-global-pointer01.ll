@@ -5,13 +5,13 @@
 ; Test setting of "Global pointer" safety bit.
 
 %struct.test01 = type { i32, i32 }
-@global_ptr_to_struct = internal global %struct.test01* zeroinitializer, !dtrans_type !2
+@global_ptr_to_struct = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
 ; CHECK: Safety data: Global pointer
 
 %struct.test02 = type { i32, i32 }
-@global_ptr_to_ptr_to_struct = internal global %struct.test02** zeroinitializer, !dtrans_type !4
+@global_ptr_to_ptr_to_struct = internal global %struct.test02** zeroinitializer, !intel_dtrans_type !3
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02
@@ -20,7 +20,7 @@
 %struct.test03a = type { %struct.test03b, %struct.test03c* }
 %struct.test03b = type { i32, i32 }
 %struct.test03c = type { i32, i32 }
-@global_ptr_struct3 =  internal global %struct.test03a* zeroinitializer, !dtrans_type !9
+@global_ptr_struct3 =  internal global %struct.test03a* zeroinitializer, !intel_dtrans_type !6
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test03a
 ; CHECK: Safety data: Global pointer
@@ -35,19 +35,15 @@
 ; CHECK: Safety data: No issues found
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %struct.test01*
-!3 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!4 = !{!5, i32 2}  ; %struct.test02**
-!5 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!6 = !{!"R", %struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
-!7 = !{!8, i32 1}  ; %struct.test03c*
-!8 = !{!"R", %struct.test03c zeroinitializer, i32 0}  ; %struct.test03c
-!9 = !{!10, i32 1}  ; %struct.test03a*
-!10 = !{!"R", %struct.test03a zeroinitializer, i32 0}  ; %struct.test03a
-!11 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!12 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!13 = !{!"S", %struct.test03a zeroinitializer, i32 2, !6, !7} ; { %struct.test03b, %struct.test03c* }
-!14 = !{!"S", %struct.test03b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!15 = !{!"S", %struct.test03c zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = !{%struct.test02 zeroinitializer, i32 2}  ; %struct.test02**
+!4 = !{%struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
+!5 = !{%struct.test03c zeroinitializer, i32 1}  ; %struct.test03c*
+!6 = !{%struct.test03a zeroinitializer, i32 1}  ; %struct.test03a*
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!9 = !{!"S", %struct.test03a zeroinitializer, i32 2, !4, !5} ; { %struct.test03b, %struct.test03c* }
+!10 = !{!"S", %struct.test03b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!11 = !{!"S", %struct.test03c zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!11, !12, !13, !14, !15}
+!intel.dtrans.types = !{!7, !8, !9, !10, !11}

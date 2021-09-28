@@ -100,6 +100,8 @@
 ;                  Remove unused exception handling info
 ;                  Function Integration/Inlining
 ;CHECK:             FunctionPass Manager
+;CHECK-NEXT:         Dominator Tree Construction
+;CHECK-NEXT:         SROA
 ;CHECK-NEXT:         Simplify the CFG
 ;CHECK-NEXT:         VPO Restore Operands
 ; INTEL_CUSTOMIZATION
@@ -129,6 +131,8 @@
 ;CHECK-NEXT:         Lazy Block Frequency Analysis
 ;CHECK-NEXT:         Optimization Remark Emitter
 ;CHECK-NEXT:         VPO Work-Region Information
+;CHECK-NEXT:     FunctionPass Manager
+;CHECK-NEXT:       VPO CFG simplification
 ;CHECK-NEXT:     CallGraph Construction
 ;CHECK-NEXT:     Call Graph SCC Pass Manager
 ;CHECK-NEXT:       Inliner for always_inline functions
@@ -394,6 +398,7 @@
 ;CHECK-NEXT:         VPO Work-Region Information
 ;CHECK-NEXT:     FunctionPass Manager
 ;CHECK-NEXT:       VPO Directive Cleanup
+;CHECK-NEXT:       VPO CFG simplification
 ;CHECK-NEXT:     CallGraph Construction
 ;CHECK-NEXT:     Call Graph SCC Pass Manager
 ;CHECK-NEXT:       Inliner for always_inline functions

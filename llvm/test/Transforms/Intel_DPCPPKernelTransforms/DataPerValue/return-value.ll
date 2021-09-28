@@ -38,7 +38,7 @@ target triple = "x86_64-pc-linux"
 ; Function Attrs: convergent noinline norecurse nounwind
 define internal fastcc i64 @calc() unnamed_addr #0 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %w = tail call i64 @_Z13get_global_idj(i32 0) #4
   br label %"Barrier BB"
 
@@ -56,7 +56,7 @@ declare void @_Z18work_group_barrierj(i32) local_unnamed_addr #2
 ; Function Attrs: convergent noinline norecurse nounwind
 define internal fastcc i64 @inclusive() unnamed_addr #0 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %"Barrier BB1"
 
 "Barrier BB1":                                    ; preds = %entry
@@ -65,7 +65,7 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB2"
@@ -76,7 +76,7 @@ entry:
 ; Function Attrs: convergent noinline norecurse nounwind
 define void @test(i64 addrspace(1)* noalias %dst) local_unnamed_addr #3 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !kernel_has_sub_groups !10 !kernel_execution_length !13 !kernel_has_barrier !10 !kernel_has_global_sync !10 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %x = tail call i64 @_Z13get_global_idj(i32 0) #4
   br label %"Barrier BB1"
 
@@ -86,7 +86,7 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %ptridx = getelementptr inbounds i64, i64 addrspace(1)* %dst, i64 %x
   store i64 %y, i64 addrspace(1)* %ptridx, align 8
   br label %"Barrier BB"
@@ -124,7 +124,7 @@ entry:
 ; CHECK-NEXT: entry(2) : (32)
 ; CHECK: DONE
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 attributes #0 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }

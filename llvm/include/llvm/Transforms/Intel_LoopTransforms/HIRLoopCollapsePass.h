@@ -19,6 +19,7 @@ namespace llvm {
 namespace loopopt {
 
 class HIRLoopCollapsePass : public HIRPassInfoMixin<HIRLoopCollapsePass> {
+
 public:
   static constexpr auto PassName = "hir-loop-collapse";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,

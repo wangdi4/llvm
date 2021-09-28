@@ -345,7 +345,7 @@ bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
 
   if (!isa<GlobalVariable>(CE->getOperand(0)))
     return false;
-
+#if !ENABLE_OPAQUEPOINTER
   // If this is an AddrSpaceCast constant expression of a GlobalVariable,
   // then assert that the AddrSpaceCast's type and the operand's
   // type are only different by the addrspace. We expect that we can deduce
@@ -359,7 +359,7 @@ bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
          cast<GlobalVariable>(CE->getOperand(0))->getValueType() &&
          "isOMPItemGlobalVAR: Type mismatch for a GlobalVariable and "
          "its addrspacecast.");
-
+#endif // !ENABLE_OPAQUEPOINTER
   return true;
 }
 
@@ -373,7 +373,7 @@ bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
 
   if (!isa<PointerType>(V->getType()))
     return false;
-
+#if !ENABLE_OPAQUEPOINTER
 #ifndef NDEBUG
   // Skip a sequence of AddrSpaceCastInst's in hope to reach
   // the AllocaInst.
@@ -397,7 +397,7 @@ bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
   assert(!isa<AllocaInst>(V) || !ASCIChangedType && "isItemLocalVAR: "
          "type changed between an alloca and the clause reference.");
 #endif  // NDEBUG
-
+#endif // !ENABLE_OPAQUEPOINTER
   return true;
 }
 

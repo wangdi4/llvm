@@ -80,4 +80,23 @@ void goo(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
+
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeVecremainder Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector vecremainder
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeNoVecremainder Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector novecremainder
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
 }

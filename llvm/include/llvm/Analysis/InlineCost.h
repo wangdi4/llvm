@@ -47,7 +47,7 @@ const int OptAggressiveThreshold = 250;
 // Various magic constants used to adjust heuristics.
 const int InstrCost = 5;
 const int IndirectCallThreshold = 100;
-const int CallPenalty = 25;
+const int LoopPenalty = 25;
 const int LastCallToStaticBonus = 15000;
 const int SecondToLastCallToStaticBonus = 410; // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
@@ -61,6 +61,20 @@ const unsigned BasicBlockSuccRatio = 210; // INTEL
 /// static allocas above this amount in bytes.
 const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
 } // namespace InlineConstants
+
+// The cost-benefit pair computed by cost-benefit analysis.
+class CostBenefitPair {
+public:
+  CostBenefitPair(APInt Cost, APInt Benefit) : Cost(Cost), Benefit(Benefit) {}
+
+  const APInt &getCost() const { return Cost; }
+
+  const APInt &getBenefit() const { return Benefit; }
+
+private:
+  APInt Cost;
+  APInt Benefit;
+};
 
 #if INTEL_CUSTOMIZATION
 
@@ -224,6 +238,9 @@ class InlineCost {
   /// Must be set for Always and Never instances.
   const char *Reason = nullptr;
 
+  /// The cost-benefit pair computed by cost-benefit analysis.
+  Optional<CostBenefitPair> CostBenefit = None;
+
 #if INTEL_CUSTOMIZATION
   bool IsRecommended = false;
   InlineReportTypes::InlineReason IntelReason;
@@ -244,11 +261,13 @@ class InlineCost {
 
 #if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, const char* Reason = nullptr,
+    Optional<CostBenefitPair> CostBenefit = None,
     bool IsRecommended = false,
     InlineReportTypes::InlineReason IntelReason
     = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
     int EarlyExitThreshold = INT_MAX, int TotalSecondaryCost = INT_MAX) :
     Cost(Cost), Threshold(Threshold), Reason(Reason),
+    CostBenefit(CostBenefit),
     IsRecommended(IsRecommended), IntelReason(IntelReason),
     EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold),
     TotalSecondaryCost(TotalSecondaryCost) {
@@ -269,26 +288,40 @@ public:
     int EarlyExitCost, int EarlyExitThreshold) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold, Reason, IsRecommended, IntelReason,
-        EarlyExitCost, EarlyExitThreshold);
+    return InlineCost(Cost, Threshold, Reason, None, IsRecommended, IntelReason,
+                      EarlyExitCost, EarlyExitThreshold);
   }
 #endif // INTEL_CUSTOMIZATION
-  static InlineCost getAlways(const char *Reason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason, true,     // INTEL
-                      InlineReportTypes::InlrAlwaysInline);  // INTEL
+  static InlineCost getAlways(const char *Reason,
+                              Optional<CostBenefitPair> CostBenefit = None) {
+    return InlineCost(AlwaysInlineCost, 0, Reason, CostBenefit,   // INTEL
+                      true, InlineReportTypes::InlrAlwaysInline); // INTEL
   }
-  static InlineCost getNever(const char *Reason) {
-    return InlineCost(NeverInlineCost, 0, Reason, false,     // INTEL
-                      InlineReportTypes::NinlrNeverInline);  // INTEL
+  static InlineCost getNever(const char *Reason,
+                             Optional<CostBenefitPair> CostBenefit = None) {
+    return InlineCost(NeverInlineCost, 0, Reason, CostBenefit,     // INTEL
+                      false, InlineReportTypes::NinlrNeverInline); // INTEL
   }
 #if INTEL_CUSTOMIZATION
   static InlineCost getAlways(const char* Reason,
                               InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason, true, IntelReason);
+    return InlineCost(AlwaysInlineCost, 0, Reason, None, true, IntelReason);
   }
   static InlineCost getNever(const char* Reason,
                              InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(NeverInlineCost, 0, Reason, false, IntelReason);
+    return InlineCost(NeverInlineCost, 0, Reason, None, false, IntelReason);
+  }
+  static InlineCost getAlways(const char *Reason,
+                              Optional<CostBenefitPair> CostBenefit,
+                              InlineReportTypes::InlineReason IntelReason) {
+    return InlineCost(AlwaysInlineCost, 0, Reason, CostBenefit, true,
+                      IntelReason);
+  }
+  static InlineCost getNever(const char *Reason,
+                             Optional<CostBenefitPair> CostBenefit,
+                             InlineReportTypes::InlineReason IntelReason) {
+    return InlineCost(NeverInlineCost, 0, Reason, CostBenefit, false,
+                      IntelReason);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -311,6 +344,9 @@ public:
     assert(isVariable() && "Invalid access of InlineCost");
     return Threshold;
   }
+
+  /// Get the cost-benefit pair which was computed by cost-benefit analysis
+  Optional<CostBenefitPair> getCostBenefit() const { return CostBenefit; }
 
   /// Get the reason of Always or Never.
   const char *getReason() const {
@@ -431,6 +467,9 @@ struct InlineParams {
 
   /// Indicate whether we should allow inline deferral.
   Optional<bool> EnableDeferral = true;
+
+  /// Indicate whether we allow inlining for recursive call.
+  Optional<bool> AllowRecursiveCall = false;
 };
 
 /// Generate the parameters to tune the inline cost analysis based only on the

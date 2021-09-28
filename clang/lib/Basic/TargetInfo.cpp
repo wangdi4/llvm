@@ -34,6 +34,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   NoAsmVariants = false;
   HasLegalHalfType = false;
   HasFloat128 = false;
+  HasIbm128 = false;
   HasFloat16 = false;
   HasBFloat16 = false;
   HasStrictFP = false;
@@ -83,6 +84,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   LongDoubleWidth = 64;
   LongDoubleAlign = 64;
   Float128Align = 128;
+  Ibm128Align = 128;
   LargeArrayMinWidth = 0;
   LargeArrayAlign = 0;
   MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 0;
@@ -113,6 +115,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   DoubleFormat = &llvm::APFloat::IEEEdouble();
   LongDoubleFormat = &llvm::APFloat::IEEEdouble();
   Float128Format = &llvm::APFloat::IEEEquad();
+  Ibm128Format = &llvm::APFloat::PPCDoubleDouble();
   MCountName = "mcount";
   UserLabelPrefix = "_";
   RegParmMax = 0;
@@ -397,22 +400,27 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
     FloatFormat = &llvm::APFloat::IEEEsingle();
     LongDoubleFormat = &llvm::APFloat::IEEEquad();
 
-#if INTEL_CUSTOMIZATION
     // OpenCL C v3.0 s6.7.5 - The generic address space requires support for
     // OpenCL C 2.0 or OpenCL C 3.0 with the __opencl_c_generic_address_space
     // feature
-    // FIXME: OpenCLGenericAddressSpace is also defined in setLangDefaults()
+    // OpenCL C v3.0 s6.2.1 - OpenCL pipes require support of OpenCL C 2.0
+    // or later and __opencl_c_pipes feature
+    // FIXME: These language options are also defined in setLangDefaults()
     // for OpenCL C 2.0 but with no access to target capabilities. Target
-    // should be immutable once created and thus this language option needs
+    // should be immutable once created and thus these language options need
     // to be defined only once.
-    if (Opts.OpenCLVersion >= 300) {
+    if (Opts.getOpenCLCompatibleVersion() == 300) {
       const auto &OpenCLFeaturesMap = getSupportedOpenCLOpts();
       Opts.OpenCLGenericAddressSpace = hasFeatureEnabled(
           OpenCLFeaturesMap, "__opencl_c_generic_address_space");
-      Opts.Blocks = hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
-      Opts.OpenCLPipe = hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
-    }
+#if INTEL_CUSTOMIZATION
+      Opts.Blocks =
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
 #endif // INTEL_CUSTOMIZATION
+      if (Opts.OpenCLVersion == 300)
+	  Opts.OpenCLPipes =
+	      hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
+    }
   }
 
   if (Opts.DoubleSize) {
@@ -439,14 +447,18 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
       LongDoubleFormat = &llvm::APFloat::IEEEquad();
 #if INTEL_CUSTOMIZATION
     } else if (Opts.LongDoubleSize == 80) {
-      if (getTriple().getArch() == llvm::Triple::x86_64) {
+      LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      if (getTriple().isWindowsMSVCEnvironment()) {
         LongDoubleWidth = 128;
         LongDoubleAlign = 128;
-        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
-      } else if (getTriple().getArch() == llvm::Triple::x86) {
-        LongDoubleWidth = 96;
-        LongDoubleAlign = 32;
-        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      } else { // Linux
+        if (getTriple().getArch() == llvm::Triple::x86) {
+          LongDoubleWidth = 96;
+          LongDoubleAlign = 32;
+        } else {
+          LongDoubleWidth = 128;
+          LongDoubleAlign = 128;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
     }

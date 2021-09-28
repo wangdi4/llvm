@@ -23,7 +23,7 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #endif  // INTEL_CUSTOMIZATION
 
 using namespace llvm;

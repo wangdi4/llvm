@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-linux-pc -fintel-compatibility -fsyntax-only %s -verify
+// RUN: %clang_cc1 -triple x86_64-linux-pc -fdeclspec -fintel-compatibility -fsyntax-only %s -verify
 
 namespace FreeFuncs {
 // expected-error@+1{{'allow_cpu_features' attribute takes at least 1 argument}}
@@ -10,6 +10,8 @@ __attribute__((allow_cpu_features(1, 2, 3))) void second() {}
 __attribute__((allow_cpu_features(2))) void third() {}
 
 __attribute__((allow_cpu_features(2, 2))) void fourth() {}
+
+__declspec(allow_cpu_features(2, 2)) void spelled_declspec() {}
 } // namespace FreeFuncs
 
 namespace Templates {

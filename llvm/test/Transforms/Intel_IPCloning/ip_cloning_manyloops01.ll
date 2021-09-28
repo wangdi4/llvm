@@ -9,7 +9,7 @@
 ; matching condition.
 
 ; CHECK: MLSC: Testing aer_rad_props_mp_aer_rad_props_sw_:
-; CHECK: MLSC: Arg(0): Arg has no uses
+; CHECK: MLSC: Arg(0): ArgUse(0): Missing minimal GEPI conditions
 ; CHECK: MLSC: Arg(1): ArgUse(0): Missing minimal GEPI conditions
 ; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing SExtInst or more than one use
 ; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): FOUND MLSC CANDIDATE
@@ -58,6 +58,7 @@ define void @mymain(%"PHYSICS_TYPES$.btPHYSICS_STATE"* nonnull %0) #0 {
 
 define internal void @aer_rad_props_mp_aer_rad_props_sw_(i32* noalias nocapture readonly dereferenceable(4) %0, %"PHYSICS_TYPES$.btPHYSICS_STATE"* noalias nocapture readonly dereferenceable(20552) %1) #0 {
 L0:
+  %t0 = load i32, i32* %0
   %t19 = alloca [26 x [4 x double]], align 32
   %t25 = alloca i32, align 8
   %t73 = getelementptr inbounds %"PHYSICS_TYPES$.btPHYSICS_STATE", %"PHYSICS_TYPES$.btPHYSICS_STATE"* %1, i64 0, i32 1
@@ -75,16 +76,16 @@ L83:                                               ; preds = %L96, %L1
   br i1 %t80, label %L96, label %L85
 
 L85:                                               ; preds = %L83
-  %t86 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* nonnull %t79, i64 %t84)
-  %t87 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* nonnull %t81, i64 %t84)
+  %t86 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* elementtype(double) nonnull %t79, i64 %t84)
+  %t87 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* elementtype(double) nonnull %t81, i64 %t84)
   br label %L88
 
 L88:                                               ; preds = %L88, %L85
   %t89 = phi i64 [ 1, %L85 ], [ %t94, %L88 ]
-  %t90 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %t86, i64 %t89)
+  %t90 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t86, i64 %t89)
   %t91 = load double, double* %t90, align 1
   %t92 = fmul fast double %t91, %t78
-  %t93 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %t87, i64 %t89)
+  %t93 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t87, i64 %t89)
   store double %t92, double* %t93, align 1
   %t94 = add nuw nsw i64 %t89, 1
   %t95 = icmp eq i64 %t94, %t82

@@ -9,16 +9,19 @@
 
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
 ; RUN:     -passes='default<O0>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT
+; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-CORO
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager -enable-matrix \
 ; RUN:     -passes='default<O0>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-MATRIX
+; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-MATRIX,CHECK-CORO
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager -new-pm-debug-info-for-profiling \
+; RUN:     -passes='default<O0>' -S %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DIS,CHECK-CORO
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto-pre-link<O0>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-PRE-LINK
+; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-PRE-LINK,CHECK-CORO
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
 ; RUN:     -passes='lto-pre-link<O0>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-PRE-LINK
+; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-PRE-LINK,CHECK-CORO
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<O0>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-THINLTO
@@ -26,6 +29,13 @@
 ; RUN:     -passes='lto<O0>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-LTO
 
+; CHECK-DIS: Running analysis: InnerAnalysisManagerProxy
+; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
+; CHECK-DIS-NEXT: Running pass: InlineListsPass ;INTEL
+; CHECK-DIS-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-DIS-NEXT: Running analysis: ProfileSummaryAnalysis
+; CHECK-DIS-NEXT: Running pass: VecClonePass ;INTEL
+; CHECK-DIS-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-DEFAULT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running analysis: InnerAnalysisManagerProxy
@@ -34,13 +44,23 @@
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-DEFAULT-NEXT: Running pass: VecClonePass ;INTEL
 ; CHECK-DEFAULT-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
-; CHECK-PRE-LINK-NEXT: Running pass: CanonicalizeAliasesPass
+; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, llvm::Module> ;INTEL
+; CHECK-CORO-NEXT: Running pass: CoroEarlyPass
+; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-CORO-NEXT: Running analysis: LazyCallGraphAnalysis
+; CHECK-CORO-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-CORO-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
+; CHECK-CORO-NEXT: Running analysis: OuterAnalysisManagerProxy
+; CHECK-CORO-NEXT: Running pass: CoroSplitPass
+; CHECK-CORO-NEXT: Running pass: CoroCleanupPass
+; CHECK-PRE-LINK-NEXT: Running pass: CanonicalizeAliasesPass ;INTEL
 ; CHECK-PRE-LINK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-THINLTO: Running pass: Annotation2MetadataPass
 ; CHECK-THINLTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-THINLTO-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-THINLTO-NEXT: Running pass: GlobalDCEPass
 ; CHECK-LTO: Running pass: Annotation2MetadataPass
+; CHECK-LTO-NEXT: Running pass: CrossDSOCFIPass on [module]
 ; INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-LTO-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -54,7 +74,7 @@
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-LTO-NEXT: Running pass: AnnotationRemarksPass
-; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis 
 ; CHECK-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.

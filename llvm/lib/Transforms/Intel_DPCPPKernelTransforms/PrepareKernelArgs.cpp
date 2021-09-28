@@ -131,7 +131,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   // 'alwaysinline'.
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
   AttrBuilder B(std::move(FnAttrs));
-  NewF->addAttributes(AttributeList::FunctionIndex, B);
+  NewF->addFnAttrs(B);
   F->removeFnAttr(Attribute::OptimizeNone);
   F->removeFnAttr(Attribute::NoInline);
   F->addFnAttr(Attribute::AlwaysInline);
@@ -159,10 +159,12 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   const DataLayout &DL = M->getDataLayout();
   // TODO :  get common code from the following 2 for loops into a function
   // Handle explicit arguments
+  Type *ArgsBufferElementTy =
+      ArgsBuffer->getType()->getScalarType()->getPointerElementType();
   for (unsigned ArgNo = 0; ArgNo < Arguments.size(); ++ArgNo) {
     KernelArgument KArg = Arguments[ArgNo];
     //  %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-    Value *GEP = Builder.CreateGEP(ArgsBuffer,
+    Value *GEP = Builder.CreateGEP(ArgsBufferElementTy, ArgsBuffer,
                                    ConstantInt::get(I32Ty, KArg.OffsetInBytes));
 
     Value *Arg;
@@ -235,8 +237,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     // info is used later on in OpenCLAliasAnalysis to overcome the fact that
     // inlining does not maintain the restrict information.
     Instruction *ArgInst = cast<Instruction>(Arg);
-    if (WrappedKernel->getAttributes().hasAttribute(ArgNo + 1,
-                                                    Attribute::NoAlias)) {
+    if (WrappedKernel->getAttributes().hasAttributeAtIndex(ArgNo + 1,
+                                                          Attribute::NoAlias)) {
       ArgInst->setMetadata("restrict", MDNode::get(M->getContext(), 0));
     }
 
@@ -293,7 +295,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
         Builder.Insert(slmBuffer);
         Value *CastBuf =
             Builder.CreatePointerCast(slmBuffer, PointerType::get(I8Ty, 3));
-        Arg = Builder.CreateGEP(CastBuf,
+        Arg = Builder.CreateGEP(I8Ty, CastBuf,
                                 ConstantInt::get(I32Ty, STACK_PADDING_BUFFER));
       }
     } break;
@@ -398,8 +400,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       const ImplicitArgProperties &ImplicitArgProp =
           ImplicitArgsUtils::getImplicitArgProps(I);
       // %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-      Value *GEP =
-          Builder.CreateGEP(ArgsBuffer, ConstantInt::get(I32Ty, CurrOffset));
+      Value *GEP = Builder.CreateGEP(ArgsBufferElementTy, ArgsBuffer,
+                                     ConstantInt::get(I32Ty, CurrOffset));
       Arg = Builder.CreatePointerCast(GEP, IAInfo->getArgType(I));
       WGInfo = Arg;
       // Advance the ArgsBuffer offset based on the size
@@ -502,6 +504,14 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
       }
     }
   }
+
+  // Replace bitcast operator user, e.g. in global value.
+  for (User *U : WrappedKernel->users()) {
+    if (auto *Op = dyn_cast<BitCastOperator>(U)) {
+      auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
+      Op->replaceAllUsesWith(WrapperOp);
+    }
+  }
 }
 
 void PrepareKernelArgsPass::emptifyWrappedKernel(Function *F) {
@@ -550,6 +560,10 @@ bool PrepareKernelArgsPass::runOnFunction(Function *F) {
   // wrapped kernel for now, to avoid its declaration being removed by
   // StripDeadPrototypes or GlobalDCE.
   emptifyWrappedKernel(F);
+
+  // Add comdat to wrapper function and drop from F.
+  Wrapper->setComdat(F->getComdat());
+  F->setComdat(nullptr);
 
   return true;
 }

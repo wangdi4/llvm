@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -18,15 +18,15 @@
 
 #include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanLoopUnroller.h"
-#include "../IntelVPlanValue.h"
 #include "../IntelVPlanOptrpt.h"
+#include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 
 using namespace llvm::loopopt;
@@ -54,22 +54,21 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlanVector *Plan, Function &Fn, HLLoop *Loop,
-                LoopOptReportBuilder &LORB,
-                const VPLoopEntityList *VPLoopEntities,
+                OptReportBuilder &ORB, const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef)
+                const RegDDRef *SearchLoopPeelArrayRef, bool IsOmpSIMD)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), UF(1), LORBuilder(LORB),
+        TripCount(0), VF(0), UF(1), ORBuilder(ORB),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()) {
+        HLNodeUtilities(Loop->getHLNodeUtils()), IsOmpSIMD(IsOmpSIMD) {
     assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
     VLoop = *(Plan->getVPLoopInfo()->begin());
   }
@@ -88,12 +87,17 @@ public:
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
 
+  // Setup the livein/liveout information for loops generated during
+  // vector code generation.
+  void setupLiveInLiveOut();
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpFinalHIR();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // Fixup gotos in GotoTargetVPBBPairVector using VPBBLabelMap
-  void finalizeGotos(void);
+  // Eliminate redundant gotos in GotosVector and redundant labels in
+  // VPBBLabelMap
+  void eliminateRedundantGotosLabels(void);
 
   // Check if loop is currently suported by CodeGen.
   bool loopIsHandled(HLLoop *Loop, unsigned int VF);
@@ -111,6 +115,7 @@ public:
   const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
   HLLoop *getRemainderLoop() const { return OrigLoop; }
+  bool getIsOmpSIMD() const { return IsOmpSIMD; }
 
   OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
@@ -155,6 +160,14 @@ public:
   // as the vector length. The given Mask value overrides the
   // current mask value if non-null.
   void widenNode(const VPInstruction *VPInst, RegDDRef *Mask = nullptr);
+
+  /// Vectorize the given instruction that cannot be widened using
+  /// serialization. This is done using a sequence of possible extractelements,
+  /// Scalar Op, InsertElement instructions. Additionally if Mask is non-null
+  /// then predicated serialization is done on-the-fly by creating a HLIf for
+  /// each vector lane's mask value and inserting the generated extractelements,
+  /// scalar op and insertelement instructions into the then branch.
+  void serializeInstruction(const VPInstruction *VPInst, RegDDRef *Mask);
 
   /// Adjust arguments passed to SVML functions to handle masks
   void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
@@ -299,6 +312,16 @@ public:
     return Itr->second;
   }
 
+  void dropExternalValsFromMaps() {
+    for (auto V : VPValsToFlushForVF) {
+      assert((isa<VPExternalDef>(V) || isa<VPConstant>(V)) &&
+             "Unknown external VPValue.");
+
+      VPValWideRefMap.erase(V);
+      VPValScalRefMap.erase(V);
+    }
+  }
+
   // Add WideVal as the widened vector value corresponding  to SCVal
   void addSCEVWideRefMapping(const SCEV *SCVal, RegDDRef *WideVal) {
     SCEVWideRefMap[SCVal] = WideVal;
@@ -352,10 +375,17 @@ public:
       }
     }
 
-    if (auto InsertRegion = dyn_cast<HLLoop>(getInsertRegion()))
-      HLNodeUtils::insertAsLastChild(InsertRegion, Node);
-    else if (isa<HLIf>(getInsertRegion()))
-      addInst(Node, Mask, true);
+    // TODO - not needed once search loop representation is made explicit
+    if (!InsertPoint) {
+      if (auto InsertRegion = dyn_cast<HLLoop>(getInsertRegion()))
+        HLNodeUtils::insertAsLastChild(InsertRegion, Node);
+      else if (isa<HLIf>(getInsertRegion()))
+        addInst(Node, Mask, true);
+      return;
+    }
+
+    HLNodeUtils::insertAfter(InsertPoint, Node);
+    InsertPoint = Node;
   }
 
   // Insert instruction into HLIf region.
@@ -372,6 +402,14 @@ public:
     assert(InsertRegion && "HLIf is expected as insert region.");
     IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Node)
                 : HLNodeUtils::insertAsLastElseChild(InsertRegion, Node);
+  }
+
+  // Add the HLNodes in the list at the current insertion point. HLNodes are
+  // expected to be masked appropriately coming in if necessary.
+  void addInst(HLContainerTy *List) {
+    HLNode *Save = &List->back();
+    HLNodeUtils::insertAfter(InsertPoint, List);
+    InsertPoint = Save;
   }
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }
@@ -481,10 +519,13 @@ public:
   void emitBlockLabel(const VPBasicBlock *VPBB);
 
   // Emit the needed gotos to appropriate labels if the block is inside
-  // the loop being vectorized. Add the gotos generated to
-  // GotoTargetVPBBPairVector so that the gotos are fixed up at the end of
-  // vector code generation.
+  // the loop being vectorized. Add the gotos generated to GotosVector
+  // so that the gotos are fixed up at the end of vector code generation.
   void emitBlockTerminator(const VPBasicBlock *SourceBB);
+
+  // Naive version of emitBlockTerminator which does not attempt to pull
+  // in code into then and else parts of an if.
+  void emitBlockTerminatorNaive(const VPBasicBlock *SourceBB);
 
   // Return the Lval temp that was generated to represent the deconstructed PHI
   // identified by its PhiId, if found in PhiIdLValTempsMap. Return null
@@ -532,6 +573,9 @@ private:
   // LLVMContext associated with current function.
   LLVMContext &Context;
 
+  // Current insertion point
+  HLNode *InsertPoint = nullptr;
+
   // Original HIR loop corresponding to this VPlan region, if a remainder loop
   // is needed after vectorization, the original loop is used as the remainder
   // loop after updating loop bounds.
@@ -566,7 +610,18 @@ private:
   // Unroll factor which was applied to VPlan before code generation.
   unsigned UF;
 
-  LoopOptReportBuilder &LORBuilder;
+  // Stack of pair <vector factor, unroll vactor>
+  SmallVector<std::pair<unsigned, unsigned>, 2> VFStack;
+
+  // Set of VPValues which we should erase from the maps of already generated
+  // values when we encounter VPPushVF/VPPopVF instructions. The same
+  // VPConstants and VPExternalDefs can be used in different VPlans. But when
+  // generating code for a VPlan we can't use the values generated in another
+  // VPlan, due to VFs mismatch and/or domination reasons. The VPPushVF/VPPopVF
+  // define the bounds between VPlans so we use them to drop those maps
+  SmallSet<const VPValue *, 16> VPValsToFlushForVF;
+
+  OptReportBuilder &ORBuilder;
   OptReportStatsTracker OptRptStats;
 
   // Map of DDRef symbase and widened ref
@@ -582,8 +637,8 @@ private:
   // The insertion points for reduction initializer and reduction last value
   // compute instructions.
   HLLoop *RednHoistLp = nullptr;
-  HLNode *RedInitInsertPoint = nullptr;
-  HLNode *RedFinalInsertPoint = nullptr;
+  HLNode *RednInitInsertPoint = nullptr;
+  HLNode *RednFinalInsertPoint = nullptr;
 
   // VPEntities present in current loop being vectorized. These include
   // reductions, inductions and privates.
@@ -634,15 +689,23 @@ private:
   // control flow.
   bool UniformControlFlowSeen = false;
 
-  // Vector of <HLGoto, target basic block> pairs.
-  SmallVector<std::pair<HLGoto *, const VPBasicBlock *>, 8>
-      GotoTargetVPBBPairVector;
+  // Vector used to contain HLGotos created during vector code generation.
+  // This vector is setup to be used in the call to eliminate redundant gotos.
+  SmallVector<HLGoto *, 8> GotosVector;
 
   // Map from a basic block to its starting label.
   SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
 
   // Track HIR temp created for each deconstructed PHI ID.
   SmallDenseMap<int, RegDDRef *> PhiIdLValTempsMap;
+
+  // True if #pragma omp simd defined for OrigLoop
+  bool IsOmpSIMD;
+
+  SmallPtrSet<const VPBasicBlock *, 2> LoopPreheaderBlocks;
+  SmallPtrSet<const VPBasicBlock *, 2> LoopHeaderBlocks;
+  SmallPtrSet<const VPBasicBlock *, 2> LoopExitBlocks;
+  SmallDenseMap<const VPLoop *, HLLoop *> VPLoopHLLoopMap;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
@@ -653,36 +716,8 @@ private:
   void setVF(unsigned V) { VF = V; }
   void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
-  void insertReductionInit(HLInst *Inst) {
-    // RedInitInsertPoint is never updated after initial assignment, so it
-    // should always be the reduction hoist loop.
-    assert(isa<HLLoop>(RedInitInsertPoint) &&
-           "Reduction init insert point is not a loop.");
-    HLNodeUtils::insertAsLastPreheaderNode(cast<HLLoop>(RedInitInsertPoint),
-                                           Inst);
-  }
-  void insertReductionInit(HLContainerTy *List) {
-    assert(isa<HLLoop>(RedInitInsertPoint) &&
-           "Reduction init insert point is not a loop.");
-    HLNodeUtils::insertAsLastPreheaderNodes(cast<HLLoop>(RedInitInsertPoint),
-                                            List);
-  }
-  void insertReductionFinal(HLInst *Inst) {
-    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
-      HLNodeUtils::insertAsFirstPostexitNode(RedFinalInsertLp, Inst);
-    else
-      HLNodeUtils::insertAfter(RedFinalInsertPoint, Inst);
-
-    RedFinalInsertPoint = Inst;
-  }
-  void insertReductionFinal(HLContainerTy *List) {
-    HLNode *Save = &List->back();
-    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
-      HLNodeUtils::insertAsFirstPostexitNodes(RedFinalInsertLp, List);
-    else
-      HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
-    RedFinalInsertPoint = Save;
-  }
+  void insertReductionInit(HLContainerTy *List);
+  void insertReductionFinal(HLContainerTy *List);
 
   /// Return true if the opcode is one for which we want to generate a scalar
   /// HLInst. Temporary solution until such decision is driven by the results
@@ -702,12 +737,6 @@ private:
       return false;
     }
   }
-
-  // Given reduction operator identity value, insert vector reduction operand
-  // initialization to a vector of length VF identity values. Return the
-  // initialization instruction. The initialization is added before RednHoistLp
-  // and the LVAL of this instruction is used as the widened reduction ref.
-  HLInst *insertReductionInitializer(Constant *Iden, RegDDRef *ScalarRednRef);
 
   // Add entry to WidenMap and handle generating code for liveout/reduction at
   // the end of loop specified by /p HoistLp.
@@ -868,6 +897,11 @@ private:
   HLInst *generateWideCall(const VPCallInstruction *VPCall, RegDDRef *Mask,
                            Intrinsic::ID VectorIntrinID);
 
+  // Helper utility to generate a scalar Call HLInst for given VPCall
+  // instruction. Scalar values of the call arguments for given vector lane are
+  // obtained in this utility.
+  HLInst *generateScalarCall(const VPCallInstruction *VPCall, unsigned LaneID);
+
   // Get scalar version of RegDDRef that represents the VPValue \p VPVal
   // which is either an external definition or a constant. We can build the
   // scalar version from underlying HIR operand attached to VPValue.
@@ -888,6 +922,21 @@ private:
     return Widen ? widenRef(VPVal, getVF())
                  : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
+
+  // Return HLLabel corresponding to VPBB in VPBBLabelMap if found, otherwise,
+  // return nullptr.
+  HLLabel *getBlockLabel(const VPBasicBlock *VPBB);
+
+  // Create a new HLLabel corresponding to VPBB and add it to the VPBBLabelMap
+  // before returning the same.
+  HLLabel *createBlockLabel(const VPBasicBlock *VPBB);
+
+  // Get or create HLLabel corresponding to VPBB and return the same.
+  HLLabel *getOrCreateBlockLabel(const VPBasicBlock *VPBB);
+
+  // Helper method to set upper bound and stride for vectorized HLLoops. The
+  // corresponding VPLoop is provided as input.
+  void setUBForVectorLoop(VPLoop *VPLp);
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
@@ -932,6 +981,14 @@ private:
       assert(!PreserveOverflowFlags &&
              "Overflow flags cannot be preserved for reduction instruction.");
       RedRef = ReductionRefs[VPInst];
+    }
+  }
+
+  void makeSymLiveInForParentLoops(unsigned Sym) {
+    auto *ParentLoop = MainLoop->getParentLoop();
+    while (ParentLoop != nullptr) {
+      ParentLoop->addLiveInTemp(Sym);
+      ParentLoop = ParentLoop->getParentLoop();
     }
   }
 

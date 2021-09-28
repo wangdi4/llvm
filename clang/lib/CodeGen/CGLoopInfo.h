@@ -15,6 +15,7 @@
 #define LLVM_CLANG_LIB_CODEGEN_CGLOOPINFO_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Value.h"
@@ -106,14 +107,20 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
 
-  /// Value for llvm.loop.intel.vector_aligned.enable metadata.
+  /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
-  /// Value for llvm.loop.intel.vector_dynamic_align.enable metadata.
+  /// Value for llvm.loop.intel.vector.dynamic_align.enable metadata.
   bool VectorizeDynamicAlignEnable;
 
-  /// Value for llvm.loop.intel.vector_dddynamic_align.enable metadata.
+  /// Value for llvm.loop.intel.vector.nodynamic_align.enable metadata.
   bool VectorizeNoDynamicAlignEnable;
+
+  /// Value for llvm.loop.intel.vector.vecremainder.enable metadata.
+  bool VectorizeVecremainderEnable;
+
+  /// Value for llvm.loop.intel.vector.novecremainder.enable metadata.
+  bool VectorizeNoVecremainderEnable;
 
   /// Value for llvm.loop.intel.loopcount
   llvm::SmallVector<unsigned, 2> LoopCount;
@@ -193,11 +200,8 @@ struct LoopAttributes {
   /// Value for llvm.loop.ii.count metadata.
   unsigned SYCLIInterval;
 
-  /// Flag for llvm.loop.max_concurrency.count metadata.
-  bool SYCLMaxConcurrencyEnable;
-
   /// Value for llvm.loop.max_concurrency.count metadata.
-  unsigned SYCLMaxConcurrencyNThreads;
+  llvm::Optional<unsigned> SYCLMaxConcurrencyNThreads;
 
   /// Flag for llvm.loop.coalesce metadata.
   bool SYCLLoopCoalesceEnable;
@@ -208,17 +212,11 @@ struct LoopAttributes {
   /// Flag for llvm.loop.intel.pipelining.enable, i32 0 metadata.
   bool SYCLLoopPipeliningDisable;
 
-  /// Flag for llvm.loop.max_interleaving.count metadata.
-  bool SYCLMaxInterleavingEnable;
-
   /// Value for llvm.loop.max_interleaving.count metadata.
-  unsigned SYCLMaxInterleavingNInvocations;
-
-  /// Flag for llvm.loop.intel.speculated.iterations.count metadata.
-  bool SYCLSpeculatedIterationsEnable;
+  llvm::Optional<unsigned> SYCLMaxInterleavingNInvocations;
 
   /// Value for llvm.loop.intel.speculated.iterations.count metadata.
-  unsigned SYCLSpeculatedIterationsNIterations;
+  llvm::Optional<unsigned> SYCLSpeculatedIterationsNIterations;
 
   /// Value for count variant (min/max/avg) and count metadata.
   llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
@@ -489,6 +487,16 @@ public:
     StagedAttrs.VectorizeNoDynamicAlignEnable = true;
   }
 
+  /// Set next pushed loop  'vector.vecremainder.enable'
+  void setVectorizeVecremainderEnable() {
+    StagedAttrs.VectorizeVecremainderEnable = true;
+  }
+
+  /// Set next pushed loop  'vector.novecremainder.enable'
+  void setVectorizeNoVecremainderEnable() {
+    StagedAttrs.VectorizeNoVecremainderEnable = true;
+  }
+
   /// Set the LoopCount for the next loop pushed.
   void setLoopCount(unsigned C) {
     StagedAttrs.LoopCount.push_back(C);
@@ -556,12 +564,7 @@ public:
   /// Set value of an initiation interval for the next loop pushed.
   void setSYCLIInterval(unsigned C) { StagedAttrs.SYCLIInterval = C; }
 
-  /// Set flag of max_concurrency for the next loop pushed.
-  void setSYCLMaxConcurrencyEnable() {
-    StagedAttrs.SYCLMaxConcurrencyEnable = true;
-  }
-
-  /// Set value of threads for the next loop pushed.
+  /// Set value of max_concurrency for the next loop pushed.
   void setSYCLMaxConcurrencyNThreads(unsigned C) {
     StagedAttrs.SYCLMaxConcurrencyNThreads = C;
   }
@@ -581,22 +584,12 @@ public:
     StagedAttrs.SYCLLoopPipeliningDisable = true;
   }
 
-  /// Set flag of max_interleaving for the next loop pushed.
-  void setSYCLMaxInterleavingEnable() {
-    StagedAttrs.SYCLMaxInterleavingEnable = true;
-  }
-
   /// Set value of max interleaved invocations for the next loop pushed.
   void setSYCLMaxInterleavingNInvocations(unsigned C) {
     StagedAttrs.SYCLMaxInterleavingNInvocations = C;
   }
 
-  /// Set flag of speculated_iterations for the next loop pushed.
-  void setSYCLSpeculatedIterationsEnable() {
-    StagedAttrs.SYCLSpeculatedIterationsEnable = true;
-  }
-
-  /// Set value of concurrent speculated iterations for the next loop pushed.
+  /// Set value of speculated iterations for the next loop pushed.
   void setSYCLSpeculatedIterationsNIterations(unsigned C) {
     StagedAttrs.SYCLSpeculatedIterationsNIterations = C;
   }

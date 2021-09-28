@@ -118,7 +118,7 @@ define hidden fastcc void @leapfrog_(i32* noalias nocapture readonly "ptrnoalias
   %56 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %17, i64 0, i32 0
   %57 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %17, i64 0, i32 1
   %58 = bitcast { i64, i8* }* %17 to i8*
-  %59 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([3 x i32], [3 x i32]* @globalvar_mod_mp_coords_, i64 0, i64 0), i64 2)
+  %59 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([3 x i32], [3 x i32]* @globalvar_mod_mp_coords_, i64 0, i64 0), i64 2)
   %60 = getelementptr inbounds [4 x i8], [4 x i8]* %26, i64 0, i64 0
   %61 = getelementptr inbounds [4 x i8], [4 x i8]* %26, i64 0, i64 1
   %62 = getelementptr inbounds [4 x i8], [4 x i8]* %26, i64 0, i64 2
@@ -335,13 +335,13 @@ define hidden fastcc void @leapfrog_(i32* noalias nocapture readonly "ptrnoalias
 
 174:                                              ; preds = %177
   store double 0.000000e+00, double* %178, align 1
-  %175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull getelementptr inbounds ([2 x double], [2 x double]* @"pscyee_mpi_$PERF", i64 0, i64 0), i64 2)
+  %175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull getelementptr inbounds ([2 x double], [2 x double]* @"pscyee_mpi_$PERF", i64 0, i64 0), i64 2)
   %176 = bitcast double* %175 to i64*
   store i64 0, i64* %176, align 1
   br label %194
 
 177:                                              ; preds = %182
-  %178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([2 x double], [2 x double]* @"pscyee_mpi_$PERF", i64 0, i64 0), i64 1)
+  %178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2 x double], [2 x double]* @"pscyee_mpi_$PERF", i64 0, i64 0), i64 1)
   %179 = load double, double* %178, align 1
   %180 = fcmp fast ogt double %179, 0.000000e+00
   br i1 %180, label %174, label %194

@@ -3,9 +3,6 @@
 
 ;; Check that masked shift counts are optimized out.
 
-;; TODO: optimize the *_late functions.
-
-target datalayout = "e-m:e-p:32:32-i64:64-n32:64-S128"
 target triple = "wasm32-unknown-unknown"
 
 define i32 @shl_i32(i32 %v, i32 %x) {
@@ -336,10 +333,6 @@ define <4 x i32> @shl_v4i32_late(<4 x i32> %v, i32 %x) {
 ; CHECK-NEXT:  # %bb.0:
 ; CHECK-NEXT:    local.get 0
 ; CHECK-NEXT:    local.get 1
-; CHECK-NEXT:    i32x4.splat
-; CHECK-NEXT:    v128.const 31, 31, 31, 31
-; CHECK-NEXT:    v128.and
-; CHECK-NEXT:    i32x4.extract_lane 0
 ; CHECK-NEXT:    i32x4.shl
 ; CHECK-NEXT:    # fallthrough-return
   %t = insertelement <4 x i32> undef, i32 %x, i32 0
@@ -372,10 +365,6 @@ define <4 x i32> @ashr_v4i32_late(<4 x i32> %v, i32 %x) {
 ; CHECK-NEXT:  # %bb.0:
 ; CHECK-NEXT:    local.get 0
 ; CHECK-NEXT:    local.get 1
-; CHECK-NEXT:    i32x4.splat
-; CHECK-NEXT:    v128.const 31, 31, 31, 31
-; CHECK-NEXT:    v128.and
-; CHECK-NEXT:    i32x4.extract_lane 0
 ; CHECK-NEXT:    i32x4.shr_s
 ; CHECK-NEXT:    # fallthrough-return
   %t = insertelement <4 x i32> undef, i32 %x, i32 0
@@ -408,10 +397,6 @@ define <4 x i32> @lshr_v4i32_late(<4 x i32> %v, i32 %x) {
 ; CHECK-NEXT:  # %bb.0:
 ; CHECK-NEXT:    local.get 0
 ; CHECK-NEXT:    local.get 1
-; CHECK-NEXT:    i32x4.splat
-; CHECK-NEXT:    v128.const 31, 31, 31, 31
-; CHECK-NEXT:    v128.and
-; CHECK-NEXT:    i32x4.extract_lane 0
 ; CHECK-NEXT:    i32x4.shr_u
 ; CHECK-NEXT:    # fallthrough-return
   %t = insertelement <4 x i32> undef, i32 %x, i32 0
@@ -444,10 +429,6 @@ define <2 x i64> @shl_v2i64_late(<2 x i64> %v, i64 %x) {
 ; CHECK-NEXT:  # %bb.0:
 ; CHECK-NEXT:    local.get 0
 ; CHECK-NEXT:    local.get 1
-; CHECK-NEXT:    i64x2.splat
-; CHECK-NEXT:    v128.const 63, 63
-; CHECK-NEXT:    v128.and
-; CHECK-NEXT:    i64x2.extract_lane 0
 ; CHECK-NEXT:    i32.wrap_i64
 ; CHECK-NEXT:    i64x2.shl
 ; CHECK-NEXT:    # fallthrough-return
@@ -480,10 +461,6 @@ define <2 x i64> @ashr_v2i64_late(<2 x i64> %v, i64 %x) {
 ; CHECK-NEXT:  # %bb.0:
 ; CHECK-NEXT:    local.get 0
 ; CHECK-NEXT:    local.get 1
-; CHECK-NEXT:    i64x2.splat
-; CHECK-NEXT:    v128.const 63, 63
-; CHECK-NEXT:    v128.and
-; CHECK-NEXT:    i64x2.extract_lane 0
 ; CHECK-NEXT:    i32.wrap_i64
 ; CHECK-NEXT:    i64x2.shr_s
 ; CHECK-NEXT:    # fallthrough-return
@@ -516,10 +493,6 @@ define <2 x i64> @lshr_v2i64_late(<2 x i64> %v, i64 %x) {
 ; CHECK-NEXT:  # %bb.0:
 ; CHECK-NEXT:    local.get 0
 ; CHECK-NEXT:    local.get 1
-; CHECK-NEXT:    i64x2.splat
-; CHECK-NEXT:    v128.const 63, 63
-; CHECK-NEXT:    v128.and
-; CHECK-NEXT:    i64x2.extract_lane 0
 ; CHECK-NEXT:    i32.wrap_i64
 ; CHECK-NEXT:    i64x2.shr_u
 ; CHECK-NEXT:    # fallthrough-return

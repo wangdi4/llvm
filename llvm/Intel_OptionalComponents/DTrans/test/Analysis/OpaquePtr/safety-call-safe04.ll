@@ -7,7 +7,7 @@
 ; and the types match for the caller and callee.
 
 %struct.test01 = type { i32, i32 }
-define void @test01callee(%struct.test01* %pStruct)!dtrans_type !2
+define void @test01callee(%struct.test01* "intel_dtrans_func_index"="1" %pStruct)!intel.dtrans.func.type !3
 {
   ; We need to use the argument for the analysis to check the parameter for
   ; safety in the caller.
@@ -32,13 +32,13 @@ define void @test01() {
 ; CHECK: Safety data: No issues found
 
 
-declare i8* @malloc(i64)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (%struct.test01*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2}
+!4 = !{i8 0, i32 1}  ; i8*
+!5 = distinct !{!4}
 !6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!6}
+!intel.dtrans.types = !{!6}

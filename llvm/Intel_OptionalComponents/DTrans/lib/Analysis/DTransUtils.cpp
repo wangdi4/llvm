@@ -49,40 +49,6 @@ static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
                                                 cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-//
-// An option that indicates that a pointer to a struct could access
-// somewhere beyond the boundaries of that struct:
-//
-// For example:
-//
-// %struct.A = type { i32, i32 }
-// %struct.B = type { i16, i16, i16, i16 }
-// %struct.C = type { %struct.A, %struct.B }
-//
-// define void @foo(%struct.A* nocapture) local_unnamed_addr #0 {
-//   %2 = getelementptr inbounds %struct.A, %struct.A* %0, i64 1, i32 1
-//   store i32 -1, i32* %2, align 4, !tbaa !2
-//   ret void
-// }
-//
-// define void @bar(%struct.C* nocapture) local_unnamed_addr #0 {
-//   %2 = getelementptr inbounds %struct.C, %struct.C* %0, i64 0, i32 0
-//   tail call void @foo(%struct.A* %2)
-//   ret void
-// }
-//
-// Here the getelementptr in @foo is accessing beyond the end of the inner
-// %struct.A within %struct.C.
-//
-// With respect to dtransanalysis, having -dtrans-outofboundsok=true will
-// cause safety checks to be propagated from outer structs to inner structs.
-// So, in the above example, if -dtrans-outofboundsok=false, 'Field address
-// taken' will be true only for %structC. But if -dtrans-outofboundsok=true,
-// it will also be true for %struct.A and %struct.B.
-//
-cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
-                                          cl::init(true), cl::ReallyHidden);
-
 // Use the C language compatibility rule to determine if two aggregate types
 // are compatible. This is used by the analysis of AddressTaken safety checks.
 // If the actual argument of a call is a pointer to an aggregate with type T,
@@ -1391,7 +1357,7 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
   //
   // entry:
   //  %3 = tail call i8* @__cxa_allocate_exception(i64 8)
-  //  %4 = bitcast i8* %3 to %"bad_alloc"*
+  //  (optional) %4 = bitcast i8* %3 to %"bad_alloc"*
   //  %5 = getelementptr %"bad_alloc", %"bad_alloc"* %4, i64 0, i32 0, i32 0
   //  store i32 some_const, i32 (...)*** %5, align 8, !tbaa !14619
   //  call void @__cxa_throw() #62
@@ -1400,11 +1366,11 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
   auto DummyAllocBBWithCxaThrow = [&](BasicBlock &BB) {
     // In dummy function we expect to see only those instructions which throw
     // bad_alloc exception.
-    bool CallExAllocFound = false, StoreFound = false, BitCastFound = false;
+    bool CallExAllocFound = false, StoreFound = false;
     bool GEPFound = true, CallExThrowFound = false;
     for (auto &I : BB) {
       if (isa<BitCastInst>(&I))
-        BitCastFound = true;
+        continue;
       if (isa<GetElementPtrInst>(&I))
         GEPFound = true;
       auto *Call = dyn_cast<CallInst>(&I);
@@ -1434,7 +1400,7 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
           return false;
       }
     }
-    return CallExAllocFound && StoreFound && BitCastFound && GEPFound &&
+    return CallExAllocFound && StoreFound && GEPFound &&
            CallExThrowFound;
   };
 

@@ -90,10 +90,10 @@ alloca_0:
 
 bb14:                                             ; preds = %alloca_0, %bb14
   %"var$2.0129" = phi i64 [ 1, %alloca_0 ], [ %add7, %bb14 ]
-  %"foo_$INA_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA", i64 %"var$2.0129")
+  %"foo_$INA_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA", i64 %"var$2.0129")
   %"foo_$INA_entry[]_fetch" = load float, float* %"foo_$INA_entry[]", align 1
   %add = fadd float %"foo_$INA_entry[]_fetch", 1.000000e+00
-  %"foo_$T1_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$T1", i64 %"var$2.0129")
+  %"foo_$T1_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$T1", i64 %"var$2.0129")
   store float %add, float* %"foo_$T1_entry[]", align 1
   %add7 = add nuw nsw i64 %"var$2.0129", 1
   %exitcond132 = icmp eq i64 %add7, 65
@@ -104,19 +104,19 @@ bb34.preheader:                                   ; preds = %bb14
 
 bb34:                                             ; preds = %bb34.preheader, %bb34
   %"var$3.0128" = phi i64 [ %add32, %bb34 ], [ 1, %bb34.preheader ]
-  %"foo_$INA_entry[]10" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA", i64 %"var$3.0128")
+  %"foo_$INA_entry[]10" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA", i64 %"var$3.0128")
   %"foo_$INA_entry[]10_fetch" = load float, float* %"foo_$INA_entry[]10", align 1
   %add12 = fadd float %"foo_$INA_entry[]10_fetch", 2.000000e+00
-  %"foo_$INA2_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA2", i64 %"var$3.0128")
+  %"foo_$INA2_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA2", i64 %"var$3.0128")
   %"foo_$INA2_entry[]_fetch" = load float, float* %"foo_$INA2_entry[]", align 1
   %add14 = fadd float %add12, %"foo_$INA2_entry[]_fetch"
-  %"foo_$INA3_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA3", i64 %"var$3.0128")
+  %"foo_$INA3_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA3", i64 %"var$3.0128")
   %"foo_$INA3_entry[]_fetch" = load float, float* %"foo_$INA3_entry[]", align 1
   %add18 = fadd float %add14, %"foo_$INA3_entry[]_fetch"
-  %"foo_$INA4_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA4", i64 %"var$3.0128")
+  %"foo_$INA4_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA4", i64 %"var$3.0128")
   %"foo_$INA4_entry[]_fetch" = load float, float* %"foo_$INA4_entry[]", align 1
   %add22 = fadd float %add18, %"foo_$INA4_entry[]_fetch"
-  %"foo_$T2_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$T2", i64 %"var$3.0128")
+  %"foo_$T2_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$T2", i64 %"var$3.0128")
   store float %add22, float* %"foo_$T2_entry[]", align 1
   %add32 = add nuw nsw i64 %"var$3.0128", 1
   %exitcond131 = icmp eq i64 %add32, 65
@@ -127,15 +127,15 @@ bb52.preheader:                                   ; preds = %bb34
 
 bb52:                                             ; preds = %bb52.preheader, %bb52
   %"var$4.0127" = phi i64 [ %add54, %bb52 ], [ 1, %bb52.preheader ]
-  %"foo_$INA_entry[]35" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA", i64 %"var$4.0127")
+  %"foo_$INA_entry[]35" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA", i64 %"var$4.0127")
   %"foo_$INA_entry[]35_fetch" = load float, float* %"foo_$INA_entry[]35", align 1
-  %"foo_$C_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$C", i64 %"var$4.0127")
+  %"foo_$C_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$C", i64 %"var$4.0127")
   %"foo_$C_entry[]_fetch" = load float, float* %"foo_$C_entry[]", align 1
   %add37 = fadd float %"foo_$INA_entry[]35_fetch", %"foo_$C_entry[]_fetch"
-  %"foo_$T1_entry[]42" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$T1", i64 %"var$4.0127")
+  %"foo_$T1_entry[]42" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$T1", i64 %"var$4.0127")
   %"foo_$T1_entry[]42_fetch" = load float, float* %"foo_$T1_entry[]42", align 1
   %add44 = fadd float %add37, %"foo_$T1_entry[]42_fetch"
-  %"foo_$T3_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$T3", i64 %"var$4.0127")
+  %"foo_$T3_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$T3", i64 %"var$4.0127")
   store float %add44, float* %"foo_$T3_entry[]", align 1
   %add54 = add nuw nsw i64 %"var$4.0127", 1
   %exitcond130 = icmp eq i64 %add54, 65
@@ -146,24 +146,24 @@ bb76.preheader:                                   ; preds = %bb52
 
 bb76:                                             ; preds = %bb76.preheader, %bb76
   %"var$5.0126" = phi i64 [ %add103, %bb76 ], [ 1, %bb76.preheader ]
-  %"foo_$T1_entry[]60" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$T1", i64 %"var$5.0126")
+  %"foo_$T1_entry[]60" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$T1", i64 %"var$5.0126")
   %"foo_$T1_entry[]60_fetch" = load float, float* %"foo_$T1_entry[]60", align 1
-  %"foo_$T2_entry[]63" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$T2", i64 %"var$5.0126")
+  %"foo_$T2_entry[]63" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$T2", i64 %"var$5.0126")
   %"foo_$T2_entry[]63_fetch" = load float, float* %"foo_$T2_entry[]63", align 1
   %add65 = fadd float %"foo_$T1_entry[]60_fetch", %"foo_$T2_entry[]63_fetch"
-  %"foo_$T3_entry[]70" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$T3", i64 %"var$5.0126")
+  %"foo_$T3_entry[]70" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$T3", i64 %"var$5.0126")
   %"foo_$T3_entry[]70_fetch" = load float, float* %"foo_$T3_entry[]70", align 1
   %add72 = fadd float %add65, %"foo_$T3_entry[]70_fetch"
-  %"foo_$INA2_entry[]77" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA2", i64 %"var$5.0126")
+  %"foo_$INA2_entry[]77" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA2", i64 %"var$5.0126")
   %"foo_$INA2_entry[]77_fetch" = load float, float* %"foo_$INA2_entry[]77", align 1
   %add79 = fadd float %add72, %"foo_$INA2_entry[]77_fetch"
-  %"foo_$INA3_entry[]84" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA3", i64 %"var$5.0126")
+  %"foo_$INA3_entry[]84" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA3", i64 %"var$5.0126")
   %"foo_$INA3_entry[]84_fetch" = load float, float* %"foo_$INA3_entry[]84", align 1
   %add86 = fadd float %add79, %"foo_$INA3_entry[]84_fetch"
-  %"foo_$INA4_entry[]91" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$INA4", i64 %"var$5.0126")
+  %"foo_$INA4_entry[]91" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$INA4", i64 %"var$5.0126")
   %"foo_$INA4_entry[]91_fetch" = load float, float* %"foo_$INA4_entry[]91", align 1
   %add93 = fadd float %add86, %"foo_$INA4_entry[]91_fetch"
-  %"foo_$C_entry[]57" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$C", i64 %"var$5.0126")
+  %"foo_$C_entry[]57" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$C", i64 %"var$5.0126")
   store float %add93, float* %"foo_$C_entry[]57", align 1
   %add103 = add nuw nsw i64 %"var$5.0126", 1
   %exitcond = icmp eq i64 %add103, 65

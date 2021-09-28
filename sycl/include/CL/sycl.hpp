@@ -16,6 +16,7 @@
 #include <CL/sycl/buffer.hpp>
 #include <CL/sycl/builtins.hpp>
 #include <CL/sycl/context.hpp>
+#include <CL/sycl/define_vendors.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/event.hpp>
@@ -59,3 +60,4 @@
 #include <sycl/ext/oneapi/matrix/matrix.hpp>
 #include <sycl/ext/oneapi/reduction.hpp>
 #include <sycl/ext/oneapi/sub_group.hpp>
+#include <sycl/ext/oneapi/sub_group_mask.hpp>

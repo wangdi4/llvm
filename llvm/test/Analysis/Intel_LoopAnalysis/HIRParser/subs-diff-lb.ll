@@ -21,11 +21,11 @@ alloca:
 
 bb4:                                              ; preds = %bb4, %alloca
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb4 ], [ 1, %alloca ]
-  %0 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %"sub_$W", i64 %indvars.iv)
+  %0 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %"sub_$W", i64 %indvars.iv)
   %.elt13 = getelementptr inbounds %complex_64bit, %complex_64bit* %0, i64 0, i32 1
   %1 = bitcast float* %.elt13 to i32*
   %.unpack1415 = load i32, i32* %1, align 4
-  %2 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"sub_$A", i64 %indvars.iv)
+  %2 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"sub_$A", i64 %indvars.iv)
   %3 = bitcast float* %2 to i32*
   store i32 %.unpack1415, i32* %3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

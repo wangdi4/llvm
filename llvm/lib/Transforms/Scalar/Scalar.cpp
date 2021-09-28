@@ -71,6 +71,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #endif // INTEL_COLLAB
   initializeInstSimplifyLegacyPassPass(Registry);
   initializeJumpThreadingPass(Registry);
+  initializeDFAJumpThreadingLegacyPassPass(Registry);
   initializeLegacyLICMPassPass(Registry);
   initializeLegacyLoopSinkPassPass(Registry);
   initializeLoopFuseLegacyPass(Registry);
@@ -136,7 +137,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeCleanupFakeLoadsLegacyPassPass(Registry);
   initializeMultiVersioningWrapperPass(Registry);
   initializeLoopOptMarkerLegacyPassPass(Registry);
-  initializeLoopOptReportEmitterLegacyPassPass(Registry);
+  initializeOptReportEmitterLegacyPassPass(Registry);
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
   initializeTransformFPGARegPass(Registry);
   initializeAddSubReassociateLegacyPassPass(Registry);

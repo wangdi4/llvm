@@ -6,7 +6,7 @@
 ; aggregate type. This should trigger the "Bad casting" safety flag.
 
 %"class._ZTSSt9exception.std::exception" = type { i32 (...)** }
-@_ZTVSt9exception = internal constant { [5 x i8*] } zeroinitializer, !dtrans_type !4
+@_ZTVSt9exception = internal constant { [5 x i8*] } zeroinitializer, !intel_dtrans_type !4
 
 define void @test01() {
   %res = call i8* @__cxa_allocate_exception(i64 8)
@@ -25,7 +25,7 @@ define void @test01() {
 ; CHECK: Safety data: Bad casting | Mismatched element access | System object | Has vtable{{ *$}}
 
 
-declare i8* @__cxa_allocate_exception(i64)
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @__cxa_allocate_exception(i64)
 
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)
 !2 = !{i32 0, i32 0}  ; i32
@@ -33,6 +33,7 @@ declare i8* @__cxa_allocate_exception(i64)
 !4 = !{!"L", i32 1, !5}  ; { [5 x i8*] }
 !5 = !{!"A", i32 5, !6}  ; [5 x i8*]
 !6 = !{i8 0, i32 1}  ; i8*
-!7 = !{!"S", %"class._ZTSSt9exception.std::exception" zeroinitializer, i32 1, !3} ; { i32 (...)** }
+!7 = distinct !{!6}
+!8 = !{!"S", %"class._ZTSSt9exception.std::exception" zeroinitializer, i32 1, !3} ; { i32 (...)** }
 
-!dtrans_types = !{!7}
+!intel.dtrans.types = !{!8}

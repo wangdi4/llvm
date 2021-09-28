@@ -19,7 +19,7 @@ define void @test(i32 %a) #0 {
   ret void
 }
 
-attributes #0 = { noinline "sycl-kernel" }
+attributes #0 = { noinline }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32)* @test}

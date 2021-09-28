@@ -14,13 +14,13 @@
 %struct.test01b = type { i32, i32 }
 @f01_alias = internal alias void (%struct.test01a*), bitcast (void (%struct.test01b*)* @f01 to void (%struct.test01a*)*)
 
-define internal void @f01(%struct.test01b* %s) !dtrans_type !2 {
+define internal void @f01(%struct.test01b* "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !3 {
   %p = getelementptr %struct.test01b, %struct.test01b* %s, i64 0, i32 0
   %i = load i32, i32* %p
   ret void
 }
 
-define void @test01(%struct.test01a* %s) !dtrans_type !6 {
+define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %s) !intel.dtrans.func.type !5 {
   %p = getelementptr %struct.test01a, %struct.test01a* %s, i64 0, i32 0
   %i = load i32, i32* %p
   call void @f01_alias(%struct.test01a* %s)
@@ -40,14 +40,11 @@ define void @test01(%struct.test01a* %s) !dtrans_type !6 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (%struct.test01b*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01b*
-!5 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
-!6 = !{!"F", i1 false, i32 1, !3, !7}  ; void (%struct.test01a*)
-!7 = !{!8, i32 1}  ; %struct.test01a*
-!8 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
-!9 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!10 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
+!3 = distinct !{!2}
+!4 = !{%struct.test01a zeroinitializer, i32 1}  ; %struct.test01a*
+!5 = distinct !{!4}
+!6 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!7 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!9, !10}
+!intel.dtrans.types = !{!6, !7}

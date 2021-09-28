@@ -249,12 +249,14 @@ void expandMemCpyLoop(MemCpyInst *I, unsigned FlatGran) {
   LoopIndex->addIncoming(ConstantInt::get(LenType, 0), OrigBB);
 
   // load from ScaledSrcAddr+LoopIndex
+  Type *Ty = ScaledSrcAddr->getType()->getScalarType()->getPointerElementType();
   Value *const Element = LoopBuilder.CreateAlignedLoad(
-      LoopBuilder.CreateInBoundsGEP(nullptr, ScaledSrcAddr, LoopIndex),
+      LoopBuilder.CreateInBoundsGEP(Ty, ScaledSrcAddr, LoopIndex),
       MaybeAlign(LoopGran), I->isVolatile());
   // store at ScaledDstAddr+LoopIndex
+  Ty = ScaledDstAddr->getType()->getScalarType()->getPointerElementType();
   LoopBuilder.CreateAlignedStore(
-      Element, LoopBuilder.CreateInBoundsGEP(nullptr, ScaledDstAddr, LoopIndex),
+      Element, LoopBuilder.CreateInBoundsGEP(Ty, ScaledDstAddr, LoopIndex),
       MaybeAlign(LoopGran), I->isVolatile());
 
   // The value for LoopIndex coming from backedge is (LoopIndex + 1)
@@ -338,11 +340,13 @@ void expandMemMoveLoop(MemMoveInst *I, unsigned FlatGran) {
   PHINode *Index = LIRB.CreatePHI(LenType, 2);
   Index->addIncoming(Start, OrigBB);
 
+  Type *Ty = ScaledSrcAddr->getType()->getScalarType()->getPointerElementType();
   Value *const Element = LIRB.CreateAlignedLoad(
-      LIRB.CreateInBoundsGEP(nullptr, ScaledSrcAddr, Index),
+      LIRB.CreateInBoundsGEP(Ty, ScaledSrcAddr, Index),
       MaybeAlign(LoopGran), I->isVolatile());
+  Ty = ScaledDstAddr->getType()->getScalarType()->getPointerElementType();
   LIRB.CreateAlignedStore(Element,
-                          LIRB.CreateInBoundsGEP(nullptr, ScaledDstAddr, Index),
+                          LIRB.CreateInBoundsGEP(Ty, ScaledDstAddr, Index),
                           MaybeAlign(LoopGran), I->isVolatile());
 
   Value *const NewLoopInd =
@@ -398,9 +402,10 @@ void expandMemSetLoop(MemSetInst *I, unsigned FlatGran) {
   PHINode *const LoopIndex = LoopBuilder.CreatePHI(SetLen->getType(), 0);
   LoopIndex->addIncoming(ConstantInt::get(SetLen->getType(), 0), OrigBB);
 
+  Type *Ty = ScaledDstAddr->getType()->getScalarType()->getPointerElementType();
   LoopBuilder.CreateAlignedStore(
       ScaledVal,
-      LoopBuilder.CreateInBoundsGEP(nullptr, ScaledDstAddr, LoopIndex),
+      LoopBuilder.CreateInBoundsGEP(Ty, ScaledDstAddr, LoopIndex),
       MaybeAlign(LoopGran), I->isVolatile());
 
   Value *const NewIndex = LoopBuilder.CreateAdd(

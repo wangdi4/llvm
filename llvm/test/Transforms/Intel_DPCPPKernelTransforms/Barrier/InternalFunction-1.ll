@@ -9,10 +9,10 @@
 ;;           that crosses the barrier instruction and is an input to function "foo",
 ;;           which contains barrier itself and returns void.
 ;; The expected result:
-;;      1. Kernel "main" contains no more barrier/barrier_dummy instructions
+;;      1. Kernel "main" contains no more barrier/dummy_barrier. instructions
 ;;      2. Kernel "main" stores "%y" value to offset 4 in the special buffer before calling "foo".
 ;;      3. Kernel "main" is still calling function "foo"
-;;      4. function "foo" contains no more barrier/barrier_dummy instructions
+;;      4. function "foo" contains no more barrier/dummy_barrier. instructions
 ;;      5. function "foo" loads "%x" value from offset 4 in the special buffer before xor.
 ;;*****************************************************************************
 
@@ -22,7 +22,7 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %lid = call i32 @_Z12get_local_idj(i32 0)
   %y = xor i32 %x, %lid
   br label %L2
@@ -31,9 +31,9 @@ L2:
   call void @foo(i32 %y)
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: xor
 ;;;; TODO: add regular expression for the below values.
@@ -52,7 +52,7 @@ L3:
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: call void @foo
 ; CHECK: br label %
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: ret
 }
@@ -60,13 +60,13 @@ L3:
 ; CHECK: @foo
 define void @foo(i32 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %y = xor i32 %x, %x
   br label %L2
 L2:
   call void @_Z18work_group_barrierj(i32 2)
   ret void
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: SyncBB1:
@@ -78,14 +78,14 @@ L2:
 ; CHECK:   %y = xor i32 %loadedValue, %loadedValue
 ; CHECK:   br label %L2
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: ret
 }
 
 declare void @_Z18work_group_barrierj(i32)
 declare i32 @_Z12get_local_idj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 

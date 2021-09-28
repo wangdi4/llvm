@@ -469,11 +469,11 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
 void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
                                                     RecurKind Kind) {
 
-  // Analyzing 2 possible scenarios:
+  // Analyzing some possible scenarios:
   // (1)
   //  for.body:
   //  **REDUCTION PHI** -
-  //  %LoopHeaderPhiNode = phi i32[%.pre, %PreHeader], [%MinMaxResultPhi, %for.inc]
+  //  %LoopHeaderPhiNode = phi i32[%.pre, %PreHeader], [%MinMaxResultInst, %for.inc]
   //  %cmp1 = icmp sgt i32 %LoopHeaderPhiNode, %Val
   //  br i1 %cmp1, label %if.then, label %for.inc
   //
@@ -482,11 +482,24 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
   //   br label %for.inc
   //
   //  for.inc:
-  //   % MinMaxResultPhi = PHI i32[%Val, %if.then], [%Tmp, %for.body]
+  //   % MinMaxResultInst = PHI i32[%Val, %if.then], [%LoopHeaderPhiNode, %for.body]
   //   ..
   //   br i1 %exitcond, label %for.end, label %for.body
 
   // (2)
+  //  for.body:
+  //  **REDUCTION PHI** -
+  //  %LoopHeaderPhiNode = phi i32 [%.pre, %PreHeader], [%MinMaxResultInst, %for.inc]
+  //  %cmp1 = icmp sgt i32 %LoopHeaderPhiNode, %Val
+  //  %MinMaxResultInst = select i1 %cmp1, i32 %Val, i32 %LoopHeaderPhiNode
+
+  // (3)
+  //  for.body:
+  //  **REDUCTION PHI** -
+  //  %LoopHeaderPhiNode = phi float [%.pre, %PreHeader], [%MinMaxResultInst, %for.inc]
+  //  %MinMaxResultInst = call @llvm.minnum.f32(float %Val, float %LoopHeaderPhiNode)
+
+  // (4)
   //
   //  for.body:
   //  ** NO REDUCTION PHI **
@@ -503,22 +516,27 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
   //   br i1 %exitcond, label %for.end, label %for.body
 
   PHINode *LoopHeaderPhiNode = nullptr;
-  Instruction *MinMaxResultPhi = nullptr;
+  Instruction *MinMaxResultInst = nullptr;
   Value *StartV = nullptr;
   if (doesReductionUsePhiNodes(RedVarPtr, LoopHeaderPhiNode, StartV)) {
     for (auto PnUser : LoopHeaderPhiNode->users()) {
       if (TheLoop->isLoopInvariant(PnUser))
         continue;
       if (auto Phi = dyn_cast<PHINode>(PnUser))
-        MinMaxResultPhi = Phi;
+        MinMaxResultInst = Phi;
       else if (auto Select = dyn_cast<SelectInst>(PnUser))
-        MinMaxResultPhi = Select;
-      if (MinMaxResultPhi != nullptr)
+        MinMaxResultInst = Select;
+      else if (auto *II = dyn_cast<IntrinsicInst>(PnUser)) {
+        auto ID = II->getIntrinsicID();
+        if (ID == Intrinsic::maxnum || ID == Intrinsic::minnum)
+          MinMaxResultInst = II;
+      }
+      if (MinMaxResultInst != nullptr)
         break;
     }
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, nullptr,
+    RecurrenceDescriptor RD(StartV, MinMaxResultInst, Kind, FMF, nullptr,
                             StartV->getType(), true, false, CastInsts);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
   }

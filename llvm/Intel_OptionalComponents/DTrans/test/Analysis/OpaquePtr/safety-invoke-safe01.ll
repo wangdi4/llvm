@@ -6,7 +6,7 @@
 ; that do not cause safety flags, other than "Has C++ handling", to be set.
 
 %struct.test01 = type { i32, i32 }
-define %struct.test01* @test01(%struct.test01* %pStruct, i64 %idx) !dtrans_type !2 {
+define "intel_dtrans_func_index"="1" %struct.test01* @test01(%struct.test01* "intel_dtrans_func_index"="2" %pStruct, i64 %idx) !intel.dtrans.func.type !3 {
   %res = getelementptr %struct.test01, %struct.test01* %pStruct, i64 %idx
   ret %struct.test01* %res
 }
@@ -32,13 +32,13 @@ bad:
 
 
 declare i32 @__gxx_personality_v0(...)
-declare i8* @_Znwm(i64)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 2, !3, !3, !5}  ; %struct.test01* (%struct.test01*, i64)
-!3 = !{!4, i32 1}  ; %struct.test01*
-!4 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!5 = !{i64 0, i32 0}  ; i64
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2, !2}
+!4 = !{i8 0, i32 1}  ; i8*
+!5 = distinct !{!4}
 !6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!6}
+!intel.dtrans.types = !{!6}

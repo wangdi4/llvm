@@ -1,6 +1,6 @@
 //===----------- Intel_InlineReportEmitter.cpp - Inlining Report  -----------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -162,6 +162,8 @@ void IREmitterInfo::printSimpleMessage(const char *Message, bool IsInlined,
 }
 
 void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
+  if (!(Level & InlineReportOptions::EarlyExitCost))
+    return;
   int64_t InlineCost = -1;
   getOpVal(MD->getOperand(CSMDIR_InlineCost), "inlineCost: ", &InlineCost);
   int64_t InlineThreshold = -1;
@@ -240,15 +242,19 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
         llvm::errs() << "\n";
         break;
       case NinlrExtern:
-        llvm::errs() << "-> EXTERN: ";
-        printCalleeNameModuleLineCol(CSIR);
-        llvm::errs() << "\n";
+        if (Level & InlineReportOptions::Externs) {
+          llvm::errs() << "-> EXTERN: ";
+          printCalleeNameModuleLineCol(CSIR);
+          llvm::errs() << "\n";
+        }
         break;
       case NinlrIndirect:
-        llvm::errs() << "-> INDIRECT: ";
-        printCalleeNameModuleLineCol(CSIR);
-        printSimpleMessage(InlineReasonText[Reason].Message, false,
-                           IndentCount);
+        if (Level & InlineReportOptions::Indirects) {
+          llvm::errs() << "-> INDIRECT: ";
+          printCalleeNameModuleLineCol(CSIR);
+          printSimpleMessage(InlineReasonText[Reason].Message, false,
+                             IndentCount);
+        }
         break;
       case NinlrOuterInlining:
         llvm::errs() << "-> ";
@@ -330,7 +336,7 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
   getOpVal(FuncReport->getOperand(FMDIR_IsDead), "isDead: ", &IsDead);
 
   // Special output for dead static functions.
-  if (IsDead) {
+  if (IsDead && (Level & InlineReportOptions::DeadStatics)) {
     llvm::errs() << "DEAD STATIC FUNC: ";
     if (Level & InlineReportOptions::Linkage) {
       // Linkage letter
@@ -408,7 +414,8 @@ bool IREmitterInfo::runImpl() {
     return false;
   llvm::errs() << "---- Begin Inlining Report ---- (via metadata)\n";
 
-  llvm::printOptionValues(OptLevel, SizeLevel);
+  if (Level & InlineReportOptions::Options)
+    llvm::printOptionValues(OptLevel, SizeLevel);
   NamedMDNode *ModuleInlineReport =
       M.getOrInsertNamedMetadata("intel.module.inlining.report");
   if (!ModuleInlineReport) {

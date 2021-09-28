@@ -1,6 +1,6 @@
 //===- HIRLoopFusion.cpp - Implements Loop Fusion transformation ----------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -195,12 +195,12 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
                                            SmallDenseSet<unsigned> &IndexSet) {
   HLLoop *FirstLoop = Candidates.front();
 
-  LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
+  OptReportBuilder &ORBuilder = HIRF.getORBuilder();
   HLLoop *FirstPreLoop = nullptr;
   HLLoop *LastPostLoop = nullptr;
 
-  auto CreateLoop = [&LORBuilder, FirstLoop](RegDDRef *LowerDDRef,
-                                             RegDDRef *UpperDDRef) {
+  auto CreateLoop = [&ORBuilder, FirstLoop](RegDDRef *LowerDDRef,
+                                            RegDDRef *UpperDDRef) {
     HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
     // No pragma trip count metadata for a peeled loop
@@ -209,7 +209,7 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
 
     // Peeled loop after fusion
-    LORBuilder(*NewLoop).addOrigin("Peeled");
+    ORBuilder(*NewLoop).addOrigin("Peeled");
     NewLoop->setLowerDDRef(LowerDDRef);
     NewLoop->setUpperDDRef(UpperDDRef);
 
@@ -305,7 +305,7 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
                                            Loop->post_end());
     }
 
-    LORBuilder(*FirstLoop).moveSiblingsTo(*LastPostLoop);
+    ORBuilder(*FirstLoop).moveSiblingsTo(*LastPostLoop);
   }
 
   return HasPeeledLoop;
@@ -495,6 +495,16 @@ public:
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
   void visit(HLLoop *Loop) {
+
+    if (!Loop->isInnermost() &&
+        HLNodeUtils::hasManyLifeTimeIntrinsics(Loop)) {
+      LLVM_DEBUG(dbgs() << "Avoiding Fusion due to LifeTime\n");
+      LLVM_DEBUG(Loop->dump());
+
+      SkipNode = Loop;
+      return;
+    }
+
     if (Loop->isInnermost()) {
       // Do not recurse into innermost loops.
       SkipNode = Loop;
@@ -650,10 +660,10 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
     bool LoopsFused = false;
     HLLoop *NextLoop;
 
-    LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
+    OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
     if (FNode.loops().size() > 1) {
-      bool IsReportOn = LORBuilder.isLoopOptReportOn();
+      bool IsReportOn = ORBuilder.isOptReportOn();
       SmallString<32> FuseNums;
       raw_svector_ostream VOS(FuseNums);
 
@@ -681,8 +691,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
            LoopI != E; ++LoopI) {
 
         // Loop lost in Fusion
-        LORBuilder(**LoopI).addRemark(OptReportVerbosity::Low, 25046u);
-        LORBuilder(**LoopI).preserveLostLoopOptReport();
+        ORBuilder(**LoopI).addRemark(OptReportVerbosity::Low, 25046u);
+        ORBuilder(**LoopI).preserveLostOptReport();
       }
 
       // Align Loops
@@ -695,8 +705,7 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
       LoopsFused = true;
 
       // Loops have been fused %s
-      LORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low, 25045u,
-                                      FuseNums);
+      ORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low, 25045u, FuseNums);
     } else {
       NextLoop = FNode.pilotLoop();
     }

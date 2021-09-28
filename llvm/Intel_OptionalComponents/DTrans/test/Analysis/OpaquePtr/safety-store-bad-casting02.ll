@@ -9,9 +9,9 @@
 %struct.test01.derived1 = type { %struct.test01.base }
 %struct.test01.derived2 = type { %struct.test01.base }
 
-@testVar01 = internal unnamed_addr global %struct.test01.base* null, !dtrans_type !5
+@testVar01 = internal unnamed_addr global %struct.test01.base* null, !intel_dtrans_type !5
 
-define void @test01(%struct.test01.base* %pStruct.in) !dtrans_type !6 {
+define void @test01(%struct.test01.base* "intel_dtrans_func_index"="1" %pStruct.in) !intel.dtrans.func.type !6 {
   ; This store instruction was causing a crash on the DTransSafetyAnalyzer
   ; pass in an earlier change set.
   store %struct.test01.base* %pStruct.in, %struct.test01.base** @testVar01
@@ -37,11 +37,11 @@ done:
   ret void
 }
 
-define internal i8* @test01a(%struct.test01.derived1* %0, i64 %1) !dtrans_type !8 {
+define internal "intel_dtrans_func_index"="1" i8* @test01a(%struct.test01.derived1* "intel_dtrans_func_index"="2" %0, i64 %1) !intel.dtrans.func.type !9 {
   ret i8* null
 }
 
-define internal i8* @test01b(%struct.test01.derived2* %0, i64 %1) !dtrans_type !13 {
+define internal "intel_dtrans_func_index"="1" i8* @test01b(%struct.test01.derived2* "intel_dtrans_func_index"="2" %0, i64 %1) !intel.dtrans.func.type !11 {
   ret i8* null
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -60,20 +60,16 @@ define internal i8* @test01b(%struct.test01.derived2* %0, i64 %1) !dtrans_type !
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)
 !2 = !{i32 0, i32 0}  ; i32
 !3 = !{!1, i32 2}  ; i32 (...)**
-!4 = !{!"R", %struct.test01.base zeroinitializer, i32 0}  ; %struct.test01.base
-!5 = !{!4, i32 1}  ; %struct.test01.base*
-!6 = !{!"F", i1 false, i32 1, !7, !5}  ; void (%struct.test01.base*)
-!7 = !{!"void", i32 0}  ; void
-!8 = !{!"F", i1 false, i32 2, !9, !10, !12}  ; i8* (%struct.test01.derived1*, i64)
-!9 = !{i8 0, i32 1}  ; i8*
-!10 = !{!11, i32 1}  ; %struct.test01.derived1*
-!11 = !{!"R", %struct.test01.derived1 zeroinitializer, i32 0}  ; %struct.test01.derived1
-!12 = !{i64 0, i32 0}  ; i64
-!13 = !{!"F", i1 false, i32 2, !9, !14, !12}  ; i8* (%struct.test01.derived2*, i64)
-!14 = !{!15, i32 1}  ; %struct.test01.derived2*
-!15 = !{!"R", %struct.test01.derived2 zeroinitializer, i32 0}  ; %struct.test01.derived2
-!16 = !{!"S", %struct.test01.base zeroinitializer, i32 1, !3} ; { i32 (...)** }
-!17 = !{!"S", %struct.test01.derived1 zeroinitializer, i32 1, !4} ; { %struct.test01.base }
-!18 = !{!"S", %struct.test01.derived2 zeroinitializer, i32 1, !4} ; { %struct.test01.base }
+!4 = !{%struct.test01.base zeroinitializer, i32 0}  ; %struct.test01.base
+!5 = !{%struct.test01.base zeroinitializer, i32 1}  ; %struct.test01.base*
+!6 = distinct !{!5}
+!7 = !{i8 0, i32 1}  ; i8*
+!8 = !{%struct.test01.derived1 zeroinitializer, i32 1}  ; %struct.test01.derived1*
+!9 = distinct !{!7, !8}
+!10 = !{%struct.test01.derived2 zeroinitializer, i32 1}  ; %struct.test01.derived2*
+!11 = distinct !{!7, !10}
+!12 = !{!"S", %struct.test01.base zeroinitializer, i32 1, !3} ; { i32 (...)** }
+!13 = !{!"S", %struct.test01.derived1 zeroinitializer, i32 1, !4} ; { %struct.test01.base }
+!14 = !{!"S", %struct.test01.derived2 zeroinitializer, i32 1, !4} ; { %struct.test01.base }
 
-!dtrans_types = !{!16, !17, !18}
+!intel.dtrans.types = !{!12, !13, !14}

@@ -7,7 +7,7 @@
 long double global;
 // SIZE64: @global = dso_local global double 0
 // SIZE80: @global = dso_local global x86_fp80 0xK{{0+}}, align 16
-// SIZE80_x86: @global = dso_local global x86_fp80 0xK{{0+}}, align 4
+// SIZE80_x86: @global = dso_local global x86_fp80 0xK{{0+}}, align 16
 // SIZE128: @global = dso_local global fp128 0
 
 long double func(long double param) {
@@ -18,7 +18,7 @@ long double func(long double param) {
   long double local = param;
   // SIZE64: alloca double
   // SIZE80: alloca x86_fp80, align 16
-  // SIZE80_x86: alloca x86_fp80, align 4
+  // SIZE80_x86: alloca x86_fp80, align 16
   // SIZE128: alloca fp128
   local = param;
   return local + param;

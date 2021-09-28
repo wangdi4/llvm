@@ -2332,6 +2332,12 @@ void ASTStmtWriter::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_PREFETCH_DIRECTIVE;
 }
+
+void ASTStmtWriter::VisitOMPScopeDirective(OMPScopeDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_SCOPE_DIRECTIVE;
+}
 #endif // INTEL_COLLAB
 
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {
@@ -2395,6 +2401,7 @@ void ASTStmtWriter::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
 #if INTEL_COLLAB
   Record.writeBool(D->isCompareMin());
   Record.writeBool(D->isCompareMax());
+  Record.writeBool(D->isConditionalCapture());
 #endif // INTEL_COLLAB
   Code = serialization::STMT_OMP_ATOMIC_DIRECTIVE;
 }

@@ -19,6 +19,7 @@
 
 #ifdef ONE
 // Full OpenMP not enabled, only simd
+float AAA[1000];
 // CHECK-ONE-LABEL: foo1
 void foo1()
 {
@@ -28,6 +29,12 @@ void foo1()
   #pragma omp simd
   for (i=0;i<10;++i) {
     arr[i] = i;
+  }
+  int iii;
+  //CHECK-ONE: DIR.OMP.SIMD
+  #pragma omp parallel for simd shared(AAA)
+  for(iii=0; iii<1000; iii++) {
+    AAA[iii] = 123.456;
   }
 }
 #endif

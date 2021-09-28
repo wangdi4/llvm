@@ -118,18 +118,13 @@ public:
   private:
     const OrderedArgs *TgtClauseArgs = nullptr;
 
-    // Information about inputs/outputs which are rewritten during block
-    // extraction. This information is used later for emitting debug info.
-    struct RewrittenValueInfo {
-      Value *Storage;
-      unsigned ArgNo;
-    };
-    typedef DenseMap<Value *, struct RewrittenValueInfo> RewrittenValuesMap;
-    RewrittenValuesMap RewrittenValues;
-
     // Declaration location for extracted routine.
     DebugLoc DeclLoc;
 #endif // INTEL_COLLAB
+
+    // Mapping from the original exit blocks, to the new blocks inside
+    // the function.
+    SmallVector<BasicBlock *, 4> OldTargets;
 
     // Suffix to use when creating extracted function (appended to the original
     // function name + "."). If empty, the default is to use the entry block
@@ -181,8 +176,6 @@ public:
 #if INTEL_COLLAB
     /// Routines for updating debug information during code extraction.
     void setDeclLoc(DebugLoc DL) { DeclLoc = DL; }
-    void updateDebugInfo(Function *OldF, Function *NewF,
-                         const ValueSet &inputs, const ValueSet &outputs);
 #endif // INTEL_COLLAB
 
     /// Perform the extraction, returning the new function.
@@ -197,6 +190,26 @@ public:
                                 bool hoistAlloca = false);
 #else
     Function *extractCodeRegion(const CodeExtractorAnalysisCache &CEAC);
+#endif // INTEL_COLLAB
+
+    /// Perform the extraction, returning the new function and providing an
+    /// interface to see what was categorized as inputs and outputs.
+    ///
+    /// \param CEAC - Cache to speed up operations for the CodeExtractor when
+    /// hoisting, and extracting lifetime values and assumes.
+    /// \param Inputs [out] - filled with  values marked as inputs to the
+    /// newly outlined function.
+     /// \param Outputs [out] - filled with values marked as outputs to the
+    /// newly outlined function.
+    /// \returns zero when called on a CodeExtractor instance where isEligible
+    /// returns false.
+#if INTEL_COLLAB
+    Function *extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
+                                ValueSet &Inputs, ValueSet &Outputs,
+                                bool hoistAlloca = false);
+#else
+    Function *extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
+                                ValueSet &Inputs, ValueSet &Outputs);
 #endif // INTEL_COLLAB
 
     /// Verify that assumption cache isn't stale after a region is extracted.
@@ -277,6 +290,19 @@ public:
                                 BasicBlock *header,
                                 BasicBlock *newRootNode, BasicBlock *newHeader,
                                 Function *oldFunction, Module *M);
+
+#if INTEL_COLLAB
+    /// Create debug information for an extracted routine, including a
+    /// subprogram and debug intrinsics for parameter values.
+    void constructFunctionDebug(Function *OF, Function *NF,
+        const ValueSet &inputs, const ValueSet &outputs,
+        const ValueMap<Value *, Value *> &RewrittenValues);
+    void constructDebugSubprogram(Function *OldF, Function *NewF,
+        DILocation *Loc);
+    void constructDebugParameters(Function *OF, Function *NF,
+        const ValueSet &inputs, const ValueSet &outputs,
+        const ValueMap<Value *, Value *> &RewrittenValues);
+#endif // INTEL_COLLAB
 
     void moveCodeToFunction(Function *newFunction);
 

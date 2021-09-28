@@ -138,6 +138,8 @@ public:
 
   const QueueImplPtr &getQueue() const { return MQueue; }
 
+  const QueueImplPtr &getSubmittedQueue() const { return MSubmittedQueue; }
+
   const EventImplPtr &getEvent() const { return MEvent; }
 
   // Methods needed to support SYCL instrumentation
@@ -195,6 +197,7 @@ public:
 protected:
   EventImplPtr MEvent;
   QueueImplPtr MQueue;
+  QueueImplPtr MSubmittedQueue;
 
   /// Dependency events prepared for waiting by backend.
   /// See processDepEvent for details.
@@ -539,11 +542,13 @@ private:
       CGExecKernel *ExecKernel,
       std::shared_ptr<device_image_impl> DeviceImageImpl, RT::PiKernel Kernel,
       NDRDescT &NDRDesc, std::vector<RT::PiEvent> &RawEvents,
-      RT::PiEvent &Event, ProgramManager::KernelArgMask EliminatedArgMask);
+      RT::PiEvent &Event,
+      const ProgramManager::KernelArgMask &EliminatedArgMask);
 
   std::unique_ptr<detail::CG> MCommandGroup;
 
   friend class Command;
+  friend class Scheduler;
 };
 
 class UpdateHostRequirementCommand : public Command {

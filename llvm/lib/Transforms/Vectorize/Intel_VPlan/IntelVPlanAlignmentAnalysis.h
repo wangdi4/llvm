@@ -38,6 +38,11 @@ public:
 
   VPlanPeelingKind getKind() const { return Kind; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(errs()); }
+  virtual void print(raw_ostream &OS) const = 0;
+#endif
+
 private:
   VPlanPeelingKind Kind;
 };
@@ -58,6 +63,12 @@ public:
   static bool classof(const VPlanPeelingVariant *Peeling) {
     return Peeling->getKind() == VPPK_StaticPeeling;
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const final {
+    OS << "VPlanStaticPeeling: peelCount=" << PeelCount << '\n';
+  }
+#endif
 
 private:
   int PeelCount;
@@ -89,6 +100,10 @@ public:
   static bool classof(const VPlanPeelingVariant *Peeling) {
     return Peeling->getKind() == VPPK_DynamicPeeling;
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const override;
+#endif
 
 private:
   /// Memory reference (Load or Store instruction) that is the primary target
@@ -141,12 +156,14 @@ private:
 /// model. It is the most precise cost model for peeling analysis.
 class VPlanPeelingCostModelGeneral final : public VPlanPeelingCostModel {
 public:
-  VPlanPeelingCostModelGeneral(VPlanCostModelInterface &CM) : CM(&CM) {}
+  VPlanPeelingCostModelGeneral(const VPlanCostModelInterface *CM) : CM(CM) {
+    assert(CM && "CostModel pointer should not be NULL.");
+  }
 
   int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
-  VPlanCostModelInterface *CM;
+  const VPlanCostModelInterface *CM;
 };
 
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot

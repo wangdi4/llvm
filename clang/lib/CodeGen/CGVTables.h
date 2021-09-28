@@ -85,7 +85,9 @@ class CodeGenVTables {
                           llvm::GlobalValue::LinkageTypes stubLinkage,
                           bool isCompleteDtor) const;
 
+public: // INTEL
   bool useRelativeLayout() const;
+private: // INTEL
 
   llvm::Type *getVTableComponentType() const;
 

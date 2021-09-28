@@ -16,6 +16,7 @@
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/info/info_desc.hpp>
+#include <CL/sycl/memory_enums.hpp>
 #include <CL/sycl/platform.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/platform_impl.hpp>
@@ -147,7 +148,7 @@ template <info::device param> struct get_device_info<platform, param> {
 // for string return type in other specializations.
 template <info::device param> struct get_device_info_string {
   static std::string get(RT::PiDevice dev, const plugin &Plugin) {
-    size_t resultSize;
+    size_t resultSize = 0;
     Plugin.call<PiApiKind::piDeviceGetInfo>(
         dev, pi::cast<RT::PiDeviceInfo>(param), 0, nullptr, &resultSize);
     if (resultSize == 0) {
@@ -268,6 +269,21 @@ template <> struct get_device_info<bool, info::device::atomic64> {
       return false;
     }
     return result;
+  }
+};
+
+// Specialization for atomic_memory_order_capabilities, PI returns a bitfield
+template <>
+struct get_device_info<std::vector<memory_order>,
+                       info::device::atomic_memory_order_capabilities> {
+  static std::vector<memory_order> get(RT::PiDevice dev, const plugin &Plugin) {
+    pi_memory_order_capabilities result;
+    Plugin.call_nocheck<PiApiKind::piDeviceGetInfo>(
+        dev,
+        pi::cast<RT::PiDeviceInfo>(
+            info::device::atomic_memory_order_capabilities),
+        sizeof(pi_memory_order_capabilities), &result, nullptr);
+    return readMemoryOrderBitfield(result);
   }
 };
 
@@ -662,6 +678,13 @@ template <> inline bool get_device_info_host<info::device::image_support>() {
 
 template <> inline bool get_device_info_host<info::device::atomic64>() {
   return false;
+}
+
+template <>
+inline std::vector<memory_order>
+get_device_info_host<info::device::atomic_memory_order_capabilities>() {
+  return {memory_order::relaxed, memory_order::acquire, memory_order::release,
+          memory_order::acq_rel, memory_order::seq_cst};
 }
 
 template <>

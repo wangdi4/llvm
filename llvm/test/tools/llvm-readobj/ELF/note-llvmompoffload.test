@@ -1,4 +1,3 @@
-# INTEL_COLLAB
 ## Test that llvm-readobj is able to recognize LLVMOMPOFFLOAD ELF notes.
 
 # RUN: yaml2obj %s -o %t.64le -DBITS=64 -DENCODING=LSB
@@ -67,4 +66,3 @@ Sections:
       - Name: LLVMOMPOFFLOAD
         Type: 3 # NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION
         Desc: '31332e302e30676974'
-# end INTEL_COLLAB

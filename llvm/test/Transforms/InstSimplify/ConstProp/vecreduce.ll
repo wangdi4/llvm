@@ -4,6 +4,9 @@
 declare i32 @llvm.vector.reduce.add.v1i32(<1 x i32> %a)
 declare i32 @llvm.vector.reduce.add.v8i32(<8 x i32> %a)
 declare i32 @llvm.vector.reduce.mul.v1i32(<1 x i32> %a)
+; INTEL_CUSTOMIZATION
+declare i32 @llvm.vector.reduce.mul.v2i32(<2 x i32> %a)
+; end INTEL_CUSTOMIZATION
 declare i32 @llvm.vector.reduce.mul.v8i32(<8 x i32> %a)
 declare i32 @llvm.vector.reduce.and.v1i32(<1 x i32> %a)
 declare i32 @llvm.vector.reduce.and.v8i32(<8 x i32> %a)
@@ -119,6 +122,17 @@ define i32 @mul_1v() {
   ret i32 %x
 }
 
+; INTEL_CUSTOMIZATION
+; CHECK-LABEL: @mul_constexpr(
+; CHECK-NEXT:    ret i32 1
+;
+define dso_local i32 @mul_constexpr() {
+  %tmp37 = insertelement <2 x i32> <i32 1, i32 1>, i32 1, i64 0
+  %tmp38 = mul <2 x i32> bitcast (<1 x i64> <i64 4294967297> to <2 x i32>), %tmp37
+  %tmp39 = call i32 @llvm.vector.reduce.mul.v2i32(<2 x i32> %tmp38)
+  ret i32 %tmp39
+}
+; end INTEL_CUSTOMIZATION
 define i32 @mul_undef() {
 ; CHECK-LABEL: @mul_undef(
 ; CHECK-NEXT:    [[X:%.*]] = call i32 @llvm.vector.reduce.mul.v8i32(<8 x i32> undef)

@@ -1,6 +1,6 @@
 //===- HIRIdiomRecognition.cpp - Implements Loop idiom recognition pass ---===//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -130,7 +130,7 @@ class HIRIdiomRecognition {
   bool makeStartRef(RegDDRef *Ref, HLLoop *Loop, bool IsNegStride);
 
   // Creates fake ddref for the memset/memcpy calls
-  RegDDRef *createFakeDDRef(const RegDDRef *Ref, unsigned Level);
+  RegDDRef *createFakeDDRef(const RegDDRef *Ref);
 
 public:
   HIRIdiomRecognition(HIRFramework &HIRF, HIRLoopStatistics &HLS,
@@ -421,31 +421,9 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
   return true;
 }
 
-RegDDRef *HIRIdiomRecognition::createFakeDDRef(const RegDDRef *Ref,
-                                               unsigned Level) {
-  // TODO: Reuse Ref for FakeDDRef as we will be removing it's HLNode.
-  // If reuse the RemovedNodes should be also updated as the Ref will be
-  // attached to the different HLNode.
+RegDDRef *HIRIdiomRecognition::createFakeDDRef(const RegDDRef *Ref) {
   RegDDRef *FakeRef = Ref->clone();
-  unsigned UndefIndex = InvalidBlobIndex;
-  for (CanonExpr *CE :
-       llvm::make_range(FakeRef->canon_begin(), FakeRef->canon_end())) {
-    if (!CE->hasIV(Level)) {
-      continue;
-    }
-
-    CE->removeIV(Level);
-
-    CE->getBlobUtils().createUndefBlob(CE->getSrcType(), true, &UndefIndex);
-    CE->addBlob(UndefIndex, 1, false);
-
-    break;
-  }
-
-  assert(UndefIndex != InvalidBlobIndex && "There should be at least one IV");
-
-  // Fake DDRef will be attached to the pre-header of the i*Level* loop.
-  FakeRef->updateDefLevel(Level - 1);
+  FakeRef->setAddressOf(false);
 
   return FakeRef;
 }
@@ -496,9 +474,8 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
   // The i8 blob could be non linear at the pre-header level.
   RHS->updateDefLevel(Loop->getNestingLevel() - 1);
 
-  HLInst *MemsetInst = HNU.createMemset(Ref.release(), RHS, Size);
-  MemsetInst->addFakeLvalDDRef(
-      createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
+  HLInst *MemsetInst = HNU.createMemset(Ref.get(), RHS, Size);
+  MemsetInst->addFakeLvalDDRef(createFakeDDRef(Ref.release()));
   if (ExtractPreheader) {
     Loop->extractPreheader();
     ExtractPreheader = false;
@@ -521,11 +498,11 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
 
   if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride,
                 ExtractPreheader)) {
-    LoopOptReportBuilder &LORBuilder =
-        Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+    OptReportBuilder &ORBuilder =
+        Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-    // The memset idiom has been recognized
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25560u);
+    // Memset generated
+    ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25408u);
     return true;
   }
 
@@ -561,11 +538,9 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
   }
 
   HLInst *MemcpyInst =
-      HNU.createMemcpy(StoreRef.release(), LoadRef.release(), Size);
-  MemcpyInst->addFakeLvalDDRef(
-      createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
-  MemcpyInst->addFakeRvalDDRef(
-      createFakeDDRef(Candidate.RHS, Loop->getNestingLevel()));
+      HNU.createMemcpy(StoreRef.get(), LoadRef.get(), Size);
+  MemcpyInst->addFakeLvalDDRef(createFakeDDRef(StoreRef.release()));
+  MemcpyInst->addFakeRvalDDRef(createFakeDDRef(LoadRef.release()));
 
   if (ExtractPreheader) {
     Loop->extractPreheader();
@@ -582,11 +557,11 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
 
   NumMemCpy++;
 
-  LoopOptReportBuilder &LORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  // The memcpy idiom has been recognized
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25561u);
+  // Memcopy generated
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25399u);
   return true;
 }
 
@@ -714,8 +689,8 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     // TODO: maybe do not multiversion the loop if it has other instructions
     // apart from memset/memcpy calls.
     if (SmallTripCountCheck) {
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
       Loop->extractZtt();
       HLNodeUtils::replace(Loop, SmallTripCountCheck);
@@ -723,12 +698,14 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       HLNodeUtils::insertAsFirstElseChild(SmallTripCountCheck, OrigLoopClone);
 
       // The loop has been multiversioned for the small trip count
-      LORBuilder(*Loop)
-          .addOrigin("Small trip count multiversioned v1")
+      // Multiversioned v1
+      ORBuilder(*Loop)
+          .addOrigin(25474u, 1)
           .addRemark(OptReportVerbosity::Low, 25562u);
 
-      LORBuilder(*OrigLoopClone)
-          .addOrigin("Small trip count multiversioned v2 (small)");
+      // Multiversioned v2
+      ORBuilder(*OrigLoopClone)
+          .addOrigin(25474u, 2);
     }
 
     HLNodeUtils::removeEmptyNodes(Loop, false);

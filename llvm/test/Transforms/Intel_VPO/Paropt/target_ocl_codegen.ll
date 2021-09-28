@@ -34,7 +34,7 @@ entry:
   %1 = addrspacecast i32* %x to i32 addrspace(4)*
   store i32 0, i32 addrspace(4)* %0, align 4
   store i32 1, i32 addrspace(4)* %1, align 4
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @y to i32 addrspace(4)*)), "QUAL.OMP.MAP.TO"(i32 addrspace(4)* %1) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @y to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @y to i32 addrspace(4)*), i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.MAP.TO"(i32 addrspace(4)* %1, i32 addrspace(4)* %1, i64 4, i64 33, i8* null, i8* null) ]
   %3 = load i32, i32 addrspace(4)* %1, align 4
   %add = add nsw i32 %3, 1
   store i32 %add, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @y to i32 addrspace(4)*), align 4

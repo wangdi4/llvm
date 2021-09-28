@@ -1,6 +1,6 @@
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir=1 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-force-vf=4 -enable-vp-value-codegen-hir=1 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ;
 ; LIT test to check that we preserve alias-analysis related metadata in HIR vector code generation

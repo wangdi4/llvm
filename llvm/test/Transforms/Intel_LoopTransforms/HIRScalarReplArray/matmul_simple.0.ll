@@ -285,22 +285,22 @@ alloca_0:
 
 bb1:                                              ; preds = %bb8, %alloca_0
   %indvars.iv24 = phi i64 [ %indvars.iv.next25, %bb8 ], [ 1, %alloca_0 ]
-  %"main_$C[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32768, double* getelementptr inbounds ([4096 x [4096 x double]], [4096 x [4096 x double]]* @"main_$C", i64 0, i64 0, i64 0), i64 %indvars.iv24)
-  %"main_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32768, double* getelementptr inbounds ([4096 x [4096 x double]], [4096 x [4096 x double]]* @"main_$B", i64 0, i64 0, i64 0), i64 %indvars.iv24)
+  %"main_$C[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32768, double* elementtype(double) getelementptr inbounds ([4096 x [4096 x double]], [4096 x [4096 x double]]* @"main_$C", i64 0, i64 0, i64 0), i64 %indvars.iv24)
+  %"main_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32768, double* elementtype(double) getelementptr inbounds ([4096 x [4096 x double]], [4096 x [4096 x double]]* @"main_$B", i64 0, i64 0, i64 0), i64 %indvars.iv24)
   br label %bb5
 
 bb5:                                              ; preds = %bb12, %bb1
   %indvars.iv21 = phi i64 [ %indvars.iv.next22, %bb12 ], [ 1, %bb1 ]
-  %"main_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32768, double* getelementptr inbounds ([4096 x [4096 x double]], [4096 x [4096 x double]]* @"main_$A", i64 0, i64 0, i64 0), i64 %indvars.iv21)
-  %"main_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"main_$B[]", i64 %indvars.iv21)
+  %"main_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32768, double* elementtype(double) getelementptr inbounds ([4096 x [4096 x double]], [4096 x [4096 x double]]* @"main_$A", i64 0, i64 0, i64 0), i64 %indvars.iv21)
+  %"main_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"main_$B[]", i64 %indvars.iv21)
   %"main_$B[][]_fetch.9" = load double, double* %"main_$B[][]", align 1
   br label %bb9
 
 bb9:                                              ; preds = %bb9, %bb5
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb9 ], [ 1, %bb5 ]
-  %"main_$C[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"main_$C[]", i64 %indvars.iv)
+  %"main_$C[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"main_$C[]", i64 %indvars.iv)
   %"main_$C[][]_fetch.3" = load double, double* %"main_$C[][]", align 1
-  %"main_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"main_$A[]", i64 %indvars.iv)
+  %"main_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"main_$A[]", i64 %indvars.iv)
   %"main_$A[][]_fetch.6" = load double, double* %"main_$A[][]", align 1
   %mul.4 = fmul fast double %"main_$B[][]_fetch.9", %"main_$A[][]_fetch.6"
   %add.1 = fadd fast double %mul.4, %"main_$C[][]_fetch.3"

@@ -34,6 +34,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 
+#include "llvm/Analysis/Delinearization.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -1095,6 +1096,15 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
     return true;
   }
 
+  Type *OrigType = OrigSCEV->getType();
+  Type *NewType = NewSCEV->getType();
+
+  // Give up on int/ptr or ptr/ptr type mismatch.
+  if ((NewType != OrigType) &&
+      (!NewType->isIntegerTy() || !OrigType->isIntegerTy())) {
+    return false;
+  }
+
   auto OrigAddRec = dyn_cast<SCEVAddRecExpr>(OrigSCEV);
   auto NewAddRec = dyn_cast<SCEVAddRecExpr>(NewSCEV);
 
@@ -1124,9 +1134,6 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
     return false;
   }
 
-  Type *NewType = NewAddRec->getType();
-  Type *OrigType = OrigAddRec->getType();
-
   // Wrap flags may get modified during truncation/negation so we store the
   // orignal ones and pass them for comparison.
   auto WrapFlags = NewAddRec->getNoWrapFlags();
@@ -1139,10 +1146,6 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
   //
   // To catch this case we need to compare the truncated form of NewSCEV.
   if (NewType != OrigType) {
-
-    if (!NewType->isIntegerTy() || !OrigType->isIntegerTy()) {
-      return false;
-    }
 
     if (NewType->getPrimitiveSizeInBits() <
         OrigType->getPrimitiveSizeInBits()) {
@@ -1482,13 +1485,15 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
   return false;
 }
 
-int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
-  return ConstSCEV->getValue()->getSExtValue();
+int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV,
+                                        bool IsSigned) const {
+  return IsSigned ? ConstSCEV->getValue()->getSExtValue()
+                  : ConstSCEV->getValue()->getZExtValue();
 }
 
 void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
                                   bool IsDenom) {
-  auto Const = getSCEVConstantValue(ConstSCEV);
+  int64_t Const = getSCEVConstantValue(ConstSCEV, !IsDenom);
 
   if (IsDenom) {
     assert((CE->getDenominator() == 1) &&
@@ -2228,12 +2233,25 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
     auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS());
 
-    // If the denominator is constant and is not minimum 64 bit signed value,
-    // move it into CE's denominator. Negative denominators are negated and
-    // stored as positive integers but we cannot negate INT_MIN so we make it
-    // a blob.
+    // If the denominator is constant and is not negative 64 bit value, we move
+    // it into CE's denominator(int64_t value). CE does not allow negative
+    // denominators to be stored. Negative denominators of smaller bitwidth are
+    // zero-extended and stored as positive integers but we cannot do that for
+    // 64 bit negative values so they are parsed as blob.
+    //
+    // When a negative value is passed to CanonExpr::setDenominator(), it
+    // negates the numerator to make the denominator positive but this has two
+    // problems-
+    //
+    // 1) Negation is incorrect for unsigned division (SCEVUDivExpr).
+    //
+    // 2) We haven't parsed the numerator portion of the SCEV at this point.
+    // CE's numerator is set to zero making negation incorrect even if the
+    // division was signed.
+    //
+    // TODO: Fix negation logic in setDenominator().
     if (ConstDenomSCEV && ((ConstDenomSCEV->getValue()->getBitWidth() < 64) ||
-                           !ConstDenomSCEV->getValue()->isMinValue(true))) {
+                           !ConstDenomSCEV->getValue()->isNegative())) {
       parseDenominator(ConstDenomSCEV, CE);
       return parseRecursive(UDivSCEV->getLHS(), CE, Level, false, UnderCast,
                             IndicateFailure);
@@ -2903,16 +2921,37 @@ void HIRParser::parse(HLSwitch *Switch) {
   }
 }
 
-unsigned HIRParser::getPointerElementSize(Type *Ty) const {
-  assert(isa<PointerType>(Ty) && "Invalid type!");
+static Type *getBasePtrElementType(const GEPOrSubsOperator *GEPOp) {
 
-  auto ElTy = cast<PointerType>(Ty)->getElementType();
-
-  return ElTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElTy) : 0;
+  if (auto *GEP = dyn_cast<GEPOperator>(GEPOp)) {
+    return GEP->getSourceElementType();
+  } else {
+    auto *Sub = cast<SubscriptInst>(GEPOp);
+    return Sub->getElementType();
+  }
 }
 
-CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
-                                             unsigned Level) {
+// Populates \p IndexedTypes vector with types being indexed by the \p GEPOp.
+// ex.:
+//   -- gep [10 x { i8, float }]* %p, 0, i, 1
+//
+//   { [10 x { i8, float }]*,
+//     [10 x { i8, float }],
+//           { i8, float },
+//                 float
+//   }
+//
+// Note: the pointer operand type is always added as a first element.
+static void populateIndexedTypes(const GEPOperator *GEPOp,
+                                 SmallVectorImpl<Type *> &IndexedTypes) {
+  IndexedTypes.push_back(GEPOp->getPointerOperandType());
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+    IndexedTypes.push_back(I.getIndexedType());
+  }
+}
+
+CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
+                                             Type **ElemTy) {
   auto UpdateVal = RI.getHeaderPhiUpdateVal(Phi);
 
   auto PhiSCEV = ScopedSE.getSCEV(const_cast<PHINode *>(Phi));
@@ -2948,25 +2987,27 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
     return nullptr;
   }
 
-  auto PhiTy = Phi->getType();
-
   int64_t OrigDenom = IndexCE->getDenominator();
-  (void)OrigDenom;
+
+  *ElemTy = RI.findPhiElementType(Phi);
+
+  if (!*ElemTy) {
+    return nullptr;
+  }
+
+  unsigned ElementSize = getCanonExprUtils().getTypeSizeInBytes(*ElemTy);
 
   // Divide by element size to convert byte offset to number of elements.
-  IndexCE->divide(getPointerElementSize(PhiTy));
+  IndexCE->divide(ElementSize);
   // Index is already multiplied by element size as the SCEV form is in bytes so
   // it should be okay to simplify denominator.
   IndexCE->simplify(true, true);
 
   // Bail out if element size does not divide stride evenly and Phi has an
   // unusual access pattern.
-  if ((IndexCE->getDenominator() != 1) && RI.hasNonGEPAccess(Phi)) {
+  if (IndexCE->getDenominator() > OrigDenom) {
     return nullptr;
   }
-
-  assert(IndexCE->getDenominator() <= OrigDenom &&
-         "Could not simplify denominator!");
 
   return IndexCE.release();
 }
@@ -3000,8 +3041,7 @@ void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
   Offsets.push_back(-1);
 
   unsigned NumOp = GEPOp->getNumIndices();
-  auto CurTy =
-      cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
+  auto CurTy = getBasePtrElementType(GEPOp);
 
   // Ignore first index.
   for (unsigned I = 1; I < NumOp; ++I) {
@@ -3072,27 +3112,9 @@ const Value *HIRParser::traceSingleOperandPhis(const Value *Val) const {
   return ScalarSA.traceSingleOperandPhis(Val, CurRegion->getIRRegion());
 }
 
-// Populates \p IndexedTypes vector with types being indexed by the \p GEPOp.
-// ex.:
-//   -- gep [10 x { i8, float }]* %p, 0, i, 1
-//
-//   { [10 x { i8, float }]*,
-//     [10 x { i8, float }],
-//           { i8, float },
-//                 float
-//   }
-//
-// Note: the pointer operand type is always added as a first element.
-static void populateIndexedTypes(const GEPOperator *GEPOp,
-                                 SmallVectorImpl<Type *> &IndexedTypes) {
-  IndexedTypes.push_back(GEPOp->getPointerOperandType());
-  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
-    IndexedTypes.push_back(I.getIndexedType());
-  }
-}
-
 class DimInfo {
   Type *Ty = nullptr;
+  Type *ElemTy = nullptr;
   Value *Stride = nullptr;
 
   SmallVector<Value *, 4> Indices;
@@ -3103,6 +3125,9 @@ class DimInfo {
 public:
   Type *getType() const { return Ty; }
   void setType(Type *Ty) { this->Ty = Ty; }
+
+  Type *getElementType() const { return ElemTy; }
+  void setElementType(Type *Ty) { this->ElemTy = Ty; }
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
@@ -3151,13 +3176,6 @@ public:
 
     Indices.push_back(Idx);
     IndicesLB.push_back(LB);
-  }
-
-  void clear() {
-    Ty = nullptr;
-    Stride = nullptr;
-    Indices.clear();
-    IndicesLB.clear();
   }
 
   bool isDefined() const {
@@ -3379,6 +3397,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
 
   DimInfo &Dim = Arr.getOrCreate(Sub->getTypeRank());
   Dim.setType(Sub->getType());
+  Dim.setElementType(Sub->getElementType());
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
 
@@ -3437,6 +3456,7 @@ restructureOnePastTheEndGEP(const GEPOperator *GEPOrSubsOp) {
   IRBuilder<NoFolder> Builder(ArrTy->getContext());
 
   return cast<GEPOperator>(Builder.CreateGEP(
+      GEPOp->getSourceElementType(),
       const_cast<Value *>(GEPOp->getPointerOperand()), Indices));
 }
 
@@ -3494,6 +3514,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
 
     auto &Dim = Arr->getOrCreate(Rank);
     Dim.setType(DimTy);
+    Dim.setElementType(DimElemTy);
     Dim.addIndex(Index, nullptr);
 
     auto Stride = DimElemTy->isSized()
@@ -3693,6 +3714,7 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       auto &NextDim = NextArr.getDim(I);
 
       CurDim.setType(NextDim.getType());
+      CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
 
       for (auto Idx : zip(NextDim.indices(), NextDim.indicesLB())) {
@@ -3807,16 +3829,20 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       }
 
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
-                               Dim.getType());
+                               Dim.getType(), Dim.getElementType());
     }
   }
+
+  auto *BaseGEPOp = Chain.getBase();
+
+  Ref->setBasePtrElementType(getBasePtrElementType(BaseGEPOp));
 }
 
 void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
                                         const GEPOrSubsOperator *InitGEPOp,
                                         RegDDRef *Ref, CanonExpr *IndexCE,
                                         CanonExpr *StrideCE, Type *DimType,
-                                        unsigned Level) {
+                                        Type *DimElemType, unsigned Level) {
   assert((!InitGEPOp || !IndexCE->isZero()) &&
          "If InitGEPOp then !IndexCE->isZero()");
 
@@ -3831,7 +3857,9 @@ void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
     mergeIndexCE(HighestDimCE, IndexCE);
     getCanonExprUtils().destroy(IndexCE);
   } else {
-    Ref->addDimensionHighest(IndexCE, {}, nullptr, StrideCE, DimType);
+    Ref->addDimensionHighest(IndexCE, {}, nullptr, StrideCE, DimType,
+                             DimElemType);
+    Ref->setBasePtrElementType(DimElemType);
   }
 
   // Extra dimensions are involved when the initial value of BasePhi is computed
@@ -3917,6 +3945,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   do {
     const GEPOrSubsOperator *InitGEPOp = nullptr;
     CanonExpr *IndexCE = nullptr;
+    Type *ElemTy = nullptr;
+    unsigned ElementSize = 0;
     auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
 
     if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
@@ -3924,7 +3954,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
       if (RecSCEV->isAffine() &&
           (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
-        IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level);
+        IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
       }
     }
 
@@ -3933,15 +3963,16 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       InitGEPOp = nullptr;
       BaseVal = CurBasePhi;
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
+
+    } else {
+      ElementSize = getCanonExprUtils().getTypeSizeInBytes(ElemTy);
     }
 
-    Type *CurBasePhiTy = CurBasePhi->getType();
-
-    CanonExpr *StrideCE = getCanonExprUtils().createCanonExpr(
-        OffsetTy, 0, getPointerElementSize(CurBasePhiTy));
+    auto *StrideCE =
+        getCanonExprUtils().createCanonExpr(OffsetTy, 0, ElementSize);
 
     addPhiBaseGEPDimensions(GEPOp, InitGEPOp, Ref, IndexCE, StrideCE,
-                            CurBasePhiTy, Level);
+                            CurBasePhi->getType(), ElemTy, Level);
 
     GEPOp = nullptr;
   } while ((CurBasePhi != BaseVal) &&
@@ -3974,6 +4005,52 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
   return Ref;
 }
 
+// Sets base ptr element type and dimension stride for self refs: (%p)[0].
+static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
+  assert(Ref->isSelfGEPRef(true) && "Self GEP ref expected!");
+
+  // Consider this case-
+  // void foo(i64* %p) {
+  //  %bc = bitcast i64* %p to i32*
+  //  %ld = load i32, i32* %bc
+  //  ret void
+  // }
+  //
+  // For this case we will create a bitcasted self ref like: (i32*)(%p)[0].
+  //
+  // In opaque ptr path, we may never know the element type of %p as it will
+  // just be an opaque pointer parameter. It would be okay to use the element
+  // type passed in by the caller (i32) because any element type works with
+  // opaque ptrs.
+  //
+  // But for non opaque ptrs, we need to set matching element type (i64) to the
+  // base ptr type (i64*) otherwise some of the existing utilities will assert
+  // on mismatched type. Hence, we extract the element type from the base ptr
+  // itself.
+  //
+  // TODO: Figure out a better fix when investigating BitCastDestType.
+  if (auto *BitCastTy = Ref->getBitCastDestType()) {
+    if (auto *PtrBitCastTy = dyn_cast<PointerType>(BitCastTy)) {
+      if (!PtrBitCastTy->isOpaque()) {
+        ElementTy = Ref->getBaseCE()->getDestType()->getPointerElementType();
+      }
+    }
+  }
+
+  Ref->setBasePtrElementType(ElementTy);
+
+  // We cannot set stride for opaque structures.
+  if (auto *StructTy = dyn_cast<StructType>(ElementTy)) {
+    if (StructTy->isOpaque()) {
+      return;
+    }
+  }
+
+  // Update the stride using element type info.
+  unsigned ElementSize = Ref->getCanonExprUtils().getTypeSizeInBytes(ElementTy);
+  Ref->getDimensionStride(1)->setConstant(ElementSize);
+}
+
 RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
                                                  unsigned Level) {
 
@@ -3993,6 +4070,13 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
   // Single element is always in bounds.
   Ref->setInBounds(true);
+
+  // Set element type when we can unambigously do so based on type of base ptr.
+  if (auto *Global = dyn_cast<GlobalVariable>(GEPVal)) {
+    setSelfRefElementTypeAndStride(Ref, Global->getValueType());
+  } else if (auto *Alloca = dyn_cast<AllocaInst>(GEPVal)) {
+    setSelfRefElementTypeAndStride(Ref, Alloca->getAllocatedType());
+  }
 
   return Ref;
 }
@@ -4026,11 +4110,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     auto Opnd = BCOp->getOperand(0);
     auto OpTy = Opnd->getType();
     if (!RI.isSupported(OpTy, true)) {
-      break;
-    }
-
-    // Suppress tracing back to a function pointer type.
-    if (OpTy->getPointerElementType()->isFunctionTy()) {
       break;
     }
 
@@ -4187,13 +4266,13 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   auto OpVal = Inst->getOperand(OpNum);
   auto OpTy = OpVal->getType();
 
-  // Parse function pointer rvals as scalars. Pointer arithemetic (GEP) is not
-  // expected on them.
-  if (OpTy->isPointerTy() && OpTy->getPointerElementType()->isFunctionTy()) {
-    Ref = createScalarDDRef(OpVal, Level);
-
-  } else if (auto LInst = dyn_cast<LoadInst>(Inst)) {
+  if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
+
+    if (!Ref->getBasePtrElementType()) {
+      // We can assign the load type to self-refs: (%p)[0]
+      setSelfRefElementTypeAndStride(Ref, LInst->getType());
+    }
 
     Ref->setAlignment(LInst->getAlignment());
 
@@ -4202,12 +4281,17 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   } else if (isa<GEPOrSubsOperator>(Inst)) {
     Ref = createGEPDDRef(Inst, Level, false);
     Ref->setAddressOf(true);
+    assert(Ref->getBasePtrElementType() &&
+           "Base element type not assigned to ref!");
 
     parseMetadata(Inst, Ref);
 
   } else if (OpTy->isPointerTy() && !isa<ConstantPointerNull>(OpVal)) {
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
+
+    assert((Ref->isSelfGEPRef(true) || Ref->getBasePtrElementType()) &&
+           "Base element type not assigned to ref!");
 
   } else {
     Ref = createScalarDDRef(OpVal, Level);
@@ -4222,6 +4306,11 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
 
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
+
+    if (!Ref->getBasePtrElementType()) {
+      // We can assign the store type to self-refs: (%p)[0]
+      setSelfRefElementTypeAndStride(Ref, SInst->getValueOperand()->getType());
+    }
 
     Ref->setAlignment(SInst->getAlignment());
 
@@ -4308,33 +4397,18 @@ bool HIRParser::parsedDebugIntrinsic(const IntrinsicInst *Intrin) {
 }
 
 void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
-                           bool IsRval) {
+                           bool IsRval, Type *PointeeType) {
   auto FakeRef = AddressRef->clone();
 
   // Reset AddressOf property as we want it to be a memref.
   FakeRef->setAddressOf(false);
 
-  // Set all dimensions of ref to undef to make DD conservative.
-  for (unsigned I = 1, NumDims = FakeRef->getNumDimensions(); I <= NumDims;
-       ++I) {
-    auto CE = FakeRef->getDimensionIndex(I);
-
-    CE->clear();
-    CE->setSrcType(CE->getDestType());
-
-    Value *UndefVal = UndefValue::get(CE->getSrcType());
-    BlobTy UndefBlob = ScopedSE.getUnknown(UndefVal);
-
-    unsigned BlobIndex = findOrInsertBlob(UndefBlob, ConstantSymbase);
-    CE->setBlobCoeff(BlobIndex, 1);
-  }
-
   IsRval ? HInst->addFakeRvalDDRef(FakeRef) : HInst->addFakeLvalDDRef(FakeRef);
 
-  // Need to update blobs in Ref since we cleared one of the CEs.
-  SmallVector<BlobDDRef *, 1> BlobRefs;
-  FakeRef->updateBlobDDRefs(BlobRefs);
-  assert(BlobRefs.empty() && "New blobs not expected in fake ref!");
+  // Set 'CanUsePointeeSize'
+  if (PointeeType) {
+    FakeRef->setCanUsePointeeSize(true);
+  }
 
   // Copy ref -> value mapping for symbase assignment.
   GEPRefToPointerMap.insert(std::make_pair(FakeRef, getGEPRefPtr(AddressRef)));
@@ -4601,9 +4675,18 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
         !Ref->accessesConstantArray() &&
         // Add fake DDRefs for bundle operands.
         (IsBundleOperand || !Call->paramHasAttr(I, Attribute::ReadNone))) {
-      addFakeRef(HInst, Ref,
-                 (!IsBundleOperand &&
-                  (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly))));
+      bool CanUsePointeeSize =
+          !IsBundleOperand ? Call->paramHasAttr(I, Attribute::ByVal) : false;
+      bool IsRval =
+          (!IsBundleOperand &&
+           (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly) ||
+            CanUsePointeeSize));
+      Type *PointeeType =
+          CanUsePointeeSize ? Call->getParamByValType(I) : nullptr;
+      if (PointeeType && Ref->isSelfAddressOf(true))
+        setSelfRefElementTypeAndStride(Ref, PointeeType);
+
+      addFakeRef(HInst, Ref, IsRval, PointeeType);
     }
   }
 
@@ -4619,7 +4702,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
   // For indirect calls, set the function pointer as the last operand.
   if (Call && !Call->getCalledFunction()) {
-    RegDDRef *Ref = createRvalDDRef(Call, NumRvalOp, Level);
+    RegDDRef *Ref = createScalarDDRef(Call->getCalledOperand(), Level);
     HInst->setOperandDDRef(Ref, NumRvalOp + HasLval);
   }
 
@@ -4821,7 +4904,7 @@ HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
                                                 : ScopedSE.getOne(IndexType);
 
   SmallVector<BlobTy, MaxLoopNestLevel> Subscripts;
-  ScopedSE.computeAccessFunctions(Blob, Subscripts, DimSizes);
+  computeAccessFunctions(ScopedSE, Blob, Subscripts, DimSizes);
 
   // Failed to compute access functions.
   if (Subscripts.empty()) {
@@ -4860,17 +4943,21 @@ HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
 RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
                                           SmallVectorImpl<BlobTy> &Strides,
                                           SmallVectorImpl<BlobTy> &DimSizes) {
+  assert(Ref->isSingleDimension() && "Expected single dimension refs");
+
   BlobUtils &BU = getBlobUtils();
   DDRefUtils &DRU = getDDRefUtils();
   CanonExprUtils &CEU = getCanonExprUtils();
 
   const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
 
-  RegDDRef *NewRef = DRU.createMemRef(Ref->getBasePtrBlobIndex(),
+  RegDDRef *NewRef = DRU.createMemRef(Ref->getBasePtrElementType(), Ref->getBasePtrBlobIndex(),
                                       Ref->getBaseCE()->getDefinedAtLevel(),
                                       Ref->getSymbase());
 
   Type *IndexType = LinearIndexCE->getSrcType();
+  Type *DimType = Ref->getDimensionType(1);
+  Type *DimElemType = Ref->getDimensionElementType(1);
 
   // Add dimensions using Strides.
   for (BlobTy Stride : Strides) {
@@ -4896,8 +4983,7 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
       StrideCE->multiplyByBlob(StrideIndex);
     }
 
-    Type *DimType = Ref->getBaseCE()->getDestType();
-    NewRef->addDimension(CE, {}, CE->clone(), StrideCE, DimType);
+    NewRef->addDimension(CE, {}, CE->clone(), StrideCE, DimType, DimElemType);
   }
 
   // Ref may have innermost struct offset.
@@ -4971,8 +5057,9 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
     assert(!Ref->isTerminalRef() && "Expected non-terminal refs only");
     assert(Ref->isSingleDimension() && "Expected single dimension refs");
 
-    Type *DimType = Ref->getBaseCE()->getDestType();
-    if (DimType->getPointerElementType()->isAggregateType() ||
+    auto *BasePtrElemTy = Ref->getBasePtrElementType();
+
+    if (!BasePtrElemTy || BasePtrElemTy->isAggregateType() ||
         Ref->getDimensionConstLower(1) != 0 ||
         Ref->getDimensionConstStride(1) == 0) {
       return false;
@@ -5000,8 +5087,8 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   }
 
   // Sort and uniq Strides and populate Sizes.
-  ScopedSE.findArrayDimensions(Strides, Sizes,
-                               ScopedSE.getOne(Strides.front()->getType()));
+  findArrayDimensions(ScopedSE, Strides, Sizes,
+                      ScopedSE.getOne(Strides.front()->getType()));
 
   LLVM_DEBUG(dbgs() << "Strides:\n");
   LLVM_DEBUG(for (auto &Blob : Strides) { Blob->dump(); });

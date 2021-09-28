@@ -26,7 +26,7 @@ static LoopVPlanDumpControl VLSDumpControl("vls",
 namespace {
 class VLSTransform {
 public:
-  VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF);
+  VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF);
 
   const char *getFailureReason() const { return FailureReason; }
 
@@ -99,9 +99,9 @@ private:
 
 private:
   OVLSGroup *Group;
-  VPlan &Plan;
+  VPlanVector &Plan;
   const DataLayout &DL;
-  VPlanDivergenceAnalysisBase &DA;
+  VPlanDivergenceAnalysis &DA;
   unsigned VF;
 
   const char *FailureReason = nullptr;
@@ -126,7 +126,7 @@ private:
 };
 } // namespace
 
-VLSTransform::VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF)
+VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
     : Group(Group), Plan(Plan), DL(*Plan.getDataLayout()),
       DA(*Plan.getVPlanDA()), VF(VF) {
   if (Group->size() <= 1) {
@@ -486,7 +486,7 @@ void VLSTransform::run(DenseSet<VPInstruction *> &InstsToRemove) {
 //   i32 %v0 = VLSExtract %vls.load, group_size=7, offset=0
 //   i16 %v1 = VLSExtract %vls.load, group_size=7, offset=2
 //   i64 %v2 = VLSExtract %vls.load, group_size=7, offset=3
-void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
+void llvm::vpo::applyVLSTransform(VPlanVector &Plan, VPlanVLSAnalysis &VLSA,
                                   unsigned VF) {
   DenseSet<VPInstruction *> InstsToRemove;
   for (auto *Group : VLSA.groups(&Plan)) {
@@ -519,7 +519,7 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
 bool llvm::vpo::isTransformableVLSGroup(OVLSGroup *Group) {
   auto Instructions = instructions(Group);
   auto *FirstInst = const_cast<VPLoadStoreInst *>(&*(*Instructions.begin()));
-  VPlan &Plan = *FirstInst->getParent()->getParent();
+  VPlanVector &Plan = cast<VPlanVector>(*FirstInst->getParent()->getParent());
   VLSTransform Transform(Group, Plan, 1 /*VF*/);
   return Transform.getFailureReason() == nullptr;
 }

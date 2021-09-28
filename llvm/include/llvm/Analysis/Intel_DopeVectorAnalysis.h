@@ -183,13 +183,15 @@ public:
     return SIV.hasValue();
   }
 
-  void addFieldAddr(Value *V) {
+  void addFieldAddr(Value *V, bool IsNotForDVCP = false) {
     // If AllowMultipleFieldAddresses is disabled then only one
     // value should access the current field.
     if (!AllowMultipleFieldAddresses &&
         !FieldAddr.empty() && FieldAddr[0] != V)
         IsBottom = true;
     FieldAddr.insert(V);
+    if (IsNotForDVCP)
+      NotForDVCPFieldAddr.insert(V);
   }
 
   // Check if the field address has been set.
@@ -251,6 +253,8 @@ public:
 
   void collectFromCopy(const DopeVectorFieldUse& CopyDVField);
 
+  bool isNotForDVCPLoad(LoadInst *LI) { return NotForDVCPLoads.contains(LI); }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void print(raw_ostream &OS, const Twine &Header) const;
@@ -266,6 +270,10 @@ private:
   // SetVector that contains the addresses for the field.
   SetVector<Value *> FieldAddr;
 
+  // SetVector that contains the addresses for the field that should not
+  // be used for dope vector constant propagation.
+  SetVector<Value *> NotForDVCPFieldAddr;
+
   // Set of locations the field is written to. Used to check what
   // value(s) is stored.
   StoreInstSet Stores;
@@ -273,6 +281,9 @@ private:
   // Set of locations the field is loaded. This will be used for examining the
   // usage for profitability heuristics and safety checks.
   LoadInstSet Loads;
+
+  // Loads in 'Loads' above that should not be dope vector constant propagated.
+  LoadInstSet NotForDVCPLoads;
 
   // Store the subscripts that access the extent, stride or lower bound
   SubscriptInstSet Subscripts;
@@ -293,7 +304,7 @@ private:
 
   // Return true if the input value V is a load instruction, or a store
   // instruction where the pointer operand is Pointer.
-  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer);
+  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
 };
 
 // This class is for analyzing the uses of all the fields that make up a dope
@@ -813,6 +824,15 @@ public:
   // Identify subscripts accessing the PtrAddr of the dope vector
   void identifyPtrAddrSubs(SubscriptInstSet &SIS);
 
+  // Identify stores to the strides of the dope vector
+  void identifyStrideStores(DopeVectorFieldUse::StoreInstSet SIS[]) {
+    auto DVFT = DopeVectorFieldType::DV_StrideBase;
+    for (unsigned I = 0; I < Rank; ++I) {
+      DopeVectorFieldUse *DVFU = getDopeVectorField(DVFT, I);
+      SIS[I].insert(DVFU->stores().begin(), DVFU->stores().end());
+    }
+  }
+
   // Return true if the current dope vector is a copy dope vector
   bool getIsCopyDopeVector() const { return IsCopyDopeVector; }
 
@@ -885,11 +905,18 @@ public:
       Value *VBase, bool AllowMultipleFieldAddresses = false,
       bool IsCopyDopeVector = false) :
       DopeVectorInfo(DVObject, DVType, AllowMultipleFieldAddresses,
-                     IsCopyDopeVector), FieldNum(FieldNum), VBase(VBase) { }
+                     IsCopyDopeVector), FieldNum(FieldNum), VBase(VBase),
+                     NotForDVCP(false) { }
 
   Value *getVBase() { return VBase; }
   void nullifyVBase() { VBase = nullptr; }
   uint64_t getFieldNum() { return FieldNum; }
+
+  // Indicate whether the dope vector constant propagation can be done
+  // on this nested dope vector.  If not, the information stored is valuable
+  // only for escapse analysis.
+  bool getNotForDVCP() const { return NotForDVCP; }
+  void setNotForDVCP(bool Value) { NotForDVCP = Value; }
 
   // Analyze the fields of the nested dope vector
   void analyzeNestedDopeVector();
@@ -908,6 +935,7 @@ public:
 private:
   uint64_t FieldNum;
   Value *VBase;
+  bool NotForDVCP;
 };
 
 // Helper class to handle a dope vector that is a global variable. A global
@@ -977,7 +1005,7 @@ public:
   uint64_t getNumNestedDopeVector() { return NestedDopeVectors.size(); }
 
   // Collect and validate the global variable and all nested dope vectors
-  void collectAndValidate(const DataLayout &DL);
+  void collectAndValidate(const DataLayout &DL, bool ForDVCP);
 
   AnalysisResult getAnalysisResult() { return AnalysisRes; }
 
@@ -1009,7 +1037,7 @@ private:
   // Traverse through the users of the subscript instruction to identify
   // the nested dope vectors and analyze the use
   bool collectNestedDopeVectorFromSubscript(SubscriptInst *SI,
-      const DataLayout &DL);
+      const DataLayout &DL, bool ForDVCP);
 
   // Given a GEP operator, check which dope vector field is being accessed,
   // collect the data and analyze it.
@@ -1022,16 +1050,17 @@ private:
   void mergeNestedDopeVectors();
 
   // Collect the nested dope vectors for the global variable
-  void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL);
+  void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL, bool ForDVCP);
 
   // Validate that all the data was collected correctly
   void validateGlobalDopeVector();
+
 
   // Identify if the current dope vector is copied to local dope vectors. If
   // so, then generate a list of new nested dope vectors to be analyzed. The
   // information of those local dope vectors that pass the analysis will
   // be merged with the nested dope vectors.
-  void collectAndAnalyzeCopyNestedDopeVectors(const DataLayout &DL);
+  void collectAndAnalyzeCopyNestedDopeVectors(const DataLayout &DL, bool ForDVCP);
 };
 
 // If 'Val' is a unique actual argument of 'CI', return its position,

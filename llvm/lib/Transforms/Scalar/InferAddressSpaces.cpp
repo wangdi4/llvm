@@ -574,8 +574,8 @@ static Value *operandWithNewAddressSpaceOrCreateUndef(
     SmallVectorImpl<const Use *> *UndefUsesToFix) {
   Value *Operand = OperandUse.get();
 
-  Type *NewPtrTy =
-      Operand->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
+  Type *NewPtrTy = PointerType::getWithSamePointeeType(
+      cast<PointerType>(Operand->getType()), NewAddrSpace);
 
   if (Constant *C = dyn_cast<Constant>(Operand))
     return ConstantExpr::getAddrSpaceCast(C, NewPtrTy);
@@ -603,8 +603,8 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
     Instruction *I, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace,
     SmallVectorImpl<const Use *> *UndefUsesToFix) const {
-  Type *NewPtrType =
-      I->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
+  Type *NewPtrType = PointerType::getWithSamePointeeType(
+      cast<PointerType>(I->getType()), NewAddrSpace);
 
   if (I->getOpcode() == Instruction::AddrSpaceCast) {
     Value *Src = I->getOperand(0);
@@ -638,7 +638,8 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
   if (AS != UninitializedAddressSpace) {
     // For the assumed address space, insert an `addrspacecast` to make that
     // explicit.
-    auto *NewPtrTy = I->getType()->getPointerElementType()->getPointerTo(AS);
+    Type *NewPtrTy = PointerType::getWithSamePointeeType(
+        cast<PointerType>(I->getType()), AS);
     auto *NewI = new AddrSpaceCastInst(I, NewPtrTy);
     NewI->insertAfter(I);
     return NewI;
@@ -700,8 +701,10 @@ static Value *cloneConstantExprWithNewAddressSpace(
     ConstantExpr *CE, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace, const DataLayout *DL,
     const TargetTransformInfo *TTI) {
-  Type *TargetType =
-    CE->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
+  Type *TargetType = CE->getType()->isPointerTy()
+                         ? PointerType::getWithSamePointeeType(
+                               cast<PointerType>(CE->getType()), NewAddrSpace)
+                         : CE->getType();
 
   if (CE->getOpcode() == Instruction::AddrSpaceCast) {
     // Because CE is flat, the source address space must be specific.

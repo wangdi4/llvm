@@ -19,6 +19,17 @@ DEVICE_EXTERN_C
 void *memcpy(void *dest, const void *src, size_t n) {
   return __devicelib_memcpy(dest, src, n);
 }
+
+DEVICE_EXTERN_C
+void *memset(void *dest, int c, size_t n) {
+  return __devicelib_memset(dest, c, n);
+}
+
+DEVICE_EXTERN_C
+int memcmp(const void *s1, const void *s2, size_t n) {
+  return __devicelib_memcmp(s1, s2, n);
+}
+
 #if defined(_WIN32)
 // Truncates a wide (16 or 32 bit) string (wstr) into an ASCII string (str).
 // Any non-ASCII characters are replaced by question mark '?'.
@@ -62,6 +73,15 @@ void __assert_fail(const char *expr, const char *file, unsigned int line,
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
+extern "C" {
+  typedef void * omp_allocator_handle_t;
+  void *__kmpc_alloc(int, size_t, omp_allocator_handle_t);
+  void __kmpc_free(int, void *, omp_allocator_handle_t);
+}
+void operator delete(void *ptr) { __kmpc_free(0, ptr, nullptr); }
+void operator delete[](void *ptr) { __kmpc_free(0, ptr, nullptr); }
+void *operator new(size_t size) { return __kmpc_alloc(0, size, nullptr); }
+void *operator new[](size_t size) { return __kmpc_alloc(0, size, nullptr); }
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB

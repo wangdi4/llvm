@@ -26,7 +26,13 @@
 ; CHECK:   %add7 = (@A)[0][5]  +  %tmp;
 ; CHECK:   (@A)[0][5] = %add7;
 
-
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-memory-reduction-sinking -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-memory-reduction-sinking,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+;
+; OPTREPORT:  LOOP BEGIN
+; OPTREPORT:     remark #25528: Load/Store of reduction at line 0 sinked after loop
+; OPTREPORT:  LOOP END
+;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

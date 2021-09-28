@@ -1,13 +1,15 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s  --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery for "phi" instruction which involve
 ; bitcast types.
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are tests for the future opaque pointer form of IR.
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are tests for the future opaque pointer form of IR.
 ; Lines marked with CHECK should remain the same when changing to use opaque pointers.
 
 
@@ -17,7 +19,7 @@
 ; safety violation for the store due to the attempt to store an i32 into a
 ; pointer location that refers to a %struct.test02**.
 %struct.test01 = type { i64*, %struct.test01*, i32 }
-define internal void @test01(i64 %in, i32 %in32, %struct.test01* %struct1, %struct.test01* %struct2) !dtrans_type !1 {
+define internal void @test01(i64 %in, i32 %in32, %struct.test01* "intel_dtrans_func_index"="1" %struct1, %struct.test01* "intel_dtrans_func_index"="2" %struct2) !intel.dtrans.func.type !4 {
 entry:
   %cmp = icmp eq i64 %in, 0
   br i1 %cmp, label %zlabel, label %nzlabel
@@ -38,32 +40,32 @@ merge:
   ret void
 }
 ; CHECK-LABEL: void @test01
-; CHECK-CUR:   %zf1 = getelementptr %struct.test01, %struct.test01* %struct1, i64 0, i32 1
-; CHECK-FUT:   %zf1 = getelementptr %struct.test01, p0 %struct1, i64 0, i32 1
+; CHECK-NONOPAQUE:   %zf1 = getelementptr %struct.test01, %struct.test01* %struct1, i64 0, i32 1
+; CHECK-OPAQUE:   %zf1 = getelementptr %struct.test01, ptr %struct1, i64 0, i32 1
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test01**{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ 1
 
-; CHECK-CUR:  %nzf1 = getelementptr %struct.test01, %struct.test01* %struct2, i64 0, i32 1
-; CHECK-FUT:  %nzf1 = getelementptr %struct.test01, p0 %struct2, i64 0, i32 1
+; CHECK-NONOPAQUE:  %nzf1 = getelementptr %struct.test01, %struct.test01* %struct2, i64 0, i32 1
+; CHECK-OPAQUE:  %nzf1 = getelementptr %struct.test01, ptr %struct2, i64 0, i32 1
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test01**{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ 1
 
-; CHECK-CUR:  %ptr1 = phi %struct.test01** [ %zf1, %zlabel ], [ %nzf1, %nzlabel ]
-; CHECK-FUT:  %ptr1 = phi p0 [ %zf1, %zlabel ], [ %nzf1, %nzlabel ]
+; CHECK-NONOPAQUE:  %ptr1 = phi %struct.test01** [ %zf1, %zlabel ], [ %nzf1, %nzlabel ]
+; CHECK-OPAQUE:  %ptr1 = phi ptr [ %zf1, %zlabel ], [ %nzf1, %nzlabel ]
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test01**{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ 1
 
-; CHECK-CUR: %ptr1_bc = bitcast %struct.test01** %ptr1 to i32*
-; CHECK-FUT: %ptr1_bc = bitcast p0 %ptr1 to p0
+; CHECK-NONOPAQUE: %ptr1_bc = bitcast %struct.test01** %ptr1 to i32*
+; CHECK-OPAQUE: %ptr1_bc = bitcast ptr %ptr1 to ptr
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test01**{{ *$}}
@@ -80,7 +82,7 @@ merge:
 ; safety violation for the store due to the attempt to store an i32 into a
 ; pointer location that refers to a %struct.test02**.
 %struct.test02 = type { i64*, %struct.test02*, i32 }
-define internal void @test02(i64 %in, i32 %in32, %struct.test02* %struct1, %struct.test02* %struct2) !dtrans_type !7 {
+define internal void @test02(i64 %in, i32 %in32, %struct.test02* "intel_dtrans_func_index"="1" %struct1, %struct.test02* "intel_dtrans_func_index"="2" %struct2) !intel.dtrans.func.type !6 {
 entry:
   %cmp = icmp eq i64 %in, 0
   br i1 %cmp, label %zlabel, label %nzlabel
@@ -102,24 +104,24 @@ merge:
   ret void
 }
 ; CHECK-LABEL: void @test02
-; CHECK-CUR:  %zf1 = getelementptr %struct.test02, %struct.test02* %struct1, i64 0, i32 1
-; CHECK-FUT:  %zf1 = getelementptr %struct.test02, p0 %struct1, i64 0, i32 1
+; CHECK-NONOPAQUE:  %zf1 = getelementptr %struct.test02, %struct.test02* %struct1, i64 0, i32 1
+; CHECK-OPAQUE:  %zf1 = getelementptr %struct.test02, ptr %struct1, i64 0, i32 1
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test02**{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test02 @ 1
 
-; CHECK-CUR:  %nzf1 = getelementptr %struct.test02, %struct.test02* %struct2, i64 0, i32 1
-; CHECK-FUT:  %nzf1 = getelementptr %struct.test02, p0 %struct2, i64 0, i32 1
+; CHECK-NONOPAQUE:  %nzf1 = getelementptr %struct.test02, %struct.test02* %struct2, i64 0, i32 1
+; CHECK-OPAQUE:  %nzf1 = getelementptr %struct.test02, ptr %struct2, i64 0, i32 1
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test02**{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test02 @ 1
 
-; CHECK-CUR:  %ptr1 = phi i32* [ %zf_bc1, %zlabel ], [ %nzf_bc1, %nzlabel ]
-; CHECK-FUT:  %ptr1 = phi p0 [ %zf_bc1, %zlabel ], [ %nzf_bc1, %nzlabel ]
+; CHECK-NONOPAQUE:  %ptr1 = phi i32* [ %zf_bc1, %zlabel ], [ %nzf_bc1, %nzlabel ]
+; CHECK-OPAQUE:  %ptr1 = phi ptr [ %zf_bc1, %zlabel ], [ %nzf_bc1, %nzlabel ]
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        %struct.test02**{{ *$}}
@@ -128,17 +130,13 @@ merge:
 ; CHECK-NEXT:        %struct.test02 @ 1
 
 
-!1 = !{!"F", i1 false, i32 4, !2, !3, !4, !5, !5}  ; void (i64, i32, %struct.test01*, %struct.test01*)
-!2 = !{!"void", i32 0}  ; void
-!3 = !{i64 0, i32 0}  ; i64
-!4 = !{i32 0, i32 0}  ; i32
-!5 = !{!6, i32 1}  ; %struct.test01*
-!6 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!7 = !{!"F", i1 false, i32 4, !2, !3, !4, !8, !8}  ; void (i64, i32, %struct.test02*, %struct.test02*)
-!8 = !{!9, i32 1}  ; %struct.test02*
-!9 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!10 = !{i64 0, i32 1}  ; i64*
-!11 = !{!"S", %struct.test01 zeroinitializer, i32 3, !10, !5, !4} ; { i64*, %struct.test01*, i32 }
-!12 = !{!"S", %struct.test02 zeroinitializer, i32 3, !10, !8, !4} ; { i64*, %struct.test02*, i32 }
+!1 = !{i64 0, i32 1}  ; i64*
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = !{i32 0, i32 0}  ; i32
+!4 = distinct !{!2, !2}
+!5 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!6 = distinct !{!5, !5}
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !3} ; { i64*, %struct.test01*, i32 }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !5, !3} ; { i64*, %struct.test02*, i32 }
 
-!dtrans_types = !{!11, !12}
+!intel.dtrans.types = !{!7, !8}

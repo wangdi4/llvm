@@ -8,7 +8,7 @@
 ; 'ptrtoint' of a pointer that may alias multiple types is not permitted.
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i64 }
-define void @test01(%struct.test01a* %pStruct1) !dtrans_type !3 {
+define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !4 {
   %pStruct1.as.pB = bitcast %struct.test01a* %pStruct1 to %struct.test01b*
   %use1 = getelementptr %struct.test01b, %struct.test01b* %pStruct1.as.pB, i64 0, i32 0
   %tmp1 = ptrtoint %struct.test01b* %pStruct1.as.pB to i64
@@ -26,7 +26,7 @@ define void @test01(%struct.test01a* %pStruct1) !dtrans_type !3 {
 
 ; 'ptrtoint' that does not go to the same size as a pointer is not permitted.
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02* %pStruct1) !dtrans_type !7 {
+define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1) !intel.dtrans.func.type !6 {
   %tmp1 = ptrtoint %struct.test02* %pStruct1 to i32
   ret void
 }
@@ -37,15 +37,12 @@ define void @test02(%struct.test02* %pStruct1) !dtrans_type !7 {
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64
-!3 = !{!"F", i1 false, i32 1, !4, !5}  ; void (%struct.test01a*)
-!4 = !{!"void", i32 0}  ; void
-!5 = !{!6, i32 1}  ; %struct.test01a*
-!6 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
-!7 = !{!"F", i1 false, i32 1, !4, !8}  ; void (%struct.test02*)
-!8 = !{!9, i32 1}  ; %struct.test02*
-!9 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!10 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!11 = !{!"S", %struct.test01b zeroinitializer, i32 1, !2} ; { i64 }
-!12 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!3 = !{%struct.test01a zeroinitializer, i32 1}  ; %struct.test01a*
+!4 = distinct !{!3}
+!5 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!6 = distinct !{!5}
+!7 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!8 = !{!"S", %struct.test01b zeroinitializer, i32 1, !2} ; { i64 }
+!9 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!10, !11, !12}
+!intel.dtrans.types = !{!7, !8, !9}

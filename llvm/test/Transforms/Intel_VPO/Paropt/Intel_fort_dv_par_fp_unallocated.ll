@@ -65,11 +65,11 @@ bb3:                                              ; preds = %alloca_0
   store i64 4, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 1), align 8
   store i64 1, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 4), align 16
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 2), align 16
-  %"[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 2), i32 0)
+  %"[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 2), i32 0)
   store i64 1, i64* %"[]", align 1
-  %"[]5" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 0), i32 0)
+  %"[]5" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 0), i32 0)
   store i64 10, i64* %"[]5", align 1
-  %"[]8" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 1), i32 0)
+  %"[]8" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 1), i32 0)
   store i64 4, i64* %"[]8", align 1
   %_fetch = load i64, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 3), align 8
   %and = and i64 %_fetch, -68451041281
@@ -85,14 +85,14 @@ bb3:                                              ; preds = %alloca_0
   %or42 = or i32 %or38, 262144
   %func_result44 = call i32 @for_alloc_allocatable(i64 40, i8** bitcast (%"QNCA_a0$i32*$rank1$"* @"main_$X" to i8**), i32 %or42) #1
   %_fetch58 = load i32*, i32** getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 0), align 16
-  %"[]50" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 2), i32 0)
+  %"[]50" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 2), i32 0)
   %"[]50_fetch" = load i64, i64* %"[]50", align 1
-  %"_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %"[]50_fetch", i64 4, i32* %_fetch58, i64 1)
+  %"_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %"[]50_fetch", i64 4, i32* elementtype(i32) %_fetch58, i64 1)
   store i32 123, i32* %"_fetch[]", align 1
   %_fetch72 = load i32*, i32** getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 0), align 16
-  %"[]61" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 2), i32 0)
+  %"[]61" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* @"main_$X", i64 0, i32 6, i64 0, i32 2), i32 0)
   %"[]61_fetch" = load i64, i64* %"[]61", align 1
-  %"_fetch[]69" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %"[]61_fetch", i64 4, i32* %_fetch72, i64 1)
+  %"_fetch[]69" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %"[]61_fetch", i64 4, i32* elementtype(i32) %_fetch72, i64 1)
   %"_fetch[]69_fetch" = load i32, i32* %"_fetch[]69", align 1
   %addressof.repack = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 0
   store i8 9, i8* %addressof.repack, align 1

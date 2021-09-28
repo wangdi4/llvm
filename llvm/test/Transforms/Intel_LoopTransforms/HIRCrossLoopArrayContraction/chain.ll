@@ -91,22 +91,22 @@
 ; CHECK:           |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   (%ContractedArray)[i4][i5] = i4 + i5;
+; CHECK:           |   |   |   |   |   (%ContractedArray)[0][i4][i5] = i4 + i5;
 ; CHECK:           |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   + END LOOP
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   %5 = (%ContractedArray)[i5][i4];
-; CHECK:           |   |   |   |   |   (%ContractedArray16)[i4][i5] = i5 + %5;
+; CHECK:           |   |   |   |   |   %5 = (%ContractedArray)[0][i5][i4];
+; CHECK:           |   |   |   |   |   (%ContractedArray16)[0][i4][i5] = i5 + %5;
 ; CHECK:           |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   + END LOOP
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   %8 = (%ContractedArray16)[i5][i4];
+; CHECK:           |   |   |   |   |   %8 = (%ContractedArray16)[0][i5][i4];
 ; CHECK:           |   |   |   |   |   (%C)[0][i1][i2][i3][i4][i5] = i5 + %8;
 ; CHECK:           |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   + END LOOP

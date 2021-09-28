@@ -19,6 +19,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeBuiltinCallToInstLegacyPass(Registry);
   initializeBuiltinImportLegacyPass(Registry);
   initializeCleanupWrappedKernelLegacyPass(Registry);
+  initializeCoerceWin64TypesLegacyPass(Registry);
   initializeCreateSimdVariantPropagationLegacyPass(Registry);
   initializeDataPerBarrierWrapperPass(Registry);
   initializeDataPerValueWrapperPass(Registry);
@@ -27,9 +28,12 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDPCPPKernelPostVecPass(Registry);
   initializeDPCPPKernelVecCloneLegacyPass(Registry);
   initializeDPCPPKernelWGLoopCreatorLegacyPass(Registry);
+  initializeDPCPPPreprocessSPIRVFriendlyIRLegacyPass(Registry);
   initializeDuplicateCalledKernelsLegacyPass(Registry);
   initializeGroupBuiltinLegacyPass(Registry);
+  initializeHandleVPlanMaskLegacyPass(Registry);
   initializeImplicitArgsAnalysisLegacyPass(Registry);
+  initializeIndirectCallLoweringLegacyPass(Registry);
   initializeInternalizeNonKernelFuncLegacyPass(Registry);
   initializeKernelBarrierLegacyPass(Registry);
   initializeLinearIdResolverLegacyPass(Registry);
@@ -38,11 +42,22 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializePhiCanonicalizationLegacyPass(Registry);
   initializePrepareKernelArgsLegacyPass(Registry);
   initializeRedundantPhiNodeLegacyPass(Registry);
+  initializeResolveSubGroupWICallLegacyPass(Registry);
   initializeResolveWICallLegacyPass(Registry);
+  initializeSetVectorizationFactorLegacyPass(Registry);
+  initializeSGBarrierPropagateLegacyPass(Registry);
+  initializeSGBarrierSimplifyLegacyPass(Registry);
+  initializeSGBuiltinLegacyPass(Registry);
+  initializeSGLoopConstructLegacyPass(Registry);
+  initializeSGSizeAnalysisLegacyPass(Registry);
+  initializeSGSizeCollectorLegacyPass(Registry);
+  initializeSGSizeCollectorIndirectLegacyPass(Registry);
+  initializeSGValueWidenLegacyPass(Registry);
   initializeSplitBBonBarrierLegacyPass(Registry);
   initializeUpdateCallAttrsLegacyPass(Registry);
   initializeVectorVariantFillInLegacyPass(Registry);
   initializeVectorVariantLoweringLegacyPass(Registry);
+  initializeVFAnalysisLegacyPass(Registry);
   initializeWIRelatedValueWrapperPass(Registry);
 }
 

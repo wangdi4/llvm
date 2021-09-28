@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-report=7 -inline-threshold=-50 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=7 -inline-threshold=-50 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-report=0xe807 -inline-threshold=-50 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=0xe807 -inline-threshold=-50 -S 2>&1 | FileCheck %s
 
 ; Check the IR to ensure that there are no calls to the functions we expect
 ; to be inlined out due to aggressive inlining.

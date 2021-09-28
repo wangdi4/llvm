@@ -24,26 +24,26 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
 
 
 ; VEC-HIR:      <0>          BEGIN REGION { modified }
-; VEC-HIR-NEXT: <26:8>                  %red.init = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
-; VEC-HIR-NEXT: <27:8>                  %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
-; VEC-HIR-NEXT: <25:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; VEC-HIR-NEXT: <28:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <29:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <30:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !30
-; VEC-HIR-NEXT: <31:10>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <32:11>            |     %.vec3 = ashr exact <4 x i32> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <33:11>            |     %.vec4 = fcmp fast true <4 x float> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <34:11>            |     %.vec5 = add <4 x i32> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <35:11>            |     %.vec6 = add <4 x i32> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <36:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !32
-; VEC-HIR-NEXT: <37:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <25:8>             + END LOOP
-; VEC-HIR-NEXT: <38:11>                  %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !32
+; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %red.init = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
+; VEC-HIR:      <{{[0-9]+}}:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !30
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec3 = ashr exact <4 x i32> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec4 = fcmp fast true <4 x float> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec5 = add <4 x i32> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec6 = add <4 x i32> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !32
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:8>             + END LOOP
+; VEC-HIR:      <{{[0-9]+}}:11>            %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !32
 ; VEC-HIR-NEXT: <0>          END REGION
 
 

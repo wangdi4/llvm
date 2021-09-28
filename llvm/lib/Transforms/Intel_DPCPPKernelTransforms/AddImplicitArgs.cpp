@@ -23,6 +23,14 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-add-implicit-args"
 
+// TODO This command line option indicates if the AddTLSGlobals pass is enabled
+// by "-use-tls-globals" so that DPCPPKernelTransforms passes can behave
+// accordingly. It should be removed when porting AddTLSGlobals pass.
+bool EnableTLSGlobals;
+static cl::opt<bool, true> OptEnableTLSGlobals(
+    "dpcpp-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
+    cl::location(EnableTLSGlobals), cl::init(false), cl::Hidden);
+
 namespace {
 
 /// Legacy AddImplicitArgs pass.
@@ -263,10 +271,11 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
     Value *LocalMem = CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
     Twine ValName = "LocalMem_" + Name;
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual
-    // type (not using type from pointer as this functionality is planned to
+    // type (not using type from pointer as this functionality is planned o
     // be removed.
+    Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
     Value *NewLocalMem = GetElementPtrInst::Create(
-        nullptr, LocalMem,
+        Ty, LocalMem,
         ConstantInt::get(IntegerType::get(F->getContext(), 32),
                          DirectLocalSize),
         ValName, CI);
@@ -296,9 +305,24 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
         Constant *NewCE = ConstantExpr::getPtrToInt(NewF, CE->getType());
         CE->replaceAllUsesWith(NewCE);
       }
-    }
-    // Handle call instruction.
-    else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+    } else if (auto *C = dyn_cast<ConstantAggregate>(U)) {
+      Constant *NewFCast = ConstantExpr::getPointerCast(NewF, F->getType());
+      SmallVector<Constant *, 16> NewVec;
+      for (Value *Op : C->operand_values()) {
+        Constant *NewElt = (Op == F) ? NewFCast : cast<Constant>(Op);
+        NewVec.push_back(NewElt);
+      }
+      Constant *NewC;
+      if (auto *CArray = dyn_cast<ConstantArray>(C))
+        NewC = ConstantArray::get(CArray->getType(), NewVec);
+      else if (auto *CStruct = dyn_cast<ConstantStruct>(C))
+        NewC = ConstantStruct::get(CStruct->getType(), NewVec);
+      else if (isa<ConstantVector>(C))
+        NewC = ConstantVector::get(NewVec);
+      else
+        llvm_unreachable("unexpected ConstantAggregate user");
+      C->replaceAllUsesWith(NewC);
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       replaceCallInst(CI, NewTypes, NewF);
     } else if (auto *CI = dyn_cast<PtrToIntInst>(U)) {
       auto *NewCE = CastInst::CreatePointerCast(NewF, CI->getType(), "", CI);
@@ -320,14 +344,6 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       NewSI->setDebugLoc(SI->getDebugLoc());
       SI->replaceAllUsesWith(NewSI);
       SI->eraseFromParent();
-    } else if (auto *C = dyn_cast<ConstantVector>(U)) {
-      Constant *NewFCast = ConstantExpr::getPointerCast(NewF, F->getType());
-      SmallVector<Constant *, 16> NewVec;
-      for (Value *Op : C->operand_values()) {
-        Constant *NewElt = (Op == F) ? NewFCast : cast<Constant>(Op);
-        NewVec.push_back(NewElt);
-      }
-      C->replaceAllUsesWith(ConstantVector::get(NewVec));
     } else {
       // We should not be here.
       // Unhandled case except for SelectInst - they will be handled later.

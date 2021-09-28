@@ -26,8 +26,8 @@
 
 ; RUN : opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -hir-cg -intel-loop-optreport=low -simplifycfg < %s -S | FileCheck %s
 
-;CHECK:  {{![0-9]+}} = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
-;CHECK:  [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]
+;CHECK:  {{![0-9]+}} = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
+;CHECK:  [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]
 ;CHECK:  {{![0-9]+}} = !{!"intel.optreport.remarks", [[M8:!.*]]}
 ;CHECK:  [[M8]] = !{!"intel.optreport.remark", !"blocked by %d", {{[1-9][0-9]*}}}
 

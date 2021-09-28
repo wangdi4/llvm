@@ -116,6 +116,9 @@ static cl::opt<bool> EnableAsyncHelperThread(
     "vpo-paropt-enable-async-helper-thread", cl::Hidden, cl::init(false),
     cl::desc("Enable hidden helper threads for async offloading execution"));
 
+static cl::opt<bool> KeepBlocksOrder(
+    "vpo-paropt-keep-blocks-order", cl::Hidden, cl::init(true),
+    cl::desc("Keep the order of blocks during function outlining."));
 
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
@@ -3026,6 +3029,61 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                 DT, LI, IsTargetSPIRV, LockNameSuffix, Hint);
 }
 
+// This function generates a call as follows.
+// void @__kmpc_scope(%ident_t* %loc.addr.11.12, i32 %my.tid, void* %reserved)
+CallInst *VPOParoptUtils::genKmpcScopeCall(WRegionNode *W,
+                                           StructType *IdentTy, Value *Tid,
+                                           Instruction *InsertPt) {
+  return genKmpcScopeOrEndScopeCall(W, IdentTy, Tid, InsertPt, true);
+}
+
+// This function generates a call as follows.
+// void @__kmpc_end_scope(%ident_t* %loc, i32 %tid, void *reserved)
+CallInst *VPOParoptUtils::genKmpcEndScopeCall(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *Tid,
+                                              Instruction *InsertPt) {
+  return genKmpcScopeOrEndScopeCall(W, IdentTy, Tid, InsertPt, false);
+}
+
+// This function generates calls for the scope region.
+//
+//   call void @__kmpc_scope(%ident_t* %loc, i32 %tid, void *reserved)
+//      or
+//   call void @__kmpc_end_scope(%ident_t* %loc, i32 %tid, void *reserved)
+CallInst *VPOParoptUtils::genKmpcScopeOrEndScopeCall(
+    WRegionNode *W, StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+    bool IsScopeStart) {
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  Type *RetTy = nullptr;
+  StringRef FnName;
+
+  if (IsScopeStart)
+    FnName = "__kmpc_scope";
+  else
+    FnName = "__kmpc_end_scope";
+
+  RetTy = Type::getVoidTy(C);
+  Type *I32Ty = Type::getInt32Ty(C);
+
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(Align(4));
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 4> FnArgs = {LoadTid};
+  // push: void *reserved
+  FnArgs.push_back(ConstantPointerNull::get(Int8PtrTy));
+
+  CallInst *BeginOrEndScopeCall =
+      VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return BeginOrEndScopeCall;
+}
+
 // Generates tree reduce block around Instructions `BeginInst` and `EndInst` and
 // atomic reduce block around Instructions `AtomicBeginInst` and
 // `AtomicEndInst`.
@@ -3383,49 +3441,47 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   return TaskgroupOrEndCall;
 }
 
-// This function generates a call to query the current thread if it is a master
-// thread. Or, generates a call to end_master callfor the team of threads.
-//   %master = call @__kmpc_master(%ident_t* %loc, i32 %tid)
+// This function generates a call to query if the current thread is a masked
+// thread. Or, generates a call to end_masked for the team of threads.
+//   %masked = call @__kmpc_masked(%ident_t* %loc, i32 %tid, i32 %filter)
 //      or
-//   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
+//   call void @__kmpc_end_masked(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcMaskedOrEndMaskedCall(
     WRegionNode *W, StructType *IdentTy, Value *Tid, Instruction *InsertPt,
-    bool IsMasterStart, bool IsTargetSPIRV) {
+    bool IsMaskedStart, bool IsTargetSPIRV) {
 
-  BasicBlock  *B = W->getEntryBBlock();
-  Function    *F = B->getParent();
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
   LLVMContext &C = F->getContext();
 
   Type *RetTy = nullptr;
   Type *I32Ty = Type::getInt32Ty(C);
   StringRef FnName;
 
-  if (IsMasterStart) {
-    FnName = "__kmpc_master";
+  if (IsMaskedStart) {
+    FnName = "__kmpc_masked";
     RetTy = I32Ty;
-  }
-  else {
-    FnName = "__kmpc_end_master";
+  } else {
+    FnName = "__kmpc_end_masked";
     RetTy = Type::getVoidTy(C);
   }
 
-  if (IsTargetSPIRV) {
-    // Create an empty begin/end master call without parameters.
-    // Don't insert it into the IR yet.
-    Module *M = F->getParent();
-    CallInst *MasterOrEndCall = genEmptyCall(M, FnName, RetTy, nullptr);
-    return MasterOrEndCall;
-  }
-
-  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(Align(4));
-
   // Now bundle all the function arguments together.
-  SmallVector<Value *, 3> FnArgs = {LoadTid};
+  SmallVector<Value *, 3> FnArgs;
+  IRBuilder<> Builder(InsertPt);
+  Value *Zero = Builder.getInt32(0);
 
-  CallInst *MasterOrEndCall = VPOParoptUtils::genKmpcCall(W,
-                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
-  return MasterOrEndCall;
+  // The Tid arg is ignored by the target device runtime, hence we push 0.
+  FnArgs.push_back(IsTargetSPIRV ? Zero
+                                 : Builder.CreateAlignedLoad(
+                                       I32Ty, Tid, Align(4), "my.tid"));
+
+  if (IsMaskedStart)
+    FnArgs.push_back(isa<WRNMaskedNode>(W) ? W->getFilter() : Zero);
+
+  CallInst *MaskedOrEndCall =
+      VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return MaskedOrEndCall;
 }
 
 // This function generates calls to guard the single thread execution for the
@@ -3638,10 +3694,12 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
   AllocaInst *DimsVec =
       Builder.CreateAlloca(DimsVecTy, NumLoopsVal, "dims.vec");
 
-  auto populateDimsVecAtIndex = [&](Value *Base, Value *Index, Value *Val) {
+  auto populateDimsVecAtIndex = [&](Value *Base, Value *Index,
+                                    Value *Val) {
     Value *ValCast = Builder.CreateSExtOrBitCast(Val, Int64Ty);
     Value *DstPtr = Builder.CreateInBoundsGEP(
-        Base, {Zero, Index});                     // (3) (5) (7) (10) (12) (14)
+        cast<GEPOperator>(Base)->getResultElementType(), Base,
+        {Zero, Index});                           // (3) (5) (7) (10) (12) (14)
     Builder.CreateStore(ValCast, DstPtr);         // (4) (6) (8) (11) (13) (15)
   };
 
@@ -3652,8 +3710,8 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
     Value *UBound = TripCounts[I];
 
     // First get a handle on the DimsVecTy struct for this loop from the array.
-    Value *DimsVecForLoopI =
-        Builder.CreateInBoundsGEP(DimsVec, {Builder.getInt32(I)}); //   (2) (9)
+    Value *DimsVecForLoopI = Builder.CreateInBoundsGEP(
+        DimsVecTy, DimsVec, Builder.getInt32(I)); //                    (2) (9)
 
     // Store lbound to index 0 of the struct.
     populateDimsVecAtIndex(DimsVecForLoopI, Zero, LBound); // (3) (4) (10) (11)
@@ -3953,6 +4011,7 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Value *InteropObj,
+                                         llvm::Optional<uint64_t> InteropPosition,
                                          Instruction *InsertPt, WRegionNode *W,
                                          bool IsTail) {
   assert(BaseCall && "BaseCall is null");
@@ -3979,18 +4038,58 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   }
 
   if (InteropObj != nullptr) {
-    FnArgs.push_back(InteropObj);
-    if (!IsVarArg)
-      // If not VarArg, then the signature of the variant function has one
-      // more parameter (for void *interopObj) than the base function, so
-      // we need to update FnArgTypes accordingly.
-      FnArgTypes.push_back(Int8PtrTy);
+    // If !InteropPosition, then InteropObj is appended as the last arg.
+    // Otherwise, InteropPosition.getValue() is the position of the InteropObj
+    // in the arg list. The position is 1-based (ie, first arg is position 1,
+    // not 0).
+    if (InteropPosition) {
+      assert(!IsVarArg &&
+             "Unexpected VarArg variant function when InteropPosition is used");
+      uint64_t Position = InteropPosition.getValue();
+      auto ArgsIter = FnArgs.begin() + Position - 1;
+      FnArgs.insert(ArgsIter, InteropObj);
+      auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
+      FnArgTypes.insert(ArgTypesIter, Int8PtrTy);
+    } else {
+      FnArgs.push_back(InteropObj);
+      if (!IsVarArg)
+        // If not VarArg, then the signature of the variant function has one
+        // more parameter (for void *interopObj) than the base function, so
+        // we need to update FnArgTypes accordingly.
+        FnArgTypes.push_back(Int8PtrTy);
+    }
   }
 
-  return genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
-                 IsVarArg,
-                 /*AllowMismatchingPointerArgs=*/true,
-                 /*EmitErrorOnFnTypeMismatch=*/true);
+  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
+                                  InsertPt, IsTail, IsVarArg,
+                                  /*AllowMismatchingPointerArgs=*/true,
+                                  /*EmitErrorOnFnTypeMismatch=*/true);
+
+  // Propagate the ByVal attribute of arguments in the base call to
+  // corresponding arguments in the variant call.
+  // Example:
+  // -Base:           call void @foo1(%struct.A* byval(%struct.A) align 8 %AAA)
+  // -Variant before: call void @foo2(%struct.A* %AAA)
+  // -Variant after:  call void @foo2(%struct.A* byval(%struct.A) align 8 %AAA)
+  for (unsigned ArgNum = 0; ArgNum < BaseCall->getNumArgOperands(); ++ArgNum) {
+    if (BaseCall->isByValArgument(ArgNum)) {
+      Type *ArgType = FnArgTypes[ArgNum];
+      assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
+      VariantCall->addParamAttr(
+          ArgNum,
+          Attribute::getWithByValType(C, ArgType->getPointerElementType()));
+      // Byval arguments may have an alignment; propagate it too
+      MaybeAlign MayAln = BaseCall->getParamAlign(ArgNum);
+      Align Aln = MayAln.valueOrOne();
+      unsigned Alignment = Aln.value();
+      if (Alignment > 1)
+        VariantCall->addParamAttr(
+            ArgNum, Attribute::getWithAlignment(C, Align(Alignment)));
+    }
+  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant Call:" << *VariantCall
+                    << "\n");
+  return VariantCall;
 }
 
 // Creates a call with no parameters
@@ -4699,6 +4798,8 @@ void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   BasicBlock::iterator InsertPt = Builder.GetInsertPoint();
   if (Builder.GetInsertBlock()->end() != InsertPt)
     Call->setDebugLoc((&*InsertPt)->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-constructor"));
   LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
 }
 
@@ -4713,6 +4814,8 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
   Call->insertAfter(InsertAfterPt);
   Call->setDebugLoc(InsertAfterPt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-constructor"));
   LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4733,6 +4836,8 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   CallInst *Call = genCall(Dtor->getParent(), Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-destructor"));
   LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4750,6 +4855,8 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
       genCall(Cctor->getParent(), Cctor, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-copyconstructor"));
   LLVM_DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4767,6 +4874,8 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
   CallInst *Call = genCall(Cp->getParent(), Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-copyassign"));
   LLVM_DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
   return Call;
 }
@@ -4885,7 +4994,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   //   %1 = getelementptr inbounds ([10 x i32], [10 x i32]* %0, i32 0, i32 0)
   bool MimicArrayAllocation = false;
 
-  if (ConstNumElements > 0) {
+  if (ConstNumElements > 1) {
     // NumElements is a constant
     ElementType = ArrayType::get(ElementType, ConstNumElements);
     NumElements = nullptr;
@@ -4918,18 +5027,16 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
            "Expected ArrayType alloca.");
     assert(!AI->isArrayAllocation() &&
            "Unexpected array alloca with array type.");
-    V = Builder.CreateInBoundsGEP(
-        AI, {Builder.getInt32(0), Builder.getInt32(0)},
-        AI->getName() + Twine(".gep"));
+    V = Builder.CreateInBoundsGEP(AI->getAllocatedType(), AI,
+                                  {Builder.getInt32(0), Builder.getInt32(0)},
+                                  AI->getName() + Twine(".gep"));
   }
 
   if (!ValueAddrSpace)
     return V;
 
-  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-  // specific AddressSpace. The API currently needs the Element Type as well.
-  auto *CastTy = V->getType()->getPointerElementType()->
-      getPointerTo(ValueAddrSpace.getValue());
+  auto *CastTy = PointerType::getWithSamePointeeType(
+      cast<PointerType>(V->getType()), ValueAddrSpace.getValue());
   auto *ASCI = dyn_cast<Instruction>(
       AddrSpaceCastValue(Builder, V, CastTy));
 
@@ -5242,7 +5349,10 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
     GepIndices.push_back(Zero);
   }
 
-  ArrayBegin = Builder.CreateInBoundsGEP(BaseAddr, GepIndices, "array.begin");
+  // TODO: OPAQUEPOINTER: element type needs to be passed in
+  ArrayBegin = Builder.CreateInBoundsGEP(
+      BaseAddr->getType()->getScalarType()->getPointerElementType(), BaseAddr,
+      GepIndices, "array.begin");
 
   return NumElements;
 }
@@ -5275,10 +5385,8 @@ Value *VPOParoptUtils::genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                         unsigned AddrSpace) {
   PointerType *PtType = cast<PointerType>(Ptr->getType());
   IRBuilder<> Builder(InsertPt);
-  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-  // specific AddressSpace. The API currently needs the Element Type as well.
   Value *RetVal = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      Ptr, PtType->getPointerElementType()->getPointerTo(AddrSpace));
+      Ptr, PointerType::getWithSamePointeeType(PtType, AddrSpace));
 
   return RetVal;
 }
@@ -5649,6 +5757,43 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
   }
 }
 
+// For the given array of blocks collected for code extraction
+// create new vector, where the blocks are ordered the same way
+// they are ordered originally within their function.
+static SmallVector<BasicBlock *>
+orderBlocksForOutlining(ArrayRef<BasicBlock *> Blocks) {
+  SmallVector<BasicBlock *> OrderedBlocks;
+  SmallPtrSet<BasicBlock *, 16> BlocksSet;
+
+  if (Blocks.empty())
+    return SmallVector<BasicBlock *>();
+
+  // CodeExtractor verifies that only the first block in the array
+  // of blocks may have entries from outside. Usually it is true
+  // that the region entry is the first block in the array of blocks
+  // collected for the code extraction, but if it is not true,
+  // then we have to make sure that we preserve the first block's position
+  // in the resulting vector.
+  OrderedBlocks.push_back(Blocks.front());
+  Blocks = Blocks.drop_front();
+
+  if (Blocks.empty())
+    return OrderedBlocks;
+
+  for (auto *BB : Blocks)
+    BlocksSet.insert(BB);
+
+  // Walk all blocks in the function in their original order
+  // and collect the blocks that are in BlocksSet into OrderedBlocks vector.
+  Function *F = Blocks.front()->getParent();
+  Function::BasicBlockListType &BlocksList = F->getBasicBlockList();
+  for (BasicBlock &BB : BlocksList)
+    if (BlocksSet.count(&BB))
+      OrderedBlocks.push_back(&BB);
+
+  return OrderedBlocks;
+}
+
 Function *VPOParoptUtils::genOutlineFunction(
     const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
     llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
@@ -5709,8 +5854,18 @@ Function *VPOParoptUtils::genOutlineFunction(
   // and Paropt ignores any subsequent constructs, and leaves them in the IR
   // to be removed by other optimization passes (done in
   // VPOParoptTransform::paroptTransforms()).
+  //
+  // Similarly, for cases with nested regions that are to be outlined (see
+  // unreachable_end_infinite_loop_par_masked_par.ll), if an inner region has
+  // unreachable exit directive, outlining it may cause insertion of an early
+  // return after the outlined function call, making the parent region
+  // non-conforming as that now has an early return call, making it
+  // non-single-entry-single-exit. When attempting to handle such parent region
+  // later, Paropt/code-extractor may crash. To avoid this, we ensure that inner
+  // regions being outlined, that have a parent region, pull in all unreachable
+  // blocks into the outlined function.
   bool MoveUnreachableRegionBlocksToExtractedFunction =
-      (IsTarget || WRegionUtils::hasParentTarget(&W)) &&
+      (IsTarget || W.getParent()) &&
       (SuccOfExitBB && !DT->isReachableFromEntry(SuccOfExitBB));
 
   // Fix "escaping" EH edges that go outside the region, and dead predecessors.
@@ -5723,6 +5878,16 @@ Function *VPOParoptUtils::genOutlineFunction(
   FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
     ExtractArray = makeArrayRef(FixedBlocks);
+
+  // Order the blocks being extracted the same way they are originally ordered,
+  // otherwise, CodeExtractor will change the blocks layout, which may
+  // affect the final program's debuggability.
+  SmallVector<BasicBlock *> OrderedBlocks;
+
+  if (KeepBlocksOrder) {
+    OrderedBlocks = orderBlocksForOutlining(ExtractArray);
+    ExtractArray = makeArrayRef(OrderedBlocks);
+  }
 
   CodeExtractor CE(ExtractArray, DT,
                    /* AggregateArgs */ false,
@@ -5836,6 +6001,7 @@ Function *VPOParoptUtils::genOutlineFunction(
 
   // Set up the calling convention used by OpenMP runtime library.
   setFuncCallingConv(CallSite, CallSite->getModule());
+  NewFunction->addFnAttr("processed-by-vpo");
 
   return NewFunction;
 }

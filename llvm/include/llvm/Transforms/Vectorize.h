@@ -170,7 +170,7 @@ Pass *createVPlanDriverPass(FatalErrorHandlerTy FatalErrorHandler = nullptr);
 //
 // VPlan HIR Vectorizer - Create a VPlan Driver pass for HIR.
 //
-Pass *createVPlanDriverHIRPass();
+Pass *createVPlanDriverHIRPass(bool LightWeightMode);
 
 Pass *createVPlanFunctionVectorizerPass();
 

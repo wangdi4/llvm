@@ -1,6 +1,6 @@
 //===----------- HLLoop.h - High level IR loop node -------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -24,8 +24,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/IR/InstrTypes.h"
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include <functional>
 
 namespace llvm {
@@ -159,7 +159,7 @@ private:
   DebugLoc BranchDbgLoc;
 
   // Optimization report for the loop.
-  LoopOptReport OptReport;
+  OptReport OR;
 
   bool HasDistributePoint;
 
@@ -1240,9 +1240,9 @@ public:
 
   const DebugLoc getDebugLoc() const override { return getBranchDebugLoc(); }
 
-  LoopOptReport getOptReport() const { return OptReport; }
-  void setOptReport(LoopOptReport R) { OptReport = R; }
-  void eraseOptReport() { OptReport = nullptr; }
+  OptReport getOptReport() const { return OR; }
+  void setOptReport(OptReport R) { OR = R; }
+  void eraseOptReport() { OR = nullptr; }
 
   /// Returns the bottom test node for the loop. It is null for non-unknown
   /// loops.
@@ -1382,16 +1382,16 @@ private:
 
 } // End namespace loopopt
 
-// Traits of HLLoop for LoopOptReportBuilder.
-template <> struct LoopOptReportTraits<loopopt::HLLoop> {
+// Traits of HLLoop for OptReportBuilder.
+template <> struct OptReportTraits<loopopt::HLLoop> {
   using ObjectHandleTy = loopopt::HLLoop &;
-  using ChildLoopTy = loopopt::HLLoop;
+  using ChildNodeTy = loopopt::HLLoop;
 
-  static LoopOptReport getOptReport(const loopopt::HLLoop &Loop) {
+  static OptReport getOptReport(const loopopt::HLLoop &Loop) {
     return Loop.getOptReport();
   }
 
-  static void setOptReport(loopopt::HLLoop &Loop, LoopOptReport OR) {
+  static void setOptReport(loopopt::HLLoop &Loop, OptReport OR) {
     Loop.setOptReport(OR);
   }
 
@@ -1401,17 +1401,19 @@ template <> struct LoopOptReportTraits<loopopt::HLLoop> {
     return Loop.getDebugLoc();
   }
 
-  static LoopOptReport
-  getOrCreatePrevOptReport(loopopt::HLLoop &Loop,
-                           const LoopOptReportBuilder &Builder);
+  static Optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
+    return None;
+  }
 
-  static LoopOptReport
-  getOrCreateParentOptReport(loopopt::HLLoop &Loop,
-                             const LoopOptReportBuilder &Builder);
+  static OptReport getOrCreatePrevOptReport(loopopt::HLLoop &Loop,
+                                            const OptReportBuilder &Builder);
 
-  using LoopVisitorTy = std::function<void(loopopt::HLLoop &)>;
-  static void traverseChildLoopsBackward(loopopt::HLLoop &Loop,
-                                         LoopVisitorTy Func);
+  static OptReport getOrCreateParentOptReport(loopopt::HLLoop &Loop,
+                                              const OptReportBuilder &Builder);
+
+  using NodeVisitorTy = std::function<void(loopopt::HLLoop &)>;
+  static void traverseChildNodesBackward(loopopt::HLLoop &Loop,
+                                         NodeVisitorTy Func);
 };
 
 template <>

@@ -5,7 +5,6 @@
 // RUN: %clang_cc1 -triple amdgcn---amdgizcl -cl-std=CL1.2 %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -triple amdgcn---amdgizcl -cl-std=CL2.0 %s -emit-llvm -o - | FileCheck %s
 
-// if INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple r600 -cl-std=CL3.0 %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -triple amdgcn-mesa-mesa3d -cl-std=CL3.0 %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -triple amdgcn---opencl -cl-std=CL3.0 %s -emit-llvm -o - | FileCheck %s
@@ -17,7 +16,6 @@
 // RUN: %clang_cc1 -triple amdgcn-mesa-mesa3d -cl-ext=+cl_khr_fp64,+__opencl_c_fp64 -cl-std=CL3.0 %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -triple amdgcn---opencl -cl-ext=+cl_khr_fp64,+__opencl_c_fp64 -cl-std=CL3.0 %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -triple amdgcn---amdgizcl -cl-ext=+cl_khr_fp64,+__opencl_c_fp64 -cl-std=CL3.0 %s -emit-llvm -o - | FileCheck %s
-// endif INTEL_CUSTOMIZATION
 
 #ifdef __AMDGCN__
 #define PTSIZE 8
@@ -72,14 +70,12 @@ void test() {
   check(sizeof(double) == 8);
   check(__alignof__(double) == 8);
 #endif
-// if INTEL_CUSTOMIZATION
   check(sizeof(private void*) == 4);
   check(__alignof__(private void*) == 4);
 #if (__OPENCL_C_VERSION__ == 200) || defined(__opencl_c_generic_address_space)
   check(sizeof(generic void*) == 8);
   check(__alignof__(generic void*) == 8);
 #endif
-// endif INTEL_CUSTOMIZATION
   check(sizeof(global_ptr_t) == PTSIZE);
   check(__alignof__(global_ptr_t) == PTSIZE);
   check(sizeof(constant_ptr_t) == PTSIZE);

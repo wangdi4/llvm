@@ -139,7 +139,6 @@ protected:
   bool HasTRACEV8_4 = false;
   bool HasAM = false;
   bool HasSEL2 = false;
-  bool HasPMU = false;
   bool HasTLB_RMI = false;
   bool HasFlagM = false;
   bool HasRCPC_IMMO = false;
@@ -185,6 +184,12 @@ protected:
 
   // Armv9-A Extensions
   bool HasRME = false;
+
+  // Arm Scalable Matrix Extension (SME)
+  bool HasSME = false;
+  bool HasSMEF64 = false;
+  bool HasSMEI64 = false;
+  bool HasStreamingSVE = false;
 
   // Future architecture extensions.
   bool HasETE = false;
@@ -485,6 +490,12 @@ public:
     return HasEnhancedCounterVirtualization;
   }
 
+  // Arm Scalable Matrix Extension (SME)
+  bool hasSME() const { return HasSME; }
+  bool hasSMEF64() const { return HasSMEF64; }
+  bool hasSMEI64() const { return HasSMEI64; }
+  bool hasStreamingSVE() const { return HasStreamingSVE; }
+
   bool isLittleEndian() const { return IsLittle; }
 
   bool isTargetDarwin() const { return TargetTriple.isOSDarwin(); }
@@ -531,7 +542,6 @@ public:
   bool hasHCX() const { return HasHCX; }
   bool hasLS64() const { return HasLS64; }
   bool hasSEL2() const { return HasSEL2; }
-  bool hasPMU() const { return HasPMU; }
   bool hasTLB_RMI() const { return HasTLB_RMI; }
   bool hasFlagM() const { return HasFlagM; }
   bool hasRCPC_IMMO() const { return HasRCPC_IMMO; }

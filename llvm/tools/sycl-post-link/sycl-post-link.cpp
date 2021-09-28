@@ -214,12 +214,17 @@ static cl::opt<bool> EmitKernelParamInfo{
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
     cl::cat(PostLinkCat)};
 
+static cl::opt<bool> EmitProgramMetadata{"emit-program-metadata",
+                                         cl::desc("emit SYCL program metadata"),
+                                         cl::cat(PostLinkCat)};
+
 struct ImagePropSaveInfo {
   bool NeedDeviceLibReqMask;
   bool DoSpecConst;
   bool SetSpecConstAtRT;
   bool SpecConstsMet;
   bool EmitKernelParamInfo;
+  bool EmitProgramMetadata;
   bool IsEsimdKernel;
 };
 
@@ -424,6 +429,23 @@ static HasAssertStatus hasAssertInFunctionCallGraph(llvm::Function *Func) {
     }
   }
   return No_Assert;
+}
+
+// Gets reqd_work_group_size information for function Func.
+static std::vector<uint32_t>
+getKernelReqdWorkGroupSizeMetadata(const Function &Func) {
+  auto ReqdWorkGroupSizeMD = Func.getMetadata("reqd_work_group_size");
+  if (!ReqdWorkGroupSizeMD)
+    return {};
+  // TODO: Remove 3-operand assumption when it is relaxed.
+  assert(ReqdWorkGroupSizeMD->getNumOperands() == 3);
+  uint32_t X = mdconst::extract<ConstantInt>(ReqdWorkGroupSizeMD->getOperand(0))
+                   ->getZExtValue();
+  uint32_t Y = mdconst::extract<ConstantInt>(ReqdWorkGroupSizeMD->getOperand(1))
+                   ->getZExtValue();
+  uint32_t Z = mdconst::extract<ConstantInt>(ReqdWorkGroupSizeMD->getOperand(2))
+                   ->getZExtValue();
+  return {X, Y, Z};
 }
 
 // Input parameter KernelModuleMap is a map containing groups of kernels with
@@ -750,6 +772,24 @@ static string_vector saveDeviceImageProperty(
       }
     }
 
+    // Metadata names may be composite so we keep them alive until the
+    // properties have been written.
+    SmallVector<std::string, 4> MetadataNames;
+    if (ImgPSInfo.EmitProgramMetadata) {
+      auto &ProgramMetadata =
+          PropSet[llvm::util::PropertySetRegistry::SYCL_PROGRAM_METADATA];
+
+      // Add reqd_work_group_size information to program metadata
+      for (const Function &Func : ResultModules[I]->functions()) {
+        std::vector<uint32_t> KernelReqdWorkGroupSize =
+            getKernelReqdWorkGroupSizeMetadata(Func);
+        if (KernelReqdWorkGroupSize.empty())
+          continue;
+        MetadataNames.push_back(Func.getName().str() + "@reqd_work_group_size");
+        ProgramMetadata.insert({MetadataNames.back(), KernelReqdWorkGroupSize});
+      }
+    }
+
     if (ImgPSInfo.IsEsimdKernel) {
       PropSet[llvm::util::PropertySetRegistry::SYCL_MISC_PROP].insert(
           {"isEsimdImage", true});
@@ -856,7 +896,7 @@ static void LowerEsimdConstructs(Module &M) {
     MPM.add(createInstructionCombiningPass());
     MPM.add(createDeadCodeEliminationPass());
   }
-  MPM.add(createGenXSPIRVWriterAdaptorPass());
+  MPM.add(createGenXSPIRVWriterAdaptorPass(/*RewriteTypes=*/true));
   MPM.run(M);
 }
 
@@ -867,6 +907,20 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   TableFiles TblFiles;
   if (!M)
     return TblFiles;
+
+  // After linking device bitcode "llvm.used" holds references to the kernels
+  // that are defined in the device image. But after splitting device image into
+  // separate kernels we may end up with having references to kernel declaration
+  // originating from "llvm.used" in the IR that is passed to llvm-spirv tool,
+  // and these declarations cause an assertion in llvm-spirv. To workaround this
+  // issue remove "llvm.used" from the input module before performing any other
+  // actions.
+  bool IsLLVMUsedRemoved = false;
+  if (GlobalVariable *GV = M->getGlobalVariable("llvm.used")) {
+    assert(GV->user_empty() && "unexpected llvm.used users");
+    GV->eraseFromParent();
+    IsLLVMUsedRemoved = true;
+  }
 
   if (IsEsimd && LowerEsimd)
     LowerEsimdConstructs(*M);
@@ -921,7 +975,7 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
     // Register required analysis
     MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
     IntelVTableFixupPass IVTFP;
-    RunVTableFixup.addPass(IVTFP);
+    RunVTableFixup.addPass(std::move(IVTFP));
     (void) RunVTableFixup.run(*M, MAM);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -939,7 +993,7 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
     SpecConstantsPass SCP(SetSpecConstAtRT);
     // Register required analysis
     MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
-    RunSpecConst.addPass(SCP);
+    RunSpecConst.addPass(std::move(SCP));
 
     for (auto &MPtr : ResultModules) {
       // perform the spec constant intrinsics transformation on each resulting
@@ -960,7 +1014,8 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
     // no spec constants and no splitting.
     // We cannot reuse input module for ESIMD code since it was transformed.
     bool CanReuseInputModule = !SpecConstsMet && (ResultModules.size() == 1) &&
-                               !SyclAndEsimdCode && !IsEsimd;
+                               !SyclAndEsimdCode && !IsEsimd &&
+                               !IsLLVMUsedRemoved;
     string_vector Files =
         CanReuseInputModule
             ? string_vector{InputFilename}
@@ -974,7 +1029,8 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   {
     ImagePropSaveInfo ImgPSInfo = {
         true,          DoSpecConst,         SetSpecConstAtRT,
-        SpecConstsMet, EmitKernelParamInfo, IsEsimd};
+        SpecConstsMet, EmitKernelParamInfo, EmitProgramMetadata,
+        IsEsimd};
     string_vector Files = saveDeviceImageProperty(ResultModules, ImgPSInfo);
     std::copy(Files.begin(), Files.end(),
               std::back_inserter(TblFiles[COL_PROPS]));
@@ -1145,6 +1201,7 @@ int main(int argc, char **argv) {
   bool DoSplitEsimd = SplitEsimd.getNumOccurrences() > 0;
   bool DoSpecConst = SpecConstLower.getNumOccurrences() > 0;
   bool DoParamInfo = EmitKernelParamInfo.getNumOccurrences() > 0;
+  bool DoProgMetadata = EmitProgramMetadata.getNumOccurrences() > 0;
 
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
@@ -1160,10 +1217,11 @@ int main(int argc, char **argv) {
            << " ignored without -" << OmpOffloadEntriesSymbol.ArgStr << "\n";
 
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
-      !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic && !DoSplitEsimd) {
+      !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic &&
 #else  // INTEL_COLLAB
-  if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo && !DoSplitEsimd) {
+  if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
 #endif // INTEL_COLLAB
+      !DoProgMetadata && !DoSplitEsimd) {
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
@@ -1187,6 +1245,11 @@ int main(int argc, char **argv) {
            << " -" << IROutputOnly.ArgStr << "\n";
     return 1;
   }
+  if (IROutputOnly && DoProgMetadata) {
+    errs() << "error: -" << EmitProgramMetadata.ArgStr << " can't be used with"
+           << " -" << IROutputOnly.ArgStr << "\n";
+    return 1;
+  }
   SMDiagnostic Err;
   std::unique_ptr<Module> M = parseIRFile(InputFilename, Err, Context);
   // It is OK to use raw pointer here as we control that it does not outlive M
@@ -1196,18 +1259,6 @@ int main(int argc, char **argv) {
   if (!MPtr) {
     Err.print(argv[0], errs());
     return 1;
-  }
-
-  // After linking device bitcode "llvm.used" holds references to the kernels
-  // that are defined in the device image. But after splitting device image into
-  // separate kernels we may end up with having references to kernel declaration
-  // originating from "llvm.used" in the IR that is passed to llvm-spirv tool,
-  // and these declarations cause an assertion in llvm-spirv. To workaround this
-  // issue remove "llvm.used" from the input module before performing any other
-  // actions.
-  if (GlobalVariable *GV = MPtr->getGlobalVariable("llvm.used")) {
-    assert(GV->user_empty() && "unexpected llvm.used users");
-    GV->eraseFromParent();
   }
 
   if (OutputFilename.getNumOccurrences() == 0)

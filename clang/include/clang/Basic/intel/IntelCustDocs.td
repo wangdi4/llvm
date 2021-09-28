@@ -610,8 +610,8 @@ IR:
   attributes #1 = { inlinehint }
   attributes #2 = { noinline }
   attributes #3 = { alwaysinline }
-  attributes #4 = { "inline-hint-recursive" }
-  attributes #5 = { "always-inline-recursive" }
+  attributes #4 = { inlinehint_recursive }
+  attributes #5 = { alwaysinline_recursive }
   }];
   let UserContent = [{
 Pragma inline gives a hint to the compiler that the called function and its
@@ -699,13 +699,14 @@ Syntax:
 
 .. code-block:: text
 
-  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align}
+  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align
 
 ``pragma vector`` with no other keyword will do nothing.
 
 Currently we only support ``pragma vector``, ``pragma vector always``,
-``pragma vector aligned`` ,``pragma vector dynamic_align`` and
-``prgama vector nodynamic_align``.
+``pragma vector aligned``, ``pragma vector dynamic_align``,
+``pragma vector nodynamic_align``, ``pragma vector vecremainder`` and
+``pragma vector novecremainder``.
 When the 'aligned' keyword is used, it indicates to the compiler that the loop
 should be vectorized using aligned data movement instructions for all array
 references inside the loop.
@@ -724,6 +725,10 @@ Example:
     #pragma vector dynamic_align
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector nodynamic_align
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector vecremainder
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector novecremainder
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -762,9 +767,18 @@ AST:
   |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeNoDynamicAlign Enable
   | |-<<<NULL>>>
   | `-<<<NULL>>>
+  AttributedStmt 0x2d888a37748 <line:8:11, line:9:46>
+  |-LoopHintAttr 0x2d888a37708 <line:8:11> Implicit vector VectorizeVecremainder Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+
+  AttributedStmt 0x2d888a37748 <line:10:11, line:11:46>
+  |-LoopHintAttr 0x2d888a37708 <line:10:11> Implicit vector VectorizeNoVecremainder Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+
 Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
 represented as two LoopHint attributes.
-
 
 IR:
 
@@ -779,6 +793,8 @@ IR:
   br label %for.cond20, !llvm.loop !7
   br label %for.cond34, !llvm.loop !9
   br label %for.cond48, !llvm.loop !11
+  br label %for.cond62, !llvm.loop !13
+  br label %for.cond76, !llvm.loop !15
 
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.mustprogress"}
@@ -791,6 +807,10 @@ IR:
   !10 = !{!"llvm.loop.intel.vector.dynamic_align", !"true"}
   !11 = distinct !{!11, !3, !12}
   !12 = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}
+  !13 = distinct !{!13, !3, !14}
+  !14 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
+  !15 = distinct !{!15, !3, !16}
+  !16 = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
 
   }];
   let UserContent = [{
@@ -1719,6 +1739,7 @@ AST:
       |-SYCLIntelFPGAIIAttr 0x12041430 <line:11:13, col:17>
       | `-IntegerLiteral 0x12041218 <col:16> 'int' 4
       `-ForStmt 0x120413f8 <line:12:5, col:37>
+
 IR:
 
 .. code-block:: console
@@ -3419,7 +3440,8 @@ results in the x87 implementation, consistent with the behavior on Linux,
 which is 96-bit width and 32 bit alignment on x86 and 128 bit width and
 alignment on x86_64. This differs from the ICC documented behavior (which states
 128 bit for both with no special consideration for x86), since it would result
-in significant changes to how Clang/LLVM handles x87 doubles.
+in significant changes to how Clang/LLVM handles x87 doubles. On Windows, 80
+results in 128 bit width and alignment on x86 and x86_64.
 
 Finally, when set to 128, the long double type will be a 128 bit size and
 alignment, consistent with the IEEE quad-double implementation.
@@ -3594,6 +3616,37 @@ specified on the command-line into the final assembly when using
 switch controls the behavior to include filename or full file path when
 using ``__builtin_FILE``.
   }];
+}
+
+def UnderbarPragmaEnabledDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let Owner = "ekeane1";
+  let RegressionTest = "Lexer/intel/underbar-pragma.cpp";
+  let Default = 1;
+  let Content = [{
+Microsoft accepts `__pragma` as a keyword alternative for `#pragma`. ICC accepts
+this in Linux mode as well, so this feature enables it in Intel compatibility
+mode.
+
+.. code-block:: c++
+
+  __pragma(warning(push)); // MS/ICC Compat spelling
+  _Pragma(warning(push)); // C99/C++11 spelling.
+  #pragma(warning(push)); // Normal directive.
+
+}];
+let UserContent = [{
+This change allows the use of the `__pragma` keyword as an alternative to
+#pragma` or `_Pragma`.
+
+.. code-block:: c++
+
+  __pragma(warning(push)); // MS/ICC Compat spelling
+  _Pragma(warning(push)); // C99/C++11 spelling.
+  #pragma(warning(push)); // Normal directive.
+
+}];
 }
 
 def GlobalDocumentation {

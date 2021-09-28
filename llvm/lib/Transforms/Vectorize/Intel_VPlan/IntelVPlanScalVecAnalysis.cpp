@@ -417,6 +417,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateLastValueNonPOD: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::LastScalar);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::AllocatePrivate: {
     // We don't set any specific bits for the allocate-private instruction, it
     // will decided only based on uses of the instruction. If there are no
@@ -475,7 +482,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::ScalarRemainder:
-  case VPInstruction::ScalarPeel: {
+  case VPInstruction::ScalarPeel:
+  case VPInstruction::ScalarPeelRemainderHIR: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -483,7 +491,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::OrigLiveOut: {
+  case VPInstruction::OrigLiveOut:
+  case VPInstruction::OrigLiveOutHIR: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -561,11 +570,21 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::GeneralMemOptConflict: {
-    // Wide value is shared across all lanes.
-    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    // Each lanes has its own value.
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
     // Each lanes has its own value.
     setSVAKindForInst(Inst, SVAKind::Vector);
-    // Wide value is shared across all lanes.
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::TreeConflict: {
+    // Each lanes has its own value.
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
     setSVAKindForAllOperands(Inst, SVAKind::Vector);
     return true;
   }
@@ -573,9 +592,9 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::ConflictInsn: {
     // Wide value is shared across all lanes.
     setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
-    // Each lanes has its own value.
+    // Instruction itself produces scalar value, but it is vector in nature.
     setSVAKindForInst(Inst, SVAKind::Vector);
-    // Wide value is shared across all lanes.
+    // Each lanes has its own value.
     setSVAKindForAllOperands(Inst, SVAKind::Vector);
     return true;
   }
@@ -865,7 +884,9 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ActiveLaneExtract:
   case VPInstruction::ScalarRemainder:
   case VPInstruction::ScalarPeel:
+  case VPInstruction::ScalarPeelRemainderHIR:
   case VPInstruction::OrigLiveOut:
+  case VPInstruction::OrigLiveOutHIR:
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:
   case VPInstruction::PrivateFinalUncondMem:
@@ -873,6 +894,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
   case VPInstruction::PrivateFinalArray:
+  case VPInstruction::PrivateLastValueNonPOD:
   case VPInstruction::VLSLoad:
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:
@@ -880,6 +902,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::InvSCEVWrapper:
   case VPInstruction::GeneralMemOptConflict:
   case VPInstruction::ConflictInsn:
+  case VPInstruction::TreeConflict:
     return true;
   default:
     return false;

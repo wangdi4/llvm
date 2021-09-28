@@ -411,6 +411,11 @@ public:
     return OS;
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPValue::VPRegionLiveOutSC;
+  }
+
   // VPUser's destructor won't drop references.
   ~VPRegionLiveOut() { dropAllReferences(); }
 };
@@ -544,25 +549,15 @@ private:
   // Hold the DDRef or IV information related to this external definition.
   std::unique_ptr<VPOperandHIR> HIROperand;
 
-  const std::string getVPValueName() const {
-    std::string Name = "";
-    raw_string_ostream SOS(Name);
-    getOperandHIR()->print(SOS);
-    if (!Name.empty())
-      // We drop the leading '%'.
-      return Name.substr(1);
-    return Name;
-  }
   // Construct a VPExternalDef given a Value \p ExtVal.
   VPExternalDef(Value *ExtVal)
-      : VPValue(VPValue::VPExternalDefSC, ExtVal->getType(), ExtVal) {
-  }
+      : VPValue(VPValue::VPExternalDefSC, ExtVal->getType(), ExtVal) {}
 
   // Construct a VPExternalDef given an underlying DDRef \p DDR.
   VPExternalDef(const loopopt::DDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {
-    setName(getVPValueName());
+    setName(getOperandHIR()->getName());
   }
 
   // Construct a VPExternalDef for blob with index \p BI in \p DDR. \p BType
@@ -570,21 +565,21 @@ private:
   VPExternalDef(const loopopt::RegDDRef *DDR, unsigned BI, Type *BType)
       : VPValue(VPValue::VPExternalDefSC, BType),
         HIROperand(new VPBlob(DDR, BI)) {
-    setName(getVPValueName());
+    setName(getOperandHIR()->getName());
   }
 
   // Construct a VPExternalDef given an underlying CanonExpr \p CE.
   VPExternalDef(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, CE->getDestType()),
         HIROperand(new VPCanonExpr(CE, DDR)) {
-    setName(getVPValueName());
+    setName(getOperandHIR()->getName());
   }
 
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
       : VPValue(VPValue::VPExternalDefSC, BaseTy),
         HIROperand(new VPIndVar(IVLevel)) {
-    setName(getVPValueName());
+    setName(getOperandHIR()->getName());
   }
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to

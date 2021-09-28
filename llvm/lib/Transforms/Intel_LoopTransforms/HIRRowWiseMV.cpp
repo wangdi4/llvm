@@ -1,6 +1,6 @@
 //===-------------------------- HIRRowWiseMV.cpp --------------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -744,7 +744,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   CanonExprUtils &CEU                = Lp->getCanonExprUtils();
   HLLoop *const OutermostParent = Lp->getOutermostParentLoop();
 #if INTEL_INTERNAL_BUILD
-  LoopOptReportBuilder &LORBuilder = HNU.getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder = HNU.getHIRFramework().getORBuilder();
 #endif
   assert(OutermostParent && "Lp should not be the outermost loop");
 
@@ -881,7 +881,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   }
 
 #if INTEL_INTERNAL_BUILD
-  LORBuilder(*CheckLoop).addOrigin("Probe loop for row-wise multiversioning");
+  ORBuilder(*CheckLoop).addOrigin("Probe loop for row-wise multiversioning");
 #endif
 
   // Add ZTTs from the outer loops to make sure the accesses are safe:
@@ -1192,7 +1192,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     RowCases = RowCaseAlloca->getLvalDDRef();
 
     RowCasesRef =
-      DDRU.createMemRef(RowCases->getSingleCanonExpr()->getSingleBlobIndex());
+      DDRU.createMemRef(cast<AllocaInst>(RowCaseAlloca->getLLVMInstruction())->getAllocatedType(), RowCases->getSingleCanonExpr()->getSingleBlobIndex());
     CanonExpr *const RowCasesRefDim =
       CEU.createCanonExpr(NonInvariantCheckLoop->getIVType());
     RowCasesRefDim->addIV(SafeCheckLevel, InvalidBlobIndex, 1);
@@ -1287,13 +1287,13 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     // Opt reports don't support %f yet; construct the message as a string
     // instead.
 #if INTEL_INTERNAL_BUILD
-    if (LORBuilder.isLoopOptReportOn()) {
+    if (ORBuilder.isOptReportOn()) {
       std::string Message;
       raw_string_ostream MessageStream{Message};
       MessageStream
         << "Row-wise multiversioned loop for value "
         << cast<ConstantFP>(MVVals[MVInd])->getValueAPF().convertToDouble();
-      LORBuilder(*MVLoop).addOrigin(Message);
+      ORBuilder(*MVLoop).addOrigin(Message);
     }
 #endif
 
@@ -1312,8 +1312,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   }
 
 #if INTEL_INTERNAL_BUILD
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            25581u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25581u);
 #endif
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(SafeCheckLevelParent);
   if (SafeCheckIf)

@@ -19,7 +19,11 @@ namespace llvm {
 namespace loopopt {
 
 class HIRLoopBlockingPass : public HIRPassInfoMixin<HIRLoopBlockingPass> {
+  bool SinkForMultiCopy;
+
 public:
+  HIRLoopBlockingPass(bool SinkForMultiCopy = true)
+      : SinkForMultiCopy(SinkForMultiCopy) {}
   static constexpr auto PassName = "hir-loop-blocking";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             HIRFramework &HIRF);

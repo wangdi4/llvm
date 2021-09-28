@@ -2415,6 +2415,11 @@ void ASTStmtReader::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
 }
+
+void ASTStmtReader::VisitOMPScopeDirective(OMPScopeDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+}
 #endif // INTEL_COLLAB
 
 void ASTStmtReader::VisitOMPSingleDirective(OMPSingleDirective *D) {
@@ -2510,6 +2515,7 @@ void ASTStmtReader::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
 #if INTEL_COLLAB
   D->IsCompareMin = Record.readBool();
   D->IsCompareMax = Record.readBool();
+  D->IsConditionalCapture = Record.readBool();
 #endif // INTEL_COLLAB
 }
 
@@ -3365,6 +3371,11 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = OMPPrefetchDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
+
+    case STMT_OMP_SCOPE_DIRECTIVE:
+      S = OMPScopeDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
 #endif // INTEL_COLLAB
 
     case STMT_OMP_SINGLE_DIRECTIVE:
@@ -3421,7 +3432,12 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
 
     case STMT_OMP_TASKWAIT_DIRECTIVE:
+#if INTEL_COLLAB
+      S = OMPTaskwaitDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+#else // INTEL_COLLAB
       S = OMPTaskwaitDirective::CreateEmpty(Context, Empty);
+#endif // INTEL_COLLAB
       break;
 
     case STMT_OMP_TASKGROUP_DIRECTIVE:

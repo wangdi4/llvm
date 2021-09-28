@@ -16,7 +16,7 @@ entry:
 ; CHECK: %a.addr = alloca i32*, align 8
 ; CHECK: call void @llvm.dbg.declare(metadata i32** %a.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg
 
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %a = alloca i32, align 4
   %a.ascast = addrspacecast i32* %a to i32 addrspace(4)*
   call void @llvm.dbg.declare(metadata i32 addrspace(4)* %a.ascast, metadata !12, metadata !DIExpression()), !dbg !13
@@ -30,7 +30,7 @@ entry:
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 ; Function Attrs: convergent
 declare void @_Z18work_group_barrierj(i32) #2

@@ -10,7 +10,7 @@
 ; used as a i32*, which is not a generic equivalent, this needs to be
 ; marked as 'Unsafe pointer merge'
 %struct.test01 = type { i32*, %struct.test01* }
-define internal void @test01(%struct.test01* %pStruct, i32* %p32) !dtrans_type !4 {
+define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i32* "intel_dtrans_func_index"="2" %p32) !intel.dtrans.func.type !3 {
   %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
   %pValue = load %struct.test01*, %struct.test01** %pField
   %badCast = bitcast %struct.test01* %pValue to i32*
@@ -28,7 +28,7 @@ define internal void @test01(%struct.test01* %pStruct, i32* %p32) !dtrans_type !
 ; the pointer-to struct type because it is a generic equivalent, so this
 ; case will not trigger a safety condition.
 %struct.test02 = type { i32, i32 }
-@global_test02 = internal global %struct.test02* zeroinitializer, !dtrans_type !7
+@global_test02 = internal global %struct.test02* zeroinitializer, !intel_dtrans_type !5
 define internal void @test02() {
   %pStruct1.p8 = call i8* @malloc(i64 8)
   %pStruct1 = bitcast i8* %pStruct1.p8 to %struct.test02*
@@ -45,17 +45,16 @@ define internal void @test02() {
 ; CHECK: Name: struct.test02
 ; CHECK: Safety data: Global pointer{{ *$}}
 
-declare i8* @malloc(i64)
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 !1 = !{i32 0, i32 1}  ; i32*
-!2 = !{!3, i32 1}  ; %struct.test01*
-!3 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!4 = !{!"F", i1 false, i32 2, !5, !2, !1}  ; void (%struct.test01*, i32*)
-!5 = !{!"void", i32 0}  ; void
-!6 = !{i32 0, i32 0}  ; i32
-!7 = !{!8, i32 1}  ; %struct.test02*
-!8 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!9 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !2} ; { i32*, %struct.test01* }
-!10 = !{!"S", %struct.test02 zeroinitializer, i32 2, !6, !6} ; { i32, i32 }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2, !1}
+!4 = !{i32 0, i32 0}  ; i32
+!5 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!6 = !{i8 0, i32 1}  ; i8*
+!7 = distinct !{!6}
+!8 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !2} ; { i32*, %struct.test01* }
+!9 = !{!"S", %struct.test02 zeroinitializer, i32 2, !4, !4} ; { i32, i32 }
 
-!dtrans_types = !{!9, !10}
+!intel.dtrans.types = !{!8, !9}

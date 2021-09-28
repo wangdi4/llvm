@@ -54,14 +54,14 @@
 ;              |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ;              |   |   |   |   + DO i5 = 0, 1, 1   <DO_LOOP>
 ;              |   |   |   |   |   + DO i6 = 0, 1, 1   <DO_LOOP>
-;              |   |   |   |   |   |   (%ContractedArray)[i5][i6] = i5 + i6;
+;              |   |   |   |   |   |   (%ContractedArray)[0][i5][i6] = i5 + i6;
 ;              |   |   |   |   |   + END LOOP
 ;              |   |   |   |   + END LOOP
 ;              |   |   |   |
 ;              |   |   |   |
 ;              |   |   |   |   + DO i5 = 0, 1, 1   <DO_LOOP>
 ;              |   |   |   |   |   + DO i6 = 0, 1, 1   <DO_LOOP>
-;              |   |   |   |   |   |   %4 = (%ContractedArray)[i6][i5];
+;              |   |   |   |   |   |   %4 = (%ContractedArray)[0][i6][i5];
 ;              |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %4 + 1;
 ;              |   |   |   |   |   + END LOOP
 ;              |   |   |   |   + END LOOP

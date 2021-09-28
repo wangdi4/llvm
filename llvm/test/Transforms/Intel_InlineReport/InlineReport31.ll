@@ -1,11 +1,11 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inline -inline-report=0xe807 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test checks that the function _ZN12cMessageHeap7shiftupEi is inlined
 ; because the "delayed inline heuristic" is not enforced.
@@ -67,7 +67,7 @@ declare i1 @llvm.intel.wholeprogramsafe()
 
 declare i1 @llvm.type.test(i8*, metadata)
 
-; This version will fail the basic block count test, becuase it has more than 5 basic blocks.
+; This version will fail the basic block count test, because it has more than 5 basic blocks.
 
 define dso_local %class.cMessage* @_ZN12cMessageHeap12removeFirst1Ev(%class.cMessageHeap* %this) local_unnamed_addr #0 align 2 {
 entry:
@@ -173,7 +173,7 @@ return:                                           ; preds = %entry, %whpr.contin
   ret %class.cMessage* %retval.0
 }
 
-; This version will fail the return test, becuase the return does not have
+; This version will fail the return test, because the return does not have
 ; a non-void value.
 
 define dso_local void @_ZN12cMessageHeap12removeFirst3Ev(%class.cMessageHeap* %this) local_unnamed_addr #0 align 2 {

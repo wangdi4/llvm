@@ -145,8 +145,8 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       // Create GEP instruction
       int64_t Offset = OLI->getPointerOperand().getOffset();
       unsigned GEPIndex = Offset == 0 ? 0 : Offset / TySize;
-      Value *NewBasePtr =
-          Builder.CreateInBoundsGEP(VecBasePtr, Builder.getInt32(GEPIndex));
+      Value *NewBasePtr = Builder.CreateInBoundsGEP(VecTy, VecBasePtr,
+                                                    Builder.getInt32(GEPIndex));
 
       // Generate the load
       Instruction *NewLoad =
@@ -240,8 +240,8 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       int64_t Offset = OffsetAddr.getOffset();
       assert((Offset % TySize == 0) && "Unexpected Offset for OVLSStore.");
       unsigned GEPIndex = Offset == 0 ? 0 : Offset / TySize;
-      Value *NewBasePtr =
-          Builder.CreateInBoundsGEP(VecBasePtr, Builder.getInt32(GEPIndex));
+      Value *NewBasePtr = Builder.CreateInBoundsGEP(VecTy, VecBasePtr,
+                                                    Builder.getInt32(GEPIndex));
 
       // Generate the store
       Value *SrcReg = InstMap[OStI->getSrc()->getId()];

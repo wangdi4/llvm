@@ -24,9 +24,11 @@ class ModulePass;
 FunctionPass *createVPODirectiveCleanupPass();
 FunctionPass *createVPOParoptOptimizeDataSharingPass();
 FunctionPass *createVPOParoptSharedPrivatizationPass(unsigned Mode = 0u);
+ModulePass   *createVPOParoptTargetInlinePass();
 #endif // INTEL_CUSTOMIZATION
 
 FunctionPass *createVPOCFGRestructuringPass();
+FunctionPass *createVPOCFGSimplifyPass();
 FunctionPass *createVPOParoptLoopCollapsePass();
 // 0x5 is equivalent to ParPrepare | OmpPar
 FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5u);

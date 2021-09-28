@@ -32,9 +32,9 @@
 #include "llvm/Transforms/Utils.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/VPO/Intel_VPOParoptConfig.h"
 #endif  // INTEL_CUSTOMIZATION

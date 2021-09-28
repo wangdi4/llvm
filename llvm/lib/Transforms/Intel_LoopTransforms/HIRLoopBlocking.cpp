@@ -1,6 +1,6 @@
 //===--- HIRLoopBlocking.cpp - Implements Loop Blocking transformation ---===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -168,9 +168,9 @@ static cl::opt<bool> EnableLoopBlockingNonConstTC(
              " pass even when some trip counts are non-const"));
 
 // Flag to allow special sinking to occur for special loops
-static cl::opt<bool>
-    EnableSpecialSink(OPT_SWITCH "-enable-special-sink", cl::init(true),
-                      cl::Hidden, cl::desc(OPT_DESC "enable special sinking"));
+static cl::opt<bool> DisableSinkForMultiCopy(
+    OPT_SWITCH "-disable-special-sink", cl::init(false), cl::Hidden,
+    cl::desc(OPT_DESC "disable special sinking in HIR Loop Blocking"));
 // Following check will be disabled.
 //      Loop Depth > number of different IVs appearing
 //      in one references of the innermost loop.
@@ -1725,12 +1725,13 @@ static const HLLoop *getOuterLoopAfterSpecialSinking(HLLoop *InnermostLp,
 HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
                             HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
                             HLLoop *InnermostLoop, bool Advanced,
-                            LoopMapTy &LoopMap) {
+                            bool SinkForMultiCopy, LoopMapTy &LoopMap) {
 
   const HLLoop *HighestAncestor = nullptr;
-  // Do sinking for special loops we want to block. Return ancestor for
-  // these marked loopnest.
-  if (EnableSpecialSink) {
+  // Do sinking for special loops we want to block when running multiple copies.
+  // Return ancestor for these marked loopnest.
+  if (SinkForMultiCopy) {
+    LLVM_DEBUG(dbgs() << "Trying Special Sinking...\n";);
     HighestAncestor = getOuterLoopAfterSpecialSinking(InnermostLoop, DDA);
   }
 
@@ -1968,11 +1969,11 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   }
 #endif
 
-  LoopOptReportBuilder &LORBuilder =
-      InnermostLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      InnermostLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Blocking using Pragma directives
-  LORBuilder(*OutermostPragmaLoop).addRemark(OptReportVerbosity::Low, 25565u);
+  ORBuilder(*OutermostPragmaLoop).addRemark(OptReportVerbosity::Low, 25565u);
 
   LLVM_DEBUG(dbgs() << "Final LoopToPragma: \n"; for (auto &P
                                                       : LoopToPragma) {
@@ -2111,6 +2112,31 @@ const HLLoop *getLoopForReferingInfoBeforePermutation(
   return LoopPermutation[getIndexForLoopVectors(Level, OutermostLoopLevel)];
 }
 
+struct HIRLoopBlocking {
+
+  HIRFramework &HIRF;
+  HIRDDAnalysis &HDDA;
+  HIRSafeReductionAnalysis &SRA;
+  HIRLoopStatistics &HLS;
+  TargetTransformInfo &TTI;
+
+  StringRef FuncName;
+  LoopPragmaMapTy LoopToPragma;
+  bool HasPragma;
+  bool SinkForMultiCopy;
+
+  HIRLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
+                  HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &HLS,
+                  TargetTransformInfo &TTI, bool SinkForMultiCopy)
+      : HIRF(HIRF), HDDA(HDDA), SRA(SRA), HLS(HLS), TTI(TTI),
+        SinkForMultiCopy(SinkForMultiCopy && !DisableSinkForMultiCopy) {}
+
+  bool run(bool Pragma);
+
+  void doTransformation(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
+                        LoopMapTy &LoopToBS);
+};
+
 // Do stripmine & interchange
 void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
                                        HLLoop *OutermostLoop,
@@ -2157,15 +2183,15 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
   });
 
   // Add OptReport after permutation to get the correct information.
-  LoopOptReportBuilder &LORBuilder =
-      CurLoopNests.front()->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      CurLoopNests.front()->getHLNodeUtils().getHIRFramework().getORBuilder();
   for (auto Lp : CurLoopNests) {
     const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
         Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
     if (isBlockedLoop(OrigLoop, LoopToBS)) {
       // blocked by %d
-      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25566u,
-                                LoopToBS[OrigLoop]);
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25566u,
+                               LoopToBS[OrigLoop]);
     }
   }
 
@@ -2201,6 +2227,10 @@ bool HIRLoopBlocking::run(bool ForPragma) {
   bool Advanced = TTI.isAdvancedOptEnabled(
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
 
+  LLVM_DEBUG(dbgs() << "Running Loop Blocking:\nMultiple Copies = "
+                    << SinkForMultiCopy << "\nAdvanced = " << Advanced
+                    << "\n";);
+
   bool Changed = false;
   for (auto *InnermostLoop : InnermostLoops) {
 
@@ -2226,8 +2256,9 @@ bool HIRLoopBlocking::run(bool ForPragma) {
     LoopToPragma.clear();
 
     if (!ForPragma && !HasPragma) {
-      OutermostLoop = findLoopNestToBlock(HIRF, FuncName, HDDA, SRA,
-                                          InnermostLoop, Advanced, LoopMap);
+      OutermostLoop =
+          findLoopNestToBlock(HIRF, FuncName, HDDA, SRA, InnermostLoop,
+                              Advanced, SinkForMultiCopy, LoopMap);
     } else if (ForPragma && HasPragma) {
       HLLoop *OutermostPragmaLoop =
           getLoopBlockingPragma(InnermostLoop, LoopToPragma);
@@ -2256,10 +2287,13 @@ bool HIRLoopBlocking::run(bool ForPragma) {
 }
 
 class HIRLoopBlockingLegacyPass : public HIRTransformPass {
+  bool SinkForMultiCopy;
+
 public:
   static char ID;
 
-  HIRLoopBlockingLegacyPass() : HIRTransformPass(ID) {
+  HIRLoopBlockingLegacyPass(bool SinkForMultiCopy = true)
+      : HIRTransformPass(ID), SinkForMultiCopy(SinkForMultiCopy) {
     initializeHIRLoopBlockingLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -2311,8 +2345,8 @@ INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(HIRLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
                     false)
 
-FunctionPass *llvm::createHIRLoopBlockingPass() {
-  return new HIRLoopBlockingLegacyPass();
+FunctionPass *llvm::createHIRLoopBlockingPass(bool SinkForMultiCopy) {
+  return new HIRLoopBlockingLegacyPass(SinkForMultiCopy);
 }
 
 char HIRPragmaLoopBlockingLegacyPass::ID = 0;
@@ -2342,12 +2376,11 @@ bool HIRLoopBlockingLegacyPass::runOnFunction(Function &F) {
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(false);
+  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI, SinkForMultiCopy).run(false);
 }
 
 PreservedAnalyses HIRLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  // TODO: Is it a right way to skip function?
   if (DisablePass) {
     return PreservedAnalyses::all();
   }
@@ -2357,7 +2390,7 @@ PreservedAnalyses HIRLoopBlockingPass::runImpl(
   HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  AM.getResult<TargetIRAnalysis>(F))
+                  AM.getResult<TargetIRAnalysis>(F), SinkForMultiCopy)
       .run(false);
 
   return PreservedAnalyses::all();
@@ -2376,12 +2409,11 @@ bool HIRPragmaLoopBlockingLegacyPass::runOnFunction(Function &F) {
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(true);
+  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI, true).run(true);
 }
 
 PreservedAnalyses HIRPragmaLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  // TODO: Is it a right way to skip function?
   if (DisablePass) {
     return PreservedAnalyses::all();
   }
@@ -2392,7 +2424,7 @@ PreservedAnalyses HIRPragmaLoopBlockingPass::runImpl(
   HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  AM.getResult<TargetIRAnalysis>(F))
+                  AM.getResult<TargetIRAnalysis>(F), true)
       .run(true);
 
   return PreservedAnalyses::all();

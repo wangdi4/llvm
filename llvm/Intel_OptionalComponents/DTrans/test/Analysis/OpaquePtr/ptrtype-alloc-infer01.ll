@@ -1,13 +1,15 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery for malloc library calls based on
 ; inference from uses of the value created by the call instruction.
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are placeholders for check lines that will
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
 ; Lines marked with CHECK should remain the same when changing to use opaque
 ;   pointers.
@@ -25,8 +27,8 @@ define internal void @test01() {
   ret void
 }
 ; CHECK-LABEL: void @test01
-; CHECK-CUR: %mem_i8 = call i8* @malloc(i64 16)
-; CHECK-FUT: %mem_i8 = call p0 @malloc(i64 16)
+; CHECK-NONOPAQUE: %mem_i8 = call i8* @malloc(i64 16)
+; CHECK-OPAQUE: %mem_i8 = call ptr @malloc(i64 16)
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:  %struct.testmember01*{{ *$}}
@@ -43,8 +45,8 @@ define internal void @test02(i64 %count) {
   ret void
 }
 ; CHECK-LABEL: void @test02
-; CHECK-CUR: %mem_i8 = call i8* @malloc(i64 %size)
-; CHECK-FUT: %mem_i8 = call p0 @malloc(i64 %size)
+; CHECK-NONOPAQUE: %mem_i8 = call i8* @malloc(i64 %size)
+; CHECK-OPAQUE: %mem_i8 = call ptr @malloc(i64 %size)
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:  double*{{ *$}}
@@ -52,12 +54,13 @@ define internal void @test02(i64 %count) {
 ; CHECK-NEXT: No element pointees.
 
 
-declare i8* @malloc(i64)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 !1 = !{i64 0, i32 0}  ; i64
-!2 = !{!3, i32 1}  ; %struct.testmember01*
-!3 = !{!"R", %struct.testmember01 zeroinitializer, i32 0}  ; %struct.testmember01
-!4 = !{!"S", %struct.testmember01 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
-!5 = !{!"S", %struct.test01 zeroinitializer, i32 1, !2} ; { %struct.testmember01* }
+!2 = !{%struct.testmember01 zeroinitializer, i32 1}  ; %struct.testmember01*
+!3 = !{i8 0, i32 1}  ; i8*
+!4 = distinct !{!3}
+!5 = !{!"S", %struct.testmember01 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
+!6 = !{!"S", %struct.test01 zeroinitializer, i32 1, !2} ; { %struct.testmember01* }
 
-!dtrans_types = !{!4, !5}
+!intel.dtrans.types = !{!5, !6}

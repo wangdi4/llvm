@@ -24,6 +24,8 @@
 
 #define DEBUG_TYPE "vplan-cost-model-heuristics"
 
+#if INTEL_FEATURE_SW_ADVANCED
+
 using namespace loopopt;
 using namespace llvm::PatternMatch;
 
@@ -68,12 +70,15 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void HeuristicBase::printCostChange(raw_ostream *OS, unsigned RefCost,
-                                    unsigned NewCost) const {
-  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
+// VPlan scope format.
+void HeuristicBase::printCostChange(unsigned RefCost, unsigned NewCost,
+                                    const VPlan *, raw_ostream *OS) const {
+  if (!OS || NewCost == RefCost)
     return;
 
-  if (NewCost > RefCost)
+  if (NewCost == UnknownCost)
+    *OS << "Cost is set to Unknown by " << getName() << " heuristic\n";
+  else if (NewCost > RefCost)
     *OS << "Extra cost due to " << getName() << " heuristic is "
         << NewCost - RefCost << '\n';
   else
@@ -81,15 +86,16 @@ void HeuristicBase::printCostChange(raw_ostream *OS, unsigned RefCost,
         << RefCost - NewCost << '\n';
 }
 
-void HeuristicBase::printCostChangeInline(raw_ostream *OS, unsigned RefCost,
-                                          unsigned NewCost) const {
-  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
+// VPInstruction scope format:
+//  *name*(+num)
+// OR:
+//  *name*(-num)
+void HeuristicBase::printCostChange(unsigned RefCost, unsigned NewCost,
+                                    const VPInstruction *,
+                                    raw_ostream *OS) const {
+  if (!OS || NewCost == RefCost || NewCost == UnknownCost)
     return;
 
-  // Expected output is:
-  //  *name*(+num)
-  // OR:
-  //  *name*(-num)
   *OS << " *" << getName() << "*(";
   if (NewCost > RefCost)
     *OS << '+' << NewCost - RefCost << ')';
@@ -234,7 +240,6 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
   if (VF == 1)
     return;
 
-  unsigned NewCost = Cost;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
 
@@ -268,13 +273,7 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
   if ((ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
        ProcessSLPHIRMemrefs(HIRLoadMemrefs, VPlanSLPLoadPatternSize)) ||
       (NumSLPRednsSeen == 4 && !NonSLPRednSeen))
-    NewCost *= VF;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+    Cost *= VF;
 }
 
 void HeuristicSearchLoop::apply(
@@ -462,11 +461,23 @@ unsigned HeuristicSpillFill::operator()(
             (IsMasked && IsStore &&
              !CM->VPTTI.isLegalMaskedStore(VTy, Alignment)))
           return true;
+
+        return false;
       }
+
+      OVLSGroup *Group = CM->VLSA->getGroupsFor(Plan, &VPInst);
+      if (Group && Group->size() > 1)
+        // This is very imprecise and needs more refined checks. The idea is
+        // that if we have 4 consequtive byte accesses, each of them on its own
+        // might be illegal on HW (e.g. byte scatter), but legal if the whole
+        // VLS group is accessed at once. See CMPLRLLVM-29061 for the benchmark
+        // example.
+        return false;
+
       // Check for unsupported gather/scatter instruction.
       // Note: any gather/scatter is considered as masked.
-      else if ((IsLoad  && !CM->VPTTI.isLegalMaskedGather(VTy, Alignment)) ||
-               (IsStore && !CM->VPTTI.isLegalMaskedScatter(VTy, Alignment)))
+      if ((IsLoad && !CM->VPTTI.isLegalMaskedGather(VTy, Alignment)) ||
+          (IsStore && !CM->VPTTI.isLegalMaskedScatter(VTy, Alignment)))
         return true;
 
       return false;
@@ -552,7 +563,6 @@ void HeuristicSpillFill::apply(
   // Keep track of vector and scalar live values in separate maps.
   LiveValuesTy VecLiveValues, ScalLiveValues;
 
-  unsigned NewCost = Cost;
   for (auto *Block : post_order(Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
     // block in walk like walking through a linear sequence of BBs.
@@ -564,17 +574,11 @@ void HeuristicSpillFill::apply(
     // sequence.  Uniform conditions are moved out of the loop by LoopOpt
     // normally and we don't see non linear CFG in VPlan in the most cases for
     // HIR pipeline.
-    NewCost += (*this)(Block, ScalLiveValues, false);
+    Cost += (*this)(Block, ScalLiveValues, false);
 
     if (VF > 1)
-      NewCost += (*this)(Block, VecLiveValues, true);
+      Cost += (*this)(Block, VecLiveValues, true);
   }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -610,15 +614,8 @@ void HeuristicGatherScatter::apply(
 
   // Double GatherScatter cost contribution in case Gathers/Scatters take too
   // much to make it harder to choose this VF.
-  unsigned NewCost = Cost;
   if (TTICost * CMGatherScatterThreshold < GSCost * 100)
-    NewCost += CMGatherScatterPenaltyFactor * GSCost;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+    Cost += CMGatherScatterPenaltyFactor * GSCost;
 }
 
 unsigned HeuristicGatherScatter::operator()(
@@ -729,7 +726,6 @@ void HeuristicPsadbw::initForVPlan() {
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
-    assert(VPL->getLoopDepth() == 1 && "Innermost loop only is expected.");
     if (VPL->getLoopDepth() != 1)
       continue;
 
@@ -938,19 +934,12 @@ void HeuristicPsadbw::apply(
       PatternCost += CurrentPatternCost - PsadbwCost;
   }
 
-  unsigned NewCost;
   if (PatternCost > Cost)
     // TODO:
     // Consider returning PsadbwCost here.
-    NewCost = 0;
+    Cost = 0;
   else
-    NewCost = Cost - PatternCost;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+    Cost -= PatternCost;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1047,13 +1036,7 @@ void HeuristicSVMLIDivIRem::apply(
 
   // For operations with constant in argument basic cost model gives better
   // estimation, which we want to use instead of VectorCost.
-  unsigned NewCost = std::min(VectorCost, TTICost);
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChangeInline(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+  Cost = std::min(VectorCost, TTICost);
 }
 
 void HeuristicOVLSMember::apply(
@@ -1098,13 +1081,11 @@ void HeuristicOVLSMember::apply(
     // Holds the indices of existing members in an interleaved load group.
     // Currently we only support accesses with no gaps and hence all indices
     // are pushed onto the vector.
-    // An interleaved store group doesn't need this as it doesn't allow gaps.
     // NOTE: The code here mimics what is done in community LV to get the cost
     // of the interleaved access.
     SmallVector<unsigned, 4> Indices;
-    if (LoadStore->getOpcode() == Instruction::Load)
-      for (int i = 0; i < InterleaveFactor; i++)
-        Indices.push_back(i);
+    for (int i = 0; i < InterleaveFactor; i++)
+      Indices.push_back(i);
 
     // Calculate the cost of the whole interleaved group.
     unsigned TTIInterleaveCost = CM->VPTTI.getInterleavedMemoryOpCost(
@@ -1133,10 +1114,6 @@ void HeuristicOVLSMember::apply(
                LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << '\n');
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      printCostChangeInline(OS, Cost, VLSGroupCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
       Cost = VLSGroupCost;
       return;
     }
@@ -1144,10 +1121,6 @@ void HeuristicOVLSMember::apply(
     LLVM_DEBUG(dbgs() << "Group cost for ";
                LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << " has already been taken into account.\n");
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printCostChangeInline(OS, Cost, 0);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     Cost = 0;
     return;
@@ -1181,16 +1154,9 @@ void HeuristicOVLSMember::apply(
       LoadStore) {
     LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
                LoadStore->printWithoutAnalyses(dbgs()); dbgs() << '\n');
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printCostChangeInline(OS, Cost, VLSGroupCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
     Cost = VLSGroupCost;
-  } else {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printCostChangeInline(OS, Cost, 0);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  } else
     Cost = 0;
-  }
 }
 
 } // namespace VPlanCostModelHeuristics
@@ -1198,3 +1164,5 @@ void HeuristicOVLSMember::apply(
 } // namespace vpo
 
 } // namespace llvm
+
+#endif // INTEL_FEATURE_SW_ADVANCED

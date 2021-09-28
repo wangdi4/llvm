@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL1.2
-// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=-__opencl_c_program_scope_global_variables,-__opencl_c_generic_address_space
-// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=+__opencl_c_program_scope_global_variables,-__opencl_c_generic_address_space
+// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=-__opencl_c_program_scope_global_variables,-__opencl_c_generic_address_space,-__opencl_c_pipes
+// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=+__opencl_c_program_scope_global_variables,-__opencl_c_generic_address_space,-__opencl_c_pipes
 // RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=-__opencl_c_program_scope_global_variables,+__opencl_c_generic_address_space
 // RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=+__opencl_c_program_scope_global_variables,+__opencl_c_generic_address_space
 static constant int G1 = 0;
@@ -103,12 +103,15 @@ extern generic float g_generic_extern_var;
 void kernel foo(int x) {
   // static is not allowed at local scope before CL2.0
   static int S1 = 5;
+#if __OPENCL_C_VERSION__ < 300
+// expected-error@-2 {{variables in function scope cannot be declared static}}
+#elif !defined(__opencl_c_program_scope_global_variables)
+// expected-error@-4 {{static local variable must reside in constant address space}}
+#endif
+
   static constant int S2 = 5;
 #if __OPENCL_C_VERSION__ < 300
-// expected-error@-3 {{variables in function scope cannot be declared static}}
-// expected-error@-3 {{variables in function scope cannot be declared static}}
-#elif !defined(__opencl_c_program_scope_global_variables)
-// expected-error@-6 {{static local variable must reside in constant address space}}
+// expected-error@-2 {{variables in function scope cannot be declared static}}
 #endif
 
   constant int L1 = 0;
@@ -125,8 +128,8 @@ void kernel foo(int x) {
 
   constant int L6 = x;                        // expected-error {{initializer element is not a compile-time constant}}
   global int *constant L7 = &G4;
-private
-  int *constant L8 = &x;                      // expected-error {{initializer element is not a compile-time constant}}
+
+  private int *constant L8 = &x;              // expected-error {{initializer element is not a compile-time constant}}
   constant int *constant L9 = &L1;
   local int *constant L10 = &L2;              // expected-error {{initializer element is not a compile-time constant}}
 }

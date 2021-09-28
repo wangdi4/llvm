@@ -24,7 +24,6 @@ VERS1.0 {
     __tgt_rtl_data_retrieve_nowait;
     __tgt_rtl_manifest_data_for_region;
     __tgt_rtl_data_alloc_base;
-    __tgt_rtl_data_alloc_user;
     __tgt_rtl_get_device_name;
     __tgt_rtl_run_target_team_nd_region;
     __tgt_rtl_run_target_team_region_nowait;
@@ -36,8 +35,9 @@ VERS1.0 {
     __tgt_rtl_set_device_handle;
     __tgt_rtl_get_context_handle;
     __tgt_rtl_data_alloc_managed;
+    __tgt_rtl_data_realloc;
+    __tgt_rtl_data_aligned_alloc;
     __tgt_rtl_is_device_accessible_ptr;
-    __tgt_rtl_data_alloc_explicit;
     __tgt_rtl_init_ompt;
     __tgt_rtl_get_data_alloc_info;
     __tgt_rtl_push_subdevice;
@@ -54,11 +54,21 @@ VERS1.0 {
     __tgt_rtl_get_interop_rc_desc;
     __tgt_rtl_get_num_sub_devices;
     __tgt_rtl_is_accessible_addr_range;
+    __tgt_rtl_notify_indirect_access;
+    __tgt_rtl_is_private_arg_on_host;
+    __tgt_rtl_command_batch_begin;
+    __tgt_rtl_command_batch_end;
 # end INTEL_COLLAB
     __tgt_rtl_register_lib;
     __tgt_rtl_unregister_lib;
     __tgt_rtl_supports_empty_images;
     __tgt_rtl_set_info_flag;
+    __tgt_rtl_print_device_info;
+    __tgt_rtl_create_event;
+    __tgt_rtl_record_event;
+    __tgt_rtl_wait_event;
+    __tgt_rtl_sync_event;
+    __tgt_rtl_destroy_event;
   local:
     *;
 };

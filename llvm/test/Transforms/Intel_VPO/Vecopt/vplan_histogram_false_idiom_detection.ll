@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32 %N) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  Visiting HLLoop: 18
-; CHECK-NEXT:  VConflict load has uses outside of the region.
+; CHECK-NEXT:  VConflict load's use-chain escapes the region.
 ; CHECK-NEXT:  The current VConflict idiom is not supported.
 ;
 entry:
@@ -54,7 +54,7 @@ for.body:                                         ; preds = %for.body.preheader,
 define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32 %N) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  Visiting HLLoop: 17
-; CHECK-NEXT:  VConflict load has uses outside of the region.
+; CHECK-NEXT:  VConflict load's use-chain escapes the region.
 ; CHECK-NEXT:  The current VConflict idiom is not supported.
 ;
 entry:

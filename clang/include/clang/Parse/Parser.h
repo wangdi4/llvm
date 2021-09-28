@@ -181,6 +181,9 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> FPContractHandler;
   std::unique_ptr<PragmaHandler> OpenCLExtensionHandler;
   std::unique_ptr<PragmaHandler> OpenMPHandler;
+#if INTEL_COLLAB
+  std::unique_ptr<PragmaHandler> OpenMPXHandler;
+#endif // INTEL_COLLAB
   std::unique_ptr<PragmaHandler> PCSectionHandler;
   std::unique_ptr<PragmaHandler> MSCommentHandler;
   std::unique_ptr<PragmaHandler> MSDetectMismatchHandler;
@@ -2929,6 +2932,9 @@ private:
   }
 
   void ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+#if INTEL_COLLAB
+                                bool IsExtension,
+#endif // INTEL_COLLAB
                                 CachedTokens &OpenMPTokens);
 
   void ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
@@ -2951,7 +2957,10 @@ private:
                                SourceLocation ScopeLoc,
                                CachedTokens &OpenMPTokens);
 
-  IdentifierInfo *TryParseCXX11AttributeIdentifier(SourceLocation &Loc);
+  IdentifierInfo *TryParseCXX11AttributeIdentifier(
+      SourceLocation &Loc,
+      Sema::AttributeCompletion Completion = Sema::AttributeCompletion::None,
+      const IdentifierInfo *EnclosingScope = nullptr);
 
   void MaybeParseMicrosoftAttributes(ParsedAttributes &attrs,
                                      SourceLocation *endLoc = nullptr) {
@@ -3347,6 +3356,13 @@ private:
 
   /// Parse clauses for '#pragma omp [begin] declare target'.
   void ParseOMPDeclareTargetClauses(Sema::DeclareTargetContextInfo &DTCI);
+
+#if INTEL_COLLAB
+  /// Parse clauses for '#pragma ompx declare target function'.
+  void
+  ParseOMPXDeclareTargetFunctionClauses(Sema::DeclareTargetContextInfo &DTCI,
+                                        CachedTokens &Toks);
+#endif // INTEL_COLLAB
 
   /// Parse '#pragma omp end declare target'.
   void ParseOMPEndDeclareTargetDirective(OpenMPDirectiveKind BeginDKind,

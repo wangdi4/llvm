@@ -44,23 +44,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree nounwind uwtable
 define void @dgemm_(double* noalias nocapture readonly %"dgemm_$A", double* noalias nocapture readonly %"dgemm_$B", double* noalias nocapture %"dgemm_$C", double* noalias nocapture readonly %"dgemm_$D") local_unnamed_addr #0 {
 alloca_0:
-  %"dgemm_$B_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* %"dgemm_$B", i64 0)
-  %"dgemm_$D_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* %"dgemm_$D", i64 0)
-  %"dgemm_$C_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* %"dgemm_$C", i64 0)
+  %"dgemm_$B_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$B", i64 0)
+  %"dgemm_$D_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$D", i64 0)
+  %"dgemm_$C_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$C", i64 0)
   br label %bb3
 
 bb3:                                              ; preds = %bb40_endif, %alloca_0
   %indvars.iv73 = phi i64 [ %indvars.iv.next74, %bb40_endif ], [ 1, %alloca_0 ]
-  %"dgemm_$B_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"dgemm_$B_entry[]", i64 %indvars.iv73)
+  %"dgemm_$B_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"dgemm_$B_entry[]", i64 %indvars.iv73)
   %"dgemm_$B_entry[][]_fetch" = load double, double* %"dgemm_$B_entry[][]", align 1
   %rel = fcmp ueq double %"dgemm_$B_entry[][]_fetch", 0.000000e+00
   br i1 %rel, label %bb40_endif, label %bb12_then
 
 bb22:                                             ; preds = %bb22, %bb12_then
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb22 ], [ 1, %bb12_then ]
-  %"dgemm_$C_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"dgemm_$C_entry[]", i64 %indvars.iv)
+  %"dgemm_$C_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"dgemm_$C_entry[]", i64 %indvars.iv)
   %"dgemm_$C_entry[][]_fetch" = load double, double* %"dgemm_$C_entry[][]", align 1
-  %"dgemm_$A_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"dgemm_$A_entry[]", i64 %indvars.iv)
+  %"dgemm_$A_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"dgemm_$A_entry[]", i64 %indvars.iv)
   %"dgemm_$A_entry[][]_fetch" = load double, double* %"dgemm_$A_entry[][]", align 1
   %mul18 = fmul double %mul, %"dgemm_$A_entry[][]_fetch"
   %add = fadd double %"dgemm_$C_entry[][]_fetch", %mul18
@@ -70,10 +70,10 @@ bb22:                                             ; preds = %bb22, %bb12_then
   br i1 %exitcond, label %bb40_endif.loopexit, label %bb22
 
 bb12_then:                                        ; preds = %bb3
-  %"dgemm_$D_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"dgemm_$D_entry[]", i64 %indvars.iv73)
+  %"dgemm_$D_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"dgemm_$D_entry[]", i64 %indvars.iv73)
   %"dgemm_$D_entry[][]_fetch" = load double, double* %"dgemm_$D_entry[][]", align 1
   %mul = fmul double %"dgemm_$B_entry[][]_fetch", %"dgemm_$D_entry[][]_fetch"
-  %"dgemm_$A_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* %"dgemm_$A", i64 %indvars.iv73)
+  %"dgemm_$A_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$A", i64 %indvars.iv73)
   br label %bb22
 
 bb40_endif.loopexit:                              ; preds = %bb22

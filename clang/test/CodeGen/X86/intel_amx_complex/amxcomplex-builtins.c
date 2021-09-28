@@ -16,16 +16,16 @@ void test_tile_tcmmrlfp16ps() {
   _tile_tcmmrlfp16ps(1, 2, 3);
 }
 
-void test_tile_tconjcmmimfp16ps() {
-  // CHECK-LABEL: @test_tile_tconjcmmimfp16ps
-  // CHECK: call void @llvm.x86.tconjcmmimfp16ps(i8 1, i8 2, i8 3)
-  _tile_tconjcmmimfp16ps(1, 2, 3);
+void test_tile_tconjtcmmimfp16ps() {
+  // CHECK-LABEL: @test_tile_tconjtcmmimfp16ps
+  // CHECK: call void @llvm.x86.tconjtcmmimfp16ps(i8 1, i8 2, i8 3)
+  _tile_tconjtcmmimfp16ps(1, 2, 3);
 }
 
-void test_tile_tconjfp16() {
-  // CHECK-LABEL: @test_tile_tconjfp16
-  // CHECK: call void @llvm.x86.tconjfp16(i8 1, i8 2)
-  _tile_tconjfp16(1, 2);
+void test_tile_tconjtfp16() {
+  // CHECK-LABEL: @test_tile_tconjtfp16
+  // CHECK: call void @llvm.x86.tconjtfp16(i8 1, i8 2)
+  _tile_tconjtfp16(1, 2);
 }
 
 void test_tile_ttcmmimfp16ps() {

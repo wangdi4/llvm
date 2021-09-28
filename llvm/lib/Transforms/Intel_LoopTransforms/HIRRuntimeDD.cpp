@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -210,7 +210,8 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
     // analyzed the memrefs.
     return (Result != ALREADY_MV) && (Result != NON_DO_LOOP) &&
            (Result != NON_PROFITABLE) && (Result != NON_PERFECT_LOOPNEST) &&
-           (Result != NON_NORMALIZED_BLOB_IV_COEFF);
+           (Result != NON_NORMALIZED_BLOB_IV_COEFF) &&
+           (Result != NON_PROFITABLE_ALIAS);
   }
 
 private:
@@ -540,6 +541,9 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Loop considered non-profitable";
   case NON_PROFITABLE_SUBS:
     return "Subscript multiversioning is non-profitable";
+  case NON_PROFITABLE_ALIAS:
+    return "Loop considered non-profitable due to partial/must alias between "
+           "groups";
   case STRUCT_ACCESS:
     return "Struct refs not supported yet";
   case DIFF_ADDR_SPACE:
@@ -550,6 +554,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "SIMD Loop";
   case UNKNOWN_MIN_MAX:
     return "Could not find MIN and MAX bounds";
+  case UNKNOWN_ADDR_RANGE:
+    return "Mem ref has unknown address range";
   }
   llvm_unreachable("Unexpected give up reason");
 }
@@ -863,12 +869,17 @@ RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
       }
 
       RegDDRef *DstRef = cast<RegDDRef>(Edge->getSink());
+
       auto GroupBI = RefGroupIndex.find(DstRef);
       assert(GroupBI != RefGroupIndex.end() &&
              "Found dependence to unknown ref");
       unsigned GroupB = GroupBI->second;
 
       if (GroupA != GroupB) {
+        if (DDA.areRefsMustAliasOrPartialAlias(SrcRef, DstRef)) {
+          return NON_PROFITABLE_ALIAS;
+        }
+
         auto IsSupported = isTestSupported(SrcRef, DstRef);
         if (IsSupported != OK) {
           return IsSupported;
@@ -1064,6 +1075,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       return STRUCT_ACCESS;
     }
 
+    if (std::any_of(Groups[I].begin(), Groups[I].end(),
+                    [](const RegDDRef *Ref) { return Ref->isFake(); })) {
+      return UNKNOWN_ADDR_RANGE;
+    }
+
     bool IsWriteGroup =
         std::any_of(Groups[I].begin(), Groups[I].end(),
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
@@ -1103,7 +1119,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Skip Read-Read segments
     assert((S1.isWrite() || S2.isWrite()) &&
-           "At least of the one segments should be a write segment");
+           "At least one of the segments should be a write segment");
 
     Context.SegmentList.push_back(S1.genSegment());
     Context.SegmentList.push_back(S2.genSegment());
@@ -1128,15 +1144,21 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
   Type *LowerType = Lower->getDestType();
   Type *UpperType = Upper->getDestType();
 
+  Type *LowerElementType = Lower->getDereferencedType();
+  Type *UpperElementType = Upper->getDereferencedType();
+
+  Type *PtrElementType = PtrType;
   // Determine smallest type.
   if (!PtrType) {
-    auto LowerSize = DL.getTypeSizeInBits(LowerType->getPointerElementType());
-    auto UpperSize = DL.getTypeSizeInBits(UpperType->getPointerElementType());
+    auto LowerSize = DL.getTypeSizeInBits(LowerElementType);
+    auto UpperSize = DL.getTypeSizeInBits(UpperElementType);
 
     if (LowerSize < UpperSize) {
       PtrType = LowerType;
+      PtrElementType = LowerElementType;
     } else {
       PtrType = UpperType;
+      PtrElementType = UpperElementType;
     }
   }
 
@@ -1147,9 +1169,8 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
   if (UpperType != PtrType) {
     Upper->setBitCastDestType(PtrType);
 
-    auto UpperTypeSize =
-        DL.getTypeSizeInBits(UpperType->getPointerElementType());
-    auto PtrTypeSize = DL.getTypeSizeInBits(PtrType->getPointerElementType());
+    auto UpperTypeSize = DL.getTypeSizeInBits(UpperElementType);
+    auto PtrTypeSize = DL.getTypeSizeInBits(PtrElementType);
 
     auto Ceil = [](unsigned A, unsigned B) { return (A + B - 1) / B; };
     unsigned Offset = Ceil(UpperTypeSize, PtrTypeSize) - 1;
@@ -1167,7 +1188,7 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
 
       auto *BaseDDRef = BaseInst->getLvalDDRef();
 
-      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(
+      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(Upper->getDereferencedType(),
           BaseDDRef->getSelfBlobIndex(), NonLinearLevel, Upper->getSymbase(),
           true);
 
@@ -1220,7 +1241,8 @@ static Type *getMinimalElementSizeType(const DataLayout &DL,
   for (auto &Segment : Segments) {
     for (auto &Ref : {Segment.Lower, Segment.Upper}) {
       Type *RefType = Ref->getDestType();
-      auto Size = DL.getTypeSizeInBits(RefType->getPointerElementType());
+      Type *RefElementType = Ref->getDereferencedType();
+      auto Size = DL.getTypeSizeInBits(RefElementType);
       if (Size < MinTypeSize) {
         MinTypeSize = Size;
         MinType = RefType;
@@ -1279,7 +1301,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   //   (%dd)[49].0 = &(%Q)[%lower]
   //   (%dd)[49].1 = &(%Q)[%upper]
   for (auto &S : Context.SegmentList) {
-    RegDDRef *LBDDRef = DRU.createMemRef(TestArrayBlobIndex);
+    RegDDRef *LBDDRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
     LBDDRef->addDimension(CEU.createCanonExpr(IVType));
     LBDDRef->addDimension(CEU.createCanonExpr(IVType, 0, TestIdx));
     LBDDRef->setTrailingStructOffsets(1, 0);
@@ -1306,7 +1328,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   FunctionCallee RtddIndep = HNU.getModule().getOrInsertFunction(
       "__intel_rtdd_indep", Attrs, IntPtrType, I8PtrType, IntPtrType);
 
-  RegDDRef *ArrayRef = DRU.createMemRef(TestArrayBlobIndex);
+  RegDDRef *ArrayRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
   ArrayRef->setAddressOf(true);
   ArrayRef->addDimension(CEU.createCanonExpr(IVType));
   ArrayRef->setBitCastDestType(I8PtrType);
@@ -1483,12 +1505,16 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   HLLoop *NoAliasLoop = Context.Loop;
   HLLoop *ClonedLoop = Context.Loop->clone(&LoopMapper);
 
-  LoopOptReportBuilder &LORBuilder =
-      NoAliasLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      NoAliasLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  LORBuilder(*NoAliasLoop).addOrigin("Multiversioned loop");
-  // The loop has been multiversioned
-  LORBuilder(*ClonedLoop).addRemark(OptReportVerbosity::Low, 25582u);
+  // Remark: Loop multiversioned for Data Dependence
+  ORBuilder(*NoAliasLoop)
+      .addOrigin(25474u, 1)
+      .addRemark(OptReportVerbosity::Low, 25228u);
+
+  // Remark: Multiversioned Loop 2
+  ORBuilder(*ClonedLoop).addOrigin(25474u, 2);
 
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;

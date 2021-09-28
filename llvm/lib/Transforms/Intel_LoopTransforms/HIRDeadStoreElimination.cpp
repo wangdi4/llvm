@@ -597,6 +597,63 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
   return true;
 }
 
+// Returns true if \p Ref is structually invalidated by a temp redefinition
+// before we hit \p EndNode. Both of them lie inside \p ParentLp.
+//
+// For example, store's rval ref gets invalidated in the example below which
+// prevents its forwarding into load.
+//
+// A[0] = %t1
+// %t1 =
+//     = A[0]
+static bool isRefInvalidatedBeforeNode(const RegDDRef *Ref,
+                                       const HLNode *EndNode,
+                                       const HLLoop *ParentLp) {
+  assert(!Ref->isMemRef() && "Memref not expected!");
+  assert(EndNode && "EndNode is null!");
+
+  unsigned Symbase = Ref->getSymbase();
+
+  bool IsRegionInvariant = ((Symbase == ConstantSymbase) ||
+                            EndNode->getParentRegion()->isLiveIn(Symbase));
+
+  if (IsRegionInvariant) {
+    return false;
+  }
+
+  if (ParentLp && Ref->isLinearAtLevel(ParentLp->getNestingLevel())) {
+    return false;
+  }
+
+  auto &BU = Ref->getBlobUtils();
+
+  // Check nodes in range (RefNode, EndNode) for redefinitions of any temp
+  // blobs used in Ref.
+  for (auto *Node = Ref->getHLDDNode()->getNextNode(); Node != EndNode;
+       Node = Node->getNextNode()) {
+    auto *Inst = dyn_cast_or_null<HLInst>(Node);
+
+    // Only handle straight line code when substituting non-linear Ref.
+    if (!Inst) {
+      return true;
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (!LvalRef || !LvalRef->isTerminalRef()) {
+      continue;
+    }
+
+    unsigned TempIndex = BU.findTempBlobIndex(LvalRef->getSymbase());
+
+    if ((TempIndex != InvalidBlobIndex) && Ref->usesTempBlob(TempIndex)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Somtimes we can eliminate the store by forward substituting its RHS into
 // loads. For example-
 //
@@ -612,7 +669,7 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
 // This function returns true if the collected loads can be substituted.
 // Loads are collected in reverse lexical order.
 static bool
-canSubstituteLoads(const HLRegion &Region, const RegDDRef *StoreRef,
+canSubstituteLoads(const RegDDRef *StoreRef,
                    SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads) {
   if (SubstitutibleLoads.empty()) {
     return true;
@@ -642,21 +699,6 @@ canSubstituteLoads(const HLRegion &Region, const RegDDRef *StoreRef,
   // Check if store can be legally substituted.
   const HLLoop *ParLoop = SInst->getLexicalParentLoop();
 
-  // Check if it is structurally legal to substitute the StoreRHS into loads.
-  unsigned Symbase = StoreRHS->getSymbase();
-  bool IsRegionInvariant =
-      ((Symbase == ConstantSymbase) || Region.isLiveIn(Symbase));
-
-  // Non-linear RHS can also be handled by checking for invalidating definitions
-  // between the store and loads but it can increase the live-range of the
-  // non-linear temps thereby increasing register pressure and nullify the
-  // benefit of eliminating load/store.
-  // TODO: Try extending in a separate changeset.
-  if (!IsRegionInvariant &&
-      (!ParLoop || !StoreRHS->isLinearAtLevel(ParLoop->getNestingLevel()))) {
-    return false;
-  }
-
   for (auto *LoadRef : SubstitutibleLoads) {
     auto *LoadNode = LoadRef->getHLDDNode();
 
@@ -664,6 +706,13 @@ canSubstituteLoads(const HLRegion &Region, const RegDDRef *StoreRef,
         !HLNodeUtils::dominates(SInst, LoadNode)) {
       return false;
     }
+  }
+
+  // Check if it is structurally legal to substitute StoreRHS into loads.
+  // Only the lexically last load needs to be passed in.
+  if (isRefInvalidatedBeforeNode(StoreRHS, SubstitutibleLoads[0]->getHLDDNode(),
+                                 ParLoop)) {
+    return false;
   }
 
   return true;
@@ -708,7 +757,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
   }
 
   bool Result = false;
-  SmallPtrSet<const HLLoop *, 8> OptimizedLoops;
+  SmallPtrSet<HLLoop *, 8> OptimizedLoops;
 
   for (auto &RefGroup : EqualityGroups) {
     auto *Ref = RefGroup.front();
@@ -795,7 +844,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
             continue;
           }
           break;
-        } else if (!canSubstituteLoads(Region, PrevRef, SubstitutibleLoads)) {
+        } else if (!canSubstituteLoads(PrevRef, SubstitutibleLoads)) {
           break;
         }
 
@@ -849,7 +898,12 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
     return false;
   }
 
+  OptReportBuilder &ORBuilder = HNU.getHIRFramework().getORBuilder();
+
   for (auto *Lp : OptimizedLoops) {
+    // remark: Dead stores eliminated in loop
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25529u);
+
     if (Lp->isAttached()) {
       HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
     }

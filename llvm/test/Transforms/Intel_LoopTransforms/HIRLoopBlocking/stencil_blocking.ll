@@ -229,7 +229,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i8* getelementptr inbounds ([80 x i8], [80 x i8]* @"driver_$TITLE", i64 0, i64 0), i8** %127, align 8
   %128 = bitcast { i64, i8* }* %7 to i8*
   %129 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %122, i8* nonnull %128) #3
-  %130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 1)
+  %130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 1)
   %131 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 0
   store i8 48, i8* %131, align 1
   %132 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 1
@@ -245,7 +245,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store double* %130, double** %137, align 8
   %138 = bitcast { i64, i8* }* %9 to i8*
   %139 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %131, i8* nonnull %138) #3
-  %140 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 2)
+  %140 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 2)
   %141 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 0
   store i8 48, i8* %141, align 1
   %142 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 1
@@ -329,7 +329,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i8* getelementptr inbounds ([80 x i8], [80 x i8]* @"driver_$TITLE", i64 0, i64 0), i8** %187, align 8
   %188 = bitcast { i64, i8* }* %21 to i8*
   %189 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %182, i8* nonnull %188) #3
-  %190 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 1)
+  %190 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 1)
   %191 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 0
   store i8 9, i8* %191, align 1
   %192 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 1
@@ -345,7 +345,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i32* %190, i32** %197, align 8
   %198 = bitcast { i64, i8* }* %23 to i8*
   %199 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %191, i8* nonnull %198) #3
-  %200 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 2)
+  %200 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 2)
   %201 = getelementptr inbounds [4 x i8], [4 x i8]* %24, i64 0, i64 0
   store i8 9, i8* %201, align 1
   %202 = getelementptr inbounds [4 x i8], [4 x i8]* %24, i64 0, i64 1
@@ -361,7 +361,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i32* %200, i32** %207, align 8
   %208 = bitcast { i64, i8* }* %25 to i8*
   %209 = call i32 @for_read_seq_lis_xmit(i8* nonnull %111, i8* nonnull %201, i8* nonnull %208) #3
-  %210 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 3)
+  %210 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 3)
   %211 = getelementptr inbounds [4 x i8], [4 x i8]* %26, i64 0, i64 0
   store i8 9, i8* %211, align 1
   %212 = getelementptr inbounds [4 x i8], [4 x i8]* %26, i64 0, i64 1
@@ -444,7 +444,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i8* getelementptr inbounds ([80 x i8], [80 x i8]* @"driver_$TITLE", i64 0, i64 0), i8** %257, align 8
   %258 = bitcast { i64, i8* }* %37 to i8*
   %259 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %252, i8* nonnull %258) #3
-  %260 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 3)
+  %260 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 3)
   %261 = getelementptr inbounds [4 x i8], [4 x i8]* %38, i64 0, i64 0
   store i8 48, i8* %261, align 1
   %262 = getelementptr inbounds [4 x i8], [4 x i8]* %38, i64 0, i64 1
@@ -460,7 +460,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store double* %260, double** %267, align 8
   %268 = bitcast { i64, i8* }* %39 to i8*
   %269 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %261, i8* nonnull %268) #3
-  %270 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 4)
+  %270 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 4)
   %271 = getelementptr inbounds [4 x i8], [4 x i8]* %40, i64 0, i64 0
   store i8 48, i8* %271, align 1
   %272 = getelementptr inbounds [4 x i8], [4 x i8]* %40, i64 0, i64 1
@@ -476,7 +476,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store double* %270, double** %277, align 8
   %278 = bitcast { i64, i8* }* %41 to i8*
   %279 = call i32 @for_read_seq_lis_xmit(i8* nonnull %111, i8* nonnull %271, i8* nonnull %278) #3
-  %280 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 5)
+  %280 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 5)
   %281 = getelementptr inbounds [4 x i8], [4 x i8]* %42, i64 0, i64 0
   store i8 48, i8* %281, align 1
   %282 = getelementptr inbounds [4 x i8], [4 x i8]* %42, i64 0, i64 1
@@ -492,7 +492,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store double* %280, double** %287, align 8
   %288 = bitcast { i64, i8* }* %43 to i8*
   %289 = call i32 @for_read_seq_lis_xmit(i8* nonnull %111, i8* nonnull %281, i8* nonnull %288) #3
-  %290 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 6)
+  %290 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"driver_$RBUFF", i64 0, i64 0), i64 6)
   %291 = getelementptr inbounds [4 x i8], [4 x i8]* %44, i64 0, i64 0
   store i8 48, i8* %291, align 1
   %292 = getelementptr inbounds [4 x i8], [4 x i8]* %44, i64 0, i64 1
@@ -658,7 +658,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i8* getelementptr inbounds ([80 x i8], [80 x i8]* @"driver_$TITLE", i64 0, i64 0), i8** %385, align 8
   %386 = bitcast { i64, i8* }* %67 to i8*
   %387 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %380, i8* nonnull %386) #3
-  %388 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 4)
+  %388 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 4)
   %389 = getelementptr inbounds [4 x i8], [4 x i8]* %68, i64 0, i64 0
   store i8 9, i8* %389, align 1
   %390 = getelementptr inbounds [4 x i8], [4 x i8]* %68, i64 0, i64 1
@@ -730,7 +730,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i8* getelementptr inbounds ([80 x i8], [80 x i8]* @"driver_$TITLE", i64 0, i64 0), i8** %425, align 8
   %426 = bitcast { i64, i8* }* %75 to i8*
   %427 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %420, i8* nonnull %426) #3
-  %428 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 5)
+  %428 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 5)
   %429 = getelementptr inbounds [4 x i8], [4 x i8]* %76, i64 0, i64 0
   store i8 9, i8* %429, align 1
   %430 = getelementptr inbounds [4 x i8], [4 x i8]* %76, i64 0, i64 1
@@ -799,7 +799,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   store i8* getelementptr inbounds ([80 x i8], [80 x i8]* @"driver_$TITLE", i64 0, i64 0), i8** %464, align 8
   %465 = bitcast { i64, i8* }* %83 to i8*
   %466 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %111, i32 5, i64 1239157112576, i8* nonnull %459, i8* nonnull %465) #3
-  %467 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 6)
+  %467 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([8 x i32], [8 x i32]* @"driver_$NBUFF", i64 0, i64 0), i64 6)
   %468 = getelementptr inbounds [4 x i8], [4 x i8]* %84, i64 0, i64 0
   store i8 9, i8* %468, align 1
   %469 = getelementptr inbounds [4 x i8], [4 x i8]* %84, i64 0, i64 1
@@ -1146,15 +1146,15 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %119, label %197, label %129
 
 129:                                              ; preds = %127
-  %130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %97, i64 %128)
-  %131 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %88, i64 %128)
-  %132 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %64, i64 %128)
-  %133 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %63, i64 %128)
-  %134 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %62, i64 %128)
-  %135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %61, i64 %128)
-  %136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %60, i64 %128)
-  %137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %59, i64 %128)
-  %138 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %58, i64 %128)
+  %130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %97, i64 %128)
+  %131 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %88, i64 %128)
+  %132 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %64, i64 %128)
+  %133 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %63, i64 %128)
+  %134 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %62, i64 %128)
+  %135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %61, i64 %128)
+  %136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %60, i64 %128)
+  %137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %59, i64 %128)
+  %138 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %58, i64 %128)
   br label %139
 
 139:                                              ; preds = %193, %129
@@ -1162,68 +1162,68 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %120, label %193, label %141
 
 141:                                              ; preds = %139
-  %142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %130, i64 %140)
-  %143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %131, i64 %140)
-  %144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %132, i64 %140)
-  %145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %133, i64 %140)
-  %146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %134, i64 %140)
-  %147 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %135, i64 %140)
-  %148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %136, i64 %140)
-  %149 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %137, i64 %140)
-  %150 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %138, i64 %140)
+  %142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %130, i64 %140)
+  %143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %131, i64 %140)
+  %144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %132, i64 %140)
+  %145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %133, i64 %140)
+  %146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %134, i64 %140)
+  %147 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %135, i64 %140)
+  %148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %136, i64 %140)
+  %149 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %137, i64 %140)
+  %150 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %138, i64 %140)
   br label %151
 
 151:                                              ; preds = %189, %141
   %152 = phi i64 [ 1, %141 ], [ %190, %189 ]
-  %153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %142, i64 %152)
-  %154 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %143, i64 %152)
-  %155 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %144, i64 %152)
-  %156 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %145, i64 %152)
-  %157 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %146, i64 %152)
-  %158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %147, i64 %152)
-  %159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %148, i64 %152)
-  %160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %149, i64 %152)
-  %161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %150, i64 %152)
+  %153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %142, i64 %152)
+  %154 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %143, i64 %152)
+  %155 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %144, i64 %152)
+  %156 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %145, i64 %152)
+  %157 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %146, i64 %152)
+  %158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %147, i64 %152)
+  %159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %148, i64 %152)
+  %160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %149, i64 %152)
+  %161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %150, i64 %152)
   br label %162
 
 162:                                              ; preds = %185, %151
   %163 = phi i64 [ %187, %185 ], [ 1, %151 ]
-  %164 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %154, i64 %163)
+  %164 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %154, i64 %163)
   store double 0.000000e+00, double* %164, align 1
-  %165 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %155, i64 %163)
-  %166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %156, i64 %163)
-  %167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %157, i64 %163)
-  %168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %158, i64 %163)
-  %169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %159, i64 %163)
-  %170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %160, i64 %163)
-  %171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %161, i64 %163)
-  %172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %153, i64 %163)
+  %165 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %155, i64 %163)
+  %166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %156, i64 %163)
+  %167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %157, i64 %163)
+  %168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %158, i64 %163)
+  %169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %159, i64 %163)
+  %170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %160, i64 %163)
+  %171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %161, i64 %163)
+  %172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %153, i64 %163)
   br label %173
 
 173:                                              ; preds = %173, %162
   %174 = phi i64 [ %183, %173 ], [ 1, %162 ]
-  %175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %165, i64 %174)
+  %175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %165, i64 %174)
   store double 0.000000e+00, double* %175, align 1
-  %176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %166, i64 %174)
+  %176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %166, i64 %174)
   store double 0.000000e+00, double* %176, align 1
-  %177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %167, i64 %174)
+  %177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %167, i64 %174)
   store double 0.000000e+00, double* %177, align 1
-  %178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %168, i64 %174)
+  %178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %168, i64 %174)
   store double 0.000000e+00, double* %178, align 1
-  %179 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %169, i64 %174)
+  %179 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %169, i64 %174)
   store double 0.000000e+00, double* %179, align 1
-  %180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %170, i64 %174)
+  %180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %170, i64 %174)
   store double 0.000000e+00, double* %180, align 1
-  %181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %171, i64 %174)
+  %181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %171, i64 %174)
   store double 0.000000e+00, double* %181, align 1
-  %182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %172, i64 %174)
+  %182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %172, i64 %174)
   store double 0.000000e+00, double* %182, align 1
   %183 = add nuw nsw i64 %174, 1
   %184 = icmp eq i64 %183, 6
   br i1 %184, label %185, label %173
 
 185:                                              ; preds = %173
-  %186 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %172, i64 %163)
+  %186 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %172, i64 %163)
   store double 1.000000e+00, double* %186, align 1
   %187 = add nuw nsw i64 %163, 1
   %188 = icmp eq i64 %187, 6
@@ -1273,7 +1273,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %204, label %236, label %214
 
 214:                                              ; preds = %212
-  %215 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %213)
+  %215 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %213)
   br label %216
 
 216:                                              ; preds = %232, %214
@@ -1281,17 +1281,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %205, label %232, label %218
 
 218:                                              ; preds = %216
-  %219 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %215, i64 %217)
+  %219 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %215, i64 %217)
   br label %220
 
 220:                                              ; preds = %228, %218
   %221 = phi i64 [ 1, %218 ], [ %229, %228 ]
-  %222 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %219, i64 %221)
+  %222 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %219, i64 %221)
   br label %223
 
 223:                                              ; preds = %223, %220
   %224 = phi i64 [ %226, %223 ], [ 1, %220 ]
-  %225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %222, i64 %224)
+  %225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %222, i64 %224)
   store double 0.000000e+00, double* %225, align 1
   %226 = add nuw nsw i64 %224, 1
   %227 = icmp eq i64 %226, 6
@@ -1330,7 +1330,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %204, label %265, label %244
 
 244:                                              ; preds = %242
-  %245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %243)
+  %245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %243)
   br label %246
 
 246:                                              ; preds = %261, %244
@@ -1338,21 +1338,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %205, label %261, label %248
 
 248:                                              ; preds = %246
-  %249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %245, i64 %247)
+  %249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %245, i64 %247)
   br label %250
 
 250:                                              ; preds = %250, %248
   %251 = phi i64 [ 1, %248 ], [ %258, %250 ]
-  %252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %249, i64 %251)
-  %253 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %252, i64 1)
+  %252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %249, i64 %251)
+  %253 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %252, i64 1)
   store double 0x3FB99999A0000000, double* %253, align 1
-  %254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %252, i64 2)
+  %254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %252, i64 2)
   store double 0.000000e+00, double* %254, align 1
-  %255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %252, i64 3)
+  %255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %252, i64 3)
   store double 0.000000e+00, double* %255, align 1
-  %256 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %252, i64 4)
+  %256 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %252, i64 4)
   store double 0.000000e+00, double* %256, align 1
-  %257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %252, i64 5)
+  %257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %252, i64 5)
   store double 0x3FD0000014000014, double* %257, align 1
   %258 = add nuw nsw i64 %251, 1
   %259 = icmp eq i64 %258, %211
@@ -1398,21 +1398,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %364, label %296, label %283
 
 283:                                              ; preds = %281
-  %284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %300, i64 %282)
+  %284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %300, i64 %282)
   br label %285
 
 285:                                              ; preds = %285, %283
   %286 = phi i64 [ %365, %283 ], [ %293, %285 ]
-  %287 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %284, i64 %286)
-  %288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %287, i64 1)
+  %287 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %284, i64 %286)
+  %288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %287, i64 1)
   store double 1.000000e+00, double* %288, align 1
-  %289 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %287, i64 2)
+  %289 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %287, i64 2)
   store double 0.000000e+00, double* %289, align 1
-  %290 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %287, i64 3)
+  %290 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %287, i64 3)
   store double 0.000000e+00, double* %290, align 1
-  %291 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %287, i64 4)
+  %291 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %287, i64 4)
   store double 0.000000e+00, double* %291, align 1
-  %292 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %287, i64 5)
+  %292 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %287, i64 5)
   store double 0x4004000014000014, double* %292, align 1
   %293 = add nsw i64 %286, 1
   %294 = icmp eq i64 %293, %372
@@ -1427,7 +1427,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %298, label %301, label %281
 
 299:                                              ; preds = %272
-  %300 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %273)
+  %300 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %273)
   br label %281
 
 301:                                              ; preds = %296
@@ -1449,7 +1449,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %388, label %349, label %313
 
 313:                                              ; preds = %305
-  %314 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %306)
+  %314 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %306)
   br label %315
 
 315:                                              ; preds = %345, %313
@@ -1463,7 +1463,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 321:                                              ; preds = %315
   %322 = fmul fast double %320, %320
   %323 = fadd fast double %322, %312
-  %324 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %314, i64 %316)
+  %324 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %314, i64 %316)
   br label %325
 
 325:                                              ; preds = %341, %321
@@ -1478,16 +1478,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %333, label %341, label %334
 
 334:                                              ; preds = %325
-  %335 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %324, i64 %326)
-  %336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %335, i64 1)
+  %335 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %324, i64 %326)
+  %336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %335, i64 1)
   store double 1.000000e+00, double* %336, align 1
-  %337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %335, i64 2)
+  %337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %335, i64 2)
   store double 0.000000e+00, double* %337, align 1
-  %338 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %335, i64 3)
+  %338 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %335, i64 3)
   store double 0.000000e+00, double* %338, align 1
-  %339 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %335, i64 4)
+  %339 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %335, i64 4)
   store double 0.000000e+00, double* %339, align 1
-  %340 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %335, i64 5)
+  %340 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %335, i64 5)
   store double 0x4004000014000014, double* %340, align 1
   br label %341
 
@@ -1643,22 +1643,22 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %466 = bitcast { double }* %44 to i8*
   %467 = icmp slt i32 %3, 1
   %468 = icmp slt i32 %2, 1
-  %469 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 3) #3
+  %469 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 3) #3
   %470 = add nsw i32 %6, 3
   %471 = sext i32 %470 to i64
-  %472 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %471) #3
-  %473 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 4) #3
-  %474 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %91) #3
+  %472 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %471) #3
+  %473 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 4) #3
+  %474 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %91) #3
   %475 = add nsw i32 %2, 1
   %476 = add nsw i32 %3, 1
   %477 = sext i32 %476 to i64
   %478 = sext i32 %475 to i64
   %479 = add nsw i32 %6, 1
   %480 = sext i32 %479 to i64
-  %481 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %480) #3
-  %482 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 1) #3
-  %483 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %66) #3
-  %484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 2) #3
+  %481 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %480) #3
+  %482 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 1) #3
+  %483 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %66) #3
+  %484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 2) #3
   %485 = fmul fast double %10, 5.000000e-02
   %486 = fmul fast double 0x4006666660000000, %1
   %487 = fdiv fast double 1.000000e+00, %108
@@ -1682,11 +1682,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %505 = lshr exact i64 %504, 3
   %506 = shl nsw i64 %45, 3
   %507 = mul nsw i64 %506, %48
-  %508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %85, i64 1) #3
-  %509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %85, i64 %66) #3
+  %508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %85, i64 1) #3
+  %509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %85, i64 %66) #3
   %510 = add i32 %3, -2
   %511 = add i32 %2, -2
-  %512 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %80, i64 1) #3
+  %512 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %80, i64 1) #3
   %513 = fmul fast double 0x3FD9999980000000, %116
   %514 = fmul fast double %513, %1
   %515 = fdiv fast double 1.000000e+00, %514
@@ -1713,10 +1713,10 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %536 = mul nsw i64 %535, %50
   %537 = mul nsw i64 %536, %68
   %538 = lshr exact i64 %537, 3
-  %539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 2) #3
-  %540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %66) #3
-  %541 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %480) #3
-  %542 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 1) #3
+  %539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 2) #3
+  %540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %66) #3
+  %541 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %480) #3
+  %542 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 1) #3
   %543 = icmp slt i32 %6, -1
   %544 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 1
   %545 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 2
@@ -1752,29 +1752,29 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %594, label %569
 
 569:                                              ; preds = %567
-  %570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %469, i64 %568) #3
-  %571 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %472, i64 %568) #3
-  %572 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %473, i64 %568) #3
-  %573 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %474, i64 %568) #3
+  %570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %469, i64 %568) #3
+  %571 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %472, i64 %568) #3
+  %572 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %473, i64 %568) #3
+  %573 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %474, i64 %568) #3
   br label %574
 
 574:                                              ; preds = %590, %569
   %575 = phi i64 [ 1, %569 ], [ %591, %590 ]
-  %576 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %570, i64 %575) #3
-  %577 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %571, i64 %575) #3
-  %578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %572, i64 %575) #3
-  %579 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %573, i64 %575) #3
+  %576 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %570, i64 %575) #3
+  %577 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %571, i64 %575) #3
+  %578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %572, i64 %575) #3
+  %579 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %573, i64 %575) #3
   br label %580
 
 580:                                              ; preds = %580, %574
   %581 = phi i64 [ %588, %580 ], [ 1, %574 ]
-  %582 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %576, i64 %581) #3
+  %582 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %576, i64 %581) #3
   %583 = load double, double* %582, align 1, !alias.scope !3, !noalias !6
-  %584 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %577, i64 %581) #3
+  %584 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %577, i64 %581) #3
   store double %583, double* %584, align 1, !alias.scope !3, !noalias !6
-  %585 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %578, i64 %581) #3
+  %585 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %578, i64 %581) #3
   %586 = load double, double* %585, align 1, !alias.scope !3, !noalias !6
-  %587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %579, i64 %581) #3
+  %587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %579, i64 %581) #3
   store double %586, double* %587, align 1, !alias.scope !3, !noalias !6
   %588 = add nuw nsw i64 %581, 1
   %589 = icmp eq i64 %588, 6
@@ -1801,29 +1801,29 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %625, label %600
 
 600:                                              ; preds = %598
-  %601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %481, i64 %599) #3
-  %602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %482, i64 %599) #3
-  %603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %483, i64 %599) #3
-  %604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %484, i64 %599) #3
+  %601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %481, i64 %599) #3
+  %602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %482, i64 %599) #3
+  %603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %483, i64 %599) #3
+  %604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %484, i64 %599) #3
   br label %605
 
 605:                                              ; preds = %621, %600
   %606 = phi i64 [ 1, %600 ], [ %622, %621 ]
-  %607 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %601, i64 %606) #3
-  %608 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %602, i64 %606) #3
-  %609 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %603, i64 %606) #3
-  %610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %604, i64 %606) #3
+  %607 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %601, i64 %606) #3
+  %608 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %602, i64 %606) #3
+  %609 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %603, i64 %606) #3
+  %610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %604, i64 %606) #3
   br label %611
 
 611:                                              ; preds = %611, %605
   %612 = phi i64 [ %619, %611 ], [ 1, %605 ]
-  %613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %607, i64 %612) #3
+  %613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %607, i64 %612) #3
   %614 = load double, double* %613, align 1, !alias.scope !3, !noalias !6
-  %615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %608, i64 %612) #3
+  %615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %608, i64 %612) #3
   store double %614, double* %615, align 1, !alias.scope !3, !noalias !6
-  %616 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %609, i64 %612) #3
+  %616 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %609, i64 %612) #3
   %617 = load double, double* %616, align 1, !alias.scope !3, !noalias !6
-  %618 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %610, i64 %612) #3
+  %618 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %610, i64 %612) #3
   store double %617, double* %618, align 1, !alias.scope !3, !noalias !6
   %619 = add nuw nsw i64 %612, 1
   %620 = icmp eq i64 %619, 6
@@ -1864,7 +1864,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %712, label %641
 
 641:                                              ; preds = %638
-  %642 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %639)
+  %642 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %639)
   br label %643
 
 643:                                              ; preds = %706, %641
@@ -1873,25 +1873,25 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %706, label %646
 
 646:                                              ; preds = %643
-  %647 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %642, i64 %644)
+  %647 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %642, i64 %644)
   br label %648
 
 648:                                              ; preds = %648, %646
   %649 = phi i64 [ 1, %646 ], [ %702, %648 ]
   %650 = phi double [ %645, %646 ], [ %701, %648 ]
-  %651 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %647, i64 %649)
-  %652 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %651, i64 1)
+  %651 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %647, i64 %649)
+  %652 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %651, i64 1)
   %653 = load double, double* %652, align 1
-  %654 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %651, i64 2)
+  %654 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %651, i64 2)
   %655 = load double, double* %654, align 1
   %656 = fdiv fast double %655, %653
-  %657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %651, i64 3)
+  %657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %651, i64 3)
   %658 = load double, double* %657, align 1
   %659 = fdiv fast double %658, %653
-  %660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %651, i64 4)
+  %660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %651, i64 4)
   %661 = load double, double* %660, align 1
   %662 = fdiv fast double %661, %653
-  %663 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %651, i64 5)
+  %663 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %651, i64 5)
   %664 = load double, double* %663, align 1
   %665 = fmul fast double %653, 5.000000e-01
   %666 = fmul fast double %656, %656
@@ -1972,11 +1972,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %955, label %725
 
 725:                                              ; preds = %722
-  %726 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %724) #3
-  %727 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %76, i64 %723) #3
+  %726 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %724) #3
+  %727 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %76, i64 %723) #3
   %728 = and i64 %724, 4294967295
-  %729 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %728) #3
-  %730 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %73, i64 %723) #3
+  %729 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %728) #3
+  %730 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %73, i64 %723) #3
   br label %731
 
 731:                                              ; preds = %951, %725
@@ -1986,11 +1986,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 733:                                              ; preds = %731
   %734 = trunc i64 %732 to i32
   %735 = srem i32 %734, %476
-  %736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %726, i64 %732) #3
-  %737 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %727, i64 %732) #3
+  %736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %726, i64 %732) #3
+  %737 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %727, i64 %732) #3
   %738 = zext i32 %735 to i64
-  %739 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %729, i64 %738) #3
-  %740 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %730, i64 %732) #3
+  %739 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %729, i64 %738) #3
+  %740 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %730, i64 %732) #3
   br label %741
 
 741:                                              ; preds = %741, %733
@@ -1998,16 +1998,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %743 = trunc i64 %742 to i32
   %744 = srem i32 %743, %2
   %745 = add nuw nsw i32 %744, 1
-  %746 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %736, i64 %742) #3
-  %747 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %746, i64 1) #3
+  %746 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %736, i64 %742) #3
+  %747 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %746, i64 1) #3
   %748 = load double, double* %747, align 1, !alias.scope !10, !noalias !13
-  %749 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %746, i64 2) #3
+  %749 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %746, i64 2) #3
   %750 = load double, double* %749, align 1, !alias.scope !10, !noalias !13
   %751 = fdiv fast double %750, %748
-  %752 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %746, i64 3) #3
+  %752 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %746, i64 3) #3
   %753 = load double, double* %752, align 1, !alias.scope !10, !noalias !13
   %754 = fdiv fast double %753, %748
-  %755 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %746, i64 4) #3
+  %755 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %746, i64 4) #3
   %756 = load double, double* %755, align 1, !alias.scope !10, !noalias !13
   %757 = fdiv fast double %756, %748
   %758 = fmul fast double %751, %751
@@ -2017,7 +2017,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %762 = fadd fast double %760, %761
   %763 = fmul fast double %762, 5.000000e-01
   %764 = fmul fast double %763, 0x3FD9999980000000
-  %765 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %746, i64 5) #3
+  %765 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %746, i64 5) #3
   %766 = load double, double* %765, align 1, !alias.scope !10, !noalias !13
   %767 = fmul fast double %766, 0x3FF6666660000000
   %768 = fdiv fast double %767, %748
@@ -2025,99 +2025,99 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %770 = fsub fast double %769, %763
   %771 = fmul fast double %770, 0x3FD9999980000000
   %772 = call fast double @llvm.pow.f64(double %771, double 7.500000e-01) #3
-  %773 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %737, i64 %742) #3
-  %774 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %773, i64 1) #3
-  %775 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %774, i64 1) #3
+  %773 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %737, i64 %742) #3
+  %774 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %773, i64 1) #3
+  %775 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %774, i64 1) #3
   store double 0.000000e+00, double* %775, align 1, !alias.scope !27, !noalias !28
   %776 = fsub fast double %764, %758
-  %777 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %774, i64 2) #3
+  %777 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %774, i64 2) #3
   store double %776, double* %777, align 1, !alias.scope !27, !noalias !28
   %778 = fneg fast double %751
   %779 = fmul fast double %754, %778
-  %780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %774, i64 3) #3
+  %780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %774, i64 3) #3
   store double %779, double* %780, align 1, !alias.scope !27, !noalias !28
   %781 = fmul fast double %757, %778
-  %782 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %774, i64 4) #3
+  %782 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %774, i64 4) #3
   store double %781, double* %782, align 1, !alias.scope !27, !noalias !28
   %783 = fmul fast double %764, 2.000000e+00
   %784 = fsub fast double %783, %768
   %785 = fmul fast double %784, %751
-  %786 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %774, i64 5) #3
+  %786 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %774, i64 5) #3
   store double %785, double* %786, align 1, !alias.scope !27, !noalias !28
-  %787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %773, i64 2) #3
-  %788 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %787, i64 1) #3
+  %787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %773, i64 2) #3
+  %788 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %787, i64 1) #3
   store double 1.000000e+00, double* %788, align 1, !alias.scope !27, !noalias !28
   %789 = fmul fast double %751, 0xBFE3333340000000
   %790 = fsub fast double %751, %789
-  %791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %787, i64 2) #3
+  %791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %787, i64 2) #3
   store double %790, double* %791, align 1, !alias.scope !27, !noalias !28
-  %792 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %787, i64 3) #3
+  %792 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %787, i64 3) #3
   store double %754, double* %792, align 1, !alias.scope !27, !noalias !28
-  %793 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %787, i64 4) #3
+  %793 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %787, i64 4) #3
   store double %757, double* %793, align 1, !alias.scope !27, !noalias !28
   %794 = fmul fast double %751, 0x3FD9999980000000
   %795 = fmul fast double %794, %751
   %796 = fadd fast double %764, %795
   %797 = fsub fast double %768, %796
-  %798 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %787, i64 5) #3
+  %798 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %787, i64 5) #3
   store double %797, double* %798, align 1, !alias.scope !27, !noalias !28
-  %799 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %773, i64 3) #3
-  %800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %799, i64 1) #3
+  %799 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %773, i64 3) #3
+  %800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %799, i64 1) #3
   store double 0.000000e+00, double* %800, align 1, !alias.scope !27, !noalias !28
   %801 = fmul fast double %754, 0xBFD9999980000000
-  %802 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %799, i64 2) #3
+  %802 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %799, i64 2) #3
   store double %801, double* %802, align 1, !alias.scope !27, !noalias !28
-  %803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %799, i64 3) #3
+  %803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %799, i64 3) #3
   store double %751, double* %803, align 1, !alias.scope !27, !noalias !28
-  %804 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %799, i64 4) #3
+  %804 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %799, i64 4) #3
   store double 0.000000e+00, double* %804, align 1, !alias.scope !27, !noalias !28
   %805 = fneg fast double %794
   %806 = fmul fast double %754, %805
-  %807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %799, i64 5) #3
+  %807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %799, i64 5) #3
   store double %806, double* %807, align 1, !alias.scope !27, !noalias !28
-  %808 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %773, i64 4) #3
-  %809 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %808, i64 1) #3
+  %808 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %773, i64 4) #3
+  %809 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %808, i64 1) #3
   store double 0.000000e+00, double* %809, align 1, !alias.scope !27, !noalias !28
   %810 = fmul fast double %757, 0xBFD9999980000000
-  %811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %808, i64 2) #3
+  %811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %808, i64 2) #3
   store double %810, double* %811, align 1, !alias.scope !27, !noalias !28
-  %812 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %808, i64 3) #3
+  %812 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %808, i64 3) #3
   store double 0.000000e+00, double* %812, align 1, !alias.scope !27, !noalias !28
-  %813 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %808, i64 4) #3
+  %813 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %808, i64 4) #3
   store double %751, double* %813, align 1, !alias.scope !27, !noalias !28
   %814 = fmul fast double %757, %805
-  %815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %808, i64 5) #3
+  %815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %808, i64 5) #3
   store double %814, double* %815, align 1, !alias.scope !27, !noalias !28
-  %816 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %773, i64 5) #3
-  %817 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %816, i64 1) #3
+  %816 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %773, i64 5) #3
+  %817 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %816, i64 1) #3
   store double 0.000000e+00, double* %817, align 1, !alias.scope !27, !noalias !28
-  %818 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %816, i64 2) #3
+  %818 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %816, i64 2) #3
   store double 0x3FD9999980000000, double* %818, align 1, !alias.scope !27, !noalias !28
-  %819 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %816, i64 3) #3
+  %819 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %816, i64 3) #3
   store double 0.000000e+00, double* %819, align 1, !alias.scope !27, !noalias !28
-  %820 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %816, i64 4) #3
+  %820 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %816, i64 4) #3
   store double 0.000000e+00, double* %820, align 1, !alias.scope !27, !noalias !28
   %821 = fmul fast double %751, 0x3FF6666660000000
-  %822 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %816, i64 5) #3
+  %822 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %816, i64 5) #3
   store double %821, double* %822, align 1, !alias.scope !27, !noalias !28
   %823 = zext i32 %745 to i64
-  %824 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %739, i64 %823) #3
-  %825 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %824, i64 1) #3
+  %824 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %739, i64 %823) #3
+  %825 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %824, i64 1) #3
   %826 = load double, double* %825, align 1, !alias.scope !10, !noalias !13
-  %827 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %824, i64 2) #3
+  %827 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %824, i64 2) #3
   %828 = load double, double* %827, align 1, !alias.scope !10, !noalias !13
   %829 = fdiv fast double %828, %826
-  %830 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %824, i64 3) #3
+  %830 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %824, i64 3) #3
   %831 = load double, double* %830, align 1, !alias.scope !10, !noalias !13
   %832 = fdiv fast double %831, %826
-  %833 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %824, i64 4) #3
+  %833 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %824, i64 4) #3
   %834 = load double, double* %833, align 1, !alias.scope !10, !noalias !13
   %835 = fdiv fast double %834, %826
   %836 = fdiv fast double 1.000000e+00, %826
   %837 = fdiv fast double 1.000000e+00, %748
   %838 = fsub fast double %836, %837
   %839 = fmul fast double %838, %487
-  %840 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %824, i64 5) #3
+  %840 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %824, i64 5) #3
   %841 = load double, double* %840, align 1, !alias.scope !10, !noalias !13
   %842 = fdiv fast double %841, %826
   %843 = fmul fast double %829, %829
@@ -2131,9 +2131,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %851 = call fast double @llvm.pow.f64(double %850, double 7.500000e-01) #3
   %852 = fadd fast double %851, %772
   %853 = fmul fast double %852, 5.000000e-01
-  %854 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %740, i64 %742) #3
-  %855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %854, i64 1) #3
-  %856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %855, i64 1) #3
+  %854 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %740, i64 %742) #3
+  %855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %854, i64 1) #3
+  %856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %855, i64 1) #3
   store double 0.000000e+00, double* %856, align 1, !alias.scope !29, !noalias !30
   %857 = fdiv fast double %751, %748
   %858 = fdiv fast double %829, %826
@@ -2147,15 +2147,15 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %866 = fsub fast double %864, %865
   %867 = fmul fast double %853, %860
   %868 = fmul fast double %867, %487
-  %869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %855, i64 2) #3
+  %869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %855, i64 2) #3
   store double %868, double* %869, align 1, !alias.scope !29, !noalias !30
   %870 = fmul fast double %853, %863
   %871 = fmul fast double %870, %487
-  %872 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %855, i64 3) #3
+  %872 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %855, i64 3) #3
   store double %871, double* %872, align 1, !alias.scope !29, !noalias !30
   %873 = fmul fast double %853, %866
   %874 = fmul fast double %873, %487
-  %875 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %855, i64 4) #3
+  %875 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %855, i64 4) #3
   store double %874, double* %875, align 1, !alias.scope !29, !noalias !30
   %876 = fdiv fast double %758, %748
   %877 = fdiv fast double %843, %826
@@ -2182,18 +2182,18 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %898 = fadd fast double %897, %895
   %899 = fmul fast double %898, %853
   %900 = fmul fast double %899, %487
-  %901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %855, i64 5) #3
+  %901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %855, i64 5) #3
   store double %900, double* %901, align 1, !alias.scope !29, !noalias !30
-  %902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %854, i64 2) #3
-  %903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %902, i64 1) #3
+  %902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %854, i64 2) #3
+  %903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %902, i64 1) #3
   store double 0.000000e+00, double* %903, align 1, !alias.scope !29, !noalias !30
   %904 = fmul fast double %853, %839
   %905 = fmul fast double %904, 0x3FF5555560000000
-  %906 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %902, i64 2) #3
+  %906 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %902, i64 2) #3
   store double %905, double* %906, align 1, !alias.scope !29, !noalias !30
-  %907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %902, i64 3) #3
+  %907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %902, i64 3) #3
   store double 0.000000e+00, double* %907, align 1, !alias.scope !29, !noalias !30
-  %908 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %902, i64 4) #3
+  %908 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %902, i64 4) #3
   store double 0.000000e+00, double* %908, align 1, !alias.scope !29, !noalias !30
   %909 = load double, double* %869, align 1, !alias.scope !29, !noalias !30
   %910 = fmul fast double %853, %498
@@ -2202,16 +2202,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %913 = fmul fast double %912, %487
   %914 = fadd fast double %909, %913
   %915 = fneg fast double %914
-  %916 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %902, i64 5) #3
+  %916 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %902, i64 5) #3
   store double %915, double* %916, align 1, !alias.scope !29, !noalias !30
-  %917 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %854, i64 3) #3
-  %918 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %917, i64 1) #3
+  %917 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %854, i64 3) #3
+  %918 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %917, i64 1) #3
   store double 0.000000e+00, double* %918, align 1, !alias.scope !29, !noalias !30
-  %919 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %917, i64 2) #3
+  %919 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %917, i64 2) #3
   store double 0.000000e+00, double* %919, align 1, !alias.scope !29, !noalias !30
-  %920 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %917, i64 3) #3
+  %920 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %917, i64 3) #3
   store double %904, double* %920, align 1, !alias.scope !29, !noalias !30
-  %921 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %917, i64 4) #3
+  %921 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %917, i64 4) #3
   store double 0.000000e+00, double* %921, align 1, !alias.scope !29, !noalias !30
   %922 = load double, double* %872, align 1, !alias.scope !29, !noalias !30
   %923 = fsub fast double %862, %861
@@ -2219,16 +2219,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %925 = fmul fast double %924, %487
   %926 = fadd fast double %922, %925
   %927 = fneg fast double %926
-  %928 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %917, i64 5) #3
+  %928 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %917, i64 5) #3
   store double %927, double* %928, align 1, !alias.scope !29, !noalias !30
-  %929 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %854, i64 4) #3
-  %930 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %929, i64 1) #3
+  %929 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %854, i64 4) #3
+  %930 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %929, i64 1) #3
   store double 0.000000e+00, double* %930, align 1, !alias.scope !29, !noalias !30
-  %931 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %929, i64 2) #3
+  %931 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %929, i64 2) #3
   store double 0.000000e+00, double* %931, align 1, !alias.scope !29, !noalias !30
-  %932 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %929, i64 3) #3
+  %932 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %929, i64 3) #3
   store double 0.000000e+00, double* %932, align 1, !alias.scope !29, !noalias !30
-  %933 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %929, i64 4) #3
+  %933 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %929, i64 4) #3
   store double %904, double* %933, align 1, !alias.scope !29, !noalias !30
   %934 = load double, double* %875, align 1, !alias.scope !29, !noalias !30
   %935 = fsub fast double %865, %864
@@ -2236,19 +2236,19 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %937 = fmul fast double %936, %487
   %938 = fadd fast double %934, %937
   %939 = fneg fast double %938
-  %940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %929, i64 5) #3
+  %940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %929, i64 5) #3
   store double %939, double* %940, align 1, !alias.scope !29, !noalias !30
-  %941 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %854, i64 5) #3
-  %942 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %941, i64 1) #3
+  %941 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %854, i64 5) #3
+  %942 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %941, i64 1) #3
   store double 0.000000e+00, double* %942, align 1, !alias.scope !29, !noalias !30
-  %943 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %941, i64 2) #3
+  %943 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %941, i64 2) #3
   store double 0.000000e+00, double* %943, align 1, !alias.scope !29, !noalias !30
-  %944 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %941, i64 3) #3
+  %944 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %941, i64 3) #3
   store double 0.000000e+00, double* %944, align 1, !alias.scope !29, !noalias !30
-  %945 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %941, i64 4) #3
+  %945 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %941, i64 4) #3
   store double 0.000000e+00, double* %945, align 1, !alias.scope !29, !noalias !30
   %946 = fmul fast double %910, %839
-  %947 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %941, i64 5) #3
+  %947 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %941, i64 5) #3
   store double %946, double* %947, align 1, !alias.scope !29, !noalias !30
   %948 = add nuw nsw i64 %742, 1
   %949 = icmp eq i64 %948, %478
@@ -2282,11 +2282,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %1193, label %963
 
 963:                                              ; preds = %960
-  %964 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %962) #3
-  %965 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %75, i64 %961) #3
+  %964 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %962) #3
+  %965 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %75, i64 %961) #3
   %966 = and i64 %962, 4294967295
-  %967 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %966) #3
-  %968 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %72, i64 %961) #3
+  %967 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %966) #3
+  %968 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %72, i64 %961) #3
   br label %969
 
 969:                                              ; preds = %1189, %963
@@ -2297,27 +2297,27 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %972 = trunc i64 %970 to i32
   %973 = srem i32 %972, %3
   %974 = add nuw nsw i32 %973, 1
-  %975 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %964, i64 %970) #3
-  %976 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %965, i64 %970) #3
+  %975 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %964, i64 %970) #3
+  %976 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %965, i64 %970) #3
   %977 = zext i32 %974 to i64
-  %978 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %967, i64 %977) #3
-  %979 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %968, i64 %970) #3
+  %978 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %967, i64 %977) #3
+  %979 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %968, i64 %970) #3
   br label %980
 
 980:                                              ; preds = %980, %971
   %981 = phi i64 [ 1, %971 ], [ %1186, %980 ]
   %982 = trunc i64 %981 to i32
   %983 = srem i32 %982, %475
-  %984 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %975, i64 %981) #3
-  %985 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %984, i64 1) #3
+  %984 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %975, i64 %981) #3
+  %985 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %984, i64 1) #3
   %986 = load double, double* %985, align 1, !alias.scope !31, !noalias !34
-  %987 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %984, i64 2) #3
+  %987 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %984, i64 2) #3
   %988 = load double, double* %987, align 1, !alias.scope !31, !noalias !34
   %989 = fdiv fast double %988, %986
-  %990 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %984, i64 3) #3
+  %990 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %984, i64 3) #3
   %991 = load double, double* %990, align 1, !alias.scope !31, !noalias !34
   %992 = fdiv fast double %991, %986
-  %993 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %984, i64 4) #3
+  %993 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %984, i64 4) #3
   %994 = load double, double* %993, align 1, !alias.scope !31, !noalias !34
   %995 = fdiv fast double %994, %986
   %996 = fmul fast double %989, %989
@@ -2327,7 +2327,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1000 = fadd fast double %998, %999
   %1001 = fmul fast double %1000, 5.000000e-01
   %1002 = fmul fast double %1001, 0x3FD9999980000000
-  %1003 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %984, i64 5) #3
+  %1003 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %984, i64 5) #3
   %1004 = load double, double* %1003, align 1, !alias.scope !31, !noalias !34
   %1005 = fmul fast double %1004, 0x3FF6666660000000
   %1006 = fdiv fast double %1005, %986
@@ -2335,99 +2335,99 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1008 = fsub fast double %1007, %1001
   %1009 = fmul fast double %1008, 0x3FD9999980000000
   %1010 = call fast double @llvm.pow.f64(double %1009, double 7.500000e-01) #3
-  %1011 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %976, i64 %981) #3
-  %1012 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1011, i64 1) #3
-  %1013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1012, i64 1) #3
+  %1011 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %976, i64 %981) #3
+  %1012 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1011, i64 1) #3
+  %1013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1012, i64 1) #3
   store double 0.000000e+00, double* %1013, align 1, !alias.scope !48, !noalias !49
   %1014 = fneg fast double %992
   %1015 = fmul fast double %989, %1014
-  %1016 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1012, i64 2) #3
+  %1016 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1012, i64 2) #3
   store double %1015, double* %1016, align 1, !alias.scope !48, !noalias !49
   %1017 = fsub fast double %1002, %997
-  %1018 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1012, i64 3) #3
+  %1018 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1012, i64 3) #3
   store double %1017, double* %1018, align 1, !alias.scope !48, !noalias !49
   %1019 = fmul fast double %995, %1014
-  %1020 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1012, i64 4) #3
+  %1020 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1012, i64 4) #3
   store double %1019, double* %1020, align 1, !alias.scope !48, !noalias !49
   %1021 = fmul fast double %1002, 2.000000e+00
   %1022 = fsub fast double %1021, %1006
   %1023 = fmul fast double %1022, %992
-  %1024 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1012, i64 5) #3
+  %1024 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1012, i64 5) #3
   store double %1023, double* %1024, align 1, !alias.scope !48, !noalias !49
-  %1025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1011, i64 2) #3
-  %1026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1025, i64 1) #3
+  %1025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1011, i64 2) #3
+  %1026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1025, i64 1) #3
   store double 0.000000e+00, double* %1026, align 1, !alias.scope !48, !noalias !49
-  %1027 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1025, i64 2) #3
+  %1027 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1025, i64 2) #3
   store double %992, double* %1027, align 1, !alias.scope !48, !noalias !49
   %1028 = fmul fast double %989, 0xBFD9999980000000
-  %1029 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1025, i64 3) #3
+  %1029 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1025, i64 3) #3
   store double %1028, double* %1029, align 1, !alias.scope !48, !noalias !49
-  %1030 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1025, i64 4) #3
+  %1030 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1025, i64 4) #3
   store double 0.000000e+00, double* %1030, align 1, !alias.scope !48, !noalias !49
   %1031 = fmul fast double %992, 0x3FD9999980000000
   %1032 = fneg fast double %1031
   %1033 = fmul fast double %989, %1032
-  %1034 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1025, i64 5) #3
+  %1034 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1025, i64 5) #3
   store double %1033, double* %1034, align 1, !alias.scope !48, !noalias !49
-  %1035 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1011, i64 3) #3
-  %1036 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1035, i64 1) #3
+  %1035 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1011, i64 3) #3
+  %1036 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1035, i64 1) #3
   store double 1.000000e+00, double* %1036, align 1, !alias.scope !48, !noalias !49
-  %1037 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1035, i64 2) #3
+  %1037 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1035, i64 2) #3
   store double %989, double* %1037, align 1, !alias.scope !48, !noalias !49
   %1038 = fmul fast double %992, 0xBFE3333340000000
   %1039 = fsub fast double %992, %1038
-  %1040 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1035, i64 3) #3
+  %1040 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1035, i64 3) #3
   store double %1039, double* %1040, align 1, !alias.scope !48, !noalias !49
-  %1041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1035, i64 4) #3
+  %1041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1035, i64 4) #3
   store double %995, double* %1041, align 1, !alias.scope !48, !noalias !49
   %1042 = fmul fast double %1031, %992
   %1043 = fadd fast double %1002, %1042
   %1044 = fsub fast double %1006, %1043
-  %1045 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1035, i64 5) #3
+  %1045 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1035, i64 5) #3
   store double %1044, double* %1045, align 1, !alias.scope !48, !noalias !49
-  %1046 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1011, i64 4) #3
-  %1047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1046, i64 1) #3
+  %1046 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1011, i64 4) #3
+  %1047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1046, i64 1) #3
   store double 0.000000e+00, double* %1047, align 1, !alias.scope !48, !noalias !49
-  %1048 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1046, i64 2) #3
+  %1048 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1046, i64 2) #3
   store double 0.000000e+00, double* %1048, align 1, !alias.scope !48, !noalias !49
   %1049 = fmul fast double %995, 0xBFD9999980000000
-  %1050 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1046, i64 3) #3
+  %1050 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1046, i64 3) #3
   store double %1049, double* %1050, align 1, !alias.scope !48, !noalias !49
-  %1051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1046, i64 4) #3
+  %1051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1046, i64 4) #3
   store double %992, double* %1051, align 1, !alias.scope !48, !noalias !49
   %1052 = fmul fast double %995, %1032
-  %1053 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1046, i64 5) #3
+  %1053 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1046, i64 5) #3
   store double %1052, double* %1053, align 1, !alias.scope !48, !noalias !49
-  %1054 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1011, i64 5) #3
-  %1055 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1054, i64 1) #3
+  %1054 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1011, i64 5) #3
+  %1055 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1054, i64 1) #3
   store double 0.000000e+00, double* %1055, align 1, !alias.scope !48, !noalias !49
-  %1056 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1054, i64 2) #3
+  %1056 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1054, i64 2) #3
   store double 0.000000e+00, double* %1056, align 1, !alias.scope !48, !noalias !49
-  %1057 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1054, i64 3) #3
+  %1057 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1054, i64 3) #3
   store double 0x3FD9999980000000, double* %1057, align 1, !alias.scope !48, !noalias !49
-  %1058 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1054, i64 4) #3
+  %1058 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1054, i64 4) #3
   store double 0.000000e+00, double* %1058, align 1, !alias.scope !48, !noalias !49
   %1059 = fmul fast double %992, 0x3FF6666660000000
-  %1060 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1054, i64 5) #3
+  %1060 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1054, i64 5) #3
   store double %1059, double* %1060, align 1, !alias.scope !48, !noalias !49
   %1061 = zext i32 %983 to i64
-  %1062 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %978, i64 %1061) #3
-  %1063 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1062, i64 1) #3
+  %1062 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %978, i64 %1061) #3
+  %1063 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1062, i64 1) #3
   %1064 = load double, double* %1063, align 1, !alias.scope !31, !noalias !34
-  %1065 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1062, i64 2) #3
+  %1065 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1062, i64 2) #3
   %1066 = load double, double* %1065, align 1, !alias.scope !31, !noalias !34
   %1067 = fdiv fast double %1066, %1064
-  %1068 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1062, i64 3) #3
+  %1068 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1062, i64 3) #3
   %1069 = load double, double* %1068, align 1, !alias.scope !31, !noalias !34
   %1070 = fdiv fast double %1069, %1064
-  %1071 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1062, i64 4) #3
+  %1071 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1062, i64 4) #3
   %1072 = load double, double* %1071, align 1, !alias.scope !31, !noalias !34
   %1073 = fdiv fast double %1072, %1064
   %1074 = fdiv fast double 1.000000e+00, %1064
   %1075 = fdiv fast double 1.000000e+00, %986
   %1076 = fsub fast double %1074, %1075
   %1077 = fmul fast double %1076, %490
-  %1078 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1062, i64 5) #3
+  %1078 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1062, i64 5) #3
   %1079 = load double, double* %1078, align 1, !alias.scope !31, !noalias !34
   %1080 = fdiv fast double %1079, %1064
   %1081 = fmul fast double %1067, %1067
@@ -2441,9 +2441,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1089 = call fast double @llvm.pow.f64(double %1088, double 7.500000e-01) #3
   %1090 = fadd fast double %1089, %1010
   %1091 = fmul fast double %1090, 5.000000e-01
-  %1092 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %979, i64 %981) #3
-  %1093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1092, i64 1) #3
-  %1094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1093, i64 1) #3
+  %1092 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %979, i64 %981) #3
+  %1093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1092, i64 1) #3
+  %1094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1093, i64 1) #3
   store double 0.000000e+00, double* %1094, align 1, !alias.scope !50, !noalias !51
   %1095 = fdiv fast double %989, %986
   %1096 = fdiv fast double %1067, %1064
@@ -2456,16 +2456,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1103 = fsub fast double %1101, %1102
   %1104 = fmul fast double %1091, %1097
   %1105 = fmul fast double %1104, %490
-  %1106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1093, i64 2) #3
+  %1106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1093, i64 2) #3
   store double %1105, double* %1106, align 1, !alias.scope !50, !noalias !51
   %1107 = fmul fast double %1100, 0x3FF5555560000000
   %1108 = fmul fast double %1091, %1107
   %1109 = fmul fast double %1108, %490
-  %1110 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1093, i64 3) #3
+  %1110 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1093, i64 3) #3
   store double %1109, double* %1110, align 1, !alias.scope !50, !noalias !51
   %1111 = fmul fast double %1091, %1103
   %1112 = fmul fast double %1111, %490
-  %1113 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1093, i64 4) #3
+  %1113 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1093, i64 4) #3
   store double %1112, double* %1113, align 1, !alias.scope !50, !noalias !51
   %1114 = fdiv fast double %996, %986
   %1115 = fdiv fast double %1081, %1064
@@ -2492,17 +2492,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1136 = fadd fast double %1135, %1133
   %1137 = fmul fast double %1136, %1091
   %1138 = fmul fast double %1137, %490
-  %1139 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1093, i64 5) #3
+  %1139 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1093, i64 5) #3
   store double %1138, double* %1139, align 1, !alias.scope !50, !noalias !51
-  %1140 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1092, i64 2) #3
-  %1141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1140, i64 1) #3
+  %1140 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1092, i64 2) #3
+  %1141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1140, i64 1) #3
   store double 0.000000e+00, double* %1141, align 1, !alias.scope !50, !noalias !51
   %1142 = fmul fast double %1091, %1077
-  %1143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1140, i64 2) #3
+  %1143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1140, i64 2) #3
   store double %1142, double* %1143, align 1, !alias.scope !50, !noalias !51
-  %1144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1140, i64 3) #3
+  %1144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1140, i64 3) #3
   store double 0.000000e+00, double* %1144, align 1, !alias.scope !50, !noalias !51
-  %1145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1140, i64 4) #3
+  %1145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1140, i64 4) #3
   store double 0.000000e+00, double* %1145, align 1, !alias.scope !50, !noalias !51
   %1146 = load double, double* %1106, align 1, !alias.scope !50, !noalias !51
   %1147 = fmul fast double %1091, %498
@@ -2511,17 +2511,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1150 = fmul fast double %1149, %490
   %1151 = fadd fast double %1146, %1150
   %1152 = fneg fast double %1151
-  %1153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1140, i64 5) #3
+  %1153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1140, i64 5) #3
   store double %1152, double* %1153, align 1, !alias.scope !50, !noalias !51
-  %1154 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1092, i64 3) #3
-  %1155 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1154, i64 1) #3
+  %1154 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1092, i64 3) #3
+  %1155 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1154, i64 1) #3
   store double 0.000000e+00, double* %1155, align 1, !alias.scope !50, !noalias !51
-  %1156 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1154, i64 2) #3
+  %1156 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1154, i64 2) #3
   store double 0.000000e+00, double* %1156, align 1, !alias.scope !50, !noalias !51
   %1157 = fmul fast double %1142, 0x3FF5555560000000
-  %1158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1154, i64 3) #3
+  %1158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1154, i64 3) #3
   store double %1157, double* %1158, align 1, !alias.scope !50, !noalias !51
-  %1159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1154, i64 4) #3
+  %1159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1154, i64 4) #3
   store double 0.000000e+00, double* %1159, align 1, !alias.scope !50, !noalias !51
   %1160 = load double, double* %1110, align 1, !alias.scope !50, !noalias !51
   %1161 = fsub fast double %1099, %1098
@@ -2529,16 +2529,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1163 = fmul fast double %1162, %490
   %1164 = fadd fast double %1160, %1163
   %1165 = fneg fast double %1164
-  %1166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1154, i64 5) #3
+  %1166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1154, i64 5) #3
   store double %1165, double* %1166, align 1, !alias.scope !50, !noalias !51
-  %1167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1092, i64 4) #3
-  %1168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1167, i64 1) #3
+  %1167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1092, i64 4) #3
+  %1168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1167, i64 1) #3
   store double 0.000000e+00, double* %1168, align 1, !alias.scope !50, !noalias !51
-  %1169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1167, i64 2) #3
+  %1169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1167, i64 2) #3
   store double 0.000000e+00, double* %1169, align 1, !alias.scope !50, !noalias !51
-  %1170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1167, i64 3) #3
+  %1170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1167, i64 3) #3
   store double 0.000000e+00, double* %1170, align 1, !alias.scope !50, !noalias !51
-  %1171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1167, i64 4) #3
+  %1171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1167, i64 4) #3
   store double %1142, double* %1171, align 1, !alias.scope !50, !noalias !51
   %1172 = load double, double* %1113, align 1, !alias.scope !50, !noalias !51
   %1173 = fsub fast double %1102, %1101
@@ -2546,19 +2546,19 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1175 = fmul fast double %1174, %490
   %1176 = fadd fast double %1172, %1175
   %1177 = fneg fast double %1176
-  %1178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1167, i64 5) #3
+  %1178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1167, i64 5) #3
   store double %1177, double* %1178, align 1, !alias.scope !50, !noalias !51
-  %1179 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1092, i64 5) #3
-  %1180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1179, i64 1) #3
+  %1179 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1092, i64 5) #3
+  %1180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1179, i64 1) #3
   store double 0.000000e+00, double* %1180, align 1, !alias.scope !50, !noalias !51
-  %1181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1179, i64 2) #3
+  %1181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1179, i64 2) #3
   store double 0.000000e+00, double* %1181, align 1, !alias.scope !50, !noalias !51
-  %1182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1179, i64 3) #3
+  %1182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1179, i64 3) #3
   store double 0.000000e+00, double* %1182, align 1, !alias.scope !50, !noalias !51
-  %1183 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1179, i64 4) #3
+  %1183 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1179, i64 4) #3
   store double 0.000000e+00, double* %1183, align 1, !alias.scope !50, !noalias !51
   %1184 = fmul fast double %1147, %1077
-  %1185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1179, i64 5) #3
+  %1185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1179, i64 5) #3
   store double %1184, double* %1185, align 1, !alias.scope !50, !noalias !51
   %1186 = add nuw nsw i64 %981, 1
   %1187 = icmp eq i64 %1186, %478
@@ -2600,11 +2600,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 1203:                                             ; preds = %1199
   %1204 = add nuw nsw i64 %1200, 2
   %1205 = add nuw nsw i64 %1200, 1
-  %1206 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %1205) #3
-  %1207 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %74, i64 %1200) #3
+  %1206 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %1205) #3
+  %1207 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %74, i64 %1200) #3
   %1208 = and i64 %1204, 4294967295
-  %1209 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %1208) #3
-  %1210 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %71, i64 %1200) #3
+  %1209 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %1208) #3
+  %1210 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %71, i64 %1200) #3
   br label %1211
 
 1211:                                             ; preds = %1430, %1203
@@ -2614,27 +2614,27 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 1213:                                             ; preds = %1211
   %1214 = trunc i64 %1212 to i32
   %1215 = srem i32 %1214, %476
-  %1216 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %1206, i64 %1212) #3
-  %1217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1207, i64 %1212) #3
+  %1216 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %1206, i64 %1212) #3
+  %1217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1207, i64 %1212) #3
   %1218 = zext i32 %1215 to i64
-  %1219 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %1209, i64 %1218) #3
-  %1220 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1210, i64 %1212) #3
+  %1219 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %1209, i64 %1218) #3
+  %1220 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1210, i64 %1212) #3
   br label %1221
 
 1221:                                             ; preds = %1221, %1213
   %1222 = phi i64 [ 1, %1213 ], [ %1427, %1221 ]
   %1223 = trunc i64 %1222 to i32
   %1224 = srem i32 %1223, %475
-  %1225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1216, i64 %1222) #3
-  %1226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1225, i64 1) #3
+  %1225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1216, i64 %1222) #3
+  %1226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1225, i64 1) #3
   %1227 = load double, double* %1226, align 1, !alias.scope !52, !noalias !55
-  %1228 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1225, i64 2) #3
+  %1228 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1225, i64 2) #3
   %1229 = load double, double* %1228, align 1, !alias.scope !52, !noalias !55
   %1230 = fdiv fast double %1229, %1227
-  %1231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1225, i64 3) #3
+  %1231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1225, i64 3) #3
   %1232 = load double, double* %1231, align 1, !alias.scope !52, !noalias !55
   %1233 = fdiv fast double %1232, %1227
-  %1234 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1225, i64 4) #3
+  %1234 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1225, i64 4) #3
   %1235 = load double, double* %1234, align 1, !alias.scope !52, !noalias !55
   %1236 = fdiv fast double %1235, %1227
   %1237 = fmul fast double %1230, %1230
@@ -2644,7 +2644,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1241 = fadd fast double %1239, %1240
   %1242 = fmul fast double %1241, 5.000000e-01
   %1243 = fmul fast double %1242, 0x3FD9999980000000
-  %1244 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1225, i64 5) #3
+  %1244 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1225, i64 5) #3
   %1245 = load double, double* %1244, align 1, !alias.scope !52, !noalias !55
   %1246 = fmul fast double %1245, 0x3FF6666660000000
   %1247 = fdiv fast double %1246, %1227
@@ -2652,99 +2652,99 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1249 = fsub fast double %1248, %1242
   %1250 = fmul fast double %1249, 0x3FD9999980000000
   %1251 = call fast double @llvm.pow.f64(double %1250, double 7.500000e-01) #3
-  %1252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1217, i64 %1222) #3
-  %1253 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1252, i64 1) #3
-  %1254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1253, i64 1) #3
+  %1252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1217, i64 %1222) #3
+  %1253 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1252, i64 1) #3
+  %1254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1253, i64 1) #3
   store double 0.000000e+00, double* %1254, align 1, !alias.scope !69, !noalias !70
   %1255 = fneg fast double %1236
   %1256 = fmul fast double %1230, %1255
-  %1257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1253, i64 2) #3
+  %1257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1253, i64 2) #3
   store double %1256, double* %1257, align 1, !alias.scope !69, !noalias !70
   %1258 = fmul fast double %1233, %1255
-  %1259 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1253, i64 3) #3
+  %1259 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1253, i64 3) #3
   store double %1258, double* %1259, align 1, !alias.scope !69, !noalias !70
   %1260 = fsub fast double %1243, %1240
-  %1261 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1253, i64 4) #3
+  %1261 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1253, i64 4) #3
   store double %1260, double* %1261, align 1, !alias.scope !69, !noalias !70
   %1262 = fmul fast double %1243, 2.000000e+00
   %1263 = fsub fast double %1262, %1247
   %1264 = fmul fast double %1263, %1236
-  %1265 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1253, i64 5) #3
+  %1265 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1253, i64 5) #3
   store double %1264, double* %1265, align 1, !alias.scope !69, !noalias !70
-  %1266 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1252, i64 2) #3
-  %1267 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1266, i64 1) #3
+  %1266 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1252, i64 2) #3
+  %1267 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1266, i64 1) #3
   store double 0.000000e+00, double* %1267, align 1, !alias.scope !69, !noalias !70
-  %1268 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1266, i64 2) #3
+  %1268 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1266, i64 2) #3
   store double %1236, double* %1268, align 1, !alias.scope !69, !noalias !70
-  %1269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1266, i64 3) #3
+  %1269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1266, i64 3) #3
   store double 0.000000e+00, double* %1269, align 1, !alias.scope !69, !noalias !70
   %1270 = fmul fast double %1230, 0xBFD9999980000000
-  %1271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1266, i64 4) #3
+  %1271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1266, i64 4) #3
   store double %1270, double* %1271, align 1, !alias.scope !69, !noalias !70
   %1272 = fmul fast double %1236, 0x3FD9999980000000
   %1273 = fneg fast double %1272
   %1274 = fmul fast double %1230, %1273
-  %1275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1266, i64 5) #3
+  %1275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1266, i64 5) #3
   store double %1274, double* %1275, align 1, !alias.scope !69, !noalias !70
-  %1276 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1252, i64 3) #3
-  %1277 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1276, i64 1) #3
+  %1276 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1252, i64 3) #3
+  %1277 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1276, i64 1) #3
   store double 0.000000e+00, double* %1277, align 1, !alias.scope !69, !noalias !70
-  %1278 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1276, i64 2) #3
+  %1278 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1276, i64 2) #3
   store double 0.000000e+00, double* %1278, align 1, !alias.scope !69, !noalias !70
-  %1279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1276, i64 3) #3
+  %1279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1276, i64 3) #3
   store double %1236, double* %1279, align 1, !alias.scope !69, !noalias !70
   %1280 = fmul fast double %1233, 0xBFD9999980000000
-  %1281 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1276, i64 4) #3
+  %1281 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1276, i64 4) #3
   store double %1280, double* %1281, align 1, !alias.scope !69, !noalias !70
   %1282 = fmul fast double %1233, %1273
-  %1283 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1276, i64 5) #3
+  %1283 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1276, i64 5) #3
   store double %1282, double* %1283, align 1, !alias.scope !69, !noalias !70
-  %1284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1252, i64 4) #3
-  %1285 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1284, i64 1) #3
+  %1284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1252, i64 4) #3
+  %1285 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1284, i64 1) #3
   store double 1.000000e+00, double* %1285, align 1, !alias.scope !69, !noalias !70
-  %1286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1284, i64 2) #3
+  %1286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1284, i64 2) #3
   store double %1230, double* %1286, align 1, !alias.scope !69, !noalias !70
-  %1287 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1284, i64 3) #3
+  %1287 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1284, i64 3) #3
   store double %1233, double* %1287, align 1, !alias.scope !69, !noalias !70
   %1288 = fmul fast double %1236, 0xBFE3333340000000
   %1289 = fsub fast double %1236, %1288
-  %1290 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1284, i64 4) #3
+  %1290 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1284, i64 4) #3
   store double %1289, double* %1290, align 1, !alias.scope !69, !noalias !70
   %1291 = fmul fast double %1272, %1236
   %1292 = fadd fast double %1243, %1291
   %1293 = fsub fast double %1247, %1292
-  %1294 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1284, i64 5) #3
+  %1294 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1284, i64 5) #3
   store double %1293, double* %1294, align 1, !alias.scope !69, !noalias !70
-  %1295 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1252, i64 5) #3
-  %1296 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1295, i64 1) #3
+  %1295 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1252, i64 5) #3
+  %1296 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1295, i64 1) #3
   store double 0.000000e+00, double* %1296, align 1, !alias.scope !69, !noalias !70
-  %1297 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1295, i64 2) #3
+  %1297 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1295, i64 2) #3
   store double 0.000000e+00, double* %1297, align 1, !alias.scope !69, !noalias !70
-  %1298 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1295, i64 3) #3
+  %1298 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1295, i64 3) #3
   store double 0.000000e+00, double* %1298, align 1, !alias.scope !69, !noalias !70
-  %1299 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1295, i64 4) #3
+  %1299 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1295, i64 4) #3
   store double 0x3FD9999980000000, double* %1299, align 1, !alias.scope !69, !noalias !70
   %1300 = fmul fast double %1236, 0x3FF6666660000000
-  %1301 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1295, i64 5) #3
+  %1301 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1295, i64 5) #3
   store double %1300, double* %1301, align 1, !alias.scope !69, !noalias !70
   %1302 = zext i32 %1224 to i64
-  %1303 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1219, i64 %1302) #3
-  %1304 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1303, i64 1) #3
+  %1303 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1219, i64 %1302) #3
+  %1304 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1303, i64 1) #3
   %1305 = load double, double* %1304, align 1, !alias.scope !52, !noalias !55
-  %1306 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1303, i64 2) #3
+  %1306 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1303, i64 2) #3
   %1307 = load double, double* %1306, align 1, !alias.scope !52, !noalias !55
   %1308 = fdiv fast double %1307, %1305
-  %1309 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1303, i64 3) #3
+  %1309 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1303, i64 3) #3
   %1310 = load double, double* %1309, align 1, !alias.scope !52, !noalias !55
   %1311 = fdiv fast double %1310, %1305
-  %1312 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1303, i64 4) #3
+  %1312 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1303, i64 4) #3
   %1313 = load double, double* %1312, align 1, !alias.scope !52, !noalias !55
   %1314 = fdiv fast double %1313, %1305
   %1315 = fdiv fast double 1.000000e+00, %1305
   %1316 = fdiv fast double 1.000000e+00, %1227
   %1317 = fsub fast double %1315, %1316
   %1318 = fmul fast double %1317, %493
-  %1319 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1303, i64 5) #3
+  %1319 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1303, i64 5) #3
   %1320 = load double, double* %1319, align 1, !alias.scope !52, !noalias !55
   %1321 = fdiv fast double %1320, %1305
   %1322 = fmul fast double %1308, %1308
@@ -2758,9 +2758,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1330 = call fast double @llvm.pow.f64(double %1329, double 7.500000e-01) #3
   %1331 = fadd fast double %1330, %1251
   %1332 = fmul fast double %1331, 5.000000e-01
-  %1333 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1220, i64 %1222) #3
-  %1334 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1333, i64 1) #3
-  %1335 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1334, i64 1) #3
+  %1333 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1220, i64 %1222) #3
+  %1334 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1333, i64 1) #3
+  %1335 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1334, i64 1) #3
   store double 0.000000e+00, double* %1335, align 1, !alias.scope !71, !noalias !72
   %1336 = fdiv fast double %1230, %1227
   %1337 = fdiv fast double %1308, %1305
@@ -2773,16 +2773,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1344 = fsub fast double %1342, %1343
   %1345 = fmul fast double %1332, %1338
   %1346 = fmul fast double %1345, %493
-  %1347 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1334, i64 2) #3
+  %1347 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1334, i64 2) #3
   store double %1346, double* %1347, align 1, !alias.scope !71, !noalias !72
   %1348 = fmul fast double %1332, %1341
   %1349 = fmul fast double %1348, %493
-  %1350 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1334, i64 3) #3
+  %1350 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1334, i64 3) #3
   store double %1349, double* %1350, align 1, !alias.scope !71, !noalias !72
   %1351 = fmul fast double %1344, 0x3FF5555560000000
   %1352 = fmul fast double %1332, %1351
   %1353 = fmul fast double %1352, %493
-  %1354 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1334, i64 4) #3
+  %1354 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1334, i64 4) #3
   store double %1353, double* %1354, align 1, !alias.scope !71, !noalias !72
   %1355 = fdiv fast double %1237, %1227
   %1356 = fdiv fast double %1322, %1305
@@ -2809,17 +2809,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1377 = fadd fast double %1376, %1374
   %1378 = fmul fast double %1377, %1332
   %1379 = fmul fast double %1378, %493
-  %1380 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1334, i64 5) #3
+  %1380 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1334, i64 5) #3
   store double %1379, double* %1380, align 1, !alias.scope !71, !noalias !72
-  %1381 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1333, i64 2) #3
-  %1382 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1381, i64 1) #3
+  %1381 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1333, i64 2) #3
+  %1382 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1381, i64 1) #3
   store double 0.000000e+00, double* %1382, align 1, !alias.scope !71, !noalias !72
   %1383 = fmul fast double %1332, %1318
-  %1384 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1381, i64 2) #3
+  %1384 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1381, i64 2) #3
   store double %1383, double* %1384, align 1, !alias.scope !71, !noalias !72
-  %1385 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1381, i64 3) #3
+  %1385 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1381, i64 3) #3
   store double 0.000000e+00, double* %1385, align 1, !alias.scope !71, !noalias !72
-  %1386 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1381, i64 4) #3
+  %1386 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1381, i64 4) #3
   store double 0.000000e+00, double* %1386, align 1, !alias.scope !71, !noalias !72
   %1387 = load double, double* %1347, align 1, !alias.scope !71, !noalias !72
   %1388 = fmul fast double %1332, %498
@@ -2828,16 +2828,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1391 = fmul fast double %1390, %493
   %1392 = fadd fast double %1387, %1391
   %1393 = fneg fast double %1392
-  %1394 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1381, i64 5) #3
+  %1394 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1381, i64 5) #3
   store double %1393, double* %1394, align 1, !alias.scope !71, !noalias !72
-  %1395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1333, i64 3) #3
-  %1396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1395, i64 1) #3
+  %1395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1333, i64 3) #3
+  %1396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1395, i64 1) #3
   store double 0.000000e+00, double* %1396, align 1, !alias.scope !71, !noalias !72
-  %1397 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1395, i64 2) #3
+  %1397 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1395, i64 2) #3
   store double 0.000000e+00, double* %1397, align 1, !alias.scope !71, !noalias !72
-  %1398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1395, i64 3) #3
+  %1398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1395, i64 3) #3
   store double %1383, double* %1398, align 1, !alias.scope !71, !noalias !72
-  %1399 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1395, i64 4) #3
+  %1399 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1395, i64 4) #3
   store double 0.000000e+00, double* %1399, align 1, !alias.scope !71, !noalias !72
   %1400 = load double, double* %1350, align 1, !alias.scope !71, !noalias !72
   %1401 = fsub fast double %1340, %1339
@@ -2845,17 +2845,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1403 = fmul fast double %1402, %493
   %1404 = fadd fast double %1400, %1403
   %1405 = fneg fast double %1404
-  %1406 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1395, i64 5) #3
+  %1406 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1395, i64 5) #3
   store double %1405, double* %1406, align 1, !alias.scope !71, !noalias !72
-  %1407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1333, i64 4) #3
-  %1408 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1407, i64 1) #3
+  %1407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1333, i64 4) #3
+  %1408 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1407, i64 1) #3
   store double 0.000000e+00, double* %1408, align 1, !alias.scope !71, !noalias !72
-  %1409 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1407, i64 2) #3
+  %1409 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1407, i64 2) #3
   store double 0.000000e+00, double* %1409, align 1, !alias.scope !71, !noalias !72
-  %1410 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1407, i64 3) #3
+  %1410 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1407, i64 3) #3
   store double 0.000000e+00, double* %1410, align 1, !alias.scope !71, !noalias !72
   %1411 = fmul fast double %1383, 0x3FF5555560000000
-  %1412 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1407, i64 4) #3
+  %1412 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1407, i64 4) #3
   store double %1411, double* %1412, align 1, !alias.scope !71, !noalias !72
   %1413 = load double, double* %1354, align 1, !alias.scope !71, !noalias !72
   %1414 = fsub fast double %1343, %1342
@@ -2863,19 +2863,19 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1416 = fmul fast double %1415, %493
   %1417 = fadd fast double %1413, %1416
   %1418 = fneg fast double %1417
-  %1419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1407, i64 5) #3
+  %1419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1407, i64 5) #3
   store double %1418, double* %1419, align 1, !alias.scope !71, !noalias !72
-  %1420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1333, i64 5) #3
-  %1421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1420, i64 1) #3
+  %1420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1333, i64 5) #3
+  %1421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1420, i64 1) #3
   store double 0.000000e+00, double* %1421, align 1, !alias.scope !71, !noalias !72
-  %1422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1420, i64 2) #3
+  %1422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1420, i64 2) #3
   store double 0.000000e+00, double* %1422, align 1, !alias.scope !71, !noalias !72
-  %1423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1420, i64 3) #3
+  %1423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1420, i64 3) #3
   store double 0.000000e+00, double* %1423, align 1, !alias.scope !71, !noalias !72
-  %1424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1420, i64 4) #3
+  %1424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1420, i64 4) #3
   store double 0.000000e+00, double* %1424, align 1, !alias.scope !71, !noalias !72
   %1425 = fmul fast double %1388, %1318
-  %1426 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1420, i64 5) #3
+  %1426 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1420, i64 5) #3
   store double %1425, double* %1426, align 1, !alias.scope !71, !noalias !72
   %1427 = add nuw nsw i64 %1222, 1
   %1428 = icmp eq i64 %1427, %478
@@ -2930,22 +2930,22 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 1450:                                             ; preds = %1447
   %1451 = add nuw nsw i64 %1448, 2
-  %1452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %97, i64 %1448)
-  %1453 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %73, i64 %1448)
-  %1454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %72, i64 %1448)
-  %1455 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %71, i64 %1449)
-  %1456 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %71, i64 %1448)
-  %1457 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %64, i64 %1448)
-  %1458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %76, i64 %1448)
-  %1459 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %63, i64 %1448)
-  %1460 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %60, i64 %1448)
-  %1461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %75, i64 %1448)
-  %1462 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %62, i64 %1448)
-  %1463 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %59, i64 %1448)
-  %1464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %74, i64 %1451)
-  %1465 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %61, i64 %1448)
-  %1466 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %74, i64 %1448)
-  %1467 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %58, i64 %1448)
+  %1452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %97, i64 %1448)
+  %1453 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %73, i64 %1448)
+  %1454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %72, i64 %1448)
+  %1455 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %71, i64 %1449)
+  %1456 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %71, i64 %1448)
+  %1457 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %64, i64 %1448)
+  %1458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %76, i64 %1448)
+  %1459 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %63, i64 %1448)
+  %1460 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %60, i64 %1448)
+  %1461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %75, i64 %1448)
+  %1462 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %62, i64 %1448)
+  %1463 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %59, i64 %1448)
+  %1464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %74, i64 %1451)
+  %1465 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %61, i64 %1448)
+  %1466 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %74, i64 %1448)
+  %1467 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %58, i64 %1448)
   br label %1468
 
 1468:                                             ; preds = %3582, %1450
@@ -2960,26 +2960,26 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1475 = add nsw i32 %1474, %3
   %1476 = srem i32 %1475, %3
   %1477 = add nsw i32 %1476, 1
-  %1478 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1452, i64 %1469)
-  %1479 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1453, i64 %1469)
-  %1480 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1454, i64 %1469)
+  %1478 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1452, i64 %1469)
+  %1479 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1453, i64 %1469)
+  %1480 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1454, i64 %1469)
   %1481 = sext i32 %1477 to i64
-  %1482 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1454, i64 %1481)
-  %1483 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1455, i64 %1469)
-  %1484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1456, i64 %1469)
-  %1485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1457, i64 %1469)
-  %1486 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1458, i64 %1469)
-  %1487 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1459, i64 %1469)
-  %1488 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1460, i64 %1469)
+  %1482 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1454, i64 %1481)
+  %1483 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1455, i64 %1469)
+  %1484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1456, i64 %1469)
+  %1485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1457, i64 %1469)
+  %1486 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1458, i64 %1469)
+  %1487 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1459, i64 %1469)
+  %1488 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1460, i64 %1469)
   %1489 = zext i32 %1473 to i64
-  %1490 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1461, i64 %1489)
-  %1491 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1462, i64 %1469)
-  %1492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1461, i64 %1481)
-  %1493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1463, i64 %1469)
-  %1494 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1464, i64 %1469)
-  %1495 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1465, i64 %1469)
-  %1496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1466, i64 %1469)
-  %1497 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %1467, i64 %1469)
+  %1490 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1461, i64 %1489)
+  %1491 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1462, i64 %1469)
+  %1492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1461, i64 %1481)
+  %1493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1463, i64 %1469)
+  %1494 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1464, i64 %1469)
+  %1495 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1465, i64 %1469)
+  %1496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1466, i64 %1469)
+  %1497 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %1467, i64 %1469)
   br label %1498
 
 1498:                                             ; preds = %1498, %1470
@@ -2991,39 +2991,39 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1504 = add nsw i32 %1503, 1
   %1505 = srem i32 %1500, %2
   %1506 = add nuw nsw i32 %1505, 1
-  %1507 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1478, i64 %1499)
-  %1508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1507, i64 1)
-  %1509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1508, i64 1)
+  %1507 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1478, i64 %1499)
+  %1508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1507, i64 1)
+  %1509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1508, i64 1)
   %1510 = load double, double* %1509, align 1
-  %1511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1479, i64 %1499)
-  %1512 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1511, i64 1)
-  %1513 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1512, i64 1)
+  %1511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1479, i64 %1499)
+  %1512 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1511, i64 1)
+  %1513 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1512, i64 1)
   %1514 = load double, double* %1513, align 1
   %1515 = sext i32 %1504 to i64
-  %1516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1479, i64 %1515)
-  %1517 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1516, i64 1)
-  %1518 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1517, i64 1)
+  %1516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1479, i64 %1515)
+  %1517 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1516, i64 1)
+  %1518 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1517, i64 1)
   %1519 = load double, double* %1518, align 1
   %1520 = fsub fast double %1514, %1519
   %1521 = fmul fast double %1520, %487
-  %1522 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1480, i64 %1499)
-  %1523 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1522, i64 1)
-  %1524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1523, i64 1)
+  %1522 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1480, i64 %1499)
+  %1523 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1522, i64 1)
+  %1524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1523, i64 1)
   %1525 = load double, double* %1524, align 1
-  %1526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1482, i64 %1499)
-  %1527 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1526, i64 1)
-  %1528 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1527, i64 1)
+  %1526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1482, i64 %1499)
+  %1527 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1526, i64 1)
+  %1528 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1527, i64 1)
   %1529 = load double, double* %1528, align 1
   %1530 = fsub fast double %1525, %1529
   %1531 = fmul fast double %1530, %490
   %1532 = fadd fast double %1531, %1521
-  %1533 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1483, i64 %1499)
-  %1534 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1533, i64 1)
-  %1535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1534, i64 1)
+  %1533 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1483, i64 %1499)
+  %1534 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1533, i64 1)
+  %1535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1534, i64 1)
   %1536 = load double, double* %1535, align 1
-  %1537 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1484, i64 %1499)
-  %1538 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1537, i64 1)
-  %1539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1538, i64 1)
+  %1537 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1484, i64 %1499)
+  %1538 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1537, i64 1)
+  %1539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1538, i64 1)
   %1540 = load double, double* %1539, align 1
   %1541 = fsub fast double %1536, %1540
   %1542 = fmul fast double %1541, %493
@@ -3034,14 +3034,14 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1547 = fadd fast double %1546, %1510
   %1548 = fmul fast double %1446, %1510
   %1549 = fadd fast double %1547, %1548
-  %1550 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1485, i64 %1499)
-  %1551 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1550, i64 1)
-  %1552 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1551, i64 1)
+  %1550 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1485, i64 %1499)
+  %1551 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1550, i64 1)
+  %1552 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1551, i64 1)
   store double %1549, double* %1552, align 1
   %1553 = zext i32 %1506 to i64
-  %1554 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1486, i64 %1553)
-  %1555 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1554, i64 1)
-  %1556 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1555, i64 1)
+  %1554 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1486, i64 %1553)
+  %1555 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1554, i64 1)
+  %1556 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1555, i64 1)
   %1557 = load double, double* %1556, align 1
   %1558 = fmul fast double %1514, %499
   %1559 = fsub fast double %1557, %1558
@@ -3049,93 +3049,93 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1561 = fmul fast double %1444, %1510
   %1562 = fsub fast double %1560, %1561
   %1563 = fmul fast double %1562, %487
-  %1564 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1487, i64 %1499)
-  %1565 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1564, i64 1)
-  %1566 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1565, i64 1)
+  %1564 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1487, i64 %1499)
+  %1565 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1564, i64 1)
+  %1566 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1565, i64 1)
   store double %1563, double* %1566, align 1
-  %1567 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1486, i64 %1515)
-  %1568 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1567, i64 1)
-  %1569 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1568, i64 1)
+  %1567 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1486, i64 %1515)
+  %1568 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1567, i64 1)
+  %1569 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1568, i64 1)
   %1570 = load double, double* %1569, align 1
   %1571 = fmul fast double %1519, %499
   %1572 = fsub fast double %1570, %1571
   %1573 = fmul fast double %1572, %1443
   %1574 = fsub fast double %1573, %1561
   %1575 = fmul fast double %1574, %487
-  %1576 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1488, i64 %1499)
-  %1577 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1576, i64 1)
-  %1578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1577, i64 1)
+  %1576 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1488, i64 %1499)
+  %1577 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1576, i64 1)
+  %1578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1577, i64 1)
   store double %1575, double* %1578, align 1
-  %1579 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1490, i64 %1499)
-  %1580 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1579, i64 1)
-  %1581 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1580, i64 1)
+  %1579 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1490, i64 %1499)
+  %1580 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1579, i64 1)
+  %1581 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1580, i64 1)
   %1582 = load double, double* %1581, align 1
   %1583 = fmul fast double %1525, %499
   %1584 = fsub fast double %1582, %1583
   %1585 = fmul fast double %1584, %1442
   %1586 = fsub fast double %1585, %1561
   %1587 = fmul fast double %1586, %490
-  %1588 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1491, i64 %1499)
-  %1589 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1588, i64 1)
-  %1590 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1589, i64 1)
+  %1588 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1491, i64 %1499)
+  %1589 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1588, i64 1)
+  %1590 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1589, i64 1)
   store double %1587, double* %1590, align 1
-  %1591 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1492, i64 %1499)
-  %1592 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1591, i64 1)
-  %1593 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1592, i64 1)
+  %1591 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1492, i64 %1499)
+  %1592 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1591, i64 1)
+  %1593 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1592, i64 1)
   %1594 = load double, double* %1593, align 1
   %1595 = fmul fast double %1529, %499
   %1596 = fsub fast double %1594, %1595
   %1597 = fmul fast double %1596, %1443
   %1598 = fsub fast double %1597, %1561
   %1599 = fmul fast double %1598, %490
-  %1600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1493, i64 %1499)
-  %1601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1600, i64 1)
-  %1602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1601, i64 1)
+  %1600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1493, i64 %1499)
+  %1601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1600, i64 1)
+  %1602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1601, i64 1)
   store double %1599, double* %1602, align 1
-  %1603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1494, i64 %1499)
-  %1604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1603, i64 1)
-  %1605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1604, i64 1)
+  %1603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1494, i64 %1499)
+  %1604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1603, i64 1)
+  %1605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1604, i64 1)
   %1606 = load double, double* %1605, align 1
   %1607 = fmul fast double %1536, %499
   %1608 = fsub fast double %1606, %1607
   %1609 = fmul fast double %1608, %1442
   %1610 = fsub fast double %1609, %1561
   %1611 = fmul fast double %1610, %493
-  %1612 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1495, i64 %1499)
-  %1613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1612, i64 1)
-  %1614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1613, i64 1)
+  %1612 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1495, i64 %1499)
+  %1613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1612, i64 1)
+  %1614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1613, i64 1)
   store double %1611, double* %1614, align 1
-  %1615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1496, i64 %1499)
-  %1616 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1615, i64 1)
-  %1617 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1616, i64 1)
+  %1615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1496, i64 %1499)
+  %1616 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1615, i64 1)
+  %1617 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1616, i64 1)
   %1618 = load double, double* %1617, align 1
   %1619 = fmul fast double %1540, %499
   %1620 = fsub fast double %1618, %1619
   %1621 = fmul fast double %1620, %1443
   %1622 = fsub fast double %1621, %1561
   %1623 = fmul fast double %1622, %493
-  %1624 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %1497, i64 %1499)
-  %1625 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1624, i64 1)
-  %1626 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1625, i64 1)
+  %1624 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %1497, i64 %1499)
+  %1625 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1624, i64 1)
+  %1626 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1625, i64 1)
   store double %1623, double* %1626, align 1
-  %1627 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1508, i64 2)
+  %1627 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1508, i64 2)
   %1628 = load double, double* %1627, align 1
-  %1629 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1512, i64 2)
+  %1629 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1512, i64 2)
   %1630 = load double, double* %1629, align 1
-  %1631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1517, i64 2)
+  %1631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1517, i64 2)
   %1632 = load double, double* %1631, align 1
   %1633 = fsub fast double %1630, %1632
   %1634 = fmul fast double %1633, %487
-  %1635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1523, i64 2)
+  %1635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1523, i64 2)
   %1636 = load double, double* %1635, align 1
-  %1637 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1527, i64 2)
+  %1637 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1527, i64 2)
   %1638 = load double, double* %1637, align 1
   %1639 = fsub fast double %1636, %1638
   %1640 = fmul fast double %1639, %490
   %1641 = fadd fast double %1640, %1634
-  %1642 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1534, i64 2)
+  %1642 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1534, i64 2)
   %1643 = load double, double* %1642, align 1
-  %1644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1538, i64 2)
+  %1644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1538, i64 2)
   %1645 = load double, double* %1644, align 1
   %1646 = fsub fast double %1643, %1645
   %1647 = fmul fast double %1646, %493
@@ -3146,9 +3146,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1652 = fmul fast double %1628, %1446
   %1653 = fadd fast double %1652, %1628
   %1654 = fadd fast double %1653, %1651
-  %1655 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1551, i64 2)
+  %1655 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1551, i64 2)
   store double %1654, double* %1655, align 1
-  %1656 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1555, i64 2)
+  %1656 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1555, i64 2)
   %1657 = load double, double* %1656, align 1
   %1658 = fmul fast double %1630, %499
   %1659 = fsub fast double %1657, %1658
@@ -3156,71 +3156,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1661 = fmul fast double %1628, %1444
   %1662 = fsub fast double %1660, %1661
   %1663 = fmul fast double %1662, %487
-  %1664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1565, i64 2)
+  %1664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1565, i64 2)
   store double %1663, double* %1664, align 1
-  %1665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1568, i64 2)
+  %1665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1568, i64 2)
   %1666 = load double, double* %1665, align 1
   %1667 = fmul fast double %1632, %499
   %1668 = fsub fast double %1666, %1667
   %1669 = fmul fast double %1668, %1443
   %1670 = fsub fast double %1669, %1661
   %1671 = fmul fast double %1670, %487
-  %1672 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1577, i64 2)
+  %1672 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1577, i64 2)
   store double %1671, double* %1672, align 1
-  %1673 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1580, i64 2)
+  %1673 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1580, i64 2)
   %1674 = load double, double* %1673, align 1
   %1675 = fmul fast double %1636, %499
   %1676 = fsub fast double %1674, %1675
   %1677 = fmul fast double %1676, %1442
   %1678 = fsub fast double %1677, %1661
   %1679 = fmul fast double %1678, %490
-  %1680 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1589, i64 2)
+  %1680 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1589, i64 2)
   store double %1679, double* %1680, align 1
-  %1681 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1592, i64 2)
+  %1681 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1592, i64 2)
   %1682 = load double, double* %1681, align 1
   %1683 = fmul fast double %1638, %499
   %1684 = fsub fast double %1682, %1683
   %1685 = fmul fast double %1684, %1443
   %1686 = fsub fast double %1685, %1661
   %1687 = fmul fast double %1686, %490
-  %1688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1601, i64 2)
+  %1688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1601, i64 2)
   store double %1687, double* %1688, align 1
-  %1689 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1604, i64 2)
+  %1689 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1604, i64 2)
   %1690 = load double, double* %1689, align 1
   %1691 = fmul fast double %1643, %499
   %1692 = fsub fast double %1690, %1691
   %1693 = fmul fast double %1692, %1442
   %1694 = fsub fast double %1693, %1661
   %1695 = fmul fast double %1694, %493
-  %1696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1613, i64 2)
+  %1696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1613, i64 2)
   store double %1695, double* %1696, align 1
-  %1697 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1616, i64 2)
+  %1697 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1616, i64 2)
   %1698 = load double, double* %1697, align 1
   %1699 = fmul fast double %1645, %499
   %1700 = fsub fast double %1698, %1699
   %1701 = fmul fast double %1700, %1443
   %1702 = fsub fast double %1701, %1661
   %1703 = fmul fast double %1702, %493
-  %1704 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1625, i64 2)
+  %1704 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1625, i64 2)
   store double %1703, double* %1704, align 1
-  %1705 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1508, i64 3)
+  %1705 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1508, i64 3)
   %1706 = load double, double* %1705, align 1
-  %1707 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1512, i64 3)
+  %1707 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1512, i64 3)
   %1708 = load double, double* %1707, align 1
-  %1709 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1517, i64 3)
+  %1709 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1517, i64 3)
   %1710 = load double, double* %1709, align 1
   %1711 = fsub fast double %1708, %1710
   %1712 = fmul fast double %1711, %487
-  %1713 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1523, i64 3)
+  %1713 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1523, i64 3)
   %1714 = load double, double* %1713, align 1
-  %1715 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1527, i64 3)
+  %1715 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1527, i64 3)
   %1716 = load double, double* %1715, align 1
   %1717 = fsub fast double %1714, %1716
   %1718 = fmul fast double %1717, %490
   %1719 = fadd fast double %1718, %1712
-  %1720 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1534, i64 3)
+  %1720 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1534, i64 3)
   %1721 = load double, double* %1720, align 1
-  %1722 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1538, i64 3)
+  %1722 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1538, i64 3)
   %1723 = load double, double* %1722, align 1
   %1724 = fsub fast double %1721, %1723
   %1725 = fmul fast double %1724, %493
@@ -3231,9 +3231,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1730 = fmul fast double %1706, %1446
   %1731 = fadd fast double %1730, %1706
   %1732 = fadd fast double %1731, %1729
-  %1733 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1551, i64 3)
+  %1733 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1551, i64 3)
   store double %1732, double* %1733, align 1
-  %1734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1555, i64 3)
+  %1734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1555, i64 3)
   %1735 = load double, double* %1734, align 1
   %1736 = fmul fast double %1708, %499
   %1737 = fsub fast double %1735, %1736
@@ -3241,71 +3241,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1739 = fmul fast double %1706, %1444
   %1740 = fsub fast double %1738, %1739
   %1741 = fmul fast double %1740, %487
-  %1742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1565, i64 3)
+  %1742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1565, i64 3)
   store double %1741, double* %1742, align 1
-  %1743 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1568, i64 3)
+  %1743 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1568, i64 3)
   %1744 = load double, double* %1743, align 1
   %1745 = fmul fast double %1710, %499
   %1746 = fsub fast double %1744, %1745
   %1747 = fmul fast double %1746, %1443
   %1748 = fsub fast double %1747, %1739
   %1749 = fmul fast double %1748, %487
-  %1750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1577, i64 3)
+  %1750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1577, i64 3)
   store double %1749, double* %1750, align 1
-  %1751 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1580, i64 3)
+  %1751 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1580, i64 3)
   %1752 = load double, double* %1751, align 1
   %1753 = fmul fast double %1714, %499
   %1754 = fsub fast double %1752, %1753
   %1755 = fmul fast double %1754, %1442
   %1756 = fsub fast double %1755, %1739
   %1757 = fmul fast double %1756, %490
-  %1758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1589, i64 3)
+  %1758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1589, i64 3)
   store double %1757, double* %1758, align 1
-  %1759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1592, i64 3)
+  %1759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1592, i64 3)
   %1760 = load double, double* %1759, align 1
   %1761 = fmul fast double %1716, %499
   %1762 = fsub fast double %1760, %1761
   %1763 = fmul fast double %1762, %1443
   %1764 = fsub fast double %1763, %1739
   %1765 = fmul fast double %1764, %490
-  %1766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1601, i64 3)
+  %1766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1601, i64 3)
   store double %1765, double* %1766, align 1
-  %1767 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1604, i64 3)
+  %1767 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1604, i64 3)
   %1768 = load double, double* %1767, align 1
   %1769 = fmul fast double %1721, %499
   %1770 = fsub fast double %1768, %1769
   %1771 = fmul fast double %1770, %1442
   %1772 = fsub fast double %1771, %1739
   %1773 = fmul fast double %1772, %493
-  %1774 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1613, i64 3)
+  %1774 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1613, i64 3)
   store double %1773, double* %1774, align 1
-  %1775 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1616, i64 3)
+  %1775 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1616, i64 3)
   %1776 = load double, double* %1775, align 1
   %1777 = fmul fast double %1723, %499
   %1778 = fsub fast double %1776, %1777
   %1779 = fmul fast double %1778, %1443
   %1780 = fsub fast double %1779, %1739
   %1781 = fmul fast double %1780, %493
-  %1782 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1625, i64 3)
+  %1782 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1625, i64 3)
   store double %1781, double* %1782, align 1
-  %1783 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1508, i64 4)
+  %1783 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1508, i64 4)
   %1784 = load double, double* %1783, align 1
-  %1785 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1512, i64 4)
+  %1785 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1512, i64 4)
   %1786 = load double, double* %1785, align 1
-  %1787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1517, i64 4)
+  %1787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1517, i64 4)
   %1788 = load double, double* %1787, align 1
   %1789 = fsub fast double %1786, %1788
   %1790 = fmul fast double %1789, %487
-  %1791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1523, i64 4)
+  %1791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1523, i64 4)
   %1792 = load double, double* %1791, align 1
-  %1793 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1527, i64 4)
+  %1793 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1527, i64 4)
   %1794 = load double, double* %1793, align 1
   %1795 = fsub fast double %1792, %1794
   %1796 = fmul fast double %1795, %490
   %1797 = fadd fast double %1796, %1790
-  %1798 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1534, i64 4)
+  %1798 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1534, i64 4)
   %1799 = load double, double* %1798, align 1
-  %1800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1538, i64 4)
+  %1800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1538, i64 4)
   %1801 = load double, double* %1800, align 1
   %1802 = fsub fast double %1799, %1801
   %1803 = fmul fast double %1802, %493
@@ -3316,9 +3316,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1808 = fmul fast double %1784, %1446
   %1809 = fadd fast double %1808, %1784
   %1810 = fadd fast double %1809, %1807
-  %1811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1551, i64 4)
+  %1811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1551, i64 4)
   store double %1810, double* %1811, align 1
-  %1812 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1555, i64 4)
+  %1812 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1555, i64 4)
   %1813 = load double, double* %1812, align 1
   %1814 = fmul fast double %1786, %499
   %1815 = fsub fast double %1813, %1814
@@ -3326,71 +3326,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1817 = fmul fast double %1784, %1444
   %1818 = fsub fast double %1816, %1817
   %1819 = fmul fast double %1818, %487
-  %1820 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1565, i64 4)
+  %1820 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1565, i64 4)
   store double %1819, double* %1820, align 1
-  %1821 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1568, i64 4)
+  %1821 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1568, i64 4)
   %1822 = load double, double* %1821, align 1
   %1823 = fmul fast double %1788, %499
   %1824 = fsub fast double %1822, %1823
   %1825 = fmul fast double %1824, %1443
   %1826 = fsub fast double %1825, %1817
   %1827 = fmul fast double %1826, %487
-  %1828 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1577, i64 4)
+  %1828 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1577, i64 4)
   store double %1827, double* %1828, align 1
-  %1829 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1580, i64 4)
+  %1829 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1580, i64 4)
   %1830 = load double, double* %1829, align 1
   %1831 = fmul fast double %1792, %499
   %1832 = fsub fast double %1830, %1831
   %1833 = fmul fast double %1832, %1442
   %1834 = fsub fast double %1833, %1817
   %1835 = fmul fast double %1834, %490
-  %1836 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1589, i64 4)
+  %1836 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1589, i64 4)
   store double %1835, double* %1836, align 1
-  %1837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1592, i64 4)
+  %1837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1592, i64 4)
   %1838 = load double, double* %1837, align 1
   %1839 = fmul fast double %1794, %499
   %1840 = fsub fast double %1838, %1839
   %1841 = fmul fast double %1840, %1443
   %1842 = fsub fast double %1841, %1817
   %1843 = fmul fast double %1842, %490
-  %1844 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1601, i64 4)
+  %1844 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1601, i64 4)
   store double %1843, double* %1844, align 1
-  %1845 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1604, i64 4)
+  %1845 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1604, i64 4)
   %1846 = load double, double* %1845, align 1
   %1847 = fmul fast double %1799, %499
   %1848 = fsub fast double %1846, %1847
   %1849 = fmul fast double %1848, %1442
   %1850 = fsub fast double %1849, %1817
   %1851 = fmul fast double %1850, %493
-  %1852 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1613, i64 4)
+  %1852 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1613, i64 4)
   store double %1851, double* %1852, align 1
-  %1853 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1616, i64 4)
+  %1853 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1616, i64 4)
   %1854 = load double, double* %1853, align 1
   %1855 = fmul fast double %1801, %499
   %1856 = fsub fast double %1854, %1855
   %1857 = fmul fast double %1856, %1443
   %1858 = fsub fast double %1857, %1817
   %1859 = fmul fast double %1858, %493
-  %1860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1625, i64 4)
+  %1860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1625, i64 4)
   store double %1859, double* %1860, align 1
-  %1861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1508, i64 5)
+  %1861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1508, i64 5)
   %1862 = load double, double* %1861, align 1
-  %1863 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1512, i64 5)
+  %1863 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1512, i64 5)
   %1864 = load double, double* %1863, align 1
-  %1865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1517, i64 5)
+  %1865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1517, i64 5)
   %1866 = load double, double* %1865, align 1
   %1867 = fsub fast double %1864, %1866
   %1868 = fmul fast double %1867, %487
-  %1869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1523, i64 5)
+  %1869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1523, i64 5)
   %1870 = load double, double* %1869, align 1
-  %1871 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1527, i64 5)
+  %1871 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1527, i64 5)
   %1872 = load double, double* %1871, align 1
   %1873 = fsub fast double %1870, %1872
   %1874 = fmul fast double %1873, %490
   %1875 = fadd fast double %1874, %1868
-  %1876 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1534, i64 5)
+  %1876 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1534, i64 5)
   %1877 = load double, double* %1876, align 1
-  %1878 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1538, i64 5)
+  %1878 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1538, i64 5)
   %1879 = load double, double* %1878, align 1
   %1880 = fsub fast double %1877, %1879
   %1881 = fmul fast double %1880, %493
@@ -3401,9 +3401,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1886 = fmul fast double %1862, %1446
   %1887 = fadd fast double %1886, %1862
   %1888 = fadd fast double %1887, %1885
-  %1889 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1551, i64 5)
+  %1889 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1551, i64 5)
   store double %1888, double* %1889, align 1
-  %1890 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1555, i64 5)
+  %1890 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1555, i64 5)
   %1891 = load double, double* %1890, align 1
   %1892 = fmul fast double %1864, %499
   %1893 = fsub fast double %1891, %1892
@@ -3411,78 +3411,78 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1895 = fmul fast double %1862, %1444
   %1896 = fsub fast double %1894, %1895
   %1897 = fmul fast double %1896, %487
-  %1898 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1565, i64 5)
+  %1898 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1565, i64 5)
   store double %1897, double* %1898, align 1
-  %1899 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1568, i64 5)
+  %1899 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1568, i64 5)
   %1900 = load double, double* %1899, align 1
   %1901 = fmul fast double %1866, %499
   %1902 = fsub fast double %1900, %1901
   %1903 = fmul fast double %1902, %1443
   %1904 = fsub fast double %1903, %1895
   %1905 = fmul fast double %1904, %487
-  %1906 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1577, i64 5)
+  %1906 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1577, i64 5)
   store double %1905, double* %1906, align 1
-  %1907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1580, i64 5)
+  %1907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1580, i64 5)
   %1908 = load double, double* %1907, align 1
   %1909 = fmul fast double %1870, %499
   %1910 = fsub fast double %1908, %1909
   %1911 = fmul fast double %1910, %1442
   %1912 = fsub fast double %1911, %1895
   %1913 = fmul fast double %1912, %490
-  %1914 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1589, i64 5)
+  %1914 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1589, i64 5)
   store double %1913, double* %1914, align 1
-  %1915 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1592, i64 5)
+  %1915 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1592, i64 5)
   %1916 = load double, double* %1915, align 1
   %1917 = fmul fast double %1872, %499
   %1918 = fsub fast double %1916, %1917
   %1919 = fmul fast double %1918, %1443
   %1920 = fsub fast double %1919, %1895
   %1921 = fmul fast double %1920, %490
-  %1922 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1601, i64 5)
+  %1922 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1601, i64 5)
   store double %1921, double* %1922, align 1
-  %1923 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1604, i64 5)
+  %1923 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1604, i64 5)
   %1924 = load double, double* %1923, align 1
   %1925 = fmul fast double %1877, %499
   %1926 = fsub fast double %1924, %1925
   %1927 = fmul fast double %1926, %1442
   %1928 = fsub fast double %1927, %1895
   %1929 = fmul fast double %1928, %493
-  %1930 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1613, i64 5)
+  %1930 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1613, i64 5)
   store double %1929, double* %1930, align 1
-  %1931 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1616, i64 5)
+  %1931 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1616, i64 5)
   %1932 = load double, double* %1931, align 1
   %1933 = fmul fast double %1879, %499
   %1934 = fsub fast double %1932, %1933
   %1935 = fmul fast double %1934, %1443
   %1936 = fsub fast double %1935, %1895
   %1937 = fmul fast double %1936, %493
-  %1938 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1625, i64 5)
+  %1938 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1625, i64 5)
   store double %1937, double* %1938, align 1
-  %1939 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1507, i64 2)
-  %1940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1939, i64 1)
+  %1939 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1507, i64 2)
+  %1940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1939, i64 1)
   %1941 = load double, double* %1940, align 1
-  %1942 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1511, i64 2)
-  %1943 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1942, i64 1)
+  %1942 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1511, i64 2)
+  %1943 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1942, i64 1)
   %1944 = load double, double* %1943, align 1
-  %1945 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1516, i64 2)
-  %1946 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1945, i64 1)
+  %1945 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1516, i64 2)
+  %1946 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1945, i64 1)
   %1947 = load double, double* %1946, align 1
   %1948 = fsub fast double %1944, %1947
   %1949 = fmul fast double %1948, %487
-  %1950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1522, i64 2)
-  %1951 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1950, i64 1)
+  %1950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1522, i64 2)
+  %1951 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1950, i64 1)
   %1952 = load double, double* %1951, align 1
-  %1953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1526, i64 2)
-  %1954 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1953, i64 1)
+  %1953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1526, i64 2)
+  %1954 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1953, i64 1)
   %1955 = load double, double* %1954, align 1
   %1956 = fsub fast double %1952, %1955
   %1957 = fmul fast double %1956, %490
   %1958 = fadd fast double %1957, %1949
-  %1959 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1533, i64 2)
-  %1960 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1959, i64 1)
+  %1959 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1533, i64 2)
+  %1960 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1959, i64 1)
   %1961 = load double, double* %1960, align 1
-  %1962 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1537, i64 2)
-  %1963 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1962, i64 1)
+  %1962 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1537, i64 2)
+  %1963 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1962, i64 1)
   %1964 = load double, double* %1963, align 1
   %1965 = fsub fast double %1961, %1964
   %1966 = fmul fast double %1965, %493
@@ -3493,11 +3493,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1971 = fmul fast double %1941, %1446
   %1972 = fadd fast double %1971, %1941
   %1973 = fadd fast double %1972, %1970
-  %1974 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1550, i64 2)
-  %1975 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1974, i64 1)
+  %1974 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1550, i64 2)
+  %1975 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1974, i64 1)
   store double %1973, double* %1975, align 1
-  %1976 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1554, i64 2)
-  %1977 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1976, i64 1)
+  %1976 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1554, i64 2)
+  %1977 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1976, i64 1)
   %1978 = load double, double* %1977, align 1
   %1979 = fmul fast double %1944, %499
   %1980 = fsub fast double %1978, %1979
@@ -3505,82 +3505,82 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %1982 = fmul fast double %1941, %1444
   %1983 = fsub fast double %1981, %1982
   %1984 = fmul fast double %1983, %487
-  %1985 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1564, i64 2)
-  %1986 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1985, i64 1)
+  %1985 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1564, i64 2)
+  %1986 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1985, i64 1)
   store double %1984, double* %1986, align 1
-  %1987 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1567, i64 2)
-  %1988 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1987, i64 1)
+  %1987 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1567, i64 2)
+  %1988 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1987, i64 1)
   %1989 = load double, double* %1988, align 1
   %1990 = fmul fast double %1947, %499
   %1991 = fsub fast double %1989, %1990
   %1992 = fmul fast double %1991, %1443
   %1993 = fsub fast double %1992, %1982
   %1994 = fmul fast double %1993, %487
-  %1995 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1576, i64 2)
-  %1996 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1995, i64 1)
+  %1995 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1576, i64 2)
+  %1996 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1995, i64 1)
   store double %1994, double* %1996, align 1
-  %1997 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1579, i64 2)
-  %1998 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1997, i64 1)
+  %1997 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1579, i64 2)
+  %1998 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1997, i64 1)
   %1999 = load double, double* %1998, align 1
   %2000 = fmul fast double %1952, %499
   %2001 = fsub fast double %1999, %2000
   %2002 = fmul fast double %2001, %1442
   %2003 = fsub fast double %2002, %1982
   %2004 = fmul fast double %2003, %490
-  %2005 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1588, i64 2)
-  %2006 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2005, i64 1)
+  %2005 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1588, i64 2)
+  %2006 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2005, i64 1)
   store double %2004, double* %2006, align 1
-  %2007 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1591, i64 2)
-  %2008 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2007, i64 1)
+  %2007 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1591, i64 2)
+  %2008 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2007, i64 1)
   %2009 = load double, double* %2008, align 1
   %2010 = fmul fast double %1955, %499
   %2011 = fsub fast double %2009, %2010
   %2012 = fmul fast double %2011, %1443
   %2013 = fsub fast double %2012, %1982
   %2014 = fmul fast double %2013, %490
-  %2015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1600, i64 2)
-  %2016 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2015, i64 1)
+  %2015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1600, i64 2)
+  %2016 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2015, i64 1)
   store double %2014, double* %2016, align 1
-  %2017 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1603, i64 2)
-  %2018 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2017, i64 1)
+  %2017 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1603, i64 2)
+  %2018 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2017, i64 1)
   %2019 = load double, double* %2018, align 1
   %2020 = fmul fast double %1961, %499
   %2021 = fsub fast double %2019, %2020
   %2022 = fmul fast double %2021, %1442
   %2023 = fsub fast double %2022, %1982
   %2024 = fmul fast double %2023, %493
-  %2025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1612, i64 2)
-  %2026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2025, i64 1)
+  %2025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1612, i64 2)
+  %2026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2025, i64 1)
   store double %2024, double* %2026, align 1
-  %2027 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1615, i64 2)
-  %2028 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2027, i64 1)
+  %2027 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1615, i64 2)
+  %2028 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2027, i64 1)
   %2029 = load double, double* %2028, align 1
   %2030 = fmul fast double %1964, %499
   %2031 = fsub fast double %2029, %2030
   %2032 = fmul fast double %2031, %1443
   %2033 = fsub fast double %2032, %1982
   %2034 = fmul fast double %2033, %493
-  %2035 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1624, i64 2)
-  %2036 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2035, i64 1)
+  %2035 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1624, i64 2)
+  %2036 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2035, i64 1)
   store double %2034, double* %2036, align 1
-  %2037 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1939, i64 2)
+  %2037 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1939, i64 2)
   %2038 = load double, double* %2037, align 1
-  %2039 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1942, i64 2)
+  %2039 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1942, i64 2)
   %2040 = load double, double* %2039, align 1
-  %2041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1945, i64 2)
+  %2041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1945, i64 2)
   %2042 = load double, double* %2041, align 1
   %2043 = fsub fast double %2040, %2042
   %2044 = fmul fast double %2043, %487
-  %2045 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1950, i64 2)
+  %2045 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1950, i64 2)
   %2046 = load double, double* %2045, align 1
-  %2047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1953, i64 2)
+  %2047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1953, i64 2)
   %2048 = load double, double* %2047, align 1
   %2049 = fsub fast double %2046, %2048
   %2050 = fmul fast double %2049, %490
   %2051 = fadd fast double %2050, %2044
-  %2052 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1959, i64 2)
+  %2052 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1959, i64 2)
   %2053 = load double, double* %2052, align 1
-  %2054 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1962, i64 2)
+  %2054 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1962, i64 2)
   %2055 = load double, double* %2054, align 1
   %2056 = fsub fast double %2053, %2055
   %2057 = fmul fast double %2056, %493
@@ -3591,9 +3591,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2062 = fmul fast double %2038, %1446
   %2063 = fadd fast double %2062, %2038
   %2064 = fadd fast double %2063, %2061
-  %2065 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1974, i64 2)
+  %2065 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1974, i64 2)
   store double %2064, double* %2065, align 1
-  %2066 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1976, i64 2)
+  %2066 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1976, i64 2)
   %2067 = load double, double* %2066, align 1
   %2068 = fmul fast double %2040, %499
   %2069 = fsub fast double %2067, %2068
@@ -3601,71 +3601,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2071 = fmul fast double %2038, %1444
   %2072 = fsub fast double %2070, %2071
   %2073 = fmul fast double %2072, %487
-  %2074 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1985, i64 2)
+  %2074 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1985, i64 2)
   store double %2073, double* %2074, align 1
-  %2075 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1987, i64 2)
+  %2075 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1987, i64 2)
   %2076 = load double, double* %2075, align 1
   %2077 = fmul fast double %2042, %499
   %2078 = fsub fast double %2076, %2077
   %2079 = fmul fast double %2078, %1443
   %2080 = fsub fast double %2079, %2071
   %2081 = fmul fast double %2080, %487
-  %2082 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1995, i64 2)
+  %2082 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1995, i64 2)
   store double %2081, double* %2082, align 1
-  %2083 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1997, i64 2)
+  %2083 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1997, i64 2)
   %2084 = load double, double* %2083, align 1
   %2085 = fmul fast double %2046, %499
   %2086 = fsub fast double %2084, %2085
   %2087 = fmul fast double %2086, %1442
   %2088 = fsub fast double %2087, %2071
   %2089 = fmul fast double %2088, %490
-  %2090 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2005, i64 2)
+  %2090 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2005, i64 2)
   store double %2089, double* %2090, align 1
-  %2091 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2007, i64 2)
+  %2091 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2007, i64 2)
   %2092 = load double, double* %2091, align 1
   %2093 = fmul fast double %2048, %499
   %2094 = fsub fast double %2092, %2093
   %2095 = fmul fast double %2094, %1443
   %2096 = fsub fast double %2095, %2071
   %2097 = fmul fast double %2096, %490
-  %2098 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2015, i64 2)
+  %2098 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2015, i64 2)
   store double %2097, double* %2098, align 1
-  %2099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2017, i64 2)
+  %2099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2017, i64 2)
   %2100 = load double, double* %2099, align 1
   %2101 = fmul fast double %2053, %499
   %2102 = fsub fast double %2100, %2101
   %2103 = fmul fast double %2102, %1442
   %2104 = fsub fast double %2103, %2071
   %2105 = fmul fast double %2104, %493
-  %2106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2025, i64 2)
+  %2106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2025, i64 2)
   store double %2105, double* %2106, align 1
-  %2107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2027, i64 2)
+  %2107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2027, i64 2)
   %2108 = load double, double* %2107, align 1
   %2109 = fmul fast double %2055, %499
   %2110 = fsub fast double %2108, %2109
   %2111 = fmul fast double %2110, %1443
   %2112 = fsub fast double %2111, %2071
   %2113 = fmul fast double %2112, %493
-  %2114 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2035, i64 2)
+  %2114 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2035, i64 2)
   store double %2113, double* %2114, align 1
-  %2115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1939, i64 3)
+  %2115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1939, i64 3)
   %2116 = load double, double* %2115, align 1
-  %2117 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1942, i64 3)
+  %2117 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1942, i64 3)
   %2118 = load double, double* %2117, align 1
-  %2119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1945, i64 3)
+  %2119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1945, i64 3)
   %2120 = load double, double* %2119, align 1
   %2121 = fsub fast double %2118, %2120
   %2122 = fmul fast double %2121, %487
-  %2123 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1950, i64 3)
+  %2123 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1950, i64 3)
   %2124 = load double, double* %2123, align 1
-  %2125 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1953, i64 3)
+  %2125 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1953, i64 3)
   %2126 = load double, double* %2125, align 1
   %2127 = fsub fast double %2124, %2126
   %2128 = fmul fast double %2127, %490
   %2129 = fadd fast double %2128, %2122
-  %2130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1959, i64 3)
+  %2130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1959, i64 3)
   %2131 = load double, double* %2130, align 1
-  %2132 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1962, i64 3)
+  %2132 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1962, i64 3)
   %2133 = load double, double* %2132, align 1
   %2134 = fsub fast double %2131, %2133
   %2135 = fmul fast double %2134, %493
@@ -3676,9 +3676,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2140 = fmul fast double %2116, %1446
   %2141 = fadd fast double %2140, %2116
   %2142 = fadd fast double %2141, %2139
-  %2143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1974, i64 3)
+  %2143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1974, i64 3)
   store double %2142, double* %2143, align 1
-  %2144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1976, i64 3)
+  %2144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1976, i64 3)
   %2145 = load double, double* %2144, align 1
   %2146 = fmul fast double %2118, %499
   %2147 = fsub fast double %2145, %2146
@@ -3686,71 +3686,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2149 = fmul fast double %2116, %1444
   %2150 = fsub fast double %2148, %2149
   %2151 = fmul fast double %2150, %487
-  %2152 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1985, i64 3)
+  %2152 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1985, i64 3)
   store double %2151, double* %2152, align 1
-  %2153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1987, i64 3)
+  %2153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1987, i64 3)
   %2154 = load double, double* %2153, align 1
   %2155 = fmul fast double %2120, %499
   %2156 = fsub fast double %2154, %2155
   %2157 = fmul fast double %2156, %1443
   %2158 = fsub fast double %2157, %2149
   %2159 = fmul fast double %2158, %487
-  %2160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1995, i64 3)
+  %2160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1995, i64 3)
   store double %2159, double* %2160, align 1
-  %2161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1997, i64 3)
+  %2161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1997, i64 3)
   %2162 = load double, double* %2161, align 1
   %2163 = fmul fast double %2124, %499
   %2164 = fsub fast double %2162, %2163
   %2165 = fmul fast double %2164, %1442
   %2166 = fsub fast double %2165, %2149
   %2167 = fmul fast double %2166, %490
-  %2168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2005, i64 3)
+  %2168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2005, i64 3)
   store double %2167, double* %2168, align 1
-  %2169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2007, i64 3)
+  %2169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2007, i64 3)
   %2170 = load double, double* %2169, align 1
   %2171 = fmul fast double %2126, %499
   %2172 = fsub fast double %2170, %2171
   %2173 = fmul fast double %2172, %1443
   %2174 = fsub fast double %2173, %2149
   %2175 = fmul fast double %2174, %490
-  %2176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2015, i64 3)
+  %2176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2015, i64 3)
   store double %2175, double* %2176, align 1
-  %2177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2017, i64 3)
+  %2177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2017, i64 3)
   %2178 = load double, double* %2177, align 1
   %2179 = fmul fast double %2131, %499
   %2180 = fsub fast double %2178, %2179
   %2181 = fmul fast double %2180, %1442
   %2182 = fsub fast double %2181, %2149
   %2183 = fmul fast double %2182, %493
-  %2184 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2025, i64 3)
+  %2184 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2025, i64 3)
   store double %2183, double* %2184, align 1
-  %2185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2027, i64 3)
+  %2185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2027, i64 3)
   %2186 = load double, double* %2185, align 1
   %2187 = fmul fast double %2133, %499
   %2188 = fsub fast double %2186, %2187
   %2189 = fmul fast double %2188, %1443
   %2190 = fsub fast double %2189, %2149
   %2191 = fmul fast double %2190, %493
-  %2192 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2035, i64 3)
+  %2192 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2035, i64 3)
   store double %2191, double* %2192, align 1
-  %2193 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1939, i64 4)
+  %2193 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1939, i64 4)
   %2194 = load double, double* %2193, align 1
-  %2195 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1942, i64 4)
+  %2195 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1942, i64 4)
   %2196 = load double, double* %2195, align 1
-  %2197 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1945, i64 4)
+  %2197 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1945, i64 4)
   %2198 = load double, double* %2197, align 1
   %2199 = fsub fast double %2196, %2198
   %2200 = fmul fast double %2199, %487
-  %2201 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1950, i64 4)
+  %2201 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1950, i64 4)
   %2202 = load double, double* %2201, align 1
-  %2203 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1953, i64 4)
+  %2203 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1953, i64 4)
   %2204 = load double, double* %2203, align 1
   %2205 = fsub fast double %2202, %2204
   %2206 = fmul fast double %2205, %490
   %2207 = fadd fast double %2206, %2200
-  %2208 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1959, i64 4)
+  %2208 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1959, i64 4)
   %2209 = load double, double* %2208, align 1
-  %2210 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1962, i64 4)
+  %2210 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1962, i64 4)
   %2211 = load double, double* %2210, align 1
   %2212 = fsub fast double %2209, %2211
   %2213 = fmul fast double %2212, %493
@@ -3761,9 +3761,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2218 = fmul fast double %2194, %1446
   %2219 = fadd fast double %2218, %2194
   %2220 = fadd fast double %2219, %2217
-  %2221 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1974, i64 4)
+  %2221 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1974, i64 4)
   store double %2220, double* %2221, align 1
-  %2222 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1976, i64 4)
+  %2222 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1976, i64 4)
   %2223 = load double, double* %2222, align 1
   %2224 = fmul fast double %2196, %499
   %2225 = fsub fast double %2223, %2224
@@ -3771,71 +3771,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2227 = fmul fast double %2194, %1444
   %2228 = fsub fast double %2226, %2227
   %2229 = fmul fast double %2228, %487
-  %2230 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1985, i64 4)
+  %2230 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1985, i64 4)
   store double %2229, double* %2230, align 1
-  %2231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1987, i64 4)
+  %2231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1987, i64 4)
   %2232 = load double, double* %2231, align 1
   %2233 = fmul fast double %2198, %499
   %2234 = fsub fast double %2232, %2233
   %2235 = fmul fast double %2234, %1443
   %2236 = fsub fast double %2235, %2227
   %2237 = fmul fast double %2236, %487
-  %2238 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1995, i64 4)
+  %2238 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1995, i64 4)
   store double %2237, double* %2238, align 1
-  %2239 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1997, i64 4)
+  %2239 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1997, i64 4)
   %2240 = load double, double* %2239, align 1
   %2241 = fmul fast double %2202, %499
   %2242 = fsub fast double %2240, %2241
   %2243 = fmul fast double %2242, %1442
   %2244 = fsub fast double %2243, %2227
   %2245 = fmul fast double %2244, %490
-  %2246 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2005, i64 4)
+  %2246 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2005, i64 4)
   store double %2245, double* %2246, align 1
-  %2247 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2007, i64 4)
+  %2247 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2007, i64 4)
   %2248 = load double, double* %2247, align 1
   %2249 = fmul fast double %2204, %499
   %2250 = fsub fast double %2248, %2249
   %2251 = fmul fast double %2250, %1443
   %2252 = fsub fast double %2251, %2227
   %2253 = fmul fast double %2252, %490
-  %2254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2015, i64 4)
+  %2254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2015, i64 4)
   store double %2253, double* %2254, align 1
-  %2255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2017, i64 4)
+  %2255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2017, i64 4)
   %2256 = load double, double* %2255, align 1
   %2257 = fmul fast double %2209, %499
   %2258 = fsub fast double %2256, %2257
   %2259 = fmul fast double %2258, %1442
   %2260 = fsub fast double %2259, %2227
   %2261 = fmul fast double %2260, %493
-  %2262 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2025, i64 4)
+  %2262 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2025, i64 4)
   store double %2261, double* %2262, align 1
-  %2263 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2027, i64 4)
+  %2263 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2027, i64 4)
   %2264 = load double, double* %2263, align 1
   %2265 = fmul fast double %2211, %499
   %2266 = fsub fast double %2264, %2265
   %2267 = fmul fast double %2266, %1443
   %2268 = fsub fast double %2267, %2227
   %2269 = fmul fast double %2268, %493
-  %2270 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2035, i64 4)
+  %2270 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2035, i64 4)
   store double %2269, double* %2270, align 1
-  %2271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1939, i64 5)
+  %2271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1939, i64 5)
   %2272 = load double, double* %2271, align 1
-  %2273 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1942, i64 5)
+  %2273 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1942, i64 5)
   %2274 = load double, double* %2273, align 1
-  %2275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1945, i64 5)
+  %2275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1945, i64 5)
   %2276 = load double, double* %2275, align 1
   %2277 = fsub fast double %2274, %2276
   %2278 = fmul fast double %2277, %487
-  %2279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1950, i64 5)
+  %2279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1950, i64 5)
   %2280 = load double, double* %2279, align 1
-  %2281 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1953, i64 5)
+  %2281 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1953, i64 5)
   %2282 = load double, double* %2281, align 1
   %2283 = fsub fast double %2280, %2282
   %2284 = fmul fast double %2283, %490
   %2285 = fadd fast double %2284, %2278
-  %2286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1959, i64 5)
+  %2286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1959, i64 5)
   %2287 = load double, double* %2286, align 1
-  %2288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1962, i64 5)
+  %2288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1962, i64 5)
   %2289 = load double, double* %2288, align 1
   %2290 = fsub fast double %2287, %2289
   %2291 = fmul fast double %2290, %493
@@ -3846,9 +3846,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2296 = fmul fast double %2272, %1446
   %2297 = fadd fast double %2296, %2272
   %2298 = fadd fast double %2297, %2295
-  %2299 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1974, i64 5)
+  %2299 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1974, i64 5)
   store double %2298, double* %2299, align 1
-  %2300 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1976, i64 5)
+  %2300 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1976, i64 5)
   %2301 = load double, double* %2300, align 1
   %2302 = fmul fast double %2274, %499
   %2303 = fsub fast double %2301, %2302
@@ -3856,78 +3856,78 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2305 = fmul fast double %2272, %1444
   %2306 = fsub fast double %2304, %2305
   %2307 = fmul fast double %2306, %487
-  %2308 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1985, i64 5)
+  %2308 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1985, i64 5)
   store double %2307, double* %2308, align 1
-  %2309 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1987, i64 5)
+  %2309 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1987, i64 5)
   %2310 = load double, double* %2309, align 1
   %2311 = fmul fast double %2276, %499
   %2312 = fsub fast double %2310, %2311
   %2313 = fmul fast double %2312, %1443
   %2314 = fsub fast double %2313, %2305
   %2315 = fmul fast double %2314, %487
-  %2316 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1995, i64 5)
+  %2316 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1995, i64 5)
   store double %2315, double* %2316, align 1
-  %2317 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %1997, i64 5)
+  %2317 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %1997, i64 5)
   %2318 = load double, double* %2317, align 1
   %2319 = fmul fast double %2280, %499
   %2320 = fsub fast double %2318, %2319
   %2321 = fmul fast double %2320, %1442
   %2322 = fsub fast double %2321, %2305
   %2323 = fmul fast double %2322, %490
-  %2324 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2005, i64 5)
+  %2324 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2005, i64 5)
   store double %2323, double* %2324, align 1
-  %2325 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2007, i64 5)
+  %2325 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2007, i64 5)
   %2326 = load double, double* %2325, align 1
   %2327 = fmul fast double %2282, %499
   %2328 = fsub fast double %2326, %2327
   %2329 = fmul fast double %2328, %1443
   %2330 = fsub fast double %2329, %2305
   %2331 = fmul fast double %2330, %490
-  %2332 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2015, i64 5)
+  %2332 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2015, i64 5)
   store double %2331, double* %2332, align 1
-  %2333 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2017, i64 5)
+  %2333 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2017, i64 5)
   %2334 = load double, double* %2333, align 1
   %2335 = fmul fast double %2287, %499
   %2336 = fsub fast double %2334, %2335
   %2337 = fmul fast double %2336, %1442
   %2338 = fsub fast double %2337, %2305
   %2339 = fmul fast double %2338, %493
-  %2340 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2025, i64 5)
+  %2340 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2025, i64 5)
   store double %2339, double* %2340, align 1
-  %2341 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2027, i64 5)
+  %2341 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2027, i64 5)
   %2342 = load double, double* %2341, align 1
   %2343 = fmul fast double %2289, %499
   %2344 = fsub fast double %2342, %2343
   %2345 = fmul fast double %2344, %1443
   %2346 = fsub fast double %2345, %2305
   %2347 = fmul fast double %2346, %493
-  %2348 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2035, i64 5)
+  %2348 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2035, i64 5)
   store double %2347, double* %2348, align 1
-  %2349 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1507, i64 3)
-  %2350 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2349, i64 1)
+  %2349 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1507, i64 3)
+  %2350 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2349, i64 1)
   %2351 = load double, double* %2350, align 1
-  %2352 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1511, i64 3)
-  %2353 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2352, i64 1)
+  %2352 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1511, i64 3)
+  %2353 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2352, i64 1)
   %2354 = load double, double* %2353, align 1
-  %2355 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1516, i64 3)
-  %2356 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2355, i64 1)
+  %2355 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1516, i64 3)
+  %2356 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2355, i64 1)
   %2357 = load double, double* %2356, align 1
   %2358 = fsub fast double %2354, %2357
   %2359 = fmul fast double %2358, %487
-  %2360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1522, i64 3)
-  %2361 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2360, i64 1)
+  %2360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1522, i64 3)
+  %2361 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2360, i64 1)
   %2362 = load double, double* %2361, align 1
-  %2363 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1526, i64 3)
-  %2364 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2363, i64 1)
+  %2363 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1526, i64 3)
+  %2364 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2363, i64 1)
   %2365 = load double, double* %2364, align 1
   %2366 = fsub fast double %2362, %2365
   %2367 = fmul fast double %2366, %490
   %2368 = fadd fast double %2367, %2359
-  %2369 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1533, i64 3)
-  %2370 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2369, i64 1)
+  %2369 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1533, i64 3)
+  %2370 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2369, i64 1)
   %2371 = load double, double* %2370, align 1
-  %2372 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1537, i64 3)
-  %2373 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2372, i64 1)
+  %2372 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1537, i64 3)
+  %2373 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2372, i64 1)
   %2374 = load double, double* %2373, align 1
   %2375 = fsub fast double %2371, %2374
   %2376 = fmul fast double %2375, %493
@@ -3938,11 +3938,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2381 = fmul fast double %2351, %1446
   %2382 = fadd fast double %2381, %2351
   %2383 = fadd fast double %2382, %2380
-  %2384 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1550, i64 3)
-  %2385 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2384, i64 1)
+  %2384 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1550, i64 3)
+  %2385 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2384, i64 1)
   store double %2383, double* %2385, align 1
-  %2386 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1554, i64 3)
-  %2387 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2386, i64 1)
+  %2386 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1554, i64 3)
+  %2387 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2386, i64 1)
   %2388 = load double, double* %2387, align 1
   %2389 = fmul fast double %2354, %499
   %2390 = fsub fast double %2388, %2389
@@ -3950,82 +3950,82 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2392 = fmul fast double %2351, %1444
   %2393 = fsub fast double %2391, %2392
   %2394 = fmul fast double %2393, %487
-  %2395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1564, i64 3)
-  %2396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2395, i64 1)
+  %2395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1564, i64 3)
+  %2396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2395, i64 1)
   store double %2394, double* %2396, align 1
-  %2397 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1567, i64 3)
-  %2398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2397, i64 1)
+  %2397 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1567, i64 3)
+  %2398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2397, i64 1)
   %2399 = load double, double* %2398, align 1
   %2400 = fmul fast double %2357, %499
   %2401 = fsub fast double %2399, %2400
   %2402 = fmul fast double %2401, %1443
   %2403 = fsub fast double %2402, %2392
   %2404 = fmul fast double %2403, %487
-  %2405 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1576, i64 3)
-  %2406 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2405, i64 1)
+  %2405 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1576, i64 3)
+  %2406 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2405, i64 1)
   store double %2404, double* %2406, align 1
-  %2407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1579, i64 3)
-  %2408 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2407, i64 1)
+  %2407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1579, i64 3)
+  %2408 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2407, i64 1)
   %2409 = load double, double* %2408, align 1
   %2410 = fmul fast double %2362, %499
   %2411 = fsub fast double %2409, %2410
   %2412 = fmul fast double %2411, %1442
   %2413 = fsub fast double %2412, %2392
   %2414 = fmul fast double %2413, %490
-  %2415 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1588, i64 3)
-  %2416 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2415, i64 1)
+  %2415 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1588, i64 3)
+  %2416 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2415, i64 1)
   store double %2414, double* %2416, align 1
-  %2417 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1591, i64 3)
-  %2418 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2417, i64 1)
+  %2417 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1591, i64 3)
+  %2418 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2417, i64 1)
   %2419 = load double, double* %2418, align 1
   %2420 = fmul fast double %2365, %499
   %2421 = fsub fast double %2419, %2420
   %2422 = fmul fast double %2421, %1443
   %2423 = fsub fast double %2422, %2392
   %2424 = fmul fast double %2423, %490
-  %2425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1600, i64 3)
-  %2426 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2425, i64 1)
+  %2425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1600, i64 3)
+  %2426 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2425, i64 1)
   store double %2424, double* %2426, align 1
-  %2427 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1603, i64 3)
-  %2428 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2427, i64 1)
+  %2427 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1603, i64 3)
+  %2428 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2427, i64 1)
   %2429 = load double, double* %2428, align 1
   %2430 = fmul fast double %2371, %499
   %2431 = fsub fast double %2429, %2430
   %2432 = fmul fast double %2431, %1442
   %2433 = fsub fast double %2432, %2392
   %2434 = fmul fast double %2433, %493
-  %2435 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1612, i64 3)
-  %2436 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2435, i64 1)
+  %2435 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1612, i64 3)
+  %2436 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2435, i64 1)
   store double %2434, double* %2436, align 1
-  %2437 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1615, i64 3)
-  %2438 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2437, i64 1)
+  %2437 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1615, i64 3)
+  %2438 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2437, i64 1)
   %2439 = load double, double* %2438, align 1
   %2440 = fmul fast double %2374, %499
   %2441 = fsub fast double %2439, %2440
   %2442 = fmul fast double %2441, %1443
   %2443 = fsub fast double %2442, %2392
   %2444 = fmul fast double %2443, %493
-  %2445 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1624, i64 3)
-  %2446 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2445, i64 1)
+  %2445 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1624, i64 3)
+  %2446 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2445, i64 1)
   store double %2444, double* %2446, align 1
-  %2447 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2349, i64 2)
+  %2447 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2349, i64 2)
   %2448 = load double, double* %2447, align 1
-  %2449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2352, i64 2)
+  %2449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2352, i64 2)
   %2450 = load double, double* %2449, align 1
-  %2451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2355, i64 2)
+  %2451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2355, i64 2)
   %2452 = load double, double* %2451, align 1
   %2453 = fsub fast double %2450, %2452
   %2454 = fmul fast double %2453, %487
-  %2455 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2360, i64 2)
+  %2455 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2360, i64 2)
   %2456 = load double, double* %2455, align 1
-  %2457 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2363, i64 2)
+  %2457 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2363, i64 2)
   %2458 = load double, double* %2457, align 1
   %2459 = fsub fast double %2456, %2458
   %2460 = fmul fast double %2459, %490
   %2461 = fadd fast double %2460, %2454
-  %2462 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2369, i64 2)
+  %2462 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2369, i64 2)
   %2463 = load double, double* %2462, align 1
-  %2464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2372, i64 2)
+  %2464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2372, i64 2)
   %2465 = load double, double* %2464, align 1
   %2466 = fsub fast double %2463, %2465
   %2467 = fmul fast double %2466, %493
@@ -4036,9 +4036,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2472 = fmul fast double %2448, %1446
   %2473 = fadd fast double %2472, %2448
   %2474 = fadd fast double %2473, %2471
-  %2475 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2384, i64 2)
+  %2475 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2384, i64 2)
   store double %2474, double* %2475, align 1
-  %2476 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2386, i64 2)
+  %2476 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2386, i64 2)
   %2477 = load double, double* %2476, align 1
   %2478 = fmul fast double %2450, %499
   %2479 = fsub fast double %2477, %2478
@@ -4046,71 +4046,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2481 = fmul fast double %2448, %1444
   %2482 = fsub fast double %2480, %2481
   %2483 = fmul fast double %2482, %487
-  %2484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2395, i64 2)
+  %2484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2395, i64 2)
   store double %2483, double* %2484, align 1
-  %2485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2397, i64 2)
+  %2485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2397, i64 2)
   %2486 = load double, double* %2485, align 1
   %2487 = fmul fast double %2452, %499
   %2488 = fsub fast double %2486, %2487
   %2489 = fmul fast double %2488, %1443
   %2490 = fsub fast double %2489, %2481
   %2491 = fmul fast double %2490, %487
-  %2492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2405, i64 2)
+  %2492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2405, i64 2)
   store double %2491, double* %2492, align 1
-  %2493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2407, i64 2)
+  %2493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2407, i64 2)
   %2494 = load double, double* %2493, align 1
   %2495 = fmul fast double %2456, %499
   %2496 = fsub fast double %2494, %2495
   %2497 = fmul fast double %2496, %1442
   %2498 = fsub fast double %2497, %2481
   %2499 = fmul fast double %2498, %490
-  %2500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2415, i64 2)
+  %2500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2415, i64 2)
   store double %2499, double* %2500, align 1
-  %2501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2417, i64 2)
+  %2501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2417, i64 2)
   %2502 = load double, double* %2501, align 1
   %2503 = fmul fast double %2458, %499
   %2504 = fsub fast double %2502, %2503
   %2505 = fmul fast double %2504, %1443
   %2506 = fsub fast double %2505, %2481
   %2507 = fmul fast double %2506, %490
-  %2508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2425, i64 2)
+  %2508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2425, i64 2)
   store double %2507, double* %2508, align 1
-  %2509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2427, i64 2)
+  %2509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2427, i64 2)
   %2510 = load double, double* %2509, align 1
   %2511 = fmul fast double %2463, %499
   %2512 = fsub fast double %2510, %2511
   %2513 = fmul fast double %2512, %1442
   %2514 = fsub fast double %2513, %2481
   %2515 = fmul fast double %2514, %493
-  %2516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2435, i64 2)
+  %2516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2435, i64 2)
   store double %2515, double* %2516, align 1
-  %2517 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2437, i64 2)
+  %2517 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2437, i64 2)
   %2518 = load double, double* %2517, align 1
   %2519 = fmul fast double %2465, %499
   %2520 = fsub fast double %2518, %2519
   %2521 = fmul fast double %2520, %1443
   %2522 = fsub fast double %2521, %2481
   %2523 = fmul fast double %2522, %493
-  %2524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2445, i64 2)
+  %2524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2445, i64 2)
   store double %2523, double* %2524, align 1
-  %2525 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2349, i64 3)
+  %2525 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2349, i64 3)
   %2526 = load double, double* %2525, align 1
-  %2527 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2352, i64 3)
+  %2527 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2352, i64 3)
   %2528 = load double, double* %2527, align 1
-  %2529 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2355, i64 3)
+  %2529 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2355, i64 3)
   %2530 = load double, double* %2529, align 1
   %2531 = fsub fast double %2528, %2530
   %2532 = fmul fast double %2531, %487
-  %2533 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2360, i64 3)
+  %2533 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2360, i64 3)
   %2534 = load double, double* %2533, align 1
-  %2535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2363, i64 3)
+  %2535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2363, i64 3)
   %2536 = load double, double* %2535, align 1
   %2537 = fsub fast double %2534, %2536
   %2538 = fmul fast double %2537, %490
   %2539 = fadd fast double %2538, %2532
-  %2540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2369, i64 3)
+  %2540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2369, i64 3)
   %2541 = load double, double* %2540, align 1
-  %2542 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2372, i64 3)
+  %2542 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2372, i64 3)
   %2543 = load double, double* %2542, align 1
   %2544 = fsub fast double %2541, %2543
   %2545 = fmul fast double %2544, %493
@@ -4121,9 +4121,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2550 = fmul fast double %2526, %1446
   %2551 = fadd fast double %2550, %2526
   %2552 = fadd fast double %2551, %2549
-  %2553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2384, i64 3)
+  %2553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2384, i64 3)
   store double %2552, double* %2553, align 1
-  %2554 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2386, i64 3)
+  %2554 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2386, i64 3)
   %2555 = load double, double* %2554, align 1
   %2556 = fmul fast double %2528, %499
   %2557 = fsub fast double %2555, %2556
@@ -4131,71 +4131,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2559 = fmul fast double %2526, %1444
   %2560 = fsub fast double %2558, %2559
   %2561 = fmul fast double %2560, %487
-  %2562 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2395, i64 3)
+  %2562 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2395, i64 3)
   store double %2561, double* %2562, align 1
-  %2563 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2397, i64 3)
+  %2563 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2397, i64 3)
   %2564 = load double, double* %2563, align 1
   %2565 = fmul fast double %2530, %499
   %2566 = fsub fast double %2564, %2565
   %2567 = fmul fast double %2566, %1443
   %2568 = fsub fast double %2567, %2559
   %2569 = fmul fast double %2568, %487
-  %2570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2405, i64 3)
+  %2570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2405, i64 3)
   store double %2569, double* %2570, align 1
-  %2571 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2407, i64 3)
+  %2571 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2407, i64 3)
   %2572 = load double, double* %2571, align 1
   %2573 = fmul fast double %2534, %499
   %2574 = fsub fast double %2572, %2573
   %2575 = fmul fast double %2574, %1442
   %2576 = fsub fast double %2575, %2559
   %2577 = fmul fast double %2576, %490
-  %2578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2415, i64 3)
+  %2578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2415, i64 3)
   store double %2577, double* %2578, align 1
-  %2579 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2417, i64 3)
+  %2579 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2417, i64 3)
   %2580 = load double, double* %2579, align 1
   %2581 = fmul fast double %2536, %499
   %2582 = fsub fast double %2580, %2581
   %2583 = fmul fast double %2582, %1443
   %2584 = fsub fast double %2583, %2559
   %2585 = fmul fast double %2584, %490
-  %2586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2425, i64 3)
+  %2586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2425, i64 3)
   store double %2585, double* %2586, align 1
-  %2587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2427, i64 3)
+  %2587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2427, i64 3)
   %2588 = load double, double* %2587, align 1
   %2589 = fmul fast double %2541, %499
   %2590 = fsub fast double %2588, %2589
   %2591 = fmul fast double %2590, %1442
   %2592 = fsub fast double %2591, %2559
   %2593 = fmul fast double %2592, %493
-  %2594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2435, i64 3)
+  %2594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2435, i64 3)
   store double %2593, double* %2594, align 1
-  %2595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2437, i64 3)
+  %2595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2437, i64 3)
   %2596 = load double, double* %2595, align 1
   %2597 = fmul fast double %2543, %499
   %2598 = fsub fast double %2596, %2597
   %2599 = fmul fast double %2598, %1443
   %2600 = fsub fast double %2599, %2559
   %2601 = fmul fast double %2600, %493
-  %2602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2445, i64 3)
+  %2602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2445, i64 3)
   store double %2601, double* %2602, align 1
-  %2603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2349, i64 4)
+  %2603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2349, i64 4)
   %2604 = load double, double* %2603, align 1
-  %2605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2352, i64 4)
+  %2605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2352, i64 4)
   %2606 = load double, double* %2605, align 1
-  %2607 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2355, i64 4)
+  %2607 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2355, i64 4)
   %2608 = load double, double* %2607, align 1
   %2609 = fsub fast double %2606, %2608
   %2610 = fmul fast double %2609, %487
-  %2611 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2360, i64 4)
+  %2611 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2360, i64 4)
   %2612 = load double, double* %2611, align 1
-  %2613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2363, i64 4)
+  %2613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2363, i64 4)
   %2614 = load double, double* %2613, align 1
   %2615 = fsub fast double %2612, %2614
   %2616 = fmul fast double %2615, %490
   %2617 = fadd fast double %2616, %2610
-  %2618 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2369, i64 4)
+  %2618 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2369, i64 4)
   %2619 = load double, double* %2618, align 1
-  %2620 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2372, i64 4)
+  %2620 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2372, i64 4)
   %2621 = load double, double* %2620, align 1
   %2622 = fsub fast double %2619, %2621
   %2623 = fmul fast double %2622, %493
@@ -4206,9 +4206,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2628 = fmul fast double %2604, %1446
   %2629 = fadd fast double %2628, %2604
   %2630 = fadd fast double %2629, %2627
-  %2631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2384, i64 4)
+  %2631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2384, i64 4)
   store double %2630, double* %2631, align 1
-  %2632 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2386, i64 4)
+  %2632 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2386, i64 4)
   %2633 = load double, double* %2632, align 1
   %2634 = fmul fast double %2606, %499
   %2635 = fsub fast double %2633, %2634
@@ -4216,71 +4216,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2637 = fmul fast double %2604, %1444
   %2638 = fsub fast double %2636, %2637
   %2639 = fmul fast double %2638, %487
-  %2640 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2395, i64 4)
+  %2640 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2395, i64 4)
   store double %2639, double* %2640, align 1
-  %2641 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2397, i64 4)
+  %2641 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2397, i64 4)
   %2642 = load double, double* %2641, align 1
   %2643 = fmul fast double %2608, %499
   %2644 = fsub fast double %2642, %2643
   %2645 = fmul fast double %2644, %1443
   %2646 = fsub fast double %2645, %2637
   %2647 = fmul fast double %2646, %487
-  %2648 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2405, i64 4)
+  %2648 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2405, i64 4)
   store double %2647, double* %2648, align 1
-  %2649 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2407, i64 4)
+  %2649 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2407, i64 4)
   %2650 = load double, double* %2649, align 1
   %2651 = fmul fast double %2612, %499
   %2652 = fsub fast double %2650, %2651
   %2653 = fmul fast double %2652, %1442
   %2654 = fsub fast double %2653, %2637
   %2655 = fmul fast double %2654, %490
-  %2656 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2415, i64 4)
+  %2656 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2415, i64 4)
   store double %2655, double* %2656, align 1
-  %2657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2417, i64 4)
+  %2657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2417, i64 4)
   %2658 = load double, double* %2657, align 1
   %2659 = fmul fast double %2614, %499
   %2660 = fsub fast double %2658, %2659
   %2661 = fmul fast double %2660, %1443
   %2662 = fsub fast double %2661, %2637
   %2663 = fmul fast double %2662, %490
-  %2664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2425, i64 4)
+  %2664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2425, i64 4)
   store double %2663, double* %2664, align 1
-  %2665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2427, i64 4)
+  %2665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2427, i64 4)
   %2666 = load double, double* %2665, align 1
   %2667 = fmul fast double %2619, %499
   %2668 = fsub fast double %2666, %2667
   %2669 = fmul fast double %2668, %1442
   %2670 = fsub fast double %2669, %2637
   %2671 = fmul fast double %2670, %493
-  %2672 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2435, i64 4)
+  %2672 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2435, i64 4)
   store double %2671, double* %2672, align 1
-  %2673 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2437, i64 4)
+  %2673 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2437, i64 4)
   %2674 = load double, double* %2673, align 1
   %2675 = fmul fast double %2621, %499
   %2676 = fsub fast double %2674, %2675
   %2677 = fmul fast double %2676, %1443
   %2678 = fsub fast double %2677, %2637
   %2679 = fmul fast double %2678, %493
-  %2680 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2445, i64 4)
+  %2680 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2445, i64 4)
   store double %2679, double* %2680, align 1
-  %2681 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2349, i64 5)
+  %2681 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2349, i64 5)
   %2682 = load double, double* %2681, align 1
-  %2683 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2352, i64 5)
+  %2683 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2352, i64 5)
   %2684 = load double, double* %2683, align 1
-  %2685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2355, i64 5)
+  %2685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2355, i64 5)
   %2686 = load double, double* %2685, align 1
   %2687 = fsub fast double %2684, %2686
   %2688 = fmul fast double %2687, %487
-  %2689 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2360, i64 5)
+  %2689 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2360, i64 5)
   %2690 = load double, double* %2689, align 1
-  %2691 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2363, i64 5)
+  %2691 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2363, i64 5)
   %2692 = load double, double* %2691, align 1
   %2693 = fsub fast double %2690, %2692
   %2694 = fmul fast double %2693, %490
   %2695 = fadd fast double %2694, %2688
-  %2696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2369, i64 5)
+  %2696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2369, i64 5)
   %2697 = load double, double* %2696, align 1
-  %2698 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2372, i64 5)
+  %2698 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2372, i64 5)
   %2699 = load double, double* %2698, align 1
   %2700 = fsub fast double %2697, %2699
   %2701 = fmul fast double %2700, %493
@@ -4291,9 +4291,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2706 = fmul fast double %2682, %1446
   %2707 = fadd fast double %2706, %2682
   %2708 = fadd fast double %2707, %2705
-  %2709 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2384, i64 5)
+  %2709 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2384, i64 5)
   store double %2708, double* %2709, align 1
-  %2710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2386, i64 5)
+  %2710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2386, i64 5)
   %2711 = load double, double* %2710, align 1
   %2712 = fmul fast double %2684, %499
   %2713 = fsub fast double %2711, %2712
@@ -4301,78 +4301,78 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2715 = fmul fast double %2682, %1444
   %2716 = fsub fast double %2714, %2715
   %2717 = fmul fast double %2716, %487
-  %2718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2395, i64 5)
+  %2718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2395, i64 5)
   store double %2717, double* %2718, align 1
-  %2719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2397, i64 5)
+  %2719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2397, i64 5)
   %2720 = load double, double* %2719, align 1
   %2721 = fmul fast double %2686, %499
   %2722 = fsub fast double %2720, %2721
   %2723 = fmul fast double %2722, %1443
   %2724 = fsub fast double %2723, %2715
   %2725 = fmul fast double %2724, %487
-  %2726 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2405, i64 5)
+  %2726 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2405, i64 5)
   store double %2725, double* %2726, align 1
-  %2727 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2407, i64 5)
+  %2727 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2407, i64 5)
   %2728 = load double, double* %2727, align 1
   %2729 = fmul fast double %2690, %499
   %2730 = fsub fast double %2728, %2729
   %2731 = fmul fast double %2730, %1442
   %2732 = fsub fast double %2731, %2715
   %2733 = fmul fast double %2732, %490
-  %2734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2415, i64 5)
+  %2734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2415, i64 5)
   store double %2733, double* %2734, align 1
-  %2735 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2417, i64 5)
+  %2735 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2417, i64 5)
   %2736 = load double, double* %2735, align 1
   %2737 = fmul fast double %2692, %499
   %2738 = fsub fast double %2736, %2737
   %2739 = fmul fast double %2738, %1443
   %2740 = fsub fast double %2739, %2715
   %2741 = fmul fast double %2740, %490
-  %2742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2425, i64 5)
+  %2742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2425, i64 5)
   store double %2741, double* %2742, align 1
-  %2743 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2427, i64 5)
+  %2743 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2427, i64 5)
   %2744 = load double, double* %2743, align 1
   %2745 = fmul fast double %2697, %499
   %2746 = fsub fast double %2744, %2745
   %2747 = fmul fast double %2746, %1442
   %2748 = fsub fast double %2747, %2715
   %2749 = fmul fast double %2748, %493
-  %2750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2435, i64 5)
+  %2750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2435, i64 5)
   store double %2749, double* %2750, align 1
-  %2751 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2437, i64 5)
+  %2751 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2437, i64 5)
   %2752 = load double, double* %2751, align 1
   %2753 = fmul fast double %2699, %499
   %2754 = fsub fast double %2752, %2753
   %2755 = fmul fast double %2754, %1443
   %2756 = fsub fast double %2755, %2715
   %2757 = fmul fast double %2756, %493
-  %2758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2445, i64 5)
+  %2758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2445, i64 5)
   store double %2757, double* %2758, align 1
-  %2759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1507, i64 4)
-  %2760 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2759, i64 1)
+  %2759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1507, i64 4)
+  %2760 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2759, i64 1)
   %2761 = load double, double* %2760, align 1
-  %2762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1511, i64 4)
-  %2763 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2762, i64 1)
+  %2762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1511, i64 4)
+  %2763 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2762, i64 1)
   %2764 = load double, double* %2763, align 1
-  %2765 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1516, i64 4)
-  %2766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2765, i64 1)
+  %2765 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1516, i64 4)
+  %2766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2765, i64 1)
   %2767 = load double, double* %2766, align 1
   %2768 = fsub fast double %2764, %2767
   %2769 = fmul fast double %2768, %487
-  %2770 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1522, i64 4)
-  %2771 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2770, i64 1)
+  %2770 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1522, i64 4)
+  %2771 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2770, i64 1)
   %2772 = load double, double* %2771, align 1
-  %2773 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1526, i64 4)
-  %2774 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2773, i64 1)
+  %2773 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1526, i64 4)
+  %2774 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2773, i64 1)
   %2775 = load double, double* %2774, align 1
   %2776 = fsub fast double %2772, %2775
   %2777 = fmul fast double %2776, %490
   %2778 = fadd fast double %2777, %2769
-  %2779 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1533, i64 4)
-  %2780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2779, i64 1)
+  %2779 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1533, i64 4)
+  %2780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2779, i64 1)
   %2781 = load double, double* %2780, align 1
-  %2782 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1537, i64 4)
-  %2783 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2782, i64 1)
+  %2782 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1537, i64 4)
+  %2783 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2782, i64 1)
   %2784 = load double, double* %2783, align 1
   %2785 = fsub fast double %2781, %2784
   %2786 = fmul fast double %2785, %493
@@ -4383,11 +4383,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2791 = fmul fast double %2761, %1446
   %2792 = fadd fast double %2791, %2761
   %2793 = fadd fast double %2792, %2790
-  %2794 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1550, i64 4)
-  %2795 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2794, i64 1)
+  %2794 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1550, i64 4)
+  %2795 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2794, i64 1)
   store double %2793, double* %2795, align 1
-  %2796 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1554, i64 4)
-  %2797 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2796, i64 1)
+  %2796 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1554, i64 4)
+  %2797 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2796, i64 1)
   %2798 = load double, double* %2797, align 1
   %2799 = fmul fast double %2764, %499
   %2800 = fsub fast double %2798, %2799
@@ -4395,82 +4395,82 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2802 = fmul fast double %2761, %1444
   %2803 = fsub fast double %2801, %2802
   %2804 = fmul fast double %2803, %487
-  %2805 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1564, i64 4)
-  %2806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2805, i64 1)
+  %2805 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1564, i64 4)
+  %2806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2805, i64 1)
   store double %2804, double* %2806, align 1
-  %2807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1567, i64 4)
-  %2808 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2807, i64 1)
+  %2807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1567, i64 4)
+  %2808 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2807, i64 1)
   %2809 = load double, double* %2808, align 1
   %2810 = fmul fast double %2767, %499
   %2811 = fsub fast double %2809, %2810
   %2812 = fmul fast double %2811, %1443
   %2813 = fsub fast double %2812, %2802
   %2814 = fmul fast double %2813, %487
-  %2815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1576, i64 4)
-  %2816 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2815, i64 1)
+  %2815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1576, i64 4)
+  %2816 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2815, i64 1)
   store double %2814, double* %2816, align 1
-  %2817 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1579, i64 4)
-  %2818 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2817, i64 1)
+  %2817 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1579, i64 4)
+  %2818 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2817, i64 1)
   %2819 = load double, double* %2818, align 1
   %2820 = fmul fast double %2772, %499
   %2821 = fsub fast double %2819, %2820
   %2822 = fmul fast double %2821, %1442
   %2823 = fsub fast double %2822, %2802
   %2824 = fmul fast double %2823, %490
-  %2825 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1588, i64 4)
-  %2826 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2825, i64 1)
+  %2825 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1588, i64 4)
+  %2826 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2825, i64 1)
   store double %2824, double* %2826, align 1
-  %2827 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1591, i64 4)
-  %2828 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2827, i64 1)
+  %2827 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1591, i64 4)
+  %2828 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2827, i64 1)
   %2829 = load double, double* %2828, align 1
   %2830 = fmul fast double %2775, %499
   %2831 = fsub fast double %2829, %2830
   %2832 = fmul fast double %2831, %1443
   %2833 = fsub fast double %2832, %2802
   %2834 = fmul fast double %2833, %490
-  %2835 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1600, i64 4)
-  %2836 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2835, i64 1)
+  %2835 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1600, i64 4)
+  %2836 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2835, i64 1)
   store double %2834, double* %2836, align 1
-  %2837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1603, i64 4)
-  %2838 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2837, i64 1)
+  %2837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1603, i64 4)
+  %2838 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2837, i64 1)
   %2839 = load double, double* %2838, align 1
   %2840 = fmul fast double %2781, %499
   %2841 = fsub fast double %2839, %2840
   %2842 = fmul fast double %2841, %1442
   %2843 = fsub fast double %2842, %2802
   %2844 = fmul fast double %2843, %493
-  %2845 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1612, i64 4)
-  %2846 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2845, i64 1)
+  %2845 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1612, i64 4)
+  %2846 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2845, i64 1)
   store double %2844, double* %2846, align 1
-  %2847 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1615, i64 4)
-  %2848 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2847, i64 1)
+  %2847 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1615, i64 4)
+  %2848 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2847, i64 1)
   %2849 = load double, double* %2848, align 1
   %2850 = fmul fast double %2784, %499
   %2851 = fsub fast double %2849, %2850
   %2852 = fmul fast double %2851, %1443
   %2853 = fsub fast double %2852, %2802
   %2854 = fmul fast double %2853, %493
-  %2855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1624, i64 4)
-  %2856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2855, i64 1)
+  %2855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1624, i64 4)
+  %2856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2855, i64 1)
   store double %2854, double* %2856, align 1
-  %2857 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2759, i64 2)
+  %2857 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2759, i64 2)
   %2858 = load double, double* %2857, align 1
-  %2859 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2762, i64 2)
+  %2859 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2762, i64 2)
   %2860 = load double, double* %2859, align 1
-  %2861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2765, i64 2)
+  %2861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2765, i64 2)
   %2862 = load double, double* %2861, align 1
   %2863 = fsub fast double %2860, %2862
   %2864 = fmul fast double %2863, %487
-  %2865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2770, i64 2)
+  %2865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2770, i64 2)
   %2866 = load double, double* %2865, align 1
-  %2867 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2773, i64 2)
+  %2867 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2773, i64 2)
   %2868 = load double, double* %2867, align 1
   %2869 = fsub fast double %2866, %2868
   %2870 = fmul fast double %2869, %490
   %2871 = fadd fast double %2870, %2864
-  %2872 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2779, i64 2)
+  %2872 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2779, i64 2)
   %2873 = load double, double* %2872, align 1
-  %2874 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2782, i64 2)
+  %2874 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2782, i64 2)
   %2875 = load double, double* %2874, align 1
   %2876 = fsub fast double %2873, %2875
   %2877 = fmul fast double %2876, %493
@@ -4481,9 +4481,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2882 = fmul fast double %2858, %1446
   %2883 = fadd fast double %2882, %2858
   %2884 = fadd fast double %2883, %2881
-  %2885 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2794, i64 2)
+  %2885 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2794, i64 2)
   store double %2884, double* %2885, align 1
-  %2886 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2796, i64 2)
+  %2886 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2796, i64 2)
   %2887 = load double, double* %2886, align 1
   %2888 = fmul fast double %2860, %499
   %2889 = fsub fast double %2887, %2888
@@ -4491,71 +4491,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2891 = fmul fast double %2858, %1444
   %2892 = fsub fast double %2890, %2891
   %2893 = fmul fast double %2892, %487
-  %2894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2805, i64 2)
+  %2894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2805, i64 2)
   store double %2893, double* %2894, align 1
-  %2895 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2807, i64 2)
+  %2895 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2807, i64 2)
   %2896 = load double, double* %2895, align 1
   %2897 = fmul fast double %2862, %499
   %2898 = fsub fast double %2896, %2897
   %2899 = fmul fast double %2898, %1443
   %2900 = fsub fast double %2899, %2891
   %2901 = fmul fast double %2900, %487
-  %2902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2815, i64 2)
+  %2902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2815, i64 2)
   store double %2901, double* %2902, align 1
-  %2903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2817, i64 2)
+  %2903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2817, i64 2)
   %2904 = load double, double* %2903, align 1
   %2905 = fmul fast double %2866, %499
   %2906 = fsub fast double %2904, %2905
   %2907 = fmul fast double %2906, %1442
   %2908 = fsub fast double %2907, %2891
   %2909 = fmul fast double %2908, %490
-  %2910 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2825, i64 2)
+  %2910 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2825, i64 2)
   store double %2909, double* %2910, align 1
-  %2911 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2827, i64 2)
+  %2911 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2827, i64 2)
   %2912 = load double, double* %2911, align 1
   %2913 = fmul fast double %2868, %499
   %2914 = fsub fast double %2912, %2913
   %2915 = fmul fast double %2914, %1443
   %2916 = fsub fast double %2915, %2891
   %2917 = fmul fast double %2916, %490
-  %2918 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2835, i64 2)
+  %2918 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2835, i64 2)
   store double %2917, double* %2918, align 1
-  %2919 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2837, i64 2)
+  %2919 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2837, i64 2)
   %2920 = load double, double* %2919, align 1
   %2921 = fmul fast double %2873, %499
   %2922 = fsub fast double %2920, %2921
   %2923 = fmul fast double %2922, %1442
   %2924 = fsub fast double %2923, %2891
   %2925 = fmul fast double %2924, %493
-  %2926 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2845, i64 2)
+  %2926 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2845, i64 2)
   store double %2925, double* %2926, align 1
-  %2927 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2847, i64 2)
+  %2927 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2847, i64 2)
   %2928 = load double, double* %2927, align 1
   %2929 = fmul fast double %2875, %499
   %2930 = fsub fast double %2928, %2929
   %2931 = fmul fast double %2930, %1443
   %2932 = fsub fast double %2931, %2891
   %2933 = fmul fast double %2932, %493
-  %2934 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2855, i64 2)
+  %2934 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2855, i64 2)
   store double %2933, double* %2934, align 1
-  %2935 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2759, i64 3)
+  %2935 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2759, i64 3)
   %2936 = load double, double* %2935, align 1
-  %2937 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2762, i64 3)
+  %2937 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2762, i64 3)
   %2938 = load double, double* %2937, align 1
-  %2939 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2765, i64 3)
+  %2939 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2765, i64 3)
   %2940 = load double, double* %2939, align 1
   %2941 = fsub fast double %2938, %2940
   %2942 = fmul fast double %2941, %487
-  %2943 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2770, i64 3)
+  %2943 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2770, i64 3)
   %2944 = load double, double* %2943, align 1
-  %2945 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2773, i64 3)
+  %2945 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2773, i64 3)
   %2946 = load double, double* %2945, align 1
   %2947 = fsub fast double %2944, %2946
   %2948 = fmul fast double %2947, %490
   %2949 = fadd fast double %2948, %2942
-  %2950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2779, i64 3)
+  %2950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2779, i64 3)
   %2951 = load double, double* %2950, align 1
-  %2952 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2782, i64 3)
+  %2952 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2782, i64 3)
   %2953 = load double, double* %2952, align 1
   %2954 = fsub fast double %2951, %2953
   %2955 = fmul fast double %2954, %493
@@ -4566,9 +4566,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2960 = fmul fast double %2936, %1446
   %2961 = fadd fast double %2960, %2936
   %2962 = fadd fast double %2961, %2959
-  %2963 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2794, i64 3)
+  %2963 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2794, i64 3)
   store double %2962, double* %2963, align 1
-  %2964 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2796, i64 3)
+  %2964 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2796, i64 3)
   %2965 = load double, double* %2964, align 1
   %2966 = fmul fast double %2938, %499
   %2967 = fsub fast double %2965, %2966
@@ -4576,71 +4576,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %2969 = fmul fast double %2936, %1444
   %2970 = fsub fast double %2968, %2969
   %2971 = fmul fast double %2970, %487
-  %2972 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2805, i64 3)
+  %2972 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2805, i64 3)
   store double %2971, double* %2972, align 1
-  %2973 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2807, i64 3)
+  %2973 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2807, i64 3)
   %2974 = load double, double* %2973, align 1
   %2975 = fmul fast double %2940, %499
   %2976 = fsub fast double %2974, %2975
   %2977 = fmul fast double %2976, %1443
   %2978 = fsub fast double %2977, %2969
   %2979 = fmul fast double %2978, %487
-  %2980 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2815, i64 3)
+  %2980 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2815, i64 3)
   store double %2979, double* %2980, align 1
-  %2981 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2817, i64 3)
+  %2981 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2817, i64 3)
   %2982 = load double, double* %2981, align 1
   %2983 = fmul fast double %2944, %499
   %2984 = fsub fast double %2982, %2983
   %2985 = fmul fast double %2984, %1442
   %2986 = fsub fast double %2985, %2969
   %2987 = fmul fast double %2986, %490
-  %2988 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2825, i64 3)
+  %2988 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2825, i64 3)
   store double %2987, double* %2988, align 1
-  %2989 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2827, i64 3)
+  %2989 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2827, i64 3)
   %2990 = load double, double* %2989, align 1
   %2991 = fmul fast double %2946, %499
   %2992 = fsub fast double %2990, %2991
   %2993 = fmul fast double %2992, %1443
   %2994 = fsub fast double %2993, %2969
   %2995 = fmul fast double %2994, %490
-  %2996 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2835, i64 3)
+  %2996 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2835, i64 3)
   store double %2995, double* %2996, align 1
-  %2997 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2837, i64 3)
+  %2997 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2837, i64 3)
   %2998 = load double, double* %2997, align 1
   %2999 = fmul fast double %2951, %499
   %3000 = fsub fast double %2998, %2999
   %3001 = fmul fast double %3000, %1442
   %3002 = fsub fast double %3001, %2969
   %3003 = fmul fast double %3002, %493
-  %3004 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2845, i64 3)
+  %3004 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2845, i64 3)
   store double %3003, double* %3004, align 1
-  %3005 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2847, i64 3)
+  %3005 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2847, i64 3)
   %3006 = load double, double* %3005, align 1
   %3007 = fmul fast double %2953, %499
   %3008 = fsub fast double %3006, %3007
   %3009 = fmul fast double %3008, %1443
   %3010 = fsub fast double %3009, %2969
   %3011 = fmul fast double %3010, %493
-  %3012 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2855, i64 3)
+  %3012 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2855, i64 3)
   store double %3011, double* %3012, align 1
-  %3013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2759, i64 4)
+  %3013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2759, i64 4)
   %3014 = load double, double* %3013, align 1
-  %3015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2762, i64 4)
+  %3015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2762, i64 4)
   %3016 = load double, double* %3015, align 1
-  %3017 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2765, i64 4)
+  %3017 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2765, i64 4)
   %3018 = load double, double* %3017, align 1
   %3019 = fsub fast double %3016, %3018
   %3020 = fmul fast double %3019, %487
-  %3021 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2770, i64 4)
+  %3021 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2770, i64 4)
   %3022 = load double, double* %3021, align 1
-  %3023 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2773, i64 4)
+  %3023 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2773, i64 4)
   %3024 = load double, double* %3023, align 1
   %3025 = fsub fast double %3022, %3024
   %3026 = fmul fast double %3025, %490
   %3027 = fadd fast double %3026, %3020
-  %3028 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2779, i64 4)
+  %3028 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2779, i64 4)
   %3029 = load double, double* %3028, align 1
-  %3030 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2782, i64 4)
+  %3030 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2782, i64 4)
   %3031 = load double, double* %3030, align 1
   %3032 = fsub fast double %3029, %3031
   %3033 = fmul fast double %3032, %493
@@ -4651,9 +4651,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3038 = fmul fast double %3014, %1446
   %3039 = fadd fast double %3038, %3014
   %3040 = fadd fast double %3039, %3037
-  %3041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2794, i64 4)
+  %3041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2794, i64 4)
   store double %3040, double* %3041, align 1
-  %3042 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2796, i64 4)
+  %3042 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2796, i64 4)
   %3043 = load double, double* %3042, align 1
   %3044 = fmul fast double %3016, %499
   %3045 = fsub fast double %3043, %3044
@@ -4661,71 +4661,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3047 = fmul fast double %3014, %1444
   %3048 = fsub fast double %3046, %3047
   %3049 = fmul fast double %3048, %487
-  %3050 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2805, i64 4)
+  %3050 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2805, i64 4)
   store double %3049, double* %3050, align 1
-  %3051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2807, i64 4)
+  %3051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2807, i64 4)
   %3052 = load double, double* %3051, align 1
   %3053 = fmul fast double %3018, %499
   %3054 = fsub fast double %3052, %3053
   %3055 = fmul fast double %3054, %1443
   %3056 = fsub fast double %3055, %3047
   %3057 = fmul fast double %3056, %487
-  %3058 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2815, i64 4)
+  %3058 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2815, i64 4)
   store double %3057, double* %3058, align 1
-  %3059 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2817, i64 4)
+  %3059 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2817, i64 4)
   %3060 = load double, double* %3059, align 1
   %3061 = fmul fast double %3022, %499
   %3062 = fsub fast double %3060, %3061
   %3063 = fmul fast double %3062, %1442
   %3064 = fsub fast double %3063, %3047
   %3065 = fmul fast double %3064, %490
-  %3066 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2825, i64 4)
+  %3066 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2825, i64 4)
   store double %3065, double* %3066, align 1
-  %3067 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2827, i64 4)
+  %3067 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2827, i64 4)
   %3068 = load double, double* %3067, align 1
   %3069 = fmul fast double %3024, %499
   %3070 = fsub fast double %3068, %3069
   %3071 = fmul fast double %3070, %1443
   %3072 = fsub fast double %3071, %3047
   %3073 = fmul fast double %3072, %490
-  %3074 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2835, i64 4)
+  %3074 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2835, i64 4)
   store double %3073, double* %3074, align 1
-  %3075 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2837, i64 4)
+  %3075 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2837, i64 4)
   %3076 = load double, double* %3075, align 1
   %3077 = fmul fast double %3029, %499
   %3078 = fsub fast double %3076, %3077
   %3079 = fmul fast double %3078, %1442
   %3080 = fsub fast double %3079, %3047
   %3081 = fmul fast double %3080, %493
-  %3082 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2845, i64 4)
+  %3082 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2845, i64 4)
   store double %3081, double* %3082, align 1
-  %3083 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2847, i64 4)
+  %3083 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2847, i64 4)
   %3084 = load double, double* %3083, align 1
   %3085 = fmul fast double %3031, %499
   %3086 = fsub fast double %3084, %3085
   %3087 = fmul fast double %3086, %1443
   %3088 = fsub fast double %3087, %3047
   %3089 = fmul fast double %3088, %493
-  %3090 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2855, i64 4)
+  %3090 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2855, i64 4)
   store double %3089, double* %3090, align 1
-  %3091 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2759, i64 5)
+  %3091 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2759, i64 5)
   %3092 = load double, double* %3091, align 1
-  %3093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2762, i64 5)
+  %3093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2762, i64 5)
   %3094 = load double, double* %3093, align 1
-  %3095 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2765, i64 5)
+  %3095 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2765, i64 5)
   %3096 = load double, double* %3095, align 1
   %3097 = fsub fast double %3094, %3096
   %3098 = fmul fast double %3097, %487
-  %3099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2770, i64 5)
+  %3099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2770, i64 5)
   %3100 = load double, double* %3099, align 1
-  %3101 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2773, i64 5)
+  %3101 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2773, i64 5)
   %3102 = load double, double* %3101, align 1
   %3103 = fsub fast double %3100, %3102
   %3104 = fmul fast double %3103, %490
   %3105 = fadd fast double %3104, %3098
-  %3106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2779, i64 5)
+  %3106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2779, i64 5)
   %3107 = load double, double* %3106, align 1
-  %3108 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2782, i64 5)
+  %3108 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2782, i64 5)
   %3109 = load double, double* %3108, align 1
   %3110 = fsub fast double %3107, %3109
   %3111 = fmul fast double %3110, %493
@@ -4736,9 +4736,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3116 = fmul fast double %3092, %1446
   %3117 = fadd fast double %3116, %3092
   %3118 = fadd fast double %3117, %3115
-  %3119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2794, i64 5)
+  %3119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2794, i64 5)
   store double %3118, double* %3119, align 1
-  %3120 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2796, i64 5)
+  %3120 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2796, i64 5)
   %3121 = load double, double* %3120, align 1
   %3122 = fmul fast double %3094, %499
   %3123 = fsub fast double %3121, %3122
@@ -4746,78 +4746,78 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3125 = fmul fast double %3092, %1444
   %3126 = fsub fast double %3124, %3125
   %3127 = fmul fast double %3126, %487
-  %3128 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2805, i64 5)
+  %3128 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2805, i64 5)
   store double %3127, double* %3128, align 1
-  %3129 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2807, i64 5)
+  %3129 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2807, i64 5)
   %3130 = load double, double* %3129, align 1
   %3131 = fmul fast double %3096, %499
   %3132 = fsub fast double %3130, %3131
   %3133 = fmul fast double %3132, %1443
   %3134 = fsub fast double %3133, %3125
   %3135 = fmul fast double %3134, %487
-  %3136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2815, i64 5)
+  %3136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2815, i64 5)
   store double %3135, double* %3136, align 1
-  %3137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2817, i64 5)
+  %3137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2817, i64 5)
   %3138 = load double, double* %3137, align 1
   %3139 = fmul fast double %3100, %499
   %3140 = fsub fast double %3138, %3139
   %3141 = fmul fast double %3140, %1442
   %3142 = fsub fast double %3141, %3125
   %3143 = fmul fast double %3142, %490
-  %3144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2825, i64 5)
+  %3144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2825, i64 5)
   store double %3143, double* %3144, align 1
-  %3145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2827, i64 5)
+  %3145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2827, i64 5)
   %3146 = load double, double* %3145, align 1
   %3147 = fmul fast double %3102, %499
   %3148 = fsub fast double %3146, %3147
   %3149 = fmul fast double %3148, %1443
   %3150 = fsub fast double %3149, %3125
   %3151 = fmul fast double %3150, %490
-  %3152 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2835, i64 5)
+  %3152 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2835, i64 5)
   store double %3151, double* %3152, align 1
-  %3153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2837, i64 5)
+  %3153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2837, i64 5)
   %3154 = load double, double* %3153, align 1
   %3155 = fmul fast double %3107, %499
   %3156 = fsub fast double %3154, %3155
   %3157 = fmul fast double %3156, %1442
   %3158 = fsub fast double %3157, %3125
   %3159 = fmul fast double %3158, %493
-  %3160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2845, i64 5)
+  %3160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2845, i64 5)
   store double %3159, double* %3160, align 1
-  %3161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2847, i64 5)
+  %3161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2847, i64 5)
   %3162 = load double, double* %3161, align 1
   %3163 = fmul fast double %3109, %499
   %3164 = fsub fast double %3162, %3163
   %3165 = fmul fast double %3164, %1443
   %3166 = fsub fast double %3165, %3125
   %3167 = fmul fast double %3166, %493
-  %3168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %2855, i64 5)
+  %3168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %2855, i64 5)
   store double %3167, double* %3168, align 1
-  %3169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1507, i64 5)
-  %3170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3169, i64 1)
+  %3169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1507, i64 5)
+  %3170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3169, i64 1)
   %3171 = load double, double* %3170, align 1
-  %3172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1511, i64 5)
-  %3173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3172, i64 1)
+  %3172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1511, i64 5)
+  %3173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3172, i64 1)
   %3174 = load double, double* %3173, align 1
-  %3175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1516, i64 5)
-  %3176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3175, i64 1)
+  %3175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1516, i64 5)
+  %3176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3175, i64 1)
   %3177 = load double, double* %3176, align 1
   %3178 = fsub fast double %3174, %3177
   %3179 = fmul fast double %3178, %487
-  %3180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1522, i64 5)
-  %3181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3180, i64 1)
+  %3180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1522, i64 5)
+  %3181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3180, i64 1)
   %3182 = load double, double* %3181, align 1
-  %3183 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1526, i64 5)
-  %3184 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3183, i64 1)
+  %3183 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1526, i64 5)
+  %3184 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3183, i64 1)
   %3185 = load double, double* %3184, align 1
   %3186 = fsub fast double %3182, %3185
   %3187 = fmul fast double %3186, %490
   %3188 = fadd fast double %3187, %3179
-  %3189 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1533, i64 5)
-  %3190 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3189, i64 1)
+  %3189 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1533, i64 5)
+  %3190 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3189, i64 1)
   %3191 = load double, double* %3190, align 1
-  %3192 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1537, i64 5)
-  %3193 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3192, i64 1)
+  %3192 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1537, i64 5)
+  %3193 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3192, i64 1)
   %3194 = load double, double* %3193, align 1
   %3195 = fsub fast double %3191, %3194
   %3196 = fmul fast double %3195, %493
@@ -4828,11 +4828,11 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3201 = fmul fast double %3171, %1446
   %3202 = fadd fast double %3201, %3171
   %3203 = fadd fast double %3202, %3200
-  %3204 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1550, i64 5)
-  %3205 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3204, i64 1)
+  %3204 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1550, i64 5)
+  %3205 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3204, i64 1)
   store double %3203, double* %3205, align 1
-  %3206 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1554, i64 5)
-  %3207 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3206, i64 1)
+  %3206 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1554, i64 5)
+  %3207 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3206, i64 1)
   %3208 = load double, double* %3207, align 1
   %3209 = fmul fast double %3174, %499
   %3210 = fsub fast double %3208, %3209
@@ -4840,82 +4840,82 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3212 = fmul fast double %3171, %1444
   %3213 = fsub fast double %3211, %3212
   %3214 = fmul fast double %3213, %487
-  %3215 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1564, i64 5)
-  %3216 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3215, i64 1)
+  %3215 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1564, i64 5)
+  %3216 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3215, i64 1)
   store double %3214, double* %3216, align 1
-  %3217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1567, i64 5)
-  %3218 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3217, i64 1)
+  %3217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1567, i64 5)
+  %3218 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3217, i64 1)
   %3219 = load double, double* %3218, align 1
   %3220 = fmul fast double %3177, %499
   %3221 = fsub fast double %3219, %3220
   %3222 = fmul fast double %3221, %1443
   %3223 = fsub fast double %3222, %3212
   %3224 = fmul fast double %3223, %487
-  %3225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1576, i64 5)
-  %3226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3225, i64 1)
+  %3225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1576, i64 5)
+  %3226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3225, i64 1)
   store double %3224, double* %3226, align 1
-  %3227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1579, i64 5)
-  %3228 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3227, i64 1)
+  %3227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1579, i64 5)
+  %3228 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3227, i64 1)
   %3229 = load double, double* %3228, align 1
   %3230 = fmul fast double %3182, %499
   %3231 = fsub fast double %3229, %3230
   %3232 = fmul fast double %3231, %1442
   %3233 = fsub fast double %3232, %3212
   %3234 = fmul fast double %3233, %490
-  %3235 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1588, i64 5)
-  %3236 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3235, i64 1)
+  %3235 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1588, i64 5)
+  %3236 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3235, i64 1)
   store double %3234, double* %3236, align 1
-  %3237 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1591, i64 5)
-  %3238 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3237, i64 1)
+  %3237 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1591, i64 5)
+  %3238 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3237, i64 1)
   %3239 = load double, double* %3238, align 1
   %3240 = fmul fast double %3185, %499
   %3241 = fsub fast double %3239, %3240
   %3242 = fmul fast double %3241, %1443
   %3243 = fsub fast double %3242, %3212
   %3244 = fmul fast double %3243, %490
-  %3245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1600, i64 5)
-  %3246 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3245, i64 1)
+  %3245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1600, i64 5)
+  %3246 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3245, i64 1)
   store double %3244, double* %3246, align 1
-  %3247 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1603, i64 5)
-  %3248 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3247, i64 1)
+  %3247 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1603, i64 5)
+  %3248 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3247, i64 1)
   %3249 = load double, double* %3248, align 1
   %3250 = fmul fast double %3191, %499
   %3251 = fsub fast double %3249, %3250
   %3252 = fmul fast double %3251, %1442
   %3253 = fsub fast double %3252, %3212
   %3254 = fmul fast double %3253, %493
-  %3255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1612, i64 5)
-  %3256 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3255, i64 1)
+  %3255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1612, i64 5)
+  %3256 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3255, i64 1)
   store double %3254, double* %3256, align 1
-  %3257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1615, i64 5)
-  %3258 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3257, i64 1)
+  %3257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1615, i64 5)
+  %3258 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3257, i64 1)
   %3259 = load double, double* %3258, align 1
   %3260 = fmul fast double %3194, %499
   %3261 = fsub fast double %3259, %3260
   %3262 = fmul fast double %3261, %1443
   %3263 = fsub fast double %3262, %3212
   %3264 = fmul fast double %3263, %493
-  %3265 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %1624, i64 5)
-  %3266 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3265, i64 1)
+  %3265 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %1624, i64 5)
+  %3266 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3265, i64 1)
   store double %3264, double* %3266, align 1
-  %3267 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3169, i64 2)
+  %3267 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3169, i64 2)
   %3268 = load double, double* %3267, align 1
-  %3269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3172, i64 2)
+  %3269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3172, i64 2)
   %3270 = load double, double* %3269, align 1
-  %3271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3175, i64 2)
+  %3271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3175, i64 2)
   %3272 = load double, double* %3271, align 1
   %3273 = fsub fast double %3270, %3272
   %3274 = fmul fast double %3273, %487
-  %3275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3180, i64 2)
+  %3275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3180, i64 2)
   %3276 = load double, double* %3275, align 1
-  %3277 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3183, i64 2)
+  %3277 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3183, i64 2)
   %3278 = load double, double* %3277, align 1
   %3279 = fsub fast double %3276, %3278
   %3280 = fmul fast double %3279, %490
   %3281 = fadd fast double %3280, %3274
-  %3282 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3189, i64 2)
+  %3282 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3189, i64 2)
   %3283 = load double, double* %3282, align 1
-  %3284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3192, i64 2)
+  %3284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3192, i64 2)
   %3285 = load double, double* %3284, align 1
   %3286 = fsub fast double %3283, %3285
   %3287 = fmul fast double %3286, %493
@@ -4926,9 +4926,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3292 = fmul fast double %3268, %1446
   %3293 = fadd fast double %3292, %3268
   %3294 = fadd fast double %3293, %3291
-  %3295 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3204, i64 2)
+  %3295 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3204, i64 2)
   store double %3294, double* %3295, align 1
-  %3296 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3206, i64 2)
+  %3296 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3206, i64 2)
   %3297 = load double, double* %3296, align 1
   %3298 = fmul fast double %3270, %499
   %3299 = fsub fast double %3297, %3298
@@ -4936,71 +4936,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3301 = fmul fast double %3268, %1444
   %3302 = fsub fast double %3300, %3301
   %3303 = fmul fast double %3302, %487
-  %3304 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3215, i64 2)
+  %3304 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3215, i64 2)
   store double %3303, double* %3304, align 1
-  %3305 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3217, i64 2)
+  %3305 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3217, i64 2)
   %3306 = load double, double* %3305, align 1
   %3307 = fmul fast double %3272, %499
   %3308 = fsub fast double %3306, %3307
   %3309 = fmul fast double %3308, %1443
   %3310 = fsub fast double %3309, %3301
   %3311 = fmul fast double %3310, %487
-  %3312 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3225, i64 2)
+  %3312 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3225, i64 2)
   store double %3311, double* %3312, align 1
-  %3313 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3227, i64 2)
+  %3313 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3227, i64 2)
   %3314 = load double, double* %3313, align 1
   %3315 = fmul fast double %3276, %499
   %3316 = fsub fast double %3314, %3315
   %3317 = fmul fast double %3316, %1442
   %3318 = fsub fast double %3317, %3301
   %3319 = fmul fast double %3318, %490
-  %3320 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3235, i64 2)
+  %3320 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3235, i64 2)
   store double %3319, double* %3320, align 1
-  %3321 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3237, i64 2)
+  %3321 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3237, i64 2)
   %3322 = load double, double* %3321, align 1
   %3323 = fmul fast double %3278, %499
   %3324 = fsub fast double %3322, %3323
   %3325 = fmul fast double %3324, %1443
   %3326 = fsub fast double %3325, %3301
   %3327 = fmul fast double %3326, %490
-  %3328 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3245, i64 2)
+  %3328 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3245, i64 2)
   store double %3327, double* %3328, align 1
-  %3329 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3247, i64 2)
+  %3329 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3247, i64 2)
   %3330 = load double, double* %3329, align 1
   %3331 = fmul fast double %3283, %499
   %3332 = fsub fast double %3330, %3331
   %3333 = fmul fast double %3332, %1442
   %3334 = fsub fast double %3333, %3301
   %3335 = fmul fast double %3334, %493
-  %3336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3255, i64 2)
+  %3336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3255, i64 2)
   store double %3335, double* %3336, align 1
-  %3337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3257, i64 2)
+  %3337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3257, i64 2)
   %3338 = load double, double* %3337, align 1
   %3339 = fmul fast double %3285, %499
   %3340 = fsub fast double %3338, %3339
   %3341 = fmul fast double %3340, %1443
   %3342 = fsub fast double %3341, %3301
   %3343 = fmul fast double %3342, %493
-  %3344 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3265, i64 2)
+  %3344 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3265, i64 2)
   store double %3343, double* %3344, align 1
-  %3345 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3169, i64 3)
+  %3345 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3169, i64 3)
   %3346 = load double, double* %3345, align 1
-  %3347 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3172, i64 3)
+  %3347 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3172, i64 3)
   %3348 = load double, double* %3347, align 1
-  %3349 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3175, i64 3)
+  %3349 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3175, i64 3)
   %3350 = load double, double* %3349, align 1
   %3351 = fsub fast double %3348, %3350
   %3352 = fmul fast double %3351, %487
-  %3353 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3180, i64 3)
+  %3353 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3180, i64 3)
   %3354 = load double, double* %3353, align 1
-  %3355 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3183, i64 3)
+  %3355 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3183, i64 3)
   %3356 = load double, double* %3355, align 1
   %3357 = fsub fast double %3354, %3356
   %3358 = fmul fast double %3357, %490
   %3359 = fadd fast double %3358, %3352
-  %3360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3189, i64 3)
+  %3360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3189, i64 3)
   %3361 = load double, double* %3360, align 1
-  %3362 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3192, i64 3)
+  %3362 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3192, i64 3)
   %3363 = load double, double* %3362, align 1
   %3364 = fsub fast double %3361, %3363
   %3365 = fmul fast double %3364, %493
@@ -5011,9 +5011,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3370 = fmul fast double %3346, %1446
   %3371 = fadd fast double %3370, %3346
   %3372 = fadd fast double %3371, %3369
-  %3373 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3204, i64 3)
+  %3373 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3204, i64 3)
   store double %3372, double* %3373, align 1
-  %3374 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3206, i64 3)
+  %3374 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3206, i64 3)
   %3375 = load double, double* %3374, align 1
   %3376 = fmul fast double %3348, %499
   %3377 = fsub fast double %3375, %3376
@@ -5021,71 +5021,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3379 = fmul fast double %3346, %1444
   %3380 = fsub fast double %3378, %3379
   %3381 = fmul fast double %3380, %487
-  %3382 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3215, i64 3)
+  %3382 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3215, i64 3)
   store double %3381, double* %3382, align 1
-  %3383 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3217, i64 3)
+  %3383 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3217, i64 3)
   %3384 = load double, double* %3383, align 1
   %3385 = fmul fast double %3350, %499
   %3386 = fsub fast double %3384, %3385
   %3387 = fmul fast double %3386, %1443
   %3388 = fsub fast double %3387, %3379
   %3389 = fmul fast double %3388, %487
-  %3390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3225, i64 3)
+  %3390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3225, i64 3)
   store double %3389, double* %3390, align 1
-  %3391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3227, i64 3)
+  %3391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3227, i64 3)
   %3392 = load double, double* %3391, align 1
   %3393 = fmul fast double %3354, %499
   %3394 = fsub fast double %3392, %3393
   %3395 = fmul fast double %3394, %1442
   %3396 = fsub fast double %3395, %3379
   %3397 = fmul fast double %3396, %490
-  %3398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3235, i64 3)
+  %3398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3235, i64 3)
   store double %3397, double* %3398, align 1
-  %3399 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3237, i64 3)
+  %3399 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3237, i64 3)
   %3400 = load double, double* %3399, align 1
   %3401 = fmul fast double %3356, %499
   %3402 = fsub fast double %3400, %3401
   %3403 = fmul fast double %3402, %1443
   %3404 = fsub fast double %3403, %3379
   %3405 = fmul fast double %3404, %490
-  %3406 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3245, i64 3)
+  %3406 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3245, i64 3)
   store double %3405, double* %3406, align 1
-  %3407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3247, i64 3)
+  %3407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3247, i64 3)
   %3408 = load double, double* %3407, align 1
   %3409 = fmul fast double %3361, %499
   %3410 = fsub fast double %3408, %3409
   %3411 = fmul fast double %3410, %1442
   %3412 = fsub fast double %3411, %3379
   %3413 = fmul fast double %3412, %493
-  %3414 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3255, i64 3)
+  %3414 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3255, i64 3)
   store double %3413, double* %3414, align 1
-  %3415 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3257, i64 3)
+  %3415 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3257, i64 3)
   %3416 = load double, double* %3415, align 1
   %3417 = fmul fast double %3363, %499
   %3418 = fsub fast double %3416, %3417
   %3419 = fmul fast double %3418, %1443
   %3420 = fsub fast double %3419, %3379
   %3421 = fmul fast double %3420, %493
-  %3422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3265, i64 3)
+  %3422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3265, i64 3)
   store double %3421, double* %3422, align 1
-  %3423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3169, i64 4)
+  %3423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3169, i64 4)
   %3424 = load double, double* %3423, align 1
-  %3425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3172, i64 4)
+  %3425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3172, i64 4)
   %3426 = load double, double* %3425, align 1
-  %3427 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3175, i64 4)
+  %3427 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3175, i64 4)
   %3428 = load double, double* %3427, align 1
   %3429 = fsub fast double %3426, %3428
   %3430 = fmul fast double %3429, %487
-  %3431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3180, i64 4)
+  %3431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3180, i64 4)
   %3432 = load double, double* %3431, align 1
-  %3433 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3183, i64 4)
+  %3433 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3183, i64 4)
   %3434 = load double, double* %3433, align 1
   %3435 = fsub fast double %3432, %3434
   %3436 = fmul fast double %3435, %490
   %3437 = fadd fast double %3436, %3430
-  %3438 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3189, i64 4)
+  %3438 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3189, i64 4)
   %3439 = load double, double* %3438, align 1
-  %3440 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3192, i64 4)
+  %3440 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3192, i64 4)
   %3441 = load double, double* %3440, align 1
   %3442 = fsub fast double %3439, %3441
   %3443 = fmul fast double %3442, %493
@@ -5096,9 +5096,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3448 = fmul fast double %3424, %1446
   %3449 = fadd fast double %3448, %3424
   %3450 = fadd fast double %3449, %3447
-  %3451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3204, i64 4)
+  %3451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3204, i64 4)
   store double %3450, double* %3451, align 1
-  %3452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3206, i64 4)
+  %3452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3206, i64 4)
   %3453 = load double, double* %3452, align 1
   %3454 = fmul fast double %3426, %499
   %3455 = fsub fast double %3453, %3454
@@ -5106,71 +5106,71 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3457 = fmul fast double %3424, %1444
   %3458 = fsub fast double %3456, %3457
   %3459 = fmul fast double %3458, %487
-  %3460 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3215, i64 4)
+  %3460 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3215, i64 4)
   store double %3459, double* %3460, align 1
-  %3461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3217, i64 4)
+  %3461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3217, i64 4)
   %3462 = load double, double* %3461, align 1
   %3463 = fmul fast double %3428, %499
   %3464 = fsub fast double %3462, %3463
   %3465 = fmul fast double %3464, %1443
   %3466 = fsub fast double %3465, %3457
   %3467 = fmul fast double %3466, %487
-  %3468 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3225, i64 4)
+  %3468 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3225, i64 4)
   store double %3467, double* %3468, align 1
-  %3469 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3227, i64 4)
+  %3469 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3227, i64 4)
   %3470 = load double, double* %3469, align 1
   %3471 = fmul fast double %3432, %499
   %3472 = fsub fast double %3470, %3471
   %3473 = fmul fast double %3472, %1442
   %3474 = fsub fast double %3473, %3457
   %3475 = fmul fast double %3474, %490
-  %3476 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3235, i64 4)
+  %3476 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3235, i64 4)
   store double %3475, double* %3476, align 1
-  %3477 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3237, i64 4)
+  %3477 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3237, i64 4)
   %3478 = load double, double* %3477, align 1
   %3479 = fmul fast double %3434, %499
   %3480 = fsub fast double %3478, %3479
   %3481 = fmul fast double %3480, %1443
   %3482 = fsub fast double %3481, %3457
   %3483 = fmul fast double %3482, %490
-  %3484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3245, i64 4)
+  %3484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3245, i64 4)
   store double %3483, double* %3484, align 1
-  %3485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3247, i64 4)
+  %3485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3247, i64 4)
   %3486 = load double, double* %3485, align 1
   %3487 = fmul fast double %3439, %499
   %3488 = fsub fast double %3486, %3487
   %3489 = fmul fast double %3488, %1442
   %3490 = fsub fast double %3489, %3457
   %3491 = fmul fast double %3490, %493
-  %3492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3255, i64 4)
+  %3492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3255, i64 4)
   store double %3491, double* %3492, align 1
-  %3493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3257, i64 4)
+  %3493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3257, i64 4)
   %3494 = load double, double* %3493, align 1
   %3495 = fmul fast double %3441, %499
   %3496 = fsub fast double %3494, %3495
   %3497 = fmul fast double %3496, %1443
   %3498 = fsub fast double %3497, %3457
   %3499 = fmul fast double %3498, %493
-  %3500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3265, i64 4)
+  %3500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3265, i64 4)
   store double %3499, double* %3500, align 1
-  %3501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3169, i64 5)
+  %3501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3169, i64 5)
   %3502 = load double, double* %3501, align 1
-  %3503 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3172, i64 5)
+  %3503 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3172, i64 5)
   %3504 = load double, double* %3503, align 1
-  %3505 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3175, i64 5)
+  %3505 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3175, i64 5)
   %3506 = load double, double* %3505, align 1
   %3507 = fsub fast double %3504, %3506
   %3508 = fmul fast double %3507, %487
-  %3509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3180, i64 5)
+  %3509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3180, i64 5)
   %3510 = load double, double* %3509, align 1
-  %3511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3183, i64 5)
+  %3511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3183, i64 5)
   %3512 = load double, double* %3511, align 1
   %3513 = fsub fast double %3510, %3512
   %3514 = fmul fast double %3513, %490
   %3515 = fadd fast double %3514, %3508
-  %3516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3189, i64 5)
+  %3516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3189, i64 5)
   %3517 = load double, double* %3516, align 1
-  %3518 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3192, i64 5)
+  %3518 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3192, i64 5)
   %3519 = load double, double* %3518, align 1
   %3520 = fsub fast double %3517, %3519
   %3521 = fmul fast double %3520, %493
@@ -5181,9 +5181,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3526 = fmul fast double %3502, %1446
   %3527 = fadd fast double %3526, %3502
   %3528 = fadd fast double %3527, %3525
-  %3529 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3204, i64 5)
+  %3529 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3204, i64 5)
   store double %3528, double* %3529, align 1
-  %3530 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3206, i64 5)
+  %3530 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3206, i64 5)
   %3531 = load double, double* %3530, align 1
   %3532 = fmul fast double %3504, %499
   %3533 = fsub fast double %3531, %3532
@@ -5191,52 +5191,52 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3535 = fmul fast double %3502, %1444
   %3536 = fsub fast double %3534, %3535
   %3537 = fmul fast double %3536, %487
-  %3538 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3215, i64 5)
+  %3538 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3215, i64 5)
   store double %3537, double* %3538, align 1
-  %3539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3217, i64 5)
+  %3539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3217, i64 5)
   %3540 = load double, double* %3539, align 1
   %3541 = fmul fast double %3506, %499
   %3542 = fsub fast double %3540, %3541
   %3543 = fmul fast double %3542, %1443
   %3544 = fsub fast double %3543, %3535
   %3545 = fmul fast double %3544, %487
-  %3546 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3225, i64 5)
+  %3546 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3225, i64 5)
   store double %3545, double* %3546, align 1
-  %3547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3227, i64 5)
+  %3547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3227, i64 5)
   %3548 = load double, double* %3547, align 1
   %3549 = fmul fast double %3510, %499
   %3550 = fsub fast double %3548, %3549
   %3551 = fmul fast double %3550, %1442
   %3552 = fsub fast double %3551, %3535
   %3553 = fmul fast double %3552, %490
-  %3554 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3235, i64 5)
+  %3554 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3235, i64 5)
   store double %3553, double* %3554, align 1
-  %3555 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3237, i64 5)
+  %3555 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3237, i64 5)
   %3556 = load double, double* %3555, align 1
   %3557 = fmul fast double %3512, %499
   %3558 = fsub fast double %3556, %3557
   %3559 = fmul fast double %3558, %1443
   %3560 = fsub fast double %3559, %3535
   %3561 = fmul fast double %3560, %490
-  %3562 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3245, i64 5)
+  %3562 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3245, i64 5)
   store double %3561, double* %3562, align 1
-  %3563 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3247, i64 5)
+  %3563 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3247, i64 5)
   %3564 = load double, double* %3563, align 1
   %3565 = fmul fast double %3517, %499
   %3566 = fsub fast double %3564, %3565
   %3567 = fmul fast double %3566, %1442
   %3568 = fsub fast double %3567, %3535
   %3569 = fmul fast double %3568, %493
-  %3570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3255, i64 5)
+  %3570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3255, i64 5)
   store double %3569, double* %3570, align 1
-  %3571 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3257, i64 5)
+  %3571 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3257, i64 5)
   %3572 = load double, double* %3571, align 1
   %3573 = fmul fast double %3519, %499
   %3574 = fsub fast double %3572, %3573
   %3575 = fmul fast double %3574, %1443
   %3576 = fsub fast double %3575, %3535
   %3577 = fmul fast double %3576, %493
-  %3578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3265, i64 5)
+  %3578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3265, i64 5)
   store double %3577, double* %3578, align 1
   %3579 = add nuw nsw i64 %1499, 1
   %3580 = icmp eq i64 %3579, %478
@@ -5283,12 +5283,12 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %3671, label %3599
 
 3599:                                             ; preds = %3589
-  %3600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3594, i64 1) #3
-  %3601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 1) #3
-  %3602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3597, i64 1) #3
-  %3603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 1) #3
-  %3604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3595, i64 1) #3
-  %3605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3593, i64 1) #3
+  %3600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3594, i64 1) #3
+  %3601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 1) #3
+  %3602 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3597, i64 1) #3
+  %3603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 1) #3
+  %3604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3595, i64 1) #3
+  %3605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3593, i64 1) #3
   br label %3606
 
 3606:                                             ; preds = %3667, %3599
@@ -5296,39 +5296,39 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %3667, label %3608
 
 3608:                                             ; preds = %3606
-  %3609 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %484, i64 %3607) #3
-  %3610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3600, i64 %3607) #3
-  %3611 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3601, i64 %3607) #3
-  %3612 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3602, i64 %3607) #3
-  %3613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3603, i64 %3607) #3
-  %3614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3604, i64 %3607) #3
-  %3615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3605, i64 %3607) #3
-  %3616 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %508, i64 %3607) #3
+  %3609 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %484, i64 %3607) #3
+  %3610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3600, i64 %3607) #3
+  %3611 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3601, i64 %3607) #3
+  %3612 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3602, i64 %3607) #3
+  %3613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3603, i64 %3607) #3
+  %3614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3604, i64 %3607) #3
+  %3615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3605, i64 %3607) #3
+  %3616 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %508, i64 %3607) #3
   br label %3617
 
 3617:                                             ; preds = %3617, %3608
   %3618 = phi i64 [ 1, %3608 ], [ %3664, %3617 ]
-  %3619 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3609, i64 %3618) #3
-  %3620 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3619, i64 1) #3
+  %3619 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3609, i64 %3618) #3
+  %3620 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3619, i64 1) #3
   %3621 = load double, double* %3620, align 1, !alias.scope !73, !noalias !76
-  %3622 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3610, i64 %3618) #3
+  %3622 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3610, i64 %3618) #3
   store double %3621, double* %3622, align 1, !noalias !91
-  %3623 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3619, i64 2) #3
+  %3623 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3619, i64 2) #3
   %3624 = load double, double* %3623, align 1, !alias.scope !73, !noalias !76
   %3625 = fdiv fast double %3624, %3621
-  %3626 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3611, i64 %3618) #3
+  %3626 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3611, i64 %3618) #3
   store double %3625, double* %3626, align 1, !noalias !91
-  %3627 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3619, i64 3) #3
+  %3627 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3619, i64 3) #3
   %3628 = load double, double* %3627, align 1, !alias.scope !73, !noalias !76
   %3629 = fdiv fast double %3628, %3621
-  %3630 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3612, i64 %3618) #3
+  %3630 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3612, i64 %3618) #3
   store double %3629, double* %3630, align 1, !noalias !91
-  %3631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3619, i64 4) #3
+  %3631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3619, i64 4) #3
   %3632 = load double, double* %3631, align 1, !alias.scope !73, !noalias !76
   %3633 = fdiv fast double %3632, %3621
-  %3634 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3613, i64 %3618) #3
+  %3634 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3613, i64 %3618) #3
   store double %3633, double* %3634, align 1, !noalias !91
-  %3635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3619, i64 5) #3
+  %3635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3619, i64 5) #3
   %3636 = load double, double* %3635, align 1, !alias.scope !73, !noalias !76
   %3637 = fmul fast double %3621, 5.000000e-01
   %3638 = fmul fast double %3625, %3625
@@ -5339,30 +5339,30 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3643 = fmul fast double %3637, %3642
   %3644 = fsub fast double %3636, %3643
   %3645 = fmul fast double %3644, 0x3FD9999980000000
-  %3646 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3614, i64 %3618) #3
+  %3646 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3614, i64 %3618) #3
   store double %3645, double* %3646, align 1, !noalias !91
   %3647 = fmul fast double %3645, 0x3FF6666660000000
   %3648 = fdiv fast double %3647, %3621
   %3649 = call fast double @llvm.pow.f64(double %3648, double 7.500000e-01) #3
-  %3650 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3615, i64 %3618) #3
+  %3650 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3615, i64 %3618) #3
   store double %3649, double* %3650, align 1, !noalias !91
   %3651 = fmul fast double %3633, %3621
-  %3652 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3616, i64 %3618) #3
-  %3653 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3652, i64 1) #3
+  %3652 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3616, i64 %3618) #3
+  %3653 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3652, i64 1) #3
   store double %3651, double* %3653, align 1, !alias.scope !92, !noalias !93
   %3654 = fmul fast double %3651, %3625
-  %3655 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3652, i64 2) #3
+  %3655 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3652, i64 2) #3
   store double %3654, double* %3655, align 1, !alias.scope !92, !noalias !93
   %3656 = fmul fast double %3651, %3629
-  %3657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3652, i64 3) #3
+  %3657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3652, i64 3) #3
   store double %3656, double* %3657, align 1, !alias.scope !92, !noalias !93
   %3658 = fmul fast double %3641, %3621
   %3659 = fadd fast double %3645, %3658
-  %3660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3652, i64 4) #3
+  %3660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3652, i64 4) #3
   store double %3659, double* %3660, align 1, !alias.scope !92, !noalias !93
   %3661 = fadd fast double %3645, %3636
   %3662 = fmul fast double %3661, %3633
-  %3663 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3652, i64 5) #3
+  %3663 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3652, i64 5) #3
   store double %3662, double* %3663, align 1, !alias.scope !92, !noalias !93
   %3664 = add nuw nsw i64 %3618, 1
   %3665 = icmp eq i64 %3664, %478
@@ -5392,16 +5392,16 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 3676:                                             ; preds = %3673
   %3677 = add nuw nsw i64 %3674, 2
-  %3678 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %3677) #3
-  %3679 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3594, i64 %3675) #3
-  %3680 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 %3675) #3
-  %3681 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3597, i64 %3675) #3
-  %3682 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 %3675) #3
-  %3683 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3595, i64 %3675) #3
-  %3684 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3593, i64 %3675) #3
-  %3685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %87, i64 %3674) #3
-  %3686 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %86, i64 %3674) #3
-  %3687 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %85, i64 %3675) #3
+  %3678 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %3677) #3
+  %3679 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3594, i64 %3675) #3
+  %3680 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 %3675) #3
+  %3681 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3597, i64 %3675) #3
+  %3682 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 %3675) #3
+  %3683 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3595, i64 %3675) #3
+  %3684 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3593, i64 %3675) #3
+  %3685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %87, i64 %3674) #3
+  %3686 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %86, i64 %3674) #3
+  %3687 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %85, i64 %3675) #3
   br label %3688
 
 3688:                                             ; preds = %3775, %3676
@@ -5409,41 +5409,41 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %3775, label %3690
 
 3690:                                             ; preds = %3688
-  %3691 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %3678, i64 %3689) #3
-  %3692 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3679, i64 %3689) #3
-  %3693 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3680, i64 %3689) #3
-  %3694 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3681, i64 %3689) #3
-  %3695 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3682, i64 %3689) #3
-  %3696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3683, i64 %3689) #3
-  %3697 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3684, i64 %3689) #3
-  %3698 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %3685, i64 %3689) #3
-  %3699 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %3686, i64 %3689) #3
-  %3700 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %3687, i64 %3689) #3
+  %3691 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %3678, i64 %3689) #3
+  %3692 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3679, i64 %3689) #3
+  %3693 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3680, i64 %3689) #3
+  %3694 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3681, i64 %3689) #3
+  %3695 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3682, i64 %3689) #3
+  %3696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3683, i64 %3689) #3
+  %3697 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3684, i64 %3689) #3
+  %3698 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %3685, i64 %3689) #3
+  %3699 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %3686, i64 %3689) #3
+  %3700 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %3687, i64 %3689) #3
   br label %3701
 
 3701:                                             ; preds = %3701, %3690
   %3702 = phi i64 [ 1, %3690 ], [ %3772, %3701 ]
-  %3703 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3691, i64 %3702) #3
-  %3704 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3703, i64 1) #3
+  %3703 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3691, i64 %3702) #3
+  %3704 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3703, i64 1) #3
   %3705 = load double, double* %3704, align 1, !alias.scope !73, !noalias !76
-  %3706 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3692, i64 %3702) #3
+  %3706 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3692, i64 %3702) #3
   store double %3705, double* %3706, align 1, !noalias !91
-  %3707 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3703, i64 2) #3
+  %3707 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3703, i64 2) #3
   %3708 = load double, double* %3707, align 1, !alias.scope !73, !noalias !76
   %3709 = fdiv fast double %3708, %3705
-  %3710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3693, i64 %3702) #3
+  %3710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3693, i64 %3702) #3
   store double %3709, double* %3710, align 1, !noalias !91
-  %3711 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3703, i64 3) #3
+  %3711 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3703, i64 3) #3
   %3712 = load double, double* %3711, align 1, !alias.scope !73, !noalias !76
   %3713 = fdiv fast double %3712, %3705
-  %3714 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3694, i64 %3702) #3
+  %3714 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3694, i64 %3702) #3
   store double %3713, double* %3714, align 1, !noalias !91
-  %3715 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3703, i64 4) #3
+  %3715 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3703, i64 4) #3
   %3716 = load double, double* %3715, align 1, !alias.scope !73, !noalias !76
   %3717 = fdiv fast double %3716, %3705
-  %3718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3695, i64 %3702) #3
+  %3718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3695, i64 %3702) #3
   store double %3717, double* %3718, align 1, !noalias !91
-  %3719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3703, i64 5) #3
+  %3719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3703, i64 5) #3
   %3720 = load double, double* %3719, align 1, !alias.scope !73, !noalias !76
   %3721 = fmul fast double %3705, 5.000000e-01
   %3722 = fmul fast double %3709, %3709
@@ -5454,64 +5454,64 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3727 = fmul fast double %3721, %3726
   %3728 = fsub fast double %3720, %3727
   %3729 = fmul fast double %3728, 0x3FD9999980000000
-  %3730 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3696, i64 %3702) #3
+  %3730 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3696, i64 %3702) #3
   store double %3729, double* %3730, align 1, !noalias !91
   %3731 = fmul fast double %3729, 0x3FF6666660000000
   %3732 = fdiv fast double %3731, %3705
   %3733 = call fast double @llvm.pow.f64(double %3732, double 7.500000e-01) #3
-  %3734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3697, i64 %3702) #3
+  %3734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3697, i64 %3702) #3
   store double %3733, double* %3734, align 1, !noalias !91
   %3735 = fmul fast double %3709, %3705
-  %3736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3698, i64 %3702) #3
-  %3737 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3736, i64 1) #3
+  %3736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3698, i64 %3702) #3
+  %3737 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3736, i64 1) #3
   store double %3735, double* %3737, align 1, !alias.scope !94, !noalias !95
   %3738 = fmul fast double %3722, %3705
   %3739 = fadd fast double %3729, %3738
-  %3740 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3736, i64 2) #3
+  %3740 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3736, i64 2) #3
   store double %3739, double* %3740, align 1, !alias.scope !94, !noalias !95
   %3741 = fmul fast double %3713, %3735
-  %3742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3736, i64 3) #3
+  %3742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3736, i64 3) #3
   store double %3741, double* %3742, align 1, !alias.scope !94, !noalias !95
   %3743 = fmul fast double %3717, %3735
-  %3744 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3736, i64 4) #3
+  %3744 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3736, i64 4) #3
   store double %3743, double* %3744, align 1, !alias.scope !94, !noalias !95
   %3745 = fadd fast double %3729, %3720
   %3746 = fmul fast double %3745, %3709
-  %3747 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3736, i64 5) #3
+  %3747 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3736, i64 5) #3
   store double %3746, double* %3747, align 1, !alias.scope !94, !noalias !95
   %3748 = fmul fast double %3713, %3705
-  %3749 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3699, i64 %3702) #3
-  %3750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3749, i64 1) #3
+  %3749 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3699, i64 %3702) #3
+  %3750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3749, i64 1) #3
   store double %3748, double* %3750, align 1, !alias.scope !96, !noalias !97
   %3751 = fmul fast double %3748, %3709
-  %3752 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3749, i64 2) #3
+  %3752 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3749, i64 2) #3
   store double %3751, double* %3752, align 1, !alias.scope !96, !noalias !97
   %3753 = fmul fast double %3723, %3705
   %3754 = fadd fast double %3729, %3753
-  %3755 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3749, i64 3) #3
+  %3755 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3749, i64 3) #3
   store double %3754, double* %3755, align 1, !alias.scope !96, !noalias !97
   %3756 = fmul fast double %3717, %3748
-  %3757 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3749, i64 4) #3
+  %3757 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3749, i64 4) #3
   store double %3756, double* %3757, align 1, !alias.scope !96, !noalias !97
   %3758 = fmul fast double %3745, %3713
-  %3759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3749, i64 5) #3
+  %3759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3749, i64 5) #3
   store double %3758, double* %3759, align 1, !alias.scope !96, !noalias !97
   %3760 = fmul fast double %3717, %3705
-  %3761 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3700, i64 %3702) #3
-  %3762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3761, i64 1) #3
+  %3761 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3700, i64 %3702) #3
+  %3762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3761, i64 1) #3
   store double %3760, double* %3762, align 1, !alias.scope !92, !noalias !93
   %3763 = fmul fast double %3760, %3709
-  %3764 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3761, i64 2) #3
+  %3764 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3761, i64 2) #3
   store double %3763, double* %3764, align 1, !alias.scope !92, !noalias !93
   %3765 = fmul fast double %3760, %3713
-  %3766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3761, i64 3) #3
+  %3766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3761, i64 3) #3
   store double %3765, double* %3766, align 1, !alias.scope !92, !noalias !93
   %3767 = fmul fast double %3725, %3705
   %3768 = fadd fast double %3729, %3767
-  %3769 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3761, i64 4) #3
+  %3769 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3761, i64 4) #3
   store double %3768, double* %3769, align 1, !alias.scope !92, !noalias !93
   %3770 = fmul fast double %3745, %3717
-  %3771 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3761, i64 5) #3
+  %3771 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3761, i64 5) #3
   store double %3770, double* %3771, align 1, !alias.scope !92, !noalias !93
   %3772 = add nuw nsw i64 %3702, 1
   %3773 = icmp eq i64 %3772, %478
@@ -5539,12 +5539,12 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %4039, label %3783
 
 3783:                                             ; preds = %3782
-  %3784 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3594, i64 %66) #3
-  %3785 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 %66) #3
-  %3786 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3597, i64 %66) #3
-  %3787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 %66) #3
-  %3788 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3595, i64 %66) #3
-  %3789 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3593, i64 %66) #3
+  %3784 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3594, i64 %66) #3
+  %3785 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 %66) #3
+  %3786 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3597, i64 %66) #3
+  %3787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 %66) #3
+  %3788 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3595, i64 %66) #3
+  %3789 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3593, i64 %66) #3
   br label %3790
 
 3790:                                             ; preds = %3851, %3783
@@ -5552,39 +5552,39 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %3851, label %3792
 
 3792:                                             ; preds = %3790
-  %3793 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %472, i64 %3791) #3
-  %3794 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3784, i64 %3791) #3
-  %3795 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3785, i64 %3791) #3
-  %3796 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3786, i64 %3791) #3
-  %3797 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3787, i64 %3791) #3
-  %3798 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3788, i64 %3791) #3
-  %3799 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3789, i64 %3791) #3
-  %3800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %509, i64 %3791) #3
+  %3793 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %472, i64 %3791) #3
+  %3794 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3784, i64 %3791) #3
+  %3795 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3785, i64 %3791) #3
+  %3796 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3786, i64 %3791) #3
+  %3797 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3787, i64 %3791) #3
+  %3798 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3788, i64 %3791) #3
+  %3799 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3789, i64 %3791) #3
+  %3800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %509, i64 %3791) #3
   br label %3801
 
 3801:                                             ; preds = %3801, %3792
   %3802 = phi i64 [ 1, %3792 ], [ %3848, %3801 ]
-  %3803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3793, i64 %3802) #3
-  %3804 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3803, i64 1) #3
+  %3803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3793, i64 %3802) #3
+  %3804 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3803, i64 1) #3
   %3805 = load double, double* %3804, align 1, !alias.scope !73, !noalias !76
-  %3806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3794, i64 %3802) #3
+  %3806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3794, i64 %3802) #3
   store double %3805, double* %3806, align 1, !noalias !91
-  %3807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3803, i64 2) #3
+  %3807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3803, i64 2) #3
   %3808 = load double, double* %3807, align 1, !alias.scope !73, !noalias !76
   %3809 = fdiv fast double %3808, %3805
-  %3810 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3795, i64 %3802) #3
+  %3810 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3795, i64 %3802) #3
   store double %3809, double* %3810, align 1, !noalias !91
-  %3811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3803, i64 3) #3
+  %3811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3803, i64 3) #3
   %3812 = load double, double* %3811, align 1, !alias.scope !73, !noalias !76
   %3813 = fdiv fast double %3812, %3805
-  %3814 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3796, i64 %3802) #3
+  %3814 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3796, i64 %3802) #3
   store double %3813, double* %3814, align 1, !noalias !91
-  %3815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3803, i64 4) #3
+  %3815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3803, i64 4) #3
   %3816 = load double, double* %3815, align 1, !alias.scope !73, !noalias !76
   %3817 = fdiv fast double %3816, %3805
-  %3818 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3797, i64 %3802) #3
+  %3818 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3797, i64 %3802) #3
   store double %3817, double* %3818, align 1, !noalias !91
-  %3819 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3803, i64 5) #3
+  %3819 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3803, i64 5) #3
   %3820 = load double, double* %3819, align 1, !alias.scope !73, !noalias !76
   %3821 = fmul fast double %3805, 5.000000e-01
   %3822 = fmul fast double %3809, %3809
@@ -5595,30 +5595,30 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3827 = fmul fast double %3821, %3826
   %3828 = fsub fast double %3820, %3827
   %3829 = fmul fast double %3828, 0x3FD9999980000000
-  %3830 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3798, i64 %3802) #3
+  %3830 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3798, i64 %3802) #3
   store double %3829, double* %3830, align 1, !noalias !91
   %3831 = fmul fast double %3829, 0x3FF6666660000000
   %3832 = fdiv fast double %3831, %3805
   %3833 = call fast double @llvm.pow.f64(double %3832, double 7.500000e-01) #3
-  %3834 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3799, i64 %3802) #3
+  %3834 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3799, i64 %3802) #3
   store double %3833, double* %3834, align 1, !noalias !91
   %3835 = fmul fast double %3817, %3805
-  %3836 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3800, i64 %3802) #3
-  %3837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3836, i64 1) #3
+  %3836 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3800, i64 %3802) #3
+  %3837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3836, i64 1) #3
   store double %3835, double* %3837, align 1, !alias.scope !92, !noalias !93
   %3838 = fmul fast double %3835, %3809
-  %3839 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3836, i64 2) #3
+  %3839 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3836, i64 2) #3
   store double %3838, double* %3839, align 1, !alias.scope !92, !noalias !93
   %3840 = fmul fast double %3835, %3813
-  %3841 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3836, i64 3) #3
+  %3841 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3836, i64 3) #3
   store double %3840, double* %3841, align 1, !alias.scope !92, !noalias !93
   %3842 = fmul fast double %3825, %3805
   %3843 = fadd fast double %3829, %3842
-  %3844 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3836, i64 4) #3
+  %3844 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3836, i64 4) #3
   store double %3843, double* %3844, align 1, !alias.scope !92, !noalias !93
   %3845 = fadd fast double %3829, %3820
   %3846 = fmul fast double %3845, %3817
-  %3847 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3836, i64 5) #3
+  %3847 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3836, i64 5) #3
   store double %3846, double* %3847, align 1, !alias.scope !92, !noalias !93
   %3848 = add nuw nsw i64 %3802, 1
   %3849 = icmp eq i64 %3848, %478
@@ -5633,18 +5633,18 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %3853, label %3854, label %3790
 
 3854:                                             ; preds = %3851
-  %3855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3595, i64 1) #3
-  %3856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3594, i64 1) #3
-  %3857 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3593, i64 1) #3
-  %3858 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3593, i64 2) #3
-  %3859 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 1) #3
-  %3860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 2) #3
-  %3861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 2) #3
-  %3862 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 1) #3
-  %3863 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3597, i64 2) #3
-  %3864 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3597, i64 1) #3
-  %3865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3595, i64 2) #3
-  %3866 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3594, i64 2) #3
+  %3855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3595, i64 1) #3
+  %3856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3594, i64 1) #3
+  %3857 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3593, i64 1) #3
+  %3858 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3593, i64 2) #3
+  %3859 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 1) #3
+  %3860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 2) #3
+  %3861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 2) #3
+  %3862 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 1) #3
+  %3863 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3597, i64 2) #3
+  %3864 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3597, i64 1) #3
+  %3865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3595, i64 2) #3
+  %3866 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3594, i64 2) #3
   br label %3867
 
 3867:                                             ; preds = %4035, %3854
@@ -5662,30 +5662,30 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3875 = add i32 %510, %3873
   %3876 = srem i32 %3875, %3
   %3877 = add nsw i32 %3876, 1
-  %3878 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3855, i64 %3868) #3
-  %3879 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3856, i64 %3868) #3
-  %3880 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %512, i64 %3868) #3
-  %3881 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3857, i64 %3868) #3
-  %3882 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3858, i64 %3868) #3
-  %3883 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3859, i64 %3868) #3
-  %3884 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3860, i64 %3868) #3
-  %3885 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3861, i64 %3868) #3
-  %3886 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3862, i64 %3868) #3
+  %3878 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3855, i64 %3868) #3
+  %3879 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3856, i64 %3868) #3
+  %3880 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %512, i64 %3868) #3
+  %3881 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3857, i64 %3868) #3
+  %3882 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3858, i64 %3868) #3
+  %3883 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3859, i64 %3868) #3
+  %3884 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3860, i64 %3868) #3
+  %3885 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3861, i64 %3868) #3
+  %3886 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3862, i64 %3868) #3
   %3887 = and i64 %3874, 4294967295
   %3888 = select i1 %3872, i64 1, i64 %3887
-  %3889 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3859, i64 %3888) #3
+  %3889 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3859, i64 %3888) #3
   %3890 = sext i32 %3877 to i64
-  %3891 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3859, i64 %3890) #3
-  %3892 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3860, i64 %3888) #3
-  %3893 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3860, i64 %3890) #3
-  %3894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3863, i64 %3868) #3
-  %3895 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3864, i64 %3868) #3
-  %3896 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3864, i64 %3888) #3
-  %3897 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3864, i64 %3890) #3
-  %3898 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3863, i64 %3888) #3
-  %3899 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3863, i64 %3890) #3
-  %3900 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3865, i64 %3868) #3
-  %3901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %3866, i64 %3868) #3
+  %3891 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3859, i64 %3890) #3
+  %3892 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3860, i64 %3888) #3
+  %3893 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3860, i64 %3890) #3
+  %3894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3863, i64 %3868) #3
+  %3895 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3864, i64 %3868) #3
+  %3896 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3864, i64 %3888) #3
+  %3897 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3864, i64 %3890) #3
+  %3898 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3863, i64 %3888) #3
+  %3899 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3863, i64 %3890) #3
+  %3900 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3865, i64 %3868) #3
+  %3901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %3866, i64 %3868) #3
   br label %3902
 
 3902:                                             ; preds = %3902, %3871
@@ -5696,97 +5696,97 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %3907 = add nsw i32 %3906, 1
   %3908 = icmp eq i64 %3903, %516
   %3909 = add nuw i64 %3903, 1
-  %3910 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3878, i64 %3903) #3
+  %3910 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3878, i64 %3903) #3
   %3911 = load double, double* %3910, align 1, !noalias !91
   %3912 = fmul fast double %3911, 0x3FF6666660000000
-  %3913 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3879, i64 %3903) #3
+  %3913 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3879, i64 %3903) #3
   %3914 = load double, double* %3913, align 1, !noalias !91
   %3915 = fdiv fast double %3912, %3914
-  %3916 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %3880, i64 %3903) #3
-  %3917 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3916, i64 1) #3
+  %3916 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %3880, i64 %3903) #3
+  %3917 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3916, i64 1) #3
   store double 0.000000e+00, double* %3917, align 1, !alias.scope !98, !noalias !99
-  %3918 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3881, i64 %3903) #3
+  %3918 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3881, i64 %3903) #3
   %3919 = load double, double* %3918, align 1, !noalias !91
-  %3920 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3882, i64 %3903) #3
+  %3920 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3882, i64 %3903) #3
   %3921 = load double, double* %3920, align 1, !noalias !91
   %3922 = fadd fast double %3921, %3919
   %3923 = fmul fast double %3922, 5.000000e-01
   %3924 = and i64 %3909, 4294967295
   %3925 = select i1 %3908, i64 1, i64 %3924
-  %3926 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3883, i64 %3925) #3
+  %3926 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3883, i64 %3925) #3
   %3927 = load double, double* %3926, align 1, !noalias !91
   %3928 = sext i32 %3907 to i64
-  %3929 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3883, i64 %3928) #3
+  %3929 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3883, i64 %3928) #3
   %3930 = load double, double* %3929, align 1, !noalias !91
-  %3931 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3884, i64 %3925) #3
+  %3931 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3884, i64 %3925) #3
   %3932 = load double, double* %3931, align 1, !noalias !91
-  %3933 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3884, i64 %3928) #3
+  %3933 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3884, i64 %3928) #3
   %3934 = load double, double* %3933, align 1, !noalias !91
   %3935 = fadd fast double %3927, %3932
   %3936 = fadd fast double %3930, %3934
   %3937 = fsub fast double %3935, %3936
   %3938 = fmul fast double %3937, 2.500000e-01
   %3939 = fmul fast double %3938, %487
-  %3940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3885, i64 %3903) #3
+  %3940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3885, i64 %3903) #3
   %3941 = load double, double* %3940, align 1, !noalias !91
-  %3942 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3886, i64 %3903) #3
+  %3942 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3886, i64 %3903) #3
   %3943 = load double, double* %3942, align 1, !noalias !91
   %3944 = fsub fast double %3941, %3943
   %3945 = fmul fast double %3944, %493
   %3946 = fadd fast double %3945, %3939
   %3947 = fmul fast double %3946, %3923
-  %3948 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3916, i64 2) #3
+  %3948 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3916, i64 2) #3
   store double %3947, double* %3948, align 1, !alias.scope !98, !noalias !99
-  %3949 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3889, i64 %3903) #3
+  %3949 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3889, i64 %3903) #3
   %3950 = load double, double* %3949, align 1, !noalias !91
-  %3951 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3891, i64 %3903) #3
+  %3951 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3891, i64 %3903) #3
   %3952 = load double, double* %3951, align 1, !noalias !91
-  %3953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3892, i64 %3903) #3
+  %3953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3892, i64 %3903) #3
   %3954 = load double, double* %3953, align 1, !noalias !91
-  %3955 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3893, i64 %3903) #3
+  %3955 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3893, i64 %3903) #3
   %3956 = load double, double* %3955, align 1, !noalias !91
   %3957 = fadd fast double %3950, %3954
   %3958 = fadd fast double %3952, %3956
   %3959 = fsub fast double %3957, %3958
   %3960 = fmul fast double %3959, 2.500000e-01
   %3961 = fmul fast double %3960, %490
-  %3962 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3894, i64 %3903) #3
+  %3962 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3894, i64 %3903) #3
   %3963 = load double, double* %3962, align 1, !noalias !91
-  %3964 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3895, i64 %3903) #3
+  %3964 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3895, i64 %3903) #3
   %3965 = load double, double* %3964, align 1, !noalias !91
   %3966 = fsub fast double %3963, %3965
   %3967 = fmul fast double %3966, %493
   %3968 = fadd fast double %3967, %3961
   %3969 = fmul fast double %3968, %3923
-  %3970 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3916, i64 3) #3
+  %3970 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3916, i64 3) #3
   store double %3969, double* %3970, align 1, !alias.scope !98, !noalias !99
-  %3971 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3886, i64 %3925) #3
+  %3971 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3886, i64 %3925) #3
   %3972 = load double, double* %3971, align 1, !noalias !91
-  %3973 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3886, i64 %3928) #3
+  %3973 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3886, i64 %3928) #3
   %3974 = load double, double* %3973, align 1, !noalias !91
-  %3975 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3896, i64 %3903) #3
+  %3975 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3896, i64 %3903) #3
   %3976 = load double, double* %3975, align 1, !noalias !91
-  %3977 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3897, i64 %3903) #3
+  %3977 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3897, i64 %3903) #3
   %3978 = load double, double* %3977, align 1, !noalias !91
   %3979 = fsub fast double %3976, %3978
   %3980 = fmul fast double %3922, 0x3FC5555555555555
-  %3981 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3884, i64 %3903) #3
+  %3981 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3884, i64 %3903) #3
   %3982 = load double, double* %3981, align 1, !noalias !91
-  %3983 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3883, i64 %3903) #3
+  %3983 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3883, i64 %3903) #3
   %3984 = load double, double* %3983, align 1, !noalias !91
   %3985 = fsub fast double %3982, %3984
   %3986 = fmul fast double %3985, 4.000000e+00
   %3987 = fmul fast double %3986, %493
-  %3988 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3885, i64 %3925) #3
+  %3988 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3885, i64 %3925) #3
   %3989 = load double, double* %3988, align 1, !noalias !91
-  %3990 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3885, i64 %3928) #3
+  %3990 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3885, i64 %3928) #3
   %3991 = load double, double* %3990, align 1, !noalias !91
   %3992 = fadd fast double %3972, %3989
   %3993 = fadd fast double %3974, %3991
   %3994 = fsub fast double %3992, %3993
-  %3995 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3898, i64 %3903) #3
+  %3995 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3898, i64 %3903) #3
   %3996 = load double, double* %3995, align 1, !noalias !91
-  %3997 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3899, i64 %3903) #3
+  %3997 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3899, i64 %3903) #3
   %3998 = load double, double* %3997, align 1, !noalias !91
   %3999 = fsub fast double %3996, %3998
   %4000 = fmul fast double %3979, -5.000000e-01
@@ -5799,7 +5799,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4007 = fadd fast double %4006, %4003
   %4008 = fadd fast double %4007, %4005
   %4009 = fmul fast double %3980, %4008
-  %4010 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3916, i64 4) #3
+  %4010 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3916, i64 4) #3
   store double %4009, double* %4010, align 1, !alias.scope !98, !noalias !99
   %4011 = fadd fast double %3943, %3941
   %4012 = load double, double* %3948, align 1, !alias.scope !98, !noalias !99
@@ -5812,17 +5812,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4019 = fmul fast double %4009, %4018
   %4020 = fadd fast double %4017, %4019
   %4021 = fmul fast double %4020, 5.000000e-01
-  %4022 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3900, i64 %3903) #3
+  %4022 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3900, i64 %3903) #3
   %4023 = load double, double* %4022, align 1, !noalias !91
   %4024 = fmul fast double %4023, 0x3FF6666660000000
-  %4025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3901, i64 %3903) #3
+  %4025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3901, i64 %3903) #3
   %4026 = load double, double* %4025, align 1, !noalias !91
   %4027 = fdiv fast double %4024, %4026
   %4028 = fsub fast double %4027, %3915
   %4029 = fmul fast double %4028, %3923
   %4030 = fmul fast double %4029, %515
   %4031 = fadd fast double %4030, %4021
-  %4032 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %3916, i64 5) #3
+  %4032 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %3916, i64 5) #3
   store double %4031, double* %4032, align 1, !alias.scope !98, !noalias !99
   %4033 = icmp eq i64 %3909, %478
   br i1 %4033, label %4034, label %3902
@@ -5855,23 +5855,23 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 4045:                                             ; preds = %4042
   %4046 = add nuw nsw i64 %4043, 2
-  %4047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %84, i64 %4043) #3
-  %4048 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3593, i64 %4044) #3
-  %4049 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3595, i64 %4044) #3
-  %4050 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3594, i64 %4044) #3
-  %4051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3597, i64 %4044) #3
-  %4052 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 %4046) #3
-  %4053 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 %4043) #3
-  %4054 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 %4044) #3
-  %4055 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 %4046) #3
-  %4056 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3598, i64 %4043) #3
-  %4057 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3596, i64 %4044) #3
-  %4058 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %83, i64 %4043) #3
-  %4059 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %80, i64 %4044) #3
-  %4060 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3593, i64 %4046) #3
-  %4061 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3597, i64 %4046) #3
-  %4062 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3595, i64 %4046) #3
-  %4063 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* nonnull %3594, i64 %4046) #3
+  %4047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %84, i64 %4043) #3
+  %4048 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3593, i64 %4044) #3
+  %4049 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3595, i64 %4044) #3
+  %4050 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3594, i64 %4044) #3
+  %4051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3597, i64 %4044) #3
+  %4052 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 %4046) #3
+  %4053 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 %4043) #3
+  %4054 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 %4044) #3
+  %4055 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 %4046) #3
+  %4056 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3598, i64 %4043) #3
+  %4057 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3596, i64 %4044) #3
+  %4058 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %83, i64 %4043) #3
+  %4059 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %80, i64 %4044) #3
+  %4060 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3593, i64 %4046) #3
+  %4061 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3597, i64 %4046) #3
+  %4062 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3595, i64 %4046) #3
+  %4063 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %507, double* elementtype(double) nonnull %3594, i64 %4046) #3
   br label %4064
 
 4064:                                             ; preds = %4401, %4045
@@ -5889,40 +5889,40 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4072 = add i32 %510, %4070
   %4073 = srem i32 %4072, %3
   %4074 = add nsw i32 %4073, 1
-  %4075 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4047, i64 %4065) #3
-  %4076 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4048, i64 %4065) #3
-  %4077 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4049, i64 %4065) #3
-  %4078 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4050, i64 %4065) #3
+  %4075 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4047, i64 %4065) #3
+  %4076 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4048, i64 %4065) #3
+  %4077 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4049, i64 %4065) #3
+  %4078 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4050, i64 %4065) #3
   %4079 = and i64 %4071, 4294967295
   %4080 = select i1 %4069, i64 1, i64 %4079
-  %4081 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4051, i64 %4080) #3
+  %4081 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4051, i64 %4080) #3
   %4082 = sext i32 %4074 to i64
-  %4083 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4051, i64 %4082) #3
-  %4084 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4052, i64 %4065) #3
-  %4085 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4053, i64 %4065) #3
-  %4086 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4054, i64 %4065) #3
-  %4087 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4054, i64 %4080) #3
-  %4088 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4054, i64 %4082) #3
-  %4089 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4051, i64 %4065) #3
-  %4090 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4055, i64 %4065) #3
-  %4091 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4056, i64 %4065) #3
-  %4092 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4057, i64 %4065) #3
-  %4093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4058, i64 %4065) #3
-  %4094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4048, i64 %4080) #3
-  %4095 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4052, i64 %4080) #3
-  %4096 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4053, i64 %4080) #3
-  %4097 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4057, i64 %4080) #3
-  %4098 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4049, i64 %4080) #3
-  %4099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4050, i64 %4080) #3
-  %4100 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4059, i64 %4065) #3
-  %4101 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4060, i64 %4065) #3
-  %4102 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4057, i64 %4082) #3
-  %4103 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4052, i64 %4082) #3
-  %4104 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4061, i64 %4065) #3
-  %4105 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4061, i64 %4080) #3
-  %4106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4061, i64 %4082) #3
-  %4107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4062, i64 %4065) #3
-  %4108 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* nonnull %4063, i64 %4065) #3
+  %4083 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4051, i64 %4082) #3
+  %4084 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4052, i64 %4065) #3
+  %4085 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4053, i64 %4065) #3
+  %4086 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4054, i64 %4065) #3
+  %4087 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4054, i64 %4080) #3
+  %4088 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4054, i64 %4082) #3
+  %4089 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4051, i64 %4065) #3
+  %4090 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4055, i64 %4065) #3
+  %4091 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4056, i64 %4065) #3
+  %4092 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4057, i64 %4065) #3
+  %4093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4058, i64 %4065) #3
+  %4094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4048, i64 %4080) #3
+  %4095 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4052, i64 %4080) #3
+  %4096 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4053, i64 %4080) #3
+  %4097 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4057, i64 %4080) #3
+  %4098 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4049, i64 %4080) #3
+  %4099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4050, i64 %4080) #3
+  %4100 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4059, i64 %4065) #3
+  %4101 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4060, i64 %4065) #3
+  %4102 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4057, i64 %4082) #3
+  %4103 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4052, i64 %4082) #3
+  %4104 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4061, i64 %4065) #3
+  %4105 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4061, i64 %4080) #3
+  %4106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4061, i64 %4082) #3
+  %4107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4062, i64 %4065) #3
+  %4108 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %506, double* elementtype(double) nonnull %4063, i64 %4065) #3
   br label %4109
 
 4109:                                             ; preds = %4109, %4068
@@ -5933,52 +5933,52 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4114 = add nsw i32 %4113, 1
   %4115 = icmp eq i64 %4110, %516
   %4116 = add nuw i64 %4110, 1
-  %4117 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4075, i64 %4110) #3
-  %4118 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4117, i64 1) #3
+  %4117 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4075, i64 %4110) #3
+  %4118 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4117, i64 1) #3
   store double 0.000000e+00, double* %4118, align 1, !alias.scope !100, !noalias !101
-  %4119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4076, i64 %4110) #3
+  %4119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4076, i64 %4110) #3
   %4120 = load double, double* %4119, align 1, !noalias !91
   %4121 = and i64 %4116, 4294967295
   %4122 = select i1 %4115, i64 1, i64 %4121
-  %4123 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4076, i64 %4122) #3
+  %4123 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4076, i64 %4122) #3
   %4124 = load double, double* %4123, align 1, !noalias !91
   %4125 = fadd fast double %4124, %4120
   %4126 = fmul fast double %4125, 5.000000e-01
-  %4127 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4077, i64 %4110) #3
+  %4127 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4077, i64 %4110) #3
   %4128 = load double, double* %4127, align 1, !noalias !91
   %4129 = fmul fast double %4128, 0x3FF6666660000000
-  %4130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4078, i64 %4110) #3
+  %4130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4078, i64 %4110) #3
   %4131 = load double, double* %4130, align 1, !noalias !91
   %4132 = fdiv fast double %4129, %4131
-  %4133 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4081, i64 %4110) #3
+  %4133 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4081, i64 %4110) #3
   %4134 = load double, double* %4133, align 1, !noalias !91
-  %4135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4083, i64 %4110) #3
+  %4135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4083, i64 %4110) #3
   %4136 = load double, double* %4135, align 1, !noalias !91
   %4137 = fsub fast double %4134, %4136
-  %4138 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4084, i64 %4110) #3
+  %4138 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4084, i64 %4110) #3
   %4139 = load double, double* %4138, align 1, !noalias !91
-  %4140 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4085, i64 %4110) #3
+  %4140 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4085, i64 %4110) #3
   %4141 = load double, double* %4140, align 1, !noalias !91
   %4142 = fsub fast double %4139, %4141
   %4143 = fmul fast double %4142, -5.000000e-01
   %4144 = fmul fast double %4143, %493
   %4145 = fmul fast double %4125, 0x3FC5555555555555
-  %4146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4086, i64 %4122) #3
+  %4146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4086, i64 %4122) #3
   %4147 = load double, double* %4146, align 1, !noalias !91
-  %4148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4086, i64 %4110) #3
+  %4148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4086, i64 %4110) #3
   %4149 = load double, double* %4148, align 1, !noalias !91
   %4150 = fsub fast double %4147, %4149
   %4151 = fmul fast double %4150, 4.000000e+00
   %4152 = fmul fast double %4151, %487
-  %4153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4081, i64 %4122) #3
+  %4153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4081, i64 %4122) #3
   %4154 = load double, double* %4153, align 1, !noalias !91
-  %4155 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4083, i64 %4122) #3
+  %4155 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4083, i64 %4122) #3
   %4156 = load double, double* %4155, align 1, !noalias !91
   %4157 = fadd fast double %4154, %4137
   %4158 = fsub fast double %4157, %4156
-  %4159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4084, i64 %4122) #3
+  %4159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4084, i64 %4122) #3
   %4160 = load double, double* %4159, align 1, !noalias !91
-  %4161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4085, i64 %4122) #3
+  %4161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4085, i64 %4122) #3
   %4162 = load double, double* %4161, align 1, !noalias !91
   %4163 = fsub fast double %4160, %4162
   %4164 = fmul fast double %4158, -5.000000e-01
@@ -5989,56 +5989,56 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4169 = fadd fast double %4168, %4165
   %4170 = fadd fast double %4169, %4167
   %4171 = fmul fast double %4145, %4170
-  %4172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4117, i64 2) #3
+  %4172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4117, i64 2) #3
   store double %4171, double* %4172, align 1, !alias.scope !100, !noalias !101
-  %4173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4087, i64 %4110) #3
+  %4173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4087, i64 %4110) #3
   %4174 = load double, double* %4173, align 1, !noalias !91
-  %4175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4088, i64 %4110) #3
+  %4175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4088, i64 %4110) #3
   %4176 = load double, double* %4175, align 1, !noalias !91
   %4177 = fsub fast double %4174, %4176
   %4178 = fmul fast double %4177, 5.000000e-01
   %4179 = fmul fast double %4178, %490
-  %4180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4087, i64 %4122) #3
+  %4180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4087, i64 %4122) #3
   %4181 = load double, double* %4180, align 1, !noalias !91
-  %4182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4088, i64 %4122) #3
+  %4182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4088, i64 %4122) #3
   %4183 = load double, double* %4182, align 1, !noalias !91
   %4184 = fmul fast double %4183, -5.000000e-01
   %4185 = fmul fast double %4184, %490
   %4186 = fadd fast double %4179, %4181
   %4187 = fadd fast double %4186, %4185
   %4188 = fmul fast double %4187, 5.000000e-01
-  %4189 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4089, i64 %4122) #3
+  %4189 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4089, i64 %4122) #3
   %4190 = load double, double* %4189, align 1, !noalias !91
-  %4191 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4089, i64 %4110) #3
+  %4191 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4089, i64 %4110) #3
   %4192 = load double, double* %4191, align 1, !noalias !91
   %4193 = fsub fast double %4190, %4192
   %4194 = fmul fast double %4193, %487
   %4195 = fadd fast double %4188, %4194
   %4196 = fmul fast double %4195, %4126
-  %4197 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4117, i64 3) #3
+  %4197 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4117, i64 3) #3
   store double %4196, double* %4197, align 1, !alias.scope !100, !noalias !101
-  %4198 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4090, i64 %4110) #3
+  %4198 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4090, i64 %4110) #3
   %4199 = load double, double* %4198, align 1, !noalias !91
-  %4200 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4091, i64 %4110) #3
+  %4200 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4091, i64 %4110) #3
   %4201 = load double, double* %4200, align 1, !noalias !91
-  %4202 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4090, i64 %4122) #3
+  %4202 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4090, i64 %4122) #3
   %4203 = load double, double* %4202, align 1, !noalias !91
-  %4204 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4091, i64 %4122) #3
+  %4204 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4091, i64 %4122) #3
   %4205 = load double, double* %4204, align 1, !noalias !91
   %4206 = fadd fast double %4199, %4203
   %4207 = fadd fast double %4201, %4205
   %4208 = fsub fast double %4206, %4207
   %4209 = fmul fast double %4208, 2.500000e-01
   %4210 = fmul fast double %4209, %493
-  %4211 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4092, i64 %4122) #3
+  %4211 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4092, i64 %4122) #3
   %4212 = load double, double* %4211, align 1, !noalias !91
-  %4213 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4092, i64 %4110) #3
+  %4213 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4092, i64 %4110) #3
   %4214 = load double, double* %4213, align 1, !noalias !91
   %4215 = fsub fast double %4212, %4214
   %4216 = fmul fast double %4215, %487
   %4217 = fadd fast double %4216, %4210
   %4218 = fmul fast double %4217, %4126
-  %4219 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4117, i64 4) #3
+  %4219 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4117, i64 4) #3
   store double %4218, double* %4219, align 1, !alias.scope !100, !noalias !101
   %4220 = fadd fast double %4149, %4147
   %4221 = load double, double* %4172, align 1, !alias.scope !100, !noalias !101
@@ -6051,32 +6051,32 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4228 = fmul fast double %4218, %4227
   %4229 = fadd fast double %4226, %4228
   %4230 = fmul fast double %4229, 5.000000e-01
-  %4231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4077, i64 %4122) #3
+  %4231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4077, i64 %4122) #3
   %4232 = load double, double* %4231, align 1, !noalias !91
   %4233 = fmul fast double %4232, 0x3FF6666660000000
-  %4234 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4078, i64 %4122) #3
+  %4234 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4078, i64 %4122) #3
   %4235 = load double, double* %4234, align 1, !noalias !91
   %4236 = fdiv fast double %4233, %4235
   %4237 = fsub fast double %4236, %4132
   %4238 = fmul fast double %4237, %4126
   %4239 = fmul fast double %4238, %520
   %4240 = fadd fast double %4239, %4230
-  %4241 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4117, i64 5) #3
+  %4241 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4117, i64 5) #3
   store double %4240, double* %4241, align 1, !alias.scope !100, !noalias !101
-  %4242 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4093, i64 %4110) #3
-  %4243 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4242, i64 1) #3
+  %4242 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4093, i64 %4110) #3
+  %4243 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4242, i64 1) #3
   store double 0.000000e+00, double* %4243, align 1, !alias.scope !102, !noalias !103
-  %4244 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4094, i64 %4110) #3
+  %4244 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4094, i64 %4110) #3
   %4245 = load double, double* %4244, align 1, !noalias !91
   %4246 = fadd fast double %4245, %4120
   %4247 = fmul fast double %4246, 5.000000e-01
   %4248 = sext i32 %4114 to i64
-  %4249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4089, i64 %4248) #3
+  %4249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4089, i64 %4248) #3
   %4250 = load double, double* %4249, align 1, !noalias !91
   %4251 = fsub fast double %4190, %4250
   %4252 = fmul fast double %4251, 5.000000e-01
   %4253 = fmul fast double %4252, %487
-  %4254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4081, i64 %4248) #3
+  %4254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4081, i64 %4248) #3
   %4255 = load double, double* %4254, align 1, !noalias !91
   %4256 = fsub fast double %4154, %4255
   %4257 = fadd fast double %4256, %4253
@@ -6085,40 +6085,40 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4260 = fmul fast double %4259, %490
   %4261 = fadd fast double %4258, %4260
   %4262 = fmul fast double %4261, %4247
-  %4263 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4242, i64 2) #3
+  %4263 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4242, i64 2) #3
   store double %4262, double* %4263, align 1, !alias.scope !102, !noalias !103
-  %4264 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4086, i64 %4248) #3
+  %4264 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4086, i64 %4248) #3
   %4265 = load double, double* %4264, align 1, !noalias !91
   %4266 = fsub fast double %4147, %4265
   %4267 = fmul fast double %4246, 0x3FC5555555555555
   %4268 = fsub fast double %4134, %4192
   %4269 = fmul fast double %4268, 4.000000e+00
   %4270 = fmul fast double %4269, %490
-  %4271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4087, i64 %4248) #3
+  %4271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4087, i64 %4248) #3
   %4272 = load double, double* %4271, align 1, !noalias !91
   %4273 = fsub fast double %4181, %4272
   %4274 = fadd fast double %4273, %4266
   %4275 = fmul fast double %4274, 5.000000e-01
   %4276 = fmul fast double %4275, %487
-  %4277 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4095, i64 %4110) #3
+  %4277 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4095, i64 %4110) #3
   %4278 = load double, double* %4277, align 1, !noalias !91
-  %4279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4096, i64 %4110) #3
+  %4279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4096, i64 %4110) #3
   %4280 = load double, double* %4279, align 1, !noalias !91
   %4281 = fadd fast double %4270, %4144
   %4282 = fadd fast double %4281, %4280
   %4283 = fadd fast double %4278, %4276
   %4284 = fsub fast double %4282, %4283
   %4285 = fmul fast double %4267, %4284
-  %4286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4242, i64 3) #3
+  %4286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4242, i64 3) #3
   store double %4285, double* %4286, align 1, !alias.scope !102, !noalias !103
   %4287 = fmul fast double %4276, 5.000000e-01
-  %4288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4097, i64 %4110) #3
+  %4288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4097, i64 %4110) #3
   %4289 = load double, double* %4288, align 1, !noalias !91
   %4290 = fsub fast double %4289, %4214
   %4291 = fmul fast double %4290, %490
   %4292 = fadd fast double %4291, %4287
   %4293 = fmul fast double %4292, %4247
-  %4294 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4242, i64 4) #3
+  %4294 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4242, i64 4) #3
   store double %4293, double* %4294, align 1, !alias.scope !102, !noalias !103
   %4295 = fadd fast double %4174, %4149
   %4296 = load double, double* %4263, align 1, !alias.scope !102, !noalias !103
@@ -6131,28 +6131,28 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4303 = fmul fast double %4293, %4302
   %4304 = fadd fast double %4301, %4303
   %4305 = fmul fast double %4304, 5.000000e-01
-  %4306 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4098, i64 %4110) #3
+  %4306 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4098, i64 %4110) #3
   %4307 = load double, double* %4306, align 1, !noalias !91
   %4308 = fmul fast double %4307, 0x3FF6666660000000
-  %4309 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4099, i64 %4110) #3
+  %4309 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4099, i64 %4110) #3
   %4310 = load double, double* %4309, align 1, !noalias !91
   %4311 = fdiv fast double %4308, %4310
   %4312 = fsub fast double %4311, %4132
   %4313 = fmul fast double %4312, %4247
   %4314 = fmul fast double %4313, %522
   %4315 = fadd fast double %4314, %4305
-  %4316 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4242, i64 5) #3
+  %4316 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4242, i64 5) #3
   store double %4315, double* %4316, align 1, !alias.scope !102, !noalias !103
-  %4317 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4100, i64 %4110) #3
-  %4318 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4317, i64 1) #3
+  %4317 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4100, i64 %4110) #3
+  %4318 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4317, i64 1) #3
   store double 0.000000e+00, double* %4318, align 1, !alias.scope !98, !noalias !99
-  %4319 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4101, i64 %4110) #3
+  %4319 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4101, i64 %4110) #3
   %4320 = load double, double* %4319, align 1, !noalias !91
   %4321 = fadd fast double %4320, %4120
   %4322 = fmul fast double %4321, 5.000000e-01
-  %4323 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4092, i64 %4248) #3
+  %4323 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4092, i64 %4248) #3
   %4324 = load double, double* %4323, align 1, !noalias !91
-  %4325 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4084, i64 %4248) #3
+  %4325 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4084, i64 %4248) #3
   %4326 = load double, double* %4325, align 1, !noalias !91
   %4327 = fadd fast double %4212, %4160
   %4328 = fadd fast double %4324, %4326
@@ -6163,36 +6163,36 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4333 = fmul fast double %4332, %493
   %4334 = fadd fast double %4331, %4333
   %4335 = fmul fast double %4334, %4322
-  %4336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4317, i64 2) #3
+  %4336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4317, i64 2) #3
   store double %4335, double* %4336, align 1, !alias.scope !98, !noalias !99
-  %4337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4102, i64 %4110) #3
+  %4337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4102, i64 %4110) #3
   %4338 = load double, double* %4337, align 1, !noalias !91
-  %4339 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4103, i64 %4110) #3
+  %4339 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4103, i64 %4110) #3
   %4340 = load double, double* %4339, align 1, !noalias !91
   %4341 = fadd fast double %4289, %4278
   %4342 = fadd fast double %4338, %4340
   %4343 = fsub fast double %4341, %4342
   %4344 = fmul fast double %4343, 2.500000e-01
   %4345 = fmul fast double %4344, %490
-  %4346 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4104, i64 %4110) #3
+  %4346 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4104, i64 %4110) #3
   %4347 = load double, double* %4346, align 1, !noalias !91
   %4348 = fsub fast double %4347, %4192
   %4349 = fmul fast double %4348, %493
   %4350 = fadd fast double %4345, %4349
   %4351 = fmul fast double %4350, %4322
-  %4352 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4317, i64 3) #3
+  %4352 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4317, i64 3) #3
   store double %4351, double* %4352, align 1, !alias.scope !98, !noalias !99
   %4353 = fmul fast double %4321, 0x3FC5555555555555
   %4354 = fsub fast double %4139, %4214
   %4355 = fmul fast double %4354, 4.000000e+00
   %4356 = fmul fast double %4355, %493
-  %4357 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4090, i64 %4248) #3
+  %4357 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4090, i64 %4248) #3
   %4358 = load double, double* %4357, align 1, !noalias !91
   %4359 = fadd fast double %4266, %4203
   %4360 = fsub fast double %4359, %4358
-  %4361 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4105, i64 %4110) #3
+  %4361 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4105, i64 %4110) #3
   %4362 = load double, double* %4361, align 1, !noalias !91
-  %4363 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4106, i64 %4110) #3
+  %4363 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4106, i64 %4110) #3
   %4364 = load double, double* %4363, align 1, !noalias !91
   %4365 = fsub fast double %4362, %4364
   %4366 = fmul fast double %4137, -5.000000e-01
@@ -6205,7 +6205,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4373 = fadd fast double %4372, %4369
   %4374 = fadd fast double %4373, %4371
   %4375 = fmul fast double %4353, %4374
-  %4376 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4317, i64 4) #3
+  %4376 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4317, i64 4) #3
   store double %4375, double* %4376, align 1, !alias.scope !98, !noalias !99
   %4377 = fadd fast double %4199, %4149
   %4378 = load double, double* %4336, align 1, !alias.scope !98, !noalias !99
@@ -6218,17 +6218,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4385 = fmul fast double %4375, %4384
   %4386 = fadd fast double %4383, %4385
   %4387 = fmul fast double %4386, 5.000000e-01
-  %4388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4107, i64 %4110) #3
+  %4388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4107, i64 %4110) #3
   %4389 = load double, double* %4388, align 1, !noalias !91
   %4390 = fmul fast double %4389, 0x3FF6666660000000
-  %4391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4108, i64 %4110) #3
+  %4391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4108, i64 %4110) #3
   %4392 = load double, double* %4391, align 1, !noalias !91
   %4393 = fdiv fast double %4390, %4392
   %4394 = fsub fast double %4393, %4132
   %4395 = fmul fast double %4394, %4322
   %4396 = fmul fast double %4395, %524
   %4397 = fadd fast double %4387, %4396
-  %4398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4317, i64 5) #3
+  %4398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4317, i64 5) #3
   store double %4397, double* %4398, align 1, !alias.scope !98, !noalias !99
   %4399 = icmp eq i64 %4116, %478
   br i1 %4399, label %4400, label %4109
@@ -6264,21 +6264,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4415 = add nuw nsw i64 %4412, 4
   %4416 = add nuw nsw i64 %4412, 3
   %4417 = add nuw nsw i64 %4412, 2
-  %4418 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %87, i64 %4412)
-  %4419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %86, i64 %4412)
-  %4420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %85, i64 %4417)
-  %4421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %85, i64 %4412)
-  %4422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %84, i64 %4412)
-  %4423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %83, i64 %4412)
-  %4424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %80, i64 %4413)
-  %4425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %80, i64 %4412)
-  %4426 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %4417)
-  %4427 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %4416)
-  %4428 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %4413)
-  %4429 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %4415)
-  %4430 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %4412)
-  %4431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %88, i64 %4412)
-  %4432 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %4413)
+  %4418 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %87, i64 %4412)
+  %4419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %86, i64 %4412)
+  %4420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %85, i64 %4417)
+  %4421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %85, i64 %4412)
+  %4422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %84, i64 %4412)
+  %4423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %83, i64 %4412)
+  %4424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %80, i64 %4413)
+  %4425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %80, i64 %4412)
+  %4426 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %4417)
+  %4427 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %4416)
+  %4428 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %4413)
+  %4429 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %4415)
+  %4430 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %4412)
+  %4431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %88, i64 %4412)
+  %4432 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %4413)
   br label %4433
 
 4433:                                             ; preds = %4638, %4414
@@ -6299,32 +6299,32 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4446 = add nsw i32 %4436, -3
   %4447 = srem i32 %4446, %3
   %4448 = add nsw i32 %4447, 1
-  %4449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4418, i64 %4434)
+  %4449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4418, i64 %4434)
   %4450 = and i64 %4437, 4294967295
   %4451 = select i1 %4442, i64 1, i64 %4450
-  %4452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4419, i64 %4451)
+  %4452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4419, i64 %4451)
   %4453 = sext i32 %4445 to i64
-  %4454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4419, i64 %4453)
-  %4455 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4420, i64 %4434)
-  %4456 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4421, i64 %4434)
-  %4457 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4422, i64 %4434)
-  %4458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4423, i64 %4434)
-  %4459 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4423, i64 %4453)
-  %4460 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4424, i64 %4434)
-  %4461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4425, i64 %4434)
-  %4462 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4426, i64 %4434)
-  %4463 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4426, i64 %4451)
-  %4464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4426, i64 %4453)
-  %4465 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4427, i64 %4434)
-  %4466 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4428, i64 %4434)
+  %4454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4419, i64 %4453)
+  %4455 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4420, i64 %4434)
+  %4456 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4421, i64 %4434)
+  %4457 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4422, i64 %4434)
+  %4458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4423, i64 %4434)
+  %4459 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4423, i64 %4453)
+  %4460 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4424, i64 %4434)
+  %4461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4425, i64 %4434)
+  %4462 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4426, i64 %4434)
+  %4463 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4426, i64 %4451)
+  %4464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4426, i64 %4453)
+  %4465 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4427, i64 %4434)
+  %4466 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4428, i64 %4434)
   %4467 = zext i32 %4441 to i64
-  %4468 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4426, i64 %4467)
+  %4468 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4426, i64 %4467)
   %4469 = sext i32 %4448 to i64
-  %4470 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4426, i64 %4469)
-  %4471 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4429, i64 %4434)
-  %4472 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4430, i64 %4434)
-  %4473 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4431, i64 %4434)
-  %4474 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4432, i64 %4434)
+  %4470 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4426, i64 %4469)
+  %4471 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4429, i64 %4434)
+  %4472 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4430, i64 %4434)
+  %4473 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4431, i64 %4434)
+  %4474 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4432, i64 %4434)
   br label %4475
 
 4475:                                             ; preds = %4635, %4438
@@ -6344,77 +6344,77 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4489 = add nuw nsw i32 %4488, 1
   %4490 = and i64 %4486, 4294967295
   %4491 = select i1 %4485, i64 1, i64 %4490
-  %4492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4449, i64 %4491)
+  %4492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4449, i64 %4491)
   %4493 = sext i32 %4484 to i64
-  %4494 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4449, i64 %4493)
-  %4495 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4452, i64 %4476)
-  %4496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4454, i64 %4476)
-  %4497 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4455, i64 %4476)
-  %4498 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4456, i64 %4476)
-  %4499 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4457, i64 %4476)
-  %4500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4457, i64 %4493)
-  %4501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4458, i64 %4476)
-  %4502 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4459, i64 %4476)
-  %4503 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4460, i64 %4476)
-  %4504 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4461, i64 %4476)
-  %4505 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4462, i64 %4491)
-  %4506 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4462, i64 %4476)
-  %4507 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4462, i64 %4493)
-  %4508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4463, i64 %4476)
-  %4509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4464, i64 %4476)
-  %4510 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4465, i64 %4476)
-  %4511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4466, i64 %4476)
+  %4494 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4449, i64 %4493)
+  %4495 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4452, i64 %4476)
+  %4496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4454, i64 %4476)
+  %4497 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4455, i64 %4476)
+  %4498 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4456, i64 %4476)
+  %4499 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4457, i64 %4476)
+  %4500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4457, i64 %4493)
+  %4501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4458, i64 %4476)
+  %4502 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4459, i64 %4476)
+  %4503 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4460, i64 %4476)
+  %4504 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4461, i64 %4476)
+  %4505 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4462, i64 %4491)
+  %4506 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4462, i64 %4476)
+  %4507 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4462, i64 %4493)
+  %4508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4463, i64 %4476)
+  %4509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4464, i64 %4476)
+  %4510 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4465, i64 %4476)
+  %4511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4466, i64 %4476)
   %4512 = zext i32 %4489 to i64
-  %4513 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4462, i64 %4512)
+  %4513 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4462, i64 %4512)
   %4514 = sext i32 %4481 to i64
-  %4515 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4462, i64 %4514)
-  %4516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4468, i64 %4476)
-  %4517 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4470, i64 %4476)
-  %4518 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4471, i64 %4476)
-  %4519 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4472, i64 %4476)
-  %4520 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4473, i64 %4476)
-  %4521 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4474, i64 %4476)
+  %4515 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4462, i64 %4514)
+  %4516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4468, i64 %4476)
+  %4517 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4470, i64 %4476)
+  %4518 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4471, i64 %4476)
+  %4519 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4472, i64 %4476)
+  %4520 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4473, i64 %4476)
+  %4521 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4474, i64 %4476)
   br label %4522
 
 4522:                                             ; preds = %4522, %4475
   %4523 = phi i64 [ %4633, %4522 ], [ 1, %4475 ]
-  %4524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4492, i64 %4523)
+  %4524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4492, i64 %4523)
   %4525 = load double, double* %4524, align 1
-  %4526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4494, i64 %4523)
+  %4526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4494, i64 %4523)
   %4527 = load double, double* %4526, align 1
   %4528 = fsub fast double %4525, %4527
   %4529 = fmul fast double %4528, %487
-  %4530 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4495, i64 %4523)
+  %4530 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4495, i64 %4523)
   %4531 = load double, double* %4530, align 1
-  %4532 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4496, i64 %4523)
+  %4532 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4496, i64 %4523)
   %4533 = load double, double* %4532, align 1
   %4534 = fsub fast double %4531, %4533
   %4535 = fmul fast double %4534, %490
   %4536 = fadd fast double %4535, %4529
-  %4537 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4497, i64 %4523)
+  %4537 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4497, i64 %4523)
   %4538 = load double, double* %4537, align 1
-  %4539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4498, i64 %4523)
+  %4539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4498, i64 %4523)
   %4540 = load double, double* %4539, align 1
   %4541 = fsub fast double %4538, %4540
   %4542 = fmul fast double %4541, %493
   %4543 = fadd fast double %4536, %4542
   %4544 = fmul fast double %4408, %4543
-  %4545 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4499, i64 %4523)
+  %4545 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4499, i64 %4523)
   %4546 = load double, double* %4545, align 1
-  %4547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4500, i64 %4523)
+  %4547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4500, i64 %4523)
   %4548 = load double, double* %4547, align 1
   %4549 = fsub fast double %4546, %4548
   %4550 = fmul fast double %4549, %487
-  %4551 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4501, i64 %4523)
+  %4551 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4501, i64 %4523)
   %4552 = load double, double* %4551, align 1
-  %4553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4502, i64 %4523)
+  %4553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4502, i64 %4523)
   %4554 = load double, double* %4553, align 1
   %4555 = fsub fast double %4552, %4554
   %4556 = fmul fast double %4555, %490
   %4557 = fadd fast double %4556, %4550
-  %4558 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4503, i64 %4523)
+  %4558 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4503, i64 %4523)
   %4559 = load double, double* %4558, align 1
-  %4560 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4504, i64 %4523)
+  %4560 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4504, i64 %4523)
   %4561 = load double, double* %4560, align 1
   %4562 = fsub fast double %4559, %4561
   %4563 = fmul fast double %4562, %493
@@ -6422,60 +6422,60 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4565 = fmul fast double %4564, %720
   %4566 = fmul fast double %4565, %499
   %4567 = fsub fast double %4566, %4544
-  %4568 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4505, i64 %4523)
+  %4568 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4505, i64 %4523)
   %4569 = load double, double* %4568, align 1
-  %4570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4506, i64 %4523)
+  %4570 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4506, i64 %4523)
   %4571 = load double, double* %4570, align 1
   %4572 = fmul fast double %4571, -2.000000e+00
   %4573 = fadd fast double %4572, %4569
-  %4574 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4507, i64 %4523)
+  %4574 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4507, i64 %4523)
   %4575 = load double, double* %4574, align 1
   %4576 = fadd fast double %4573, %4575
   %4577 = fmul fast double %4576, %487
-  %4578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4508, i64 %4523)
+  %4578 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4508, i64 %4523)
   %4579 = load double, double* %4578, align 1
   %4580 = fadd fast double %4579, %4572
-  %4581 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4509, i64 %4523)
+  %4581 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4509, i64 %4523)
   %4582 = load double, double* %4581, align 1
   %4583 = fadd fast double %4580, %4582
   %4584 = fmul fast double %4583, %490
   %4585 = fadd fast double %4584, %4577
-  %4586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4510, i64 %4523)
+  %4586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4510, i64 %4523)
   %4587 = load double, double* %4586, align 1
   %4588 = fadd fast double %4587, %4572
-  %4589 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4511, i64 %4523)
+  %4589 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4511, i64 %4523)
   %4590 = load double, double* %4589, align 1
   %4591 = fadd fast double %4588, %4590
   %4592 = fmul fast double %4591, %493
   %4593 = fadd fast double %4585, %4592
   %4594 = fmul fast double %4409, %4593
-  %4595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4513, i64 %4523)
+  %4595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4513, i64 %4523)
   %4596 = load double, double* %4595, align 1
   %4597 = fmul fast double %4571, 6.000000e+00
   %4598 = fadd fast double %4575, %4569
   %4599 = fmul fast double %4598, -4.000000e+00
-  %4600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4515, i64 %4523)
+  %4600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4515, i64 %4523)
   %4601 = load double, double* %4600, align 1
   %4602 = fadd fast double %4599, %4597
   %4603 = fadd fast double %4602, %4596
   %4604 = fadd fast double %4603, %4601
   %4605 = fmul fast double %4604, %487
-  %4606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4516, i64 %4523)
+  %4606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4516, i64 %4523)
   %4607 = load double, double* %4606, align 1
   %4608 = fadd fast double %4582, %4579
   %4609 = fmul fast double %4608, -4.000000e+00
-  %4610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4517, i64 %4523)
+  %4610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4517, i64 %4523)
   %4611 = load double, double* %4610, align 1
   %4612 = fadd fast double %4609, %4597
   %4613 = fadd fast double %4612, %4607
   %4614 = fadd fast double %4613, %4611
   %4615 = fmul fast double %4614, %490
   %4616 = fadd fast double %4615, %4605
-  %4617 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4518, i64 %4523)
+  %4617 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4518, i64 %4523)
   %4618 = load double, double* %4617, align 1
   %4619 = fadd fast double %4590, %4587
   %4620 = fmul fast double %4619, -4.000000e+00
-  %4621 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4519, i64 %4523)
+  %4621 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4519, i64 %4523)
   %4622 = load double, double* %4621, align 1
   %4623 = fadd fast double %4620, %4597
   %4624 = fadd fast double %4623, %4618
@@ -6485,9 +6485,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4628 = fmul fast double %4410, %4627
   %4629 = fsub fast double %4594, %4628
   %4630 = fadd fast double %4629, %4567
-  %4631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4520, i64 %4523)
+  %4631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4520, i64 %4523)
   store double %4630, double* %4631, align 1
-  %4632 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4521, i64 %4523)
+  %4632 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4521, i64 %4523)
   store double %4630, double* %4632, align 1
   %4633 = add nuw nsw i64 %4523, 1
   %4634 = icmp eq i64 %4633, 6
@@ -6569,21 +6569,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %4677, label %4659
 
 4659:                                             ; preds = %4657
-  %4660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %539, i64 %4658) #3
-  %4661 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %540, i64 %4658) #3
+  %4660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %539, i64 %4658) #3
+  %4661 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %540, i64 %4658) #3
   br label %4662
 
 4662:                                             ; preds = %4673, %4659
   %4663 = phi i64 [ 1, %4659 ], [ %4674, %4673 ]
-  %4664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4660, i64 %4663) #3
-  %4665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4661, i64 %4663) #3
+  %4664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4660, i64 %4663) #3
+  %4665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4661, i64 %4663) #3
   br label %4666
 
 4666:                                             ; preds = %4666, %4662
   %4667 = phi i64 [ 1, %4662 ], [ %4671, %4666 ]
-  %4668 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4664, i64 %4667) #3
+  %4668 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4664, i64 %4667) #3
   %4669 = load double, double* %4668, align 1, !alias.scope !104, !noalias !109
-  %4670 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4665, i64 %4667) #3
+  %4670 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4665, i64 %4667) #3
   store double %4669, double* %4670, align 1, !alias.scope !104, !noalias !109
   %4671 = add nuw nsw i64 %4667, 1
   %4672 = icmp eq i64 %4671, 6
@@ -6610,21 +6610,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %4701, label %4683
 
 4683:                                             ; preds = %4681
-  %4684 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %541, i64 %4682) #3
-  %4685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %542, i64 %4682) #3
+  %4684 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %541, i64 %4682) #3
+  %4685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %542, i64 %4682) #3
   br label %4686
 
 4686:                                             ; preds = %4697, %4683
   %4687 = phi i64 [ 1, %4683 ], [ %4698, %4697 ]
-  %4688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4684, i64 %4687) #3
-  %4689 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4685, i64 %4687) #3
+  %4688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4684, i64 %4687) #3
+  %4689 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4685, i64 %4687) #3
   br label %4690
 
 4690:                                             ; preds = %4690, %4686
   %4691 = phi i64 [ %4695, %4690 ], [ 1, %4686 ]
-  %4692 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4688, i64 %4691) #3
+  %4692 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4688, i64 %4691) #3
   %4693 = load double, double* %4692, align 1, !alias.scope !104, !noalias !109
-  %4694 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4689, i64 %4691) #3
+  %4694 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4689, i64 %4691) #3
   store double %4693, double* %4694, align 1, !alias.scope !104, !noalias !109
   %4695 = add nuw nsw i64 %4691, 1
   %4696 = icmp eq i64 %4695, 6
@@ -6657,10 +6657,10 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %4743, label %4709
 
 4709:                                             ; preds = %4707
-  %4710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %4708) #3
-  %4711 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %4708) #3
-  %4712 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4652, i64 %4708) #3
-  %4713 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4651, i64 %4708) #3
+  %4710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %4708) #3
+  %4711 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %4708) #3
+  %4712 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4652, i64 %4708) #3
+  %4713 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4651, i64 %4708) #3
   br label %4714
 
 4714:                                             ; preds = %4739, %4709
@@ -6668,29 +6668,29 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %4739, label %4716
 
 4716:                                             ; preds = %4714
-  %4717 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4710, i64 %4715) #3
-  %4718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4711, i64 %4715) #3
-  %4719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4712, i64 %4715) #3
-  %4720 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4713, i64 %4715) #3
+  %4717 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4710, i64 %4715) #3
+  %4718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4711, i64 %4715) #3
+  %4719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4712, i64 %4715) #3
+  %4720 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4713, i64 %4715) #3
   br label %4721
 
 4721:                                             ; preds = %4735, %4716
   %4722 = phi i64 [ 1, %4716 ], [ %4736, %4735 ]
-  %4723 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4717, i64 %4722) #3
-  %4724 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4718, i64 %4722) #3
-  %4725 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4719, i64 %4722) #3
-  %4726 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4720, i64 %4722) #3
+  %4723 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4717, i64 %4722) #3
+  %4724 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4718, i64 %4722) #3
+  %4725 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4719, i64 %4722) #3
+  %4726 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4720, i64 %4722) #3
   br label %4727
 
 4727:                                             ; preds = %4727, %4721
   %4728 = phi i64 [ 1, %4721 ], [ %4733, %4727 ]
-  %4729 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4723, i64 %4728) #3
+  %4729 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4723, i64 %4728) #3
   store double 0.000000e+00, double* %4729, align 1, !noalias !127
-  %4730 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4724, i64 %4728) #3
+  %4730 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4724, i64 %4728) #3
   store double 0.000000e+00, double* %4730, align 1, !noalias !127
-  %4731 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4725, i64 %4728) #3
+  %4731 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4725, i64 %4728) #3
   store double 0.000000e+00, double* %4731, align 1, !noalias !127
-  %4732 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4726, i64 %4728) #3
+  %4732 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4726, i64 %4728) #3
   store double 0.000000e+00, double* %4732, align 1, !noalias !127
   %4733 = add nuw nsw i64 %4728, 1
   %4734 = icmp eq i64 %4733, 6
@@ -6733,17 +6733,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 4752:                                             ; preds = %4749
   %4753 = add nuw nsw i64 %4750, 2
-  %4754 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %4751) #3
-  %4755 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %64, i64 %4750) #3
-  %4756 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %4751) #3
-  %4757 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %63, i64 %4750) #3
-  %4758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %62, i64 %4750) #3
-  %4759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %61, i64 %4750) #3
-  %4760 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %4753) #3
-  %4761 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %60, i64 %4750) #3
-  %4762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %59, i64 %4750) #3
-  %4763 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %58, i64 %4750) #3
-  %4764 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %4750) #3
+  %4754 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %4751) #3
+  %4755 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %64, i64 %4750) #3
+  %4756 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %4751) #3
+  %4757 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %63, i64 %4750) #3
+  %4758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %62, i64 %4750) #3
+  %4759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %61, i64 %4750) #3
+  %4760 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %4753) #3
+  %4761 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %60, i64 %4750) #3
+  %4762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %59, i64 %4750) #3
+  %4763 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %58, i64 %4750) #3
+  %4764 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %4750) #3
   br label %4765
 
 4765:                                             ; preds = %4882, %4752
@@ -6761,22 +6761,22 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4773 = add i32 %510, %4771
   %4774 = srem i32 %4773, %3
   %4775 = add nsw i32 %4774, 1
-  %4776 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4754, i64 %4766) #3
-  %4777 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %4755, i64 %4766) #3
-  %4778 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4756, i64 %4766) #3
-  %4779 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %4757, i64 %4766) #3
-  %4780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %4758, i64 %4766) #3
+  %4776 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4754, i64 %4766) #3
+  %4777 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %4755, i64 %4766) #3
+  %4778 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4756, i64 %4766) #3
+  %4779 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %4757, i64 %4766) #3
+  %4780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %4758, i64 %4766) #3
   %4781 = and i64 %4772, 4294967295
   %4782 = select i1 %4770, i64 1, i64 %4781
-  %4783 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4756, i64 %4782) #3
-  %4784 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %4759, i64 %4766) #3
-  %4785 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4760, i64 %4766) #3
-  %4786 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %4761, i64 %4766) #3
-  %4787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %4762, i64 %4766) #3
+  %4783 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4756, i64 %4782) #3
+  %4784 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %4759, i64 %4766) #3
+  %4785 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4760, i64 %4766) #3
+  %4786 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %4761, i64 %4766) #3
+  %4787 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %4762, i64 %4766) #3
   %4788 = sext i32 %4775 to i64
-  %4789 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4756, i64 %4788) #3
-  %4790 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %4763, i64 %4766) #3
-  %4791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4764, i64 %4766) #3
+  %4789 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4756, i64 %4788) #3
+  %4790 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %4763, i64 %4766) #3
+  %4791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4764, i64 %4766) #3
   br label %4792
 
 4792:                                             ; preds = %4879, %4769
@@ -6787,81 +6787,81 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %4797 = add i32 %511, %4795
   %4798 = srem i32 %4797, %2
   %4799 = add nsw i32 %4798, 1
-  %4800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4776, i64 %4793) #3
-  %4801 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %4777, i64 %4793) #3
-  %4802 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4778, i64 %4793) #3
-  %4803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %4779, i64 %4793) #3
+  %4800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4776, i64 %4793) #3
+  %4801 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %4777, i64 %4793) #3
+  %4802 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4778, i64 %4793) #3
+  %4803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %4779, i64 %4793) #3
   %4804 = and i64 %4796, 4294967295
   %4805 = select i1 %4794, i64 1, i64 %4804
-  %4806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4778, i64 %4805) #3
-  %4807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %4780, i64 %4793) #3
-  %4808 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4783, i64 %4793) #3
-  %4809 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %4784, i64 %4793) #3
-  %4810 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4785, i64 %4793) #3
-  %4811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %4786, i64 %4793) #3
+  %4806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4778, i64 %4805) #3
+  %4807 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %4780, i64 %4793) #3
+  %4808 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4783, i64 %4793) #3
+  %4809 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %4784, i64 %4793) #3
+  %4810 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4785, i64 %4793) #3
+  %4811 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %4786, i64 %4793) #3
   %4812 = sext i32 %4799 to i64
-  %4813 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4778, i64 %4812) #3
-  %4814 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %4787, i64 %4793) #3
-  %4815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4789, i64 %4793) #3
-  %4816 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %4790, i64 %4793) #3
-  %4817 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4791, i64 %4793) #3
+  %4813 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4778, i64 %4812) #3
+  %4814 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %4787, i64 %4793) #3
+  %4815 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4789, i64 %4793) #3
+  %4816 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %4790, i64 %4793) #3
+  %4817 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4791, i64 %4793) #3
   br label %4818
 
 4818:                                             ; preds = %4875, %4792
   %4819 = phi i64 [ 1, %4792 ], [ %4877, %4875 ]
-  %4820 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4800, i64 %4819) #3
+  %4820 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4800, i64 %4819) #3
   store double 0.000000e+00, double* %4820, align 1, !alias.scope !128, !noalias !131
   br label %4821
 
 4821:                                             ; preds = %4821, %4818
   %4822 = phi i64 [ 1, %4818 ], [ %4873, %4821 ]
   %4823 = phi double [ 0.000000e+00, %4818 ], [ %4872, %4821 ]
-  %4824 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4801, i64 %4822) #3
-  %4825 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4824, i64 %4819) #3
+  %4824 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4801, i64 %4822) #3
+  %4825 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4824, i64 %4819) #3
   %4826 = load double, double* %4825, align 1, !alias.scope !144, !noalias !145
-  %4827 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4802, i64 %4822) #3
+  %4827 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4802, i64 %4822) #3
   %4828 = load double, double* %4827, align 1, !alias.scope !146, !noalias !147
   %4829 = fmul fast double %4828, %4826
   %4830 = fadd fast double %4829, %4823
-  %4831 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4803, i64 %4822) #3
-  %4832 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4831, i64 %4819) #3
+  %4831 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4803, i64 %4822) #3
+  %4832 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4831, i64 %4819) #3
   %4833 = load double, double* %4832, align 1, !alias.scope !148, !noalias !149
-  %4834 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4806, i64 %4822) #3
+  %4834 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4806, i64 %4822) #3
   %4835 = load double, double* %4834, align 1, !alias.scope !146, !noalias !147
   %4836 = fmul fast double %4835, %4833
   %4837 = fadd fast double %4830, %4836
-  %4838 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4807, i64 %4822) #3
-  %4839 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4838, i64 %4819) #3
+  %4838 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4807, i64 %4822) #3
+  %4839 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4838, i64 %4819) #3
   %4840 = load double, double* %4839, align 1, !alias.scope !150, !noalias !151
-  %4841 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4808, i64 %4822) #3
+  %4841 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4808, i64 %4822) #3
   %4842 = load double, double* %4841, align 1, !alias.scope !146, !noalias !147
   %4843 = fmul fast double %4842, %4840
   %4844 = fadd fast double %4837, %4843
-  %4845 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4809, i64 %4822) #3
-  %4846 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4845, i64 %4819) #3
+  %4845 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4809, i64 %4822) #3
+  %4846 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4845, i64 %4819) #3
   %4847 = load double, double* %4846, align 1, !alias.scope !152, !noalias !153
-  %4848 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4810, i64 %4822) #3
+  %4848 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4810, i64 %4822) #3
   %4849 = load double, double* %4848, align 1, !alias.scope !146, !noalias !147
   %4850 = fmul fast double %4849, %4847
   %4851 = fadd fast double %4844, %4850
-  %4852 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4811, i64 %4822) #3
-  %4853 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4852, i64 %4819) #3
+  %4852 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4811, i64 %4822) #3
+  %4853 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4852, i64 %4819) #3
   %4854 = load double, double* %4853, align 1, !alias.scope !154, !noalias !155
-  %4855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4813, i64 %4822) #3
+  %4855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4813, i64 %4822) #3
   %4856 = load double, double* %4855, align 1, !alias.scope !146, !noalias !147
   %4857 = fmul fast double %4856, %4854
   %4858 = fadd fast double %4851, %4857
-  %4859 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4814, i64 %4822) #3
-  %4860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4859, i64 %4819) #3
+  %4859 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4814, i64 %4822) #3
+  %4860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4859, i64 %4819) #3
   %4861 = load double, double* %4860, align 1, !alias.scope !156, !noalias !157
-  %4862 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4815, i64 %4822) #3
+  %4862 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4815, i64 %4822) #3
   %4863 = load double, double* %4862, align 1, !alias.scope !146, !noalias !147
   %4864 = fmul fast double %4863, %4861
   %4865 = fadd fast double %4858, %4864
-  %4866 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4816, i64 %4822) #3
-  %4867 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4866, i64 %4819) #3
+  %4866 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4816, i64 %4822) #3
+  %4867 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4866, i64 %4819) #3
   %4868 = load double, double* %4867, align 1, !alias.scope !158, !noalias !159
-  %4869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4817, i64 %4822) #3
+  %4869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4817, i64 %4822) #3
   %4870 = load double, double* %4869, align 1, !alias.scope !146, !noalias !147
   %4871 = fmul fast double %4870, %4868
   %4872 = fadd fast double %4865, %4871
@@ -6905,9 +6905,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 4892:                                             ; preds = %4889
   %4893 = add nsw i64 %4890, -1
-  %4894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %88, i64 %4893) #3
-  %4895 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %4890) #3
-  %4896 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4653, i64 %4890) #3
+  %4894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %88, i64 %4893) #3
+  %4895 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %4890) #3
+  %4896 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4653, i64 %4890) #3
   br label %4897
 
 4897:                                             ; preds = %4929, %4892
@@ -6916,31 +6916,31 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %4929, label %4900
 
 4900:                                             ; preds = %4897
-  %4901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4894, i64 %4898) #3
-  %4902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4895, i64 %4898) #3
-  %4903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4896, i64 %4898) #3
+  %4901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4894, i64 %4898) #3
+  %4902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4895, i64 %4898) #3
+  %4903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4896, i64 %4898) #3
   br label %4904
 
 4904:                                             ; preds = %4923, %4900
   %4905 = phi i64 [ 1, %4900 ], [ %4925, %4923 ]
   %4906 = phi double [ %4899, %4900 ], [ %4924, %4923 ]
-  %4907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4901, i64 %4905) #3
-  %4908 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4902, i64 %4905) #3
-  %4909 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4903, i64 %4905) #3
+  %4907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4901, i64 %4905) #3
+  %4908 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4902, i64 %4905) #3
+  %4909 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4903, i64 %4905) #3
   br label %4910
 
 4910:                                             ; preds = %4910, %4904
   %4911 = phi i64 [ 1, %4904 ], [ %4921, %4910 ]
   %4912 = phi double [ %4906, %4904 ], [ %4919, %4910 ]
-  %4913 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4907, i64 %4911) #3
+  %4913 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4907, i64 %4911) #3
   %4914 = load double, double* %4913, align 1, !alias.scope !160, !noalias !161
-  %4915 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4908, i64 %4911) #3
+  %4915 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4908, i64 %4911) #3
   %4916 = load double, double* %4915, align 1, !noalias !127
   %4917 = fsub fast double %4914, %4916
   store double %4917, double* %4915, align 1, !noalias !127
   %4918 = fmul fast double %4917, %4917
   %4919 = fadd fast double %4918, %4912
-  %4920 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4909, i64 %4911) #3
+  %4920 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4909, i64 %4911) #3
   store double %4917, double* %4920, align 1, !noalias !127
   %4921 = add nuw nsw i64 %4911, 1
   %4922 = icmp eq i64 %4921, 6
@@ -6995,14 +6995,14 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %4946, label %4947, label %5679
 
 4947:                                             ; preds = %4941
-  %4948 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 2) #3
-  %4949 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %66) #3
-  %4950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %480) #3
-  %4951 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 1) #3
-  %4952 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 2) #3
-  %4953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %66) #3
-  %4954 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %480) #3
-  %4955 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 1) #3
+  %4948 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 2) #3
+  %4949 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %66) #3
+  %4950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %480) #3
+  %4951 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 1) #3
+  %4952 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 2) #3
+  %4953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %66) #3
+  %4954 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %480) #3
+  %4955 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 1) #3
   br label %4956
 
 4956:                                             ; preds = %4947, %5673
@@ -7020,8 +7020,8 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5001, label %4964
 
 4964:                                             ; preds = %4961
-  %4965 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4653, i64 %4962) #3
-  %4966 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %4962) #3
+  %4965 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4653, i64 %4962) #3
+  %4966 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %4962) #3
   br label %4967
 
 4967:                                             ; preds = %4995, %4964
@@ -7030,23 +7030,23 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %4995, label %4970
 
 4970:                                             ; preds = %4967
-  %4971 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4965, i64 %4968) #3
-  %4972 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4966, i64 %4968) #3
+  %4971 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4965, i64 %4968) #3
+  %4972 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4966, i64 %4968) #3
   br label %4973
 
 4973:                                             ; preds = %4989, %4970
   %4974 = phi i64 [ 1, %4970 ], [ %4991, %4989 ]
   %4975 = phi double [ %4969, %4970 ], [ %4990, %4989 ]
-  %4976 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4971, i64 %4974) #3
-  %4977 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %4972, i64 %4974) #3
+  %4976 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4971, i64 %4974) #3
+  %4977 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %4972, i64 %4974) #3
   br label %4978
 
 4978:                                             ; preds = %4978, %4973
   %4979 = phi i64 [ 1, %4973 ], [ %4987, %4978 ]
   %4980 = phi double [ %4975, %4973 ], [ %4986, %4978 ]
-  %4981 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4976, i64 %4979) #3
+  %4981 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4976, i64 %4979) #3
   %4982 = load double, double* %4981, align 1, !noalias !127
-  %4983 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %4977, i64 %4979) #3
+  %4983 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %4977, i64 %4979) #3
   %4984 = load double, double* %4983, align 1, !noalias !127
   %4985 = fmul fast double %4984, %4982
   %4986 = fadd fast double %4985, %4980
@@ -7092,9 +7092,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5050, label %5012
 
 5012:                                             ; preds = %5010
-  %5013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5011) #3
-  %5014 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %5011) #3
-  %5015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4652, i64 %5011) #3
+  %5013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5011) #3
+  %5014 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %5011) #3
+  %5015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4652, i64 %5011) #3
   br label %5016
 
 5016:                                             ; preds = %5046, %5012
@@ -7102,25 +7102,25 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5046, label %5018
 
 5018:                                             ; preds = %5016
-  %5019 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5013, i64 %5017) #3
-  %5020 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5014, i64 %5017) #3
-  %5021 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5015, i64 %5017) #3
+  %5019 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5013, i64 %5017) #3
+  %5020 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5014, i64 %5017) #3
+  %5021 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5015, i64 %5017) #3
   br label %5022
 
 5022:                                             ; preds = %5042, %5018
   %5023 = phi i64 [ 1, %5018 ], [ %5043, %5042 ]
-  %5024 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5019, i64 %5023) #3
-  %5025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5020, i64 %5023) #3
-  %5026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5021, i64 %5023) #3
+  %5024 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5019, i64 %5023) #3
+  %5025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5020, i64 %5023) #3
+  %5026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5021, i64 %5023) #3
   br label %5027
 
 5027:                                             ; preds = %5027, %5022
   %5028 = phi i64 [ 1, %5022 ], [ %5040, %5027 ]
-  %5029 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5024, i64 %5028) #3
+  %5029 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5024, i64 %5028) #3
   %5030 = load double, double* %5029, align 1, !noalias !127
-  %5031 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5025, i64 %5028) #3
+  %5031 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5025, i64 %5028) #3
   %5032 = load double, double* %5031, align 1, !noalias !127
-  %5033 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5026, i64 %5028) #3
+  %5033 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5026, i64 %5028) #3
   %5034 = load double, double* %5033, align 1, !noalias !127
   %5035 = fmul fast double %5034, %4957
   %5036 = fsub fast double %5032, %5035
@@ -7168,21 +7168,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5077, label %5059
 
 5059:                                             ; preds = %5057
-  %5060 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4948, i64 %5058) #3
-  %5061 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4949, i64 %5058) #3
+  %5060 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4948, i64 %5058) #3
+  %5061 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4949, i64 %5058) #3
   br label %5062
 
 5062:                                             ; preds = %5073, %5059
   %5063 = phi i64 [ 1, %5059 ], [ %5074, %5073 ]
-  %5064 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5060, i64 %5063) #3
-  %5065 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5061, i64 %5063) #3
+  %5064 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5060, i64 %5063) #3
+  %5065 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5061, i64 %5063) #3
   br label %5066
 
 5066:                                             ; preds = %5066, %5062
   %5067 = phi i64 [ 1, %5062 ], [ %5071, %5066 ]
-  %5068 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5064, i64 %5067) #3
+  %5068 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5064, i64 %5067) #3
   %5069 = load double, double* %5068, align 1, !alias.scope !162, !noalias !165
-  %5070 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5065, i64 %5067) #3
+  %5070 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5065, i64 %5067) #3
   store double %5069, double* %5070, align 1, !alias.scope !162, !noalias !165
   %5071 = add nuw nsw i64 %5067, 1
   %5072 = icmp eq i64 %5071, 6
@@ -7209,21 +7209,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5101, label %5083
 
 5083:                                             ; preds = %5081
-  %5084 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4950, i64 %5082) #3
-  %5085 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4951, i64 %5082) #3
+  %5084 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4950, i64 %5082) #3
+  %5085 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4951, i64 %5082) #3
   br label %5086
 
 5086:                                             ; preds = %5097, %5083
   %5087 = phi i64 [ 1, %5083 ], [ %5098, %5097 ]
-  %5088 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5084, i64 %5087) #3
-  %5089 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5085, i64 %5087) #3
+  %5088 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5084, i64 %5087) #3
+  %5089 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5085, i64 %5087) #3
   br label %5090
 
 5090:                                             ; preds = %5090, %5086
   %5091 = phi i64 [ %5095, %5090 ], [ 1, %5086 ]
-  %5092 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5088, i64 %5091) #3
+  %5092 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5088, i64 %5091) #3
   %5093 = load double, double* %5092, align 1, !alias.scope !162, !noalias !165
-  %5094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5089, i64 %5091) #3
+  %5094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5089, i64 %5091) #3
   store double %5093, double* %5094, align 1, !alias.scope !162, !noalias !165
   %5095 = add nuw nsw i64 %5091, 1
   %5096 = icmp eq i64 %5095, 6
@@ -7258,17 +7258,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 5110:                                             ; preds = %5107
   %5111 = add nuw nsw i64 %5108, 2
-  %5112 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4652, i64 %5109) #3
-  %5113 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %64, i64 %5108) #3
-  %5114 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %5109) #3
-  %5115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %63, i64 %5108) #3
-  %5116 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %62, i64 %5108) #3
-  %5117 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %61, i64 %5108) #3
-  %5118 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %5111) #3
-  %5119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %60, i64 %5108) #3
-  %5120 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %59, i64 %5108) #3
-  %5121 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %58, i64 %5108) #3
-  %5122 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %5108) #3
+  %5112 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4652, i64 %5109) #3
+  %5113 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %64, i64 %5108) #3
+  %5114 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %5109) #3
+  %5115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %63, i64 %5108) #3
+  %5116 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %62, i64 %5108) #3
+  %5117 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %61, i64 %5108) #3
+  %5118 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %5111) #3
+  %5119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %60, i64 %5108) #3
+  %5120 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %59, i64 %5108) #3
+  %5121 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %58, i64 %5108) #3
+  %5122 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %5108) #3
   br label %5123
 
 5123:                                             ; preds = %5240, %5110
@@ -7286,22 +7286,22 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %5131 = add i32 %510, %5129
   %5132 = srem i32 %5131, %3
   %5133 = add nsw i32 %5132, 1
-  %5134 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5112, i64 %5124) #3
-  %5135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5113, i64 %5124) #3
-  %5136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5114, i64 %5124) #3
-  %5137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5115, i64 %5124) #3
-  %5138 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5116, i64 %5124) #3
+  %5134 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5112, i64 %5124) #3
+  %5135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5113, i64 %5124) #3
+  %5136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5114, i64 %5124) #3
+  %5137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5115, i64 %5124) #3
+  %5138 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5116, i64 %5124) #3
   %5139 = and i64 %5130, 4294967295
   %5140 = select i1 %5128, i64 1, i64 %5139
-  %5141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5114, i64 %5140) #3
-  %5142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5117, i64 %5124) #3
-  %5143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5118, i64 %5124) #3
-  %5144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5119, i64 %5124) #3
-  %5145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5120, i64 %5124) #3
+  %5141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5114, i64 %5140) #3
+  %5142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5117, i64 %5124) #3
+  %5143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5118, i64 %5124) #3
+  %5144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5119, i64 %5124) #3
+  %5145 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5120, i64 %5124) #3
   %5146 = sext i32 %5133 to i64
-  %5147 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5114, i64 %5146) #3
-  %5148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5121, i64 %5124) #3
-  %5149 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5122, i64 %5124) #3
+  %5147 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5114, i64 %5146) #3
+  %5148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5121, i64 %5124) #3
+  %5149 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5122, i64 %5124) #3
   br label %5150
 
 5150:                                             ; preds = %5237, %5127
@@ -7312,81 +7312,81 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %5155 = add i32 %511, %5153
   %5156 = srem i32 %5155, %2
   %5157 = add nsw i32 %5156, 1
-  %5158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5134, i64 %5151) #3
-  %5159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5135, i64 %5151) #3
-  %5160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5136, i64 %5151) #3
-  %5161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5137, i64 %5151) #3
+  %5158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5134, i64 %5151) #3
+  %5159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5135, i64 %5151) #3
+  %5160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5136, i64 %5151) #3
+  %5161 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5137, i64 %5151) #3
   %5162 = and i64 %5154, 4294967295
   %5163 = select i1 %5152, i64 1, i64 %5162
-  %5164 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5136, i64 %5163) #3
-  %5165 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5138, i64 %5151) #3
-  %5166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5141, i64 %5151) #3
-  %5167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5142, i64 %5151) #3
-  %5168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5143, i64 %5151) #3
-  %5169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5144, i64 %5151) #3
+  %5164 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5136, i64 %5163) #3
+  %5165 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5138, i64 %5151) #3
+  %5166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5141, i64 %5151) #3
+  %5167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5142, i64 %5151) #3
+  %5168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5143, i64 %5151) #3
+  %5169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5144, i64 %5151) #3
   %5170 = sext i32 %5157 to i64
-  %5171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5136, i64 %5170) #3
-  %5172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5145, i64 %5151) #3
-  %5173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5147, i64 %5151) #3
-  %5174 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5148, i64 %5151) #3
-  %5175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5149, i64 %5151) #3
+  %5171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5136, i64 %5170) #3
+  %5172 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5145, i64 %5151) #3
+  %5173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5147, i64 %5151) #3
+  %5174 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5148, i64 %5151) #3
+  %5175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5149, i64 %5151) #3
   br label %5176
 
 5176:                                             ; preds = %5233, %5150
   %5177 = phi i64 [ 1, %5150 ], [ %5235, %5233 ]
-  %5178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5158, i64 %5177) #3
+  %5178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5158, i64 %5177) #3
   store double 0.000000e+00, double* %5178, align 1, !alias.scope !170, !noalias !173
   br label %5179
 
 5179:                                             ; preds = %5179, %5176
   %5180 = phi i64 [ 1, %5176 ], [ %5231, %5179 ]
   %5181 = phi double [ 0.000000e+00, %5176 ], [ %5230, %5179 ]
-  %5182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5159, i64 %5180) #3
-  %5183 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5182, i64 %5177) #3
+  %5182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5159, i64 %5180) #3
+  %5183 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5182, i64 %5177) #3
   %5184 = load double, double* %5183, align 1, !alias.scope !186, !noalias !187
-  %5185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5160, i64 %5180) #3
+  %5185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5160, i64 %5180) #3
   %5186 = load double, double* %5185, align 1, !alias.scope !188, !noalias !189
   %5187 = fmul fast double %5186, %5184
   %5188 = fadd fast double %5187, %5181
-  %5189 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5161, i64 %5180) #3
-  %5190 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5189, i64 %5177) #3
+  %5189 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5161, i64 %5180) #3
+  %5190 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5189, i64 %5177) #3
   %5191 = load double, double* %5190, align 1, !alias.scope !190, !noalias !191
-  %5192 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5164, i64 %5180) #3
+  %5192 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5164, i64 %5180) #3
   %5193 = load double, double* %5192, align 1, !alias.scope !188, !noalias !189
   %5194 = fmul fast double %5193, %5191
   %5195 = fadd fast double %5188, %5194
-  %5196 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5165, i64 %5180) #3
-  %5197 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5196, i64 %5177) #3
+  %5196 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5165, i64 %5180) #3
+  %5197 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5196, i64 %5177) #3
   %5198 = load double, double* %5197, align 1, !alias.scope !192, !noalias !193
-  %5199 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5166, i64 %5180) #3
+  %5199 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5166, i64 %5180) #3
   %5200 = load double, double* %5199, align 1, !alias.scope !188, !noalias !189
   %5201 = fmul fast double %5200, %5198
   %5202 = fadd fast double %5195, %5201
-  %5203 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5167, i64 %5180) #3
-  %5204 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5203, i64 %5177) #3
+  %5203 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5167, i64 %5180) #3
+  %5204 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5203, i64 %5177) #3
   %5205 = load double, double* %5204, align 1, !alias.scope !194, !noalias !195
-  %5206 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5168, i64 %5180) #3
+  %5206 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5168, i64 %5180) #3
   %5207 = load double, double* %5206, align 1, !alias.scope !188, !noalias !189
   %5208 = fmul fast double %5207, %5205
   %5209 = fadd fast double %5202, %5208
-  %5210 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5169, i64 %5180) #3
-  %5211 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5210, i64 %5177) #3
+  %5210 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5169, i64 %5180) #3
+  %5211 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5210, i64 %5177) #3
   %5212 = load double, double* %5211, align 1, !alias.scope !196, !noalias !197
-  %5213 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5171, i64 %5180) #3
+  %5213 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5171, i64 %5180) #3
   %5214 = load double, double* %5213, align 1, !alias.scope !188, !noalias !189
   %5215 = fmul fast double %5214, %5212
   %5216 = fadd fast double %5209, %5215
-  %5217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5172, i64 %5180) #3
-  %5218 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5217, i64 %5177) #3
+  %5217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5172, i64 %5180) #3
+  %5218 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5217, i64 %5177) #3
   %5219 = load double, double* %5218, align 1, !alias.scope !198, !noalias !199
-  %5220 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5173, i64 %5180) #3
+  %5220 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5173, i64 %5180) #3
   %5221 = load double, double* %5220, align 1, !alias.scope !188, !noalias !189
   %5222 = fmul fast double %5221, %5219
   %5223 = fadd fast double %5216, %5222
-  %5224 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5174, i64 %5180) #3
-  %5225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5224, i64 %5177) #3
+  %5224 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5174, i64 %5180) #3
+  %5225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5224, i64 %5177) #3
   %5226 = load double, double* %5225, align 1, !alias.scope !200, !noalias !201
-  %5227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5175, i64 %5180) #3
+  %5227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5175, i64 %5180) #3
   %5228 = load double, double* %5227, align 1, !alias.scope !188, !noalias !189
   %5229 = fmul fast double %5228, %5226
   %5230 = fadd fast double %5223, %5229
@@ -7429,8 +7429,8 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5287, label %5250
 
 5250:                                             ; preds = %5247
-  %5251 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4653, i64 %5248) #3
-  %5252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4652, i64 %5248) #3
+  %5251 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4653, i64 %5248) #3
+  %5252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4652, i64 %5248) #3
   br label %5253
 
 5253:                                             ; preds = %5281, %5250
@@ -7439,23 +7439,23 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5281, label %5256
 
 5256:                                             ; preds = %5253
-  %5257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5251, i64 %5254) #3
-  %5258 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5252, i64 %5254) #3
+  %5257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5251, i64 %5254) #3
+  %5258 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5252, i64 %5254) #3
   br label %5259
 
 5259:                                             ; preds = %5275, %5256
   %5260 = phi i64 [ 1, %5256 ], [ %5277, %5275 ]
   %5261 = phi double [ %5255, %5256 ], [ %5276, %5275 ]
-  %5262 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5257, i64 %5260) #3
-  %5263 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5258, i64 %5260) #3
+  %5262 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5257, i64 %5260) #3
+  %5263 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5258, i64 %5260) #3
   br label %5264
 
 5264:                                             ; preds = %5264, %5259
   %5265 = phi i64 [ 1, %5259 ], [ %5273, %5264 ]
   %5266 = phi double [ %5261, %5259 ], [ %5272, %5264 ]
-  %5267 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5262, i64 %5265) #3
+  %5267 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5262, i64 %5265) #3
   %5268 = load double, double* %5267, align 1, !noalias !127
-  %5269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5263, i64 %5265) #3
+  %5269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5263, i64 %5265) #3
   %5270 = load double, double* %5269, align 1, !noalias !127
   %5271 = fmul fast double %5270, %5268
   %5272 = fadd fast double %5271, %5266
@@ -7499,8 +7499,8 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5326, label %5296
 
 5296:                                             ; preds = %5294
-  %5297 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5295) #3
-  %5298 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4652, i64 %5295) #3
+  %5297 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5295) #3
+  %5298 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4652, i64 %5295) #3
   br label %5299
 
 5299:                                             ; preds = %5322, %5296
@@ -7508,21 +7508,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5322, label %5301
 
 5301:                                             ; preds = %5299
-  %5302 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5297, i64 %5300) #3
-  %5303 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5298, i64 %5300) #3
+  %5302 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5297, i64 %5300) #3
+  %5303 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5298, i64 %5300) #3
   br label %5304
 
 5304:                                             ; preds = %5318, %5301
   %5305 = phi i64 [ 1, %5301 ], [ %5319, %5318 ]
-  %5306 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5302, i64 %5305) #3
-  %5307 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5303, i64 %5305) #3
+  %5306 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5302, i64 %5305) #3
+  %5307 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5303, i64 %5305) #3
   br label %5308
 
 5308:                                             ; preds = %5308, %5304
   %5309 = phi i64 [ 1, %5304 ], [ %5316, %5308 ]
-  %5310 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5306, i64 %5309) #3
+  %5310 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5306, i64 %5309) #3
   %5311 = load double, double* %5310, align 1, !noalias !127
-  %5312 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5307, i64 %5309) #3
+  %5312 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5307, i64 %5309) #3
   %5313 = load double, double* %5312, align 1, !noalias !127
   %5314 = fmul fast double %5313, %5293
   %5315 = fsub fast double %5311, %5314
@@ -7567,21 +7567,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5353, label %5335
 
 5335:                                             ; preds = %5333
-  %5336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4952, i64 %5334) #3
-  %5337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4953, i64 %5334) #3
+  %5336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4952, i64 %5334) #3
+  %5337 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4953, i64 %5334) #3
   br label %5338
 
 5338:                                             ; preds = %5349, %5335
   %5339 = phi i64 [ 1, %5335 ], [ %5350, %5349 ]
-  %5340 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5336, i64 %5339) #3
-  %5341 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5337, i64 %5339) #3
+  %5340 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5336, i64 %5339) #3
+  %5341 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5337, i64 %5339) #3
   br label %5342
 
 5342:                                             ; preds = %5342, %5338
   %5343 = phi i64 [ 1, %5338 ], [ %5347, %5342 ]
-  %5344 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5340, i64 %5343) #3
+  %5344 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5340, i64 %5343) #3
   %5345 = load double, double* %5344, align 1, !alias.scope !202, !noalias !205
-  %5346 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5341, i64 %5343) #3
+  %5346 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5341, i64 %5343) #3
   store double %5345, double* %5346, align 1, !alias.scope !202, !noalias !205
   %5347 = add nuw nsw i64 %5343, 1
   %5348 = icmp eq i64 %5347, 6
@@ -7608,21 +7608,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5377, label %5359
 
 5359:                                             ; preds = %5357
-  %5360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4954, i64 %5358) #3
-  %5361 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %4955, i64 %5358) #3
+  %5360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4954, i64 %5358) #3
+  %5361 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %4955, i64 %5358) #3
   br label %5362
 
 5362:                                             ; preds = %5373, %5359
   %5363 = phi i64 [ 1, %5359 ], [ %5374, %5373 ]
-  %5364 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5360, i64 %5363) #3
-  %5365 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5361, i64 %5363) #3
+  %5364 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5360, i64 %5363) #3
+  %5365 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5361, i64 %5363) #3
   br label %5366
 
 5366:                                             ; preds = %5366, %5362
   %5367 = phi i64 [ %5371, %5366 ], [ 1, %5362 ]
-  %5368 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5364, i64 %5367) #3
+  %5368 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5364, i64 %5367) #3
   %5369 = load double, double* %5368, align 1, !alias.scope !202, !noalias !205
-  %5370 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5365, i64 %5367) #3
+  %5370 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5365, i64 %5367) #3
   store double %5369, double* %5370, align 1, !alias.scope !202, !noalias !205
   %5371 = add nuw nsw i64 %5367, 1
   %5372 = icmp eq i64 %5371, 6
@@ -7657,17 +7657,17 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 5386:                                             ; preds = %5383
   %5387 = add nuw nsw i64 %5384, 2
-  %5388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4651, i64 %5385) #3
-  %5389 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %64, i64 %5384) #3
-  %5390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5385) #3
-  %5391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %63, i64 %5384) #3
-  %5392 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %62, i64 %5384) #3
-  %5393 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %61, i64 %5384) #3
-  %5394 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5387) #3
-  %5395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %60, i64 %5384) #3
-  %5396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %59, i64 %5384) #3
-  %5397 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* nonnull %58, i64 %5384) #3
-  %5398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5384) #3
+  %5388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4651, i64 %5385) #3
+  %5389 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %64, i64 %5384) #3
+  %5390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5385) #3
+  %5391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %63, i64 %5384) #3
+  %5392 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %62, i64 %5384) #3
+  %5393 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %61, i64 %5384) #3
+  %5394 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5387) #3
+  %5395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %60, i64 %5384) #3
+  %5396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %59, i64 %5384) #3
+  %5397 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %101, double* elementtype(double) nonnull %58, i64 %5384) #3
+  %5398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5384) #3
   br label %5399
 
 5399:                                             ; preds = %5516, %5386
@@ -7685,22 +7685,22 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %5407 = add i32 %510, %5405
   %5408 = srem i32 %5407, %3
   %5409 = add nsw i32 %5408, 1
-  %5410 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5388, i64 %5400) #3
-  %5411 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5389, i64 %5400) #3
-  %5412 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5390, i64 %5400) #3
-  %5413 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5391, i64 %5400) #3
-  %5414 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5392, i64 %5400) #3
+  %5410 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5388, i64 %5400) #3
+  %5411 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5389, i64 %5400) #3
+  %5412 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5390, i64 %5400) #3
+  %5413 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5391, i64 %5400) #3
+  %5414 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5392, i64 %5400) #3
   %5415 = and i64 %5406, 4294967295
   %5416 = select i1 %5404, i64 1, i64 %5415
-  %5417 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5390, i64 %5416) #3
-  %5418 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5393, i64 %5400) #3
-  %5419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5394, i64 %5400) #3
-  %5420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5395, i64 %5400) #3
-  %5421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5396, i64 %5400) #3
+  %5417 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5390, i64 %5416) #3
+  %5418 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5393, i64 %5400) #3
+  %5419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5394, i64 %5400) #3
+  %5420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5395, i64 %5400) #3
+  %5421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5396, i64 %5400) #3
   %5422 = sext i32 %5409 to i64
-  %5423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5390, i64 %5422) #3
-  %5424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* nonnull %5397, i64 %5400) #3
-  %5425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5398, i64 %5400) #3
+  %5423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5390, i64 %5422) #3
+  %5424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %100, double* elementtype(double) nonnull %5397, i64 %5400) #3
+  %5425 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5398, i64 %5400) #3
   br label %5426
 
 5426:                                             ; preds = %5513, %5403
@@ -7711,81 +7711,81 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %5431 = add i32 %511, %5429
   %5432 = srem i32 %5431, %2
   %5433 = add nsw i32 %5432, 1
-  %5434 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5410, i64 %5427) #3
-  %5435 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5411, i64 %5427) #3
-  %5436 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5412, i64 %5427) #3
-  %5437 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5413, i64 %5427) #3
+  %5434 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5410, i64 %5427) #3
+  %5435 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5411, i64 %5427) #3
+  %5436 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5412, i64 %5427) #3
+  %5437 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5413, i64 %5427) #3
   %5438 = and i64 %5430, 4294967295
   %5439 = select i1 %5428, i64 1, i64 %5438
-  %5440 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5412, i64 %5439) #3
-  %5441 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5414, i64 %5427) #3
-  %5442 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5417, i64 %5427) #3
-  %5443 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5418, i64 %5427) #3
-  %5444 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5419, i64 %5427) #3
-  %5445 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5420, i64 %5427) #3
+  %5440 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5412, i64 %5439) #3
+  %5441 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5414, i64 %5427) #3
+  %5442 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5417, i64 %5427) #3
+  %5443 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5418, i64 %5427) #3
+  %5444 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5419, i64 %5427) #3
+  %5445 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5420, i64 %5427) #3
   %5446 = sext i32 %5433 to i64
-  %5447 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5412, i64 %5446) #3
-  %5448 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5421, i64 %5427) #3
-  %5449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5423, i64 %5427) #3
-  %5450 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %5424, i64 %5427) #3
-  %5451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5425, i64 %5427) #3
+  %5447 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5412, i64 %5446) #3
+  %5448 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5421, i64 %5427) #3
+  %5449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5423, i64 %5427) #3
+  %5450 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %5424, i64 %5427) #3
+  %5451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5425, i64 %5427) #3
   br label %5452
 
 5452:                                             ; preds = %5509, %5426
   %5453 = phi i64 [ 1, %5426 ], [ %5511, %5509 ]
-  %5454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5434, i64 %5453) #3
+  %5454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5434, i64 %5453) #3
   store double 0.000000e+00, double* %5454, align 1, !alias.scope !210, !noalias !213
   br label %5455
 
 5455:                                             ; preds = %5455, %5452
   %5456 = phi i64 [ 1, %5452 ], [ %5507, %5455 ]
   %5457 = phi double [ 0.000000e+00, %5452 ], [ %5506, %5455 ]
-  %5458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5435, i64 %5456) #3
-  %5459 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5458, i64 %5453) #3
+  %5458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5435, i64 %5456) #3
+  %5459 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5458, i64 %5453) #3
   %5460 = load double, double* %5459, align 1, !alias.scope !226, !noalias !227
-  %5461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5436, i64 %5456) #3
+  %5461 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5436, i64 %5456) #3
   %5462 = load double, double* %5461, align 1, !alias.scope !228, !noalias !229
   %5463 = fmul fast double %5462, %5460
   %5464 = fadd fast double %5463, %5457
-  %5465 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5437, i64 %5456) #3
-  %5466 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5465, i64 %5453) #3
+  %5465 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5437, i64 %5456) #3
+  %5466 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5465, i64 %5453) #3
   %5467 = load double, double* %5466, align 1, !alias.scope !230, !noalias !231
-  %5468 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5440, i64 %5456) #3
+  %5468 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5440, i64 %5456) #3
   %5469 = load double, double* %5468, align 1, !alias.scope !228, !noalias !229
   %5470 = fmul fast double %5469, %5467
   %5471 = fadd fast double %5464, %5470
-  %5472 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5441, i64 %5456) #3
-  %5473 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5472, i64 %5453) #3
+  %5472 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5441, i64 %5456) #3
+  %5473 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5472, i64 %5453) #3
   %5474 = load double, double* %5473, align 1, !alias.scope !232, !noalias !233
-  %5475 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5442, i64 %5456) #3
+  %5475 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5442, i64 %5456) #3
   %5476 = load double, double* %5475, align 1, !alias.scope !228, !noalias !229
   %5477 = fmul fast double %5476, %5474
   %5478 = fadd fast double %5471, %5477
-  %5479 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5443, i64 %5456) #3
-  %5480 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5479, i64 %5453) #3
+  %5479 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5443, i64 %5456) #3
+  %5480 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5479, i64 %5453) #3
   %5481 = load double, double* %5480, align 1, !alias.scope !234, !noalias !235
-  %5482 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5444, i64 %5456) #3
+  %5482 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5444, i64 %5456) #3
   %5483 = load double, double* %5482, align 1, !alias.scope !228, !noalias !229
   %5484 = fmul fast double %5483, %5481
   %5485 = fadd fast double %5478, %5484
-  %5486 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5445, i64 %5456) #3
-  %5487 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5486, i64 %5453) #3
+  %5486 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5445, i64 %5456) #3
+  %5487 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5486, i64 %5453) #3
   %5488 = load double, double* %5487, align 1, !alias.scope !236, !noalias !237
-  %5489 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5447, i64 %5456) #3
+  %5489 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5447, i64 %5456) #3
   %5490 = load double, double* %5489, align 1, !alias.scope !228, !noalias !229
   %5491 = fmul fast double %5490, %5488
   %5492 = fadd fast double %5485, %5491
-  %5493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5448, i64 %5456) #3
-  %5494 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5493, i64 %5453) #3
+  %5493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5448, i64 %5456) #3
+  %5494 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5493, i64 %5453) #3
   %5495 = load double, double* %5494, align 1, !alias.scope !238, !noalias !239
-  %5496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5449, i64 %5456) #3
+  %5496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5449, i64 %5456) #3
   %5497 = load double, double* %5496, align 1, !alias.scope !228, !noalias !229
   %5498 = fmul fast double %5497, %5495
   %5499 = fadd fast double %5492, %5498
-  %5500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5450, i64 %5456) #3
-  %5501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5500, i64 %5453) #3
+  %5500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5450, i64 %5456) #3
+  %5501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5500, i64 %5453) #3
   %5502 = load double, double* %5501, align 1, !alias.scope !240, !noalias !241
-  %5503 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5451, i64 %5456) #3
+  %5503 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5451, i64 %5456) #3
   %5504 = load double, double* %5503, align 1, !alias.scope !228, !noalias !229
   %5505 = fmul fast double %5504, %5502
   %5506 = fadd fast double %5499, %5505
@@ -7829,8 +7829,8 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5573, label %5527
 
 5527:                                             ; preds = %5523
-  %5528 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4651, i64 %5524) #3
-  %5529 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5524) #3
+  %5528 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4651, i64 %5524) #3
+  %5529 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5524) #3
   br label %5530
 
 5530:                                             ; preds = %5565, %5527
@@ -7840,25 +7840,25 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5565, label %5534
 
 5534:                                             ; preds = %5530
-  %5535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5528, i64 %5531) #3
-  %5536 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5529, i64 %5531) #3
+  %5535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5528, i64 %5531) #3
+  %5536 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5529, i64 %5531) #3
   br label %5537
 
 5537:                                             ; preds = %5557, %5534
   %5538 = phi i64 [ 1, %5534 ], [ %5560, %5557 ]
   %5539 = phi double [ %5532, %5534 ], [ %5558, %5557 ]
   %5540 = phi double [ %5533, %5534 ], [ %5559, %5557 ]
-  %5541 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5535, i64 %5538) #3
-  %5542 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5536, i64 %5538) #3
+  %5541 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5535, i64 %5538) #3
+  %5542 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5536, i64 %5538) #3
   br label %5543
 
 5543:                                             ; preds = %5543, %5537
   %5544 = phi i64 [ 1, %5537 ], [ %5555, %5543 ]
   %5545 = phi double [ %5539, %5537 ], [ %5552, %5543 ]
   %5546 = phi double [ %5540, %5537 ], [ %5554, %5543 ]
-  %5547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5541, i64 %5544) #3
+  %5547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5541, i64 %5544) #3
   %5548 = load double, double* %5547, align 1, !noalias !127
-  %5549 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5542, i64 %5544) #3
+  %5549 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5542, i64 %5544) #3
   %5550 = load double, double* %5549, align 1, !noalias !127
   %5551 = fmul fast double %5550, %5548
   %5552 = fadd fast double %5551, %5545
@@ -7910,10 +7910,10 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5628, label %5584
 
 5584:                                             ; preds = %5582
-  %5585 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %5583) #3
-  %5586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4655, i64 %5583) #3
-  %5587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5583) #3
-  %5588 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4651, i64 %5583) #3
+  %5585 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %5583) #3
+  %5586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4655, i64 %5583) #3
+  %5587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5583) #3
+  %5588 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4651, i64 %5583) #3
   br label %5589
 
 5589:                                             ; preds = %5624, %5584
@@ -7921,34 +7921,34 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5624, label %5591
 
 5591:                                             ; preds = %5589
-  %5592 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5585, i64 %5590) #3
-  %5593 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5586, i64 %5590) #3
-  %5594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5587, i64 %5590) #3
-  %5595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5588, i64 %5590) #3
+  %5592 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5585, i64 %5590) #3
+  %5593 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5586, i64 %5590) #3
+  %5594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5587, i64 %5590) #3
+  %5595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5588, i64 %5590) #3
   br label %5596
 
 5596:                                             ; preds = %5620, %5591
   %5597 = phi i64 [ 1, %5591 ], [ %5621, %5620 ]
-  %5598 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5592, i64 %5597) #3
-  %5599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5593, i64 %5597) #3
-  %5600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5594, i64 %5597) #3
-  %5601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5595, i64 %5597) #3
+  %5598 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5592, i64 %5597) #3
+  %5599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5593, i64 %5597) #3
+  %5600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5594, i64 %5597) #3
+  %5601 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5595, i64 %5597) #3
   br label %5602
 
 5602:                                             ; preds = %5602, %5596
   %5603 = phi i64 [ 1, %5596 ], [ %5618, %5602 ]
-  %5604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5598, i64 %5603) #3
+  %5604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5598, i64 %5603) #3
   %5605 = load double, double* %5604, align 1, !alias.scope !242, !noalias !243
-  %5606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5599, i64 %5603) #3
+  %5606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5599, i64 %5603) #3
   %5607 = load double, double* %5606, align 1, !noalias !127
   %5608 = fmul fast double %5607, %5331
   %5609 = fadd fast double %5608, %5605
-  %5610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5600, i64 %5603) #3
+  %5610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5600, i64 %5603) #3
   %5611 = load double, double* %5610, align 1, !noalias !127
   %5612 = fmul fast double %5611, %5581
   %5613 = fadd fast double %5609, %5612
   store double %5613, double* %5604, align 1, !alias.scope !242, !noalias !243
-  %5614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5601, i64 %5603) #3
+  %5614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5601, i64 %5603) #3
   %5615 = load double, double* %5614, align 1, !noalias !127
   %5616 = fmul fast double %5615, %5581
   %5617 = fsub fast double %5611, %5616
@@ -7987,7 +7987,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5667, label %5635
 
 5635:                                             ; preds = %5632
-  %5636 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %4654, i64 %5633) #3
+  %5636 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %4654, i64 %5633) #3
   br label %5637
 
 5637:                                             ; preds = %5661, %5635
@@ -7996,19 +7996,19 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5661, label %5640
 
 5640:                                             ; preds = %5637
-  %5641 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5636, i64 %5638) #3
+  %5641 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5636, i64 %5638) #3
   br label %5642
 
 5642:                                             ; preds = %5655, %5640
   %5643 = phi i64 [ 1, %5640 ], [ %5657, %5655 ]
   %5644 = phi double [ %5639, %5640 ], [ %5656, %5655 ]
-  %5645 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5641, i64 %5643) #3
+  %5645 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5641, i64 %5643) #3
   br label %5646
 
 5646:                                             ; preds = %5646, %5642
   %5647 = phi i64 [ 1, %5642 ], [ %5653, %5646 ]
   %5648 = phi double [ %5644, %5642 ], [ %5652, %5646 ]
-  %5649 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5645, i64 %5647) #3
+  %5649 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5645, i64 %5647) #3
   %5650 = load double, double* %5649, align 1, !noalias !127
   %5651 = fmul fast double %5650, %5650
   %5652 = fadd fast double %5651, %5648
@@ -8094,9 +8094,9 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5717, label %5687
 
 5687:                                             ; preds = %5685
-  %5688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %96, i64 %5686)
+  %5688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %96, i64 %5686)
   %5689 = add nsw i64 %5686, -1
-  %5690 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %5689)
+  %5690 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %5689)
   br label %5691
 
 5691:                                             ; preds = %5713, %5687
@@ -8104,21 +8104,21 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5713, label %5693
 
 5693:                                             ; preds = %5691
-  %5694 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5688, i64 %5692)
-  %5695 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5690, i64 %5692)
+  %5694 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5688, i64 %5692)
+  %5695 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5690, i64 %5692)
   br label %5696
 
 5696:                                             ; preds = %5709, %5693
   %5697 = phi i64 [ 1, %5693 ], [ %5710, %5709 ]
-  %5698 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5694, i64 %5697)
-  %5699 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5695, i64 %5697)
+  %5698 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5694, i64 %5697)
+  %5699 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5695, i64 %5697)
   br label %5700
 
 5700:                                             ; preds = %5700, %5696
   %5701 = phi i64 [ %5707, %5700 ], [ 1, %5696 ]
-  %5702 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5698, i64 %5701)
+  %5702 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5698, i64 %5701)
   %5703 = load double, double* %5702, align 1
-  %5704 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5699, i64 %5701)
+  %5704 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5699, i64 %5701)
   %5705 = load double, double* %5704, align 1
   %5706 = fadd fast double %5705, %5703
   store double %5706, double* %5702, align 1
@@ -8162,7 +8162,7 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %467, label %5758, label %5726
 
 5726:                                             ; preds = %5723
-  %5727 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* nonnull %89, i64 %5724)
+  %5727 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %99, double* elementtype(double) nonnull %89, i64 %5724)
   br label %5728
 
 5728:                                             ; preds = %5752, %5726
@@ -8171,19 +8171,19 @@ define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %468, label %5752, label %5731
 
 5731:                                             ; preds = %5728
-  %5732 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* nonnull %5727, i64 %5729)
+  %5732 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %98, double* elementtype(double) nonnull %5727, i64 %5729)
   br label %5733
 
 5733:                                             ; preds = %5746, %5731
   %5734 = phi i64 [ 1, %5731 ], [ %5748, %5746 ]
   %5735 = phi double [ %5730, %5731 ], [ %5747, %5746 ]
-  %5736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %5732, i64 %5734)
+  %5736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %5732, i64 %5734)
   br label %5737
 
 5737:                                             ; preds = %5737, %5733
   %5738 = phi i64 [ %5744, %5737 ], [ 1, %5733 ]
   %5739 = phi double [ %5743, %5737 ], [ %5735, %5733 ]
-  %5740 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %5736, i64 %5738)
+  %5740 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %5736, i64 %5738)
   %5741 = load double, double* %5740, align 1
   %5742 = fmul fast double %5741, %5741
   %5743 = fadd fast double %5742, %5739

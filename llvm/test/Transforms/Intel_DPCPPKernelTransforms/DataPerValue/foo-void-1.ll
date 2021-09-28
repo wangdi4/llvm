@@ -66,7 +66,7 @@ L2:
 ; CHECK: DONE
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 

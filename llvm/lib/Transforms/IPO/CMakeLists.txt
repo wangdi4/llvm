@@ -47,6 +47,7 @@ add_llvm_component_library(LLVMipo
 # INTEL_FEATURE_SW_ADVANCED
   Intel_IPCloning.cpp
   Intel_IPOPrefetch.cpp
+  Intel_IPPredOpt.cpp
 #end INTEL_FEATURE_SW_ADVANCED
 #end INTEL_CUSTOMIZATION
   Utils/Intel_IPOUtils.cpp # INTEL
@@ -115,6 +116,7 @@ add_llvm_component_library(LLVMipo
   Intel_OptReport
   Intel_DPCPPKernelTransforms
 # end INTEL_CUSTOMIZATION
+  Scalar
   )
 
 # INTEL_CUSTOMIZATION

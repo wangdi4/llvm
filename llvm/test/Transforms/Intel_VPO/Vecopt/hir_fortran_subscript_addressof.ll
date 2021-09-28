@@ -43,13 +43,13 @@ define double* @foo_(i32* noalias nocapture readonly %"foo_$NG") local_unnamed_a
 alloca:
   %"foo_$NG_fetch" = load i32, i32* %"foo_$NG", align 4
   %int_sext1 = sext i32 %"foo_$NG_fetch" to i64
-  %"mod1_mp_weight_[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 4112, double* getelementptr inbounds ([1 x [257 x [2 x double]]], [1 x [257 x [2 x double]]]* @mod1_mp_weight_, i64 0, i64 0, i64 0, i64 0), i64 %int_sext1)
+  %"mod1_mp_weight_[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 4112, double* elementtype(double) getelementptr inbounds ([1 x [257 x [2 x double]]], [1 x [257 x [2 x double]]]* @mod1_mp_weight_, i64 0, i64 0, i64 0, i64 0), i64 %int_sext1)
   br label %bb3
 
 bb3:                                              ; preds = %bb3, %alloca
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb3 ], [ 1, %alloca ]
-  %"mod1_mp_weight_[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 16, double* %"mod1_mp_weight_[]", i64 %indvars.iv)
-  %"mod1_mp_weight_[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"mod1_mp_weight_[][]", i64 1)
+  %"mod1_mp_weight_[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 16, double* elementtype(double) %"mod1_mp_weight_[]", i64 %indvars.iv)
+  %"mod1_mp_weight_[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"mod1_mp_weight_[][]", i64 1)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %bb1, label %bb3

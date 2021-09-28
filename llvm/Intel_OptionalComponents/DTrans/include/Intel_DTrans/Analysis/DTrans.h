@@ -20,8 +20,8 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANS_H
 #define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
-#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/MemoryBuiltinsExtras.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerUnion.h"
@@ -1506,19 +1506,6 @@ StringRef getStructName(llvm::Type *Ty);
 /// Check if the last field in the struct type \p Ty is zero-sized array or the
 /// type is zero-size array itself.
 bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
-
-/// Check if the called function has only one basic block that ends with
-/// 'unreachable' instruction.
-bool isDummyFuncWithUnreachable(const CallBase *Call,
-                                const TargetLibraryInfo &TLI);
-/// Check if the called function has two arguments ('this' pointer and an
-/// integer size) and is dummy.
-bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
-                                   const TargetLibraryInfo &TLI);
-/// Check if the called function has two arguments ('this' pointer and a
-/// pointer) and is dummy.
-bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
-                                   const TargetLibraryInfo &TLI);
 
 // Returns true if Ty is either StructType or SequentialType.
 bool dtransIsCompositeType(llvm::Type *Ty);

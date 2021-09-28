@@ -22,7 +22,7 @@
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:  %red.var = 0;
 ; CHECK-NEXT:  %red.var = insertelement %red.var,  %no.addr.022,  0;
-; CHECK-NEXT:  DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:   %.vec7 = undef;
 ; CHECK-NEXT:   %.vec = (<4 x i32>*)(@e2)[0][-1 * i1 + 97];
 ; CHECK-NEXT:   %reverse = shufflevector %.vec,  undef,  <i32 3, i32 2, i32 1, i32 0>;
@@ -38,7 +38,7 @@
 ; CHECK-NEXT:   %reverse10 = shufflevector %reverse8,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; CHECK-NEXT:   (<4 x i32>*)(@d)[0][-1 * i1 + 97] = %reverse10; Mask = @{%reverse9}
 ; CHECK-NEXT:  END LOOP
-; CHECK-NEXT:  %no.addr.022 = @llvm.vector.reduce.add.v4i32(%red.var);
+; CHECK:       %no.addr.022 = @llvm.vector.reduce.add.v4i32(%red.var);
 ; CHECK-NEXT: END REGION
 source_filename = "ts.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

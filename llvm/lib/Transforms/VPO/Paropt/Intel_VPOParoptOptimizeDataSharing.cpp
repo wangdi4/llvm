@@ -1,6 +1,6 @@
 //===----------------- Intel_VPOParoptOptimizeDataSharing -----------------===//
 //
-//   Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -42,7 +42,7 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #endif  // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -76,6 +76,8 @@ static cl::opt<bool> ForceDataSharingOptForReduction(
 static cl::opt<int> DataSharingOptNumCase(
     "vpo-paropt-opt-data-sharing-num-case", cl::Hidden, cl::init(-1),
     cl::desc("Maximum number of optimized clause items"));
+
+extern cl::opt<bool> FastReductionGPULocalUpdate;
 
 #define DEBUG_TYPE "vpo-paropt-optimize-data-sharing"
 #define PASS_NAME "VPO Paropt Optimize Data Sharing"
@@ -389,9 +391,59 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
           PrivOptimizableItems.insert(Item->getOrig());
     }
     if (W->canHaveFirstprivate()) {
-      for (auto *Item : W->getFpriv().items())
+      for (auto *Item : W->getFpriv().items()) {
+        if (MapItem *MapI = Item->getInMap()) {
+          // FEs sometimes put variables both into MAP and FIRSTPRIVATE
+          // clauses. Sometimes the map type is not compatible with
+          // FIRSTPRIVATE, so trying to rely on FIRSTPRIVATE:WILOCAL
+          // will be completely incorrect.
+          //
+          // For example if foo() below is a member function of
+          // some class, and _p is a member of this class, CFE will
+          // put 'this' pointer into a FIRSTPRIVATE clause and
+          // a MAP clause with map type (OMP_TGT_MAPTYPE_TO |
+          // OMP_TGT_MAPTYPE_FROM | OMP_TGT_MAPTYPE_TARGET_PARAM |
+          // OMP_TGT_MAPTYPE_IMPLICIT).
+          //
+          // void foo(int *p) {
+          // #pragma omp target
+          //   _p = p;
+          // }
+          //
+          // In general, Paropt does not do privatization for
+          // FIRSTPRIVATE items that are also referenced in MAP clauses,
+          // but in some cases we do want to apply privatization, e.g.
+          // when it is a WILOCAL FIRSTPRIVATE item. By replacing
+          // all references inside the target region to the new private
+          // copy we make all the accesses to the object explicit,
+          // providing better disambiguation with accesses to other
+          // objects. The private copy will be registerized, in general,
+          // so it has relatively low cost.
+          //
+          // But we cannot apply privatization for the case above
+          // just based on the fact that the item is WILOCAL FIRSTPRIVATE.
+          // In order to avoid checking the MAP clauses at the point
+          // of privatization we just avoid setting WILOCAL for items
+          // that are referenced in MAP clauses with conflicting map types.
+          assert(MapI->getIsMapChain() &&
+                 "Paropt only supports map chains now.");
+          // I believe FIRSTPRIVATE pointers may only be
+          // referenced by chain heads, so we need to check
+          // the map type of the chain head.
+          MapAggrTy *AggrHead = MapI->getMapChain()[0];
+          // Only handle MAPs with explicit map types,
+          // otherwise, be conservative.
+          if (!AggrHead->hasExplicitMapType())
+            continue;
+          uint64_t MapType = AggrHead->getMapType();
+          // If map type does not have TGT_MAP_PRIVATE bit, then
+          // do not optimize such items.
+          if ((MapType & TGT_MAP_PRIVATE) == 0)
+            continue;
+        }
         if (!MaybeModifiedByEnclosedRegion(W, Item->getOrig()))
           FprivOptimizableItems.insert(Item->getOrig());
+      }
     }
 
     if (PrivOptimizableItems.empty() && FprivOptimizableItems.empty())
@@ -416,55 +468,84 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
     SmallVector<OperandBundleDef, 16> NewOpBundles;
     bool ModifierAdded = false;
 
-    for (unsigned OI = 0; OI < OpBundles.size(); ++OI) {
-      StringRef ClauseString = OpBundles[OI].getTag();
-      const char *Modifier = "";
-      // Some clauses, e.g. PRIVATE, may contain more than one item.
-      // In order to keep IR untouched as much as possible, we want
-      // to keep the original order of items. To do this for
-      // clauses with multiple items we need to break them
-      // into multiple clauses with single items. We do not support
-      // this by the initial implementation.
-      if (OpBundles[OI].input_size() == 1) {
-        Value *ClauseItem = OpBundles[OI].inputs()[0];
+    for (const auto &Bundle : OpBundles) {
+      StringRef ClauseString = Bundle.getTag();
+      SmallPtrSet<Value *, 8> *OptimizableItems = nullptr;
+      bool CheckOnlyFirstBundleOperand = false;
 
-        if (VPOAnalysisUtils::getClauseID(ClauseString) == QUAL_OMP_PRIVATE &&
-            PrivOptimizableItems.count(ClauseItem) != 0) {
-          // This is a PRIVATE clause with an optimizable item.
-          LLVM_DEBUG(dbgs() << "Will transform: " << *ClauseItem << "\n");
-          // If the clause already has some modifiers, then we need
-          // to use '.' separator, otherwise, add a new modifier
-          // using ':' separator.
-          if (ClauseString.find(':') != StringRef::npos)
-            Modifier = ".WILOCAL";
-          else
-            Modifier = ":WILOCAL";
-        } else if (VPOAnalysisUtils::getClauseID(ClauseString) ==
-                       QUAL_OMP_FIRSTPRIVATE &&
-                   FprivOptimizableItems.count(ClauseItem) != 0) {
-          // This is a FIRSTPRIVATE clause with an optimizable item.
-          LLVM_DEBUG(dbgs() << "Will transform: " << *ClauseItem << "\n");
-          if (ClauseString.find(':') != StringRef::npos)
-            Modifier = ".WILOCAL";
-          else
-            Modifier = ":WILOCAL";
+      if (VPOAnalysisUtils::isOpenMPClause(ClauseString)) {
+        ClauseSpecifier ClauseInfo(ClauseString);
+        int ClauseId = ClauseInfo.getId();
+
+        switch (ClauseId) {
+        case QUAL_OMP_PRIVATE:
+          OptimizableItems = &PrivOptimizableItems;
+          break;
+        case QUAL_OMP_FIRSTPRIVATE:
+          OptimizableItems = &FprivOptimizableItems;
+          break;
         }
 
-        if (Modifier[0] != '\0') {
-          if (DataSharingOptNumCase >= 0 &&
-              NumOptimizedItems >= DataSharingOptNumCase) {
-            Modifier = "";
-          } else {
-            ++NumOptimizedItems;
-            ModifierAdded = true;
-            Changed = true;
-          }
-        }
+        // TODO: figure out how to optimize these cases.
+        if (ClauseInfo.getIsByRef() || ClauseInfo.getIsF90DopeVector() ||
+            ClauseInfo.getIsF90NonPod())
+          OptimizableItems = nullptr;
+
+        // NONPOD and TYPED [FIRST]PRIVATE clauses have multiple
+        // inputs in their operand bundles, but only the first
+        // input is the pointer value that we may treat as WILOCAL.
+        // The rest of the inputs are auxiliary values that do not affect
+        // WILOCAL property, so we do not need to check them agains
+        // OptimizableItems set. We just need to preserve them as-is.
+        if (ClauseInfo.getIsNonPod() || ClauseInfo.getIsTyped())
+          CheckOnlyFirstBundleOperand = true;
       }
 
-      OperandBundleDef B(ClauseString.str() + Modifier,
-                         OpBundles[OI].inputs());
-      NewOpBundles.push_back(B);
+      // If this clause is not optimizable or if this bundle is not a clause,
+      // then just add it as is.
+      if (!OptimizableItems) {
+        NewOpBundles.emplace_back(Bundle);
+        continue;
+      }
+
+      // If the clause already has some modifiers, then we need to use '.'
+      // separator, otherwise, add a new modifier using ':' separator.
+      const char *WILocal =
+          ClauseString.find(':') != StringRef::npos ? ".WILOCAL" : ":WILOCAL";
+
+      // Create new bundles for this clause preserving the original items order.
+      SmallVector<Value *, 8> NewItems;
+      const char *NewModifier = nullptr;
+      auto AddBundle = [&]() {
+        std::string NewTag = ClauseString.str();
+        if (NewModifier) {
+          NewTag += NewModifier;
+          ModifierAdded = true;
+        }
+        NewOpBundles.emplace_back(NewTag, NewItems);
+        NewItems.clear();
+        NewModifier = nullptr;
+      };
+      for (Value *ClauseItem : Bundle.inputs()) {
+        if (CheckOnlyFirstBundleOperand && !NewItems.empty()) {
+          // Preserve the auxiliary inputs as-is (e.g. for NONPOD/TYPED
+          // clauses).
+          NewItems.push_back(ClauseItem);
+          continue;
+        }
+
+        const char *ItemModifier = nullptr;
+        if (OptimizableItems->contains(ClauseItem)) {
+          LLVM_DEBUG(dbgs() << "Will transform: " << *ClauseItem << "\n");
+          ItemModifier = WILocal;
+        }
+        if (!NewItems.empty() && NewModifier != ItemModifier)
+          AddBundle();
+        NewItems.push_back(ClauseItem);
+        NewModifier = ItemModifier;
+      }
+      if (!NewItems.empty())
+        AddBundle();
     }
 
     if (!ModifierAdded)
@@ -481,6 +562,7 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
     NewEntryCI->setCallingConv(EntryCI->getCallingConv());
     NewEntryCI->setAttributes(EntryCI->getAttributes());
     NewEntryCI->setDebugLoc(EntryCI->getDebugLoc());
+    NewEntryCI->copyMetadata(*EntryCI);
     EntryCI->replaceAllUsesWith(NewEntryCI);
     EntryCI->eraseFromParent();
     W->setEntryDirective(NewEntryCI);
@@ -518,6 +600,19 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
 
   if (!EnableDataSharingOptForReduction || !isTargetSPIRV())
     return Changed;
+
+  // We cannot perform data sharing opt when GPU fast reduction local update
+  // loop is generated because it needs TEAMS local reductions values to stay
+  // and their respective atomic updates to be emiited. Otherwise ParLoop's
+  // local updates will update cross-WG accumulators in a non-thread-safe
+  // manner causing dataraces.
+  if (FastReductionGPULocalUpdate) {
+    OptimizationRemark R(
+        "openmp", "Ignored OptDataSharing as fast GPU reduction is enabled", F);
+    R << " OptDataSharing as fast GPU reduction is enabled";
+    F->getContext().diagnose(R);
+    return Changed;
+  }
 
   initializeBlocksToRegionsMap(BBToWRNMap);
 

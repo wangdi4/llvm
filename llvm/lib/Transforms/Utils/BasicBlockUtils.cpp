@@ -778,8 +778,10 @@ static BasicBlock *SplitBlockImpl(BasicBlock *Old, Instruction *SplitPt,
                             BBName);
   }
   BasicBlock::iterator SplitIt = SplitPt->getIterator();
-  while (isa<PHINode>(SplitIt) || SplitIt->isEHPad())
+  while (isa<PHINode>(SplitIt) || SplitIt->isEHPad()) {
     ++SplitIt;
+    assert(SplitIt != SplitPt->getParent()->end());
+  }
   std::string Name = BBName.str();
   BasicBlock *New = Old->splitBasicBlock(
       SplitIt, Name.empty() ? Old->getName() + ".split" : Name);
@@ -1690,8 +1692,8 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
 /// We replace the 3-argument function with a call to the 4-argument function.
 /// Any changes made to the open-source 3-argument function will need to be
 /// merged properly.
-Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
-                             BasicBlock *&IfFalse) {
+BranchInst *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
+                                 BasicBlock *&IfFalse) {
   PHINode *SomePHI = dyn_cast<PHINode>(BB->begin());
   BasicBlock *Pred1 = nullptr;
 
@@ -1727,8 +1729,8 @@ Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
 ///
 /// This does no checking to see if the true/false blocks have large or
 /// unsavory instructions in them.
-Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
-                            BasicBlock *&IfTrue, BasicBlock *&IfFalse) {
+BranchInst *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
+                                 BasicBlock *&IfTrue, BasicBlock *&IfFalse) {
   BranchInst *PredBr = dyn_cast<BranchInst>(Pred->getTerminator());
   BasicBlock *CommonPred = nullptr;
   BranchInst *CommonPredBr = nullptr;
@@ -1805,7 +1807,7 @@ Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
     }
   }
 
-  return CommonPredBr->getCondition();
+  return CommonPredBr;
 }
 #endif //INTEL_CUSTOMIZATION
 

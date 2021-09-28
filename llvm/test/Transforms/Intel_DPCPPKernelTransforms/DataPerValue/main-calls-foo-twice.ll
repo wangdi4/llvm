@@ -27,7 +27,7 @@ target triple = "x86_64-pc-win32"
 ; CHECK: @main
 define void @main(i64 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %lid = call i64 @_Z12get_local_idj(i32 0)
   %y = xor i64 %x, %lid
 br label %L2
@@ -36,17 +36,17 @@ L2:
   %r1 = call i64 @foo(i64 %y)
   br label %L2A
 L2A:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %L3
 L3:
   call void @_Z18work_group_barrierj(i32 1)
   %r2 = call i64 @foo(i64 %r1)
   br label %L3B
 L3B:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 ; CHECK: L1:
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   %lid = call i64 @_Z12get_local_idj(i32 0)
 ; CHECK:   %y = xor i64 %x, %lid
 ; CHECK: br label %L2
@@ -55,28 +55,28 @@ L3B:
 ; CHECK:   %r1 = call i64 @foo(i64 %y)
 ; CHECK:   br label %L2A
 ; CHECK: L2A:
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   br label %L3
 ; CHECK: L3:
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
 ; CHECK:   %r2 = call i64 @foo(i64 %r1)
 ; CHECK:   br label %L3B
 ; CHECK: L3B:
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret void
 }
 
 ; CHECK: @foo
 define i64 @foo(i64 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %y = xor i64 %x, %x
   br label %L2
 L2:
   call void @_Z18work_group_barrierj(i32 2)
   ret i64 %y
 ; CHECK: L1:
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   %y = xor i64 %x, %x
 ; CHECK:   br label %L2
 ; CHECK: L2:
@@ -107,7 +107,7 @@ L2:
 
 declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 !opencl.build.options = !{}

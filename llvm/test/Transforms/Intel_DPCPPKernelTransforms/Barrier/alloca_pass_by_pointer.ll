@@ -31,7 +31,7 @@ entry:
 ; CHECK: %dst.addr.addr = alloca i32 addrspace(1)**
 ; CHECK: %x.addr.addr = alloca i32 addrspace(3)**
 ; CHECK: %lid.addr.addr = alloca i32**
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %dst.addr = alloca i32 addrspace(1)*, align 8
   %x.addr = alloca i32 addrspace(3)*, align 8
   %lid.addr = alloca i32*, align 8
@@ -84,7 +84,7 @@ entry:
 ; CHECK: %dst.addr.addr = alloca i32 addrspace(1)**
 ; CHECK: %x.addr.addr = alloca i32 addrspace(3)**
 ; CHECK: %lid.addr = alloca i32*
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %dst.addr = alloca i32 addrspace(1)*, align 8
   %x.addr = alloca i32 addrspace(3)*, align 8
   %lid = alloca i32, align 4
@@ -115,7 +115,7 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB2"
@@ -126,7 +126,7 @@ entry:
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32) #3
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 attributes #0 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }

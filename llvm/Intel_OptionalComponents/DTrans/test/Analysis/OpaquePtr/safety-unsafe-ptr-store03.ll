@@ -9,7 +9,7 @@
 
 
 %struct.test01 = type { i32* }
-define internal void @test01(%struct.test01* %pStruct) !dtrans_type !2 {
+define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
   %mem = call i8* @malloc(i64 128)
   %pStruct.as.pp8 = bitcast %struct.test01* %pStruct to i8**
   store i8* %mem, i8** %pStruct.as.pp8
@@ -23,7 +23,7 @@ define internal void @test01(%struct.test01* %pStruct) !dtrans_type !2 {
 
 
 %struct.test02 = type { i32* }
-define internal void @test02(%struct.test02* %pStruct) !dtrans_type !6 {
+define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
   %local = alloca i16
   %pStruct.as.pp16 = bitcast %struct.test02* %pStruct to i16**
   store i16* %local, i16** %pStruct.as.pp16
@@ -35,7 +35,7 @@ define internal void @test02(%struct.test02* %pStruct) !dtrans_type !6 {
 
 
 %struct.test03 = type { i32*, i32* }
-define internal void @test03(%struct.test03* %pStruct) !dtrans_type !9 {
+define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !7 {
   %local = alloca i64
   %pStruct.as.pp64 = bitcast %struct.test03* %pStruct to i64**
   store i64* %local, i64** %pStruct.as.pp64
@@ -45,21 +45,19 @@ define internal void @test03(%struct.test03* %pStruct) !dtrans_type !9 {
 ; CHECK: Name: struct.test03
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
 
-declare i8* @malloc(i64)
+declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 !1 = !{i32 0, i32 1}  ; i32*
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (%struct.test01*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{!"F", i1 false, i32 1, !3, !7}  ; void (%struct.test02*)
-!7 = !{!8, i32 1}  ; %struct.test02*
-!8 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!9 = !{!"F", i1 false, i32 1, !3, !10}  ; void (%struct.test03*)
-!10 = !{!11, i32 1}  ; %struct.test03*
-!11 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
-!12 = !{!"S", %struct.test01 zeroinitializer, i32 1, !1} ; { i32* }
-!13 = !{!"S", %struct.test02 zeroinitializer, i32 1, !1} ; { i32* }
-!14 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32*, i32* }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2}
+!4 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!5 = distinct !{!4}
+!6 = !{%struct.test03 zeroinitializer, i32 1}  ; %struct.test03*
+!7 = distinct !{!6}
+!8 = !{i8 0, i32 1}  ; i8*
+!9 = distinct !{!8}
+!10 = !{!"S", %struct.test01 zeroinitializer, i32 1, !1} ; { i32* }
+!11 = !{!"S", %struct.test02 zeroinitializer, i32 1, !1} ; { i32* }
+!12 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32*, i32* }
 
-!dtrans_types = !{!12, !13, !14}
+!intel.dtrans.types = !{!10, !11, !12}

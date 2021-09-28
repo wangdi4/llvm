@@ -13,6 +13,7 @@
 #ifndef LLVM_SUPPORT_X86TARGETPARSER_H
 #define LLVM_SUPPORT_X86TARGETPARSER_H
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 
@@ -86,6 +87,11 @@ enum CPUKind {
   CK_Goldmont,
   CK_GoldmontPlus,
   CK_Tremont,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GRT
+  CK_Gracemont,
+#endif // INTEL_FEATURE_CPU_GRT
+#endif // INTEL_CUSTOMIZATION
   CK_Nehalem,
   CK_Westmere,
   CK_SandyBridge,
@@ -159,6 +165,9 @@ void getFeaturesForCPU(StringRef CPU, SmallVectorImpl<StringRef> &Features);
 /// by the provided \p Feature.
 void updateImpliedFeatures(StringRef Feature, bool Enabled,
                            StringMap<bool> &Features);
+
+uint64_t getCpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
+unsigned getFeaturePriority(ProcessorFeatures Feat);
 
 } // namespace X86
 } // namespace llvm

@@ -16,6 +16,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
@@ -24,6 +25,12 @@
 
 namespace llvm {
 
+// A tuple of three strings:
+// 1. scalar variant name
+// 2. "kernel-call-once" | ""
+// 3. mangled vector variant name
+using VectItem = std::tuple<const char *, const char *, const char *>;
+
 enum class SyncType { None, Barrier, DummyBarrier, Fiber };
 
 namespace KernelAttribute {
@@ -31,8 +38,11 @@ namespace KernelAttribute {
 extern const StringRef CallOnce;
 extern const StringRef CallParamNum;
 extern const StringRef ConvergentCall;
+extern const StringRef HasSubGroups;
 extern const StringRef HasVPlanMask;
+extern const StringRef OCLVecUniformReturn;
 extern const StringRef RecursionWithBarrier;
+extern const StringRef UniformCall;
 extern const StringRef VectorVariants;
 
 inline StringRef getAttributeAsString(const Function &F, StringRef Attr) {
@@ -79,24 +89,24 @@ enum AddressSpace {
 enum class BarrierType { NoScope, WithScope };
 
 struct PipeKind {
-  enum ScopeKind { SK_WorkItem, SK_WorkGroup, SK_SubGroup };
+  enum class ScopeKind { WorkItem, WorkGroup, SubGroup };
 
   /// Access direction: read or write. Note that this direction also applies
   /// to 'commit' and 'reserve' operations.
-  enum AccessKind { AK_Read, AK_Write };
+  enum class AccessKind { Read, Write };
 
   /// Operation which is performed on a pipe object.
-  enum OpKind {
-    OK_None,             ///< not a pipe built-in
-    OK_ReadWrite,        ///< actual read or write
-    OK_ReadWriteReserve, ///< read or write with reserve_id
-    OK_Reserve,          ///< reserve operation
-    OK_Commit            ///< commit operation
+  enum class OpKind {
+    None,             ///< not a pipe built-in
+    ReadWrite,        ///< actual read or write
+    ReadWriteReserve, ///< read or write with reserve_id
+    Reserve,          ///< reserve operation
+    Commit            ///< commit operation
   };
 
   ScopeKind Scope;
   AccessKind Access;
-  OpKind Op = OK_None;
+  OpKind Op = OpKind::None;
   bool Blocking = false;
   bool IO = false;
   bool FPGA = false;
@@ -108,7 +118,7 @@ struct PipeKind {
            SimdSuffix == LHS.SimdSuffix && FPGA == LHS.FPGA;
   }
 
-  operator bool() const { return Op != OK_None; }
+  operator bool() const { return Op != OpKind::None; }
 };
 
 namespace OclVersion {
@@ -121,8 +131,16 @@ enum {
 };
 } // namespace OclVersion
 
+/// Helpful shortcuts for structures.
 /// We use a SetVector to ensure determinstic iterations.
+using BBSet = SetVector<BasicBlock *>;
 using FuncSet = SetVector<Function *>;
+using InstSet = SetVector<Instruction *>;
+using BBVec = SmallVector<BasicBlock *, 16>;
+using FuncVec = SmallVector<Function *, 16>;
+using InstVec = SmallVector<Instruction *, 4>;
+using InstVecVec = SmallVector<InstVec, 4>;
+using ValueVec = SmallVector<Value *, 4>;
 
 /// Return true if this alloca instruction is created by ImplicitGID Pass.
 bool isImplicitGID(AllocaInst *AI);
@@ -203,8 +221,11 @@ bool isGetSpecialBuffer(StringRef S);
 /// Return true if string is printf.
 bool isPrintf(StringRef S);
 
-/// Return pipe kind for S.
-PipeKind getPipeKind(StringRef S);
+/// Return pipe kind from builtin name.
+PipeKind getPipeKind(StringRef Name);
+
+/// Returns pipe builtin name of a kind.
+std::string getPipeName(PipeKind);
 
 /// Return true if string is name of work-item pipe builtin.
 bool isWorkItemPipeBuiltin(StringRef S);
@@ -235,6 +256,7 @@ bool isWorkGroupMin(StringRef S);
 bool isWorkGroupMax(StringRef S);
 bool isAsyncWorkGroupCopy(StringRef S);
 bool isAsyncWorkGroupStridedCopy(StringRef S);
+bool isWorkGroupBarrier(StringRef S);
 /// }@
 
 /// Returns true if \p S is a name of workgroup builtin, and it's uniform inside
@@ -275,6 +297,9 @@ PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy);
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists = false);
 
+/// Returns the mangled name of the function atomic_work_item_fence.
+std::string mangledAtomicWorkItemFence();
+
 /// Returns the mangled name of the function get_global_id.
 std::string mangledGetGID();
 
@@ -290,7 +315,7 @@ std::string mangledGetLID();
 /// Returns the mangled name of the function get_group_id.
 std::string mangledGetGroupID();
 
-/// Returns the mangled name of the function get_local_size
+/// Returns the mangled name of the function get_local_size.
 std::string mangledGetLocalSize();
 
 /// Returns the mangled name of the function get_enqueued_local_size.
@@ -310,8 +335,20 @@ std::string mangledWGBarrier(BarrierType BT);
 ///     void sub_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
 std::string mangledSGBarrier(BarrierType BT);
 
+/// Returns the mangled name of the function get_num_sub_groups.
+std::string mangledNumSubGroups();
+
+/// Returns the mangled name of the function get_sub_group_id.
+std::string mangledGetSubGroupId();
+
+/// Returns the mangled name of the function get_enqueued_num_sub_groups.
+std::string mangledEnqueuedNumSubGroups();
+
 /// Returns the mangled name of the function get_sub_group_size.
 std::string mangledGetSubGroupSize();
+
+/// Returns the mangled name of the function get_max_sub_group_size.
+std::string mangledGetMaxSubGroupSize();
 
 /// Returns the mangled name of the function get_sub_group_local_id.
 std::string mangledGetSubGroupLocalId();
@@ -354,8 +391,11 @@ bool isSubGroupUniform(StringRef S);
 /// (divergent) inside a subgroup.
 bool isSubGroupDivergent(StringRef S);
 
-// Returns true if \p S is a name of subgroup builtin.
+/// Returns true if \p S is a name of subgroup builtin.
 bool isSubGroupBuiltin(StringRef S);
+
+/// Returns true if \p S is the name of subgroup barrier.
+bool isSubGroupBarrier(StringRef S);
 
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
@@ -450,8 +490,10 @@ void getImplicitArgs(Function *F, Value **LocalMem, Value **WorkDim,
 /// \param Idx The ImplicitArgsUtils::ImplicitArg index of the requested global.
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx);
 
-/// This function can only be used when ToBB is Entry block.
-void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB);
+/// Move instructions, which meets the requirements of Predicate, from FromBB to
+/// ToBB.
+void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
+                       function_ref<bool(Instruction &)> Predicate);
 
 /// Fills a vector of KernelArgument with arguments representing F's SYCL/OpenCL
 /// level arguments.
@@ -474,6 +516,26 @@ void updateFunctionMetadata(Module *M,
 void updateMetadataTreeWithNewFuncs(
     Module *M, DenseMap<Function *, Function *> &FunctionMap,
     MDNode *MDTreeNode, SmallSet<MDNode *, 8> &Visited);
+
+inline bool hasByvalByrefArgs(Function *F) {
+  if (!F)
+    return false;
+  return llvm::any_of(F->args(), [](auto &Arg) {
+    return Arg.hasByValAttr() || Arg.hasByRefAttr();
+  });
+}
+
+/// Whether the CallGraphNode `Node` contains a call to the function that
+/// satisfies the given `Condition`. This will perform a DFS on the CallGraph.
+/// Returns true if `Node->getFunction()` calls target function
+/// directly/indirectly.
+bool hasFunctionCallInCGNodeSatisfiedWith(
+    CallGraphNode *Node, function_ref<bool(Function *)> Condition);
+
+void initializeVectInfoOnce(
+    ArrayRef<VectItem> VectInfos,
+    std::vector<std::tuple<std::string, std::string, std::string>>
+        &ExtendedVectInfos);
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm

@@ -52,14 +52,14 @@ attributes #0 = { nounwind }
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store double 0xFFF0000000000000, double* [[A3]], align 8
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- [[A4:%AllocaWGResult[0-9]*]] = alloca float, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store float 0xFFF0000000000000, float* [[A4]], align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store float 0xFFF0000000000000, float* [[A4]], align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store double 0xFFF0000000000000, double* [[A3]], align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store float 0x7FF0000000000000, float* [[A2]], align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store double 0x7FF0000000000000, double* [[A1]], align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummy_barrier.()
 
 ; DEBUGIFY-NOT: WARNING

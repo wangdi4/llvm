@@ -139,13 +139,7 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
     return;
   }
 
-  // Special case since there is no attribute class for 64-bit and VEX
-  if (Name == "VMASKMOVDQU64") {
-    ShouldBeEmitted = false;
-    return;
-  }
-
-  ShouldBeEmitted  = true;
+  ShouldBeEmitted = true;
 }
 
 void RecognizableInstr::processInstr(DisassemblerTables &tables,
@@ -281,6 +275,11 @@ InstructionContext RecognizableInstr::insnContext() const {
       insnContext = IC_VEX_L_OPSIZE;
     else if (OpPrefix == X86Local::PD && HasVEX_W)
       insnContext = IC_VEX_W_OPSIZE;
+    else if (OpPrefix == X86Local::PD && Is64Bit &&
+             AdSize == X86Local::AdSize32)
+      insnContext = IC_64BIT_VEX_OPSIZE_ADSIZE;
+    else if (OpPrefix == X86Local::PD && Is64Bit)
+      insnContext = IC_64BIT_VEX_OPSIZE;
     else if (OpPrefix == X86Local::PD)
       insnContext = IC_VEX_OPSIZE;
     else if (HasVEX_LPrefix && OpPrefix == X86Local::XS)
@@ -830,9 +829,9 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::XOP9:      opcodeType = XOP9_MAP;      break;
   case X86Local::XOPA:      opcodeType = XOPA_MAP;      break;
   case X86Local::ThreeDNow: opcodeType = THREEDNOW_MAP; break;
+  case X86Local::T_MAP5:    opcodeType = MAP5;          break;
+  case X86Local::T_MAP6:    opcodeType = MAP6;          break;
 #if INTEL_CUSTOMIZATION
-  case X86Local::T_MAP5:    opcodeType = THREEBYTE_39;  break;
-  case X86Local::T_MAP6:    opcodeType = THREEBYTE_3B;  break;
 #if INTEL_FEATURE_ISA_DSPV1
   case X86Local::T_MAP8:    opcodeType = MAP8;          break;
 #endif // INTEL_FEATURE_ISA_DSPV1
@@ -997,19 +996,13 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("FR64X",               TYPE_XMM)
   TYPE("f64mem",              TYPE_M)
   TYPE("sdmem",               TYPE_M)
-#if INTEL_CUSTOMIZATION
   TYPE("FR16X",               TYPE_XMM)
-#endif // INTEL_CUSTOMIZATION
   TYPE("FR32",                TYPE_XMM)
   TYPE("FR32X",               TYPE_XMM)
   TYPE("f32mem",              TYPE_M)
-#if INTEL_CUSTOMIZATION
   TYPE("f16mem",              TYPE_M)
-#endif // INTEL_CUSTOMIZATION
   TYPE("ssmem",               TYPE_M)
-#if INTEL_CUSTOMIZATION
   TYPE("shmem",               TYPE_M)
-#endif // INTEL_CUSTOMIZATION
   TYPE("RST",                 TYPE_ST)
   TYPE("RSTi",                TYPE_ST)
   TYPE("i128mem",             TYPE_M)
@@ -1137,9 +1130,7 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("FR128",           ENCODING_IB)
   ENCODING("VR128",           ENCODING_IB)
   ENCODING("VR256",           ENCODING_IB)
-#if INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_IB)
-#endif // INTEL_CUSTOMIZATION
   ENCODING("FR32X",           ENCODING_IB)
   ENCODING("FR64X",           ENCODING_IB)
   ENCODING("VR128X",          ENCODING_IB)
@@ -1173,9 +1164,7 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("FR32",            ENCODING_RM)
   ENCODING("FR64X",           ENCODING_RM)
   ENCODING("FR32X",           ENCODING_RM)
-#if INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_RM)
-#endif // INTEL_CUSTOMIZATION
   ENCODING("VR64",            ENCODING_RM)
   ENCODING("VR256",           ENCODING_RM)
   ENCODING("VR256X",          ENCODING_RM)
@@ -1197,10 +1186,10 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   ENCODING("TILEX",           ENCODING_RM)
-  ENCODING("TILEPAIRX",       ENCODING_RM)
+  ENCODING("TILEPairX",       ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
-  ENCODING("TILEPAIR",        ENCODING_RM)
+  ENCODING("TILEPair",        ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_RM)
@@ -1232,9 +1221,7 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("VR128X",          ENCODING_REG)
   ENCODING("FR64X",           ENCODING_REG)
   ENCODING("FR32X",           ENCODING_REG)
-#if INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_REG)
-#endif // INTEL_CUSTOMIZATION
   ENCODING("VR512",           ENCODING_REG)
   ENCODING("VK1",             ENCODING_REG)
   ENCODING("VK2",             ENCODING_REG)
@@ -1284,9 +1271,7 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("FR64",            ENCODING_VVVV)
   ENCODING("VR128",           ENCODING_VVVV)
   ENCODING("VR256",           ENCODING_VVVV)
-#if INTEL_CUSTOMIZATION
   ENCODING("FR16X",           ENCODING_VVVV)
-#endif // INTEL_CUSTOMIZATION
   ENCODING("FR32X",           ENCODING_VVVV)
   ENCODING("FR64X",           ENCODING_VVVV)
   ENCODING("VR128X",          ENCODING_VVVV)
@@ -1308,10 +1293,10 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   ENCODING("TILEX",           ENCODING_VVVV)
-  ENCODING("TILEPAIRX",       ENCODING_VVVV)
+  ENCODING("TILEPairX",       ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
-  ENCODING("TILEPAIR",        ENCODING_VVVV)
+  ENCODING("TILEPair",        ENCODING_VVVV)
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1340,9 +1325,7 @@ RecognizableInstr::memoryEncodingFromString(const std::string &s,
   ENCODING("i32mem",          ENCODING_RM)
   ENCODING("i64mem",          ENCODING_RM)
   ENCODING("i8mem",           ENCODING_RM)
-#if INTEL_CUSTOMIZATION
   ENCODING("shmem",           ENCODING_RM)
-#endif // INTEL_CUSTOMIZATION
   ENCODING("ssmem",           ENCODING_RM)
   ENCODING("sdmem",           ENCODING_RM)
   ENCODING("f128mem",         ENCODING_RM)
@@ -1350,9 +1333,7 @@ RecognizableInstr::memoryEncodingFromString(const std::string &s,
   ENCODING("f512mem",         ENCODING_RM)
   ENCODING("f64mem",          ENCODING_RM)
   ENCODING("f32mem",          ENCODING_RM)
-#if INTEL_CUSTOMIZATION
   ENCODING("f16mem",          ENCODING_RM)
-#endif // INTEL_CUSTOMIZATION
   ENCODING("i128mem",         ENCODING_RM)
   ENCODING("i256mem",         ENCODING_RM)
   ENCODING("i512mem",         ENCODING_RM)

@@ -59,7 +59,12 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   //
   // For SYCL, the mangled type name is attached, so it can be
   // reflown to proper name later.
-  if (getContext().getLangOpts().SYCLIsDevice) {
+#if INTEL_CUSTOMIZATION
+  // For DTrans info emission, these mangling names are useful for merging
+  // struct types, so do it for DTrans Info emission as well.
+  if (getContext().getLangOpts().SYCLIsDevice ||
+      getCodeGenOpts().EmitDTransInfo) {
+#endif // INTEL_CUSTOMIZATION
     std::unique_ptr<MangleContext> MC(getContext().createMangleContext());
     auto RDT = getContext().getRecordType(RD);
     MC->mangleCXXRTTIName(RDT, OS);
@@ -393,7 +398,13 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   // don't recurse into it again.
   if (FunctionsBeingProcessed.count(FI)) {
 
-    ResultType = llvm::StructType::get(getLLVMContext());
+#if INTEL_CUSTOMIZATION
+    if (getCodeGenOpts().EmitDTransInfo)
+      ResultType =
+          llvm::StructType::create(getLLVMContext(), "__Intel$Empty$Struct");
+    else
+      ResultType = llvm::StructType::get(getLLVMContext());
+#endif // INTEL_CUSTOMIZATION
     SkippedLayout = true;
   } else {
 
@@ -533,6 +544,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::Double:
     case BuiltinType::LongDouble:
     case BuiltinType::Float128:
+    case BuiltinType::Ibm128:
       ResultType = getTypeForFormat(getLLVMContext(),
                                     Context.getFloatTypeSemantics(T),
                                     /* UseNativeHalf = */ false);
@@ -856,6 +868,7 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   if (!Entry) {
     Entry = llvm::StructType::create(getLLVMContext());
     addRecordTypeName(RD, Entry, "");
+    CGM.addDTransType(RD, Entry); // INTEL
   }
   llvm::StructType *Ty = Entry;
 

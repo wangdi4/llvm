@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Basic test of the DTransSafetyAnalyzer pass collection of
 ; structure properties. Also, checks printing of structure field types.
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are placeholders for check lines that will
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
 ; Lines marked with CHECK should remain the same when changing to use opaque
 ;   pointers.
@@ -22,8 +24,8 @@ define void @test01() {
 }
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.base
-; CHECK-CUR: Field LLVM Type: i32 (...)**
-; CHECK-FUT: Field LLVM Type: ptr
+; CHECK-NONOPAQUE: Field LLVM Type: i32 (...)**
+; CHECK-OPAQUE: Field LLVM Type: ptr
 ; CHECK: DTrans Type: i32 (...)**
 ; CHECK: Safety data: Nested structure | Has vtable
 
@@ -49,8 +51,8 @@ define void @test01() {
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.fptrs
-; CHECK-CUR: Field LLVM Type: void (i32, i64*, i64)*
-; CHECK-FUT: Field LLVM Type: ptr
+; CHECK-NONOPAQUE: Field LLVM Type: void (i32, i64*, i64)*
+; CHECK-OPAQUE: Field LLVM Type: ptr
 ; CHECK: DTrans Type: void (i32, i64*, i64)*
 ; CHECK: Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
@@ -70,9 +72,9 @@ define void @test01() {
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)
 !2 = !{i32 0, i32 0}  ; i32
 !3 = !{!1, i32 2}  ; i32 (...)**
-!4 = !{!"R", %struct.base zeroinitializer, i32 0}  ; %struct.base
+!4 = !{%struct.base zeroinitializer, i32 0}  ; %struct.base
 !5 = !{i8 0, i32 0}  ; i8
-!6 = !{!"R", %struct.derived1 zeroinitializer, i32 0}  ; %struct.derived1
+!6 = !{%struct.derived1 zeroinitializer, i32 0}  ; %struct.derived1
 !7 = !{!"F", i1 false, i32 3, !8, !2, !9, !10}  ; void (i32, i64*, i64)
 !8 = !{!"void", i32 0}  ; void
 !9 = !{i64 0, i32 1}  ; i64*
@@ -86,4 +88,4 @@ define void @test01() {
 !17 = !{!"S", %struct.fptrs zeroinitializer, i32 3, !11, !2, !2} ; { void (i32, i64*, i64)*, i32, i32 }
 !18 = !{!"S", %struct.zeroararry zeroinitializer, i32 2, !2, !12} ; { i32, [0 x i32] }
 
-!dtrans_types = !{!13, !14, !15, !16, !17, !18}
+!intel.dtrans.types = !{!13, !14, !15, !16, !17, !18}

@@ -52,6 +52,7 @@ public:
                    unsigned Id)
       : Phi(PN), StartValOpNum(StartOp), LiveOut(LiveOutInst), MergeId(Id) {}
 
+  Type *getValueType() const { return LiveOut->getType(); }
   PHINode *getPhi() const { return Phi; }
   int getStartOpNum() const { return StartValOpNum; }
   const Value *getLiveOut() const { return LiveOut; }
@@ -63,6 +64,28 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
+// Auxiliary class to describe live-in/out values for scalar HLLoop.
+class ScalarInOutDescrHIR {
+  unsigned MergeId;             // Synchronization key
+  const loopopt::DDRef *HIRRef; // Live-in/out temp
+  bool IsMainLoopIV;
+
+public:
+  ScalarInOutDescrHIR(const loopopt::DDRef *HIRRef, bool IsMainLoopIV,
+                      unsigned Id)
+      : MergeId(Id), HIRRef(HIRRef), IsMainLoopIV(IsMainLoopIV) {}
+
+  Type *getValueType() const { return HIRRef->getDestType(); }
+  unsigned getId() const { return MergeId; }
+  const loopopt::DDRef *getHIRRef() const { return HIRRef; }
+  bool isMainLoopIV() const { return IsMainLoopIV; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const;
+  void dump() const { print(outs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 // List of descriptors of in/out values for scalar loop.
 class ScalarInOutList {
   // The list of descriptors is kept as a map to be able to take
@@ -71,7 +94,7 @@ class ScalarInOutList {
   InOutListTy InOutList;
 
 public:
-  // Add a descriptor.
+  // Add a descriptor for LLVM-IR input.
   void add(PHINode *PN, int StartOp, const Value *LiveOutInst, unsigned Id) {
     assert(InOutList.count(Id) == 0 && "Second descriptor for an Id");
     InOutList.insert(std::make_pair(
@@ -110,6 +133,53 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
+// List of descriptors of in/out values for scalar HLLoop.
+class ScalarInOutListHIR {
+  // The list of descriptors is kept as a map to be able to take
+  // descriptors by Id.
+  using InOutListTy = MapVector<unsigned, std::unique_ptr<ScalarInOutDescrHIR>>;
+  InOutListTy InOutList;
+
+public:
+  // Add a descriptor for HIR input.
+  void add(const loopopt::DDRef *HIRRef, bool IsMainLoopIV, unsigned Id) {
+    assert(InOutList.count(Id) == 0 && "Second descriptor for an Id");
+    InOutList.insert(std::make_pair(
+        Id, std::make_unique<ScalarInOutDescrHIR>(HIRRef, IsMainLoopIV, Id)));
+  }
+
+  ScalarInOutDescrHIR *getDescr(unsigned Id) const {
+    auto Iter = InOutList.find(Id);
+    assert(Iter != InOutList.end() && "Invalid Id");
+    return Iter->second.get();
+  }
+
+  // Return iterator to list of descriptors.
+  decltype(auto) list() const {
+    return map_range(
+        InOutList,
+        [](const InOutListTy::value_type &I) -> ScalarInOutDescrHIR * {
+          return I.second.get();
+        });
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const {
+    OS << "Original loop live-ins/live-outs:";
+    if (InOutList.empty())
+      OS << " empty\n";
+    else {
+      OS << "\n";
+      for (const auto Descr : list()) {
+        Descr->print(OS);
+        OS << "\n";
+      }
+    }
+  }
+  void dump() const { dump(dbgs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 /// Class to hold external data used in VPlan. We can have several VPlans that
 /// model different vectozation scenarios for one loop. Those VPlans are in most
 /// cases clones of one created at the beginning of vectorization. All the
@@ -139,13 +209,6 @@ class VPExternalValues {
   /// in this VPlan. The hash is based on the underlying HIR information that
   /// uniquely identifies each external definition.
   FoldingSet<VPExternalDef> VPExternalDefsHIR;
-
-  /// Return the iterator range for external defs in VPExternalDefsHIR.
-  decltype(auto) getVPExternalDefsHIR() const {
-    return map_range(
-        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
-        [](const VPExternalDef &Def) { return &Def; });
-  }
 
   /// Holds all the external uses in this VPlan.
   using ExternalUsesListTy = SmallVector<std::unique_ptr<VPExternalUse>, 16>;
@@ -180,10 +243,18 @@ class VPExternalValues {
 
   // Holds live-in/out descriptors of scalar loops.
   std::map<const Loop *, ScalarInOutList> ScalarLoopsInOut;
+  std::map<const loopopt::HLLoop *, ScalarInOutListHIR> ScalarLoopsInOutHIR;
 
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
+
+  /// Return the iterator range for external defs in VPExternalDefsHIR.
+  decltype(auto) getVPExternalDefsHIR() const {
+    return map_range(
+        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
+        [](const VPExternalDef &Def) { return &Def; });
+  }
 
   ~VPExternalValues() {
     // Release memory allocated for VPExternalDefs tracked in VPExternalDefsHIR.
@@ -365,6 +436,13 @@ public:
       return &It->second;
     return nullptr;
   }
+  const ScalarInOutListHIR *
+  getScalarLoopInOuts(const loopopt::HLLoop *OrigLoop) const {
+    auto It = ScalarLoopsInOutHIR.find(OrigLoop);
+    if (It != ScalarLoopsInOutHIR.end())
+      return &It->second;
+    return nullptr;
+  }
 
   // Verify that VPConstants are unique in the pool and that the map keys are
   // consistent with the underlying IR information of each VPConstant.
@@ -386,13 +464,18 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpExternalDefs(raw_ostream &FOS) const;
   void dumpExternalUses(raw_ostream &FOS, const VPlan *P) const;
-  void dumpScalarInOuts(raw_ostream &FOS, const Loop *L) const;
+  template <class LoopTy>
+  void dumpScalarInOuts(raw_ostream &FOS, const LoopTy *L) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   /// Non const getter for scalar in/out descriptors.
   ScalarInOutList *getOrCreateScalarLoopInOuts(const Loop *OrigLoop) {
     return &ScalarLoopsInOut[OrigLoop];
+  }
+  ScalarInOutListHIR *
+  getOrCreateScalarLoopInOuts(const loopopt::HLLoop *OrigLoop) {
+    return &ScalarLoopsInOutHIR[OrigLoop];
   }
 
   // Insert new ExternalUse into table.
@@ -525,7 +608,7 @@ public:
   /// The original incoming vaules are replaced by the newly created
   /// VPLiveInValues and VPExternalUse-users are replaced by VPLiveOutValues.
   /// Also, descriptors of in/out values for scalar loops are created in VPlan.
-  void createInOutValues(Loop *OrigLoop);
+  template <class LoopTy> void createInOutValues(LoopTy *OrigLoop);
 
   /// Replace all occurenses of VPLiveInValues with original incoming values.
   /// Temporary, until CFG merge process is not implemented. Then all such
@@ -535,29 +618,32 @@ public:
   /// Create VPLiveInValue-s list for VPlan that represents
   /// scalar loop. Going through the list of descriptors for a scalar loop,
   /// create live-ins of the appropriate type and update live-in list of VPlan.
-  void createLiveInsForScalarVPlan(const ScalarInOutList &ScalarInOuts,
-                                   int Count);
+  template <typename InOutListTy>
+  void createLiveInsForScalarVPlan(const InOutListTy &ScalarInOuts, int Count);
 
   /// Create VPLiveOutValue-s list for VPlan that represents
   /// scalar loop. Going through the list of descriptors for a scalar loop,
   /// create live-outs with corresponding operands from \p Outgoing and update
   /// the live-out list in VPlan.
-  void createLiveOutsForScalarVPlan(
-      const ScalarInOutList &ScalarInOuts, int Count,
-      DenseMap<int, VPValue *> &Outgoing);
+  template <typename InOutListTy>
+  void createLiveOutsForScalarVPlan(const InOutListTy &ScalarInOuts, int Count,
+                                    DenseMap<int, VPValue *> &Outgoing);
 
 private:
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's inductions.
+  template <class LoopTy>
   void createInOutsInductions(const VPLoopEntityList *VPLEntityList,
-                              Loop *OrigLoop);
+                              LoopTy *OrigLoop);
 
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's reductions.
+  template <class LoopTy>
   void createInOutsReductions(const VPLoopEntityList *VPLEntityList,
-                              Loop *OrigLoop);
+                              LoopTy *OrigLoop);
 
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's privates.
+  template <class LoopTy>
   void createInOutsPrivates(const VPLoopEntityList *VPLEntityList,
-                            Loop *OrigLoop);
+                            LoopTy *OrigLoop);
 
   VPLiveInValue *createLiveInValue(unsigned Id, Type *Ty) {
     VPLiveInValue *LiveIn = new VPLiveInValue(Id, Ty);
@@ -578,6 +664,10 @@ private:
   void addOriginalLiveInOut(const VPLoopEntityList *VPLEntityList,
                             Loop *OrigLoop, VPLoopEntity *E,
                             VPExternalUse *ExtUse, ScalarInOutList &SList);
+  // Create and add descriptor of livein/out value in scalar HLLoop.
+  void addOriginalLiveInOut(const VPLoopEntityList *, loopopt::HLLoop *OrigLoop,
+                            VPLoopEntity *, VPExternalUse *ExtUse,
+                            ScalarInOutListHIR &SList);
 };
 
 } // namespace vpo

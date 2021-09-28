@@ -729,6 +729,8 @@ EXTERN void __kmpc_end_critical_simd(kmp_critical_name *);
 
 EXTERN int __kmpc_master();
 EXTERN void __kmpc_end_master();
+EXTERN int __kmpc_masked(ident_t *loc, int gtid, int filter);
+EXTERN void __kmpc_end_masked(ident_t *loc, int gtid);
 
 EXTERN int __kmpc_single(ident_t *loc, int gtid);
 EXTERN void __kmpc_end_single(ident_t *loc, int gtid);

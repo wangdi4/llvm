@@ -28,6 +28,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
     endif()
 
     include_directories(${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS})
+    include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
     add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
     if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
       # Statically link C run-time library on Windows.
@@ -54,7 +55,9 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
 
     add_dependencies(omptarget.rtl.level0 libomptarget-libiomp-file)
 
-    target_link_libraries(omptarget.rtl.level0 PRIVATE elf_common)
+    target_link_libraries(omptarget.rtl.level0 PRIVATE
+      elf_common
+      LLVMSupport)
 
     if(CMAKE_SYSTEM_NAME MATCHES "Linux")
       target_link_libraries(omptarget.rtl.level0 PRIVATE

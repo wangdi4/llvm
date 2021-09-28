@@ -87,12 +87,10 @@ class X86SchedWriteWidths<X86FoldableSchedWrite sScl,
 }
 
 // Multiclass that wraps X86SchedWriteWidths for each fp vector type.
-#if INTEL_CUSTOMIZATION
 class X86SchedWriteSizes<X86SchedWriteWidths sPH,
                          X86SchedWriteWidths sPS,
                          X86SchedWriteWidths sPD> {
   X86SchedWriteWidths PH = sPH;
-#endif // INTEL_CUSTOMIZATION
   X86SchedWriteWidths PS = sPS;
   X86SchedWriteWidths PD = sPD;
 }
@@ -150,7 +148,10 @@ defm WriteIMul32Reg : X86SchedWritePair; // Integer 32-bit multiplication by reg
 defm WriteIMul64    : X86SchedWritePair; // Integer 64-bit multiplication.
 defm WriteIMul64Imm : X86SchedWritePair; // Integer 64-bit multiplication by immediate.
 defm WriteIMul64Reg : X86SchedWritePair; // Integer 64-bit multiplication by register.
-def  WriteIMulH     : SchedWrite;        // Integer multiplication, high part.
+defm WriteMULX32    : X86SchedWritePair; // Integer 32-bit Multiplication without affecting flags.
+defm WriteMULX64    : X86SchedWritePair; // Integer 64-bit Multiplication without affecting flags.
+def  WriteIMulH     : SchedWrite;        // Integer multiplication, high part (only used by the RR variant of MULX).
+def  WriteIMulHLd   : SchedWrite;        // Integer multiplication, high part (only used by the RM variant of MULX).
 
 def  WriteBSWAP32 : SchedWrite; // Byte Order (Endianness) 32-bit Swap.
 def  WriteBSWAP64 : SchedWrite; // Byte Order (Endianness) 64-bit Swap.
@@ -685,7 +686,6 @@ def SchedWriteVarBlend
                        WriteVarBlendY, WriteVarBlendZ>;
 
 // Vector size wrappers.
-#if INTEL_CUSTOMIZATION
 // FIXME: Currently PH uses the same schedule method as PS.
 // We may refine them later.
 def SchedWriteFAddSizes
@@ -702,7 +702,6 @@ def SchedWriteFLogicSizes
  : X86SchedWriteSizes<SchedWriteFLogic, SchedWriteFLogic, SchedWriteFLogic>;
 def SchedWriteFShuffleSizes
  : X86SchedWriteSizes<SchedWriteFShuffle, SchedWriteFShuffle, SchedWriteFShuffle>;
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Generic Processor Scheduler Models.

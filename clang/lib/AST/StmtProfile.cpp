@@ -1020,6 +1020,10 @@ void StmtProfiler::VisitOMPTargetParallelGenericLoopDirective(
 void StmtProfiler::VisitOMPPrefetchDirective(const OMPPrefetchDirective *S) {
   VisitOMPExecutableDirective(S);
 }
+
+void StmtProfiler::VisitOMPScopeDirective(const OMPScopeDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
 #endif // INTEL_COLLAB
 
 void StmtProfiler::VisitOMPSingleDirective(const OMPSingleDirective *S) {

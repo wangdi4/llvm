@@ -2,7 +2,8 @@
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+sse4.2 < %s | FileCheck %s --check-prefix=SSE
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx < %s | FileCheck %s --check-prefix=AVX1
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx2 < %s | FileCheck %s --check-prefix=AVX2
-; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512f < %s | FileCheck %s --check-prefix=AVX512
+; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512f < %s | FileCheck %s --check-prefixes=AVX512,AVX512F
+; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512f,+avx512vl < %s | FileCheck %s --check-prefixes=AVX512,AVX512VL
 
 ;
 ; vXf32
@@ -105,18 +106,28 @@ define <4 x float> @gather_v4f32_ptr_v4i32(<4 x float*> %ptr, <4 x i32> %trigger
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
-; AVX512-LABEL: gather_v4f32_ptr_v4i32:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    # kill: def $xmm2 killed $xmm2 def $ymm2
-; AVX512-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
-; AVX512-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; AVX512-NEXT:    vptestnmd %zmm1, %zmm1, %k0
-; AVX512-NEXT:    kshiftlw $12, %k0, %k0
-; AVX512-NEXT:    kshiftrw $12, %k0, %k1
-; AVX512-NEXT:    vgatherqps (,%zmm0), %ymm2 {%k1}
-; AVX512-NEXT:    vmovaps %xmm2, %xmm0
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512F-LABEL: gather_v4f32_ptr_v4i32:
+; AVX512F:       # %bb.0:
+; INTEL_CUSTOMIZATION
+; AVX512F-NEXT:    # kill: def $xmm2 killed $xmm2 def $ymm2
+; AVX512F-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
+; AVX512F-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
+; AVX512F-NEXT:    vptestnmd %zmm1, %zmm1, %k0
+; AVX512F-NEXT:    kshiftlw $12, %k0, %k0
+; AVX512F-NEXT:    kshiftrw $12, %k0, %k1
+; AVX512F-NEXT:    vgatherqps (,%zmm0), %ymm2 {%k1}
+; end INTEL_CUSTOMIZATION
+; AVX512F-NEXT:    vmovaps %xmm2, %xmm0
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+;
+; AVX512VL-LABEL: gather_v4f32_ptr_v4i32:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vptestnmd %xmm1, %xmm1, %k1
+; AVX512VL-NEXT:    vgatherqps (,%ymm0), %xmm2 {%k1}
+; AVX512VL-NEXT:    vmovaps %xmm2, %xmm0
+; AVX512VL-NEXT:    vzeroupper
+; AVX512VL-NEXT:    retq
   %mask = icmp eq <4 x i32> %trigger, zeroinitializer
   %res = call <4 x float> @llvm.masked.gather.v4f32.v4p0f32(<4 x float*> %ptr, i32 4, <4 x i1> %mask, <4 x float> %passthru)
   ret <4 x float> %res
@@ -229,18 +240,27 @@ define <4 x float> @gather_v4f32_v4i32_v4i32(float* %base, <4 x i32> %idx, <4 x 
 ; AVX2-NEXT:    vmovaps %xmm2, %xmm0
 ; AVX2-NEXT:    retq
 ;
-; AVX512-LABEL: gather_v4f32_v4i32_v4i32:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    # kill: def $xmm2 killed $xmm2 def $zmm2
-; AVX512-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
-; AVX512-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
-; AVX512-NEXT:    vptestnmd %zmm1, %zmm1, %k0
-; AVX512-NEXT:    kshiftlw $12, %k0, %k0
-; AVX512-NEXT:    kshiftrw $12, %k0, %k1
-; AVX512-NEXT:    vgatherdps (%rdi,%zmm0,4), %zmm2 {%k1}
-; AVX512-NEXT:    vmovaps %xmm2, %xmm0
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512F-LABEL: gather_v4f32_v4i32_v4i32:
+; AVX512F:       # %bb.0:
+; INTEL_CUSTOMIZATION
+; AVX512F-NEXT:    # kill: def $xmm2 killed $xmm2 def $zmm2
+; AVX512F-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
+; AVX512F-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
+; AVX512F-NEXT:    vptestnmd %zmm1, %zmm1, %k0
+; AVX512F-NEXT:    kshiftlw $12, %k0, %k0
+; AVX512F-NEXT:    kshiftrw $12, %k0, %k1
+; AVX512F-NEXT:    vgatherdps (%rdi,%zmm0,4), %zmm2 {%k1}
+; end INTEL_CUSTOMIZATION
+; AVX512F-NEXT:    vmovaps %xmm2, %xmm0
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+;
+; AVX512VL-LABEL: gather_v4f32_v4i32_v4i32:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vptestnmd %xmm1, %xmm1, %k1
+; AVX512VL-NEXT:    vgatherdps (%rdi,%xmm0,4), %xmm2 {%k1}
+; AVX512VL-NEXT:    vmovaps %xmm2, %xmm0
+; AVX512VL-NEXT:    retq
   %vptr0 = insertelement <4 x float*> undef, float* %base, i32 0
   %vptr1 = shufflevector <4 x float*> %vptr0, <4 x float*> undef, <4 x i32> zeroinitializer
   %vptr2 = getelementptr float, <4 x float*> %vptr1, <4 x i32> %idx
@@ -353,18 +373,28 @@ define <4 x float> @gather_v4f32_v4i64_v4i32(float* %base, <4 x i64> %idx, <4 x 
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
-; AVX512-LABEL: gather_v4f32_v4i64_v4i32:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    # kill: def $xmm2 killed $xmm2 def $ymm2
-; AVX512-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
-; AVX512-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; AVX512-NEXT:    vptestnmd %zmm1, %zmm1, %k0
-; AVX512-NEXT:    kshiftlw $12, %k0, %k0
-; AVX512-NEXT:    kshiftrw $12, %k0, %k1
-; AVX512-NEXT:    vgatherqps (%rdi,%zmm0,4), %ymm2 {%k1}
-; AVX512-NEXT:    vmovaps %xmm2, %xmm0
-; AVX512-NEXT:    vzeroupper
-; AVX512-NEXT:    retq
+; AVX512F-LABEL: gather_v4f32_v4i64_v4i32:
+; AVX512F:       # %bb.0:
+; INTEL_CUSTOMIZATION
+; AVX512F-NEXT:    # kill: def $xmm2 killed $xmm2 def $ymm2
+; AVX512F-NEXT:    # kill: def $xmm1 killed $xmm1 def $zmm1
+; AVX512F-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
+; AVX512F-NEXT:    vptestnmd %zmm1, %zmm1, %k0
+; AVX512F-NEXT:    kshiftlw $12, %k0, %k0
+; AVX512F-NEXT:    kshiftrw $12, %k0, %k1
+; AVX512F-NEXT:    vgatherqps (%rdi,%zmm0,4), %ymm2 {%k1}
+; end INTEL_CUSTOMIZATION
+; AVX512F-NEXT:    vmovaps %xmm2, %xmm0
+; AVX512F-NEXT:    vzeroupper
+; AVX512F-NEXT:    retq
+;
+; AVX512VL-LABEL: gather_v4f32_v4i64_v4i32:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vptestnmd %xmm1, %xmm1, %k1
+; AVX512VL-NEXT:    vgatherqps (%rdi,%ymm0,4), %xmm2 {%k1}
+; AVX512VL-NEXT:    vmovaps %xmm2, %xmm0
+; AVX512VL-NEXT:    vzeroupper
+; AVX512VL-NEXT:    retq
   %vptr0 = insertelement <4 x float*> undef, float* %base, i32 0
   %vptr1 = shufflevector <4 x float*> %vptr0, <4 x float*> undef, <4 x i32> zeroinitializer
   %vptr2 = getelementptr float, <4 x float*> %vptr1, <4 x i64> %idx
@@ -1004,7 +1034,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    testb $-128, %al
 ; SSE-NEXT:    jne .LBB4_17
 ; SSE-NEXT:    jmp .LBB4_18
-; SSE-NEXT:  .LBB4_19:
+; SSE-NEXT:  .LBB4_19: # %else20
 ; SSE-NEXT:    # implicit-def: $xmm4
 ; SSE-NEXT:    testb $2, %al
 ; SSE-NEXT:    je .LBB4_23
@@ -1032,7 +1062,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; SSE-NEXT:    pinsrd $3, c+28(%rip), %xmm4
 ; SSE-NEXT:    testb $16, %al
 ; SSE-NEXT:    jne .LBB4_29
-; SSE-NEXT:  .LBB4_28:
+; SSE-NEXT:  .LBB4_28: # %else41
 ; SSE-NEXT:    # implicit-def: $xmm5
 ; SSE-NEXT:    testb $32, %al
 ; SSE-NEXT:    je .LBB4_32
@@ -1149,11 +1179,10 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    je .LBB4_16
 ; AVX1-NEXT:  .LBB4_15: # %cond.load19
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $3, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3,4,5,6],ymm3[7]
 ; AVX1-NEXT:  .LBB4_16: # %else20
-; AVX1-NEXT:    vpxor %xmm3, %xmm3, %xmm3
+; AVX1-NEXT:    vxorps %xmm3, %xmm3, %xmm3
 ; AVX1-NEXT:    vpcmpeqd %xmm3, %xmm2, %xmm4
 ; AVX1-NEXT:    vpcmpeqd %xmm3, %xmm0, %xmm3
 ; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
@@ -1183,11 +1212,10 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    je .LBB4_32
 ; AVX1-NEXT:  .LBB4_31: # %cond.load58
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $3, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3,4,5,6],ymm4[7]
 ; AVX1-NEXT:  .LBB4_32: # %else61
-; AVX1-NEXT:    vpxor %xmm4, %xmm4, %xmm4
+; AVX1-NEXT:    vxorps %xmm4, %xmm4, %xmm4
 ; AVX1-NEXT:    vpcmpeqd %xmm4, %xmm2, %xmm2
 ; AVX1-NEXT:    vpcmpeqd %xmm4, %xmm0, %xmm0
 ; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
@@ -1208,9 +1236,8 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $16, %al
 ; AVX1-NEXT:    je .LBB4_42
 ; AVX1-NEXT:  .LBB4_41: # %cond.load84
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm2
-; AVX1-NEXT:    vpinsrd $0, c+28(%rip), %xmm2, %xmm2
-; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm2
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3],ymm2[4],ymm0[5,6,7]
 ; AVX1-NEXT:  .LBB4_42: # %else87
 ; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm2
 ; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm4
@@ -1218,25 +1245,22 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $32, %al
 ; AVX1-NEXT:    je .LBB4_44
 ; AVX1-NEXT:  # %bb.43: # %cond.load89
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm3
-; AVX1-NEXT:    vpinsrd $1, c+28(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3,4],ymm3[5],ymm0[6,7]
 ; AVX1-NEXT:  .LBB4_44: # %else92
 ; AVX1-NEXT:    vpaddd %xmm2, %xmm4, %xmm2
 ; AVX1-NEXT:    testb $64, %al
 ; AVX1-NEXT:    je .LBB4_46
 ; AVX1-NEXT:  # %bb.45: # %cond.load94
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm3
-; AVX1-NEXT:    vpinsrd $2, c+28(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3,4,5],ymm3[6],ymm0[7]
 ; AVX1-NEXT:  .LBB4_46: # %else97
 ; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm1, %ymm1
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    je .LBB4_48
 ; AVX1-NEXT:  # %bb.47: # %cond.load99
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm2
-; AVX1-NEXT:    vpinsrd $3, c+28(%rip), %xmm2, %xmm2
-; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm2
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3,4,5,6],ymm2[7]
 ; AVX1-NEXT:  .LBB4_48: # %else102
 ; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm2
 ; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
@@ -1264,21 +1288,18 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $16, %al
 ; AVX1-NEXT:    je .LBB4_10
 ; AVX1-NEXT:  .LBB4_9: # %cond.load10
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $0, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3],ymm3[4],ymm1[5,6,7]
 ; AVX1-NEXT:    testb $32, %al
 ; AVX1-NEXT:    je .LBB4_12
 ; AVX1-NEXT:  .LBB4_11: # %cond.load13
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $1, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3,4],ymm3[5],ymm1[6,7]
 ; AVX1-NEXT:    testb $64, %al
 ; AVX1-NEXT:    je .LBB4_14
 ; AVX1-NEXT:  .LBB4_13: # %cond.load16
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $2, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3,4,5],ymm3[6],ymm1[7]
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    jne .LBB4_15
 ; AVX1-NEXT:    jmp .LBB4_16
@@ -1302,21 +1323,18 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $16, %al
 ; AVX1-NEXT:    je .LBB4_26
 ; AVX1-NEXT:  .LBB4_25: # %cond.load43
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $0, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3],ymm4[4],ymm3[5,6,7]
 ; AVX1-NEXT:    testb $32, %al
 ; AVX1-NEXT:    je .LBB4_28
 ; AVX1-NEXT:  .LBB4_27: # %cond.load48
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $1, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3,4],ymm4[5],ymm3[6,7]
 ; AVX1-NEXT:    testb $64, %al
 ; AVX1-NEXT:    je .LBB4_30
 ; AVX1-NEXT:  .LBB4_29: # %cond.load53
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $2, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3,4,5],ymm4[6],ymm3[7]
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    jne .LBB4_31
 ; AVX1-NEXT:    jmp .LBB4_32
@@ -1353,23 +1371,32 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX2-NEXT:    vpaddd %ymm3, %ymm3, %ymm0
 ; AVX2-NEXT:    vpaddd %ymm0, %ymm2, %ymm0
 ; AVX2-NEXT:    retq
-; end INTEL_CUSTOMIZATION
 ;
-; AVX512-LABEL: gather_v8i32_v8i32:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; AVX512-NEXT:    vptestnmd %zmm0, %zmm0, %k0
-; AVX512-NEXT:    kshiftlw $8, %k0, %k0
-; AVX512-NEXT:    kshiftrw $8, %k0, %k1
-; AVX512-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1 ;INTEL
-; AVX512-NEXT:    kmovw %k1, %k2
-; AVX512-NEXT:    vpgatherdd c+12(,%zmm0), %zmm1 {%k2}
-; AVX512-NEXT:    vpxor %xmm2, %xmm2, %xmm2 ;INTEL
-; AVX512-NEXT:    vpgatherdd c+28(,%zmm0), %zmm2 {%k1}
-; AVX512-NEXT:    vpaddd %ymm2, %ymm2, %ymm0
-; AVX512-NEXT:    vpaddd %ymm0, %ymm1, %ymm0
-; AVX512-NEXT:    retq
+; AVX512F-LABEL: gather_v8i32_v8i32:
+; AVX512F:       # %bb.0:
+; AVX512F-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
+; AVX512F-NEXT:    vptestnmd %zmm0, %zmm0, %k0
+; AVX512F-NEXT:    kshiftlw $8, %k0, %k0
+; AVX512F-NEXT:    kshiftrw $8, %k0, %k1
+; AVX512F-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512F-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; AVX512F-NEXT:    kmovw %k1, %k2
+; AVX512F-NEXT:    vpgatherdd c+12(,%zmm0), %zmm1 {%k2}
+; AVX512F-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVX512F-NEXT:    vpgatherdd c+28(,%zmm0), %zmm2 {%k1}
+; AVX512F-NEXT:    vpaddd %ymm2, %ymm2, %ymm0
+; AVX512F-NEXT:    vpaddd %ymm0, %ymm1, %ymm0
+; AVX512F-NEXT:    retq
+;
+; AVX512VL-LABEL: gather_v8i32_v8i32:
+; AVX512VL:       # %bb.0:
+; AVX512VL-NEXT:    vptestnmd %ymm0, %ymm0, %k1
+; AVX512VL-NEXT:    vpbroadcastd c+12(%rip), %ymm0 {%k1} {z}
+; AVX512VL-NEXT:    vpbroadcastd c+28(%rip), %ymm1 {%k1} {z}
+; AVX512VL-NEXT:    vpaddd %ymm1, %ymm1, %ymm1
+; AVX512VL-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
+; AVX512VL-NEXT:    retq
+; end INTEL_CUSTOMIZATION
   %1 = icmp eq <8 x i32> %trigger, zeroinitializer
   %2 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> getelementptr (%struct.a, <8 x %struct.a*> <%struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c>, <8 x i64> zeroinitializer, i32 0, <8 x i64> <i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3>), i32 4, <8 x i1> %1, <8 x i32> undef)
   %3 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> getelementptr (%struct.a, <8 x %struct.a*> <%struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c, %struct.a* @c>, <8 x i64> zeroinitializer, i32 3), i32 4, <8 x i1> %1, <8 x i32> undef)

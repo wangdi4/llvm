@@ -14,21 +14,21 @@
 ; CHECK: memcpy
 
 ; Check the proper otpreport is emittted for Idiom Recognition (memcpy transformation).
-; TODO: Remove "TODO"-OPTREPORT after preserveLostLoopOptReport is used in HIRIdiomRecognition.cpp.
+; TODO: Remove "TODO"-OPTREPORT after preserveLostOptReport is used in HIRIdiomRecognition.cpp.
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
-;OPTREPORT: Global loop optimization report for : foo
+;OPTREPORT: Global optimization report for : foo
 ;
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT: <Small trip count multiversioned v1>
-; OPTREPORT-NEXT: remark #25561: The memcpy idiom has been recognized
+; OPTREPORT-NEXT: <Multiversioned v1>
+; OPTREPORT-NEXT: remark #25399: memcopy generated
 ; OPTREPORT-NEXT: remark #25562: The loop has been multiversioned for the small trip count
 ; OPTREPORT-NEXT: LOOP END
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT: <Small trip count multiversioned v2 (small)>
+; OPTREPORT-NEXT: <Multiversioned v2>
 ; OPTREPORT-NEXT: LOOP END
 
 ;Module Before HIR; ModuleID = 'memcpy.c'

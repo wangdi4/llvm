@@ -2529,6 +2529,56 @@ public:
     return T->getStmtClass() == OMPPrefetchDirectiveClass;
   }
 };
+
+/// This represents '#pragma omp scope' directive.
+/// \code
+/// #pragma omp scope private(a,b) nowait
+/// \endcode
+/// In this example directive '#pragma omp scope' has clauses 'private' with
+/// the variables 'a' and 'b' and nowait.
+///
+class OMPScopeDirective final : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending location of the directive.
+  ///
+  OMPScopeDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(OMPScopeDirectiveClass, llvm::omp::OMPD_scope,
+                               StartLoc, EndLoc) {}
+
+  /// Build an empty directive.
+  ///
+  explicit OMPScopeDirective()
+      : OMPExecutableDirective(OMPScopeDirectiveClass, llvm::omp::OMPD_scope,
+                               SourceLocation(), SourceLocation()) {}
+
+public:
+  /// Creates directive.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param AssociatedStmt Statement, associated with the directive.
+  ///
+  static OMPScopeDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+
+  /// Creates an empty directive.
+  ///
+  /// \param C AST context.
+  ///
+  static OMPScopeDirective *CreateEmpty(const ASTContext &C,
+                                        unsigned NumClauses, EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPScopeDirectiveClass;
+  }
+};
 #endif // INTEL_COLLAB
 
 /// This represents '#pragma omp single' directive.
@@ -3195,15 +3245,33 @@ public:
   /// \param C AST context.
   /// \param StartLoc Starting location of the directive kind.
   /// \param EndLoc Ending Location of the directive.
+#if INTEL_COLLAB
+  /// \param Clauses List of clauses.
+#endif // INTEL_COLLAB
   ///
   static OMPTaskwaitDirective *
+#if INTEL_COLLAB
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses);
+#else // INTEL_COLLAB
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc);
+#endif // INTEL_COLLAB
 
+#if INTEL_COLLAB
+  /// Creates an empty directive with the place for \a N clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPTaskwaitDirective *CreateEmpty(const ASTContext &C,
+                                           unsigned NumClauses, EmptyShell);
+#else // INTEL_COLLAB
   /// Creates an empty directive.
   ///
   /// \param C AST context.
   ///
   static OMPTaskwaitDirective *CreateEmpty(const ASTContext &C, EmptyShell);
+#endif // INTEL_COLLAB
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTaskwaitDirectiveClass;
@@ -3482,6 +3550,13 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// if (x < expr) { x = expr; }
   /// \endcode
   bool IsCompareMax = false;
+  /// Used for 'atomic compare capture' constructs. True for forms that update
+  /// 'v' only when the condition is false.
+  /// \code
+  /// if(x == e) { x = d; } else { v = x; }
+  /// { r = x == e; if(r) { x = d; } else { v = x; } }
+  /// \endcode
+  bool IsConditionalCapture = false;
 #endif // INTEL_COLLAB
 
   /// Build directive with the given start and end location.
@@ -3499,23 +3574,43 @@ class OMPAtomicDirective : public OMPExecutableDirective {
       : OMPExecutableDirective(OMPAtomicDirectiveClass, llvm::omp::OMPD_atomic,
                                SourceLocation(), SourceLocation()) {}
 
+  enum DataPositionTy : size_t {
+    POS_X = 0,
+    POS_V,
+    POS_E,
+    POS_UpdateExpr,
+#if INTEL_COLLAB
+    POS_Expected,
+    POS_Result,
+#endif
+  };
+
   /// Set 'x' part of the associated expression/statement.
-  void setX(Expr *X) { Data->getChildren()[0] = X; }
+  void setX(Expr *X) { Data->getChildren()[DataPositionTy::POS_X] = X; }
   /// Set helper expression of the form
   /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
   /// 'OpaqueValueExpr(expr) binop OpaqueValueExpr(x)'.
-  void setUpdateExpr(Expr *UE) { Data->getChildren()[1] = UE; }
+  void setUpdateExpr(Expr *UE) {
+    Data->getChildren()[DataPositionTy::POS_UpdateExpr] = UE;
+  }
   /// Set 'v' part of the associated expression/statement.
-  void setV(Expr *V) { Data->getChildren()[2] = V; }
+  void setV(Expr *V) { Data->getChildren()[DataPositionTy::POS_V] = V; }
   /// Set 'expr' part of the associated expression/statement.
 #if INTEL_COLLAB
   /// This is also in the CAS 'compare' form for the 'desired' value.
 #endif // INTEL_COLLAB
-  void setExpr(Expr *E) { Data->getChildren()[3] = E; }
+  void setExpr(Expr *E) { Data->getChildren()[DataPositionTy::POS_E] = E; }
 #if INTEL_COLLAB
   /// Set 'expected' part of the associated expression/statement.
   /// This is used in the CAS 'compare' forms.
-  void setExpected(Expr *E) { Data->getChildren()[4] = E; }
+  void setExpected(Expr *E) {
+    Data->getChildren()[DataPositionTy::POS_Expected] = E;
+  }
+  /// Set 'result' part of the associated expression/statement.
+  /// This is used in two 'compare capture' forms.
+  void setResult(Expr *E) {
+    Data->getChildren()[DataPositionTy::POS_Result] = E;
+  }
 #endif // INTEL_COLLAB
 
 public:
@@ -3533,6 +3628,7 @@ public:
   /// \param E 'expr' part of the associated expression/statement.
 #if INTEL_COLLAB
   /// \param Expected 'expected' part of the associated expression/statement.
+  /// \param Result 'result' part of the associated expression/statement.
 #endif // INTEL_COLLAB
   /// \param UE Helper expression of the form
   /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
@@ -3544,13 +3640,15 @@ public:
 #if INTEL_COLLAB
   /// \param IsCompareMin true if 'compare' min case
   /// \param IsCompareMax true if 'compare' max case
+  /// \param IsConditionalCapture true if capture when condition is false.
 #endif // INTEL_COLLAB
   static OMPAtomicDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
          ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
 #if INTEL_COLLAB
-         Expr *E, Expr *Expected, Expr *UE, bool IsXLHSInRHSPart,
-         bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax);
+         Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
+         bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax,
+         bool IsConditionalCapture);
 #else // INTEL_COLLAB
          Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate);
 #endif // INTEL_COLLAB
@@ -3565,16 +3663,22 @@ public:
                                          unsigned NumClauses, EmptyShell);
 
   /// Get 'x' part of the associated expression/statement.
-  Expr *getX() { return cast_or_null<Expr>(Data->getChildren()[0]); }
+  Expr *getX() {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_X]);
+  }
   const Expr *getX() const {
-    return cast_or_null<Expr>(Data->getChildren()[0]);
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_X]);
   }
   /// Get helper expression of the form
   /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
   /// 'OpaqueValueExpr(expr) binop OpaqueValueExpr(x)'.
-  Expr *getUpdateExpr() { return cast_or_null<Expr>(Data->getChildren()[1]); }
+  Expr *getUpdateExpr() {
+    return cast_or_null<Expr>(
+        Data->getChildren()[DataPositionTy::POS_UpdateExpr]);
+  }
   const Expr *getUpdateExpr() const {
-    return cast_or_null<Expr>(Data->getChildren()[1]);
+    return cast_or_null<Expr>(
+        Data->getChildren()[DataPositionTy::POS_UpdateExpr]);
   }
   /// Return true if helper update expression has form
   /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' and false if it has form
@@ -3589,27 +3693,43 @@ public:
   bool isCompareMin() const { return IsCompareMin; }
   /// Return true if atomic compare is 'max' form.
   bool isCompareMax() const { return IsCompareMax; }
+  bool isConditionalCapture() const { return IsConditionalCapture; }
 #endif // INTEL_COLLAB
 
   /// Get 'v' part of the associated expression/statement.
-  Expr *getV() { return cast_or_null<Expr>(Data->getChildren()[2]); }
+  Expr *getV() {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_V]);
+  }
   const Expr *getV() const {
-    return cast_or_null<Expr>(Data->getChildren()[2]);
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_V]);
   }
   /// Get 'expr' part of the associated expression/statement.
 #if INTEL_COLLAB
   /// Or if the 'compare' CAS form, the 'desired' expression.
 #endif // INTEL_COLLAB
-  Expr *getExpr() { return cast_or_null<Expr>(Data->getChildren()[3]); }
+  Expr *getExpr() {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_E]);
+  }
   const Expr *getExpr() const {
-    return cast_or_null<Expr>(Data->getChildren()[3]);
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_E]);
   }
 
 #if INTEL_COLLAB
   /// Get 'expected' part of the associated expression/statement.
-  Expr *getExpected() { return cast_or_null<Expr>(Data->getChildren()[4]); }
+  Expr *getExpected() {
+    return cast_or_null<Expr>(
+        Data->getChildren()[DataPositionTy::POS_Expected]);
+  }
   const Expr *getExpected() const {
-    return cast_or_null<Expr>(Data->getChildren()[4]);
+    return cast_or_null<Expr>(
+        Data->getChildren()[DataPositionTy::POS_Expected]);
+  }
+  /// Get 'result' part of the associated expression/statement.
+  Expr *getResult() {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_Result]);
+  }
+  const Expr *getResult() const {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_Result]);
   }
 #endif // INTEL_COLLAB
 

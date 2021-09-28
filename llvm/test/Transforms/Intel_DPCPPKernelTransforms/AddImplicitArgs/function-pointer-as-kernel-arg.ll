@@ -26,7 +26,7 @@ entry:
   ret i32 %add
 }
 
-define void @test(i32 (i32)* %fp, i32 addrspace(1)* %data) #0 {
+define void @test(i32 (i32)* %fp, i32 addrspace(1)* %data) {
 entry:
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %data, i64 1
   %0 = load i32, i32 addrspace(1)* %arrayidx, align 4
@@ -36,7 +36,6 @@ entry:
   ret void
 }
 
-attributes #0 = { "sycl-kernel" }
 
 ; DEBUGIFY: Instruction with empty DebugLoc in function {{.*}} getelementptr
 ; DEBUGIFY-NEXT: Instruction with empty DebugLoc in function {{.*}} bitcast

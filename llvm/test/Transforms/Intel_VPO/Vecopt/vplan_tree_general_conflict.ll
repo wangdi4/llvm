@@ -12,9 +12,9 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo1:HIR
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%C}
-; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%C}
+; CHECK-DAG:     [[VP2:%.*]] = {%B}
 ; CHECK-DAG:     [[VP3:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -34,11 +34,11 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion (i32 [[VP_LIVE_IN0:%.*]] i32 [[VP_LIVE_IN1:%.*]] ) {
+; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
 ; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
@@ -46,7 +46,7 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP5]] i64 [[VP2]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP5]] i64 [[VP0]]
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -120,17 +120,16 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
-; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_3]] i32 [[VP7]] i32 100 -> VConflictRegion (i32 [[VP_LIVE_IN0:%.*]] i32 [[VP_LIVE_IN1:%.*]] i32 [[VP_LIVE_IN2:%.*]] ) {
+; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_3]] i32 [[VP7]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN2]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
 ; CHECK-NEXT:      i32 [[VP9:%.*]] = sdiv i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
-; CHECK-NEXT:      i32 [[VP10:%.*]] = mul i32 [[VP9]] i32 [[VP_LIVE_IN2]]
-; CHECK-NEXT:      live-out : i32 [[VP10]] = mul i32 [[VP9]] i32 [[VP_LIVE_IN2]]
+; CHECK-NEXT:      i32 [[VP10:%.*]] = mul i32 [[VP9]] i32 100
+; CHECK-NEXT:      live-out : i32 [[VP10]] = mul i32 [[VP9]] i32 100
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
@@ -192,8 +191,8 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-DAG:     [[VP3:%.*]] = {%B}
 ; CHECK-DAG:     [[VP4:%.*]] = {%E}
 ; CHECK-DAG:     [[VP5:%.*]] = {%D}
-; CHECK-DAG:     [[VP6:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP7:%.*]] = {%A}
+; CHECK-DAG:     [[VP6:%.*]] = {%A}
+; CHECK-DAG:     [[VP7:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -255,11 +254,11 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     i64 [[VP36:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP36]]
-; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_3]] i32 [[VP34]] -> VConflictRegion (i32 [[VP_LIVE_IN0:%.*]] i32 [[VP_LIVE_IN1:%.*]] ) {
+; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_3]] i32 [[VP34]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
 ; CHECK-NEXT:      i32 [[VP37:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
@@ -267,7 +266,7 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
-; CHECK-NEXT:     i1 [[VP38:%.*]] = icmp sle i64 [[VP9]] i64 [[VP6]]
+; CHECK-NEXT:     i1 [[VP38:%.*]] = icmp sle i64 [[VP9]] i64 [[VP7]]
 ; CHECK-NEXT:     br i1 [[VP38]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
@@ -359,9 +358,9 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%y.0}
 ; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {%A}
-; CHECK-DAG:     [[VP3:%.*]] = {%C}
-; CHECK-DAG:     [[VP4:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {%A}
+; CHECK-DAG:     [[VP4:%.*]] = {%C}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -395,11 +394,11 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP17:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP17]]
-; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_2]] i32 [[VP16]] -> VConflictRegion (i32 [[VP_LIVE_IN0:%.*]] i32 [[VP_LIVE_IN1:%.*]] ) {
+; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_2]] i32 [[VP16]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
 ; CHECK-NEXT:      i32 [[VP18:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
@@ -407,7 +406,7 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp sle i64 [[VP6]] i64 [[VP4]]
+; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp sle i64 [[VP6]] i64 [[VP2]]
 ; CHECK-NEXT:     br i1 [[VP19]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
@@ -474,8 +473,8 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-DAG:     [[VP0:%.*]] = {%D}
 ; CHECK-DAG:     [[VP1:%.*]] = {%B}
 ; CHECK-DAG:     [[VP2:%.*]] = {%A}
-; CHECK-DAG:     [[VP3:%.*]] = {%E}
-; CHECK-DAG:     [[VP4:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP4:%.*]] = {%E}
 ; CHECK-DAG:     [[VP5:%.*]] = {%C}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -499,12 +498,12 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = mul i32 [[VP_LOAD_3]] i32 [[VP_LOAD_2]]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP9]]
-; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_4]] i32 [[VP8]] -> VConflictRegion (i32 [[VP_LIVE_IN0:%.*]] i32 [[VP_LIVE_IN1:%.*]] i32 [[VP_LIVE_IN2:%.*]] ) {
+; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_4]] i32 [[VP8]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN2]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1:%.*]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN2:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
 ; CHECK-NEXT:      i32 [[VP10:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
@@ -513,7 +512,7 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP7]] i64 [[VP4]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP7]] i64 [[VP3]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -568,8 +567,8 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-DAG:     [[VP0:%.*]] = {%D}
 ; CHECK-DAG:     [[VP1:%.*]] = {%0}
 ; CHECK-DAG:     [[VP2:%.*]] = {%B}
-; CHECK-DAG:     [[VP3:%.*]] = {%A}
-; CHECK-DAG:     [[VP4:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP4:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -591,21 +590,20 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
-; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] i32 [[TMP0]] -> VConflictRegion (i32 [[VP_LIVE_IN0:%.*]] i32 [[VP_LIVE_IN1:%.*]] i32 [[VP_LIVE_IN2:%.*]] ) {
+; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1]]
-; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN2]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
+; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
 ; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
-; CHECK-NEXT:      i32 [[VP10:%.*]] = add i32 [[VP9]] i32 [[VP_LIVE_IN2]]
-; CHECK-NEXT:      live-out : i32 [[VP10]] = add i32 [[VP9]] i32 [[VP_LIVE_IN2]]
+; CHECK-NEXT:      i32 [[VP10:%.*]] = add i32 [[VP9]] i32 [[TMP0]]
+; CHECK-NEXT:      live-out : i32 [[VP10]] = add i32 [[VP9]] i32 [[TMP0]]
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP6]] i64 [[VP4]]
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP6]] i64 [[VP3]]
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]

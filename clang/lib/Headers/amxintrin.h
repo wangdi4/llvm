@@ -226,11 +226,6 @@ static __inline__ void __DEFAULT_FN_ATTRS_TILE _tile_release(void) {
 #define _tile_dpbf16ps(dst, src0, src1)                                        \
   __builtin_ia32_tdpbf16ps((dst), (src0), (src1))
 
-/// AMX tile register size can be configured, the maximum size is 16x64=1024
-/// bytes. Since there is no 2D type in llvm IR, we use vector type to
-/// represent 2D tile and the fixed size is maximum amx tile register size.
-typedef int _tile1024i __attribute__((__vector_size__(1024), __aligned__(64)));
-
 /// This is internal intrinsic. C/C++ user should avoid calling it directly.
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_INT8
 _tile_loadd_internal(unsigned short m, unsigned short n, const void *base,
@@ -290,16 +285,6 @@ _tile_dpbf16ps_internal(unsigned short m, unsigned short n, unsigned short k,
   return __builtin_ia32_tdpbf16ps_internal(m, n, k, dst, src1, src2);
 }
 
-/// This struct pack the shape and tile data together for user. We suggest
-/// initializing the struct as early as possible, because compiler depends
-/// on the shape information to do configure. The constant value is preferred
-/// for optimization by compiler.
-typedef struct __tile1024i_str {
-  const unsigned short row;
-  const unsigned short col;
-  _tile1024i tile;
-} __tile1024i;
-
 /// Load tile rows from memory specifieid by "base" address and "stride" into
 /// destination tile "dst".
 ///
@@ -314,8 +299,8 @@ typedef struct __tile1024i_str {
 /// \param stride
 ///    The stride between the rows' data to be loaded in memory.
 __DEFAULT_FN_ATTRS_TILE
-static void __tile_loadd(__tile1024i *dst, const void *base,
-                         __SIZE_TYPE__ stride) {
+static __inline__ void __tile_loadd(__tile1024i *dst, const void *base,
+                                    __SIZE_TYPE__ stride) {
   dst->tile = _tile_loadd_internal(dst->row, dst->col, base, stride);
 }
 
@@ -335,8 +320,8 @@ static void __tile_loadd(__tile1024i *dst, const void *base,
 /// \param stride
 ///    The stride between the rows' data to be loaded in memory.
 __DEFAULT_FN_ATTRS_TILE
-static void __tile_stream_loadd(__tile1024i *dst, const void *base,
-                                __SIZE_TYPE__ stride) {
+static __inline__ void __tile_stream_loadd(__tile1024i *dst, const void *base,
+                                           __SIZE_TYPE__ stride) {
   dst->tile = _tile_loaddt1_internal(dst->row, dst->col, base, stride);
 }
 
@@ -357,8 +342,8 @@ static void __tile_stream_loadd(__tile1024i *dst, const void *base,
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_INT8
-static void __tile_dpbssd(__tile1024i *dst, __tile1024i src0,
-                          __tile1024i src1) {
+static __inline__ void __tile_dpbssd(__tile1024i *dst, __tile1024i src0,
+                                     __tile1024i src1) {
   dst->tile = _tile_dpbssd_internal(src0.row, src1.col, src0.col, dst->tile,
                                     src0.tile, src1.tile);
 }
@@ -380,8 +365,8 @@ static void __tile_dpbssd(__tile1024i *dst, __tile1024i src0,
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_INT8
-static void __tile_dpbsud(__tile1024i *dst, __tile1024i src0,
-                          __tile1024i src1) {
+static __inline__ void __tile_dpbsud(__tile1024i *dst, __tile1024i src0,
+                                     __tile1024i src1) {
   dst->tile = _tile_dpbsud_internal(src0.row, src1.col, src0.col, dst->tile,
                                     src0.tile, src1.tile);
 }
@@ -403,8 +388,8 @@ static void __tile_dpbsud(__tile1024i *dst, __tile1024i src0,
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_INT8
-static void __tile_dpbusd(__tile1024i *dst, __tile1024i src0,
-                          __tile1024i src1) {
+static __inline__ void __tile_dpbusd(__tile1024i *dst, __tile1024i src0,
+                                     __tile1024i src1) {
   dst->tile = _tile_dpbusd_internal(src0.row, src1.col, src0.col, dst->tile,
                                     src0.tile, src1.tile);
 }
@@ -426,8 +411,8 @@ static void __tile_dpbusd(__tile1024i *dst, __tile1024i src0,
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_INT8
-static void __tile_dpbuud(__tile1024i *dst, __tile1024i src0,
-                          __tile1024i src1) {
+static __inline__ void __tile_dpbuud(__tile1024i *dst, __tile1024i src0,
+                                     __tile1024i src1) {
   dst->tile = _tile_dpbuud_internal(src0.row, src1.col, src0.col, dst->tile,
                                     src0.tile, src1.tile);
 }
@@ -446,7 +431,8 @@ static void __tile_dpbuud(__tile1024i *dst, __tile1024i src0,
 /// \param stride
 ///    The stride between the rows' data to be stored in memory.
 __DEFAULT_FN_ATTRS_TILE
-static void __tile_stored(void *base, __SIZE_TYPE__ stride, __tile1024i src) {
+static __inline__ void __tile_stored(void *base, __SIZE_TYPE__ stride,
+                                     __tile1024i src) {
   _tile_stored_internal(src.row, src.col, base, stride, src.tile);
 }
 
@@ -459,7 +445,7 @@ static void __tile_stored(void *base, __SIZE_TYPE__ stride, __tile1024i src) {
 /// \param dst
 ///    The destination tile to be zero. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_TILE
-static void __tile_zero(__tile1024i *dst) {
+static __inline__ void __tile_zero(__tile1024i *dst) {
   dst->tile = __builtin_ia32_tilezero_internal(dst->row, dst->col);
 }
 
@@ -479,8 +465,8 @@ static void __tile_zero(__tile1024i *dst) {
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_BF16
-static void __tile_dpbf16ps(__tile1024i *dst, __tile1024i src0,
-                            __tile1024i src1) {
+static __inline__ void __tile_dpbf16ps(__tile1024i *dst, __tile1024i src0,
+                                       __tile1024i src1) {
   dst->tile = _tile_dpbf16ps_internal(src0.row, src1.col, src0.col, dst->tile,
                                       src0.tile, src1.tile);
 }

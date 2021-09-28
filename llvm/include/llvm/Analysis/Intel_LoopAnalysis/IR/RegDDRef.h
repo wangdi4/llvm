@@ -94,7 +94,7 @@ public:
 
     bool operator==(const const_all_ddref_iterator &It) const {
       return RegIt == It.RegIt && IsRegDDRef == It.IsRegDDRef &&
-          BlobIt == It.BlobIt;
+             BlobIt == It.BlobIt;
     }
 
     bool operator!=(const const_all_ddref_iterator &It) const {
@@ -180,6 +180,11 @@ private:
   /// at code generation.
   struct GEPInfo {
     CanonExpr *BaseCE;
+    // Base ptr element type is needed to be stored explicitly in the presence
+    // of opaque ptrs. For example, when parsing this opaque ptr GEP, we will
+    // store [20 x i32] as BasePtrElementTy- %gep = getelementptr [20 x i32],
+    // ptr @p, i64 0, i64 1 This will let us recreate the GEP during CodeGen.
+    Type *BasePtrElementTy;
     // If there is a bitcast on the GEP before its use (in load/store
     // instruction etc), we store the destination type of the bitcast here.
     // Otherwise it is set to null. For example-
@@ -194,6 +199,8 @@ private:
     // This was the previous implementation. An example where it didn't work-
     //   %gep = getelementptr [20 x i32], [20 x i32]* @t, i64 0, i64 1
     //   %bc = bitcast i32* %gep to [20 x i32]*
+    //
+    // TODO: Investigate how this field should change with opaque ptrs.
     Type *BitCastDestTy;
     bool InBounds;
     // This is set if this DDRef represents an address computation (GEP) instead
@@ -202,6 +209,8 @@ private:
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
+    // Set to true for fake pointer DD ref which access type is known.  
+    bool CanUsePointeeSize;
 
     // Stores trailing structure element offsets for each dimension of the ref.
     // Consider the following structure GEP as an example-
@@ -223,6 +232,9 @@ private:
     CanonExprsTy LowerBounds;
     CanonExprsTy Strides;
     SmallVector<Type *, 3> DimTypes;
+    // Dimension element types need to be stored explicitly in the presence of
+    // opaque ptrs.
+    SmallVector<Type *, 3> DimElementTypes;
 
     // TODO: Atomic attribute is missing. Should we even build regions with
     // atomic load/stores since optimizing multi-threaded code might be
@@ -353,8 +365,8 @@ private:
   void addDimensionHighest(CanonExpr *IndexCE,
                            ArrayRef<unsigned> TrailingOffsets = {},
                            CanonExpr *LowerBoundCE = nullptr,
-                           CanonExpr *StrideCE = nullptr,
-                           Type *DimTy = nullptr);
+                           CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr,
+                           Type *DimElemTy = nullptr);
 
   /// Returns true if the GEP ref has a 'known' location (address range). An
   /// unattached or fake ref's location is unknown.
@@ -395,6 +407,20 @@ public:
   /// Returns the src type of the base CanonExpr for GEP DDRefs, asserts for
   /// non-GEP DDRefs.
   Type *getBaseType() const { return getBaseCE()->getSrcType(); }
+
+  /// Returns the element type of base ptr GEP DDRefs.
+  /// For example, will return [10 x i32] for a base ptr type of [10 x i32]*.
+  Type *getBasePtrElementType() const { return getGEPInfo()->BasePtrElementTy; }
+  void setBasePtrElementType(Type *Ty) {
+    getGEPInfo()->BasePtrElementTy = Ty;
+
+    // Set dimension element type of highest dimension (if it exists) to be the
+    // same as BasePtrElementType.
+    unsigned NumDims = getNumDimensions();
+    if (NumDims != 0) {
+      GepInfo->DimElementTypes[NumDims - 1] = Ty;
+    }
+  }
 
   /// Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
@@ -461,22 +487,24 @@ public:
     return getBaseType()->getPointerAddressSpace();
   }
 
-  bool isOpaqueAddressOf() const {
-    if (!isAddressOf()) {
-      return false;
-    }
-
-    auto StructElemTy =
-        dyn_cast<StructType>(getBaseType()->getPointerElementType());
-    return StructElemTy && StructElemTy->isOpaque();
+  // Returns true if this is either isSelfAddressOf() or isSelfMemRef().
+  bool isSelfGEPRef(bool IgnoreBitCast = false) const {
+    return hasGEPInfo() && isSingleDimension() &&
+           getSingleCanonExpr()->isZero() && getDimensionLower(1)->isZero() &&
+           getTrailingStructOffsets(1).empty() &&
+           (IgnoreBitCast || !getBitCastDestType());
   }
 
-  // Returns true if the reference really represents a pointer value equal
-  // to the BaseCE: &((%b)[0]).
-  bool isSelfAddressOf() const {
-    return isAddressOf() && isSingleDimension() &&
-           getSingleCanonExpr()->isZero() && getDimensionLower(1)->isZero() &&
-           getTrailingStructOffsets(1).empty() && !getBitCastDestType();
+  /// Returns true if the reference represents a pointer value equal to the
+  /// BaseCE: &((%b)[0]).
+  bool isSelfAddressOf(bool IgnoreBitCast = false) const {
+    return isAddressOf() && isSelfGEPRef(IgnoreBitCast);
+  }
+
+  /// Returns true if the reference represents a load/store of a pointer value
+  /// equal to the BaseCE: ((%b)[0]).
+  bool isSelfMemRef(bool IgnoreBitCast = false) const {
+    return isMemRef() && isSelfGEPRef(IgnoreBitCast);
   }
 
   /// Returns the dest type of the bitcast applied to GEP DDRefs, asserts
@@ -512,7 +540,12 @@ public:
   /// Dimension1 - [100 x %struct.S1]
   /// Dimension2 - [50 x %struct.S2]
   /// Dimension3 - [50 x %struct.S2]*
-  Type *getDimensionType(unsigned DimensionNum) const;
+  Type *getDimensionType(unsigned DimensionNum) const {
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+    return GepInfo->DimTypes[DimensionNum - 1];
+  }
 
   /// Returns the element type of the dimension type associated with \p
   /// DimensionNum. For the example in description of getDimensionType() they
@@ -521,9 +554,10 @@ public:
   /// Dimension2 - %struct.S2
   /// Dimension3 - [50 x %struct.S2]
   Type *getDimensionElementType(unsigned DimensionNum) const {
-    auto DimTy = getDimensionType(DimensionNum);
-    return DimTy->isPointerTy() ? DimTy->getPointerElementType()
-                                : DimTy->getArrayElementType();
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+    return GepInfo->DimElementTypes[DimensionNum - 1];
   }
 
   /// Returns true if the Ref accesses a structure.
@@ -585,6 +619,10 @@ public:
   /// ConstantSymbase is returned if base pointer is undef or null.
   unsigned getBasePtrSymbase() const;
 
+  /// Returns the dereferenced type of the address of Ref.
+  /// For example, it will return i32 for a ref like &(p)[5] where p is i32*.
+  Type *getDereferencedType() const;
+
   /// Sets the canonical form of the subscript base.
   void setBaseCE(CanonExpr *BaseCE) {
     createGEP();
@@ -628,6 +666,20 @@ public:
   void setAlignment(unsigned Align) {
     createGEP();
     getGEPInfo()->Alignment = Align;
+  }
+
+  /// Returns true if fake mem ref has known access type.
+  bool canUsePointeeSize() const {
+    assert (isFake() && "Fake ref expected");
+    if (!hasGEPInfo())
+      return false;
+    return getGEPInfo()->CanUsePointeeSize;
+  }
+
+  /// Sets CanUsePointeeSize for this ref
+  void setCanUsePointeeSize(bool Val) {
+    assert (isFake() && "Fake ref expected");
+    getGEPInfo()->CanUsePointeeSize = Val;
   }
 
   /// \brief Returns true if this is a collapsed ref.
@@ -921,7 +973,8 @@ public:
   /// adding a zero canon expr as an additional dimension.
   void addDimension(CanonExpr *IndexCE, ArrayRef<unsigned> TrailingOffsets = {},
                     CanonExpr *LowerBoundCE = nullptr,
-                    CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr);
+                    CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr,
+                    Type *DimElemTy = nullptr);
 
   /// Sets trailing offsets for \p DimensionNum.
   void setTrailingStructOffsets(unsigned DimensionNum,
@@ -1085,9 +1138,8 @@ public:
       const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
       bool AssumeLvalIfDetached = false);
 
-  bool replaceTempBlobs(
-      const DenseMap<unsigned, unsigned> &BlobMap,
-      bool AssumeLvalIfDetached = false);
+  bool replaceTempBlobs(const DenseMap<unsigned, unsigned> &BlobMap,
+                        bool AssumeLvalIfDetached = false);
 
   /// Replaces temp blob with int constant
   bool replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant);
@@ -1228,7 +1280,7 @@ public:
   /// A RegDDRef is nonlinear if any of the following is true:
   /// - its baseCE (if available) is nonlinear
   /// - any CE is nonlinear
-  bool isNonLinear(void) const;
+  bool isNonLinear(void) const { return getDefinedAtLevel() == NonLinearLevel; }
 
   /// Shift all CE(s) in the RegDDRef* by a given Amount.
   /// E.g.

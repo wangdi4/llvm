@@ -16,7 +16,7 @@ target triple = "x86_64-pc-linux"
 
 define void @main(i64 %x) nounwind !vectorized_kernel !1 {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %lid = call i64 @_Z12get_local_idj(i32 0)
   %y = xor i64 %x, %lid
   br label %L2
@@ -25,7 +25,7 @@ L2:
   call void @foo(i64 %y)
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 }
 
@@ -33,7 +33,7 @@ L3:
 
 define void @__Vectorized_.main(i64 %x) nounwind !vectorized_width !2 {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %lid = call i64 @_Z12get_local_idj(i32 0)
   %y = xor i64 %x, %lid
   br label %L2
@@ -42,7 +42,7 @@ L2:
   call void @foo(i64 %y)
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 }
 
@@ -50,7 +50,7 @@ L3:
 
 define void @foo(i64 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %y = xor i64 %x, %x
   br label %L2
 L2:
@@ -60,7 +60,7 @@ L2:
 
 declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 

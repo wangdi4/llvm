@@ -86,6 +86,13 @@ public:
   llvm::LoadInst *CreateAlignedLoad(llvm::Type *Ty, llvm::Value *Addr,
                                     CharUnits Align,
                                     const llvm::Twine &Name = "") {
+#if INTEL_COLLAB
+    if (Ty->isPointerTy() && !Ty->getPointerElementType()->isFunctionTy() &&
+        Addr->getType()->getPointerAddressSpace() !=
+            Ty->getPointerAddressSpace())
+      Ty = Ty->getPointerElementType()->getPointerTo(
+          Addr->getType()->getPointerAddressSpace());
+#endif //INTEL_COLLAB
     assert(Addr->getType()->getPointerElementType() == Ty);
     return CreateAlignedLoad(Ty, Addr, Align.getAsAlign(), Name);
   }
@@ -146,6 +153,34 @@ public:
     return CGBuilderBaseTy::CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(),
                                             Ordering, SSID);
   }
+
+#if INTEL_COLLAB
+  llvm::Value *CreateBitCast(llvm::Value *Ptr, llvm::Type *Ty,
+                             const llvm::Twine &Name = "") {
+    if (Ty->isPointerTy() && !Ty->getPointerElementType()->isFunctionTy() &&
+        Ptr->getType()->getPointerAddressSpace() !=
+            Ty->getPointerAddressSpace()) {
+      // According to function-pointer extension for SPIR-V the function
+      // pointers do not have a dedicated address space, so the default 0
+      // (private) address space is used for them
+      Ty = Ty->getPointerElementType()->getPointerTo(
+          Ptr->getType()->getPointerAddressSpace());
+    }
+    return CGBuilderBaseTy::CreateBitCast(Ptr, Ty, Name);
+  }
+
+  using CGBuilderBaseTy::CreateConstInBoundsGEP1_64;
+  llvm::Value *CreateConstInBoundsGEP1_64(llvm::Type *Ty, llvm::Value *Ptr,
+                                          uint64_t Idx0,
+                                          const llvm::Twine &Name = "") {
+    if (Ty->isPointerTy() && !Ty->getPointerElementType()->isFunctionTy() &&
+        Ptr->getType()->getPointerAddressSpace() !=
+            Ty->getPointerAddressSpace())
+      Ty = Ty->getPointerElementType()->getPointerTo(
+          Ptr->getType()->getPointerAddressSpace());
+    return CGBuilderBaseTy::CreateConstInBoundsGEP1_64(Ty, Ptr, Idx0, Name);
+  }
+#endif  // INTEL_COLLAB
 
   using CGBuilderBaseTy::CreateBitCast;
   Address CreateBitCast(Address Addr, llvm::Type *Ty,
@@ -261,7 +296,8 @@ public:
   Address CreateConstByteGEP(Address Addr, CharUnits Offset,
                              const llvm::Twine &Name = "") {
     assert(Addr.getElementType() == TypeCache.Int8Ty);
-    return Address(CreateGEP(Addr.getPointer(), getSize(Offset), Name),
+    return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(),
+                             getSize(Offset), Name),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
 

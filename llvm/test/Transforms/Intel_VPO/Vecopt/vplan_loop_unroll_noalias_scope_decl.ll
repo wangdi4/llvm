@@ -105,9 +105,9 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
 ; CHECK-NEXT: !1 = distinct !{!1, !2, !"foo: var"}
 ; CHECK-NEXT: !2 = distinct !{!2, !"foo"}
 ; CHECK-NEXT: !3 = !{!4}
-; CHECK-NEXT: !4 = distinct !{!4, !2, !"foo: var:cloned.BB28"}
+; CHECK-NEXT: !4 = distinct !{!4, !2, !"foo: var:cloned.BB215"}
 ; CHECK-NEXT: !5 = !{!6}
-; CHECK-NEXT: !6 = distinct !{!6, !2, !"foo: var:cloned.BB29"}
+; CHECK-NEXT: !6 = distinct !{!6, !2, !"foo: var:cloned.BB216"}
 ;
 ; CHECK-HIR:      + DO i64 i1 = 0, 4 * [[TGU0:%.*]] + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-HIR-NEXT: | <RVAL-REG> LINEAR i64 4 * [[TGU0]] + -1 {sb:2}

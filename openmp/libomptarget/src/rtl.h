@@ -52,7 +52,7 @@ struct RTLInfoTy {
                                             int32_t, uint64_t,
                                             __tgt_async_info *);
   typedef int64_t(init_requires_ty)(int64_t);
-  typedef int64_t(synchronize_ty)(int32_t, __tgt_async_info *);
+  typedef int32_t(synchronize_ty)(int32_t, __tgt_async_info *);
 #if INTEL_COLLAB
   typedef int32_t(data_submit_nowait_ty)(int32_t, void *, void *, int64_t,
                                          void *);
@@ -61,7 +61,6 @@ struct RTLInfoTy {
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
-  typedef void *(data_alloc_user_ty)(int32_t, int64_t, void *);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
@@ -79,8 +78,9 @@ struct RTLInfoTy {
   typedef void *(get_context_handle_ty)(int32_t);
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
+  typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
+  typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
   typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);
-  typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
   typedef int32_t(push_subdevice_ty)(int64_t);
@@ -100,10 +100,20 @@ struct RTLInfoTy {
   typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
   typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
   typedef int32_t(is_accessible_addr_range_ty)(int32_t, const void *, size_t);
+  typedef int32_t(notify_indirect_access_ty)(int32_t, const void *, size_t);
+  typedef int32_t(is_private_arg_on_host_ty)(int32_t, const void *, uint32_t);
+  typedef int32_t(command_batch_begin_ty)(int32_t, int32_t);
+  typedef int32_t(command_batch_end_ty)(int32_t, int32_t);
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
+  typedef void(print_device_info_ty)(int32_t);
   typedef void(set_info_flag_ty)(uint32_t);
+  typedef int32_t(create_event_ty)(int32_t, void **);
+  typedef int32_t(record_event_ty)(int32_t, void *, __tgt_async_info *);
+  typedef int32_t(wait_event_ty)(int32_t, void *, __tgt_async_info *);
+  typedef int32_t(sync_event_ty)(int32_t, void *);
+  typedef int32_t(destroy_event_ty)(int32_t, void *);
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
                                 // of other RTLs that were registered before,
@@ -146,7 +156,6 @@ struct RTLInfoTy {
   data_retrieve_nowait_ty *data_retrieve_nowait = nullptr;
   manifest_data_for_region_ty *manifest_data_for_region = nullptr;
   data_alloc_base_ty *data_alloc_base = nullptr;
-  data_alloc_user_ty *data_alloc_user = nullptr;
   get_device_name_ty *get_device_name = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
@@ -158,8 +167,9 @@ struct RTLInfoTy {
   get_context_handle_ty *get_context_handle = nullptr;
   release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
+  data_realloc_ty *data_realloc = nullptr;
+  data_aligned_alloc_ty *data_aligned_alloc = nullptr;
   is_device_accessible_ptr_ty *is_device_accessible_ptr = nullptr;
-  data_alloc_explicit_ty *data_alloc_explicit = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
   push_subdevice_ty *push_subdevice = nullptr;
@@ -176,11 +186,21 @@ struct RTLInfoTy {
   get_interop_rc_desc_ty *get_interop_rc_desc = nullptr;
   get_num_sub_devices_ty *get_num_sub_devices = nullptr;
   is_accessible_addr_range_ty *is_accessible_addr_range = nullptr;
+  notify_indirect_access_ty *notify_indirect_access = nullptr;
+  is_private_arg_on_host_ty *is_private_arg_on_host = nullptr;
+  command_batch_begin_ty *command_batch_begin = nullptr;
+  command_batch_end_ty *command_batch_end = nullptr;
 #endif // INTEL_COLLAB
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;
   supports_empty_images_ty *supports_empty_images = nullptr;
   set_info_flag_ty *set_info_flag = nullptr;
+  print_device_info_ty *print_device_info = nullptr;
+  create_event_ty *create_event = nullptr;
+  record_event_ty *record_event = nullptr;
+  wait_event_ty *wait_event = nullptr;
+  sync_event_ty *sync_event = nullptr;
+  destroy_event_ty *destroy_event = nullptr;
 
   // Are there images associated with this RTL.
   bool isUsed = false;
@@ -210,6 +230,12 @@ struct RTLsTy {
 
   // Register the clauses of the requires directive.
   void RegisterRequires(int64_t flags);
+
+  // Initialize RTL if it has not been initialized
+  void initRTLonce(RTLInfoTy &RTL);
+
+  // Initialize all RTLs
+  void initAllRTLs();
 
   // Register a shared library with all (compatible) RTLs.
   void RegisterLib(__tgt_bin_desc *desc);

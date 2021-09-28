@@ -460,9 +460,11 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
       C.getDriver().IsIntelMode()) {
-    if (!Args.hasArg(options::OPT_i_no_use_libirc))
+    if (!Args.hasArg(options::OPT_i_no_use_libirc) &&
+        getToolChain().CheckAddIntelLib("libirc", Args))
       CmdArgs.push_back("-defaultlib:libircmt");
-    CmdArgs.push_back("-defaultlib:svml_dispmt");
+    if (getToolChain().CheckAddIntelLib("libsvml", Args))
+      CmdArgs.push_back("-defaultlib:svml_dispmt");
     CmdArgs.push_back("-defaultlib:libdecimal");
   }
   // Add Intel performance libraries. Only add the lib when not in CL-mode as
@@ -743,7 +745,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Windows compilation paths.
   if (Linker.equals_insensitive("lld-link") && (C.getDriver().isUsingLTO())) {
     // Handle flags for selecting CPU variants.
-    std::string CPU = getCPUName(Args, C.getDefaultToolChain().getTriple());
+    std::string CPU = getCPUName(C.getDriver(), Args, C.getDefaultToolChain().getTriple());
     if (!CPU.empty())
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-mcpu=") + CPU));
     // Add optimization level
@@ -770,7 +772,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-mllvm:-enable-intel-advanced-opts");
     };
     // Given -x, turn on advanced optimizations
-    if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+    if (Arg *A = clang::driver::getLastArchArg(Args, false))
       addAdvancedOptimFlag(*A, options::OPT_x);
     // Additional handling for /arch and /Qx
     if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,

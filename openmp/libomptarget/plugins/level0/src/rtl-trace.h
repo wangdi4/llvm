@@ -341,6 +341,20 @@ TRACE_FN_DEF(zeDriverGetApiVersion)(
   return rc;
 }
 
+TRACE_FN_DEF(zeDriverGetExtensionFunctionAddress)(
+    ze_driver_handle_t hDriver,
+    const char *name,
+    void **ppFunctionAddress) {
+  auto rc = zeDriverGetExtensionFunctionAddress(
+      hDriver, name, ppFunctionAddress);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDriver);
+  TRACE_FN_ARG_PTR(name);
+  TRACE_FN_ARG_PTR(ppFunctionAddress);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeEventCreate)(
     ze_event_pool_handle_t hEventPool,
     const ze_event_desc_t *desc,
@@ -803,6 +817,7 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
 #define CALL_ZE_RET_FAIL(Fn, ...) CALL_ZE_RET(OFFLOAD_FAIL, Fn, __VA_ARGS__)
 #define CALL_ZE_RET_NULL(Fn, ...) CALL_ZE_RET(NULL, Fn, __VA_ARGS__)
 #define CALL_ZE_RET_ZERO(Fn, ...) CALL_ZE_RET(0, Fn, __VA_ARGS__)
+#define CALL_ZE_RET_VOID(Fn, ...) CALL_ZE_RET(, Fn, __VA_ARGS__)
 
 #define CALL_ZE_EXIT_FAIL(Fn, ...)                                             \
   do {                                                                         \

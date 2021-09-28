@@ -159,8 +159,8 @@ class X86Gather2LoadPermutePass : public FunctionPass {
         ConstantInt::getNullValue(Builder.getInt32Ty());
 
     // Create GEP with new indices.
-    Value *ZeroLastIdxGEP =
-        Builder.CreateGEP(GEP->getPointerOperand(), Indices);
+    Value *ZeroLastIdxGEP = Builder.CreateGEP(
+        GEP->getSourceElementType(), GEP->getPointerOperand(), Indices);
 
     // Bitcast the new GEP to the array size's vector pointer.
     PointerType *ZeroLastIdxGEPTy =

@@ -4,8 +4,8 @@
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=hir-vplan-vec < %s 2>&1 | FileCheck -check-prefixes=CGCHECK,PM1 %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -disable-output -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-force-vf=4 -S -print-after=hir-vplan-vec < %s 2>&1 | FileCheck -check-prefixes=CGCHECK,PM2 %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=hir-vplan-vec < %s 2>&1 | FileCheck -check-prefixes=CGCHECK,PM1 %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -disable-output -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-force-vf=4 -S -print-after=hir-vplan-vec < %s 2>&1 | FileCheck -check-prefixes=CGCHECK,PM2 %s
 
 ; CHECK:       External Defs Start:
 ; CHECK:         [[VPMPLUS:%.*]] = {%m + -1}

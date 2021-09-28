@@ -104,7 +104,7 @@ namespace lldb {
 // and get the packet history dumped to a file.
 void DumpProcessGDBRemotePacketHistory(void *p, const char *path) {
   auto file = FileSystem::Instance().Open(
-      FileSpec(path), File::eOpenOptionWrite | File::eOpenOptionCanCreate);
+      FileSpec(path), File::eOpenOptionWriteOnly | File::eOpenOptionCanCreate);
   if (!file) {
     llvm::consumeError(file.takeError());
     return;
@@ -265,7 +265,8 @@ ProcessGDBRemote::ProcessGDBRemote(lldb::TargetSP target_sp,
       m_waiting_for_attach(false), m_destroy_tried_resuming(false),
       m_command_sp(), m_breakpoint_pc_offset(0),
       m_initial_tid(LLDB_INVALID_THREAD_ID), m_replay_mode(false),
-      m_allow_flash_writes(false), m_erased_flash_ranges() {
+      m_allow_flash_writes(false), m_erased_flash_ranges(),
+      m_vfork_in_progress(false) {
   m_async_broadcaster.SetEventName(eBroadcastBitAsyncThreadShouldExit,
                                    "async thread should exit");
   m_async_broadcaster.SetEventName(eBroadcastBitAsyncContinue,
@@ -465,7 +466,7 @@ void ProcessGDBRemote::BuildDynamicRegisterInfo(bool force) {
     assert(packet_len < (int)sizeof(packet));
     UNUSED_IF_ASSERT_DISABLED(packet_len);
     StringExtractorGDBRemote response;
-    if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response, false) ==
+    if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response) ==
         GDBRemoteCommunication::PacketResult::Success) {
       response_type = response.GetResponseType();
       if (response_type == StringExtractorGDBRemote::eResponse) {
@@ -1015,7 +1016,7 @@ Status ProcessGDBRemote::ConnectToDebugserver(llvm::StringRef connect_url) {
   for (size_t idx = 0; idx < num_cmds; idx++) {
     StringExtractorGDBRemote response;
     m_gdb_comm.SendPacketAndWaitForResponse(
-        GetExtraStartupCommands().GetArgumentAtIndex(idx), response, false);
+        GetExtraStartupCommands().GetArgumentAtIndex(idx), response);
   }
   return error;
 }
@@ -1210,25 +1211,25 @@ Status ProcessGDBRemote::DoAttachToProcessWithName(
 }
 
 llvm::Expected<TraceSupportedResponse> ProcessGDBRemote::TraceSupported() {
-  return m_gdb_comm.SendTraceSupported();
+  return m_gdb_comm.SendTraceSupported(GetInterruptTimeout());
 }
 
 llvm::Error ProcessGDBRemote::TraceStop(const TraceStopRequest &request) {
-  return m_gdb_comm.SendTraceStop(request);
+  return m_gdb_comm.SendTraceStop(request, GetInterruptTimeout());
 }
 
 llvm::Error ProcessGDBRemote::TraceStart(const llvm::json::Value &request) {
-  return m_gdb_comm.SendTraceStart(request);
+  return m_gdb_comm.SendTraceStart(request, GetInterruptTimeout());
 }
 
 llvm::Expected<std::string>
 ProcessGDBRemote::TraceGetState(llvm::StringRef type) {
-  return m_gdb_comm.SendTraceGetState(type);
+  return m_gdb_comm.SendTraceGetState(type, GetInterruptTimeout());
 }
 
 llvm::Expected<std::vector<uint8_t>>
 ProcessGDBRemote::TraceGetBinaryData(const TraceGetBinaryDataRequest &request) {
-  return m_gdb_comm.SendTraceGetBinaryData(request);
+  return m_gdb_comm.SendTraceGetBinaryData(request, GetInterruptTimeout());
 }
 
 void ProcessGDBRemote::DidExit() {
@@ -1473,7 +1474,7 @@ void ProcessGDBRemote::HandleStopReplySequence() {
   while (true) {
     // Send vStopped
     StringExtractorGDBRemote response;
-    m_gdb_comm.SendPacketAndWaitForResponse("vStopped", response, false);
+    m_gdb_comm.SendPacketAndWaitForResponse("vStopped", response);
 
     // OK represents end of signal list
     if (response.IsOKResponse())
@@ -1906,6 +1907,28 @@ ThreadSP ProcessGDBRemote::SetThreadStopInfo(
             } else if (reason == "processor trace") {
               thread_sp->SetStopInfo(StopInfo::CreateStopReasonProcessorTrace(
                   *thread_sp, description.c_str()));
+            } else if (reason == "fork") {
+              StringExtractor desc_extractor(description.c_str());
+              lldb::pid_t child_pid = desc_extractor.GetU64(
+                  LLDB_INVALID_PROCESS_ID);
+              lldb::tid_t child_tid = desc_extractor.GetU64(
+                  LLDB_INVALID_THREAD_ID);
+              thread_sp->SetStopInfo(StopInfo::CreateStopReasonFork(
+                  *thread_sp, child_pid, child_tid));
+              handled = true;
+            } else if (reason == "vfork") {
+              StringExtractor desc_extractor(description.c_str());
+              lldb::pid_t child_pid = desc_extractor.GetU64(
+                  LLDB_INVALID_PROCESS_ID);
+              lldb::tid_t child_tid = desc_extractor.GetU64(
+                  LLDB_INVALID_THREAD_ID);
+              thread_sp->SetStopInfo(StopInfo::CreateStopReasonVFork(
+                  *thread_sp, child_pid, child_tid));
+              handled = true;
+            } else if (reason == "vforkdone") {
+              thread_sp->SetStopInfo(
+                  StopInfo::CreateStopReasonVForkDone(*thread_sp));
+              handled = true;
             }
           } else if (!signo) {
             addr_t pc = thread_sp->GetRegisterContext()->GetPC();
@@ -2312,6 +2335,21 @@ StateType ProcessGDBRemote::SetThreadStopInfo(StringExtractor &stop_packet) {
               ProcessGDBRemoteLog::GetLogIfAllCategoriesSet(GDBR_LOG_PROCESS));
           LLDB_LOG_ERROR(log, std::move(error), "Failed to load modules: {0}");
         }
+      } else if (key.compare("fork") == 0 || key.compare("vfork") == 0) {
+        // fork includes child pid/tid in thread-id format
+        StringExtractorGDBRemote thread_id{value};
+        auto pid_tid = thread_id.GetPidTid(LLDB_INVALID_PROCESS_ID);
+        if (!pid_tid) {
+          Log *log(
+              ProcessGDBRemoteLog::GetLogIfAllCategoriesSet(GDBR_LOG_PROCESS));
+          LLDB_LOG(log, "Invalid PID/TID to fork: {0}", value);
+          pid_tid = {{LLDB_INVALID_PROCESS_ID, LLDB_INVALID_THREAD_ID}};
+        }
+
+        reason = key.str();
+        StreamString ostr;
+        ostr.Printf("%" PRIu64 " %" PRIu64, pid_tid->first, pid_tid->second);
+        description = std::string(ostr.GetString());
       } else if (key.size() == 2 && ::isxdigit(key[0]) && ::isxdigit(key[1])) {
         uint32_t reg = UINT32_MAX;
         if (!key.getAsInteger(16, reg))
@@ -2414,7 +2452,7 @@ Status ProcessGDBRemote::DoHalt(bool &caused_stop) {
     // file handle and debugserver will go away, and we can be done...
     m_gdb_comm.Disconnect();
   } else
-    caused_stop = m_gdb_comm.Interrupt();
+    caused_stop = m_gdb_comm.Interrupt(GetInterruptTimeout());
   return error;
 }
 
@@ -2563,11 +2601,11 @@ Status ProcessGDBRemote::DoDestroy() {
   if (m_gdb_comm.IsConnected()) {
     if (m_public_state.GetValue() != eStateAttaching) {
       StringExtractorGDBRemote response;
-      bool send_async = true;
       GDBRemoteCommunication::ScopedTimeout(m_gdb_comm,
                                             std::chrono::seconds(3));
 
-      if (m_gdb_comm.SendPacketAndWaitForResponse("k", response, send_async) ==
+      if (m_gdb_comm.SendPacketAndWaitForResponse("k", response,
+                                                  GetInterruptTimeout()) ==
           GDBRemoteCommunication::PacketResult::Success) {
         char packet_cmd = response.GetChar(0);
 
@@ -2731,7 +2769,8 @@ size_t ProcessGDBRemote::DoReadMemory(addr_t addr, void *buf, size_t size,
   assert(packet_len + 1 < (int)sizeof(packet));
   UNUSED_IF_ASSERT_DISABLED(packet_len);
   StringExtractorGDBRemote response;
-  if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response, true) ==
+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet, response,
+                                              GetInterruptTimeout()) ==
       GDBRemoteCommunication::PacketResult::Success) {
     if (response.IsNormalResponse()) {
       error.Clear();
@@ -2788,6 +2827,14 @@ ProcessGDBRemote::DoReadMemoryTags(lldb::addr_t addr, size_t len,
   got.reserve(tag_data.size());
   std::copy(tag_data.begin(), tag_data.end(), std::back_inserter(got));
   return got;
+}
+
+Status ProcessGDBRemote::DoWriteMemoryTags(lldb::addr_t addr, size_t len,
+                                           int32_t type,
+                                           const std::vector<uint8_t> &tags) {
+  // By now WriteMemoryTags should have validated that tagging is enabled
+  // for this target/process.
+  return m_gdb_comm.WriteMemoryTags(addr, len, type, tags);
 }
 
 Status ProcessGDBRemote::WriteObjectFile(
@@ -2880,7 +2927,7 @@ Status ProcessGDBRemote::FlashErase(lldb::addr_t addr, size_t size) {
 
   StringExtractorGDBRemote response;
   if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-                                              true) ==
+                                              GetInterruptTimeout()) ==
       GDBRemoteCommunication::PacketResult::Success) {
     if (response.IsOKResponse()) {
       m_erased_flash_ranges.Insert(range, true);
@@ -2909,7 +2956,8 @@ Status ProcessGDBRemote::FlashDone() {
   if (m_erased_flash_ranges.IsEmpty())
     return status;
   StringExtractorGDBRemote response;
-  if (m_gdb_comm.SendPacketAndWaitForResponse("vFlashDone", response, true) ==
+  if (m_gdb_comm.SendPacketAndWaitForResponse("vFlashDone", response,
+                                              GetInterruptTimeout()) ==
       GDBRemoteCommunication::PacketResult::Success) {
     if (response.IsOKResponse()) {
       m_erased_flash_ranges.Clear();
@@ -2970,7 +3018,7 @@ size_t ProcessGDBRemote::DoWriteMemory(addr_t addr, const void *buf,
   }
   StringExtractorGDBRemote response;
   if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-                                              true) ==
+                                              GetInterruptTimeout()) ==
       GDBRemoteCommunication::PacketResult::Success) {
     if (response.IsOKResponse()) {
       error.Clear();
@@ -3146,7 +3194,7 @@ Status ProcessGDBRemote::EnableBreakpointSite(BreakpointSite *bp_site) {
       (!bp_site->HardwareRequired())) {
     // Try to send off a software breakpoint packet ($Z0)
     uint8_t error_no = m_gdb_comm.SendGDBStoppointTypePacket(
-        eBreakpointSoftware, true, addr, bp_op_size);
+        eBreakpointSoftware, true, addr, bp_op_size, GetInterruptTimeout());
     if (error_no == 0) {
       // The breakpoint was placed successfully
       bp_site->SetEnabled(true);
@@ -3186,7 +3234,7 @@ Status ProcessGDBRemote::EnableBreakpointSite(BreakpointSite *bp_site) {
   if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointHardware)) {
     // Try to send off a hardware breakpoint packet ($Z1)
     uint8_t error_no = m_gdb_comm.SendGDBStoppointTypePacket(
-        eBreakpointHardware, true, addr, bp_op_size);
+        eBreakpointHardware, true, addr, bp_op_size, GetInterruptTimeout());
     if (error_no == 0) {
       // The breakpoint was placed successfully
       bp_site->SetEnabled(true);
@@ -3250,13 +3298,15 @@ Status ProcessGDBRemote::DisableBreakpointSite(BreakpointSite *bp_site) {
 
     case BreakpointSite::eHardware:
       if (m_gdb_comm.SendGDBStoppointTypePacket(eBreakpointHardware, false,
-                                                addr, bp_op_size))
+                                                addr, bp_op_size,
+                                                GetInterruptTimeout()))
         error.SetErrorToGenericError();
       break;
 
     case BreakpointSite::eExternal: {
       if (m_gdb_comm.SendGDBStoppointTypePacket(eBreakpointSoftware, false,
-                                                addr, bp_op_size))
+                                                addr, bp_op_size,
+                                                GetInterruptTimeout()))
         error.SetErrorToGenericError();
     } break;
     }
@@ -3312,7 +3362,8 @@ Status ProcessGDBRemote::EnableWatchpoint(Watchpoint *wp, bool notify) {
     // Pass down an appropriate z/Z packet...
     if (m_gdb_comm.SupportsGDBStoppointPacket(type)) {
       if (m_gdb_comm.SendGDBStoppointTypePacket(type, true, addr,
-                                                wp->GetByteSize()) == 0) {
+                                                wp->GetByteSize(),
+                                                GetInterruptTimeout()) == 0) {
         wp->SetEnabled(true, notify);
         return error;
       } else
@@ -3358,7 +3409,8 @@ Status ProcessGDBRemote::DisableWatchpoint(Watchpoint *wp, bool notify) {
       GDBStoppointType type = GetGDBStoppointType(wp);
       // Pass down an appropriate z/Z packet...
       if (m_gdb_comm.SendGDBStoppointTypePacket(type, false, addr,
-                                                wp->GetByteSize()) == 0) {
+                                                wp->GetByteSize(),
+                                                GetInterruptTimeout()) == 0) {
         wp->SetEnabled(false, notify);
         return error;
       } else
@@ -3383,7 +3435,7 @@ Status ProcessGDBRemote::DoSignal(int signo) {
   Log *log(ProcessGDBRemoteLog::GetLogIfAllCategoriesSet(GDBR_LOG_PROCESS));
   LLDB_LOGF(log, "ProcessGDBRemote::DoSignal (signal = %d)", signo);
 
-  if (!m_gdb_comm.SendAsyncSignal(signo))
+  if (!m_gdb_comm.SendAsyncSignal(signo, GetInterruptTimeout()))
     error.SetErrorStringWithFormat("failed to send signal %i", signo);
   return error;
 }
@@ -3761,7 +3813,7 @@ thread_result_t ProcessGDBRemote::AsyncThread(void *arg) {
               // send the vCont packet
               if (!process->GetGDBRemote().SendvContPacket(
                       llvm::StringRef(continue_cstr, continue_cstr_len),
-                      response)) {
+                      process->GetInterruptTimeout(), response)) {
                 // Something went wrong
                 done = true;
                 break;
@@ -3773,6 +3825,7 @@ thread_result_t ProcessGDBRemote::AsyncThread(void *arg) {
                   process->GetGDBRemote().SendContinuePacketAndWaitForResponse(
                       *process, *process->GetUnixSignals(),
                       llvm::StringRef(continue_cstr, continue_cstr_len),
+                      process->GetInterruptTimeout(),
                       response);
 
               // We need to immediately clear the thread ID list so we are sure
@@ -4067,8 +4120,7 @@ ProcessGDBRemote::GetExtendedInfoForThread(lldb::tid_t tid) {
 
     StringExtractorGDBRemote response;
     response.SetResponseValidatorToJSON();
-    if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-                                                false) ==
+    if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) ==
         GDBRemoteCommunication::PacketResult::Success) {
       StringExtractorGDBRemote::ResponseType response_type =
           response.GetResponseType();
@@ -4140,8 +4192,7 @@ ProcessGDBRemote::GetLoadedDynamicLibrariesInfos_sender(
 
     StringExtractorGDBRemote response;
     response.SetResponseValidatorToJSON();
-    if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-                                                false) ==
+    if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) ==
         GDBRemoteCommunication::PacketResult::Success) {
       StringExtractorGDBRemote::ResponseType response_type =
           response.GetResponseType();
@@ -4174,8 +4225,7 @@ StructuredData::ObjectSP ProcessGDBRemote::GetSharedCacheInfo() {
 
     StringExtractorGDBRemote response;
     response.SetResponseValidatorToJSON();
-    if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-                                                false) ==
+    if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) ==
         GDBRemoteCommunication::PacketResult::Success) {
       StringExtractorGDBRemote::ResponseType response_type =
           response.GetResponseType();
@@ -4941,8 +4991,7 @@ Status ProcessGDBRemote::GetFileLoadAddress(const FileSpec &file,
   packet.PutStringAsRawHex8(file_path);
 
   StringExtractorGDBRemote response;
-  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response,
-                                              false) !=
+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) !=
       GDBRemoteCommunication::PacketResult::Success)
     return Status("Sending qFileLoadAddress packet failed");
 
@@ -5096,6 +5145,58 @@ void ProcessGDBRemote::HandleStopReply() {
       SetID(pid);
   }
   BuildDynamicRegisterInfo(true);
+}
+
+llvm::Expected<bool> ProcessGDBRemote::SaveCore(llvm::StringRef outfile) {
+  if (!m_gdb_comm.GetSaveCoreSupported())
+    return false;
+
+  StreamString packet;
+  packet.PutCString("qSaveCore;path-hint:");
+  packet.PutStringAsRawHex8(outfile);
+
+  StringExtractorGDBRemote response;
+  if (m_gdb_comm.SendPacketAndWaitForResponse(packet.GetString(), response) ==
+      GDBRemoteCommunication::PacketResult::Success) {
+    // TODO: grab error message from the packet?  StringExtractor seems to
+    // be missing a method for that
+    if (response.IsErrorResponse())
+      return llvm::createStringError(
+          llvm::inconvertibleErrorCode(),
+          llvm::formatv("qSaveCore returned an error"));
+
+    std::string path;
+
+    // process the response
+    llvm::SmallVector<llvm::StringRef, 1> reply_data;
+    response.GetStringRef().split(reply_data, ';');
+    for (auto x : reply_data) {
+      if (x.consume_front("core-path:"))
+        StringExtractor(x).GetHexByteString(path);
+    }
+
+    // verify that we've gotten what we need
+    if (path.empty())
+      return llvm::createStringError(llvm::inconvertibleErrorCode(),
+                                     "qSaveCore returned no core path");
+
+    // now transfer the core file
+    FileSpec remote_core{llvm::StringRef(path)};
+    Platform &platform = *GetTarget().GetPlatform();
+    Status error = platform.GetFile(remote_core, FileSpec(outfile));
+
+    if (platform.IsRemote()) {
+      // NB: we unlink the file on error too
+      platform.Unlink(remote_core);
+      if (error.Fail())
+        return error.ToError();
+    }
+
+    return true;
+  }
+
+  return llvm::createStringError(llvm::inconvertibleErrorCode(),
+                                 "Unable to send qSaveCore");
 }
 
 static const char *const s_async_json_packet_prefix = "JSON-async:";
@@ -5317,10 +5418,9 @@ public:
     if (process) {
       for (size_t i = 0; i < argc; ++i) {
         const char *packet_cstr = command.GetArgumentAtIndex(0);
-        bool send_async = true;
         StringExtractorGDBRemote response;
         process->GetGDBRemote().SendPacketAndWaitForResponse(
-            packet_cstr, response, send_async);
+            packet_cstr, response, process->GetInterruptTimeout());
         result.SetStatus(eReturnStatusSuccessFinishResult);
         Stream &output_strm = result.GetOutputStream();
         output_strm.Printf("  packet: %s\n", packet_cstr);
@@ -5368,11 +5468,10 @@ public:
       packet.PutCString("qRcmd,");
       packet.PutBytesAsRawHex8(command.data(), command.size());
 
-      bool send_async = true;
       StringExtractorGDBRemote response;
       Stream &output_strm = result.GetOutputStream();
       process->GetGDBRemote().SendPacketAndReceiveResponseWithOutputSupport(
-          packet.GetString(), response, send_async,
+          packet.GetString(), response, process->GetInterruptTimeout(),
           [&output_strm](llvm::StringRef output) { output_strm << output; });
       result.SetStatus(eReturnStatusSuccessFinishResult);
       output_strm.Printf("  packet: %s\n", packet.GetData());
@@ -5437,4 +5536,172 @@ CommandObject *ProcessGDBRemote::GetPluginCommandObject() {
     m_command_sp = std::make_shared<CommandObjectMultiwordProcessGDBRemote>(
         GetTarget().GetDebugger().GetCommandInterpreter());
   return m_command_sp.get();
+}
+
+void ProcessGDBRemote::DidForkSwitchSoftwareBreakpoints(bool enable) {
+  GetBreakpointSiteList().ForEach([this, enable](BreakpointSite *bp_site) {
+    if (bp_site->IsEnabled() &&
+        (bp_site->GetType() == BreakpointSite::eSoftware ||
+         bp_site->GetType() == BreakpointSite::eExternal)) {
+      m_gdb_comm.SendGDBStoppointTypePacket(
+          eBreakpointSoftware, enable, bp_site->GetLoadAddress(),
+          GetSoftwareBreakpointTrapOpcode(bp_site), GetInterruptTimeout());
+    }
+  });
+}
+
+void ProcessGDBRemote::DidForkSwitchHardwareTraps(bool enable) {
+  if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointHardware)) {
+    GetBreakpointSiteList().ForEach([this, enable](BreakpointSite *bp_site) {
+      if (bp_site->IsEnabled() &&
+          bp_site->GetType() == BreakpointSite::eHardware) {
+        m_gdb_comm.SendGDBStoppointTypePacket(
+            eBreakpointHardware, enable, bp_site->GetLoadAddress(),
+            GetSoftwareBreakpointTrapOpcode(bp_site), GetInterruptTimeout());
+      }
+    });
+  }
+
+  WatchpointList &wps = GetTarget().GetWatchpointList();
+  size_t wp_count = wps.GetSize();
+  for (size_t i = 0; i < wp_count; ++i) {
+    WatchpointSP wp = wps.GetByIndex(i);
+    if (wp->IsEnabled()) {
+      GDBStoppointType type = GetGDBStoppointType(wp.get());
+      m_gdb_comm.SendGDBStoppointTypePacket(type, enable, wp->GetLoadAddress(),
+                                            wp->GetByteSize(),
+                                            GetInterruptTimeout());
+    }
+  }
+}
+
+void ProcessGDBRemote::DidFork(lldb::pid_t child_pid, lldb::tid_t child_tid) {
+  Log *log(ProcessGDBRemoteLog::GetLogIfAllCategoriesSet(GDBR_LOG_PROCESS));
+
+  lldb::pid_t parent_pid = m_gdb_comm.GetCurrentProcessID();
+  // Any valid TID will suffice, thread-relevant actions will set a proper TID
+  // anyway.
+  lldb::tid_t parent_tid = m_thread_ids.front();
+
+  lldb::pid_t follow_pid, detach_pid;
+  lldb::tid_t follow_tid, detach_tid;
+
+  switch (GetFollowForkMode()) {
+  case eFollowParent:
+    follow_pid = parent_pid;
+    follow_tid = parent_tid;
+    detach_pid = child_pid;
+    detach_tid = child_tid;
+    break;
+  case eFollowChild:
+    follow_pid = child_pid;
+    follow_tid = child_tid;
+    detach_pid = parent_pid;
+    detach_tid = parent_tid;
+    break;
+  }
+
+  // Switch to the process that is going to be detached.
+  if (!m_gdb_comm.SetCurrentThread(detach_tid, detach_pid)) {
+    LLDB_LOG(log, "ProcessGDBRemote::DidFork() unable to set pid/tid");
+    return;
+  }
+
+  // Disable all software breakpoints in the forked process.
+  if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointSoftware))
+    DidForkSwitchSoftwareBreakpoints(false);
+
+  // Remove hardware breakpoints / watchpoints from parent process if we're
+  // following child.
+  if (GetFollowForkMode() == eFollowChild)
+    DidForkSwitchHardwareTraps(false);
+
+  // Switch to the process that is going to be followed
+  if (!m_gdb_comm.SetCurrentThread(follow_tid, follow_pid) ||
+      !m_gdb_comm.SetCurrentThreadForRun(follow_tid, follow_pid)) {
+    LLDB_LOG(log, "ProcessGDBRemote::DidFork() unable to reset pid/tid");
+    return;
+  }
+
+  LLDB_LOG(log, "Detaching process {0}", detach_pid);
+  Status error = m_gdb_comm.Detach(false, detach_pid);
+  if (error.Fail()) {
+    LLDB_LOG(log, "ProcessGDBRemote::DidFork() detach packet send failed: {0}",
+             error.AsCString() ? error.AsCString() : "<unknown error>");
+    return;
+  }
+
+  // Hardware breakpoints/watchpoints are not inherited implicitly,
+  // so we need to readd them if we're following child.
+  if (GetFollowForkMode() == eFollowChild)
+    DidForkSwitchHardwareTraps(true);
+}
+
+void ProcessGDBRemote::DidVFork(lldb::pid_t child_pid, lldb::tid_t child_tid) {
+  Log *log(ProcessGDBRemoteLog::GetLogIfAllCategoriesSet(GDBR_LOG_PROCESS));
+
+  assert(!m_vfork_in_progress);
+  m_vfork_in_progress = true;
+
+  // Disable all software breakpoints for the duration of vfork.
+  if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointSoftware))
+    DidForkSwitchSoftwareBreakpoints(false);
+
+  lldb::pid_t detach_pid;
+  lldb::tid_t detach_tid;
+
+  switch (GetFollowForkMode()) {
+  case eFollowParent:
+    detach_pid = child_pid;
+    detach_tid = child_tid;
+    break;
+  case eFollowChild:
+    detach_pid = m_gdb_comm.GetCurrentProcessID();
+    // Any valid TID will suffice, thread-relevant actions will set a proper TID
+    // anyway.
+    detach_tid = m_thread_ids.front();
+
+    // Switch to the parent process before detaching it.
+    if (!m_gdb_comm.SetCurrentThread(detach_tid, detach_pid)) {
+      LLDB_LOG(log, "ProcessGDBRemote::DidFork() unable to set pid/tid");
+      return;
+    }
+
+    // Remove hardware breakpoints / watchpoints from the parent process.
+    DidForkSwitchHardwareTraps(false);
+
+    // Switch to the child process.
+    if (!m_gdb_comm.SetCurrentThread(child_tid, child_pid) ||
+        !m_gdb_comm.SetCurrentThreadForRun(child_tid, child_pid)) {
+      LLDB_LOG(log, "ProcessGDBRemote::DidFork() unable to reset pid/tid");
+      return;
+    }
+    break;
+  }
+
+  LLDB_LOG(log, "Detaching process {0}", detach_pid);
+  Status error = m_gdb_comm.Detach(false, detach_pid);
+  if (error.Fail()) {
+      LLDB_LOG(log,
+               "ProcessGDBRemote::DidFork() detach packet send failed: {0}",
+                error.AsCString() ? error.AsCString() : "<unknown error>");
+      return;
+  }
+}
+
+void ProcessGDBRemote::DidVForkDone() {
+  assert(m_vfork_in_progress);
+  m_vfork_in_progress = false;
+
+  // Reenable all software breakpoints that were enabled before vfork.
+  if (m_gdb_comm.SupportsGDBStoppointPacket(eBreakpointSoftware))
+    DidForkSwitchSoftwareBreakpoints(true);
+}
+
+void ProcessGDBRemote::DidExec() {
+  // If we are following children, vfork is finished by exec (rather than
+  // vforkdone that is submitted for parent).
+  if (GetFollowForkMode() == eFollowChild)
+    m_vfork_in_progress = false;
+  Process::DidExec();
 }

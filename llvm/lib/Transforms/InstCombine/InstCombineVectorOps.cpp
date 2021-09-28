@@ -52,20 +52,29 @@ STATISTIC(NumAggregateReconstructionsSimplified,
           "original aggregate");
 
 /// Return true if the value is cheaper to scalarize than it is to leave as a
-/// vector operation. IsConstantExtractIndex indicates whether we are extracting
-/// one known element from a vector constant.
+/// vector operation. If the extract index \p EI is a constant integer then
+/// some operations may be cheap to scalarize.
 ///
 /// FIXME: It's possible to create more instructions than previously existed.
-static bool cheapToScalarize(Value *V, bool IsConstantExtractIndex) {
+static bool cheapToScalarize(Value *V, Value *EI) {
+  ConstantInt *CEI = dyn_cast<ConstantInt>(EI);
+
   // If we can pick a scalar constant value out of a vector, that is free.
   if (auto *C = dyn_cast<Constant>(V))
-    return IsConstantExtractIndex || C->getSplatValue();
+    return CEI || C->getSplatValue();
+
+  if (CEI && match(V, m_Intrinsic<Intrinsic::experimental_stepvector>())) {
+    ElementCount EC = cast<VectorType>(V->getType())->getElementCount();
+    // Index needs to be lower than the minimum size of the vector, because
+    // for scalable vector, the vector size is known at run time.
+    return CEI->getValue().ult(EC.getKnownMinValue());
+  }
 
   // An insertelement to the same constant index as our extract will simplify
   // to the scalar inserted element. An insertelement to a different constant
   // index is irrelevant to our extract.
   if (match(V, m_InsertElt(m_Value(), m_Value(), m_ConstantInt())))
-    return IsConstantExtractIndex;
+    return CEI;
 
   if (match(V, m_OneUse(m_Load(m_Value()))))
     return true;
@@ -75,14 +84,12 @@ static bool cheapToScalarize(Value *V, bool IsConstantExtractIndex) {
 
   Value *V0, *V1;
   if (match(V, m_OneUse(m_BinOp(m_Value(V0), m_Value(V1)))))
-    if (cheapToScalarize(V0, IsConstantExtractIndex) ||
-        cheapToScalarize(V1, IsConstantExtractIndex))
+    if (cheapToScalarize(V0, EI) || cheapToScalarize(V1, EI))
       return true;
 
   CmpInst::Predicate UnusedPred;
   if (match(V, m_OneUse(m_Cmp(UnusedPred, m_Value(V0), m_Value(V1)))))
-    if (cheapToScalarize(V0, IsConstantExtractIndex) ||
-        cheapToScalarize(V1, IsConstantExtractIndex))
+    if (cheapToScalarize(V0, EI) || cheapToScalarize(V1, EI))
       return true;
 
   return false;
@@ -119,7 +126,8 @@ Instruction *InstCombinerImpl::scalarizePHI(ExtractElementInst &EI,
   // and that it is a binary operation which is cheap to scalarize.
   // otherwise return nullptr.
   if (!PHIUser->hasOneUse() || !(PHIUser->user_back() == PN) ||
-      !(isa<BinaryOperator>(PHIUser)) || !cheapToScalarize(PHIUser, true))
+      !(isa<BinaryOperator>(PHIUser)) ||
+      !cheapToScalarize(PHIUser, EI.getIndexOperand()))
     return nullptr;
 
   // Create a scalar PHI node that will replace the vector PHI node
@@ -415,7 +423,7 @@ Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
   // TODO come up with a n-ary matcher that subsumes both unary and
   // binary matchers.
   UnaryOperator *UO;
-  if (match(SrcVec, m_UnOp(UO)) && cheapToScalarize(SrcVec, IndexC)) {
+  if (match(SrcVec, m_UnOp(UO)) && cheapToScalarize(SrcVec, Index)) {
     // extelt (unop X), Index --> unop (extelt X, Index)
     Value *X = UO->getOperand(0);
     Value *E = Builder.CreateExtractElement(X, Index);
@@ -423,7 +431,7 @@ Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
   }
 
   BinaryOperator *BO;
-  if (match(SrcVec, m_BinOp(BO)) && cheapToScalarize(SrcVec, IndexC)) {
+  if (match(SrcVec, m_BinOp(BO)) && cheapToScalarize(SrcVec, Index)) {
     // extelt (binop X, Y), Index --> binop (extelt X, Index), (extelt Y, Index)
     Value *X = BO->getOperand(0), *Y = BO->getOperand(1);
     Value *E0 = Builder.CreateExtractElement(X, Index);
@@ -434,7 +442,7 @@ Instruction *InstCombinerImpl::visitExtractElementInst(ExtractElementInst &EI) {
   Value *X, *Y;
   CmpInst::Predicate Pred;
   if (match(SrcVec, m_Cmp(Pred, m_Value(X), m_Value(Y))) &&
-      cheapToScalarize(SrcVec, IndexC)) {
+      cheapToScalarize(SrcVec, Index)) {
     // extelt (cmp X, Y), Index --> cmp (extelt X, Index), (extelt Y, Index)
     Value *E0 = Builder.CreateExtractElement(X, Index);
     Value *E1 = Builder.CreateExtractElement(Y, Index);
@@ -913,7 +921,7 @@ Instruction *InstCombinerImpl::foldAggregateConstructionIntoAggregateReuse(
              "We don't store nullptr in SourceAggregate!");
       assert((Describe(SourceAggregate) == AggregateDescription::Found) ==
                  (I.index() != 0) &&
-             "SourceAggregate should be valid after the the first element,");
+             "SourceAggregate should be valid after the first element,");
 
       // For this element, is there a plausible source aggregate?
       // FIXME: we could special-case undef element, IFF we know that in the
@@ -1079,6 +1087,23 @@ Instruction *InstCombinerImpl::visitInsertValueInst(InsertValueInst &I) {
 
   if (Instruction *NewI = foldAggregateConstructionIntoAggregateReuse(I))
     return NewI;
+
+#if INTEL_CUSTOMIZATION
+  // Check if this is potentially a complex instruction that has been manually
+  // expanded.
+  ArrayRef<Type*> Fields = I.getType()->subtypes();
+  if (Fields.size() == 2 && Fields[0] == Fields[1] &&
+      Fields[0]->isFloatingPointTy()) {
+    Value *RealV, *ImgV;
+    if (match(&I, m_InsertValue<1>(m_InsertValue<0>(m_Value(), m_Value(RealV)),
+                                   m_Value(ImgV)))) {
+      IRBuilderBase::InsertPointGuard Guard(Builder);
+      Builder.SetInsertPoint(cast<Instruction>(I.getOperand(0)));
+      if (createComplexMathInstruction(RealV, ImgV))
+        return &I;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
@@ -1517,6 +1542,19 @@ Instruction *InstCombinerImpl::visitInsertElementInst(InsertElementInst &IE) {
 
   if (Instruction *IdentityShuf = foldInsEltIntoIdentityShuffle(IE))
     return IdentityShuf;
+
+#if INTEL_CUSTOMIZATION
+  // Check for a potential computation of a complex instruction.
+  ElementCount Count = IE.getType()->getElementCount();
+  Value *RealV, *ImagV;
+  if (!Count.isScalable() && Count.getFixedValue() == 2 &&
+      match(&IE, m_InsertElt(
+          m_InsertElt(m_Value(), m_Value(RealV), m_ConstantInt<0>()),
+          m_Value(ImagV), m_ConstantInt<1>()))) {
+    if (createComplexMathInstruction(RealV, ImagV))
+      return &IE;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
@@ -2730,3 +2768,114 @@ Instruction *InstCombinerImpl::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
 
   return MadeChange ? &SVI : nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> InstCombineComplex("inst-combine-complex",
+    cl::desc("Enable pattern match to llvm.complex.* intrinsics"));
+
+bool InstCombinerImpl::createComplexMathInstruction(Value *Real, Value *Imag) {
+  if (!InstCombineComplex)
+    return false;
+
+  Instruction *RealI = dyn_cast<Instruction>(Real);
+  Instruction *ImagI = dyn_cast<Instruction>(Imag);
+  if (!RealI || !ImagI)
+    return false;
+
+  // Don't try to handle vector instructions for now.
+  if (RealI->getType()->isVectorTy())
+    return false;
+
+  Value *Op0R, *Op0I, *Op1R, *Op1I, *Scale, *Numerator;
+  // Compute the intersection of all the fast math flags of the entire tree up
+  // to the point that the input complex numbers are specified.
+  auto computeFMF = [&]() {
+    SmallVector<Instruction *, 8> Worklist = { RealI, ImagI };
+    FastMathFlags Flags;
+    Flags.set();
+    while (!Worklist.empty()) {
+      Instruction *I = Worklist.back();
+      Worklist.pop_back();
+      Flags &= I->getFastMathFlags();
+      for (Use &U : I->operands()) {
+        Value *V = U.get();
+        if (V == Op0R || V == Op0I || V == Op1R || V == Op1I)
+          continue;
+        Worklist.push_back(cast<Instruction>(V));
+      }
+    }
+    return Flags;
+  };
+
+  Intrinsic::ID NewIntrinsic = Intrinsic::not_intrinsic;
+  // Check for complex multiply:
+  // real = op0.real * op1.real - op0.imag * op1.imag
+  // imag = op0.real * op1.imag + op1.imag * op0.real
+  if (match(Real, m_FSub(m_OneUse(m_FMul(m_Value(Op0R), m_Value(Op1R))),
+                         m_OneUse(m_FMul(m_Value(Op0I), m_Value(Op1I)))))) {
+    if (match(Imag, m_c_FAdd(
+            m_OneUse(m_c_FMul(m_Specific(Op0R), m_Specific(Op1I))),
+            m_OneUse(m_c_FMul(m_Specific(Op1R), m_Specific(Op0I)))))) {
+      NewIntrinsic = Intrinsic::intel_complex_fmul;
+    }
+  }
+  // Check for complex div:
+  // real = (op0.real * op1.real + op0.imag * op1.imag) / scale
+  // imag = (op0.imag * op1.real - op0.real * op1.imag) / scale
+  // where scale = op1.real * op1.real + op1.imag * op1.imag
+  else if (match(Imag, m_FDiv(m_Value(Numerator), m_Value(Scale)))) {
+    if (match(Scale, m_FAdd(m_OneUse(m_FMul(m_Value(Op1R), m_Deferred(Op1R))),
+                            m_OneUse(m_FMul(m_Value(Op1I), m_Deferred(Op1I)))))) {
+      // The matching of Op1R and Op1I are temporary, we may need to reverse the
+      // assignments.
+      auto checkNumerator = [&]() {
+        return match(Numerator, m_OneUse(
+            m_FSub(m_OneUse(m_c_FMul(m_Value(Op0I), m_Specific(Op1R))),
+                   m_OneUse(m_c_FMul(m_Value(Op0R), m_Specific(Op1I))))));
+      };
+      bool ImagMatches = checkNumerator();
+      if (!ImagMatches) {
+        std::swap(Op1R, Op1I);
+        ImagMatches = checkNumerator();
+      }
+      if (ImagMatches && match(Real,
+              m_FDiv(m_OneUse(m_c_FAdd(
+                       m_OneUse(m_c_FMul(m_Specific(Op0R), m_Specific(Op1R))),
+                       m_OneUse(m_c_FMul(m_Specific(Op0I), m_Specific(Op1I))))),
+                     m_Specific(Scale)))) {
+        NewIntrinsic = Intrinsic::intel_complex_fdiv;
+      }
+    }
+  }
+
+  // Make sure we matched an intrinsic.
+  if (NewIntrinsic == Intrinsic::not_intrinsic)
+    return false;
+
+  // Use the computation tree to capture all of the fast-math flags.
+  IRBuilderBase::FastMathFlagGuard FMFGuard(Builder);
+  Builder.setFastMathFlags(computeFMF());
+
+  Value *Op0 = Builder.CreateComplexValue(Op0R, Op0I);
+  Value *Op1 = Builder.CreateComplexValue(Op1R, Op1I);
+
+  // Create new intrinsics. From our pattern matching of only the direct
+  // arithmetic formulas, we have to create them with the complex-limited-range.
+  Value *Result;
+  switch (NewIntrinsic) {
+  case Intrinsic::intel_complex_fmul:
+    Result = Builder.CreateComplexMul(Op0, Op1, true);
+    break;
+  case Intrinsic::intel_complex_fdiv:
+    Result = Builder.CreateComplexDiv(Op0, Op1, true);
+    break;
+  default:
+    llvm_unreachable("Unexpected complex intrinsic");
+  }
+
+  replaceInstUsesWith(*RealI, Builder.CreateExtractElement(Result, uint64_t(0)));
+  replaceInstUsesWith(*ImagI, Builder.CreateExtractElement(Result, uint64_t(1)));
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION

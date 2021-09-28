@@ -165,13 +165,21 @@ struct PragmaFPHandler : public PragmaHandler {
 };
 
 struct PragmaNoOpenMPHandler : public PragmaHandler {
+#if INTEL_COLLAB
+  PragmaNoOpenMPHandler(const char *Name) : PragmaHandler(Name) {}
+#else // INTEL_COLLAB
   PragmaNoOpenMPHandler() : PragmaHandler("omp") { }
+#endif // INTEL_COLLAB
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &FirstToken) override;
 };
 
 struct PragmaOpenMPHandler : public PragmaHandler {
+#if INTEL_COLLAB
+  PragmaOpenMPHandler(const char *Name) : PragmaHandler(Name) {}
+#else // INTEL_COLLAB
   PragmaOpenMPHandler() : PragmaHandler("omp") { }
+#endif // INTEL_COLLAB
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &FirstToken) override;
 };
@@ -422,10 +430,21 @@ void Parser::initializePragmaHandlers() {
 
     PP.AddPragmaHandler("OPENCL", FPContractHandler.get());
   }
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMP) {
+    OpenMPHandler = std::make_unique<PragmaOpenMPHandler>("omp");
+    OpenMPXHandler = std::make_unique<PragmaOpenMPHandler>("ompx");
+  } else {
+    OpenMPHandler = std::make_unique<PragmaNoOpenMPHandler>("omp");
+    OpenMPXHandler = std::make_unique<PragmaNoOpenMPHandler>("ompx");
+  }
+  PP.AddPragmaHandler(OpenMPXHandler.get());
+#else // INTEL_COLLAB
   if (getLangOpts().OpenMP)
     OpenMPHandler = std::make_unique<PragmaOpenMPHandler>();
   else
     OpenMPHandler = std::make_unique<PragmaNoOpenMPHandler>();
+#endif // INTEL_COLLAB
   PP.AddPragmaHandler(OpenMPHandler.get());
 
   if (getLangOpts().MicrosoftExt ||
@@ -599,6 +618,11 @@ void Parser::resetPragmaHandlers() {
   }
   PP.RemovePragmaHandler(OpenMPHandler.get());
   OpenMPHandler.reset();
+
+#if INTEL_COLLAB
+  PP.RemovePragmaHandler(OpenMPXHandler.get());
+  OpenMPXHandler.reset();
+#endif // INTEL_COLLAB
 
   if (getLangOpts().MicrosoftExt ||
       getTargetInfo().getTriple().isOSBinFormatELF()) {
@@ -1923,6 +1947,15 @@ void Parser::HandlePragmaAttribute() {
     if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after, "("))
       return SkipToEnd();
 
+    // FIXME: The practical usefulness of completion here is limited because
+    // we only get here if the line has balanced parens.
+    if (Tok.is(tok::code_completion)) {
+      cutOffParsing();
+      // FIXME: suppress completion of unsupported attributes?
+      Actions.CodeCompleteAttribute(AttributeCommonInfo::Syntax::AS_GNU);
+      return SkipToEnd();
+    }
+
     if (Tok.isNot(tok::identifier)) {
       Diag(Tok, diag::err_pragma_attribute_expected_attribute_name);
       SkipToEnd();
@@ -2718,6 +2751,14 @@ void PragmaOpenMPHandler::HandlePragma(Preprocessor &PP,
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_openmp);
   Tok.setLocation(Introducer.Loc);
+
+#if INTEL_COLLAB
+  // Use annotation value to mark this as the extension spelling.
+  const IdentifierInfo *II = FirstTok.getIdentifierInfo();
+  bool IsExtension = II->isStr("ompx");
+  Tok.setAnnotationValue(
+      reinterpret_cast<void *>(static_cast<uintptr_t>(IsExtension)));
+#endif // INTEL_COLLAB
 
   while (Tok.isNot(tok::eod) && Tok.isNot(tok::eof)) {
     Pragma.push_back(Tok);
@@ -4563,6 +4604,8 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
                            .Case("aligned", true)
                            .Case("dynamic_align", true)
                            .Case("nodynamic_align", true)
+                           .Case("vecremainder", true)
+                           .Case("novecremainder", true)
                            .Default(false);
     if (!OptionValid) {
       PP.Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)

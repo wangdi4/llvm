@@ -513,18 +513,16 @@ entry:
 ; CHECK-NEXT:    movl %edi, (%rcx)
 ; CHECK-NEXT:    addq $8, %rcx
 ; CHECK-NEXT:    cmpq %rdx, %rcx
-; INTEL_CUSTOMIZATION
-; The community CHECKs are for a bug which isn't present in xmain. Remove
-; the INTEL_CUSTOMIZATIONs when community CHECKs start passing.
-; Check that when a CMOVrm is in a loop, and there are CMOVrrs in the same
-; block, converting the CMOVrm doesn't inhibit conversion of CMOVrrs.
-; CHECK-NOT: cmov
-; COM:CHECK-NEXT:    cmovbeq %rax, %rcx
-; COM:CHECK-NEXT:    movl %edi, (%rcx)
-; COM:CHECK-NEXT:    addl $1, %esi
-; COM:CHECK-NEXT:    cmpl $1024, %esi # imm = 0x400
-; COM:CHECK-NEXT:    jl .LBB13_1
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    ja .LBB13_5
+; CHECK-NEXT:  # %bb.4: # %loop.body
+; CHECK-NEXT:    # in Loop: Header=BB13_1 Depth=1
+; CHECK-NEXT:    movq %rax, %rcx
+; CHECK-NEXT:  .LBB13_5: # %loop.body
+; CHECK-NEXT:    # in Loop: Header=BB13_1 Depth=1
+; CHECK-NEXT:    movl %edi, (%rcx)
+; CHECK-NEXT:    addl $1, %esi
+; CHECK-NEXT:    cmpl $1024, %esi # imm = 0x400
+; CHECK-NEXT:    jl .LBB13_1
 loop.body:
   %phi.iv = phi i32 [ 0, %entry ], [ %iv.next, %loop.body ]
   %phi.ptr = phi i32* [ %begin, %entry ], [ %dst2, %loop.body ]
@@ -541,8 +539,8 @@ loop.body:
   %cond = icmp slt i32 %iv.next, 1024
   br i1 %cond, label %loop.body, label %exit
 
-; COM:CHECK-NEXT:  # %bb.4: # %exit ;INTEL
-; COM:CHECK-NEXT:    retq           ;INTEL
+; CHECK-NEXT:  # %bb.6: # %exit
+; CHECK-NEXT:    retq
 exit:
   ret void
 }

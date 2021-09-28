@@ -38,8 +38,8 @@ define internal i64 @foo(%struct.dvty* %arg0) {
   %t2 = getelementptr inbounds %struct.dvty, %struct.dvty* %arg0, i64 0, i32 0
   %t3 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %t1, i64 0, i32 0
   %t4 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %t1, i64 0, i32 1
-  %t5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %t3, i32 0)
-  %t6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %t4, i32 0)
+  %t5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %t3, i32 0)
+  %t6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %t4, i32 0)
   %t7 = load i64, i64* %t5, align 1
   %t8 = load i64*, i64** %t2, align 1
   %t9 = load i64, i64* %t6, align 1

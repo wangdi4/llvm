@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery on byte flattened GEPs
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are placeholders for check lines that will
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
 ; Lines marked with CHECK should remain the same when changing to use opaque
 ;   pointers.
@@ -31,12 +33,12 @@ define internal void @test01() {
   call void @test01helper(i8* %addr0, i8* %addr1, i8* %addr2, i8* %addr3, i8* %addr4)
   ret void
 }
-define internal void @test01helper(i8* %arg0, i8* %arg1, i8* %arg2, i8* %arg3, i8* %arg4) !dtrans_type !4 {
+define internal void @test01helper(i8* "intel_dtrans_func_index"="1" %arg0, i8* "intel_dtrans_func_index"="2" %arg1, i8* "intel_dtrans_func_index"="3" %arg2, i8* "intel_dtrans_func_index"="4" %arg3, i8* "intel_dtrans_func_index"="5" %arg4) !intel.dtrans.func.type !5 {
   ret void
 }
 ; CHECK-LABEL: void @test01()
-; CHECK-CUR: %addr0 = getelementptr i8, i8* %flat, i32 0
-; CHECK-FUT: %addr0 = getelementptr i8, p0 %flat, i32 0
+; CHECK-NONOPAQUE: %addr0 = getelementptr i8, i8* %flat, i32 0
+; CHECK-OPAQUE: %addr0 = getelementptr i8, ptr %flat, i32 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
@@ -44,8 +46,8 @@ define internal void @test01helper(i8* %arg0, i8* %arg1, i8* %arg2, i8* %arg3, i
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 
-; CHECK-CUR: %addr1 = getelementptr i8, i8* %flat, i32 8
-; CHECK-FUT: %addr1 = getelementptr i8, p0 %flat, i32 8
+; CHECK-NONOPAQUE: %addr1 = getelementptr i8, i8* %flat, i32 8
+; CHECK-OPAQUE: %addr1 = getelementptr i8, ptr %flat, i32 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64**{{ *$}}
@@ -53,8 +55,8 @@ define internal void @test01helper(i8* %arg0, i8* %arg1, i8* %arg2, i8* %arg3, i
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 1
 
-; CHECK-CUR: %addr2 = getelementptr i8, i8* %flat, i32 16
-; CHECK-FUT: %addr2 = getelementptr i8, p0 %flat, i32 16
+; CHECK-NONOPAQUE: %addr2 = getelementptr i8, i8* %flat, i32 16
+; CHECK-OPAQUE: %addr2 = getelementptr i8, ptr %flat, i32 16
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
@@ -62,8 +64,8 @@ define internal void @test01helper(i8* %arg0, i8* %arg1, i8* %arg2, i8* %arg3, i
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 2
 
-; CHECK-CUR: %addr3 = getelementptr i8, i8* %flat, i32 20
-; CHECK-FUT: %addr3 = getelementptr i8, p0 %flat, i32 20
+; CHECK-NONOPAQUE: %addr3 = getelementptr i8, i8* %flat, i32 20
+; CHECK-OPAQUE: %addr3 = getelementptr i8, ptr %flat, i32 20
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i16*{{ *$}}
@@ -71,8 +73,8 @@ define internal void @test01helper(i8* %arg0, i8* %arg1, i8* %arg2, i8* %arg3, i
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 3
 
-; CHECK-CUR: %addr4 = getelementptr i8, i8* %flat, i32 22
-; CHECK-FUT: %addr4 = getelementptr i8, p0 %flat, i32 22
+; CHECK-NONOPAQUE: %addr4 = getelementptr i8, i8* %flat, i32 22
+; CHECK-OPAQUE: %addr4 = getelementptr i8, ptr %flat, i32 22
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i16*{{ *$}}
@@ -94,8 +96,8 @@ define internal void @test02() {
   ret void
 }
 ; CHECK-LABEL: void @test02()
-; CHECK-CUR:  %faddr = getelementptr i8, i8* %flat, i32 %offset
-; CHECK-FUT:  %faddr = getelementptr i8, p0 %flat, i32 %offset
+; CHECK-NONOPAQUE:  %faddr = getelementptr i8, i8* %flat, i32 %offset
+; CHECK-OPAQUE:  %faddr = getelementptr i8, ptr %flat, i32 %offset
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
@@ -125,8 +127,8 @@ define internal void @test03(i32 %x, i32 %y) {
   ret void
 }
 ; CHECK-LABEL: void @test03(i32 %x, i32 %y)
-; CHECK-CUR:  %faddr = getelementptr i8, i8* %flat, i32 %offset
-; CHECK-FUT:  %faddr = getelementptr i8, p0 %flat, i32 %offset
+; CHECK-NONOPAQUE:  %faddr = getelementptr i8, i8* %flat, i32 %offset
+; CHECK-OPAQUE:  %faddr = getelementptr i8, ptr %flat, i32 %offset
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
@@ -146,8 +148,8 @@ define internal void @test04() {
   ret void
 }
 ; CHECK-LABEL: void @test04()
-; CHECK-CUR: %faddr = getelementptr i8, i8* %flat, i32 %offset
-; CHECK-FUT: %faddr = getelementptr i8, p0 %flat, i32 %offset
+; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i32 %offset
+; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i32 %offset
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
@@ -168,8 +170,8 @@ define internal void @test05() {
   ret void
 }
 ; CHECK-LABEL: void @test05()
-; CHECK-CUR: %faddr = getelementptr i8, i8* %flat, i64 8
-; CHECK-FUT: %faddr = getelementptr i8, p0 %flat, i64 8
+; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 8
+; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 8
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:  Aliased types:
 ; CHECK-NEXT:    i32*{{ *$}}
@@ -187,8 +189,8 @@ define internal void @test06() {
   ret void
 }
 ; CHECK-LABEL: void @test06()
-; CHECK-CUR: %faddr = getelementptr i8, i8* %flat, i64 2
-; CHECK-FUT: %faddr = getelementptr i8, p0 %flat, i64 2
+; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 2
+; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 2
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:    i16*{{ *$}}
@@ -206,8 +208,8 @@ define internal void @test07(i32 %idx) {
   ret void
 }
 ; CHECK-LABEL: void @test07(i32 %idx) {
-; CHECK-CUR: %faddr = getelementptr i8, i8* %flat, i32 %idx
-; CHECK-FUT: %faddr = getelementptr i8, p0 %flat, i32 %idx
+; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i32 %idx
+; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i32 %idx
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   [32767 x i16]*{{ *$}}
@@ -230,8 +232,8 @@ define internal void @test08() {
   ret void
 }
 ; CHECK-LABEL: void @test08()
-; CHECK-CUR: %faddr = getelementptr i8, i8* %flat, i64 24
-; CHECK-FUT: %faddr = getelementptr i8, p0 %flat, i64 24
+; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 24
+; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 24
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
@@ -253,8 +255,8 @@ define internal void @test09() {
   ret void
 }
 ; CHECK-LABEL: void @test09()
-; CHECK-CUR: %faddr = getelementptr i8, i8* %flat, i64 56
-; CHECK-FUT: %faddr = getelementptr i8, p0 %flat, i64 56
+; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 56
+; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 56
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
@@ -276,8 +278,8 @@ define internal void @test10(i64 %idx) {
   ret void
 }
 ; CHECK-LABEL: void @test10(i64 %idx)
-; CHECK-CUR: %faddr = getelementptr i8, i8* %flat, i64 %idx
-; CHECK-FUT: %faddr = getelementptr i8, p0 %flat, i64 %idx
+; CHECK-NONOPAQUE: %faddr = getelementptr i8, i8* %flat, i64 %idx
+; CHECK-OPAQUE: %faddr = getelementptr i8, ptr %flat, i64 %idx
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT: Aliased types:
@@ -288,20 +290,19 @@ define internal void @test10(i64 %idx) {
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 1}  ; i64*
 !3 = !{i16 0, i32 0}  ; i16
-!4 = !{!"F", i1 false, i32 5, !5, !6, !6, !6, !6, !6}  ; void (i8*, i8*, i8*, i8*, i8*)
-!5 = !{!"void", i32 0}  ; void
-!6 = !{i8 0, i32 1}  ; i8*
-!7 = !{i64 0, i32 0}  ; i64
-!8 = !{!"R", %struct.test05a zeroinitializer, i32 0}  ; %struct.test05a
-!9 = !{!"A", i32 3, !7}  ; [3 x i64]
-!10 = !{!"S", %struct.test01 zeroinitializer, i32 5, !1, !2, !1, !3, !3} ; { i32, i64*, i32, i16, i16 }
-!11 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !7, !1} ; { i32, i64, i32 }
-!12 = !{!"S", %struct.test03 zeroinitializer, i32 3, !1, !7, !1} ; { i32, i64, i32 }
-!13 = !{!"S", %struct.test04 zeroinitializer, i32 3, !1, !7, !1} ; { i32, i64, i32 }
-!14 = !{!"S", %struct.test05a zeroinitializer, i32 2, !3, !1} ; { i16, i32 }
-!15 = !{!"S", %struct.test05b zeroinitializer, i32 2, !3, !8} ; { i16, %struct.test05a }
-!16 = !{!"S", %struct.test08 zeroinitializer, i32 2, !1, !9} ; { i32, [3 x i64] }
-!17 = !{!"S", %struct.test09 zeroinitializer, i32 3, !1, !7, !1} ; { i32, i64, i32 }
-!18 = !{!"S", %struct.test10 zeroinitializer, i32 3, !1, !7, !1} ; { i32, i64, i32 }
+!4 = !{i8 0, i32 1}  ; i8*
+!5 = distinct !{!4, !4, !4, !4, !4}
+!6 = !{i64 0, i32 0}  ; i64
+!7 = !{%struct.test05a zeroinitializer, i32 0}  ; %struct.test05a
+!8 = !{!"A", i32 3, !6}  ; [3 x i64]
+!9 = !{!"S", %struct.test01 zeroinitializer, i32 5, !1, !2, !1, !3, !3} ; { i32, i64*, i32, i16, i16 }
+!10 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !6, !1} ; { i32, i64, i32 }
+!11 = !{!"S", %struct.test03 zeroinitializer, i32 3, !1, !6, !1} ; { i32, i64, i32 }
+!12 = !{!"S", %struct.test04 zeroinitializer, i32 3, !1, !6, !1} ; { i32, i64, i32 }
+!13 = !{!"S", %struct.test05a zeroinitializer, i32 2, !3, !1} ; { i16, i32 }
+!14 = !{!"S", %struct.test05b zeroinitializer, i32 2, !3, !7} ; { i16, %struct.test05a }
+!15 = !{!"S", %struct.test08 zeroinitializer, i32 2, !1, !8} ; { i32, [3 x i64] }
+!16 = !{!"S", %struct.test09 zeroinitializer, i32 3, !1, !6, !1} ; { i32, i64, i32 }
+!17 = !{!"S", %struct.test10 zeroinitializer, i32 3, !1, !6, !1} ; { i32, i64, i32 }
 
-!dtrans_types = !{!10, !11, !12, !13, !14, !15, !16, !17, !18}
+!intel.dtrans.types = !{!9, !10, !11, !12, !13, !14, !15, !16, !17}

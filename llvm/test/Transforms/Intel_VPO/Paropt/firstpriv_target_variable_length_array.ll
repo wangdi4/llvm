@@ -77,8 +77,6 @@ arrayctor.cont:                                   ; preds = %entry, %arrayctor.l
 ; CHECK-NEXT:  %[[END:[^,]+]] = getelementptr %class.A, %class.A* %[[TO]], i64 %[[VLA_LEN:[^,]+]]
 ; CHECK-NEXT:  %priv.cpyctor.isempty = icmp eq %class.A* %[[TO]], %[[END]]
 ; CHECK-NEXT:  br i1 %priv.cpyctor.isempty, label %priv.cpyctor.done, label %priv.cpyctor.body
-; CHECK-LABEL: priv.cpyctor.done:
-; CHECK-NEXT:  br label %{{.*}}
 ; CHECK-LABEL: priv.cpyctor.body:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[TO]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
 ; CHECK-NEXT:  %priv.cpy.src.ptr = phi %class.A addrspace(1)* [ %[[FROM]], %{{.*}} ], [ %priv.cpy.src.inc, %{{.*}} ]
@@ -87,6 +85,8 @@ arrayctor.cont:                                   ; preds = %entry, %arrayctor.l
 ; CHECK-NEXT:  %priv.cpy.src.inc = getelementptr %class.A, %class.A addrspace(1)* %priv.cpy.src.ptr, i32 1
 ; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
 ; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.cpyctor.done, label %priv.cpyctor.body
+; CHECK-LABEL: priv.cpyctor.done:
+; CHECK-NEXT:  br label %{{.*}}
 
 
 for.cond:                                         ; preds = %for.inc, %arrayctor.cont

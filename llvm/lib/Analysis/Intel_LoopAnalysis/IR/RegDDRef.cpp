@@ -64,17 +64,19 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 }
 
 RegDDRef::GEPInfo::GEPInfo()
-    : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), IsCollapsed(false), Alignment(0), DummyGepLoc(nullptr) {
-}
+    : BaseCE(nullptr), BasePtrElementTy(nullptr), BitCastDestTy(nullptr),
+      InBounds(false), AddressOf(false), IsCollapsed(false), Alignment(0),
+      CanUsePointeeSize(false), DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
-    : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
-      InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
+    : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
+      BitCastDestTy(Info.BitCastDestTy), InBounds(Info.InBounds),
+      AddressOf(Info.AddressOf), IsCollapsed(Info.IsCollapsed),
+      Alignment(Info.Alignment), CanUsePointeeSize(Info.CanUsePointeeSize),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
-      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
-      MemDbgLoc(Info.MemDbgLoc), DummyGepLoc(nullptr) {
+      DimElementTypes(Info.DimElementTypes), MDNodes(Info.MDNodes),
+      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc),
+      DummyGepLoc(nullptr) {
 
   for (auto *Lower : Info.LowerBounds) {
     CanonExpr *LowerClone = Lower->clone();
@@ -299,6 +301,9 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
         if (Detailed && getAlignment()) {
           OS << "{al:" << getAlignment() << "}";
         }
+        if (Detailed && isFake() && canUsePointeeSize()) {
+          OS << "{canUsePointeeSize}";
+        }
       }
 
       if (getBitCastDestType()) {
@@ -436,16 +441,6 @@ void RegDDRef::dumpDims(bool Detailed) const {
 }
 #endif
 
-Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
-  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
-  assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
-
-  Type *DimTy = GepInfo->DimTypes[DimensionNum - 1];
-  assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
-         "Dimension type should be either a pointer or an array type!");
-  return DimTy;
-}
-
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   const CanonExpr *CE = nullptr;
 
@@ -461,6 +456,25 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 
     // Extract the type from the first dimension/offsets.
     auto RefTy = getDimensionElementType(1);
+
+    if (!RefTy) {
+      auto *BasePtrTy = CE->getDestType();
+
+      if (getHLDDNode() && isFake()) {
+        assert(isSelfMemRef(true) && "Self memref expected!");
+        // For now we return i8 type for self fake refs in the presence of
+        // opaque ptrs. Not sure if we can do better.
+        return cast<PointerType>(BasePtrTy)->isOpaque()
+                   ? Type::getInt8Ty(BasePtrTy->getContext())
+                   : BasePtrTy->getPointerElementType();
+
+      } else {
+        assert(isSelfAddressOf(true) && "Self AddressOf ref expected!");
+        // For refs of the form &(%p)[0], we can return %p's type.
+        return BasePtrTy;
+      }
+    }
+
     RefTy = DDRefUtils::getOffsetType(RefTy, getTrailingStructOffsets(1));
 
     // For DDRefs representing addresses, we need to return a pointer to
@@ -544,11 +558,11 @@ bool RegDDRef::canCreateLocationGEP() const {
   }
 
   // getIndexedType requires element type.
-  BaseTy = BaseTy->getPointerElementType();
+  auto BaseElemTy = getBasePtrElementType();
 
-  // Check if the indexing is valid. It may be invalid for refs fromed from
+  // Check if the indexing is valid. It may be invalid for refs formed from
   // fortran subscript intrinsics.
-  if (!GetElementPtrInst::getIndexedType(BaseTy, IdxList)) {
+  if (!GetElementPtrInst::getIndexedType(BaseElemTy, IdxList)) {
     return false;
   }
 
@@ -629,8 +643,8 @@ GetElementPtrInst *RegDDRef::getOrCreateLocationGEP() const {
   auto *Reg = getHLDDNode()->getParentRegion();
   auto *RegEntryInsertPt = &*Reg->getEntryBBlock()->getFirstInsertionPt();
 
-  auto *GepLoc = GetElementPtrInst::Create(nullptr, BaseVal, IdxList,
-                                           "dummygep", RegEntryInsertPt);
+  auto *GepLoc = GetElementPtrInst::Create(
+      getBasePtrElementType(), BaseVal, IdxList, "dummygep", RegEntryInsertPt);
 
   GepLoc->setIsInBounds(IsInBounds);
 
@@ -1681,29 +1695,6 @@ bool RegDDRef::containsUndef() const {
   return false;
 }
 
-bool RegDDRef::isNonLinear(void) const {
-
-  bool HasGEPInfo = hasGEPInfo();
-
-  if (HasGEPInfo && getBaseCE()->isNonLinear()) {
-    return true;
-  }
-
-  // Check each dimension
-  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
-    if (getDimensionIndex(I)->isNonLinear()) {
-      return true;
-    }
-
-    if (HasGEPInfo && (getDimensionLower(I)->isNonLinear() ||
-                       getDimensionStride(I)->isNonLinear())) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
   auto *Node = getHLDDNode();
   bool IsLoopBound = Node && isa<HLLoop>(Node);
@@ -1737,6 +1728,8 @@ void RegDDRef::verify() const {
   auto NodeLevel = getNodeLevel();
 
   bool HasGEPInfo = hasGEPInfo();
+  bool IsSelfAddressOfOrFake =
+      (isSelfAddressOf(true) || (isFake() && !canUsePointeeSize()));
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     auto *IndexCE = getDimensionIndex(I);
 
@@ -1759,6 +1752,17 @@ void RegDDRef::verify() const {
              "Lower is not integer type!");
       assert(StrideCE->getSrcType()->isIntOrIntVectorTy() &&
              "Stride is not integer type!");
+
+      // Self-address of refs like &(p)[0] may not have any type information
+      // when we transition to opaque ptrs. Fake memrefs based on self-address
+      // of refs may be missing this info as well.
+      if (!IsSelfAddressOfOrFake) {
+        auto *DimTy = getDimensionType(I);
+        (void)DimTy;
+        assert((DimTy && (DimTy->isArrayTy() || DimTy->isPointerTy())) &&
+               "Dimension type should be either a pointer or an array type!");
+        assert(getDimensionElementType(I) && "DimElemTy may not be unknown");
+      }
     }
   }
 
@@ -1779,6 +1783,11 @@ void RegDDRef::verify() const {
     }
     assert((CE->isSelfBlob() || CE->isStandAloneUndefBlob() || CE->isNull()) &&
            "BaseCE is not a self blob!");
+
+    assert((getBasePtrElementType() ==
+            getDimensionElementType(getNumDimensions())) &&
+           "Mismatch between base ptr element type and dimension element type "
+           "of the highest dimension!");
 
   } else if (isLval()) {
     assert(getSymbase() > GenericRvalSymbase &&
@@ -1833,7 +1842,7 @@ void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
 void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
                                    ArrayRef<unsigned> TrailingOffsets,
                                    CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
-                                   Type *DimTy) {
+                                   Type *DimTy, Type *DimElemTy) {
   // addDimension() assumes that the ref IS or WILL become a GEP reference.
   createGEP();
 
@@ -1855,16 +1864,14 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
   assert(StrideCE && "Stride may not be unknown");
   GepInfo->Strides.push_back(StrideCE);
 
-  assert(DimTy && "DimTy may not be unknown");
-  assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
-         "Dimension type should be either array or pointer");
   GepInfo->DimTypes.push_back(DimTy);
+  GepInfo->DimElementTypes.push_back(DimElemTy);
 }
 
 void RegDDRef::addDimension(CanonExpr *IndexCE,
                             ArrayRef<unsigned> TrailingOffsets,
                             CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
-                            Type *DimTy) {
+                            Type *DimTy, Type *DimElemTy) {
   assert(IndexCE && "IndexCE is null!");
   Type *ScalarIndexCETy = IndexCE->getDestType()->getScalarType();
 
@@ -1881,10 +1888,9 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
     assert(!DimTy && "Unexpected DimTy type when StrideCE is defined");
 
     unsigned DimNum = getNumDimensions();
-    Type *ElemTy;
     if (DimNum == 0) {
       DimTy = getBaseCE()->getSrcType()->getScalarType();
-      ElemTy = DimTy->getPointerElementType();
+      DimElemTy = getBasePtrElementType();
     } else {
       // Get the lowest dimension type, then apply struct offset if present. The
       // result type will be a new dimension type. Then get the element type, it
@@ -1893,13 +1899,14 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
       // provided explicitly.
       DimTy = getDimensionElementType(1);
       DimTy = DDRefUtils::getOffsetType(DimTy, getTrailingStructOffsets(1));
-      ElemTy = DimTy->isPointerTy() ? DimTy->getPointerElementType()
-                                    : DimTy->getArrayElementType();
+      DimElemTy = DimTy->getArrayElementType();
     }
 
     StrideCE = getCanonExprUtils().createCanonExpr(
         ScalarIndexCETy, 0,
-        ElemTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElemTy) : 0);
+        (DimElemTy && DimElemTy->isSized())
+            ? getCanonExprUtils().getTypeSizeInBytes(DimElemTy)
+            : 0);
   }
 
   // Add Index CE
@@ -1918,10 +1925,8 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   GepInfo->Strides.insert(GepInfo->Strides.begin(), StrideCE);
 
   // Add Dimension type
-  assert(DimTy && "DimTy may not be unknown");
-  assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
-         "Dimension type should be either array or pointer");
   GepInfo->DimTypes.insert(GepInfo->DimTypes.begin(), DimTy);
+  GepInfo->DimElementTypes.insert(GepInfo->DimElementTypes.begin(), DimElemTy);
 }
 
 void RegDDRef::removeDimension(unsigned DimensionIndex) {
@@ -1936,9 +1941,13 @@ void RegDDRef::removeDimension(unsigned DimensionIndex) {
            "DimensionNum is out of range for Strides!");
     assert((GepInfo->DimTypes.size() >= DimensionIndex) &&
            "DimensionNum is out of range for DimTypes!");
+    assert((GepInfo->DimElementTypes.size() >= DimensionIndex) &&
+           "DimensionNum is out of range for DimElementTypes!");
     GepInfo->LowerBounds.erase(GepInfo->LowerBounds.begin() + ToRemoveDim);
     GepInfo->Strides.erase(GepInfo->Strides.begin() + ToRemoveDim);
     GepInfo->DimTypes.erase(GepInfo->DimTypes.begin() + ToRemoveDim);
+    GepInfo->DimElementTypes.erase(GepInfo->DimElementTypes.begin() +
+                                   ToRemoveDim);
 
     if (GepInfo->DimensionOffsets.size() > DimensionIndex) {
       GepInfo->DimensionOffsets.erase(GepInfo->DimensionOffsets.begin() +
@@ -2066,25 +2075,14 @@ bool RegDDRef::hasIV() const {
 }
 
 unsigned RegDDRef::getDefinedAtLevel() const {
-  unsigned MaxLevel = 0;
-
-  bool HasGEPInfo = hasGEPInfo();
-
-  if (HasGEPInfo) {
-    MaxLevel = getBaseCE()->getDefinedAtLevel();
+  if (isTerminalRef()) {
+    return getSingleCanonExpr()->getDefinedAtLevel();
   }
 
-  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
-    MaxLevel = std::max(MaxLevel, getDimensionIndex(I)->getDefinedAtLevel());
+  unsigned MaxLevel = 0;
 
-    if (HasGEPInfo) {
-      MaxLevel = std::max(MaxLevel, getDimensionLower(I)->getDefinedAtLevel());
-      MaxLevel = std::max(MaxLevel, getDimensionStride(I)->getDefinedAtLevel());
-    }
-
-    if (MaxLevel == NonLinearLevel) {
-      return NonLinearLevel;
-    }
+  for (auto *BlobRef : blobs()) {
+    MaxLevel = std::max(BlobRef->getDefinedAtLevel(), MaxLevel);
   }
 
   return MaxLevel;
@@ -2144,6 +2142,15 @@ unsigned RegDDRef::getBasePtrSymbase() const {
   }
 
   return getBlobUtils().getTempBlobSymbase(Index);
+}
+
+Type *RegDDRef::getDereferencedType() const {
+  assert(isAddressOf() && "Address of Ref is expected");
+  auto *NonConst = const_cast<RegDDRef *>(this);
+  NonConst->setAddressOf(false);
+  Type *ElemTy = NonConst->getDestType();
+  NonConst->setAddressOf(true);
+  return ElemTy;
 }
 
 void RegDDRef::clear(bool AssumeLvalIfDetached) {

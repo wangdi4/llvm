@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -S -inline -instcombine -ip-cloning -ip-cloning-after-inl -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=7 < %s 2>&1 | FileCheck %s
-; RUN: opt -S -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=7 < %s 2>&1 | FileCheck %s
+; RUN: opt -S -inline -instcombine -ip-cloning -ip-cloning-after-inl -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe807 < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe807 < %s 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-29570: Fix core dump with
 ; tc -r none -t cpu2017ref/527 -l opt_base6_core_avx512 -c " -mllvm -stats -mllvm -inline-report=3" --ignore_rules

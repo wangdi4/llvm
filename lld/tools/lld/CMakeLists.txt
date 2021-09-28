@@ -17,7 +17,7 @@ target_link_libraries(lld
   lldELF
 # INTEL_CUSTOMIZATION
 # Disable unused functionality to speed up builds.
-#  lldMachO2
+#  lldMachO
 #  lldMinGW
 #  lldWasm
 # end INTEL_CUSTOMIZATION

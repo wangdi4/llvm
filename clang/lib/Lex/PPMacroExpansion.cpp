@@ -362,6 +362,11 @@ void Preprocessor::RegisterBuiltinMacros() {
   if (getLangOpts().MicrosoftExt) {
     Ident__identifier = RegisterBuiltinMacro(*this, "__identifier");
     Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
+#if INTEL_CUSTOMIZATION
+  } else if (getLangOpts().isIntelCompat(LangOptions::UnderbarPragmaEnabled)) {
+    Ident__identifier = nullptr;
+    Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
+#endif // INTEL_CUSTOMIZATION
   } else {
     Ident__identifier = nullptr;
     Ident__pragma = nullptr;
@@ -395,9 +400,6 @@ void Preprocessor::RegisterBuiltinMacros() {
     Ident__MODULE__ = RegisterBuiltinMacro(*this, "__MODULE__");
   else
     Ident__MODULE__ = nullptr;
-#if INTEL_CUSTOMIZATION
-  Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
-#endif  // INTEL_CUSTOMIZATION
 }
 
 /// isTrivialSingleTokenExpansion - Return true if MI, which has a single token
@@ -474,6 +476,8 @@ bool Preprocessor::isNextPPTokenLParen() {
 /// expanded as a macro, handle it and return the next token as 'Identifier'.
 bool Preprocessor::HandleMacroExpandedIdentifier(Token &Identifier,
                                                  const MacroDefinition &M) {
+  emitMacroExpansionWarnings(Identifier);
+
   MacroInfo *MI = M.getMacroInfo();
 
   // If this is a macro expansion in the "#if !defined(x)" line for the file,
@@ -1474,15 +1478,6 @@ static bool isTargetEnvironment(const TargetInfo &TI,
   return TI.getTriple().getEnvironment() == Env.getEnvironment();
 }
 
-static void remapMacroPath(
-    SmallString<256> &Path,
-    const std::map<std::string, std::string, std::greater<std::string>>
-        &MacroPrefixMap) {
-  for (const auto &Entry : MacroPrefixMap)
-    if (llvm::sys::path::replace_path_prefix(Path, Entry.first, Entry.second))
-      break;
-}
-
 /// ExpandBuiltinMacro - If an identifier token is read that is to be expanded
 /// as a builtin macro, handle it and return the next token as 'Tok'.
 void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
@@ -1564,7 +1559,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
       } else {
         FN += PLoc.getFilename();
       }
-      remapMacroPath(FN, PPOpts->MacroPrefixMap);
+      getLangOpts().remapPathPrefix(FN);
       Lexer::Stringify(FN);
       OS << '"' << FN << '"';
     }

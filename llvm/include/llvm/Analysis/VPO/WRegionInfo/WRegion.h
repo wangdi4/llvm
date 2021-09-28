@@ -52,11 +52,13 @@
 ///   WRNPrefetchNode         | #pragma omp prefetch
 ///   WRNOrderedNode          | #pragma omp ordered
 ///   WRNMasterNode           | #pragma omp master
+///   WRNMaskedNode           | #pragma omp masked
 ///   WRNSingleNode           | #pragma omp single
 ///   WRNTaskgroupNode        | #pragma omp taskgroup
 ///   WRNTaskwaitNode         | #pragma omp taskwait
 ///   WRNTaskyieldNode        | #pragma omp taskyield
 ///   WRNInteropNode          | #pragma omp interop
+///   WRNScopeNode            | #pragma omp scope
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -233,6 +235,8 @@ public:
 
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;
+
+  void printNormIVUB(formatted_raw_ostream &OS) const;
 };
 
 /// WRN for
@@ -743,6 +747,7 @@ private:
   SmallVector<Value *, 3> UncollapsedNDRange;
   uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
+  bool HasTeamsReduction = false;
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -761,7 +766,10 @@ protected:
     UncollapsedNDRange.insert(
         UncollapsedNDRange.begin(), Dims.begin(), Dims.end());
   }
-public:
+  void setHasTeamsReduction() override {
+    HasTeamsReduction = true;
+  }
+ public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
   DEFINE_GETTER(MapClause,          getMap,         Map)
@@ -792,11 +800,11 @@ public:
     return UncollapsedNDRange;
   }
 
-  void setSPIRVSIMDWidth(unsigned Width) override {
+  void setSPIRVSIMDWidth(unsigned Width) {
     SPIRVSIMDWidth = Width;
   }
 
-  unsigned getSPIRVSIMDWidth() const override {
+  unsigned getSPIRVSIMDWidth() const {
     return SPIRVSIMDWidth;
   }
 
@@ -813,6 +821,10 @@ public:
 
   uint8_t getNDRangeDistributeDim() const override {
     return NDRangeDistributeDim;
+  }
+
+  bool getHasTeamsReduction() const override {
+    return HasTeamsReduction;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -1673,6 +1685,35 @@ public:
 
 /// WRN for
 /// \code
+///   #pragma omp scope
+/// \endcode
+class WRNScopeNode : public WRegionNode {
+private:
+  PrivateClause Priv;
+  ReductionClause Reduction;
+  bool Nowait;
+
+public:
+  WRNScopeNode(BasicBlock *BB);
+
+protected:
+  void setNowait(bool Flag) override { Nowait = Flag; }
+
+public:
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  bool getNowait() const override { return Nowait; }
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity=1) const override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNScope;
+  }
+};
+
+/// WRN for
+/// \code
 ///   #pragma omp barrier
 /// \endcode
 class WRNBarrierNode : public WRegionNode {
@@ -1729,6 +1770,32 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNMaster;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp masked
+/// \endcode
+class WRNMaskedNode : public WRegionNode {
+private:
+  EXPR Filter;
+
+public:
+  WRNMaskedNode(BasicBlock *BB);
+
+protected:
+  void setFilter(EXPR E) override { Filter = E; }
+
+public:
+  EXPR getFilter() const override { return Filter; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNMasked;
   }
 };
 

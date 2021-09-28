@@ -802,6 +802,13 @@ static bool doReroll(HLLoop *Lp, unsigned RerollFactor,
   Lp->setNumExits(CEUpdater.getNumGotos() + 1);
 
   HIRInvalidationUtils::invalidateBody(Lp);
+
+  OptReportBuilder &ORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
+
+  // remark: Loop rerolled by %d
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25264u, RerollFactor);
+
   return true;
 }
 

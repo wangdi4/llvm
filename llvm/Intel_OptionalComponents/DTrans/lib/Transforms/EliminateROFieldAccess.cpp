@@ -72,7 +72,7 @@
 
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Utils/Local.h"
@@ -95,15 +95,16 @@ using namespace PatternMatch;
 
 namespace {
 
+template <class InfoClass>
 struct EliminateROFieldAccessImpl {
-  EliminateROFieldAccessImpl(DTransAnalysisInfo &DTransInfo)
+  EliminateROFieldAccessImpl(InfoClass &DTransInfo)
       : DTransInfo(DTransInfo){};
   bool run(Module &M, WholeProgramInfo &WPInfo);
   bool visit(BasicBlock *BB);
   bool checkSecondIfBB(BasicBlock *SecondIfBB, Value *BaseOp);
 
 private:
-  DTransAnalysisInfo &DTransInfo;
+  InfoClass &DTransInfo;
 };
 } // namespace
 
@@ -143,8 +144,10 @@ static Value *isCmpPtrToNull(ICmpInst *CI) {
 //  the field that is accessed is only read.
 //  The same approach works for 'icmp ne t nullptr' but with reversed true and
 //  false basic blocks.
-bool EliminateROFieldAccessImpl::checkSecondIfBB(BasicBlock *SecondIfBB,
-                                                 Value *BaseOp) {
+template<class InfoClass>
+bool EliminateROFieldAccessImpl<InfoClass>::checkSecondIfBB(BasicBlock
+                                                                *SecondIfBB,
+                                                            Value *BaseOp) {
   ICmpInst::Predicate Pred;
   Instruction *LoadAddr, *Load, *ICmp;
   BasicBlock *TrueBB = nullptr;
@@ -172,8 +175,18 @@ bool EliminateROFieldAccessImpl::checkSecondIfBB(BasicBlock *SecondIfBB,
   } else if (Pred != CmpInst::ICMP_EQ)
     return false;
 
-  PointerType *PTy = dyn_cast<PointerType>(Load->getType());
-  if (!PTy || !isa<FunctionType>(PTy->getElementType()))
+  auto LI = dyn_cast<LoadInst>(Load);
+  if (!LI)
+    return false;
+  auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  if (!GEPI || GEPI->getNumIndices() != 2 || !GEPI->hasAllConstantIndices())
+    return false;
+  auto CI0 = cast<ConstantInt>(GEPI->getOperand(1));
+  if (!CI0 || !CI0->isZero())
+    return false;
+  unsigned Idx = cast<ConstantInt>(GEPI->getOperand(2))->getZExtValue();
+  auto STy = dyn_cast<StructType>(GEPI->getSourceElementType());
+  if (!STy || !DTransInfo.isFunctionPtr(STy, Idx))
     return false;
 
   if (!match(Load, m_Load(m_Instruction(LoadAddr))))
@@ -212,7 +225,8 @@ bool EliminateROFieldAccessImpl::checkSecondIfBB(BasicBlock *SecondIfBB,
 //
 //  The same approach works for 'icmp ne t nullptr' but with reversed true and
 //  false basic blocks.
-bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
+template <class InfoClass>
+bool EliminateROFieldAccessImpl<InfoClass>::visit(BasicBlock *FirstIfBB) {
   BranchInst *BaseBrInst = dyn_cast<BranchInst>(FirstIfBB->getTerminator());
   if (!BaseBrInst || !BaseBrInst->isConditional())
     return false;
@@ -244,9 +258,9 @@ bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
   if (!BaseOp)
     return false;
 
-  if (PointerType *BasePtrTy = dyn_cast<PointerType>(BaseOp->getType()))
-    if (!isa<StructType>(BasePtrTy->getElementType()))
-      return false;
+  auto Arg = dyn_cast<Argument>(BaseOp);
+  if (!Arg || !DTransInfo.isPtrToStruct(Arg))
+    return false;
 
   LLVM_DEBUG(dbgs() << "DTRANS-ELIM-RO-FIELD-ACCESS: First IF BB is proven\n");
 
@@ -321,12 +335,11 @@ bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
   return true;
 }
 
-bool EliminateROFieldAccessImpl::run(Module &M, WholeProgramInfo &WPInfo) {
+template <class InfoClass>
+bool EliminateROFieldAccessImpl<InfoClass>::run(Module &M,
+                                                WholeProgramInfo &WPInfo) {
 
   if (!WPInfo.isWholeProgramSafe())
-    return false;
-
-  if (!DTransInfo.useDTransAnalysis())
     return false;
 
   bool Changed = false;
@@ -344,7 +357,11 @@ bool EliminateROFieldAccessImpl::run(Module &M, WholeProgramInfo &WPInfo) {
 }
 
 namespace {
+
 class DTransEliminateROFieldAccessWrapper : public ModulePass {
+private:
+  dtrans::EliminateROFieldAccessPass Impl;
+
 public:
   static char ID;
   DTransEliminateROFieldAccessWrapper() : ModulePass(ID) {
@@ -360,6 +377,27 @@ public:
     AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<DTransAnalysisWrapper>();
+  }
+};
+
+class DTransEliminateROFieldAccessOPWrapper : public ModulePass {
+private:
+  dtransOP::EliminateROFieldAccessPass Impl;
+
+public:
+  static char ID;
+  DTransEliminateROFieldAccessOPWrapper() : ModulePass(ID) {
+    initializeDTransEliminateROFieldAccessOPWrapperPass(
+        *PassRegistry::getPassRegistry());
+  }
+  bool runOnModule(Module &M) override;
+  StringRef getPassName() const override {
+    return "DTrans eliminate read only field access";
+  }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
+    AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
 
@@ -381,29 +419,68 @@ ModulePass *llvm::createDTransEliminateROFieldAccessWrapperPass() {
   return new DTransEliminateROFieldAccessWrapper();
 }
 
-bool DTransEliminateROFieldAccessWrapper::runOnModule(Module &M) {
-  auto &DTransInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
-  auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+using dtransOP::DTransSafetyAnalyzerWrapper;
+char DTransEliminateROFieldAccessOPWrapper::ID = 0;
+INITIALIZE_PASS_BEGIN(
+    DTransEliminateROFieldAccessOPWrapper, "dtrans-elim-ro-field-access-op",
+    "Eliminate condition accessing structure field which is only read", false,
+    false)
+INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(
+    DTransEliminateROFieldAccessOPWrapper, "dtrans-elim-ro-field-access-op",
+    "Eliminate condition accessing structure field which is only read", false,
+    false)
 
+ModulePass *llvm::createDTransEliminateROFieldAccessOPWrapperPass() {
+  return new DTransEliminateROFieldAccessOPWrapper();
+}
+
+bool DTransEliminateROFieldAccessWrapper::runOnModule(Module &M) {
   if (skipModule(M))
     return false;
 
-  EliminateROFieldAccessImpl Impl(DTransInfo);
-  if (Impl.run(M, WPInfo))
-    return true;
-  return false;
+  auto &DTAnalysisWrapper
+      = getAnalysis<DTransAnalysisWrapper>();
+  auto &DTransInfo = DTAnalysisWrapper.getDTransInfo(M);
+  auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+  bool Changed = Impl.runImpl(M, DTransInfo, WPInfo);
+  if (Changed)
+    DTAnalysisWrapper.setInvalidated();
+  return Changed;
+}
+
+bool DTransEliminateROFieldAccessOPWrapper::runOnModule(Module &M) {
+  if (skipModule(M))
+    return false;
+
+  auto &DTAnalysisWrapper
+      = getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
+  auto &DTransInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
+  auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+  bool Changed = Impl.runImpl(M, DTransInfo, WPInfo);
+  return Changed;
 }
 
 namespace llvm {
 namespace dtrans {
+
+bool EliminateROFieldAccessPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
+                                         WholeProgramInfo &WPInfo) {
+  if (!DTInfo.useDTransAnalysis())
+    return false;
+  DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
+  EliminateROFieldAccessImpl<DTransAnalysisInfoAdapter>
+      EROFieldAccessI(AIAdaptor);
+  return EROFieldAccessI.run(M, WPInfo);
+}
 
 PreservedAnalyses EliminateROFieldAccessPass::run(Module &M,
                                                   ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  EliminateROFieldAccessImpl Impl(DTransInfo);
-  if (!Impl.run(M, WPInfo))
+  if (!runImpl(M, DTransInfo, WPInfo))
     return PreservedAnalyses::all();
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
@@ -412,4 +489,29 @@ PreservedAnalyses EliminateROFieldAccessPass::run(Module &M,
 }
 } // namespace dtrans
 
+namespace dtransOP {
+
+bool EliminateROFieldAccessPass::runImpl(Module &M, DTransSafetyInfo &DTInfo,
+                                         WholeProgramInfo &WPInfo) {
+  if (!DTInfo.useDTransSafetyAnalysis())
+    return false;
+  DTransSafetyInfoAdapter AIAdaptor(DTInfo);
+  EliminateROFieldAccessImpl<DTransSafetyInfoAdapter>
+      EROFieldAccessI(AIAdaptor); 
+  return EROFieldAccessI.run(M, WPInfo);
+}
+
+PreservedAnalyses EliminateROFieldAccessPass::run(Module &M,
+                                                  ModuleAnalysisManager &AM) {
+  auto &DTransInfo = AM.getResult<DTransSafetyAnalyzer>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
+  if (!runImpl(M, DTransInfo, WPInfo))
+    return PreservedAnalyses::all();
+  // TODO: Mark the actual preserved analyses.
+  PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();
+  return PA;
+}
+} // namespace dtransOP
 } // namespace llvm

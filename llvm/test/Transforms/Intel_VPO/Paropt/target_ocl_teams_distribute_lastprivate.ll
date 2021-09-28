@@ -25,12 +25,8 @@
 ; CHECK: [[L0_LI_VAL:%[a-zA-Z._0-9]+]] = zext i1 [[L0_LI_PRED]] to i32
 ; CHECK: store i32 [[L0_LI_VAL]], i32* [[L0_IS_LAST_AI]]
 
-; CHECK: [[TMP1:%[a-zA-Z._0-9]+]] = load i32, i32* [[L1_IS_LAST_AI]]
-; CHECK: [[TMP2:%[a-zA-Z._0-9]+]] = load i32, i32* [[L0_IS_LAST_AI]]
-; CHECK: [[AND:%[a-zA-Z._0-9]+]] = and i32 [[TMP1]], [[TMP2]]
-; CHECK: [[CMP:%[a-zA-Z._0-9]+]] = icmp ne i32 [[AND]], 0
-; CHECK: br i1 [[CMP]], label %[[LAST_THEN:[a-zA-Z._0-9]+]], label %[[LAST_DONE:[a-zA-Z._0-9]+]]
-
+; CHECK: load i32, i32* %loop1.lower.bnd
+; CHECK: load i32, i32* %loop1.upper.bnd
 ; CHECK: [[L1_LB:%[a-zA-Z._0-9]+]] = load i32, i32* %loop1.lower.bnd
 ; CHECK: [[L1_UB:%[a-zA-Z._0-9]+]] = load i32, i32* %loop1.upper.bnd
 ; CHECK: [[L1_ZTT:%[a-zA-Z._0-9]+]] = icmp sle i32 [[L1_LB]], [[L1_UB]]
@@ -38,6 +34,12 @@
 ; CHECK: [[L1_LI_PRED:%[a-zA-Z._0-9]+]] = and i1 [[L1_ZTT]], [[L1_LI_CHECK]]
 ; CHECK: [[L1_LI_VAL:%[a-zA-Z._0-9]+]] = zext i1 [[L1_LI_PRED]] to i32
 ; CHECK: store i32 [[L1_LI_VAL]], i32* [[L1_IS_LAST_AI]]
+
+; CHECK: [[TMP1:%[a-zA-Z._0-9]+]] = load i32, i32* [[L1_IS_LAST_AI]]
+; CHECK: [[TMP2:%[a-zA-Z._0-9]+]] = load i32, i32* [[L0_IS_LAST_AI]]
+; CHECK: [[AND:%[a-zA-Z._0-9]+]] = and i32 [[TMP1]], [[TMP2]]
+; CHECK: [[CMP:%[a-zA-Z._0-9]+]] = icmp ne i32 [[AND]], 0
+; CHECK: br i1 [[CMP]], label %[[LAST_THEN:[a-zA-Z._0-9]+]], label %[[LAST_DONE:[a-zA-Z._0-9]+]]
 
 ; CHECK: [[LAST_THEN]]:
 ; CHECK: [[LAST_VAL:%[a-zA-Z._0-9]+]] = load i32, i32* [[LPRIV:%x.ascast.lpriv]]

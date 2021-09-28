@@ -38,41 +38,7 @@ EXTERN int omp_get_initial_device(void) {
 }
 
 EXTERN void *omp_target_alloc(size_t size, int device_num) {
-  TIMESCOPE();
-  DP("Call to omp_target_alloc for device %d requesting %zu bytes\n",
-     device_num, size);
-
-  if (size <= 0) {
-    DP("Call to omp_target_alloc with non-positive length\n");
-    return NULL;
-  }
-
-  void *rc = NULL;
-
-  if (device_num == omp_get_initial_device()) {
-    rc = malloc(size);
-    DP("omp_target_alloc returns host ptr " DPxMOD "\n", DPxPTR(rc));
-    return rc;
-  }
-
-  if (!device_is_ready(device_num)) {
-    DP("omp_target_alloc returns NULL ptr\n");
-    return NULL;
-  }
-
-#if INTEL_COLLAB
-  DeviceTy &Device = PM->Devices[device_num];
-  if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
-    rc = Device.data_alloc_managed(size);
-    DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
-    return rc;
-  }
-  rc = Device.data_alloc_user(size, NULL);
-  DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
-  return rc;
-#else  // INTEL_COLLAB
   return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEFAULT, __func__);
-#endif // INTEL_COLLAB
 }
 
 EXTERN void *llvm_omp_target_alloc_device(size_t size, int device_num) {
@@ -108,7 +74,7 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
     return;
   }
 
-  PM->Devices[device_num].deleteData(device_ptr);
+  PM->Devices[device_num]->deleteData(device_ptr);
   DP("omp_target_free deallocated device ptr\n");
 }
 
@@ -136,11 +102,12 @@ EXTERN int omp_target_is_present(const void *ptr, int device_num) {
     return false;
   }
 
-  DeviceTy &Device = PM->Devices[device_num];
+  DeviceTy &Device = *PM->Devices[device_num];
   bool IsLast; // not used
   bool IsHostPtr;
   void *TgtPtr = Device.getTgtPtrBegin(const_cast<void *>(ptr), 0, IsLast,
-                                       false, IsHostPtr);
+                                       /*UpdateRefCount=*/false,
+                                       /*UseHoldRefCount=*/false, IsHostPtr);
   int rc = (TgtPtr != NULL);
   // Under unified memory the host pointer can be returned by the
   // getTgtPtrBegin() function which means that there is no device
@@ -194,18 +161,18 @@ EXTERN int omp_target_memcpy(void *dst, const void *src, size_t length,
       rc = OFFLOAD_FAIL;
   } else if (src_device == omp_get_initial_device()) {
     DP("copy from host to device\n");
-    DeviceTy &DstDev = PM->Devices[dst_device];
+    DeviceTy &DstDev = *PM->Devices[dst_device];
     AsyncInfoTy AsyncInfo(DstDev);
     rc = DstDev.submitData(dstAddr, srcAddr, length, AsyncInfo);
   } else if (dst_device == omp_get_initial_device()) {
     DP("copy from device to host\n");
-    DeviceTy &SrcDev = PM->Devices[src_device];
+    DeviceTy &SrcDev = *PM->Devices[src_device];
     AsyncInfoTy AsyncInfo(SrcDev);
     rc = SrcDev.retrieveData(dstAddr, srcAddr, length, AsyncInfo);
   } else {
     DP("copy from device to device\n");
-    DeviceTy &SrcDev = PM->Devices[src_device];
-    DeviceTy &DstDev = PM->Devices[dst_device];
+    DeviceTy &SrcDev = *PM->Devices[src_device];
+    DeviceTy &DstDev = *PM->Devices[dst_device];
     // First try to use D2D memcpy which is more efficient. If fails, fall back
     // to unefficient way.
     if (SrcDev.isDataExchangable(DstDev)) {
@@ -314,7 +281,7 @@ EXTERN int omp_target_associate_ptr(const void *host_ptr,
     return OFFLOAD_FAIL;
   }
 
-  DeviceTy &Device = PM->Devices[device_num];
+  DeviceTy &Device = *PM->Devices[device_num];
   void *device_addr = (void *)((uint64_t)device_ptr + (uint64_t)device_offset);
   int rc = Device.associatePtr(const_cast<void *>(host_ptr),
                                const_cast<void *>(device_addr), size);
@@ -344,7 +311,7 @@ EXTERN int omp_target_disassociate_ptr(const void *host_ptr, int device_num) {
     return OFFLOAD_FAIL;
   }
 
-  DeviceTy &Device = PM->Devices[device_num];
+  DeviceTy &Device = *PM->Devices[device_num];
   int rc = Device.disassociatePtr(const_cast<void *>(host_ptr));
   DP("omp_target_disassociate_ptr returns %d\n", rc);
   return rc;
@@ -369,9 +336,9 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
     return NULL;
   }
 
-  DeviceTy& Device = PM->Devices[device_num];
+  DeviceTy& Device = *PM->Devices[device_num];
   bool IsLast, IsHostPtr;
-  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, IsHostPtr);
+  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, false, IsHostPtr);
   if (rc == NULL)
      DP("omp_get_mapped_ptr : cannot find device pointer\n");
   DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
@@ -404,7 +371,7 @@ EXTERN int omp_target_is_accessible(const void *ptr, size_t size,
     return 0;
   }
 
-  DeviceTy &Device = PM->Devices[device_num];
+  DeviceTy &Device = *PM->Devices[device_num];
   int Ret = Device.isAccessibleAddrRange(ptr, size);
   DP("omp_target_is_accessible returns %" PRId32 "\n", Ret);
   return Ret;
@@ -435,7 +402,7 @@ EXTERN int omp_get_num_interop_properties(const omp_interop_t interop) {
     return 0;
 
   int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
-  DeviceTy &Device = PM->Devices[DeviceNum];
+  DeviceTy &Device = *PM->Devices[DeviceNum];
   return Device.getNumInteropProperties();
 }
 
@@ -488,7 +455,7 @@ static int32_t getInteropValue(const omp_interop_t Interop, int32_t Ipr,
 
   default: {
     // Get implementation-defined property value
-    DeviceTy &Device = PM->Devices[TgtInterop->DeviceNum];
+    DeviceTy &Device = *PM->Devices[TgtInterop->DeviceNum];
     Rc = Device.getInteropPropertyValue(TgtInterop, Ipr, ValueType, Size,
                                         Value);
   }
@@ -557,7 +524,7 @@ EXTERN const char *omp_get_interop_name(const omp_interop_t interop,
     return NULL;
 
   int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
-  DeviceTy &Device = PM->Devices[DeviceNum];
+  DeviceTy &Device = *PM->Devices[DeviceNum];
 
   return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_NAME);
 }
@@ -571,7 +538,7 @@ EXTERN const char *omp_get_interop_type_desc(const omp_interop_t interop,
     return NULL;
 
   int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
-  DeviceTy &Device = PM->Devices[DeviceNum];
+  DeviceTy &Device = *PM->Devices[DeviceNum];
 
   return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_TYPE_DESC);
 }
@@ -585,49 +552,126 @@ EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
     return NULL;
 
   int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
-  DeviceTy &Device = PM->Devices[DeviceNum];
+  DeviceTy &Device = *PM->Devices[DeviceNum];
 
   return Device.getInteropRcDesc(ret_code);
 }
 
-static void *target_alloc_explicit(
-    size_t size, int device_num, int kind, const char *name) {
-  DP("Call to %s for device %d requesting %zu bytes\n", name, device_num, size);
-
-  if (size <= 0) {
-    DP("Call to %s with non-positive length\n", name);
-    return NULL;
-  }
-
-  void *rc = NULL;
-
-  if (device_num == omp_get_initial_device()) {
-    rc = malloc(size);
-    DP("%s returns host ptr " DPxMOD "\n", name, DPxPTR(rc));
-    return rc;
-  }
-
-  if (!device_is_ready(device_num)) {
-    DP("%s returns NULL ptr\n", name);
-    return NULL;
-  }
-
-  DeviceTy &Device = PM->Devices[device_num];
-  rc = Device.data_alloc_explicit(size, kind);
-  DP("%s returns device ptr " DPxMOD "\n", name, DPxPTR(rc));
-  return rc;
-}
-
 EXTERN void *omp_target_alloc_device(size_t size, int device_num) {
-  return target_alloc_explicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
 }
 
 EXTERN void *omp_target_alloc_host(size_t size, int device_num) {
-  return target_alloc_explicit(size, device_num, TARGET_ALLOC_HOST, __func__);
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_HOST, __func__);
 }
 
 EXTERN void *omp_target_alloc_shared(size_t size, int device_num) {
-  return target_alloc_explicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
+}
+
+static void *targetRealloc(void *Ptr, size_t Size, int DeviceNum, int Kind,
+                           const char *Name) {
+  TIMESCOPE();
+  DP("Call to %s for device %d requesting %zu bytes (Ptr: " DPxMOD ")\n",
+     Name, DeviceNum, Size, DPxPTR(Ptr));
+
+  if (Size <= 0) {
+    DP("Call to %s with non-positive length\n", Name);
+    return NULL;
+  }
+
+  void *Ret = NULL;
+
+  if (DeviceNum == omp_get_initial_device()) {
+    if (Ptr)
+      Ret = realloc(Ptr, Size);
+    else
+      Ret = malloc(Size);
+    DP("%s returns host ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+    return Ret;
+  }
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("%s returns NULL ptr\n", Name);
+    return NULL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  Ret = Device.dataRealloc(Ptr, Size, Kind);
+  DP("%s returns target ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+
+  return Ret;
+}
+
+static void *targetAlignedAlloc(size_t Align, size_t Size, int DeviceNum,
+                                int Kind, const char *Name) {
+  TIMESCOPE();
+  DP("Call to %s for device %d requesting %zu bytes (Align: %zu)\n", Name,
+     DeviceNum, Size, Align);
+
+  if (Size <= 0) {
+    DP("Call to %s with non-positive length\n", Name);
+    return NULL;
+  }
+
+  void *Ret = NULL;
+
+  if (DeviceNum == omp_get_initial_device()) {
+    Ret = malloc(Size);
+    DP("%s returns host ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+    return Ret;
+  }
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("%s returns NULL ptr\n", Name);
+    return NULL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  Ret = Device.dataAlignedAlloc(Align, Size, Kind);
+  DP("%s returns target ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+
+  return Ret;
+}
+
+EXTERN void *ompx_target_realloc(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_DEFAULT, __func__);
+}
+
+EXTERN void *ompx_target_realloc_device(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_DEVICE, __func__);
+}
+
+EXTERN void *ompx_target_realloc_host(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_HOST, __func__);
+}
+
+EXTERN void *ompx_target_realloc_shared(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_SHARED, __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_DEFAULT,
+                            __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc_device(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_DEVICE,
+                            __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc_host(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_HOST,
+                            __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc_shared(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_SHARED,
+                            __func__);
 }
 
 EXTERN void *omp_target_get_context(int device_num) {
@@ -640,7 +684,7 @@ EXTERN void *omp_target_get_context(int device_num) {
     REPORT("%s returns null for device %d\n", __func__, device_num);
   }
 
-  void *context = PM->Devices[device_num].get_context_handle();
+  void *context = PM->Devices[device_num]->get_context_handle();
   DP("%s returns " DPxMOD " for device %d\n", __func__, DPxPTR(context),
      device_num);
   return context;
@@ -657,7 +701,7 @@ EXTERN int omp_set_sub_device(int device_num, int level) {
     return 0;
   }
 
-  return PM->Devices[device_num].setSubDevice(level);
+  return PM->Devices[device_num]->setSubDevice(level);
 }
 
 EXTERN void omp_unset_sub_device(int device_num) {
@@ -671,7 +715,7 @@ EXTERN void omp_unset_sub_device(int device_num) {
     return;
   }
 
-  PM->Devices[device_num].unsetSubDevice();
+  PM->Devices[device_num]->unsetSubDevice();
 }
 #endif  // INTEL_COLLAB
 

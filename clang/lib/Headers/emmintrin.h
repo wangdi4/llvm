@@ -10,6 +10,12 @@
 #ifndef __EMMINTRIN_H
 #define __EMMINTRIN_H
 
+/* INTEL_CUSTOMIZATION */
+/* Turn fp precise on for intrinsics, push state to restore at end. */
+#pragma float_control(push)
+#pragma float_control(precise, on)
+/* end INTEL_CUSTOMIZATION */
+
 #include <xmmintrin.h>
 
 typedef double __m128d __attribute__((__vector_size__(16), __aligned__(16)));
@@ -2368,6 +2374,11 @@ _mm_madd_epi16(__m128i __a, __m128i __b)
 ///    A 128-bit signed [8 x i16] vector.
 /// \returns A 128-bit signed [8 x i16] vector containing the greater value of
 ///    each comparison.
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_DSPV1 */
+#if !defined(__DSPV1_SUPPORTED__)
+/* end INTEL_FEATURE_ISA_DSPV1 */
+/* end INTEL_CUSTOMIZATION */
 static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_max_epi16(__m128i __a, __m128i __b)
 {
@@ -2433,6 +2444,11 @@ _mm_min_epu8(__m128i __a, __m128i __b)
 {
   return (__m128i)__builtin_ia32_pminub128((__v16qi)__a, (__v16qi)__b);
 }
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_DSPV1 */
+#endif // __DSPV1_SUPPORTED__
+/* end INTEL_FEATURE_ISA_DSPV1 */
+/* end INTEL_CUSTOMIZATION */
 
 /// Multiplies the corresponding elements of two signed [8 x i16]
 ///    vectors, saving the upper 16 bits of each 32-bit product in the
@@ -2818,10 +2834,10 @@ _mm_xor_si128(__m128i __a, __m128i __b)
 ///    \a a.
 /// \returns A 128-bit integer vector containing the left-shifted value.
 #define _mm_slli_si128(a, imm) \
-  (__m128i)__builtin_ia32_pslldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm))
+  ((__m128i)__builtin_ia32_pslldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm)))
 
 #define _mm_bslli_si128(a, imm) \
-  (__m128i)__builtin_ia32_pslldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm))
+  ((__m128i)__builtin_ia32_pslldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm)))
 
 /// Left-shifts each 16-bit value in the 128-bit integer vector operand
 ///    by the specified number of bits. Low-order bits are cleared.
@@ -3035,10 +3051,10 @@ _mm_sra_epi32(__m128i __a, __m128i __count)
 ///    \a a.
 /// \returns A 128-bit integer vector containing the right-shifted value.
 #define _mm_srli_si128(a, imm) \
-  (__m128i)__builtin_ia32_psrldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm))
+  ((__m128i)__builtin_ia32_psrldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm)))
 
 #define _mm_bsrli_si128(a, imm) \
-  (__m128i)__builtin_ia32_psrldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm))
+  ((__m128i)__builtin_ia32_psrldqi128_byteshift((__v2di)(__m128i)(a), (int)(imm)))
 
 /// Right-shifts each of 16-bit values in the 128-bit integer vector
 ///    operand by the specified number of bits. High-order bits are cleared.
@@ -4356,8 +4372,8 @@ _mm_packus_epi16(__m128i __a, __m128i __b)
 /// \returns An integer, whose lower 16 bits are selected from the 128-bit
 ///    integer vector parameter and the remaining bits are assigned zeros.
 #define _mm_extract_epi16(a, imm) \
-  (int)(unsigned short)__builtin_ia32_vec_ext_v8hi((__v8hi)(__m128i)(a), \
-                                                   (int)(imm))
+  ((int)(unsigned short)__builtin_ia32_vec_ext_v8hi((__v8hi)(__m128i)(a), \
+                                                    (int)(imm)))
 
 /// Constructs a 128-bit integer vector by first making a copy of the
 ///    128-bit integer vector parameter, and then inserting the lower 16 bits
@@ -4380,8 +4396,8 @@ _mm_packus_epi16(__m128i __a, __m128i __b)
 ///    lower 16 bits of \a __b are written.
 /// \returns A 128-bit integer vector containing the constructed values.
 #define _mm_insert_epi16(a, b, imm) \
-  (__m128i)__builtin_ia32_vec_set_v8hi((__v8hi)(__m128i)(a), (int)(b), \
-                                       (int)(imm))
+  ((__m128i)__builtin_ia32_vec_set_v8hi((__v8hi)(__m128i)(a), (int)(b), \
+                                        (int)(imm)))
 
 /// Copies the values of the most significant bits from each 8-bit
 ///    element in a 128-bit integer vector of [16 x i8] to create a 16-bit mask
@@ -4430,7 +4446,7 @@ _mm_movemask_epi8(__m128i __a)
 ///    11: assign values from bits [127:96] of \a a.
 /// \returns A 128-bit integer vector containing the shuffled values.
 #define _mm_shuffle_epi32(a, imm) \
-  (__m128i)__builtin_ia32_pshufd((__v4si)(__m128i)(a), (int)(imm))
+  ((__m128i)__builtin_ia32_pshufd((__v4si)(__m128i)(a), (int)(imm)))
 
 /// Constructs a 128-bit integer vector by shuffling four lower 16-bit
 ///    elements of a 128-bit integer vector of [8 x i16], using the immediate
@@ -4460,7 +4476,7 @@ _mm_movemask_epi8(__m128i __a)
 ///    11: assign values from bits [63:48] of \a a. \n
 /// \returns A 128-bit integer vector containing the shuffled values.
 #define _mm_shufflelo_epi16(a, imm) \
-  (__m128i)__builtin_ia32_pshuflw((__v8hi)(__m128i)(a), (int)(imm))
+  ((__m128i)__builtin_ia32_pshuflw((__v8hi)(__m128i)(a), (int)(imm)))
 
 /// Constructs a 128-bit integer vector by shuffling four upper 16-bit
 ///    elements of a 128-bit integer vector of [8 x i16], using the immediate
@@ -4490,7 +4506,7 @@ _mm_movemask_epi8(__m128i __a)
 ///    11: assign values from bits [127:112] of \a a. \n
 /// \returns A 128-bit integer vector containing the shuffled values.
 #define _mm_shufflehi_epi16(a, imm) \
-  (__m128i)__builtin_ia32_pshufhw((__v8hi)(__m128i)(a), (int)(imm))
+  ((__m128i)__builtin_ia32_pshufhw((__v8hi)(__m128i)(a), (int)(imm)))
 
 /// Unpacks the high-order (index 8-15) values from two 128-bit vectors
 ///    of [16 x i8] and interleaves them into a 128-bit vector of [16 x i8].
@@ -4844,8 +4860,8 @@ _mm_movemask_pd(__m128d __a)
 ///    Bit[1] = 1: upper element of \a b copied to upper element of result. \n
 /// \returns A 128-bit vector of [2 x double] containing the shuffled values.
 #define _mm_shuffle_pd(a, b, i) \
-  (__m128d)__builtin_ia32_shufpd((__v2df)(__m128d)(a), (__v2df)(__m128d)(b), \
-                                 (int)(i))
+  ((__m128d)__builtin_ia32_shufpd((__v2df)(__m128d)(a), (__v2df)(__m128d)(b), \
+                                  (int)(i)))
 
 /// Casts a 128-bit floating-point vector of [2 x double] into a 128-bit
 ///    floating-point vector of [4 x float].
@@ -4978,4 +4994,7 @@ void _mm_pause(void);
 #define _MM_GET_DENORMALS_ZERO_MODE() (_mm_getcsr() & _MM_DENORMALS_ZERO_MASK)
 #define _MM_SET_DENORMALS_ZERO_MODE(x) (_mm_setcsr((_mm_getcsr() & ~_MM_DENORMALS_ZERO_MASK) | (x)))
 
+/* INTEL_CUSTOMIZATION */
+#pragma float_control(pop)
+/* end INTEL_CUSTOMIZATION */
 #endif /* __EMMINTRIN_H */

@@ -17,7 +17,7 @@
 
 ; Test with a direct call to a VarArg function which does not use the argument.
 %struct.test01 = type { i32 }
-define void @test01(%struct.test01* %in) !dtrans_type !2 {
+define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !4 {
   tail call void (i8, ...) @test01va(i8 0, %struct.test01* %in)
   ret void
 }
@@ -37,8 +37,8 @@ define void @test01(%struct.test01* %in) !dtrans_type !2 {
 ; Test with a bitcast function call. This case is safe because the parameter in
 ; the VarArg position is never referenced by the callee
 %struct.test02 = type { i32 }
-define void @doNothing1(i8*, ...) !dtrans_type !6 { ret void }
-define void @test02(%struct.test02* %in) !dtrans_type !8 {
+define void @doNothing1(i8* "intel_dtrans_func_index"="1", ...) !intel.dtrans.func.type !5 { ret void }
+define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !7 {
   %p = call i8* @malloc(i64 16)
   call void bitcast (void (i8*, ...)* @doNothing1
                        to void (i8*, %struct.test02*)*)(
@@ -55,7 +55,7 @@ define void @test02(%struct.test02* %in) !dtrans_type !8 {
 
 ; Test a case where the VarArg element is used with the expected type.
 %struct.test03 = type { i32 }
-define void @test03(%struct.test03* %in) !dtrans_type !11 {
+define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !9 {
   call void (i8, ...) @test03va(i8 1, %struct.test03* %in)
   ret void
 }
@@ -104,26 +104,25 @@ vaarg.end:                                        ; preds = %vaarg.in_mem, %vaar
 ; CHECK: Name: struct.test03
 ; CHECK: Safety data: Unhandled use{{ *}}
 
-declare i8* @malloc(i64)
-declare void @llvm.va_start(i8*)
-declare void @llvm.va_end(i8*)
+declare !intel.dtrans.func.type !10 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !11 void @llvm.va_start(i8* "intel_dtrans_func_index"="1")
+declare !intel.dtrans.func.type !12 void @llvm.va_end(i8* "intel_dtrans_func_index"="1")
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (%struct.test01*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{!"F", i1 true, i32 1, !3, !7}  ; void (i8*, ...)
-!7 = !{i8 0, i32 1}  ; i8*
-!8 = !{!"F", i1 false, i32 1, !3, !9}  ; void (%struct.test02*)
-!9 = !{!10, i32 1}  ; %struct.test02*
-!10 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!11 = !{!"F", i1 false, i32 1, !3, !12}  ; void (%struct.test03*)
-!12 = !{!13, i32 1}  ; %struct.test03*
-!13 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
+!2 = !{i8 0, i32 1}  ; i8*
+!3 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!4 = distinct !{!3}
+!5 = distinct !{!2}
+!6 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!7 = distinct !{!6}
+!8 = !{%struct.test03 zeroinitializer, i32 1}  ; %struct.test03*
+!9 = distinct !{!8}
+!10 = distinct !{!2}
+!11 = distinct !{!2}
+!12 = distinct !{!2}
+!13 = !{!"S", %struct._ZTS13__va_list_tag.__va_list_tag zeroinitializer, i32 4, !1, !1, !2, !2} ; { i32, i32, i8*, i8* }
 !14 = !{!"S", %struct.test01 zeroinitializer, i32 1, !1} ; { i32 }
 !15 = !{!"S", %struct.test02 zeroinitializer, i32 1, !1} ; { i32 }
-!16 = !{!"S", %struct._ZTS13__va_list_tag.__va_list_tag zeroinitializer, i32 4, !1, !1, !7, !7} ; { i32, i32, i8*, i8* }
-!17 = !{!"S", %struct.test03 zeroinitializer, i32 1, !1} ; { i32 }
+!16 = !{!"S", %struct.test03 zeroinitializer, i32 1, !1} ; { i32 }
 
-!dtrans_types = !{!14, !15, !16, !17}
+!intel.dtrans.types = !{!13, !14, !15, !16}

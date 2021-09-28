@@ -13,6 +13,8 @@
 #ifndef LLVM_CODEGEN_MACHINEFRAMEINFO_H
 #define LLVM_CODEGEN_MACHINEFRAMEINFO_H
 
+#include "llvm/ADT/MapVector.h" // INTEL
+#include "llvm/ADT/SmallSet.h"  // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Support/Alignment.h"
@@ -118,6 +120,11 @@ public:
     SSPLK_AddrOf      ///< The address of this allocation is exposed and
                       ///< triggered protection.  3rd closest to the protector.
   };
+#if INTEL_CUSTOMIZATION
+  SmallMapVector<MachineBasicBlock *, SmallVector<int, 8>, 8> VecSpillMap;
+  SmallSet<int, 8> VecSpillSet;
+  SmallMapVector<MachineBasicBlock *, MCPhysReg, 8> VecSpillPhysRegMap;
+#endif // INTEL_CUSTOMIZATION
 
 private:
   // Represent a single object allocated on the stack.
@@ -341,6 +348,8 @@ public:
                             bool ForcedRealign)
       : StackAlignment(assumeAligned(StackAlignment)),
         StackRealignable(StackRealignable), ForcedRealign(ForcedRealign) {}
+
+  MachineFrameInfo(const MachineFrameInfo &) = delete;
 
   /// Return true if there are any stack objects in this function.
   bool hasStackObjects() const { return !Objects.empty(); }

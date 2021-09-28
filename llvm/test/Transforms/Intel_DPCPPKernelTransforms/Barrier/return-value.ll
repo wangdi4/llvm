@@ -23,7 +23,7 @@
 ;;           dst[gid] = inclusive();
 ;;         }
 ;; The expected result:
-;;     * All functions contain no more barrier/barrier_dummy instructions.
+;;     * All functions contain no more barrier/dummy_barrier. instructions.
 ;;     * Function "calc" stores "%w" to offset 24 in the special buffer.
 ;;     * Function "inclusive" loads from offset 24 in the special buffer to "%z".
 ;;     * Function "inclusive" stores "%z" to offset 16 in the special buffer.
@@ -39,14 +39,14 @@ target triple = "x86_64-pc-linux"
 define internal fastcc i64 @calc() unnamed_addr #0 {
 entry:
 ; CHECK: calc
-; CHECK-NOT: call void @barrier_dummy
+; CHECK-NOT: call void @dummy_barrier.
 ; CHECK: %SBIndex = load i64, i64* %pCurrSBIndex, align 8
 ; CHECK-NEXT: %SB_LocalId_Offset = add nuw i64 %SBIndex, 24
 ; CHECK-NEXT: [[GEP0:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset
 ; CHECK-NEXT: %pSB_LocalId = bitcast i8* [[GEP0]] to i64*
 ; CHECK-NEXT: store i64 %GlobalID_0, i64* %pSB_LocalId, align 8
 ; CHECK-NOT: call void @_Z18work_group_barrierj
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %w = tail call i64 @_Z13get_global_idj(i32 0) #4
   br label %"Barrier BB"
 
@@ -65,7 +65,7 @@ declare void @_Z18work_group_barrierj(i32) local_unnamed_addr #2
 define internal fastcc i64 @inclusive() unnamed_addr #0 {
 entry:
 ; CHECK: inclusive
-; CHECK-NOT: call void @barrier_dummy
+; CHECK-NOT: call void @dummy_barrier.
 ; CHECK: %SBIndex = load i64, i64* %pCurrSBIndex, align 8
 ; CHECK-NEXT: %SB_LocalId_Offset = add nuw i64 %SBIndex, 24
 ; CHECK-NEXT: [[GEP1:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset
@@ -77,7 +77,7 @@ entry:
 ; CHECK-NEXT: %pSB_LocalId3 = bitcast i8* [[GEP2]] to i64*
 ; CHECK-NEXT: store i64 %loadedValue, i64* %pSB_LocalId3, align 8
 ; CHECK-NOT: call void @_Z18work_group_barrierj
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %"Barrier BB1"
 
 "Barrier BB1":                                    ; preds = %entry
@@ -86,7 +86,7 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB2"
@@ -98,7 +98,7 @@ entry:
 define void @test(i64 addrspace(1)* noalias %dst) local_unnamed_addr #3 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !kernel_has_sub_groups !10 !kernel_execution_length !13 !kernel_has_barrier !10 !kernel_has_global_sync !10 {
 entry:
 ; CHECK: inclusive
-; CHECK-NOT: call void @barrier_dummy
+; CHECK-NOT: call void @dummy_barrier.
 ; CHECK: %SBIndex = load i64, i64* %pCurrSBIndex, align 8
 ; CHECK-NEXT: %SB_LocalId_Offset = add nuw i64 %SBIndex, 16
 ; CHECK-NEXT: [[GEP3:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset
@@ -111,7 +111,7 @@ entry:
 ; CHECK-NEXT: %ptridx = getelementptr inbounds i64, i64 addrspace(1)* %dst, i64 %loadedValue10
 ; CHECK: store i64 %loadedValue14, i64 addrspace(1)* %ptridx, align 8
 ; CHECK-NOT: call void @_Z18work_group_barrierj
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %x = tail call i64 @_Z13get_global_idj(i32 0) #4
   br label %"Barrier BB1"
 
@@ -121,7 +121,7 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %ptridx = getelementptr inbounds i64, i64 addrspace(1)* %dst, i64 %x
   store i64 %y, i64 addrspace(1)* %ptridx, align 8
   br label %"Barrier BB"
@@ -131,7 +131,7 @@ entry:
   ret void
 }
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 attributes #0 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }

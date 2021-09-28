@@ -1610,17 +1610,17 @@ void HIROptPredicate::hoistIf(HLIf *&If, HLLoop *OrigLoop) {
 void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,
                                             HLNode *IfOrSwitch) {
 
-  LoopOptReportBuilder &LORBuilder =
-      TargetLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      TargetLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  bool IsReportOn = LORBuilder.isLoopOptReportOn();
+  bool IsReportOn = ORBuilder.isOptReportOn();
 
   if (!IsReportOn) {
     return;
   }
 
   if (!OptReportVisitedSet.count(TargetLoop)) {
-    LORBuilder(*TargetLoop).addOrigin("Predicate Optimized v%d", VNum);
+    ORBuilder(*TargetLoop).addOrigin("Predicate Optimized v%d", VNum);
     VNum++;
     OptReportVisitedSet.insert(TargetLoop);
   }
@@ -1631,7 +1631,7 @@ void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,
 
   auto IfLoc = IfOrSwitch->getDebugLoc();
 
-  LORBuilder(*TargetLoop)
+  ORBuilder(*TargetLoop)
       .addRemark(OptReportVerbosity::Low, 25422u,
                  AtLine(IfLoc ? IfLoc->getLine() : 0));
 

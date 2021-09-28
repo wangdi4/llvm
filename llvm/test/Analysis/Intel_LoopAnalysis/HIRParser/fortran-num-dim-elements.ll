@@ -1,5 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-dims 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser -hir-details-dims 2>&1 | FileCheck %s
+; RUN: opt < %s -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser -hir-details-dims 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -10,6 +11,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: |   (%A)[0:i1:40(i32*:0)][0:0:4(i32*:10)] = 5;
 ; CHECK: + END LOOP
 
+; CHECK-OPAQUE: + DO i1 = 0, 2, 1   <DO_LOOP>
+; CHECK-OPAQUE: |   (%A)[0:i1:40(ptr:0)][0:0:4(ptr:10)] = 5;
+; CHECK-OPAQUE: + END LOOP
+
 
 define void @MAIN__(i32* %A) {
 alloca:
@@ -17,8 +22,8 @@ alloca:
 
 bb17:                                             ; preds = %alloca, %bb17
   %iv = phi i64 [ 1, %alloca ], [ %add11, %bb17 ]
-  %t1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 40, i32* %A, i64 %iv)
-  %t2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %t1, i64 1)
+  %t1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 40, i32* elementtype(i32) %A, i64 %iv)
+  %t2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %t1, i64 1)
   store i32 5, i32* %t2, align 4
   %add11 = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %add11, 4

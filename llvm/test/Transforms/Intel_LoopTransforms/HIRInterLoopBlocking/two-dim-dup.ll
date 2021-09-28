@@ -98,16 +98,16 @@ bb3:                                              ; preds = %bb3.preheader, %bb1
 
 bb7:                                              ; preds = %bb23, %bb3
   %"sub1_$I.0" = phi i64 [ 1, %bb3 ], [ %add.7, %bb23 ]
-  %"sub1_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.1, double* nonnull %"sub1_$B", i64 %"sub1_$I.0")
-  %"sub1_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.1, double* nonnull %"sub1_$A", i64 %"sub1_$I.0")
+  %"sub1_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.1, double* elementtype(double) nonnull %"sub1_$B", i64 %"sub1_$I.0")
+  %"sub1_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.1, double* elementtype(double) nonnull %"sub1_$A", i64 %"sub1_$I.0")
   br label %bb11
 
 bb11:                                             ; preds = %bb11, %bb7
   %"sub1_$J.0" = phi i64 [ 1, %bb7 ], [ %add.4, %bb11 ]
-  %"sub1_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$B[]", i64 %"sub1_$J.0")
+  %"sub1_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$B[]", i64 %"sub1_$J.0")
   %"sub1_$B[][]_fetch" = load double, double* %"sub1_$B[][]", align 1
   %add.2 = fadd fast double %"sub1_$B[][]_fetch", 1.000000e+00
-  %"sub1_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$A[]", i64 %"sub1_$J.0")
+  %"sub1_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$A[]", i64 %"sub1_$J.0")
   store double %add.2, double* %"sub1_$A[][]", align 1
   %add.4 = add nuw nsw i64 %"sub1_$J.0", 1
   %exitcond.not = icmp eq i64 %add.4, 4
@@ -118,10 +118,10 @@ bb20.preheader:                                   ; preds = %bb11
 
 bb20:                                             ; preds = %bb20.preheader, %bb20
   %"sub1_$J.1" = phi i64 [ %add.6, %bb20 ], [ 1, %bb20.preheader ]
-  %"sub1_$A[][]19" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$A[]", i64 %"sub1_$J.1")
+  %"sub1_$A[][]19" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$A[]", i64 %"sub1_$J.1")
   %"sub1_$A[][]_fetch" = load double, double* %"sub1_$A[][]19", align 1
   %add.5 = fadd fast double %"sub1_$A[][]_fetch", 2.000000e+00
-  %"sub1_$B[][]25" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$B[]", i64 %"sub1_$J.1")
+  %"sub1_$B[][]25" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$B[]", i64 %"sub1_$J.1")
   store double %add.5, double* %"sub1_$B[][]25", align 1
   %add.6 = add nuw nsw i64 %"sub1_$J.1", 1
   %exitcond59.not = icmp eq i64 %add.6, 4

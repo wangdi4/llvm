@@ -91,8 +91,8 @@ bool VectorVariantLowering::runImpl(Module &M, CallGraph &CG) {
 
         // Update attributes.
         Attrs = Attrs.removeAttribute(M.getContext(), Index, "vector-variants")
-                    .addAttribute(M.getContext(), Index, "vector-variants",
-                                  join(NewVariants, ","));
+                    .addAttributeAtIndex(M.getContext(), Index, "vector-variants",
+                                         join(NewVariants, ","));
         AttrsModified = true;
       }
 

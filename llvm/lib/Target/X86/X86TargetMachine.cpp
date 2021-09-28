@@ -102,6 +102,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
   initializeX86Gather2LoadPermutePassPass(PR);
+  initializeX86LowerMatrixIntrinsicsPassPass(PR);
   initializeX86FeatureInitPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -409,6 +410,7 @@ public:
   void addPostRegAlloc() override;
   void addPreEmitPass() override;
   void addAdvancedPatternMatchingOpts() override;  // INTEL
+  void addPreStackSlotColoring() override;  // INTEL
   void addPreEmitPass2() override;
   void addPreSched2() override;
   bool addPreRewrite() override;
@@ -441,7 +443,10 @@ TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
+  if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
+    addPass(createFoldLoadsToGatherPass()); // INTEL
 
+  addPass(createX86LowerMatrixIntrinsicsPass()); // INTEL
   // We add both pass anyway and when these two passes run, we skip the pass
   // based on the option level and option attribute.
   addPass(createX86LowerAMXIntrinsicsPass());
@@ -524,7 +529,13 @@ void X86PassConfig::addAdvancedPatternMatchingOpts() { // INTEL
   addPass(createX86GlobalFMAPass());                   // INTEL
   addPass(createX86CFMAPass());                        // INTEL
 }                                                      // INTEL
-
+#if INTEL_CUSTOMIZATION
+void X86PassConfig::addPreStackSlotColoring() {
+  if (getOptLevel() == CodeGenOpt::Aggressive &&
+      TM->Options.IntelAdvancedOptim)
+    addPass(createX86VecSpillPass());
+}
+#endif // INTEL_CUSTOMIZATION
 bool X86PassConfig::addPreISel() {
   // Only add this pass for 32-bit x86 Windows.
   const Triple &TT = TM->getTargetTriple();
@@ -537,8 +548,10 @@ bool X86PassConfig::addPreISel() {
   if (getOptLevel() == CodeGenOpt::Aggressive &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86CiscizationHelperPass());
+#if INTEL_FEATURE_SW_ADVANCED
   // Always run this pass for feature like X87 precision control.
   addPass(createFeatureInitPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
   if (getOptLevel() == CodeGenOpt::Aggressive)
     addPass(createIVSplitLegacyPass());
 #endif // INTEL_CUSTOMIZATION

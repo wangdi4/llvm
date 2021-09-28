@@ -470,7 +470,7 @@ bool BuiltinImportPass::runImpl(Module &M) {
     IgnoreAttrs.addAttribute(A);
 
   for (auto &F : M)
-    F.removeAttributes(AttributeList::FunctionIndex, IgnoreAttrs);
+    F.removeFnAttrs(IgnoreAttrs);
 
   // Update svml functions and their callers after cloning and linking, so
   // that we don't need to modify BuiltinModules because that may cause

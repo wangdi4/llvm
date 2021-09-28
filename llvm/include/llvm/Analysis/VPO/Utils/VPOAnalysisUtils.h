@@ -202,6 +202,8 @@ private:
   // Modifier for reduction clause
   bool IsTask:1;
 
+  bool IsTyped : 1; // needed in case of data type transfer
+
 public:
 
   // Constructor
@@ -236,6 +238,7 @@ public:
   void setIsScalar()               { IsScalar = true; }
   void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
+  void setIsTyped() { IsTyped = true; }
 
   // Getters
   StringRef getFullName() const { return FullName; }
@@ -278,6 +281,7 @@ public:
   bool getIsScalar() const { return IsScalar; }
   bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }
+  bool getIsTyped() const { return IsTyped; }
 };
 
 /// This class contains a set of utility functions used by VPO passes.

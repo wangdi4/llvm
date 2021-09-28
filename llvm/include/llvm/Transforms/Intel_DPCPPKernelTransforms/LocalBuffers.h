@@ -15,6 +15,8 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/PassManager.h"
 
+extern bool EnableTLSGlobals;
+
 namespace llvm {
 
 /// Map __local GlobalVariable to the local buffer.

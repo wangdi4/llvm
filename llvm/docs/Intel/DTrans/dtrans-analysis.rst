@@ -560,14 +560,19 @@ Some user functions are also handled.  Right now, we distinguish two types:
 
   AK_UserMalloc:
     Same as AK_UserMalloc0, but there must be either only 1 argument
-    (the "size" argument) or two arguments (the "this" ptr argument
-    and the "size" argument).
+    (the "size" argument)
+
+  AK_UserMallocThis:
+    Similar to AK_UserMalloc, except there are two arguments (the "this" ptr
+    argument and the "size" argument).
+
+  A corresponding set of user memory deallocation functions is also recognized
+  with the pointer argument that will be deallocated being the first argument
+  (FK_UserFree0 and FK_UserFree), or the second argument (FK_UserFreeThis)
 
 At some point this mechanism will be extended to handle additional user
 functions, including those that call calloc and realloc.
 
-(Note: At this moment, there is no recognition of the AK_UserMalloc0 case,
-that will be taken care of shortly when the code is extended.)
 
 If the call is an allocation function, we look for uses that bitcast the
 returned value to a pointer to an aggregate type to determine the type of the

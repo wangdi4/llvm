@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery on constant operator expressions
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are placeholders for check lines that will
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
 ; Lines marked with CHECK should remain the same when changing to use opaque
 ;   pointers.
@@ -22,30 +24,30 @@ define internal void @test01() {
   ret void
 }
 ; CHECK-LABEL: void @test01()
-; CHECK-CUR: %v0 = load i64, i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
-; CHECK-FUT: %v0 = load i64, p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 0)
-; CHECK-CUR:         CE: i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
-; CHECK-FUT:         CE: p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 0)
+; CHECK-NONOPAQUE: %v0 = load i64, i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
+; CHECK-OPAQUE: %v0 = load i64, ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 0)
+; CHECK-NONOPAQUE:         CE: i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
+; CHECK-OPAQUE:         CE: ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 0)
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        i64*{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ 0
 
-; CHECK-CUR:  %v1 = load double, double* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 1)
-; CHECK-FUT:  %v1 = load double, p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 1)
-; CHECK-CUR:         CE: double* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 1)
-; CHECK-FUT:         CE: p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 1)
+; CHECK-NONOPAQUE:  %v1 = load double, double* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 1)
+; CHECK-OPAQUE:  %v1 = load double, ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 1)
+; CHECK-NONOPAQUE:         CE: double* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 1)
+; CHECK-OPAQUE:         CE: ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 1)
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        double*{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ 1
 
-; CHECK-CUR:  %v2 = load i8, i8* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 2, i32 0)
-; CHECK-FUT:  %v2 = load i8, p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 2, i32 0)
-; CHECK-CUR:         CE: i8* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 2, i32 0)
-; CHECK-FUT:         CE: p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 2, i32 0)
+; CHECK-NONOPAQUE:  %v2 = load i8, i8* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 2, i32 0)
+; CHECK-OPAQUE:  %v2 = load i8, ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 2, i32 0)
+; CHECK-NONOPAQUE:         CE: i8* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 2, i32 0)
+; CHECK-OPAQUE:         CE: ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 2, i32 0)
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
 ; CHECK-NEXT:        i8*{{ *$}}
@@ -61,18 +63,18 @@ define internal void @test02() {
   ret void
 }
 ; CHECK-LABEL: void @test02()
-; CHECK-CUR:  store i64 ptrtoint (%struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1) to i64), i64* %local
-; CHECK-FUT:  store i64 ptrtoint (p0 getelementptr inbounds (%struct.test02, p0 @test_var02, i64 0, i32 1) to i64), p0 %local
-; CHECK-CUR:     CE: i64 ptrtoint (%struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1) to i64)
-; CHECK-FUT:     CE: i64 ptrtoint (p0 getelementptr inbounds (%struct.test02, p0 @test_var02, i64 0, i32 1) to i64)
+; CHECK-NONOPAQUE:  store i64 ptrtoint (%struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1) to i64), i64* %local
+; CHECK-OPAQUE:  store i64 ptrtoint (ptr getelementptr inbounds (%struct.test02, ptr @test_var02, i64 0, i32 1) to i64), ptr %local
+; CHECK-NONOPAQUE:     CE: i64 ptrtoint (%struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1) to i64)
+; CHECK-OPAQUE:     CE: i64 ptrtoint (ptr getelementptr inbounds (%struct.test02, ptr @test_var02, i64 0, i32 1) to i64)
 ; CHECK-NEXT:       LocalPointerInfo:
 ; CHECK-NEXT:            Aliased types:
 ; CHECK-NEXT:              %struct.test02**{{ *$}}
 ; CHECK-NEXT:            Element pointees:
 ; CHECK-NEXT:              %struct.test02 @ 1
 
-; CHECK-CUR:     CE: %struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1)
-; CHECK-FUT:     CE: p0 getelementptr inbounds (%struct.test02, p0 @test_var02, i64 0, i32 1)
+; CHECK-NONOPAQUE:     CE: %struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1)
+; CHECK-OPAQUE:     CE: ptr getelementptr inbounds (%struct.test02, ptr @test_var02, i64 0, i32 1)
 ; CHECK-NEXT:       LocalPointerInfo:
 ; CHECK-NEXT:          Aliased types:
 ; CHECK-NEXT:            %struct.test02**{{ *$}}
@@ -89,15 +91,15 @@ define internal void @test03() {
   ret void
 }
 ; CHECK-LABEL: void @test03()
-; CHECK-CUR: store %struct.test03* @test_var03, %struct.test03** inttoptr (i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4) to %struct.test03**)
-; CHECK-FUT: store p0 @test_var03, p0 inttoptr (i64 add (i64 ptrtoint (p0 @test_var03 to i64), i64 4) to p0)
-; CHECK-CUR:   CE: %struct.test03** inttoptr (i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4) to %struct.test03**)
-; CHECK-FUT:   CE: p0 inttoptr (i64 add (i64 ptrtoint (p0 @test_var03 to i64), i64 4) to p0)
+; CHECK-NONOPAQUE: store %struct.test03* @test_var03, %struct.test03** inttoptr (i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4) to %struct.test03**)
+; CHECK-OPAQUE: store ptr @test_var03, ptr inttoptr (i64 add (i64 ptrtoint (ptr @test_var03 to i64), i64 4) to ptr)
+; CHECK-NONOPAQUE:   CE: %struct.test03** inttoptr (i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4) to %struct.test03**)
+; CHECK-OPAQUE:   CE: ptr inttoptr (i64 add (i64 ptrtoint (ptr @test_var03 to i64), i64 4) to ptr)
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: <UNHANDLED>
 
-; CHECK-CUR:   CE: i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4)
-; CHECK-FUT:   CE: i64 add (i64 ptrtoint (p0 @test_var03 to i64), i64 4)
+; CHECK-NONOPAQUE:   CE: i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4)
+; CHECK-OPAQUE:   CE: i64 add (i64 ptrtoint (ptr @test_var03 to i64), i64 4)
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: <UNHANDLED>
 
@@ -106,10 +108,9 @@ define internal void @test03() {
 !3 = !{!"A", i32 25, !4}  ; [25 x i8]
 !4 = !{i8 0, i32 0}  ; i8
 !5 = !{i64 0, i32 1}  ; i64*
-!6 = !{!7, i32 1}  ; %struct.test02*
-!7 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!8 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !3} ; { i64, double, [25 x i8] }
-!9 = !{!"S", %struct.test02 zeroinitializer, i32 2, !5, !6} ; { i64*, %struct.test02* }
-!10 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
+!6 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !3} ; { i64, double, [25 x i8] }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 2, !5, !6} ; { i64*, %struct.test02* }
+!9 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
 
-!dtrans_types = !{!8, !9, !10}
+!intel.dtrans.types = !{!7, !8, !9}

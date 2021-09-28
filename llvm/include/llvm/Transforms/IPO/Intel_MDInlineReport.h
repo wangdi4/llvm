@@ -99,11 +99,10 @@ public:
         CurrentCallInstReport(nullptr), CurrentCallee(nullptr) {};
 
   virtual ~InlineReportBuilder(void) {
-    while (!IRCallbackVector.empty()) {
-      InliningReportCallback *IRCB = IRCallbackVector.back();
-      IRCallbackVector.pop_back();
-      delete IRCB;
-    }
+    for (auto IRCBEntry : IRCallbackMap)
+      delete IRCBEntry.second;
+
+    IRCallbackMap.clear();
   }
 
   // Walk over inlining reports for call instructions in current function to add
@@ -175,6 +174,10 @@ public:
   // Replace 'OldFunction' with 'NewFunction'.
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction);
+
+  // Replace 'OldCall' with 'NewCall'
+  void replaceCallBaseWithCallBase(CallBase *OldCall,
+                                   CallBase *NewCall);
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -237,16 +240,51 @@ private:
   public:
     InliningReportCallback(Value *V, InlineReportBuilder *IRBPtr, MDNode *MD)
         : CallbackVH(V), IRB(IRBPtr), MDIR(MD) {};
+
+    void updateIRBuilder(InlineReportBuilder *NewIRB) { IRB = NewIRB; }
+    InlineReportBuilder* getIRBuilder() { return IRB; }
     virtual ~InliningReportCallback() {};
   };
 
-  SmallVector<InliningReportCallback *, 16> IRCallbackVector;
+  SmallDenseMap<Value *, InliningReportCallback*, 16> IRCallbackMap;
 
 public:
   // Add callback for function or instruction.
   void addCallback(Value *V, MDNode *MDIR) {
+    if (!V || !MDIR)
+      return;
     InliningReportCallback *IRCB = new InliningReportCallback(V, this, MDIR);
-    IRCallbackVector.push_back(IRCB);
+    IRCallbackMap.insert({V, IRCB});
+  }
+
+  // Remove callback from the map
+  void removeCallback(Value *V) {
+    if (!V || IRCallbackMap.count(V) == 0)
+      return;
+    InliningReportCallback *IRCB = IRCallbackMap[V];
+    IRCallbackMap.erase(V);
+    delete IRCB;
+  }
+
+  // Copy the IRBuilder from SrcV to DstV, and update the active inlined calls
+  void copyAndUpdateIRBuilder(Value *SrcV, Value *DstV) {
+    if (!SrcV || !DstV)
+      return;
+
+    if (SrcV == DstV)
+      return;
+
+    if (IRCallbackMap.count(SrcV) == 0 || IRCallbackMap.count(DstV) == 0)
+      return;
+
+    IRCallbackMap[DstV]->updateIRBuilder(IRCallbackMap[SrcV]->getIRBuilder());
+
+    // Update the active inlined calls if needed
+    auto IRB = IRCallbackMap[DstV]->getIRBuilder();
+    unsigned ActiveInlinedCallsSize = IRB->ActiveInlinedCalls.size();
+    for (unsigned II = 0; II < ActiveInlinedCallsSize; ++II)
+      if (IRB->ActiveInlinedCalls[II] == SrcV)
+        IRB->ActiveInlinedCalls[II] = DstV;
   }
 };
 

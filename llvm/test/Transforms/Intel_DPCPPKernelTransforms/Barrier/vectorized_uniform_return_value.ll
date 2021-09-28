@@ -23,13 +23,13 @@ declare i64 @_Z12get_local_idj(i32) local_unnamed_addr #4
 ; Function Attrs: convergent noinline norecurse nounwind
 define dso_local fastcc <4 x i32> @_ZGVbN4v_foo(<4 x i32> %a) unnamed_addr #0 !vectorized_kernel !6 !vectorized_width !8 !vectorization_dimension !14 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %AllocaWGResult = alloca <4 x i32>, align 16
   store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult, align 16
   br label %"Barrier BB5"
 
 "Barrier BB5":                                    ; preds = %entry
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %0 = add <4 x i32> %a, <i32 0, i32 1, i32 2, i32 3>
   %CallWGForItem = call <4 x i32> @_Z21work_group_reduce_addDv4_jPS_(<4 x i32> %0, <4 x i32>* %AllocaWGResult) #15
   br label %"Barrier BB3"
@@ -42,7 +42,7 @@ entry:
   br label %"Barrier BB4"
 
 "Barrier BB4":                                    ; preds = %"Barrier BB3"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB4"
@@ -58,7 +58,7 @@ entry:
 ; Function Attrs: convergent norecurse nounwind
 define dso_local void @_ZGVbN4u_test(i32 addrspace(1)* noalias %m) local_unnamed_addr #3 !no_barrier_path !9 !vectorized_kernel !6 !scalar_kernel !4 !vectorized_width !8 !kernel_execution_length !18 !kernel_has_barrier !9 !vectorization_dimension !14 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %call = tail call i64 @_Z12get_local_idj(i32 0) #16
   %0 = trunc i64 %call to i32
   %broadcast.splatinsert = insertelement <4 x i32> poison, i32 %0, i32 0
@@ -72,7 +72,7 @@ entry:
   br label %"Barrier BB3"
 
 "Barrier BB3":                                    ; preds = %"Barrier BB2"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %.extract.3. = extractelement <4 x i32> %2, i32 3
   store i32 %.extract.3., i32 addrspace(1)* %m, align 4
   br label %"Barrier BB"
@@ -102,7 +102,7 @@ declare i32 @_Z18get_sub_group_sizev() #9
 
 declare i64 @_Z14get_local_sizej(i32)
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 ; Function Attrs: nofree norecurse nounwind willreturn
 declare i32 @_Z21work_group_reduce_addjPj(i32, i32* nocapture) #10

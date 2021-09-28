@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
 // RUN: -fenable-variant-virtual-calls \
-// RUN:  -triple spir64-unknown-linux-sycldevice %s | FileCheck %s
+// RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
@@ -8,9 +8,10 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 }
 
 extern SYCL_EXTERNAL int zoo (int);
-//CHECK: @_ZTV1B = linkonce_odr unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8*, i8* }* @_ZTI1B to i8*), i8* bitcast ([1 x i32 (%class._ZTS1B.B addrspace(4)*, i32)*]* @"_ZN1B3fooEi$SIMDTable" to i8*)] }
+//CHECK: @_ZTV1B = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)* }* @_ZTI1B to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast ([1 x i32 (%class._ZTS1B.B addrspace(4)*, i32)*]* @"_ZN1B3fooEi$SIMDTable" to i8*) to i8 addrspace(4)*)] }
 //CHECK: @"_ZN1B3fooEi$SIMDTable" = weak global [1 x i32 (%class._ZTS1B.B addrspace(4)*, i32)*] [i32 (%class._ZTS1B.B addrspace(4)*, i32)* @_ZN1B3fooEi]
-//CHECK: @_ZTV1A = unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8* }* @_ZTI1A to i8*), i8* bitcast ([1 x i32 (%class._ZTS1A.A addrspace(4)*, i32)*]* @"_ZN1A3fooEi$SIMDTable" to i8*)] }
+//CHECK: @_ZTV1A = unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* }* @_ZTI1A to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast ([1 x i32 (%class._ZTS1A.A addrspace(4)*, i32)*]* @"_ZN1A3fooEi$SIMDTable" to i8*) to i8 addrspace(4)*)] }, align 8
+//@"_ZN1A3fooEi$SIMDTable" = weak global [1 x i32 (%class._ZTS1A.A addrspace(4)*, i32)*] [i32 (%class._ZTS1A.A addrspace(4)*, i32)* @_ZN1A3fooEi]
 //CHECK: @"_ZN1A3fooEi$SIMDTable" = weak global [1 x i32 (%class._ZTS1A.A addrspace(4)*, i32)*] [i32 (%class._ZTS1A.A addrspace(4)*, i32)* @_ZN1A3fooEi]
 
 class A {
@@ -47,6 +48,5 @@ int main()
   });
 }
 
-
-//CHECK: attributes #[[ATT4]] = {{.*}}"vector_functions_ptrs"="_ZN1B3fooEi$SIMDTable()" }
-//CHECK: attributes #[[ATT5]] = {{.*}}"vector_functions_ptrs"="_ZN1A3fooEi$SIMDTable()" }
+//CHECK: attributes #[[ATT4]] = {{.*}}"vector_function_ptrs"="_ZN1B3fooEi$SIMDTable()" }
+//CHECK: attributes #[[ATT5]] = {{.*}}"vector_function_ptrs"="_ZN1A3fooEi$SIMDTable()" }

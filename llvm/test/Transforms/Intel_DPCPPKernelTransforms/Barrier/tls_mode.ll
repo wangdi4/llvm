@@ -19,10 +19,10 @@
 ;   out[bar()] = sum;
 ; }
 
-; RUN: opt -passes=dpcpp-kernel-barrier -enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-barrier -enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-barrier -enable-tls-globals %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier -enable-tls-globals %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S | FileCheck %s
+; RUN: opt -dpcpp-kernel-barrier -dpcpp-kernel-enable-tls-globals %s -S | FileCheck %s
 
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -62,7 +62,7 @@ declare i64 @_Z13get_global_idj(i32) #1
 ; Function Attrs: convergent noinline nounwind
 define void @test(i64 addrspace(1)* noalias %out) #2 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !kernel_arg_host_accessible !12 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !13 !no_barrier_path !12 !kernel_execution_length !14 !kernel_has_barrier !12 !kernel_has_global_sync !12 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %bar.addr = alloca i8 addrspace(4)*, align 8
   store i8 addrspace(4)* addrspacecast (i8* bitcast (i64 ()* @bar to i8*) to i8 addrspace(4)*), i8 addrspace(4)** %bar.addr, align 8
   br label %for.cond
@@ -121,7 +121,7 @@ for.end:                                          ; preds = %for.cond
 
 }
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 ; Function Attrs: convergent
 declare void @_Z18work_group_barrierj(i32) #3

@@ -1,9 +1,9 @@
 ; Inline report
-; RUN: opt -inline -inline-report=7 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inline -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -S | opt -passes='inlinereportemitter' -inline-report=134 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test tests various inlining report features for programs that
 ; contain varags intrinsics like llvm.va_arg_pack and llvm.va_arg_pack_len.
@@ -12,7 +12,7 @@
 ; eliminated through dead code elimination should not appear in the
 ; inlining report. For example, when myopen() is inlined into main(),
 ; only a single callsite for myopen2() and myopenva() should be exposed,
-; becuase the others are removed by dead code elimination.
+; because the others are removed by dead code elimination.
 
 ; Function Attrs: nounwind
 declare i32 @llvm.va_arg_pack() #3

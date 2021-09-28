@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -disable-output -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe807 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe807 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; Check that the inlining report produces a single MAIN_ with six functions
 ; inlined into it to support tiling.
@@ -47,7 +47,7 @@ define internal void @extra_(double* noalias nocapture %0, i32* noalias nocaptur
 
 8:                                                ; preds = %8, %5
   %9 = phi i64 [ 1, %5 ], [ %11, %8 ]
-  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   store double 5.000000e+00, double* %10, align 8
   %11 = add nuw nsw i64 %9, 1
   %12 = icmp eq i64 %11, %7
@@ -190,16 +190,16 @@ define internal fastcc void @fun01_(double* noalias nocapture readonly %0, doubl
 9:                                                ; preds = %9, %6
   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
   %11 = add nsw i64 %10, -1
-  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %11)
+  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %11)
   %13 = load double, double* %12, align 8
   %14 = add nuw nsw i64 %10, 1
-  %15 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %14)
+  %15 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %14)
   %16 = load double, double* %15, align 8
   %17 = fadd double %13, %16
-  %18 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %18 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %10)
   %19 = load double, double* %18, align 8
   %20 = fadd double %17, %19
-  %21 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %10)
+  %21 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %10)
   store double %20, double* %21, align 8
   %22 = icmp eq i64 %14, %8
   br i1 %22, label %23, label %9
@@ -221,16 +221,16 @@ define internal fastcc void @fun00_(double* noalias nocapture %0, double* noalia
 9:                                                ; preds = %9, %6
   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
   %11 = add nsw i64 %10, -1
-  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %11)
+  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %11)
   %13 = load double, double* %12, align 8
   %14 = add nuw nsw i64 %10, 1
-  %15 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %14)
+  %15 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %14)
   %16 = load double, double* %15, align 8
   %17 = fadd double %13, %16
-  %18 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %10)
+  %18 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %10)
   %19 = load double, double* %18, align 8
   %20 = fadd double %17, %19
-  %21 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %21 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %10)
   store double %20, double* %21, align 8
   %22 = icmp eq i64 %14, %8
   br i1 %22, label %23, label %9
@@ -251,16 +251,16 @@ define internal fastcc void @fun1_(double* noalias nocapture readonly %0, double
 8:                                                ; preds = %8, %6
   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8
@@ -281,16 +281,16 @@ define internal fastcc void @fun2_(double* noalias nocapture readonly %0, double
 8:                                                ; preds = %8, %6
   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8
@@ -311,16 +311,16 @@ define internal fastcc void @fun0_(double* noalias nocapture %0, double* noalias
 8:                                                ; preds = %8, %6
   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8

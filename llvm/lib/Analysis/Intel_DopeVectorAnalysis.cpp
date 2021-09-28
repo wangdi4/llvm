@@ -10,6 +10,9 @@
 
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_LangRules.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -22,6 +25,12 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "dopevector-analysis"
+
+#if INTEL_FEATURE_SW_ADVANCED
+static cl::opt<bool> CheckOutOfBoundsOK("dva-check-dtrans-outofboundsok",
+                                        cl::init(true),
+                                        cl::ReallyHidden);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 namespace llvm {
 
@@ -95,19 +104,36 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL) {
 }
 
 extern bool isUplevelVarType(Type *Ty) {
+  //
+  // CMPLRLLVM-30087: Extend this to handle an optional function name
+  // and the embedded string "uplevel_nested_type".
+  //
   // For now, just check the type of the variable as being named
-  // "%uplevel_type[.#]" In the future, the front-end should provide some
-  // metadata indicator that a variable is an uplevel.
+  //     "%[FUNCTION_NAME.]uplevel_[nested_]type[.SUFFIX]"
+  // In the future, the front-end should provide some metadata indicator that
+  // a variable is an uplevel.
+  //
   auto *StTy = dyn_cast<StructType>(Ty);
   if (!StTy || !StTy->hasName())
     return false;
-
+  StringRef MatchString = "";
   StringRef TypeName = StTy->getName();
+  if (TypeName.contains("uplevel_type"))
+    MatchString = "uplevel_type";
+  else if (TypeName.contains("uplevel_nested_type"))
+    MatchString = "uplevel_nested_type";
+  else
+    return false;
+  if (!TypeName.startswith(MatchString)) {
+    size_t DropCount = TypeName.find('.');
+    if (DropCount == StringLiteral::npos)
+      return false;
+    TypeName = TypeName.drop_front(DropCount + 1);
+  }
   // Strip a '.' and any characters that follow it from the name.
   TypeName = TypeName.take_until([](char C) { return C == '.'; });
-  if (TypeName != "uplevel_type")
+  if (TypeName != MatchString)
     return false;
-
   return true;
 }
 
@@ -261,7 +287,8 @@ static bool IsCopyFromDVField(StoreInst *SI, Value *SrcPtr) {
 // Else return false. This function also updates if the dope vector field has
 // been read or written.
 bool DopeVectorFieldUse::analyzeLoadOrStoreInstruction(Value *V,
-                                                       Value *Pointer) {
+                                                       Value *Pointer,
+                                                       bool IsNotForDVCP) {
   if (!V)
     return false;
 
@@ -285,6 +312,8 @@ bool DopeVectorFieldUse::analyzeLoadOrStoreInstruction(Value *V,
     }
   } else if (auto *LI = dyn_cast<LoadInst>(V)) {
     Loads.insert(LI);
+    if (IsNotForDVCP)
+      NotForDVCPLoads.insert(LI);
     IsRead = true;
   } else {
     return false;
@@ -303,12 +332,12 @@ void DopeVectorFieldUse::analyzeUses() {
     return;
 
   for (auto *FAddr : FieldAddr) {
-    for (auto *U : FAddr->users()) {
-      if (!analyzeLoadOrStoreInstruction(U, FAddr)) {
+    bool IsNotForDVCP = NotForDVCPFieldAddr.contains(FAddr);
+    for (auto *U : FAddr->users())
+      if (!analyzeLoadOrStoreInstruction(U, FAddr, IsNotForDVCP)) {
           IsBottom = true;
           break;
       }
-    }
   }
 }
 
@@ -407,13 +436,13 @@ void DopeVectorFieldUse::analyzeSubscriptsUses() {
       IsBottom = true;
       return;
     }
-
+    bool IsNotForDVCP = NotForDVCPFieldAddr.count(SI->getPointerOperand());
     // Traverse through the users of the subscript instruction and check for
     // Load, Store and PHINodes.
     for (auto *U : SI->users()) {
       if (isa<StoreInst>(U) || isa<LoadInst>(U)) {
         // The subscript should be used for load or store
-        if(!analyzeLoadOrStoreInstruction(U, SI)) {
+        if(!analyzeLoadOrStoreInstruction(U, SI, IsNotForDVCP)) {
           IsBottom = true;
           break;
         }
@@ -521,6 +550,8 @@ bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
 void DopeVectorFieldUse::merge(const DopeVectorFieldUse& Other) {
   FieldAddr.insert(Other.FieldAddr.begin(), Other.FieldAddr.end());
   Loads.insert(Other.Loads.begin(), Other.Loads.end());
+  NotForDVCPLoads.insert(Other.NotForDVCPLoads.begin(),
+    Other.NotForDVCPLoads.end());
   Stores.insert(Other.Stores.begin(), Other.Stores.end());
   Subscripts.insert(Other.Subscripts.begin(), Other.Subscripts.end());
   if (Other.getIsRead())
@@ -1773,7 +1804,7 @@ void DopeVectorInfo::validateSingleNonNullValue(DopeVectorFieldType DVFT) {
 // found is treated as an ilegal access and the function will return false.
 static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     Value *V, std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-    SetVector<Value *> &ValueChecked, const DataLayout &DL,
+    SetVector<Value *> &ValueChecked, const DataLayout &DL, bool ForDVCP,
     bool AllowCheckForAllocSite) {
 
   // Return true if the users of the input GEP are subscript instructions.
@@ -1812,7 +1843,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       if (DVField->getIsBottom())
         return false;
 
-      DVField->addFieldAddr(SI);
+      DVField->addFieldAddr(SI, NestedDV->getNotForDVCP());
     }
     return true;
   };
@@ -1876,6 +1907,29 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     return true;
   };
 
+  //
+  // Return 'true' if 'F' which is called from 'CB' passing down a dope vector
+  // argument 'ArgNo' is also called from other callsites which could pass
+  // down a different dope vector at that argument. In this case, we cannot
+  // use this dope vector analysis to determine constants that argument
+  // within 'F', but the escape analysis for transpose is still valid.
+  //
+  auto HasBadSideCalls = [](CallBase *CB, Function *F,
+                            uint64_t ArgNo) -> bool {
+    for (User *U : F->users()) {
+      if (auto LCB = dyn_cast<CallBase>(U)) {
+        if (LCB == CB)
+          continue;
+        if (LCB->getArgOperand(ArgNo) == CB->getArgOperand(ArgNo))
+          continue;
+        return true;
+      } else {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Return true if we can collect the dope vector field accesses
   // in the input call. This function will find which argument is
   // Val in the input Call, check that the argument attributes are
@@ -1886,9 +1940,10 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   // NOTE: AllowCheckForAllocSite will be false in this case since
   // a function should not allocate a dope vector that is passed as
   // pointer. This conservative, we may want to relax this in the future.
-  auto CollectAccessFromCall = [NestedDV](CallBase *Call, Value *Val,
+  auto CollectAccessFromCall = [&HasBadSideCalls](CallBase *Call, Value *Val,
       std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-      const DataLayout &DL, SetVector<Value *> &ValueChecked) -> bool {
+      const DataLayout &DL, NestedDopeVectorInfo *NestedDV, bool ForDVCP,
+      SetVector<Value *> &ValueChecked) -> bool {
 
     // Indirect calls or declarations aren't allowed
     // NOTE: In case of declarations, we may be able to mark the
@@ -1932,12 +1987,14 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
         !Arg->hasNoAliasAttr())
       return false;
 
-    // Recurse, arg represents now the pointer to the nested dope vector
-    if (!collectNestedDopeVectorFieldAddress(NestedDV, Arg, GetTLI,
-        ValueChecked, DL, false))
-      return false;
-
-    return true;
+    bool RestoreValue = NestedDV->getNotForDVCP();
+    bool NewValue = RestoreValue || ForDVCP && !NestedDV->getNotForDVCP() &&
+        HasBadSideCalls(Call, F, ArgNo);
+    NestedDV->setNotForDVCP(NewValue);
+    bool RV = collectNestedDopeVectorFieldAddress(NestedDV, Arg, GetTLI,
+        ValueChecked, DL, ForDVCP, false);
+    NestedDV->setNotForDVCP(RestoreValue);
+    return RV;
   };
 
   // Return true if the input GEP is used only by a BitCast for
@@ -1999,7 +2056,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       auto *DVField = NestedDV->getDopeVectorField(DVFieldType);
       if (DVField->getIsBottom())
         return false;
-     DVField->addFieldAddr(cast<Value>(GEP));
+     DVField->addFieldAddr(cast<Value>(GEP), NestedDV->getNotForDVCP());
     } else if (DVFieldType == DopeVectorFieldType::DV_PerDimensionArray) {
       // Check the accesses through the per dimension array
       if(!CollectAccessForPerDimensionArray(GEP))
@@ -2109,10 +2166,10 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   // a Value that has already been analyzed.
   //
   std::function<bool(Value *V, User *U, const DataLayout &DL,
-                NestedDopeVectorInfo *NestedDV,
+                NestedDopeVectorInfo *NestedDV, bool ForDVCP,
                 SetVector<Value *> &ValueChecked)>
       GoodDVPUser = [&](Value *V, User *U, const DataLayout &DL,
-                        NestedDopeVectorInfo *NestedDV,
+                        NestedDopeVectorInfo *NestedDV, bool ForDVCP,
                         SetVector<Value *> &ValueChecked) -> bool {
     // GEP should be accessing dope vector fields
     if (auto *GEP = dyn_cast<GEPOperator>(U)) {
@@ -2122,7 +2179,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       // BitCast should be only used for allocating data
       if (IsNullDVBitCast(BC, DL)) {
          for (User *UU : BC->users())
-           if (!GoodDVPUser(BC, UU, DL, NestedDV, ValueChecked))
+           if (!GoodDVPUser(BC, UU, DL, NestedDV, ForDVCP, ValueChecked))
              return false;
          return true;
       }
@@ -2134,7 +2191,8 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       NestedDV->addAllocSite(Call);
     } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
       // Calls should only load data
-      if (!CollectAccessFromCall(Call, V, GetTLI, DL, ValueChecked))
+      if (!CollectAccessFromCall(Call, V, GetTLI, DL, NestedDV, ForDVCP,
+                                 ValueChecked))
         return false;
     } else {
       return false;
@@ -2164,7 +2222,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   for (auto *U : V->users()) {
     if (ValueChecked.contains(U))
       continue;
-    if (!GoodDVPUser(V, U, DL, NestedDV, ValueChecked))
+    if (!GoodDVPUser(V, U, DL, NestedDV, ForDVCP, ValueChecked))
       return false;
   }
 
@@ -2342,7 +2400,7 @@ extern Argument *isIPOPropagatable(const Value *V, const User *U) {
 // Collect the nested dope vectors and store the access to them. Return false
 // if there is any illegal access, else return true.
 bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
-    SubscriptInst *SI, const DataLayout &DL) {
+    SubscriptInst *SI, const DataLayout &DL, bool ForDVCP) {
 
   // Given a Value that is a GetElementPointerInst or a BitCastInst,
   // then find if it is accessing a structure, if so collect the field
@@ -2547,6 +2605,25 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return true;
   };
 
+  //
+  // Return 'true' if 'CB' is a call to the Fortran runtime library libFunc
+  // 'for_concat' with 'InPtr' pointing to its argument without invalidating
+  // the dope vector analysis. We are checking the source argument (argument
+  // #0) in this implementation, which will not write any bytes to that
+  // argument.
+  //
+  auto IsSafeLibFuncForConcat = [](CallBase *CB, Value *InPtr) -> bool {
+    if (CB->getNumArgOperands() != 4)
+      return false;
+    if (CB->getArgOperand(0) != InPtr)
+      return false;
+    for (unsigned I = 1; I < CB->getNumArgOperands(); ++I)
+      if (CB->getArgOperand(I) == InPtr)
+        return false;
+    return true;
+  };
+
+  //
   // Return 'true' if 'CB' is a call to a libFunc with 'InPtr' pointing to
   // an argument of the libFunc that may write up to 'NE' bytes at that
   // argument without invalidating the dope vector analysis.
@@ -2563,6 +2640,8 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     switch (TheLibFunc) {
     case LibFunc_for_trim:
       return IsSafeLibFuncForTrim(CB, InPtr, NE);
+    case LibFunc_for_concat:
+      return IsSafeLibFuncForConcat(CB, InPtr);
     default:
       break;
     }
@@ -2625,10 +2704,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // 'get_hygro_rad_props'.
   //
   std::function<bool(Argument *A, const DataLayout &DL,
-                     NestedDopeVectorInfo *NDVInfo,
+                     NestedDopeVectorInfo *NDVInfo, bool ForDVCP,
                      SetVector<Value *> &ValueChecked)>
       CanPropUp = [&](Argument *A, const DataLayout &DL,
-                      NestedDopeVectorInfo *NDVInfo,
+                      NestedDopeVectorInfo *NDVInfo, bool ForDVCP,
                       SetVector<Value *> &ValueChecked) -> bool {
     Function *F = A->getParent();
     unsigned FArgNo = A->getArgNo();
@@ -2650,13 +2729,14 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         AA = BC->getOperand(0);
       }
       if (auto FA = dyn_cast<Argument>(AA)) {
-        if (!CanPropUp(FA, DL, NDVInfo, ValueChecked))
+        if (!CanPropUp(FA, DL, NDVInfo, ForDVCP, ValueChecked))
           return false;
         continue;
       }
       if (auto AI = dyn_cast<AllocaInst>(AA)) {
        if (!collectNestedDopeVectorFieldAddress(NDVInfo, AI, GetTLI,
-                                                ValueChecked, DL, true))
+                                                ValueChecked, DL, ForDVCP,
+                                                true))
           return false;
         continue;
       }
@@ -2788,54 +2868,324 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // to 'h_ext' in 'bigloop' and then propagated back down to 'ext' in
   // 'get_hygro_rad_props'.
   //
-  auto CanPropThruPtrAssn = [&](User *U, const DataLayout &DL,
+  auto CanPropThruPtrAssn = [&](User *U, const DataLayout &DL, bool ForDVCP,
                                 NestedDopeVectorInfo *NDVInfo) -> bool {
     Argument *A = PropPtrAssignToArgument(U, DL);
     if (!A)
       return false;
     SetVector<Value *> ValueChecked;
-    if (!CanPropUp(A, DL, NDVInfo, ValueChecked))
+    if (!CanPropUp(A, DL, NDVInfo, ForDVCP, ValueChecked))
       return false;
     return true;
   };
 
-  // Recursive version of 'PropagatesToLoadOrStore' that uses a 'Visited'
-  // set to exclude recursive descent on Arguments that have already been
-  // evaluated.
+  // Recursive forward declaration
+  std::function<bool(Value *, User *, SmallPtrSetImpl<Value *> &)>
+    PropagatesThroughUser;
+
   //
-  std::function<bool(Value *V, SmallPtrSetImpl<Argument *> &Visited)>
-      PropagatesToLoadOrStoreX = [&](Value *V,
-                                     SmallPtrSetImpl<Argument *> &Visited)
-                                     -> bool {
-    for (User *U: V->users()) {
-      if (auto SI = dyn_cast<StoreInst>(U)) {
-        if (SI->getPointerOperand() != V)
-          return false;
-      } else if (isa<LoadInst>(U)) {
+  // Return 'true' if 'GEPI' is propagated down the call chain and terminates
+  // with a LoadInst or StoreInst.
+  //
+  std::function<bool(GetElementPtrInst *, SmallPtrSetImpl<Value *> &)>
+      PropagatesThroughGEPI = [&](GetElementPtrInst *GEPI,
+                                  SmallPtrSetImpl<Value *> &Visited) -> bool {
+    if (GEPI->getNumIndices() != 1)
+      return false;
+    for (User *U : GEPI->users()) {
+      if (!Visited.count(U))
         continue;
-      } else if (auto CB = dyn_cast<CallBase>(U)) {
-        auto ArgPos = getArgumentPosition(*CB, V);
-        if (!ArgPos)
+      if (auto NewGEPI = dyn_cast<GetElementPtrInst>(U)) {
+        if (!PropagatesThroughGEPI(NewGEPI, Visited))
           return false;
-        Function *Callee = CB->getCalledFunction();
-        if (!Callee || Callee->isVarArg())
-          return false;
-        Argument *Arg = Callee->getArg(*ArgPos);
-        if (!Visited.count(Arg) && !PropagatesToLoadOrStoreX(Arg, Visited))
-          return false;
-      } else {
+      } else if (!PropagatesThroughUser(GEPI, U, Visited)) {
         return false;
       }
     }
     return true;
   };
 
+  //
+  // Return 'true' if 'PHIN', which is a User of 'V' is propagated down the
+  // call chain and terminates with a LoadInst or StoreInst.
+  //
+  auto PropagatesThroughPHINode = [&](Value *V, PHINode *PHIN,
+                                      SmallPtrSetImpl<Value *> &Visited)
+                                      -> bool {
+     static const unsigned BackTraversalLimit = 3;
+     if (Visited.count(PHIN))
+       return true;
+     Visited.insert(PHIN);
+     //
+     // Check the backedges of 'PHIN' and ensure that they reach back to
+     // 'PHIN' using only byte-flattened GEPs or other PHINodes. This
+     // is to ensure that any value derived from 'PHIN' is a byte offset
+     // from the original value coming into 'PHIN'. 'LangRuleOutOfBoundsOK'
+     // ensures that the offset does not index out of the original bounds.
+     //
+     for (Value *W : PHIN->incoming_values()) {
+       if (W == V)
+         continue;
+       Value *WW = W;
+       bool CompletedLoop = false;
+       for (unsigned J = 0; J < BackTraversalLimit; ++J) {
+         if (auto GEPI = dyn_cast<GetElementPtrInst>(WW)) {
+           if (GEPI->getNumIndices() != 1)
+             return false;
+           WW = GEPI->getPointerOperand();
+         } else if (auto NewPHIN = dyn_cast<PHINode>(WW)) {
+           // NOTE: This traverses back through only one level of PHINode.
+           // It could be generalized into a recursive search, but it is
+           // sufficient for what we need at this time.
+           bool FoundPHI = false;
+           for (Value *WWW : NewPHIN->incoming_values())
+             if (WWW == PHIN) {
+               WW = PHIN;
+               FoundPHI = true;
+               break;
+             }
+           if (!FoundPHI)
+             return false;
+         }
+         else {
+           return false;
+         }
+         if (WW == PHIN) {
+           CompletedLoop = true;
+           break;
+         }
+       }
+       if (!CompletedLoop)
+         return false;
+     }
+     //
+     // Walk forward through the uses of 'PHI' allowing the pointer
+     // value to be offset through a series of byte flattened GEPs.
+     //
+     for (User *U : PHIN->users()) {
+       if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+         if (!PropagatesThroughGEPI(GEPI, Visited))
+           return false;
+       } else if (!PropagatesThroughUser(PHIN, U, Visited)) {
+         return false;
+       }
+     }
+     return true;
+  };
+
+  //
+  // Recursive version of 'PropagatesToLoadOrStore' that uses a 'Visited'
+  // set to exclude recursive descent on Values that have already been
+  // evaluated. Two types of Values are placed in the 'Visited' set:
+  // Arguments and PHINodes.
+  //
+  std::function<bool(Value *V, SmallPtrSetImpl<Value *> &Visited)>
+      PropagatesToLoadOrStoreX = [&](Value *V,
+                                     SmallPtrSetImpl<Value *> &Visited)
+                                     -> bool {
+    if (Visited.count(V))
+      return true;
+    Visited.insert(V);
+    for (User *U: V->users())
+      if (!PropagatesThroughUser(V, U, Visited))
+        return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'LI' is just stored as an integer or
+  // floating point type. This ensures that it is not cast as
+  // a pointer and used to dereference something else. If passed
+  // at a call site, we follow it through the call chain.
+  //
+  auto PropagatesThroughLoadInst = [&](LoadInst *LI,
+                                       SmallPtrSetImpl<Value *> &Visited)
+                                       -> bool {
+    for (User *U : LI->users()) {
+      if (auto SI = dyn_cast<StoreInst>(U)) {
+        Type *Ty = SI->getValueOperand()->getType();
+        if (!Ty->isIntegerTy() && !Ty->isFloatingPointTy())
+          return false;
+      } else if (auto Arg = dyn_cast<Argument>(U)) {
+        if (!PropagatesToLoadOrStoreX(Arg, Visited))
+          return false;
+      }
+    }
+    return true;
+  };
+
+  //
+  // Return an AllocaInst that is used as a Fortran concatenation table for
+  // for_concat(), if 'V' is an address stored into one of the entries in
+  // that concatenation table. A concatenation table is an array of structures
+  // each of which has two fields. The first field is a pointer to a string
+  // and the second is the integer length of the string. The libFunc
+  // for_concat takes a concatenation table as its first argument and
+  // returns a pointer to the concatenated string in the second argument.
+  //
+  // For example, here is a series of instructions that allocates a 4 entry
+  // concatenation table in %9, and assigns %89 to the string address of
+  // the 4th entry in the table.
+  //   %9 = alloca [4 x { i8*, i64 }], align 8
+  //   %76 = getelementptr inbounds [4 x { i8*, i64 }], [4 x { i8*, i64 }]* %9,
+  //       i64 0, i64 0
+  //   %87 = call { i8*, i64 }* @llvm.intel.subscript.[...](i8 0, i64 1,
+  //       i32 16, { i8*, i64 }* nonnull %76, i32 4)
+  //   %88 = getelementptr inbounds { i8*, i64 }, { i8*, i64 }* %87, i64 0,
+  //       i32 0
+  //   store i8* %89, i8** %88, align 1
+  //
+  auto IsAddressInLocalConcatTable = [](Value *V) -> AllocaInst * {
+    auto GEPI0 = dyn_cast<GetElementPtrInst>(V);
+    if (!GEPI0 || GEPI0->getNumIndices() != 2 || !GEPI0->hasAllZeroIndices())
+      return nullptr;
+    auto SI = dyn_cast<SubscriptInst>(GEPI0->getPointerOperand());
+    if (!SI || SI->getRank() != 0)
+      return nullptr;
+    auto CI1 = dyn_cast<ConstantInt>(SI->getLowerBound());
+    if (!CI1 || CI1->getZExtValue() != 1)
+      return nullptr;
+    auto CI2 = dyn_cast<ConstantInt>(SI->getStride());
+    if (!CI2 || CI2->getZExtValue() != 16)
+      return nullptr;
+    auto GEPI1 = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEPI1 || GEPI1->getNumIndices() != 2 || !GEPI1->hasAllZeroIndices())
+      return nullptr;
+    auto CI4 = dyn_cast<ConstantInt>(SI->getIndex());
+    if (!CI4)
+      return nullptr;
+    auto AI = dyn_cast<AllocaInst>(GEPI1->getPointerOperand());
+    if (!AI)
+      return nullptr;
+    auto ATy = dyn_cast<ArrayType>(AI->getAllocatedType());
+    if (!ATy)
+      return nullptr;
+    if (CI4->getZExtValue() > ATy->getNumElements())
+      return nullptr;
+    auto STy = dyn_cast<StructType>(ATy->getElementType());
+    if (!STy || STy->getNumElements() != 2)
+      return nullptr;
+    if (!STy->getElementType(0)->isPointerTy())
+      return nullptr;
+    if (!STy->getElementType(1)->isIntegerTy())
+      return nullptr;
+    return AI;
+  };
+
+  //
+  // Return 'true' if 'SI' is a safe store. This means it is assigned only
+  // to a local variable and then passed to a libFunc which will use the
+  // value it points to. Therefore, the stored value does not escape.
+  //
+  auto IsSafeLocalStoreAssignment = [&](StoreInst *SI) -> bool {
+     AllocaInst *AI = IsAddressInLocalConcatTable(SI->getPointerOperand());
+     if (!AI || AI->getNumUses() > 2)
+       return false;
+     for (User *U : AI->users()) {
+       // The path from the StoreInst to the AllocaInst in
+       // IsAddressInLocalConcatTable() can be ignored, as it has already
+       // been analyzed in that function. It terminates in a GetElementPtrInst.
+       if (isa<GetElementPtrInst>(U))
+         continue;
+       Value *W = AI;
+       Value *V = U;
+       if (auto BC = dyn_cast<BitCastInst>(V)) {
+         if (!BC->hasOneUser())
+           return false;
+         W = BC;
+         V = BC->user_back();
+       }
+       auto CB = dyn_cast<CallBase>(V);
+       if (!CB || !IsSafeLibFuncForConcat(CB, W))
+         return false;
+     }
+     return true;
+  };
+
+  //
+  // Return 'true' if 'U', which is a User of 'V' is propagated down the
+  // call chain and terminates with a LoadInst or StoreInst.
+  //
+  PropagatesThroughUser = [&](Value *V, User *U,
+                              SmallPtrSetImpl<Value *> &Visited) -> bool {
+    if (auto SI = dyn_cast<StoreInst>(U)) {
+      if (SI->getValueOperand() == V && !IsSafeLocalStoreAssignment(SI))
+        return false;
+      return true;
+    }
+    if (auto PHIN = dyn_cast<PHINode>(U)) {
+      if (!PropagatesThroughPHINode(V, PHIN, Visited))
+        return false;
+    } else if (auto LI = dyn_cast<LoadInst>(U)) {
+      if (!PropagatesThroughLoadInst(LI, Visited))
+        return false;
+    } else if (auto BC = dyn_cast<BitCastInst>(U)) {
+      for (User *UU : BC->users()) {
+        if (!PropagatesThroughUser(BC, UU, Visited))
+          return false;
+      }
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      auto ArgPos = getArgumentPosition(*CB, V);
+      if (!ArgPos)
+        return false;
+      auto F = dyn_cast<Function>(CB->getCalledOperand()->stripPointerCasts());
+      if (!F || F->isVarArg())
+        return false;
+      Argument *Arg = F->getArg(*ArgPos);
+      if (!PropagatesToLoadOrStoreX(Arg, Visited))
+        return false;
+    } else if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      // Allow for the special case of a zero-indexed GEP, which is
+      // effectively a null operation.
+      if (GEPI->getPointerOperand() != V || !GEPI->hasAllZeroIndices())
+        return false;
+      for (User *UU : GEPI->users()) {
+        if (!PropagatesThroughUser(GEPI, UU, Visited))
+          return false;
+      }
+    } else {
+      return false;
+    }
+    return true;
+  };
+
+  //
+  // Returns 'true' if 'V' is only used as the pointer operand of a simple load
+  // or store instruction.
+  //
+  auto PropagatesToSimpleLoadOrStore = [](Value *V) -> bool {
+    for (User *U : V->users()) {
+      if (isa<LoadInst>(U))
+        continue;
+      if (auto SI = dyn_cast<StoreInst>(U)) {
+        if (SI->getValueOperand() == V)
+          return false;
+        continue;
+      }
+      return false;
+    }
+    return true;
+  };
+
+  //
   // Return 'true' if 'V' is propagated down the call chain and terminates
   // with a LoadInst or StoreInst.
   //
-  auto PropagatesToLoadOrStore = [&PropagatesToLoadOrStoreX](Value *V) {
-    SmallPtrSet<Argument *, 10> Visited;
-    return PropagatesToLoadOrStoreX(V, Visited);
+  auto PropagatesToLoadOrStore = [&](Value *V) {
+    if (PropagatesToSimpleLoadOrStore(V))
+      return true;
+#if INTEL_FEATURE_SW_ADVANCED
+    SmallPtrSet<Value *, 10> Visited;
+    if (!CheckOutOfBoundsOK)
+      return false;
+    if (getLangRuleOutOfBoundsOK())
+      return false;
+    if (!PropagatesToLoadOrStoreX(V, Visited))
+      return false;
+    return true;
+#else // INTEL_FEATURE_SW_ADVANCED
+    return false;
+#endif // INTEL_FEATURE_SW_ADVANCED
   };
 
   // Return 'true' if 'U' is the user of a SubscriptInst that can be
@@ -2844,7 +3194,8 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   auto CanCollectNDVSubscriptUser = [&, this](Value *V, User *U,
                                               const DataLayout &DL,
                                               NestedDopeVectorInfo *NDVInfo,
-                                              bool &AllocSiteFound) -> bool {
+                                              bool &AllocSiteFound,
+                                              bool ForDVCP) -> bool {
     if (auto *Call = bitCastUsedForAllocation(U, GetTLI)) {
       // A BitCast can used for allocating the array for the
       // nested dope vector at field 0. It represents a field 0 access.
@@ -2886,27 +3237,18 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
 
         // Nested dope vector found, now collect the fields access
         if (collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
-                                                ValueChecked, DL, true))
+                                                ValueChecked, DL,
+                                                ForDVCP, true))
           return true;
-        if (CanPropThruPtrAssn(U, DL, NestedDVInfo))
+        if (CanPropThruPtrAssn(U, DL, ForDVCP, NestedDVInfo))
           return true;
         return false;
-      } else if (PropagatesToLoadOrStore(U)) {
-         return true;
-      } else if (!IsSafeIntrinOrLibFuncUser(V, U)) {
-        // For now, if this is not a nested dope vector and does not involve
-        // easily recognized intrinsics operating on the field, give up if we
-        // see anything other than a user which is a LoadInst or StoreInst
-        // referencing U as a pointer operand. We can extend this analysis
-        // if it proves to be useful to do that.
-        for (User *V : U->users()) {
-          if (auto SI = dyn_cast<StoreInst>(V)) {
-            if (SI->getPointerOperand() != U)
-              return false;
-          } else if (!isa<LoadInst>(V)) {
-            return false;
-          }
-        }
+      } else {
+        if (PropagatesToLoadOrStore(U))
+          return true;
+        if (IsSafeIntrinOrLibFuncUser(V, U))
+          return true;
+        return false;
       }
     } else {
       // Subscript used for something else
@@ -2921,16 +3263,16 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // for the dope vector is found.
   //
   std::function<bool(Argument *, const DataLayout &,
-                NestedDopeVectorInfo *, bool &)>
+                NestedDopeVectorInfo *, bool, bool &)>
       PropagateArgument = [&](Argument *A, const DataLayout &DL,
                               NestedDopeVectorInfo *NDVInfo,
-                              bool &AllocSiteFound) -> bool {
+                              bool ForDVCP, bool &AllocSiteFound) -> bool {
     for (User *U : A->users()) {
       if (Argument *NewA = isIPOPropagatable(A, U)) {
-        if (!PropagateArgument(NewA, DL, NDVInfo, AllocSiteFound))
+        if (!PropagateArgument(NewA, DL, NDVInfo, ForDVCP, AllocSiteFound))
           return false;
       } else if (!CanCollectNDVSubscriptUser(A, U, DL, NDVInfo,
-                                             AllocSiteFound)) {
+                                             AllocSiteFound, ForDVCP)) {
         return false;
       }
     }
@@ -2956,10 +3298,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // related to the nested dope vectors
   for (User *U : SI->users()) {
     if (Argument *A = isIPOPropagatable(SI, U)) {
-      if (!PropagateArgument(A, DL, nullptr, AllocSiteFound))
+      if (!PropagateArgument(A, DL, nullptr, ForDVCP, AllocSiteFound))
         return false;
     } else if (!CanCollectNDVSubscriptUser(SI, U, DL, nullptr,
-                                           AllocSiteFound)) {
+                                           AllocSiteFound, ForDVCP)) {
       return false;
     }
   }
@@ -3103,7 +3445,7 @@ GlobalDopeVector::mergeNestedDopeVectors() {
 // to find these copy dope vectors and prove that the fields won't change
 // in order to propagate the constants collected for them too.
 void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
-    const DataLayout &DL) {
+    const DataLayout &DL, bool ForDVCP) {
 
   // Collect the copy dope vector from the store instruction. From the
   // example above, assume that we are analyzing the store instruction,
@@ -3204,7 +3546,7 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
     for (auto *LocalDV : CopyNestedDopeVectors) {
       SetVector<Value *> ValueChecked;
       if (collectNestedDopeVectorFieldAddress(LocalDV, LocalDV->getDVObject(),
-          GetTLI, ValueChecked, DL, true)) {
+          GetTLI, ValueChecked, DL, ForDVCP, true)) {
         LocalDV->analyzeNestedDopeVector();
         NestedDV->collectFromCopy(*LocalDV);
       }
@@ -3219,7 +3561,8 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
 // dope vector, collect the information and analyze if there is any illegal
 // access that could invalidate the data.
 void
-GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
+GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
+                                                     bool ForDVCP) {
 
   // NOTE: This needs to be updated for opaque pointers
   auto GetResultTypeFromSubscript = [](SubscriptInst *SI) {
@@ -3281,7 +3624,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
 
         // Collect the possible nested dope vectors that the subscript
         // could be accessing
-        if (!collectNestedDopeVectorFromSubscript(SI, DL)) {
+        if (!collectNestedDopeVectorFromSubscript(SI, DL, ForDVCP)) {
           NestedDVDataValid = false;
           break;
         }
@@ -3307,7 +3650,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
 
   // Collect any information from the copy dope vectors to check if we
   // can also propagate the constants to it.
-  collectAndAnalyzeCopyNestedDopeVectors(DL);
+  collectAndAnalyzeCopyNestedDopeVectors(DL, ForDVCP);
 }
 
 // Validate that the data was collected correctly for the global dope vector
@@ -3341,7 +3684,8 @@ void GlobalDopeVector::validateGlobalDopeVector() {
   AnalysisRes = GlobalDopeVector::AnalysisResult::AR_Pass;
 }
 
-void GlobalDopeVector::collectAndValidate(const DataLayout &DL) {
+void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
+                                          bool ForDVCP) {
   for (auto *U : Glob->users()) {
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // The BitCast should only be used for data allocation and
@@ -3371,7 +3715,7 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL) {
   getGlobalDopeVectorInfo()->validateAllocSite();
 
   // Collect any information related to the nested dope vectors
-  collectAndAnalyzeNestedDopeVectors(DL);
+  collectAndAnalyzeNestedDopeVectors(DL, ForDVCP);
 
   // Validate that the data was collected correctly
   validateGlobalDopeVector();

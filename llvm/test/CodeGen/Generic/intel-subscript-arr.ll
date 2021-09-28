@@ -91,21 +91,21 @@ entry:
   %lb.i.i = getelementptr inbounds %struct.ArrDesc, %struct.ArrDesc* %inout, i64 0, i32 6, i64 2, i32 2
   %2 = load i64, i64* %lb.i.i, align 8
   %conv3.i.i = trunc i64 %2 to i32
-  %call.i.i.i = tail call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 2, i32 %conv3.i.i, i32 %conv.i.i, double* %0, i32 3) #5
+  %call.i.i.i = tail call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 2, i32 %conv3.i.i, i32 %conv.i.i, double* elementtype(double) %0, i32 3) #5
   %stride.i.i.i = getelementptr inbounds %struct.ArrDesc, %struct.ArrDesc* %inout, i64 0, i32 6, i64 1, i32 1
   %3 = load i64, i64* %stride.i.i.i, align 8
   %conv.i.i.i = trunc i64 %3 to i32
   %lb.i.i.i = getelementptr inbounds %struct.ArrDesc, %struct.ArrDesc* %inout, i64 0, i32 6, i64 1, i32 2
   %4 = load i64, i64* %lb.i.i.i, align 8
   %conv3.i.i.i = trunc i64 %4 to i32
-  %call.i.i.i.i = tail call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 1, i32 %conv3.i.i.i, i32 %conv.i.i.i, double* %call.i.i.i, i32 0) #5
+  %call.i.i.i.i = tail call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 1, i32 %conv3.i.i.i, i32 %conv.i.i.i, double* elementtype(double) %call.i.i.i, i32 0) #5
   %stride.i.i.i.i = getelementptr inbounds %struct.ArrDesc, %struct.ArrDesc* %inout, i64 0, i32 6, i64 0, i32 1
   %5 = load i64, i64* %stride.i.i.i.i, align 8
   %conv.i.i.i.i = trunc i64 %5 to i32
   %lb.i.i.i.i = getelementptr inbounds %struct.ArrDesc, %struct.ArrDesc* %inout, i64 0, i32 6, i64 0, i32 2
   %6 = load i64, i64* %lb.i.i.i.i, align 8
   %conv5.i.i.i.i = trunc i64 %6 to i32
-  %call.i.i.i.i.i = tail call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 0, i32 %conv5.i.i.i.i, i32 %conv.i.i.i.i, double* %call.i.i.i.i, i32 1) #5
+  %call.i.i.i.i.i = tail call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 0, i32 %conv5.i.i.i.i, i32 %conv.i.i.i.i, double* elementtype(double) %call.i.i.i.i, i32 1) #5
   %7 = load double, double* %call.i.i.i.i.i, align 8
   %add4 = fadd double %7, 1.000000e+00
   store double %add4, double* %call.i.i.i.i.i, align 8
@@ -127,9 +127,9 @@ entry:
   %arrayidx2 = getelementptr inbounds [10 x [10 x [10 x double]]], [10 x [10 x [10 x double]]]* %A, i64 0, i64 0, i64 0, i64 0
   %arrayidx21 = getelementptr inbounds [10 x [10 x [10 x double]]], [10 x [10 x [10 x double]]]* %A, i64 0, i64 3, i64 0, i64 1
   store double 2.000000e+00, double* %arrayidx21, align 8
-  %call.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 2, i32 0, i32 800, double* nonnull %arrayidx2, i32 3) #5
-  %call.i.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 1, i32 0, i32 80, double* %call.i.i.i.i, i32 0) #5
-  %call.i.i.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 0, i32 0, i32 8, double* %call.i.i.i.i.i, i32 1) #5
+  %call.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 2, i32 0, i32 800, double* elementtype(double) nonnull %arrayidx2, i32 3) #5
+  %call.i.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 1, i32 0, i32 80, double* elementtype(double) %call.i.i.i.i, i32 0) #5
+  %call.i.i.i.i.i.i = call double* @llvm.intel.subscript.p0f64.i32.i32.p0f64.i32(i8 zeroext 0, i32 0, i32 8, double* elementtype(double) %call.i.i.i.i.i, i32 1) #5
   %1 = load double, double* %call.i.i.i.i.i.i, align 8
   %add4.i = fadd double %1, 1.000000e+00
   store double %add4.i, double* %call.i.i.i.i.i.i, align 8

@@ -12,8 +12,8 @@
 ;      }
 ;    END LOOP
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -enable-vp-value-codegen-hir -disable-output -tbaa < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -tbaa < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
 define void @foo(i64* nocapture readonly %lp, double* nocapture %darr, i64* nocapture readonly %arr) {
@@ -75,15 +75,10 @@ define void @foo_uniform_if(i64 %n, i64* nocapture readonly %lp, double* nocaptu
 ; CHECK-NEXT:       %unifcond = extractelement %.vec,  0;
 ; CHECK-NEXT:       if (%unifcond == 1)
 ; CHECK-NEXT:       {
+; CHECK-NEXT:          %.vec1 = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
+; CHECK-NEXT:          %.unifload = (%lp)[0];
+; CHECK-NEXT:          (<4 x double>*)(%darr)[i1 + %.unifload] = %.vec1;
 ; CHECK-NEXT:       }
-; CHECK-NEXT:       else
-; CHECK-NEXT:       {
-; CHECK-NEXT:          goto BB12.35;
-; CHECK-NEXT:       }
-; CHECK-NEXT:       %.vec1 = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
-; CHECK-NEXT:       %.unifload = (%lp)[0];
-; CHECK-NEXT:       (<4 x double>*)(%darr)[i1 + %.unifload] = %.vec1;
-; CHECK-NEXT:       BB12.35:
 ; CHECK-NEXT:  END LOOP
 ;
 entry:

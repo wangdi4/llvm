@@ -184,6 +184,11 @@ private:
   /// the passed in boolean argument.
   const Value *getHeaderPhiOperand(const PHINode *Phi, bool IsInit) const;
 
+  /// Tries to trace though some instruction types to get to a GEPOperator.
+  const GEPOperator *
+  tracebackToGEPOp(const Value *Val,
+                   SmallPtrSetImpl<const Value *> &VisitedInsts) const;
+
 public:
   HIRRegionIdentification(Function &F, LoopInfo &LI, DominatorTree &DT,
                           PostDominatorTree &PDT, AssumptionCache &AC,
@@ -254,6 +259,10 @@ public:
   /// Erases all the formed regions.
   /// NOTE: Only used by HIRSSADeconstruction pass in opt-bisect mode.
   void discardRegions() { IRRegions.clear(); }
+
+  /// Tries to find the element type of an AddRec phi by tracing it back to a
+  /// GEPOperator. Returns null if element type cannot be found.
+  Type *findPhiElementType(const PHINode *AddRecPhi) const;
 };
 
 class HIRRegionIdentificationAnalysis

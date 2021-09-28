@@ -9,7 +9,11 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -31,9 +35,13 @@ namespace llvm {
 const StringRef KernelAttribute::CallOnce = "kernel-call-once";
 const StringRef KernelAttribute::CallParamNum = "call-params-num";
 const StringRef KernelAttribute::ConvergentCall = "kernel-convergent-call";
+const StringRef KernelAttribute::HasSubGroups = "has-sub-groups";
 const StringRef KernelAttribute::HasVPlanMask = "has-vplan-mask";
+const StringRef KernelAttribute::OCLVecUniformReturn =
+    "opencl-vec-uniform-return";
 const StringRef KernelAttribute::RecursionWithBarrier =
     "barrier_with_recursion";
+const StringRef KernelAttribute::UniformCall = "kernel-uniform-call";
 const StringRef KernelAttribute::VectorVariants = "vector-variants";
 
 namespace {
@@ -66,6 +74,9 @@ const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef SAMPLER = "sampler_t";
+
+// atomic fence functions
+const StringRef NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
 
 // work-group functions
 const StringRef NAME_WORK_GROUP_ALL = "work_group_all";
@@ -133,6 +144,10 @@ static cl::list<std::string>
     OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
                           cl::desc("Builtin declarations (bitcode) libraries"),
                           cl::value_desc("filename1,filename2"));
+
+static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
+                                            cl::desc("Builtin VectInfo list"),
+                                            cl::value_desc("filename"));
 
 namespace DPCPPKernelCompilationUtils {
 
@@ -368,48 +383,50 @@ static bool isKMPAcquireReleaseLock(StringRef S) {
   return (S == NAME_IB_KMP_ACQUIRE_LOCK) || (S == NAME_IB_KMP_RELEASE_LOCK);
 }
 
-PipeKind getPipeKind(StringRef S) {
+PipeKind getPipeKind(StringRef Name) {
   PipeKind Kind;
-  Kind.Op = PipeKind::OK_None;
+  Kind.Op = PipeKind::OpKind::None;
 
+  StringRef S(Name);
   if (!S.consume_front("__"))
     return Kind;
 
   if (S.consume_front("sub_group_"))
-    Kind.Scope = PipeKind::SK_SubGroup;
+    Kind.Scope = PipeKind::ScopeKind::SubGroup;
   else if (S.consume_front("work_group_"))
-    Kind.Scope = PipeKind::SK_WorkGroup;
+    Kind.Scope = PipeKind::ScopeKind::WorkGroup;
   else
-    Kind.Scope = PipeKind::SK_WorkItem;
+    Kind.Scope = PipeKind::ScopeKind::WorkItem;
 
   if (S.consume_front("commit_"))
-    Kind.Op = PipeKind::OK_Commit;
+    Kind.Op = PipeKind::OpKind::Commit;
   else if (S.consume_front("reserve_"))
-    Kind.Op = PipeKind::OK_Reserve;
+    Kind.Op = PipeKind::OpKind::Reserve;
 
   if (S.consume_front("read_"))
-    Kind.Access = PipeKind::AK_Read;
+    Kind.Access = PipeKind::AccessKind::Read;
   else if (S.consume_front("write_"))
-    Kind.Access = PipeKind::AK_Write;
+    Kind.Access = PipeKind::AccessKind::Write;
   else {
-    Kind.Op = PipeKind::OK_None;
+    Kind.Op = PipeKind::OpKind::None;
     return Kind; // not a pipe built-in
   }
 
   if (!S.consume_front("pipe")) {
-    Kind.Op = PipeKind::OK_None;
+    Kind.Op = PipeKind::OpKind::None;
     return Kind; // not a pipe built-in
   }
 
-  if (Kind.Op == PipeKind::OK_Commit || Kind.Op == PipeKind::OK_Reserve) {
+  if (Kind.Op == PipeKind::OpKind::Commit ||
+      Kind.Op == PipeKind::OpKind::Reserve) {
     // rest for the modifiers only appliy to read/write built-ins
     return Kind;
   }
 
   if (S.consume_front("_2"))
-    Kind.Op = PipeKind::OK_ReadWrite;
+    Kind.Op = PipeKind::OpKind::ReadWrite;
   else if (S.consume_front("_4"))
-    Kind.Op = PipeKind::OK_ReadWriteReserve;
+    Kind.Op = PipeKind::OpKind::ReadWriteReserve;
 
   // FPGA extension.
   if (S.consume_front("_bl"))
@@ -428,12 +445,81 @@ PipeKind getPipeKind(StringRef S) {
   if (S.consume_front("_") && S.startswith("v"))
     Kind.SimdSuffix = std::string(S);
 
+  assert(Name == getPipeName(Kind) &&
+         "getPipeKind() and getPipeName() are not aligned!");
+
   return Kind;
+}
+
+std::string getPipeName(PipeKind Kind) {
+  assert(Kind.Op != PipeKind::OpKind::None && "Invalid pipe kind");
+
+  std::string Name("__");
+
+  switch (Kind.Scope) {
+  case PipeKind::ScopeKind::WorkGroup:
+    Name += "work_group_";
+    break;
+  case PipeKind::ScopeKind::SubGroup:
+    Name += "sub_group_";
+    break;
+  case PipeKind::ScopeKind::WorkItem:
+    break;
+  }
+
+  switch (Kind.Op) {
+  case PipeKind::OpKind::Commit:
+    Name += "commit_";
+    break;
+  case PipeKind::OpKind::Reserve:
+    Name += "reserve_";
+    break;
+  default:
+    break;
+  }
+
+  switch (Kind.Access) {
+  case PipeKind::AccessKind::Read:
+    Name += "read_";
+    break;
+  case PipeKind::AccessKind::Write:
+    Name += "write_";
+    break;
+  }
+  Name += "pipe";
+
+  switch (Kind.Op) {
+  case PipeKind::OpKind::ReadWrite:
+    Name += "_2";
+    break;
+  case PipeKind::OpKind::ReadWriteReserve:
+    Name += "_4";
+    break;
+  default:
+    // Rest of the modifiers only apply to read/write built-ins.
+    return Name;
+  }
+
+  if (Kind.Blocking)
+    Name += "_bl";
+
+  if (Kind.IO)
+    Name += "_io";
+
+  if (Kind.FPGA)
+    Name += "_fpga";
+
+  if (!Kind.SimdSuffix.empty()) {
+    Name += "_";
+    Name += Kind.SimdSuffix;
+  }
+
+  return Name;
 }
 
 bool isWorkItemPipeBuiltin(StringRef S) {
   auto Kind = getPipeKind(S);
-  return Kind && Kind.Scope == PipeKind::SK_WorkItem;
+  return Kind && Kind.Scope == PipeKind::ScopeKind::WorkItem;
 }
 
 bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
@@ -491,6 +577,11 @@ std::string removeWorkGroupFinalizePrefix(StringRef S) {
 
 bool isWorkGroupBuiltin(StringRef S) {
   return isWorkGroupUniform(S) || isWorkGroupDivergent(S);
+}
+
+bool isWorkGroupBarrier(StringRef S) {
+  return S == mangledBarrier() || S == mangledWGBarrier(BarrierType::NoScope) ||
+         S == mangledWGBarrier(BarrierType::WithScope);
 }
 
 /// Subgroup builtin functions
@@ -586,6 +677,11 @@ bool isSubGroupBuiltin(StringRef S) {
   return isSubGroupUniform(S) || isSubGroupDivergent(S);
 }
 
+bool isSubGroupBarrier(StringRef S) {
+  return S == mangledSGBarrier(BarrierType::NoScope) ||
+         S == mangledSGBarrier(BarrierType::WithScope);
+}
+
 template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
   reflection::FunctionDescriptor FD;
@@ -602,6 +698,26 @@ static std::string mangleWithParam(StringRef N, unsigned NumOfParams) {
   for (unsigned I = 0; I < NumOfParams; ++I)
     FD.Parameters.push_back(new reflection::PrimitiveType(Ty));
   return mangle(FD);
+}
+
+static std::string
+mangleWithParam(StringRef N, ArrayRef<reflection::TypePrimitiveEnum> Types) {
+  reflection::FunctionDescriptor FD;
+  FD.Name = N.str();
+  for (const auto &Ty : Types) {
+    reflection::ParamType *pTy = new reflection::PrimitiveType(Ty);
+    reflection::RefParamType UI(pTy);
+    FD.Parameters.push_back(UI);
+  }
+  return mangle(FD);
+}
+
+std::string mangledAtomicWorkItemFence() {
+  reflection::TypePrimitiveEnum Params[] = {reflection::PRIMITIVE_UINT,
+                                            reflection::PRIMITIVE_MEMORY_ORDER,
+                                            reflection::PRIMITIVE_MEMORY_SCOPE};
+
+  return mangleWithParam(NAME_ATOMIC_WORK_ITEM_FENCE, Params);
 }
 
 std::string mangledGetGID() {
@@ -666,6 +782,26 @@ std::string mangledSGBarrier(BarrierType BT) {
 
   llvm_unreachable("Unknown sub_group_barrier version");
   return "";
+}
+
+std::string mangledGetMaxSubGroupSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_MAX_SUB_GROUP_SIZE);
+}
+
+std::string mangledNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_NUM_SUB_GROUPS);
+}
+
+std::string mangledGetSubGroupId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_SUB_GROUP_ID);
+}
+
+std::string mangledEnqueuedNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
 }
 
 std::string mangledGetSubGroupSize() {
@@ -813,27 +949,16 @@ StringRef getFnAttributeStringInList(Function &F, StringRef AttrKind,
   return AttrVec[Idx];
 }
 
-void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB) {
-  // This implementation is only correct when ToBB is an entry block.
-  SmallVector<AllocaInst *, 8> Allocas;
+void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
+                       function_ref<bool(Instruction &)> Predicate) {
+  SmallVector<Instruction *, 8> ToMove;
   for (auto &I : *FromBB)
-    if (auto *AI = dyn_cast<AllocaInst>(&I))
-      Allocas.push_back(AI);
+    if (Predicate(I))
+      ToMove.push_back(&I);
 
-  if (EntryBB->empty()) {
-    IRBuilder<> Builder(EntryBB);
-    for (auto *AI : Allocas) {
-      AI->removeFromParent();
-      Builder.Insert(AI);
-    }
-    return;
-  }
-
-  Instruction *InsPt = EntryBB->getFirstNonPHI();
-  assert(InsPt && "At least one non-PHI insruction is expected in ToBB");
-  for (auto *AI : Allocas) {
-    AI->moveBefore(InsPt);
-  }
+  auto MovePos = ToBB->getFirstInsertionPt();
+  for (auto *I : ToMove)
+    I->moveBefore(*ToBB, MovePos);
 }
 
 FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
@@ -844,18 +969,14 @@ FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
       continue;
     StringRef FName = F.getName();
     if (IsWG) {
-      if (FName == mangledBarrier() ||
-          FName == mangledWGBarrier(BarrierType::NoScope) ||
-          FName == mangledWGBarrier(BarrierType::WithScope) ||
+      if (isWorkGroupBarrier(FName) ||
           /* work group built-ins */
           isWorkGroupBuiltin(FName) ||
           /* built-ins synced as if were called by a single work item */
           isWorkGroupAsyncOrPipeBuiltin(FName, M))
         FSet.insert(&F);
     } else {
-      if (FName == mangledSGBarrier(BarrierType::NoScope) ||
-          FName == mangledSGBarrier(BarrierType::WithScope) ||
-          isSubGroupBuiltin(FName))
+      if (isSubGroupBarrier(FName) || isSubGroupBuiltin(FName))
         FSet.insert(&F);
     }
   }
@@ -871,9 +992,7 @@ FuncSet getAllSyncBuiltinsDeclsForNoDuplicateRelax(Module &M) {
     if (!F.isDeclaration())
       continue;
     llvm::StringRef FName = F.getName();
-    if (FName == mangledSGBarrier(BarrierType::NoScope) ||
-        FName == mangledSGBarrier(BarrierType::WithScope) ||
-        isKMPAcquireReleaseLock(FName))
+    if (isSubGroupBarrier(FName) || isKMPAcquireReleaseLock(FName))
       FSet.insert(&F);
   }
 
@@ -887,11 +1006,7 @@ FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
     if (!F.isDeclaration())
       continue;
     llvm::StringRef FName = F.getName();
-    if (FName == mangledBarrier() ||
-        FName == mangledWGBarrier(BarrierType::NoScope) ||
-        FName == mangledWGBarrier(BarrierType::WithScope) ||
-        FName == mangledSGBarrier(BarrierType::NoScope) ||
-        FName == mangledSGBarrier(BarrierType::WithScope) ||
+    if (isWorkGroupBarrier(FName) || isSubGroupBarrier(FName) ||
         isKMPAcquireReleaseLock(FName) ||
         isWorkGroupAsyncOrPipeBuiltin(FName, M)) {
       FSet.insert(&F);
@@ -904,7 +1019,6 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                             ArrayRef<const char *> NewNames,
                             ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
   assert(NewTypes.size() == NewNames.size());
-  assert(NewTypes.size() == NewAttrs.size());
   // Initialize with all original arguments in the function sugnature.
   SmallVector<Type *, 16> Types;
 
@@ -948,6 +1062,10 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // Set DISubprogram as an original function has. Do it before delete body
   // since DISubprogram will be deleted too.
   NewF->setSubprogram(F->getSubprogram());
+
+  // Add comdat to newF and drop from F.
+  NewF->setComdat(F->getComdat());
+  F->setComdat(nullptr);
 
   // Delete original function body - this is needed to remove linkage (if
   // exists).
@@ -1418,6 +1536,212 @@ void updateMetadataTreeWithNewFuncs(
         // avoid memory leaks.
       }
     }
+  }
+}
+
+bool hasFunctionCallInCGNodeSatisfiedWith(
+    CallGraphNode *Node, function_ref<bool(Function *)> Condition) {
+  for (auto It = df_begin(Node); It != df_end(Node); ++It) {
+    Function *CalledFunc = It->getFunction();
+    // Always skips the root node.
+    if (CalledFunc == Node->getFunction())
+      continue;
+    if (Condition(CalledFunc))
+      return true;
+  }
+  return false;
+}
+
+#define PRIM_TYPE(prim_type_enum)                                              \
+  (new reflection::PrimitiveType(prim_type_enum))
+#define PRIM_POINTER_TYPE(pointee_type, attrs)                                 \
+  (new reflection::PointerType(                                                \
+      PRIM_TYPE(pointee_type),                                                 \
+      std::vector<reflection::TypeAttributeEnum> attrs))
+#define CONST_GLOBAL_PTR(pointee_type)                                         \
+  PRIM_POINTER_TYPE(pointee_type,                                              \
+                    ({reflection::ATTR_GLOBAL, reflection::ATTR_CONST}))
+#define GLOBAL_PTR(pointee_type)                                               \
+  PRIM_POINTER_TYPE(pointee_type, ({reflection::ATTR_GLOBAL}))
+#define VECTOR_TYPE(element_type, len)                                         \
+  (new reflection::VectorType(element_type, len))
+#define INT2_TYPE VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_INT), 2)
+
+static reflection::TypeVector
+widenParameters(reflection::TypeVector ScalarParams, unsigned int VF) {
+  reflection::TypeVector VectorParams;
+  for (auto Param : ScalarParams) {
+    if (auto *VecParam =
+            reflection::dyn_cast<reflection::VectorType>(Param.get())) {
+      int widen_len = VecParam->getLength() * VF;
+      VectorParams.emplace_back(
+          VECTOR_TYPE(VecParam->getScalarType(), widen_len));
+    } else {
+      VectorParams.emplace_back(VECTOR_TYPE(Param, VF));
+    }
+  }
+
+  return VectorParams;
+}
+
+static void pushSGBlockBuiltinDivergentVectInfo(
+    const Twine &BaseName, unsigned int len, unsigned int VF,
+    reflection::TypeVector ScalarParams,
+    std::vector<std::tuple<std::string, std::string, std::string>>
+        &ExtendedVectInfos) {
+  // Get mangled name of scalar variant
+  reflection::FunctionDescriptor ScalarFunc{
+      (BaseName + (len == 1 ? "" : Twine(len))).str(), ScalarParams,
+      reflection::width::SCALAR};
+  std::string ScalarMangleName = NameMangleAPI::mangle(ScalarFunc);
+
+  // Get mangled name of vector variant
+  reflection::TypeVector VectorParams = widenParameters(ScalarParams, VF);
+  size_t v_num = VectorParams.size();
+  // Add mask param
+  auto *Mask = VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_UINT), VF);
+  VectorParams.push_back(Mask);
+  reflection::FunctionDescriptor VectorFunc{
+      (BaseName + Twine(len) + "_" + Twine(VF)).str(), VectorParams,
+      reflection::width::NONE};
+  std::string VectorMangleName = NameMangleAPI::mangle(VectorFunc);
+
+  // Get vector variant string repr
+  llvm::VectorVariant Variant{
+      llvm::VectorVariant::ISAClass::XMM,
+      true,
+      VF,
+      std::vector<VectorKind>(v_num, VectorKind::vector()),
+      ScalarMangleName,
+      VectorMangleName};
+
+  ExtendedVectInfos.push_back({ScalarMangleName,
+                               std::string(KernelAttribute::CallOnce),
+                               Variant.toString()});
+}
+
+static void pushSGBlockBuiltinDivergentVectInfo(
+    StringRef TySuffix, reflection::TypePrimitiveEnum Ty,
+    std::vector<unsigned int> Lens, std::vector<unsigned int> VFs,
+    std::vector<std::tuple<std::string, std::string, std::string>>
+        &ExtendedVectInfos) {
+  const Twine SG_BLOCK_READ_PREFIX("intel_sub_group_block_read");
+  const Twine SG_BLOCK_WRITE_PREFIX("intel_sub_group_block_write");
+
+  for (unsigned int Len : Lens) {
+    for (unsigned int VF : VFs) {
+      // sub_group_block_read(const __global T*)
+      pushSGBlockBuiltinDivergentVectInfo(SG_BLOCK_READ_PREFIX + TySuffix, Len,
+                                          VF, {CONST_GLOBAL_PTR(Ty)},
+                                          ExtendedVectInfos);
+      // sub_group_block_read(readonly image2d_t, int2)
+      pushSGBlockBuiltinDivergentVectInfo(
+          SG_BLOCK_READ_PREFIX + TySuffix, Len, VF,
+          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RO_T), INT2_TYPE},
+          ExtendedVectInfos);
+      // sub_group_block_read(readwrite image2d_t, int2)
+      pushSGBlockBuiltinDivergentVectInfo(
+          SG_BLOCK_READ_PREFIX + TySuffix, Len, VF,
+          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE},
+          ExtendedVectInfos);
+
+      if (Len == 1) {
+        // sub_group_block_write(__global T*, T)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
+            {GLOBAL_PTR(Ty), PRIM_TYPE(Ty)}, ExtendedVectInfos);
+        // sub_group_block_write(writeonly image2d_t, int2, T)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
+             PRIM_TYPE(Ty)},
+            ExtendedVectInfos);
+        // sub_group_block_write(readwrite image2d_t, int2, T)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
+             PRIM_TYPE(Ty)},
+            ExtendedVectInfos);
+      } else {
+        // sub_group_block_write(__global T*, T<Len>)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
+            {GLOBAL_PTR(Ty), VECTOR_TYPE(PRIM_TYPE(Ty), Len)},
+            ExtendedVectInfos);
+        // sub_group_block_write(writeonly image2d_t, int2, T<Len>)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
+             VECTOR_TYPE(PRIM_TYPE(Ty), Len)},
+            ExtendedVectInfos);
+        // sub_group_block_write(readwrite image2d_t, int2, T<Len>)
+        pushSGBlockBuiltinDivergentVectInfo(
+            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
+            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
+             VECTOR_TYPE(PRIM_TYPE(Ty), Len)},
+            ExtendedVectInfos);
+      }
+    }
+  }
+}
+
+void initializeVectInfoOnce(
+    ArrayRef<VectItem> VectInfos,
+    std::vector<std::tuple<std::string, std::string, std::string>>
+        &ExtendedVectInfos) {
+  // Load Table-Gen'erated VectInfo.gen
+  if (!VectInfos.empty()) {
+    ExtendedVectInfos.insert(ExtendedVectInfos.end(), std::begin(VectInfos),
+                             std::end(VectInfos));
+  } else if (OptVectInfoFile.getNumOccurrences()) {
+    static ErrorOr<std::unique_ptr<MemoryBuffer>> BufOrErr =
+        MemoryBuffer::getFile(OptVectInfoFile, /* IsText */ true);
+    if (BufOrErr) {
+      SmallVector<StringRef, 8192 * 3> Items;
+      SplitString(BufOrErr.get()->getBuffer(), Items, " \t\n\v\f\r,{}");
+      assert(Items.size() % 3 == 0 &&
+             "Invalid number of items in VectInfo.gen");
+      for (size_t I = 0; I < Items.size(); I += 3)
+        ExtendedVectInfos.emplace_back(Items[I].trim('\"'),
+                                       Items[I + 1].trim('\"'),
+                                       Items[I + 2].trim('\"'));
+    }
+  }
+
+  // Add extra vector info for 'sub_group_ballot'
+  ExtendedVectInfos.push_back(
+      {"intel_sub_group_ballot", std::string(KernelAttribute::CallOnce),
+       "_ZGVbM4v_intel_sub_group_balloti(intel_sub_group_ballot_vf4)"});
+  ExtendedVectInfos.push_back(
+      {"intel_sub_group_ballot", std::string(KernelAttribute::CallOnce),
+       "_ZGVbM8v_intel_sub_group_balloti(intel_sub_group_ballot_vf8)"});
+  ExtendedVectInfos.push_back(
+      {"intel_sub_group_ballot", std::string(KernelAttribute::CallOnce),
+       "_ZGVbM16v_intel_sub_group_balloti(intel_sub_group_ballot_vf16)"});
+
+  // Add extra vector info for 'sub_group_block_read*', 'sub_group_block_write*'
+  std::vector<std::tuple<std::string, reflection::TypePrimitiveEnum,
+                         std::vector<unsigned int>, std::vector<unsigned int>>>
+      Entries{
+          {"", reflection::PRIMITIVE_UINT, {1, 2, 4, 8}, {4, 8, 16, 32, 64}},
+          {"_uc",
+           reflection::PRIMITIVE_UCHAR,
+           {1, 2, 4, 8, 16},
+           {4, 8, 16, 32, 64}},
+          {"_us",
+           reflection::PRIMITIVE_USHORT,
+           {1, 2, 4, 8},
+           {4, 8, 16, 32, 64}},
+          {"_ui", reflection::PRIMITIVE_UINT, {1, 2, 4, 8}, {4, 8, 16, 32, 64}},
+          {"_ul",
+           reflection::PRIMITIVE_ULONG,
+           {1, 2, 4, 8},
+           {4, 8, 16, 32, 64}},
+      };
+  for (auto &Entry : Entries) {
+    pushSGBlockBuiltinDivergentVectInfo(std::get<0>(Entry), std::get<1>(Entry),
+                                        std::get<2>(Entry), std::get<3>(Entry),
+                                        ExtendedVectInfos);
   }
 }
 

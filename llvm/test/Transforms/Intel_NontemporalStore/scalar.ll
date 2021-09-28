@@ -3,19 +3,43 @@
 ; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify < %s | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
-; Check that MOVNT for non-vector values don't get converted.
+; Check that MOVNT for non-vector values do get converted.
 define void @example(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example(
 ; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[DEST1:%.*]] = ptrtoint i64* [[DEST:%.*]] to i64
+; CHECK-NEXT:    [[ADDR_NT_STORE_ALLOCA:%.*]] = alloca i8, i64 4184, align 64
+; CHECK-NEXT:    [[ADDR_NT_STORE_STRUCT:%.*]] = bitcast i8* [[ADDR_NT_STORE_ALLOCA]] to %__nontemporal_buffer_data*
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [[__NONTEMPORAL_BUFFER_DATA:%.*]], %__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i32 0, i32 4
+; CHECK-NEXT:    [[ADDR_NT_STORE_BUFFER:%.*]] = bitcast [0 x i8]* [[TMP0]] to [1 x i64]*
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr [[__NONTEMPORAL_BUFFER_DATA]], %__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i32 0, i32 1
+; CHECK-NEXT:    store i64 [[DEST1]], i64* [[TMP1]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = and i64 [[DEST1]], 63
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr [[__NONTEMPORAL_BUFFER_DATA]], %__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i32 0, i32 2
+; CHECK-NEXT:    store i64 [[TMP2]], i64* [[TMP3]], align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr [[__NONTEMPORAL_BUFFER_DATA]], %__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i32 0, i32 3
+; CHECK-NEXT:    store i64 0, i64* [[TMP4]], align 4
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[LOOP]] ]
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[LOOP_SPLIT:%.*]] ]
+; CHECK-NEXT:    [[ADDR_NT_BUF_IDX:%.*]] = phi i64 [ 0, [[ENTRY]] ], [ [[ADDR_NT_BUF_POST_PHI:%.*]], [[LOOP_SPLIT]] ]
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 1
-; CHECK-NEXT:    [[ADDR:%.*]] = getelementptr inbounds i64, i64* [[DEST:%.*]], i64 [[INDEX]]
-; CHECK-NEXT:    store i64 [[INDEX]], i64* [[ADDR]], align 1, !nontemporal !0
+; CHECK-NEXT:    [[ADDR:%.*]] = getelementptr inbounds i64, i64* [[DEST]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr [1 x i64], [1 x i64]* [[ADDR_NT_STORE_BUFFER]], i64 [[ADDR_NT_BUF_IDX]], i64 0
+; CHECK-NEXT:    store i64 [[INDEX]], i64* [[TMP5]], align 4
+; CHECK-NEXT:    [[ADDR_NT_BUF_IDX2:%.*]] = add nuw nsw i64 [[ADDR_NT_BUF_IDX]], 1
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 512, [[ADDR_NT_BUF_IDX2]]
+; CHECK-NEXT:    br i1 [[TMP6]], label [[ADDR_NT_BUF_DRAIN:%.*]], label [[LOOP_SPLIT]]
+; CHECK:       addr.nt_buf_drain:
+; CHECK-NEXT:    call void @__libirc_nontemporal_store(%__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i64 4096, i32 0)
+; CHECK-NEXT:    br label [[LOOP_SPLIT]]
+; CHECK:       loop.split:
+; CHECK-NEXT:    [[ADDR_NT_BUF_POST_PHI]] = phi i64 [ [[ADDR_NT_BUF_IDX2]], [[LOOP]] ], [ 0, [[ADDR_NT_BUF_DRAIN]] ]
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i64 [[INDEX]], 10000
 ; CHECK-NEXT:    br i1 [[COND]], label [[EXIT:%.*]], label [[LOOP]]
 ; CHECK:       exit:
+; CHECK-NEXT:    [[TMP7:%.*]] = mul i64 [[ADDR_NT_BUF_POST_PHI]], 8
+; CHECK-NEXT:    call void @__libirc_nontemporal_store(%__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i64 [[TMP7]], i32 1)
 ; CHECK-NEXT:    ret void
 ;
 entry:

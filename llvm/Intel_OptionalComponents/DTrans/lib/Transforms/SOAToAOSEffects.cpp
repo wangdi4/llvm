@@ -311,9 +311,9 @@ const Dep *DepCompute::computeInstDep(const Instruction *I) const {
     bool isDummyFuncWithInt = dtrans::isDummyFuncWithThisAndIntArgs(Call, TLI);
     bool isDummyFuncWithPtr = dtrans::isDummyFuncWithThisAndPtrArgs(Call, TLI);
     if (isDummyFuncWithInt)
-      collectSpecialAllocArgs(AK_UserMalloc, Call, Args, TLI);
+      collectSpecialAllocArgs(AK_UserMallocThis, Call, Args, TLI);
     else if (isDummyFuncWithPtr)
-      collectSpecialFreeArgs(FK_UserFree, Call, Args, TLI);
+      collectSpecialFreeArgs(FK_UserFreeThis, Call, Args, TLI);
 
     Dep::Container Special;
     Dep::Container Remaining;

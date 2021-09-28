@@ -27,7 +27,7 @@ define internal void @bar(%"QNCA_a0$double*$rank3$.7.39"* %dv1, %"QNCA_a0$double
 
 define i32 @main(i32 %argc, i8** %argv) {
   %temp0 = load %"OUTER_TYPE"*, %"OUTER_TYPE"** getelementptr inbounds (%"QNCA_a0$%\22OUTER_TYPE\22*$rank1$", %"QNCA_a0$%\22OUTER_TYPE\22*$rank1$"* @glob_dope_vector, i64 0, i32 0)
-  %temp1 = tail call %"OUTER_TYPE"* @"llvm.intel.subscript.p0s_OUTER_TYPEs.i64.i64.p0s_OUTER_TYPEs.i64"(i8 0, i64 0, i64 1920, %"OUTER_TYPE"* %temp0, i64 0)
+  %temp1 = tail call %"OUTER_TYPE"* @"llvm.intel.subscript.p0s_OUTER_TYPEs.i64.i64.p0s_OUTER_TYPEs.i64"(i8 0, i64 0, i64 1200, %"OUTER_TYPE"* elementtype(%"OUTER_TYPE") %temp0, i64 0)
   %temp2 = getelementptr inbounds %"OUTER_TYPE", %"OUTER_TYPE"* %temp1, i64 0, i32 0
   %temp3 = getelementptr inbounds %"OUTER_TYPE", %"OUTER_TYPE"* %temp1, i64 0, i32 1
   %temp4 = bitcast %"QNCA_a0$double*$rank3$"* %temp2 to %"QNCA_a0$double*$rank3$.7.39"*
@@ -36,7 +36,7 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret i32 0
 }
 
-declare %"OUTER_TYPE"* @"llvm.intel.subscript.p0s_OUTER_TYPEs.i64.i64.p0s_OUTER_TYPEs.i64"(i8 %0, i64 %1, i64 %2, %"OUTER_TYPE"* %3, i64 %4)
+declare %"OUTER_TYPE"* @"llvm.intel.subscript.p0s_OUTER_TYPEs.i64.i64.p0s_OUTER_TYPEs.i64"(i8 %0, i64 %1, i64 %2, %"OUTER_TYPE"* elementtype(%"OUTER_TYPE") %3, i64 %4)
 
 ; Check that the types were merged and the new types were created
 ; CHECK-DAG: %"__DTRT_QNCA_a0$%\22OUTER_TYPE\22*$rank1$" = type { %__DTRT_OUTER_TYPE*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
@@ -50,7 +50,7 @@ declare %"OUTER_TYPE"* @"llvm.intel.subscript.p0s_OUTER_TYPEs.i64.i64.p0s_OUTER_
 ; Check that the instructions in main were updated
 ; CHECK: define i32 @main
 ; CHECK:   %temp0 = load %__DTRT_OUTER_TYPE*, %__DTRT_OUTER_TYPE** getelementptr inbounds (%"__DTRT_QNCA_a0$%\22OUTER_TYPE\22*$rank1$", %"__DTRT_QNCA_a0$%\22OUTER_TYPE\22*$rank1$"* @glob_dope_vector, i64 0, i32 0), align 8
-; CHECK:   %temp1 = tail call %__DTRT_OUTER_TYPE* @llvm.intel.subscript.p0s___DTRT_OUTER_TYPEs.i64.i64.p0s___DTRT_OUTER_TYPEs.i64(i8 0, i64 0, i64 1920, %__DTRT_OUTER_TYPE* %temp0, i64 0)
+; CHECK:   %temp1 = tail call %__DTRT_OUTER_TYPE* @llvm.intel.subscript.p0s___DTRT_OUTER_TYPEs.i64.i64.p0s___DTRT_OUTER_TYPEs.i64(i8 0, i64 0, i64 1200, %__DTRT_OUTER_TYPE* elementtype(%__DTRT_OUTER_TYPE) %temp0, i64 0)
 ; CHECK:   %temp2 = getelementptr inbounds %__DTRT_OUTER_TYPE, %__DTRT_OUTER_TYPE* %temp1, i64 0, i32 0
 ; CHECK:   %temp3 = getelementptr inbounds %__DTRT_OUTER_TYPE, %__DTRT_OUTER_TYPE* %temp1, i64 0, i32 1
 ; CHECK:   call void @bar.1(%"__DTRT_QNCA_a0$double*$rank3$"* %temp2, %"__DTRT_QNCA_a0$double*$rank2$"* %temp3)

@@ -1,9 +1,9 @@
 ; Inline report
-; RUN: opt -inline -inline-report=31 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt -passes='cgscc(inline)' -inline-report=31 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -inline -inline-report=0xe81f < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe81f < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=158 < %s -S | opt -inline -inline-report=158 -S | opt -inlinereportemitter -inline-report=158 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
-; RUN: opt -passes='inlinereportsetup' -inline-report=158 < %s -S | opt -passes='cgscc(inline)' -inline-report=158 -S | opt -passes='inlinereportemitter' -inline-report=158 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -inlinereportsetup -inline-report=0xe89e < %s -S | opt -inline -inline-report=0xe89e -S | opt -inlinereportemitter -inline-report=0xe89e -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe89e < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe89e -S | opt -passes='inlinereportemitter' -inline-report=0xe89e -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 
 ; Generated with clang -c -gline-tables-only -S -emit-llvm sm1.c
 

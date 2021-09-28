@@ -148,6 +148,12 @@ private:
   /// Map from virtual bases to their field index in the complete object.
   llvm::DenseMap<const CXXRecordDecl *, unsigned> CompleteObjectVirtualBases;
 
+#if INTEL_CUSTOMIZATION
+  unsigned VFPtrLoc = (std::numeric_limits<unsigned>::max)();
+  unsigned VBPtrLoc = (std::numeric_limits<unsigned>::max)();
+  const FieldDecl *UnionDecl = nullptr;
+#endif // INTEL_CUSTOMIZATION
+
   /// False if any direct or indirect subobject of this class, when
   /// considered as a complete object, requires a non-zero bitpattern
   /// when zero-initialized.
@@ -221,6 +227,53 @@ public:
     assert(it != BitFields.end() && "Unable to find bitfield info");
     return it->second;
   }
+
+#if INTEL_CUSTOMIZATION
+  bool IsIdxVFPtr(unsigned Idx) const {
+    return VFPtrLoc == Idx;
+  }
+  bool IsIdxVBPtr(unsigned Idx) const {
+    return VBPtrLoc == Idx;
+  }
+
+  const FieldDecl *getUnionDecl() const {
+    return UnionDecl;
+  }
+
+  // Searches the various collections to find the field type for the LLVM
+  // struct field.
+  QualType getTypeOfLLVMFieldNum(unsigned I) const {
+    // First try fields.
+    auto Result = llvm::find_if(
+        FieldInfo, [I](const std::pair<const FieldDecl *, unsigned> &Entry) {
+          return Entry.second == I;
+        });
+    if (Result != FieldInfo.end())
+      return Result->first->getType();
+
+    // Non Virtual Base classes.
+    auto Result2 = llvm::find_if(
+        NonVirtualBases,
+        [I](const std::pair<const CXXRecordDecl *, unsigned> &Entry) {
+          return Entry.second == I;
+        });
+
+    if (Result2 != NonVirtualBases.end())
+      return QualType{Result2->first->getTypeForDecl(), 0};
+
+    // Complete VBases.
+    Result2 = llvm::find_if(
+        CompleteObjectVirtualBases,
+        [I](const std::pair<const CXXRecordDecl *, unsigned> &Entry) {
+          return Entry.second == I;
+        });
+
+    if (Result2 != CompleteObjectVirtualBases.end())
+      return QualType{Result2->first->getTypeForDecl(), 0};
+
+    return QualType{};
+  }
+#endif // INTEL_CUSTOMIZATION
 
   void print(raw_ostream &OS) const;
   void dump() const;

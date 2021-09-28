@@ -83,6 +83,7 @@
 ;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{llvm::ModuleAnalysisManager|llvm::AnalysisManager<llvm::Module>}}, {{llvm::LazyCallGraph::SCC|LazyCallGraph::SCC}}, llvm::LazyCallGraph{{&| &}}> on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
+;CHECK-NEXT: Running pass: SROA on foo
 ;CHECK-NEXT: Running pass: SimplifyCFGPass on foo
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo

@@ -430,6 +430,7 @@ public:
         {"bf_cvt", { "bf.cvt", { a(0) }}},
         {"tf32_cvt", { "tf32.cvt", { a(0) }}},
         {"qf_cvt", { "qf.cvt", { a(0) }}},
+        {"srnd", {"srnd", {a(0), a(1)}}},
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
         {"raw_send_nbarrier_signal", {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
         {"lsc_load_slm",

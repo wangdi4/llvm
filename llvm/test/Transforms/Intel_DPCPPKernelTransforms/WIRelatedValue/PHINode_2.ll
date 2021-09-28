@@ -15,7 +15,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 ; CHECK-LABEL: @main
-define void @main(i32 %x) #0 {
+define void @main(i32 %x) {
   %lid = call i32 @_Z12get_local_idj(i32 0)
   %check = icmp ult i32 %lid, 0
   br i1 %check, label %L1, label %L2
@@ -33,8 +33,6 @@ L3:
 
 declare i32 @_Z12get_local_idj(i32)
 declare void @_Z18work_group_barrierj(i32)
-
-attributes #0 = { "sycl-kernel" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32)* @main}

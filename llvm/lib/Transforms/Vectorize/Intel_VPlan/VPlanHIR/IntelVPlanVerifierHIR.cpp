@@ -30,6 +30,6 @@ VPlanVerifierHIR::VPlanVerifierHIR(const loopopt::HLLoop *HLLp)
 unsigned VPlanVerifierHIR::countLoopsInUnderlyingIR() const {
   assert(TheLoop && "TheLoop can't be null.");
   SmallVector<const HLLoop *, 8> Loops;
-  TheLoop->getHLNodeUtils().gatherAllLoops(TheLoop, Loops);
+  HLNodeUtils::gatherAllLoops(TheLoop, Loops);
   return Loops.size();
 }

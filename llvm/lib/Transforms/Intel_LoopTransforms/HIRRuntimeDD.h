@@ -58,11 +58,13 @@ enum RuntimeDDResult {
   IVDEP_PRAGMA_LOOP,
   NON_PROFITABLE,
   NON_PROFITABLE_SUBS,
+  NON_PROFITABLE_ALIAS,
   STRUCT_ACCESS,
   DIFF_ADDR_SPACE,
   UNSIZED,
   SIMD_LOOP,
   UNKNOWN_MIN_MAX,
+  UNKNOWN_ADDR_RANGE
 };
 
 enum RTDDMethod {
@@ -103,6 +105,7 @@ class IVSegment {
   const CanonExpr *BaseCE;
 
   bool IsWrite;
+
 public:
   IVSegment(const RefGroupTy &Group, bool IsWrite);
   IVSegment(const IVSegment &) = delete;

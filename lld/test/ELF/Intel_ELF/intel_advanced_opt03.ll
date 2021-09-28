@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld --lto-O2 -e main \
 ; RUN:    -plugin-opt=fintel-advanced-optim \
@@ -40,3 +42,4 @@ attributes #1 = { "target-features"="+avx,+avx2,+sse4.2" }
 
 ; Verify that there was IR in the module due to '-e.
 ; CHECK: define dso_local i32 @main
+; end INTEL_FEATURE_SW_ADVANCED

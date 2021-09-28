@@ -1,6 +1,4 @@
-; RUN: opt -S -analyze -stack-safety-local < %s -enable-new-pm=0 | FileCheck %s --check-prefixes=CHECK,LOCAL
 ; RUN: opt -S -passes="print<stack-safety-local>" -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,LOCAL
-; RUN: opt -S -analyze -stack-safety < %s -enable-new-pm=0 | FileCheck %s --check-prefixes=CHECK,GLOBAL
 ; RUN: opt -S -passes="print-stack-safety" -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,GLOBAL
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -205,7 +203,10 @@ define void @NonConstantOffset(i1 zeroext %z) {
 ; CHECK-NEXT: args uses:
 ; CHECK-NEXT: allocas uses:
 ; FIXME: SCEV can't look through selects.
-; CHECK-NEXT: x[4]: [0,4){{$}}
+; INTEL_CUSTOMIZATION
+; Fixed with SCEV improvement: select result must be 1 or 2.
+; CHECK-NEXT: x[4]: [1,3){{$}}
+; end INTEL_CUSTOMIZATION
 ; CHECK-EMPTY:
 entry:
   %x = alloca i32, align 4
@@ -246,7 +247,10 @@ define void @NonConstantOffsetOOB(i1 zeroext %z) {
 ; CHECK-LABEL: @NonConstantOffsetOOB dso_preemptable{{$}}
 ; CHECK-NEXT: args uses:
 ; CHECK-NEXT: allocas uses:
-; CHECK-NEXT: x[4]: [0,6){{$}}
+; INTEL_CUSTOMIZATION
+; Fixed with SCEV improvement: select result must be 1 or 4: [1,5)
+; CHECK-NEXT: x[4]: [1,5){{$}}
+; end INTEL_CUSTOMIZATION
 ; CHECK-EMPTY:
 entry:
   %x = alloca i32, align 4

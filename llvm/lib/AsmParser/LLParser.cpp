@@ -140,8 +140,8 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
 
     if (Function *Fn = dyn_cast<Function>(V)) {
       AttributeList AS = Fn->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttributes());
-      AS = AS.removeAttributes(Context, AttributeList::FunctionIndex);
+      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AS = AS.removeFnAttributes(Context);
 
       FnAttrs.merge(B);
 
@@ -152,32 +152,28 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
         FnAttrs.removeAttribute(Attribute::Alignment);
       }
 
-      AS = AS.addAttributes(Context, AttributeList::FunctionIndex,
-                            AttributeSet::get(Context, FnAttrs));
+      AS = AS.addFnAttributes(Context, AttributeSet::get(Context, FnAttrs));
       Fn->setAttributes(AS);
     } else if (CallInst *CI = dyn_cast<CallInst>(V)) {
       AttributeList AS = CI->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttributes());
-      AS = AS.removeAttributes(Context, AttributeList::FunctionIndex);
+      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AS = AS.removeFnAttributes(Context);
       FnAttrs.merge(B);
-      AS = AS.addAttributes(Context, AttributeList::FunctionIndex,
-                            AttributeSet::get(Context, FnAttrs));
+      AS = AS.addFnAttributes(Context, AttributeSet::get(Context, FnAttrs));
       CI->setAttributes(AS);
     } else if (InvokeInst *II = dyn_cast<InvokeInst>(V)) {
       AttributeList AS = II->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttributes());
-      AS = AS.removeAttributes(Context, AttributeList::FunctionIndex);
+      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AS = AS.removeFnAttributes(Context);
       FnAttrs.merge(B);
-      AS = AS.addAttributes(Context, AttributeList::FunctionIndex,
-                            AttributeSet::get(Context, FnAttrs));
+      AS = AS.addFnAttributes(Context, AttributeSet::get(Context, FnAttrs));
       II->setAttributes(AS);
     } else if (CallBrInst *CBI = dyn_cast<CallBrInst>(V)) {
       AttributeList AS = CBI->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttributes());
-      AS = AS.removeAttributes(Context, AttributeList::FunctionIndex);
+      AttrBuilder FnAttrs(AS.getFnAttrs());
+      AS = AS.removeFnAttributes(Context);
       FnAttrs.merge(B);
-      AS = AS.addAttributes(Context, AttributeList::FunctionIndex,
-                            AttributeSet::get(Context, FnAttrs));
+      AS = AS.addFnAttributes(Context, AttributeSet::get(Context, FnAttrs));
       CBI->setAttributes(AS);
     } else if (auto *GV = dyn_cast<GlobalVariable>(V)) {
       AttrBuilder Attrs(GV->getAttributes());
@@ -709,8 +705,8 @@ bool LLParser::parseComdat() {
   case lltok::kw_largest:
     SK = Comdat::Largest;
     break;
-  case lltok::kw_noduplicates:
-    SK = Comdat::NoDuplicates;
+  case lltok::kw_nodeduplicate:
+    SK = Comdat::NoDeduplicate;
     break;
   case lltok::kw_samesize:
     SK = Comdat::SameSize;
@@ -1306,219 +1302,144 @@ bool LLParser::parseUnnamedAttrGrp() {
   return false;
 }
 
+static Attribute::AttrKind tokenToAttribute(lltok::Kind Kind) {
+  switch (Kind) {
+#define GET_ATTR_NAMES
+#define ATTRIBUTE_ENUM(ENUM_NAME, DISPLAY_NAME) \
+  case lltok::kw_##DISPLAY_NAME: \
+    return Attribute::ENUM_NAME;
+#include "llvm/IR/Attributes.inc"
+  default:
+    return Attribute::None;
+  }
+}
+
+bool LLParser::parseEnumAttribute(Attribute::AttrKind Attr, AttrBuilder &B,
+                                  bool InAttrGroup) {
+  if (Attribute::isTypeAttrKind(Attr))
+    return parseRequiredTypeAttr(B, Lex.getKind(), Attr);
+
+  switch (Attr) {
+  case Attribute::Alignment: {
+    MaybeAlign Alignment;
+    if (InAttrGroup) {
+      uint32_t Value = 0;
+      Lex.Lex();
+      if (parseToken(lltok::equal, "expected '=' here") || parseUInt32(Value))
+        return true;
+      Alignment = Align(Value);
+    } else {
+      if (parseOptionalAlignment(Alignment, true))
+        return true;
+    }
+    B.addAlignmentAttr(Alignment);
+    return false;
+  }
+  case Attribute::StackAlignment: {
+    unsigned Alignment;
+    if (InAttrGroup) {
+      Lex.Lex();
+      if (parseToken(lltok::equal, "expected '=' here") ||
+          parseUInt32(Alignment))
+        return true;
+    } else {
+      if (parseOptionalStackAlignment(Alignment))
+        return true;
+    }
+    B.addStackAlignmentAttr(Alignment);
+    return false;
+  }
+  case Attribute::AllocSize: {
+    unsigned ElemSizeArg;
+    Optional<unsigned> NumElemsArg;
+    if (parseAllocSizeArguments(ElemSizeArg, NumElemsArg))
+      return true;
+    B.addAllocSizeAttr(ElemSizeArg, NumElemsArg);
+    return false;
+  }
+  case Attribute::VScaleRange: {
+    unsigned MinValue, MaxValue;
+    if (parseVScaleRangeArguments(MinValue, MaxValue))
+      return true;
+    B.addVScaleRangeAttr(MinValue, MaxValue);
+    return false;
+  }
+  case Attribute::Dereferenceable: {
+    uint64_t Bytes;
+    if (parseOptionalDerefAttrBytes(lltok::kw_dereferenceable, Bytes))
+      return true;
+    B.addDereferenceableAttr(Bytes);
+    return false;
+  }
+  case Attribute::DereferenceableOrNull: {
+    uint64_t Bytes;
+    if (parseOptionalDerefAttrBytes(lltok::kw_dereferenceable_or_null, Bytes))
+      return true;
+    B.addDereferenceableOrNullAttr(Bytes);
+    return false;
+  }
+  default:
+    B.addAttribute(Attr);
+    Lex.Lex();
+    return false;
+  }
+}
+
 /// parseFnAttributeValuePairs
 ///   ::= <attr> | <attr> '=' <value>
 bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
                                           std::vector<unsigned> &FwdRefAttrGrps,
-                                          bool inAttrGrp, LocTy &BuiltinLoc) {
+                                          bool InAttrGrp, LocTy &BuiltinLoc) {
   bool HaveError = false;
 
   B.clear();
 
   while (true) {
     lltok::Kind Token = Lex.getKind();
-    if (Token == lltok::kw_builtin)
-      BuiltinLoc = Lex.getLoc();
-    switch (Token) {
-    default:
-      if (!inAttrGrp) return HaveError;
-      return error(Lex.getLoc(), "unterminated attribute group");
-    case lltok::rbrace:
-      // Finished.
-      return false;
+    if (Token == lltok::rbrace)
+      return HaveError; // Finished.
 
-    case lltok::AttrGrpID: {
-      // Allow a function to reference an attribute group:
-      //
-      //   define void @foo() #1 { ... }
-      if (inAttrGrp)
-        HaveError |= error(
-            Lex.getLoc(),
-            "cannot have an attribute group reference in an attribute group");
-
-      unsigned AttrGrpNum = Lex.getUIntVal();
-      if (inAttrGrp) break;
-
-      // Save the reference to the attribute group. We'll fill it in later.
-      FwdRefAttrGrps.push_back(AttrGrpNum);
-      break;
-    }
-    // Target-dependent attributes:
-    case lltok::StringConstant: {
+    if (Token == lltok::StringConstant) {
       if (parseStringAttribute(B))
         return true;
       continue;
     }
 
-    // Target-independent attributes:
-    case lltok::kw_align: {
-      // As a hack, we allow function alignment to be initially parsed as an
-      // attribute on a function declaration/definition or added to an attribute
-      // group and later moved to the alignment field.
-      MaybeAlign Alignment;
-      if (inAttrGrp) {
-        Lex.Lex();
-        uint32_t Value = 0;
-        if (parseToken(lltok::equal, "expected '=' here") || parseUInt32(Value))
-          return true;
-        Alignment = Align(Value);
+    if (Token == lltok::AttrGrpID) {
+      // Allow a function to reference an attribute group:
+      //
+      //   define void @foo() #1 { ... }
+      if (InAttrGrp) {
+        HaveError |= error(
+            Lex.getLoc(),
+            "cannot have an attribute group reference in an attribute group");
       } else {
-        if (parseOptionalAlignment(Alignment))
-          return true;
+        // Save the reference to the attribute group. We'll fill it in later.
+        FwdRefAttrGrps.push_back(Lex.getUIntVal());
       }
-      B.addAlignmentAttr(Alignment);
-      continue;
-    }
-    case lltok::kw_alignstack: {
-      unsigned Alignment;
-      if (inAttrGrp) {
-        Lex.Lex();
-        if (parseToken(lltok::equal, "expected '=' here") ||
-            parseUInt32(Alignment))
-          return true;
-      } else {
-        if (parseOptionalStackAlignment(Alignment))
-          return true;
-      }
-      B.addStackAlignmentAttr(Alignment);
-      continue;
-    }
-    case lltok::kw_allocsize: {
-      unsigned ElemSizeArg;
-      Optional<unsigned> NumElemsArg;
-      // inAttrGrp doesn't matter; we only support allocsize(a[, b])
-      if (parseAllocSizeArguments(ElemSizeArg, NumElemsArg))
-        return true;
-      B.addAllocSizeAttr(ElemSizeArg, NumElemsArg);
-      continue;
-    }
-    case lltok::kw_vscale_range: {
-      unsigned MinValue, MaxValue;
-      // inAttrGrp doesn't matter; we only support vscale_range(a[, b])
-      if (parseVScaleRangeArguments(MinValue, MaxValue))
-        return true;
-      B.addVScaleRangeAttr(MinValue, MaxValue);
-      continue;
-    }
-    case lltok::kw_alwaysinline: B.addAttribute(Attribute::AlwaysInline); break;
-    case lltok::kw_argmemonly: B.addAttribute(Attribute::ArgMemOnly); break;
-    case lltok::kw_builtin: B.addAttribute(Attribute::Builtin); break;
-    case lltok::kw_cold: B.addAttribute(Attribute::Cold); break;
-    case lltok::kw_hot: B.addAttribute(Attribute::Hot); break;
-    case lltok::kw_convergent: B.addAttribute(Attribute::Convergent); break;
-    case lltok::kw_inaccessiblememonly:
-      B.addAttribute(Attribute::InaccessibleMemOnly); break;
-    case lltok::kw_inaccessiblemem_or_argmemonly:
-      B.addAttribute(Attribute::InaccessibleMemOrArgMemOnly); break;
-    case lltok::kw_inlinehint: B.addAttribute(Attribute::InlineHint); break;
-    case lltok::kw_jumptable: B.addAttribute(Attribute::JumpTable); break;
-    case lltok::kw_minsize: B.addAttribute(Attribute::MinSize); break;
-    case lltok::kw_mustprogress:
-      B.addAttribute(Attribute::MustProgress);
-      break;
-    case lltok::kw_naked: B.addAttribute(Attribute::Naked); break;
-    case lltok::kw_nobuiltin: B.addAttribute(Attribute::NoBuiltin); break;
-    case lltok::kw_nocallback:
-      B.addAttribute(Attribute::NoCallback);
-      break;
-    case lltok::kw_noduplicate: B.addAttribute(Attribute::NoDuplicate); break;
-    case lltok::kw_nofree: B.addAttribute(Attribute::NoFree); break;
-    case lltok::kw_noimplicitfloat:
-      B.addAttribute(Attribute::NoImplicitFloat); break;
-    case lltok::kw_noinline: B.addAttribute(Attribute::NoInline); break;
-#if INTEL_CUSTOMIZATION
-    case lltok::kw_inlinehint_recursive:
-      B.addAttribute("inline-hint-recursive"); break;
-    case lltok::kw_alwaysinline_recursive:
-      B.addAttribute("always-inline-recursive"); break;
-#endif //INTEL_CUSTOMIZATION
-    case lltok::kw_nonlazybind: B.addAttribute(Attribute::NonLazyBind); break;
-    case lltok::kw_nomerge: B.addAttribute(Attribute::NoMerge); break;
-    case lltok::kw_noredzone: B.addAttribute(Attribute::NoRedZone); break;
-    case lltok::kw_noreturn: B.addAttribute(Attribute::NoReturn); break;
-    case lltok::kw_nosync: B.addAttribute(Attribute::NoSync); break;
-    case lltok::kw_nocf_check: B.addAttribute(Attribute::NoCfCheck); break;
-    case lltok::kw_noprofile: B.addAttribute(Attribute::NoProfile); break;
-    case lltok::kw_norecurse: B.addAttribute(Attribute::NoRecurse); break;
-    case lltok::kw_nounwind: B.addAttribute(Attribute::NoUnwind); break;
-    case lltok::kw_nosanitize_coverage:
-      B.addAttribute(Attribute::NoSanitizeCoverage);
-      break;
-    case lltok::kw_null_pointer_is_valid:
-      B.addAttribute(Attribute::NullPointerIsValid); break;
-    case lltok::kw_optforfuzzing:
-      B.addAttribute(Attribute::OptForFuzzing); break;
-    case lltok::kw_optnone: B.addAttribute(Attribute::OptimizeNone); break;
-    case lltok::kw_optsize: B.addAttribute(Attribute::OptimizeForSize); break;
-    case lltok::kw_readnone: B.addAttribute(Attribute::ReadNone); break;
-    case lltok::kw_readonly: B.addAttribute(Attribute::ReadOnly); break;
-    case lltok::kw_returns_twice:
-      B.addAttribute(Attribute::ReturnsTwice); break;
-    case lltok::kw_speculatable: B.addAttribute(Attribute::Speculatable); break;
-    case lltok::kw_ssp: B.addAttribute(Attribute::StackProtect); break;
-    case lltok::kw_sspreq: B.addAttribute(Attribute::StackProtectReq); break;
-    case lltok::kw_sspstrong:
-      B.addAttribute(Attribute::StackProtectStrong); break;
-    case lltok::kw_safestack: B.addAttribute(Attribute::SafeStack); break;
-    case lltok::kw_shadowcallstack:
-      B.addAttribute(Attribute::ShadowCallStack); break;
-    case lltok::kw_sanitize_address:
-      B.addAttribute(Attribute::SanitizeAddress); break;
-    case lltok::kw_sanitize_hwaddress:
-      B.addAttribute(Attribute::SanitizeHWAddress); break;
-    case lltok::kw_sanitize_memtag:
-      B.addAttribute(Attribute::SanitizeMemTag); break;
-    case lltok::kw_sanitize_thread:
-      B.addAttribute(Attribute::SanitizeThread); break;
-    case lltok::kw_sanitize_memory:
-      B.addAttribute(Attribute::SanitizeMemory); break;
-    case lltok::kw_speculative_load_hardening:
-      B.addAttribute(Attribute::SpeculativeLoadHardening);
-      break;
-    case lltok::kw_strictfp: B.addAttribute(Attribute::StrictFP); break;
-    case lltok::kw_uwtable: B.addAttribute(Attribute::UWTable); break;
-    case lltok::kw_willreturn: B.addAttribute(Attribute::WillReturn); break;
-    case lltok::kw_writeonly: B.addAttribute(Attribute::WriteOnly); break;
-    case lltok::kw_preallocated: {
-      Type *Ty;
-      if (parsePreallocated(Ty))
-        return true;
-      B.addPreallocatedAttr(Ty);
-      break;
-    }
-
-    // error handling.
-    case lltok::kw_inreg:
-    case lltok::kw_signext:
-    case lltok::kw_zeroext:
-      HaveError |=
-          error(Lex.getLoc(), "invalid use of attribute on a function");
-      break;
-    case lltok::kw_byval:
-    case lltok::kw_dereferenceable:
-    case lltok::kw_dereferenceable_or_null:
-    case lltok::kw_inalloca:
-    case lltok::kw_nest:
-    case lltok::kw_noalias:
-    case lltok::kw_noundef:
-    case lltok::kw_nocapture:
-    case lltok::kw_nonnull:
-    case lltok::kw_returned:
-    case lltok::kw_sret:
-    case lltok::kw_swifterror:
-    case lltok::kw_swiftself:
-    case lltok::kw_swiftasync:
-    case lltok::kw_immarg:
-    case lltok::kw_byref:
-      HaveError |=
-          error(Lex.getLoc(),
-                "invalid use of parameter-only attribute on a function");
-      break;
-    }
-
-    // parsePreallocated() consumes token
-    if (Token != lltok::kw_preallocated)
       Lex.Lex();
+      continue;
+    }
+
+    SMLoc Loc = Lex.getLoc();
+    if (Token == lltok::kw_builtin)
+      BuiltinLoc = Loc;
+
+    Attribute::AttrKind Attr = tokenToAttribute(Token);
+    if (Attr == Attribute::None) {
+      if (!InAttrGrp)
+        return HaveError;
+      return error(Lex.getLoc(), "unterminated attribute group");
+    }
+
+    if (parseEnumAttribute(Attr, B, InAttrGrp))
+      return true;
+
+    // As a hack, we allow function alignment to be initially parsed as an
+    // attribute on a function declaration/definition or added to an attribute
+    // group and later moved to the alignment field.
+    if (!Attribute::canUseAsFnAttr(Attr) && Attr != Attribute::Alignment)
+      HaveError |= error(Loc, "this attribute does not apply to functions");
   }
 }
 
@@ -1775,280 +1696,32 @@ bool LLParser::parseStringAttribute(AttrBuilder &B) {
   return false;
 }
 
-/// parseOptionalParamAttrs - parse a potentially empty list of parameter
-/// attributes.
-bool LLParser::parseOptionalParamAttrs(AttrBuilder &B) {
+/// Parse a potentially empty list of parameter or return attributes.
+bool LLParser::parseOptionalParamOrReturnAttrs(AttrBuilder &B, bool IsParam) {
   bool HaveError = false;
 
   B.clear();
 
   while (true) {
     lltok::Kind Token = Lex.getKind();
-    switch (Token) {
-    default:  // End of attributes.
-      return HaveError;
-    case lltok::StringConstant: {
+    if (Token == lltok::StringConstant) {
       if (parseStringAttribute(B))
         return true;
       continue;
     }
-    case lltok::kw_align: {
-      MaybeAlign Alignment;
-      if (parseOptionalAlignment(Alignment, true))
-        return true;
-      B.addAlignmentAttr(Alignment);
-      continue;
-    }
-    case lltok::kw_alignstack: {
-      unsigned Alignment;
-      if (parseOptionalStackAlignment(Alignment))
-        return true;
-      B.addStackAlignmentAttr(Alignment);
-      continue;
-    }
-    case lltok::kw_byval: {
-      Type *Ty;
-      if (parseRequiredTypeAttr(Ty, lltok::kw_byval))
-        return true;
-      B.addByValAttr(Ty);
-      continue;
-    }
-    case lltok::kw_sret: {
-      Type *Ty;
-      if (parseRequiredTypeAttr(Ty, lltok::kw_sret))
-        return true;
-      B.addStructRetAttr(Ty);
-      continue;
-    }
-    case lltok::kw_preallocated: {
-      Type *Ty;
-      if (parsePreallocated(Ty))
-        return true;
-      B.addPreallocatedAttr(Ty);
-      continue;
-    }
-    case lltok::kw_inalloca: {
-      Type *Ty;
-      if (parseInalloca(Ty))
-        return true;
-      B.addInAllocaAttr(Ty);
-      continue;
-    }
-    case lltok::kw_dereferenceable: {
-      uint64_t Bytes;
-      if (parseOptionalDerefAttrBytes(lltok::kw_dereferenceable, Bytes))
-        return true;
-      B.addDereferenceableAttr(Bytes);
-      continue;
-    }
-    case lltok::kw_dereferenceable_or_null: {
-      uint64_t Bytes;
-      if (parseOptionalDerefAttrBytes(lltok::kw_dereferenceable_or_null, Bytes))
-        return true;
-      B.addDereferenceableOrNullAttr(Bytes);
-      continue;
-    }
-    case lltok::kw_byref: {
-      Type *Ty;
-      if (parseByRef(Ty))
-        return true;
-      B.addByRefAttr(Ty);
-      continue;
-    }
-    case lltok::kw_inreg:           B.addAttribute(Attribute::InReg); break;
-    case lltok::kw_nest:            B.addAttribute(Attribute::Nest); break;
-    case lltok::kw_noundef:
-      B.addAttribute(Attribute::NoUndef);
-      break;
-    case lltok::kw_noalias:         B.addAttribute(Attribute::NoAlias); break;
-    case lltok::kw_nocapture:       B.addAttribute(Attribute::NoCapture); break;
-    case lltok::kw_nofree:          B.addAttribute(Attribute::NoFree); break;
-    case lltok::kw_nonnull:         B.addAttribute(Attribute::NonNull); break;
-    case lltok::kw_readnone:        B.addAttribute(Attribute::ReadNone); break;
-    case lltok::kw_readonly:        B.addAttribute(Attribute::ReadOnly); break;
-    case lltok::kw_returned:        B.addAttribute(Attribute::Returned); break;
-    case lltok::kw_signext:         B.addAttribute(Attribute::SExt); break;
-    case lltok::kw_swifterror:      B.addAttribute(Attribute::SwiftError); break;
-    case lltok::kw_swiftself:       B.addAttribute(Attribute::SwiftSelf); break;
-    case lltok::kw_swiftasync:      B.addAttribute(Attribute::SwiftAsync); break;
-    case lltok::kw_writeonly:       B.addAttribute(Attribute::WriteOnly); break;
-    case lltok::kw_zeroext:         B.addAttribute(Attribute::ZExt); break;
-    case lltok::kw_immarg:          B.addAttribute(Attribute::ImmArg); break;
 
-    case lltok::kw_alwaysinline:
-    case lltok::kw_argmemonly:
-    case lltok::kw_builtin:
-    case lltok::kw_inlinehint:
-    case lltok::kw_jumptable:
-    case lltok::kw_minsize:
-    case lltok::kw_mustprogress:
-    case lltok::kw_naked:
-    case lltok::kw_nobuiltin:
-    case lltok::kw_noduplicate:
-    case lltok::kw_noimplicitfloat:
-    case lltok::kw_noinline:
-#if INTEL_CUSTOMIZATION
-    case lltok::kw_inlinehint_recursive:
-    case lltok::kw_alwaysinline_recursive:
-#endif // INTEL_CUSTOMIZATION
-    case lltok::kw_nonlazybind:
-    case lltok::kw_nomerge:
-    case lltok::kw_noprofile:
-    case lltok::kw_noredzone:
-    case lltok::kw_noreturn:
-    case lltok::kw_nocf_check:
-    case lltok::kw_nounwind:
-    case lltok::kw_nosanitize_coverage:
-    case lltok::kw_optforfuzzing:
-    case lltok::kw_optnone:
-    case lltok::kw_optsize:
-    case lltok::kw_returns_twice:
-    case lltok::kw_sanitize_address:
-    case lltok::kw_sanitize_hwaddress:
-    case lltok::kw_sanitize_memtag:
-    case lltok::kw_sanitize_memory:
-    case lltok::kw_sanitize_thread:
-    case lltok::kw_speculative_load_hardening:
-    case lltok::kw_ssp:
-    case lltok::kw_sspreq:
-    case lltok::kw_sspstrong:
-    case lltok::kw_safestack:
-    case lltok::kw_shadowcallstack:
-    case lltok::kw_strictfp:
-    case lltok::kw_uwtable:
-    case lltok::kw_vscale_range:
-      HaveError |=
-          error(Lex.getLoc(), "invalid use of function-only attribute");
-      break;
-    }
-
-    Lex.Lex();
-  }
-}
-
-/// parseOptionalReturnAttrs - parse a potentially empty list of return
-/// attributes.
-bool LLParser::parseOptionalReturnAttrs(AttrBuilder &B) {
-  bool HaveError = false;
-
-  B.clear();
-
-  while (true) {
-    lltok::Kind Token = Lex.getKind();
-    switch (Token) {
-    default:  // End of attributes.
+    SMLoc Loc = Lex.getLoc();
+    Attribute::AttrKind Attr = tokenToAttribute(Token);
+    if (Attr == Attribute::None)
       return HaveError;
-    case lltok::StringConstant: {
-      if (parseStringAttribute(B))
-        return true;
-      continue;
-    }
-    case lltok::kw_dereferenceable: {
-      uint64_t Bytes;
-      if (parseOptionalDerefAttrBytes(lltok::kw_dereferenceable, Bytes))
-        return true;
-      B.addDereferenceableAttr(Bytes);
-      continue;
-    }
-    case lltok::kw_dereferenceable_or_null: {
-      uint64_t Bytes;
-      if (parseOptionalDerefAttrBytes(lltok::kw_dereferenceable_or_null, Bytes))
-        return true;
-      B.addDereferenceableOrNullAttr(Bytes);
-      continue;
-    }
-    case lltok::kw_align: {
-      MaybeAlign Alignment;
-      if (parseOptionalAlignment(Alignment))
-        return true;
-      B.addAlignmentAttr(Alignment);
-      continue;
-    }
-    case lltok::kw_inreg:           B.addAttribute(Attribute::InReg); break;
-    case lltok::kw_noalias:         B.addAttribute(Attribute::NoAlias); break;
-    case lltok::kw_noundef:
-      B.addAttribute(Attribute::NoUndef);
-      break;
-    case lltok::kw_nonnull:         B.addAttribute(Attribute::NonNull); break;
-    case lltok::kw_signext:         B.addAttribute(Attribute::SExt); break;
-    case lltok::kw_zeroext:         B.addAttribute(Attribute::ZExt); break;
 
-    // error handling.
-    case lltok::kw_byval:
-    case lltok::kw_inalloca:
-    case lltok::kw_nest:
-    case lltok::kw_nocapture:
-    case lltok::kw_returned:
-    case lltok::kw_sret:
-    case lltok::kw_swifterror:
-    case lltok::kw_swiftself:
-    case lltok::kw_swiftasync:
-    case lltok::kw_immarg:
-    case lltok::kw_byref:
-      HaveError |=
-          error(Lex.getLoc(), "invalid use of parameter-only attribute");
-      break;
+    if (parseEnumAttribute(Attr, B, /* InAttrGroup */ false))
+      return true;
 
-    case lltok::kw_alignstack:
-    case lltok::kw_alwaysinline:
-    case lltok::kw_argmemonly:
-    case lltok::kw_builtin:
-    case lltok::kw_cold:
-    case lltok::kw_inlinehint:
-    case lltok::kw_jumptable:
-    case lltok::kw_minsize:
-    case lltok::kw_mustprogress:
-    case lltok::kw_naked:
-    case lltok::kw_nobuiltin:
-    case lltok::kw_noduplicate:
-    case lltok::kw_noimplicitfloat:
-    case lltok::kw_noinline:
-#if INTEL_CUSTOMIZATION
-    case lltok::kw_inlinehint_recursive:
-    case lltok::kw_alwaysinline_recursive:
-#endif // INTEL_CUSTOMIZATION
-    case lltok::kw_nonlazybind:
-    case lltok::kw_nomerge:
-    case lltok::kw_noprofile:
-    case lltok::kw_noredzone:
-    case lltok::kw_noreturn:
-    case lltok::kw_nocf_check:
-    case lltok::kw_nounwind:
-    case lltok::kw_nosanitize_coverage:
-    case lltok::kw_optforfuzzing:
-    case lltok::kw_optnone:
-    case lltok::kw_optsize:
-    case lltok::kw_returns_twice:
-    case lltok::kw_sanitize_address:
-    case lltok::kw_sanitize_hwaddress:
-    case lltok::kw_sanitize_memtag:
-    case lltok::kw_sanitize_memory:
-    case lltok::kw_sanitize_thread:
-    case lltok::kw_speculative_load_hardening:
-    case lltok::kw_ssp:
-    case lltok::kw_sspreq:
-    case lltok::kw_sspstrong:
-    case lltok::kw_safestack:
-    case lltok::kw_shadowcallstack:
-    case lltok::kw_strictfp:
-    case lltok::kw_uwtable:
-    case lltok::kw_vscale_range:
-      HaveError |=
-          error(Lex.getLoc(), "invalid use of function-only attribute");
-      break;
-    case lltok::kw_readnone:
-    case lltok::kw_readonly:
-      HaveError |=
-          error(Lex.getLoc(), "invalid use of attribute on return type");
-      break;
-    case lltok::kw_preallocated:
-      HaveError |=
-          error(Lex.getLoc(),
-                "invalid use of parameter-only/call site-only attribute");
-      break;
-    }
-
-    Lex.Lex();
+    if (IsParam && !Attribute::canUseAsParamAttr(Attr))
+      HaveError |= error(Loc, "this attribute does not apply to parameters");
+    if (!IsParam && !Attribute::canUseAsRetAttr(Attr))
+      HaveError |= error(Loc, "this attribute does not apply to return values");
   }
 }
 
@@ -2639,6 +2312,26 @@ bool LLParser::parseType(Type *&Result, const Twine &Msg, bool AllowVoid) {
     // Type ::= 'float' | 'void' (etc)
     Result = Lex.getTyVal();
     Lex.Lex();
+
+    // Handle (explicit) opaque pointer types (not --force-opaque-pointers).
+    //
+    // Type ::= ptr ('addrspace' '(' uint32 ')')?
+    if (Result->isOpaquePointerTy()) {
+      unsigned AddrSpace;
+      if (parseOptionalAddrSpace(AddrSpace))
+        return true;
+      Result = PointerType::get(getContext(), AddrSpace);
+
+      // Give a nice error for 'ptr*'.
+      if (Lex.getKind() == lltok::star)
+        return tokError("ptr* is invalid - use ptr instead");
+
+      // Fall through to parsing the type suffixes only if this 'ptr' is a
+      // function return. Otherwise, return success, implicitly rejecting other
+      // suffixes.
+      if (Lex.getKind() != lltok::lparen)
+        return false;
+    }
     break;
   case lltok::lbrace:
     // Type ::= StructType
@@ -2690,26 +2383,6 @@ bool LLParser::parseType(Type *&Result, const Twine &Msg, bool AllowVoid) {
     Lex.Lex();
     break;
   }
-  }
-
-  // Handle (explicit) opaque pointer types (not --force-opaque-pointers).
-  //
-  // Type ::= ptr ('addrspace' '(' uint32 ')')?
-  if (Result->isOpaquePointerTy()) {
-    unsigned AddrSpace;
-    if (parseOptionalAddrSpace(AddrSpace))
-      return true;
-    Result = PointerType::get(getContext(), AddrSpace);
-
-    // Give a nice error for 'ptr*'.
-    if (Lex.getKind() == lltok::star)
-      return tokError("ptr* is invalid - use ptr instead");
-
-    // Fall through to parsing the type suffixes only if this 'ptr' is a
-    // function return. Otherwise, return success, implicitly rejecting other
-    // suffixes.
-    if (Lex.getKind() != lltok::lparen)
-      return false;
   }
 
   // parse the type suffixes.
@@ -2817,35 +2490,20 @@ bool LLParser::parseParameterList(SmallVectorImpl<ParamInfo> &ArgList,
 
 /// parseRequiredTypeAttr
 ///   ::= attrname(<ty>)
-bool LLParser::parseRequiredTypeAttr(Type *&Result, lltok::Kind AttrName) {
-  Result = nullptr;
-  if (!EatIfPresent(AttrName))
+bool LLParser::parseRequiredTypeAttr(AttrBuilder &B, lltok::Kind AttrToken,
+                                     Attribute::AttrKind AttrKind) {
+  Type *Ty = nullptr;
+  if (!EatIfPresent(AttrToken))
     return true;
   if (!EatIfPresent(lltok::lparen))
     return error(Lex.getLoc(), "expected '('");
-  if (parseType(Result))
+  if (parseType(Ty))
     return true;
   if (!EatIfPresent(lltok::rparen))
     return error(Lex.getLoc(), "expected ')'");
+
+  B.addTypeAttr(AttrKind, Ty);
   return false;
-}
-
-/// parsePreallocated
-///   ::= preallocated(<ty>)
-bool LLParser::parsePreallocated(Type *&Result) {
-  return parseRequiredTypeAttr(Result, lltok::kw_preallocated);
-}
-
-/// parseInalloca
-///   ::= inalloca(<ty>)
-bool LLParser::parseInalloca(Type *&Result) {
-  return parseRequiredTypeAttr(Result, lltok::kw_inalloca);
-}
-
-/// parseByRef
-///   ::= byref(<type>)
-bool LLParser::parseByRef(Type *&Result) {
-  return parseRequiredTypeAttr(Result, lltok::kw_byref);
 }
 
 /// parseOptionalOperandBundles
@@ -4309,10 +3967,6 @@ struct MDField : public MDFieldImpl<Metadata *> {
   MDField(bool AllowNull = true) : ImplTy(nullptr), AllowNull(AllowNull) {}
 };
 
-struct MDConstant : public MDFieldImpl<ConstantAsMetadata *> {
-  MDConstant() : ImplTy(nullptr) {}
-};
-
 struct MDStringField : public MDFieldImpl<MDString *> {
   bool AllowEmpty;
   MDStringField(bool AllowEmpty = true)
@@ -4343,22 +3997,6 @@ struct MDSignedOrMDField : MDEitherFieldImpl<MDSignedField, MDField> {
   }
   Metadata *getMDFieldValue() const {
     assert(isMDField() && "Wrong field type");
-    return B.Val;
-  }
-};
-
-struct MDSignedOrUnsignedField
-    : MDEitherFieldImpl<MDSignedField, MDUnsignedField> {
-  MDSignedOrUnsignedField() : ImplTy(MDSignedField(0), MDUnsignedField(0)) {}
-
-  bool isMDSignedField() const { return WhatIs == IsTypeA; }
-  bool isMDUnsignedField() const { return WhatIs == IsTypeB; }
-  int64_t getMDSignedValue() const {
-    assert(isMDSignedField() && "Wrong field type");
-    return A.Val;
-  }
-  uint64_t getMDUnsignedValue() const {
-    assert(isMDUnsignedField() && "Wrong field type");
     return B.Val;
   }
 };
@@ -5011,7 +4649,8 @@ bool LLParser::parseDIDerivedType(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(offset, MDUnsignedField, (0, UINT64_MAX));                          \
   OPTIONAL(flags, DIFlagField, );                                              \
   OPTIONAL(extraData, MDField, );                                              \
-  OPTIONAL(dwarfAddressSpace, MDUnsignedField, (UINT32_MAX, UINT32_MAX));
+  OPTIONAL(dwarfAddressSpace, MDUnsignedField, (UINT32_MAX, UINT32_MAX));      \
+  OPTIONAL(annotations, MDField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
@@ -5023,7 +4662,7 @@ bool LLParser::parseDIDerivedType(MDNode *&Result, bool IsDistinct) {
                            (Context, tag.Val, name.Val, file.Val, line.Val,
                             scope.Val, baseType.Val, size.Val, align.Val,
                             offset.Val, DWARFAddressSpace, flags.Val,
-                            extraData.Val));
+                            extraData.Val, annotations.Val));
   return false;
 }
 
@@ -5048,7 +4687,8 @@ bool LLParser::parseDICompositeType(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(dataLocation, MDField, );                                           \
   OPTIONAL(associated, MDField, );                                             \
   OPTIONAL(allocated, MDField, );                                              \
-  OPTIONAL(rank, MDSignedOrMDField, );
+  OPTIONAL(rank, MDSignedOrMDField, );                                         \
+  OPTIONAL(annotations, MDField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
@@ -5066,7 +4706,7 @@ bool LLParser::parseDICompositeType(MDNode *&Result, bool IsDistinct) {
             scope.Val, baseType.Val, size.Val, align.Val, offset.Val, flags.Val,
             elements.Val, runtimeLang.Val, vtableHolder.Val, templateParams.Val,
             discriminator.Val, dataLocation.Val, associated.Val, allocated.Val,
-            Rank)) {
+            Rank, annotations.Val)) {
       Result = CT;
       return false;
     }
@@ -5078,8 +4718,8 @@ bool LLParser::parseDICompositeType(MDNode *&Result, bool IsDistinct) {
       (Context, tag.Val, name.Val, file.Val, line.Val, scope.Val, baseType.Val,
        size.Val, align.Val, offset.Val, flags.Val, elements.Val,
        runtimeLang.Val, vtableHolder.Val, templateParams.Val, identifier.Val,
-       discriminator.Val, dataLocation.Val, associated.Val, allocated.Val,
-       Rank));
+       discriminator.Val, dataLocation.Val, associated.Val, allocated.Val, Rank,
+       annotations.Val));
   return false;
 }
 
@@ -5179,7 +4819,8 @@ bool LLParser::parseDICompileUnit(MDNode *&Result, bool IsDistinct) {
 ///                     virtuality: DW_VIRTUALTIY_pure_virtual,
 ///                     virtualIndex: 10, thisAdjustment: 4, flags: 11,
 ///                     spFlags: 10, isOptimized: false, templateParams: !4,
-///                     declaration: !5, retainedNodes: !6, thrownTypes: !7)
+///                     declaration: !5, retainedNodes: !6, thrownTypes: !7,
+///                     annotations: !8)
 bool LLParser::parseDISubprogram(MDNode *&Result, bool IsDistinct) {
   auto Loc = Lex.getLoc();
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
@@ -5203,7 +4844,8 @@ bool LLParser::parseDISubprogram(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(templateParams, MDField, );                                         \
   OPTIONAL(declaration, MDField, );                                            \
   OPTIONAL(retainedNodes, MDField, );                                          \
-  OPTIONAL(thrownTypes, MDField, );
+  OPTIONAL(thrownTypes, MDField, );                                            \
+  OPTIONAL(annotations, MDField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
@@ -5222,7 +4864,7 @@ bool LLParser::parseDISubprogram(MDNode *&Result, bool IsDistinct) {
       (Context, scope.Val, name.Val, linkageName.Val, file.Val, line.Val,
        type.Val, scopeLine.Val, containingType.Val, virtualIndex.Val,
        thisAdjustment.Val, flags.Val, SPFlags, unit.Val, templateParams.Val,
-       declaration.Val, retainedNodes.Val, thrownTypes.Val));
+       declaration.Val, retainedNodes.Val, thrownTypes.Val, annotations.Val));
   return false;
 }
 
@@ -5399,7 +5041,8 @@ bool LLParser::parseDIGlobalVariable(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(isDefinition, MDBoolField, (true));                                 \
   OPTIONAL(templateParams, MDField, );                                         \
   OPTIONAL(declaration, MDField, );                                            \
-  OPTIONAL(align, MDUnsignedField, (0, UINT32_MAX));
+  OPTIONAL(align, MDUnsignedField, (0, UINT32_MAX));                           \
+  OPTIONAL(annotations, MDField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
@@ -5407,7 +5050,8 @@ bool LLParser::parseDIGlobalVariable(MDNode *&Result, bool IsDistinct) {
       GET_OR_DISTINCT(DIGlobalVariable,
                       (Context, scope.Val, name.Val, linkageName.Val, file.Val,
                        line.Val, type.Val, isLocal.Val, isDefinition.Val,
-                       declaration.Val, templateParams.Val, align.Val));
+                       declaration.Val, templateParams.Val, align.Val,
+                       annotations.Val));
   return false;
 }
 
@@ -5427,13 +5071,15 @@ bool LLParser::parseDILocalVariable(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(line, LineField, );                                                 \
   OPTIONAL(type, MDField, );                                                   \
   OPTIONAL(flags, DIFlagField, );                                              \
-  OPTIONAL(align, MDUnsignedField, (0, UINT32_MAX));
+  OPTIONAL(align, MDUnsignedField, (0, UINT32_MAX));                           \
+  OPTIONAL(annotations, MDField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
   Result = GET_OR_DISTINCT(DILocalVariable,
                            (Context, scope.Val, name.Val, file.Val, line.Val,
-                            type.Val, arg.Val, flags.Val, align.Val));
+                            type.Val, arg.Val, flags.Val, align.Val,
+                            annotations.Val));
   return false;
 }
 
@@ -6004,7 +5650,7 @@ bool LLParser::parseFunctionHeader(Function *&Fn, bool IsDefine) {
       AttributeList::get(Context, AttributeSet::get(Context, FuncAttrs),
                          AttributeSet::get(Context, RetAttrs), Attrs);
 
-  if (PAL.hasAttribute(1, Attribute::StructRet) && !RetType->isVoidTy())
+  if (PAL.hasParamAttr(0, Attribute::StructRet) && !RetType->isVoidTy())
     return error(RetTypeLoc, "functions with 'sret' argument must return void");
 
   FunctionType *FT = FunctionType::get(RetType, ParamTypeList, IsVarArg);

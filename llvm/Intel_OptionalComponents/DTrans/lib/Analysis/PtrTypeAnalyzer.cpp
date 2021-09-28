@@ -10,7 +10,8 @@
 
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 
-#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -101,52 +102,6 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
 
   return false;
 }
-
-#if 0
-// TODO: This commented out code will be needed when opaque pointers are
-// unabled.
-// Check whether the DTransType \p has a pointer. This is similar to the
-// utility function dtrans::hasPointerType(llvm::Type* Ty), which operates
-// on llvm Types.
-static bool hasPointerType(dtrans::DTransType *Ty) {
-  if (Ty->isPointerTy())
-    return true;
-
-  if (auto *SeqTy = dyn_cast<DTransSequentialType>(Ty))
-    return hasPointerType(SeqTy->getElementType());
-
-  if (auto *StTy = dyn_cast<DTransStructType>(Ty)) {
-    // Check inside of literal structures because those cannot be referenced by
-    // name. However, there is no need to look inside non-literal structures
-    // because those will be referenced by their name.
-    if (StTy->isLiteralStruct())
-      for (auto &Field : StTy->getFields())
-        for (auto *ElemTy : Field.getTypes()) {
-          bool HasPointer = hasPointerType(ElemTy);
-          if (HasPointer)
-            return true;
-        }
-  }
-
-  if (auto *FnTy = dyn_cast<DTransFunctionType>(Ty)) {
-    // Check the return type and the parameter types for any possible
-    // pointer because metadata descriptions on these will be used to help
-    // recovery of opaque pointer types.
-    DTransType *RetTy = FnTy->getReturnType();
-    if (RetTy && hasPointerType(RetTy))
-      return true;
-
-    unsigned NumParams = FnTy->getNumArgs();
-    for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
-      DTransType *ParmTy = FnTy->getArgType(Idx);
-      if (ParmTy && hasPointerType(ParmTy))
-        return true;
-    }
-  }
-
-  return false;
-}
-#endif
 
 // Helper to get the base object type that makes up an array/vector/array nest
 // type.
@@ -324,6 +279,28 @@ public:
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GEPOperator *GEP) const;
 
+  void addAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
+    AllocationCalls.insert({Call, Kind});
+  }
+
+  void addFreeCall(CallBase *Call, dtrans::FreeKind Kind) {
+    FreeCalls.insert({Call, Kind});
+  }
+
+  dtrans::AllocKind getAllocationCallKind(CallBase *Call) const {
+    auto It = AllocationCalls.find(Call);
+    if (It == AllocationCalls.end())
+      return dtrans::AK_NotAlloc;
+    return It->second;
+  }
+
+  dtrans::FreeKind getFreeCallKind(CallBase *Call) const {
+    auto It = FreeCalls.find(Call);
+    if (It == FreeCalls.end())
+      return dtrans::FK_NotFree;
+    return It->second;
+  }
+
   // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
   // completely analyzed.
   void setDeclaredType(Value *V, DTransType *Ty);
@@ -433,6 +410,13 @@ private:
       DenseMap<GEPOperator *, std::pair<DTransType *, size_t>>;
   ByteFlattenedGEPInfoMapType ByteFlattenedGEPInfoMap;
 
+  // Map of calls identified as being memory allocation calls to the allocation
+  // kind.
+  DenseMap<CallBase *, dtrans::AllocKind> AllocationCalls;
+
+  // Map of calls identified as being memory free calls to the free kind.
+  DenseMap<CallBase *, dtrans::FreeKind> FreeCalls;
+
   // LLVM Type for 'i8'
   llvm::Type *LLVMI8Type;
 
@@ -491,9 +475,11 @@ class PtrTypeAnalyzerInstVisitor
 public:
   PtrTypeAnalyzerInstVisitor(
       PtrTypeAnalyzerImpl &PTA, DTransTypeManager &TM,
-      TypeMetadataReader &MDReader, LLVMContext &Ctx, const DataLayout &DL,
+      TypeMetadataReader &MDReader, DTransAllocCollector &DTAC,
+      LLVMContext &Ctx, const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
-      : PTA(PTA), TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {
+      : PTA(PTA), TM(TM), MDReader(MDReader), DTAC(DTAC), DL(DL),
+        GetTLI(GetTLI) {
 
     // If the metadata contained a description of the system object type for
     // %struct._IO_FILE, use it. Otherwise, default the type to be an i8* since
@@ -504,6 +490,14 @@ public:
       DTransIOPtrTy = TM.getOrCreatePointerType(StTy);
     else
       DTransIOPtrTy = PTA.getDTransI8PtrType();
+
+    // The landingpad instruction will always result in the literal structure:
+    //   { i8*, i32 }
+    // Build the type that will be used when analyzing the instruction.
+    DTransType *FieldTypes[2] = {
+        PTA.getDTransI8PtrType(),
+        TM.getOrCreateAtomicType(llvm::Type::getInt32Ty(Ctx)) };
+    DTransLandingPadTy = TM.getOrCreateLiteralStructType(Ctx, FieldTypes);
   }
 
   void visitModule(Module &M) {
@@ -1023,19 +1017,29 @@ public:
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
+  void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) { analyzeValue(&I); }
+  void visitLandingPadInst(LandingPadInst &I) { analyzeValue(&I); }
   void visitLoadInst(LoadInst &I) { analyzeValue(&I); }
   void visitPHINode(PHINode &I) { analyzeValue(&I); }
   void visitPtrToIntInst(PtrToIntInst &I) { analyzeValue(&I); }
   void visitSelectInst(SelectInst &I) { analyzeValue(&I); }
 
   void visitStoreInst(StoreInst &I) {
-    // Storing a 'null' constant is a special case, because a Value of 'p0 null'
-    // may be used to represent any pointer type. For a store of a 'null'
-    // constant we want to capture a type of the value operand so that the
-    // safety analyzer will be able to analyze the instruction without needing
-    // to examine the value being stored with a special case for 'null'
+
+    // Analyze the pointer operand to ensure that there is a ValueTypeInfo
+    // object available for it for the DTransSafetyAnalyzer. This is needed to
+    // handle cases where the operand is not a local or global variable. For
+    // example:
+    //   store i32 0, ptrtoint (i64 256 to i32*)
+    ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
+
+    // Storing a 'null' constant is a special case, because a Value of
+    // 'ptr null' may be used to represent any pointer type. For a store of a
+    // 'null' constant we want to capture a type of the value operand so that
+    // the safety analyzer will be able to analyze the instruction without
+    // needing to examine the value being stored with a special case for 'null'
     // constants.
     if (isa<ConstantPointerNull>(I.getValueOperand())) {
       auto &LocalTM = this->TM;
@@ -1081,7 +1085,6 @@ public:
               PointerInfo->addTypeAlias(Kind, Ty);
           };
 
-      ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
       ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(&I, 0);
       PropagateDereferencedType(PtrInfo, ValInfo,
                                 ValueTypeInfo::ValueAnalysisType::VAT_Decl);
@@ -1154,6 +1157,33 @@ private:
       else
         PTA.setSawNonOpaquePointer();
     }
+
+    // Check for the special DTrans type metadata, !dtrans-type, used to
+    // communicate type information between DTrans passes because of IR
+    // produced by a DTrans transformation, that is not easily recoverable from
+    // IR analysis. For example, the AOS-to-SOA transformation allocates a large
+    // block of memory which is subdivided to hold arrays of different types.
+    // TODO: Try to unify this metadata with the other DTrans type metadata.
+    // Currently, this is not done because it appears on instructions that are
+    // not expected to have the other DTrans type metadata that is produced by
+    // the front-end, so will not be processed by the TypeMetadataReader.
+    if (auto *I = dyn_cast<Instruction>(V))
+      if (auto TyFromMD =
+              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I)) {
+        llvm::Type *Ty = TyFromMD.getValue().first;
+        unsigned Level = TyFromMD.getValue().second;
+
+        // The format of the metadata used restricts the type to being just a
+        // pointer to a scalar or a structure type. This assertion is to catch
+        // unsupported uses.
+        assert(TM.isSimpleType(Ty) && "Expected simple type");
+        DTransType *DTy = TM.getOrCreateSimpleType(Ty);
+        assert(DTy && "Failed to create type");
+        while (Level--)
+          DTy = TM.getOrCreatePointerType(DTy);
+
+        Info->addTypeAlias(ValueTypeInfo::VAT_Use, DTy);
+      }
 
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
@@ -1238,6 +1268,16 @@ private:
         return;
       }
 
+      if (auto *CE = dyn_cast<ConstantExpr>(V))
+        if (CE->isCast()) {
+          // Try to infer the type of something of the form:
+          //   inttoptr i64 128 to i32*
+          inferTypeFromUse(CE, Info);
+          if (Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
+            Info->setUnhandled();
+          return;
+        }
+
       Info->setUnhandled();
       LLVM_DEBUG({
         dbgs() << "analyzeValueImpl not implemented for:";
@@ -1269,11 +1309,17 @@ private:
     case Instruction::Invoke:
       analyzeCallBase(cast<CallBase>(I), Info);
       break;
+    case Instruction::ExtractValue:
+      analyzeExtractValueInst(cast<ExtractValueInst>(I), Info);
+      break;
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
       break;
     case Instruction::IntToPtr:
       analyzeIntToPtrInst(cast<IntToPtrInst>(I), Info);
+      break;
+    case Instruction::LandingPad:
+      analyzeLandingPadInst(cast<LandingPadInst>(I), Info);
       break;
     case Instruction::Load:
       analyzeLoadInst(cast<LoadInst>(I), Info);
@@ -1940,6 +1986,34 @@ private:
   // passed to a function that is declared as taking a pointer of a different
   // type.
   void analyzeCallBase(CallBase *Call, ValueTypeInfo *ResultInfo) {
+    // Check if 'Call' is to an intrinsic function that has special properties.
+    auto ProcessIntrinsicCall = [this](CallBase *Call,
+                                       ValueTypeInfo *ResultInfo) {
+      Function *Target = dtrans::getCalledFunction(*Call);
+      if (!Target)
+        return false;
+      if (Target->isIntrinsic()) {
+        switch (Target->getIntrinsicID()) {
+        case Intrinsic::ptr_annotation: {
+          // The llvm.ptr.annotation.p0() calls returns the first argument, so
+          // we can just the propagate the type information that's been
+          // collected for the parameter to the result value.
+          ValueTypeInfo *ValInfo = analyzeValue(Call->getArgOperand(0));
+          propagate(ValInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+                    DerefType::DT_SameType);
+          return true;
+        }
+        default:
+          return false;
+        }
+      }
+
+      return false;
+    };
+
+    if (ProcessIntrinsicCall(Call, ResultInfo))
+      return;
+
     // Check if the return type should have a pointer type, and the type, if so.
     std::pair<bool, DTransType *> OptRetType = getCallReturnType(Call);
     if (OptRetType.first) {
@@ -1972,8 +2046,13 @@ private:
     // instructions that won't exist once there are opaque pointers and
     // getPointerElementType() so cannot be used yet.
     const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
-    auto AllocKind = dtrans::getAllocFnKind(Call, TLI);
-    if (AllocKind != dtrans::AK_NotAlloc) {
+    dtrans::FreeKind FKind = DTAC.getFreeFnKind(Call, TLI);
+    if (FKind != dtrans::FK_NotFree)
+      PTA.addFreeCall(Call, FKind);
+
+    dtrans::AllocKind AKind = DTAC.getAllocFnKind(Call, TLI);
+    if (AKind != dtrans::AK_NotAlloc) {
+      PTA.addAllocationCall(Call, AKind);
       inferTypeFromUse(Call, ResultInfo);
 
       // Track the VAT_Decl type of the allocation as the type the
@@ -1982,6 +2061,23 @@ private:
       if (It != ValueToInferredTypes.end())
         for (auto Ty : It->second)
           ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
+    } else if (OptRetType.second &&
+               OptRetType.second == PTA.getDTransI8PtrType()) {
+      // Check if the return type should have a pointer type. If so, infer the
+      // type.
+
+      // Any call that returns an i8* should be checked for the type it gets
+      // used as to support handling IR with non-opaque pointer type casts.
+      // For example:
+      //   1)  %val1 = call i8* @creator()
+      //   2)  %val2 = bitcast i8* %val1 to %struct.type2*
+      //   3)  <some instruction using %val2 as %struct.type2*>
+      //
+      // Note: Once opaque pointers are introduced, the bitcast will no
+      // longer exist, and instruction 3 will directly use %ty1 as a
+      // %struct.type2* value, so this inference should no longer be
+      // necessary because %val1 will be used directly as a different type.
+      inferTypeFromUse(Call, ResultInfo);
     }
 
     // Set the usage type for the call arguments.
@@ -2361,9 +2457,22 @@ private:
 
       if (auto *IndexedStTy = dyn_cast<DTransStructType>(IndexedTy)) {
         // The final argument of the GEP of a structure field element must
-        // always be a constant value
+        // always be a constant value when a structure type is indexed. However,
+        // if the alias type we are testing does not match the type of the GEP,
+        // then we may not have a constant value. For example:
+        //   %18 = getelementptr %struct.varray_head_tag,
+        //                       %struct.varray_head_tag* %2, i64 0, i32 4
+        //   %19 = bitcast %union.varray_data_tag* %18 to [1 x i8*]*
+        //   %20 = getelementptr [1 x i8*], [1 x i8*]* %19, i64 0, i64 %21
+        //
+        // The pointer type collection analysis would have %19 as being the type
+        // "%union.varray_data_tag*" based on the result of the GEP for %18, and
+        // not the type the GEP is being used as.
         auto *LastArg =
-            cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
+            dyn_cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
+        if (!LastArg)
+          return false;
+
         uint64_t FieldNum = LastArg->getLimitedValue();
         if (FieldNum >= IndexedStTy->getNumFields())
           return false;
@@ -2921,31 +3030,70 @@ private:
     if (!SrcInfo->isCompletelyAnalyzed())
       ResultInfo->setPartiallyAnalyzed();
 
-    // Currently, this only supports converting an integer that is the
-    // result of a PtrToInt instruction,
+    // If the source operand was evaluated as having been converted from a
+    // pointer type, that type will have been propagated as the result type of
+    // this inttoptr conversion. Also look at the users to try to infer a type
+    // for the pointer.
+    // For example:
     //   %i = ptrtoint %struct.foo* to i64
-    //   %p = inttoptr i64 %i to %struct.foo*
+    //   %p = inttoptr i64 %i to %struct.foobar*
     //
-    // All other uses will be set to unhandled because it would require
-    // analyzing all the integer arithmetic operations that may be modifying the
-    // pointer. Special cases that need to analyze patterns of this sort
-    // for memory allocation buffers should be processed prior to calling
-    // analyzeValue and marked as completely analyzed to avoid being flagged as
-    // unhandled here.
-    //   For example:
-    //     %alloc = call %struct.foo* @foo_allocator()
-    //     %i = ptrtoint %struct.foo* %alloc to i64
-    //     %r2 = shr i64 %i, 2
-    //     %l8 = shl i64 %r2, 2
-    //     %a8 = add i64 %l8, 8
-    //     %p = inttoptr i64 %a8 to %struct.foo*
-    Value *PTI = dyn_cast<PtrToIntInst>(Src);
-    if (PTI)
+    // Or:
+    //   %alloc = call %struct.foo* @foo_allocator()
+    //   %i = ptrtoint %struct.foo* %alloc to i64
+    //   %r2 = ashr i64 %i, 2
+    //   %l8 = shl i64 %r2, 2
+    //   %a8 = add i64 %l8, 8
+    //   %p = inttoptr i64 %a8 to %struct.foo*
+    //
+    // These cases may result in the DTransSafetyAnalyzer marking the type as
+    // unhandled use or bad casting when it processes the IR.
+    inferTypeFromUse(ITP, ResultInfo);
+    if (ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
+      ResultInfo->setUnhandled();
+  }
+
+  void analyzeExtractValueInst(ExtractValueInst *EV,
+    ValueTypeInfo *ResultInfo) {
+    if (!isTypeOfInterest(EV->getType()))
       return;
 
-    ResultInfo->setUnhandled();
-    LLVM_DEBUG(dbgs() << "IntToPtr not tracked to source type: " << *ITP
-                      << "\n");
+    // Currently, only handle cases with a single index value.
+    if (EV->getNumIndices() > 1) {
+      ResultInfo->setUnhandled();
+      LLVM_DEBUG(
+        dbgs() << "Unhandled ExtractValueInst due to number of indices: "
+        << *EV << "\n");
+      return;
+    }
+
+    Value *Src = EV->getAggregateOperand();
+    unsigned Idx = EV->getAggregateOperandIndex();
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
+    for (auto Alias :
+      SrcInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+      if (!Alias->isAggregateType())
+        continue;
+
+      if (auto *DStTy = dyn_cast<DTransStructType>(Alias)) {
+        DTransFieldMember &Field = DStTy->getField(Idx);
+        for (auto *FieldTTy : Field.getTypes())
+          ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, FieldTTy);
+        continue;
+      }
+      else if (auto *DSeqTy = dyn_cast<DTransSequentialType>(Alias)) {
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
+          DSeqTy->getTypeAtIndex(0));
+      }
+      else {
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Unahndled ExtractValue: " << *EV << "\n");
+      }
+    }
+  }
+
+  void analyzeLandingPadInst(LandingPadInst *LP, ValueTypeInfo *ResultInfo) {
+    ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, getDTransLandingPadTy());
   }
 
   void analyzeLoadInst(LoadInst *LI, ValueTypeInfo *ResultInfo) {
@@ -3243,6 +3391,9 @@ private:
   }
 
   DTransPointerType *getDTransIOPtrTy() const { return DTransIOPtrTy; }
+  DTransStructType *getDTransLandingPadTy() const {
+    return DTransLandingPadTy;
+  }
 
   ////////////////////////////////////////////////////////////////////////////////
   // Start of member data
@@ -3251,11 +3402,16 @@ private:
   PtrTypeAnalyzerImpl &PTA;
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
+  DTransAllocCollector &DTAC;
   const DataLayout &DL;
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
 
   // Representation of %struct._IO_FILE*
   DTransPointerType *DTransIOPtrTy;
+
+  // A landing pad instruction generates a literal structure of the form:
+  // { i8*, i32 }. Represent this in the DTransType system.
+  DTransStructType *DTransLandingPadTy;
 
   // Keep a mapping of a set of types that are inferred for a Value that is
   // constructed when a type needs to be inferred by doing a look-ahead walk of
@@ -3615,8 +3771,10 @@ PtrTypeAnalyzerImpl::getByteFlattenedGEPElement(GEPOperator *GEP) const {
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
-  PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, M.getContext(),
-                                          DL, GetTLI);
+  DTransAllocCollector DTAC(MDReader, GetTLI);
+  DTAC.populateAllocDeallocTable(M);
+  PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, DTAC,
+                                          M.getContext(), DL, GetTLI);
   InstAnalyzer.visit(M);
 }
 
@@ -4032,6 +4190,14 @@ bool PtrTypeAnalyzer::isPtrToPtr(ValueTypeInfo &Info) const {
 std::pair<DTransType *, size_t>
 PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getByteFlattenedGEPElement(GEP);
+}
+
+dtrans::AllocKind PtrTypeAnalyzer::getAllocationCallKind(CallBase *Call) const {
+  return Impl->getAllocationCallKind(Call);
+}
+
+dtrans::FreeKind PtrTypeAnalyzer::getFreeCallKind(CallBase *Call) const {
+  return Impl->getFreeCallKind(Call);
 }
 
 bool PtrTypeAnalyzer::getUnsupportedAddressSpaceSeen() const {

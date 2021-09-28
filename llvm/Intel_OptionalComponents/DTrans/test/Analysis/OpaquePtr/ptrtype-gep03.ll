@@ -1,35 +1,37 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery on getelementptr instructions involving 0 or
 ; 1 indices
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are placeholders for check lines that will
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
 ; Lines marked with CHECK should remain the same when changing to use opaque
 ;   pointers.
 
 ; Test with the special case of a GEP with 0 indices.
 %struct.test01 = type { i32, i32, i32 }
-define void @test01(%struct.test01* %in) !dtrans_type !2 {
+define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !3 {
   %tmp = getelementptr %struct.test01, %struct.test01* %in
   %f0 = getelementptr %struct.test01, %struct.test01* %tmp, i64 0, i32 0
   store i32 0, i32* %f0
   ret void
 }
 ; CHECK-LABEL: void @test01
-; CHECK-CUR: %tmp = getelementptr %struct.test01, %struct.test01* %in
-; CHECK-FUT: %tmp = getelementptr %struct.test01, p0 %in
+; CHECK-NONOPAQUE: %tmp = getelementptr %struct.test01, %struct.test01* %in
+; CHECK-OPAQUE: %tmp = getelementptr %struct.test01, ptr %in
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
-; CHECK-CUR: %f0 = getelementptr %struct.test01, %struct.test01* %tmp, i64 0, i32 0
-; CHECK-FUT: %f0 = getelementptr %struct.test01, p0 %tmp, i64 0, i32 0
+; CHECK-NONOPAQUE: %f0 = getelementptr %struct.test01, %struct.test01* %tmp, i64 0, i32 0
+; CHECK-OPAQUE: %f0 = getelementptr %struct.test01, ptr %tmp, i64 0, i32 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
@@ -39,7 +41,7 @@ define void @test01(%struct.test01* %in) !dtrans_type !2 {
 
 ; Test a GEP that use used for a pointer-to-pointer
 %struct.test02 = type { i64, i64 }
-define internal void @test02(%struct.test02** %in) !dtrans_type !7 {
+define internal void @test02(%struct.test02** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !6 {
   %p2p = getelementptr %struct.test02*, %struct.test02** %in, i64 5
   %ptr = load %struct.test02*, %struct.test02** %p2p
   %field_addr = getelementptr %struct.test02, %struct.test02* %ptr, i64 0, i32 1
@@ -47,22 +49,22 @@ define internal void @test02(%struct.test02** %in) !dtrans_type !7 {
   ret void
 }
 ; CHECK-LABEL: void @test02
-; CHECK-CUR: %p2p = getelementptr %struct.test02*, %struct.test02** %in, i64 5
-; CHECK-FUT: %p2p = getelementptr p0, p0 %in, i64 5
+; CHECK-NONOPAQUE: %p2p = getelementptr %struct.test02*, %struct.test02** %in, i64 5
+; CHECK-OPAQUE: %p2p = getelementptr ptr, ptr %in, i64 5
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test02**{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
-; CHECK-CUR: %ptr = load %struct.test02*, %struct.test02** %p2p
-; CHECK-FUT: %ptr = load p0, p0 %p2p
+; CHECK-NONOPAQUE: %ptr = load %struct.test02*, %struct.test02** %p2p
+; CHECK-OPAQUE: %ptr = load ptr, ptr %p2p
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
-; CHECK-CUR: %field_addr = getelementptr %struct.test02, %struct.test02* %ptr, i64 0, i32 1
-; CHECK-FUT: %field_addr = getelementptr %struct.test02, p0 %ptr, i64 0, i32 1
+; CHECK-NONOPAQUE: %field_addr = getelementptr %struct.test02, %struct.test02* %ptr, i64 0, i32 1
+; CHECK-OPAQUE: %field_addr = getelementptr %struct.test02, ptr %ptr, i64 0, i32 1
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i64*{{ *$}}
@@ -71,15 +73,12 @@ define internal void @test02(%struct.test02** %in) !dtrans_type !7 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (%struct.test01*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{i64 0, i32 0}  ; i64
-!7 = !{!"F", i1 false, i32 1, !3, !8}  ; void (%struct.test02**)
-!8 = !{!9, i32 2}  ; %struct.test02**
-!9 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!10 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
-!11 = !{!"S", %struct.test02 zeroinitializer, i32 2, !6, !6} ; { i64, i64 }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2}
+!4 = !{i64 0, i32 0}  ; i64
+!5 = !{%struct.test02 zeroinitializer, i32 2}  ; %struct.test02**
+!6 = distinct !{!5}
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 2, !4, !4} ; { i64, i64 }
 
-!dtrans_types = !{!10, !11}
+!intel.dtrans.types = !{!7, !8}

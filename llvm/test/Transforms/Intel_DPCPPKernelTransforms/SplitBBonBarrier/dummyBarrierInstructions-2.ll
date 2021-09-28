@@ -17,13 +17,13 @@ target triple = "x86_64-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
   %check = icmp ult i32 %x, 0
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br i1 %check, label %L1, label %L2
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %L3
 L2:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %L3
 L3:
   %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
@@ -31,19 +31,19 @@ L3:
 ; CHECK: %check = icmp ult i32 %x, 0
 ; CHECK: br
 ; CHECK: :
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: br i1 %check, label %L1, label %L2
 ; CHECK: L1:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: br label %L3
 ; CHECK: L2:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: br label %L3
 ; CHECK: L3:
 ; CHECK: %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
 ; CHECK: ret void
 }
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 ; DEBUGIFY-NOT: WARNING

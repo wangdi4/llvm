@@ -16,10 +16,12 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GVMaterializer.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/PseudoProbe.h"
 #include "llvm/IR/TypeFinder.h"
 #include "llvm/Object/ModuleSymbolTable.h"
 #include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Error.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <utility>
 using namespace llvm;
@@ -413,6 +415,20 @@ class IRLinker {
   std::vector<GlobalValue *> Worklist;
   std::vector<std::pair<GlobalValue *, Value*>> RAUWWorklist;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // When DTrans metadata tags are used to describe types of function
+  // return values or parameters, we need to ensure that the metadata nodes
+  // attached to declarations get remapped to the types contained within the
+  // destination module. Otherwise, the metadata can be left pointing to the
+  // memory object of the source module, resulting in a bad pointer reference
+  // within the destination module. This worklist is for declarations that
+  // are discovered while mapping the source module into the destination module
+  // which will need to be processed.
+  SmallPtrSet<GlobalObject *, 8> DTransMDRemapWorklist;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   void maybeAdd(GlobalValue *GV) {
     if (ValuesToLink.insert(GV).second)
       Worklist.push_back(GV);
@@ -661,12 +677,12 @@ GlobalVariable *IRLinker::copyGlobalVariableProto(const GlobalVariable *SGVar) {
 
 AttributeList IRLinker::mapAttributeTypes(LLVMContext &C, AttributeList Attrs) {
   for (unsigned i = 0; i < Attrs.getNumAttrSets(); ++i) {
-    for (Attribute::AttrKind TypedAttr :
-         {Attribute::ByVal, Attribute::StructRet, Attribute::ByRef,
-          Attribute::InAlloca}) {
-      if (Attrs.hasAttribute(i, TypedAttr)) {
-        if (Type *Ty = Attrs.getAttribute(i, TypedAttr).getValueAsType()) {
-          Attrs = Attrs.replaceAttributeType(C, i, TypedAttr, TypeMap.get(Ty));
+    for (int AttrIdx = Attribute::FirstTypeAttr;
+         AttrIdx <= Attribute::LastTypeAttr; AttrIdx++) {
+      Attribute::AttrKind TypedAttr = (Attribute::AttrKind)AttrIdx;
+      if (Attrs.hasAttributeAtIndex(i, TypedAttr)) {
+        if (Type *Ty = Attrs.getAttributeAtIndex(i, TypedAttr).getValueAsType()) {
+          Attrs = Attrs.replaceAttributeTypeAtIndex(C, i, TypedAttr, TypeMap.get(Ty));
           break;
         }
       }
@@ -1046,6 +1062,20 @@ Expected<Constant *> IRLinker::linkGlobalValueProto(GlobalValue *SGV,
     NewGV = copyGlobalValueProto(SGV, ShouldLink || ForIndirectSymbol);
     if (ShouldLink || !ForIndirectSymbol)
       NeedsRenaming = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    // A new GlobalValue has been introduced into the destination module that
+    // may need to have DTrans metadata updated. We cannot remap the data
+    // immediately because a FlushingRemapper is already in progress. Save
+    // the Value object for updating the metadata attachment after all the IR
+    // definitions have been mapped.
+    if (NewGV->isDeclaration())
+      if (auto *NewGO = dyn_cast<GlobalObject>(NewGV))
+        if (NewGO->hasMetadata("intel.dtrans.func.type") ||
+            NewGO->hasMetadata("intel_dtrans_type"))
+          DTransMDRemapWorklist.insert(NewGO);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Overloaded intrinsics have overloaded types names as part of their
@@ -1233,6 +1263,10 @@ void IRLinker::linkNamedMDNodes() {
   for (const NamedMDNode &NMD : SrcM->named_metadata()) {
     // Don't link module flags here. Do them separately.
     if (&NMD == SrcModFlags)
+      continue;
+    // Don't import pseudo probe descriptors here for thinLTO. They will be
+    // emitted by the originating module.
+    if (IsPerformingImport && NMD.getName() == PseudoProbeDescMetadataName)
       continue;
     NamedMDNode *DestNMD = DstM.getOrInsertNamedMetadata(NMD.getName());
     // Add Src elements into Dest node.
@@ -1465,7 +1499,39 @@ Error IRLinker::run() {
   if (DstM.getDataLayout().isDefault())
     DstM.setDataLayout(SrcM->getDataLayout());
 
-  if (SrcM->getDataLayout() != DstM.getDataLayout()) {
+  // Copy the target triple from the source to dest if the dest's is empty.
+  if (DstM.getTargetTriple().empty() && !SrcM->getTargetTriple().empty())
+    DstM.setTargetTriple(SrcM->getTargetTriple());
+
+  Triple SrcTriple(SrcM->getTargetTriple()), DstTriple(DstM.getTargetTriple());
+
+  // During CUDA compilation we have to link with the bitcode supplied with
+  // CUDA. libdevice bitcode either has no data layout set (pre-CUDA-11), or has
+  // the layout that is different from the one used by LLVM/clang (it does not
+  // include i128). Issuing a warning is not very helpful as there's not much
+  // the user can do about it.
+  bool EnableDLWarning = true;
+  bool EnableTripleWarning = true;
+  if (SrcTriple.isNVPTX() && DstTriple.isNVPTX()) {
+    std::string ModuleId = SrcM->getModuleIdentifier();
+    StringRef FileName = llvm::sys::path::filename(ModuleId);
+    bool SrcIsLibDevice =
+        FileName.startswith("libdevice") && FileName.endswith(".10.bc");
+    bool SrcHasLibDeviceDL =
+        (SrcM->getDataLayoutStr().empty() ||
+         SrcM->getDataLayoutStr() == "e-i64:64-v16:16-v32:32-n16:32:64");
+    // libdevice bitcode uses nvptx64-nvidia-gpulibs or just
+    // 'nvptx-unknown-unknown' triple (before CUDA-10.x) and is compatible with
+    // all NVPTX variants.
+    bool SrcHasLibDeviceTriple = (SrcTriple.getVendor() == Triple::NVIDIA &&
+                                  SrcTriple.getOSName() == "gpulibs") ||
+                                 (SrcTriple.getVendorName() == "unknown" &&
+                                  SrcTriple.getOSName() == "unknown");
+    EnableTripleWarning = !(SrcIsLibDevice && SrcHasLibDeviceTriple);
+    EnableDLWarning = !(SrcIsLibDevice && SrcHasLibDeviceDL);
+  }
+
+  if (EnableDLWarning && (SrcM->getDataLayout() != DstM.getDataLayout())) {
     emitWarning("Linking two modules of different data layouts: '" +
                 SrcM->getModuleIdentifier() + "' is '" +
                 SrcM->getDataLayoutStr() + "' whereas '" +
@@ -1473,13 +1539,7 @@ Error IRLinker::run() {
                 DstM.getDataLayoutStr() + "'\n");
   }
 
-  // Copy the target triple from the source to dest if the dest's is empty.
-  if (DstM.getTargetTriple().empty() && !SrcM->getTargetTriple().empty())
-    DstM.setTargetTriple(SrcM->getTargetTriple());
-
-  Triple SrcTriple(SrcM->getTargetTriple()), DstTriple(DstM.getTargetTriple());
-
-  if (!SrcM->getTargetTriple().empty()&&
+  if (EnableTripleWarning && !SrcM->getTargetTriple().empty() &&
       !SrcTriple.isCompatibleWith(DstTriple))
     emitWarning("Linking two modules of different target triples: '" +
                 SrcM->getModuleIdentifier() + "' is '" +
@@ -1513,6 +1573,34 @@ Error IRLinker::run() {
   // metadata linking from creating new references.
   DoneLinkingBodies = true;
   Mapper.addFlags(RF_NullMapMissingGlobalValues);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  for (auto *GO : DTransMDRemapWorklist) {
+    // Remap the metadata, if the GlobalObject is still a declaration. If it was
+    // changed to a definition, then the remapping has already been done.
+    if (GO->isDeclaration()) {
+      // Function declarations use the tag "intel.dtrans.func.type"
+      // Global variables use the tag "intel_dtrans_type"
+      const char *MDName = "intel.dtrans.func.type";
+      auto *MD = GO->getMetadata(MDName);
+      if (!MD) {
+        MDName = "intel_dtrans_type";
+        MD = GO->getMetadata(MDName);
+      }
+      if (MD) {
+        // Update the metadata tag. Remap it, if one has not been created yet.
+        auto Mapping = ValueMap.getMappedMD(MD);
+        if (Mapping)
+          GO->setMetadata(MDName, cast<MDNode>(Mapping.getValue()));
+        else
+          GO->setMetadata(MDName, Mapper.mapMDNode(*MD));
+      }
+    }
+  }
+  DTransMDRemapWorklist.clear();
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Remap all of the named MDNodes in Src into the DstM module. We do this
   // after linking GlobalValues so that MDNodes that reference GlobalValues

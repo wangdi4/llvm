@@ -17,7 +17,6 @@
 #include "Arch/X86.h"
 #include "HIP.h"
 #include "Hexagon.h"
-#include "InputInfo.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/ObjCRuntime.h"
@@ -27,6 +26,7 @@
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/DriverDiagnostic.h"
+#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/Job.h"
 #include "clang/Driver/Options.h"
 #include "clang/Driver/SanitizerArgs.h"
@@ -271,11 +271,22 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
     else if (A.getOption().matches(options::OPT_Z_reserved_lib_cckext))
       TC.AddCCKextLibArgs(Args, CmdArgs);
 #if INTEL_CUSTOMIZATION
-    else if (A.getOption().matches(options::OPT_Z_reserved_lib_imf))
+    else if (A.getOption().matches(options::OPT_Z_reserved_lib_imf)) {
+      if (!TC.CheckAddIntelLib("libimf", Args))
+        continue;
       TC.AddIntelLibimfLibArgs(Args, CmdArgs);
+    } else if (A.getOption().matches(options::OPT_z)) {
 #endif // INTEL_CUSTOMIZATION
-    else if (A.getOption().matches(options::OPT_z)) {
       // Pass -z prefix for gcc linker compatibility.
+      A.claim();
+      A.render(Args, CmdArgs);
+    } else if (A.getOption().matches(options::OPT_b)) {
+      const llvm::Triple &T = TC.getTriple();
+      if (!T.isOSAIX()) {
+        TC.getDriver().Diag(diag::err_drv_unsupported_opt_for_target)
+            << A.getSpelling() << T.str();
+      }
+      // Pass -b prefix for AIX linker.
       A.claim();
       A.render(Args, CmdArgs);
     } else {
@@ -358,8 +369,8 @@ static StringRef getWebAssemblyTargetCPU(const ArgList &Args) {
   return "generic";
 }
 
-std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
-                              bool FromAs) {
+std::string tools::getCPUName(const Driver &D, const ArgList &Args,
+                              const llvm::Triple &T, bool FromAs) {
   Arg *A;
 
   switch (T.getArch()) {
@@ -415,14 +426,9 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
     if (!TargetCPUName.empty())
       return TargetCPUName;
 
-    if (T.isOSAIX()) {
-      unsigned major, minor, unused_micro;
-      T.getOSVersion(major, minor, unused_micro);
-      // The minimal arch level moved from pwr4 for AIX7.1 to
-      // pwr7 for AIX7.2.
-      TargetCPUName =
-          (major < 7 || (major == 7 && minor < 2)) ? "pwr4" : "pwr7";
-    } else if (T.getArch() == llvm::Triple::ppc64le)
+    if (T.isOSAIX())
+      TargetCPUName = "pwr7";
+    else if (T.getArch() == llvm::Triple::ppc64le)
       TargetCPUName = "ppc64le";
     else if (T.getArch() == llvm::Triple::ppc64)
       TargetCPUName = "ppc64";
@@ -450,7 +456,7 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
 
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
-    return x86::getX86TargetCPU(Args, T);
+    return x86::getX86TargetCPU(D, Args, T);
 
   case llvm::Triple::hexagon:
     return "hexagon" +
@@ -539,7 +545,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   // the plugin.
 
   // Handle flags for selecting CPU variants.
-  std::string CPU = getCPUName(Args, ToolChain.getTriple());
+  std::string CPU = getCPUName(D, Args, ToolChain.getTriple());
   if (!CPU.empty())
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=mcpu=") + CPU));
 
@@ -680,7 +686,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       CmdArgs.push_back("-plugin-opt=fintel-advanced-optim");
   };
   // Given -x, turn on advanced optimizations
-  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+  if (Arg *A = clang::driver::getLastArchArg(Args, false))
     addAdvancedOptimFlag(*A, options::OPT_x);
   // Additional handling for /arch and /Qx
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
@@ -820,6 +826,56 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
             options::OPT_qno_opt_multiple_gather_scatter_by_shuffles))
       addllvmOption("-vplan-vls-level=never");
   }
+
+  // Vectorization options involving peel/remainder loop vectorization
+  // and masked mode execution.
+  // TODO: once defaults have been established, use Args.hasFlag() for
+  //  the opposite and then override the default setting.
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fvectorize_masked_mode,
+          options::OPT_fno_vectorize_masked_mode)) {
+    if (A->getOption().matches(
+            options::OPT_fvectorize_masked_mode))
+      addllvmOption("-vplan-enable-masked-variant=true");
+    if (A->getOption().matches(
+            options::OPT_fno_vectorize_masked_mode))
+      addllvmOption("-vplan-enable-masked-variant=false");
+  }
+  if (Arg *A = Args.getLastArg(
+          options::OPT_qopt_dynamic_align,
+          options::OPT_qno_opt_dynamic_align)) {
+    if (A->getOption().matches(
+            options::OPT_qopt_dynamic_align))
+      addllvmOption("-vplan-enable-peeling=true");
+    if (A->getOption().matches(
+            options::OPT_qno_opt_dynamic_align))
+      addllvmOption("-vplan-enable-peeling=false");
+  }
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fvectorize_peel_loops,
+          options::OPT_fno_vectorize_peel_loops)) {
+    if (A->getOption().matches(
+            options::OPT_fvectorize_peel_loops))
+      addllvmOption("-vplan-enable-vectorized-peel=true");
+    if (A->getOption().matches(
+            options::OPT_fno_vectorize_peel_loops))
+      addllvmOption("-vplan-enable-vectorized-peel=false");
+  }
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fvectorize_remainder_loops,
+          options::OPT_fno_vectorize_remainder_loops)) {
+    if (A->getOption().matches(
+            options::OPT_fvectorize_remainder_loops)) {
+      addllvmOption("-vplan-enable-masked-vectorized-remainder=true");
+      addllvmOption("-vplan-enable-non-masked-vectorized-remainder=true");
+    }
+    if (A->getOption().matches(
+            options::OPT_fno_vectorize_remainder_loops)) {
+      addllvmOption("-vplan-enable-masked-vectorized-remainder=false");
+      addllvmOption("-vplan-enable-non-masked-vectorized-remainder=false");
+    }
+  }
+
   if (const Arg *A =
           Args.getLastArg(options::OPT_qopt_assume_no_loop_carried_dep_EQ)) {
     StringRef LoopCarriedVal = A->getValue();
@@ -840,7 +896,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // Given -x, turn on multi-versioning
   // FIXME: These checks for Intel -x and -Qx are used in many places, we
   // should improve this by adding some kind of common check.
-  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+  if (Arg *A = clang::driver::getLastArchArg(Args, false))
     addMultiVersionFlag(*A, options::OPT_x);
   // Additional handling for /arch and /Qx
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
@@ -879,21 +935,65 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   }
 
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
-  if (TC.getDriver().IsIntelMode() &&
-      !(TC.getTriple().getEnvironment() == llvm::Triple::SYCLDevice)) {
-    if (!Args.hasArg(options::OPT_ffreestanding, options::OPT_i_no_use_libirc))
+  if (TC.getDriver().IsIntelMode()) {
+    if (!Args.hasArg(options::OPT_ffreestanding,
+                     options::OPT_i_no_use_libirc) &&
+        TC.CheckAddIntelLib("libirc", Args))
       addllvmOption("-intel-libirc-allowed");
+
+    bool LoopOptPipelineExplicitOption = llvm::any_of(
+        Args.getAllArgValues(options::OPT_Xclang), [](StringRef Option) {
+          bool Ret = Option.startswith("-floopopt-pipeline=");
+          if (Ret)
+            llvm::dbgs() << Option;
+          return Ret;
+        });
+    auto AddLoopOptPipeline = [LoopOptPipelineExplicitOption, IsLink,
+                               &CmdArgs](const char *Option) -> void {
+      if (LoopOptPipelineExplicitOption)
+        return;
+      if (IsLink)
+        // This is FE option, cannot pass to the linker.
+        return;
+
+      CmdArgs.push_back(Option);
+    };
+
     bool AddLoopOpt = true;
-    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
-      if (AV.startswith("-loopopt=") || AV.equals("-loopopt"))
+    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm)) {
+      if (AV.startswith("-loopopt=")) {
         AddLoopOpt = false;
+        int Value;
+        auto ValueStr = AV.substr(9);
+        bool Failure = ValueStr.getAsInteger(10, Value);
+        (void)Failure;
+        assert(!Failure);
+        if (!IsLink)
+          switch (Value) {
+          default:
+            llvm_unreachable("Wrong value for -loopopt= option!");
+          case 0:
+            AddLoopOptPipeline("-floopopt-pipeline=none");
+            break;
+          case 1:
+            AddLoopOptPipeline("-floopopt-pipeline=light");
+            break;
+          case 2:
+            AddLoopOptPipeline("-floopopt-pipeline=full");
+            break;
+          }
+      }
+      if (AV.equals("-loopopt")) {
+        AddLoopOpt = false;
+        AddLoopOptPipeline("-floopopt-pipeline=full");
+      }
+    }
     if (AddLoopOpt) {
       // Add loopopt default values.  Full loopopt is enabled when -x is
       // provided otherwise, we enable lightweight loopopt dependent on various
       // options.  Only add if -loopopt wasn't added via other means.
       bool FullLoopOpt = false;
-      if (const Arg *A =
-              Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+      if (const Arg *A = clang::driver::getLastArchArg(Args, false))
         if (A->getOption().matches(options::OPT_x) &&
             x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
           // -x wins, so full loopopt is enabled
@@ -906,18 +1006,21 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
         if (A->getOption().matches(options::OPT__SLASH_Qx) &&
             x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
           FullLoopOpt = true;
-      if (FullLoopOpt)
+      if (FullLoopOpt) {
         addllvmOption("-loopopt");
-      else {
+        AddLoopOptPipeline("-floopopt-pipeline=full");
+      } else {
         int MLTInt = 0;
         MLTVal.getAsInteger(0, MLTInt);
         bool OfastSet = false;
         if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
           OfastSet = A->getOption().matches(options::OPT_Ofast);
-        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet)
+        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto_EQ) && OfastSet){
           addllvmOption("-loopopt=1");
-        else {
+          AddLoopOptPipeline("-floopopt-pipeline=light");
+        } else {
           addllvmOption("-loopopt=0");
+          AddLoopOptPipeline("-floopopt-pipeline=none");
           if (!TC.getTriple().isSPIR())
             addllvmOption("-enable-lv");
         }
@@ -928,6 +1031,24 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // -qoverride-limits
   if (Args.hasArg(options::OPT_qoverride_limits))
     addllvmOption("-hir-cost-model-throttling=0");
+
+  // Enable vectorization of omp simd constructs for -fiopenmp -O0.
+  Arg *AO = Args.getLastArg(options::OPT_O_Group);
+  if (AO && AO->getOption().matches(options::OPT_O0) &&
+      Args.hasFlag(options::OPT_fiopenmp_vec_at_O0,
+                   options::OPT_fno_iopenmp_vec_at_O0) &&
+      (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
+                    false) ||
+       Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false))) {
+    addllvmOption("-vecopt=true");
+    addllvmOption("-enable-vec-clone=true");
+  }
+
+  // -fno-vectorize
+  if (Arg *A = Args.getLastArg(options::OPT_fvectorize,
+                               options::OPT_fno_vectorize))
+    if (A->getOption().matches(options::OPT_fno_vectorize))
+      addllvmOption("-disable-hir-vec-dir-insert");
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -943,7 +1064,7 @@ void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
   std::string CandidateRPath = TC.getArchSpecificLibPath();
   if (TC.getVFS().exists(CandidateRPath)) {
     CmdArgs.push_back("-rpath");
-    CmdArgs.push_back(Args.MakeArgString(CandidateRPath.c_str()));
+    CmdArgs.push_back(Args.MakeArgString(CandidateRPath));
   }
 }
 
@@ -1084,7 +1205,8 @@ void tools::linkSanitizerRuntimeDeps(const ToolChain &TC,
     CmdArgs.push_back("-ldl");
   // Required for backtrace on some OSes
   if (TC.getTriple().isOSFreeBSD() ||
-      TC.getTriple().isOSNetBSD())
+      TC.getTriple().isOSNetBSD() ||
+      TC.getTriple().isOSOpenBSD())
     CmdArgs.push_back("-lexecinfo");
 }
 
@@ -2017,21 +2139,25 @@ void tools::addOpenMPDeviceRTL(const Driver &D,
                         : options::OPT_libomptarget_nvptx_bc_path_EQ;
 
   StringRef ArchPrefix = Triple.isAMDGCN() ? "amdgcn" : "nvptx";
+  std::string LibOmpTargetName = "libomptarget-" + BitcodeSuffix.str() + ".bc";
+
   // First check whether user specifies bc library
   if (const Arg *A = DriverArgs.getLastArg(LibomptargetBCPathOpt)) {
-    std::string LibOmpTargetName(A->getValue());
-    if (llvm::sys::fs::exists(LibOmpTargetName)) {
+    SmallString<128> LibOmpTargetFile(A->getValue());
+    if (llvm::sys::fs::exists(LibOmpTargetFile) &&
+        llvm::sys::fs::is_directory(LibOmpTargetFile)) {
+      llvm::sys::path::append(LibOmpTargetFile, LibOmpTargetName);
+    }
+
+    if (llvm::sys::fs::exists(LibOmpTargetFile)) {
       CC1Args.push_back("-mlink-builtin-bitcode");
-      CC1Args.push_back(DriverArgs.MakeArgString(LibOmpTargetName));
+      CC1Args.push_back(DriverArgs.MakeArgString(LibOmpTargetFile));
     } else {
       D.Diag(diag::err_drv_omp_offload_target_bcruntime_not_found)
-          << LibOmpTargetName;
+          << LibOmpTargetFile;
     }
   } else {
     bool FoundBCLibrary = false;
-
-    std::string LibOmpTargetName =
-        "libomptarget-" + BitcodeSuffix.str() + ".bc";
 
     for (StringRef LibraryPath : LibraryPaths) {
       SmallString<128> LibOmpTargetFile(LibraryPath);

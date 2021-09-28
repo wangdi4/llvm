@@ -32,6 +32,8 @@
 #include "IntelVPlanValue.h"
 #include "IntelVPlanValueTracking.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
+#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
+#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
@@ -42,7 +44,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
@@ -119,44 +121,79 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 struct TripCountInfo;
 
-// This class is used to create all the necessairy analyses that are needed for
-// VPlan.
-class VPAnalysesFactory {
+// This abstract class is used to create all the necessary analyses that are
+// needed for VPlan. They are implemented by the 2 derived classes :
+// VPAnalysesFactory and VPAnalysesFactoryHIR.
+class VPAnalysesFactoryBase {
 private:
-  ScalarEvolution &SE;
-  const Loop *Lp = nullptr;
   DominatorTree *DT = nullptr;
   AssumptionCache *AC = nullptr;
   const DataLayout *DL = nullptr;
-  bool IsLLVMIR = false;
+
+protected:
+  virtual ~VPAnalysesFactoryBase() {}
 
 public:
-  VPAnalysesFactory(ScalarEvolution &SE, Loop *Lp, DominatorTree *DT,
-                    AssumptionCache *AC, const DataLayout *DL, bool IsLLVMIR)
-      : SE(SE), Lp(Lp), DT(DT), AC(AC), DL(DL), IsLLVMIR(IsLLVMIR) {}
+  VPAnalysesFactoryBase(DominatorTree *DT, AssumptionCache *AC,
+                        const DataLayout *DL)
+      : DT(DT), AC(AC), DL(DL) {}
 
-  std::unique_ptr<VPlanScalarEvolution> createVPSE() {
-    if (IsLLVMIR) {
-      auto &Context = Lp->getHeader()->getContext();
-      return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp, Context, DL);
-    } else
-      llvm_unreachable("Unimplemented for HIR path.");
-  }
+  virtual std::unique_ptr<VPlanScalarEvolution> createVPSE() = 0;
 
-  std::unique_ptr<VPlanValueTracking> createVPVT(VPlanScalarEvolution *VPSE) {
-    if (IsLLVMIR) {
-      auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
-      return std::make_unique<VPlanValueTrackingLLVM>(*VPSELLVM, *DL, AC, DT);
-    } else
-      llvm_unreachable("Unimplemented for HIR path.");
-  }
+  virtual std::unique_ptr<VPlanValueTracking>
+  createVPVT(VPlanScalarEvolution *VPSE) = 0;
 
-  bool isLLVMIRPath() { return IsLLVMIR; }
-
-  const Loop *getLoop() { return Lp; }
   DominatorTree *getDominatorTree() { return DT; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const DataLayout *getDataLayout() { return DL; }
+};
+
+class VPAnalysesFactory final : public VPAnalysesFactoryBase {
+private:
+  ScalarEvolution &SE;
+  const Loop *Lp = nullptr;
+
+public:
+  VPAnalysesFactory(ScalarEvolution &SE, Loop *Lp, DominatorTree *DT,
+                    AssumptionCache *AC, const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, AC, DL), SE(SE), Lp(Lp) {}
+
+  std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
+    auto &Context = Lp->getHeader()->getContext();
+    return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp, Context,
+                                                      getDataLayout());
+  }
+
+  std::unique_ptr<VPlanValueTracking>
+  createVPVT(VPlanScalarEvolution *VPSE) override {
+    auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
+    return std::make_unique<VPlanValueTrackingLLVM>(
+        *VPSELLVM, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+  }
+
+  const Loop *getLoop() { return Lp; }
+};
+
+class VPAnalysesFactoryHIR final : public VPAnalysesFactoryBase {
+private:
+  loopopt::HLLoop *HLp = nullptr;
+
+public:
+  VPAnalysesFactoryHIR(loopopt::HLLoop *HLp, DominatorTree *DT,
+                       AssumptionCache *AC, const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, AC, DL), HLp(HLp) {}
+
+  std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
+    return std::make_unique<VPlanScalarEvolutionHIR>(HLp);
+  }
+
+  std::unique_ptr<VPlanValueTracking>
+  createVPVT(VPlanScalarEvolution *VPSE) override {
+    return std::make_unique<VPlanValueTrackingHIR>(
+        HLp, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+  }
+
+  loopopt::HLLoop *getLoop() { return HLp; }
 };
 
 /// Enumeration to uniquely identify various VPlan analyses.
@@ -548,7 +585,9 @@ public:
     ConstStepVector,
     ScalarPeel,
     ScalarRemainder,
+    ScalarPeelRemainderHIR,
     OrigLiveOut,
+    OrigLiveOutHIR,
     PushVF,
     PopVF,
     PlanAdapter,
@@ -566,8 +605,10 @@ public:
                            // TODO: Remove when non-explicit remainder loop
                            // support is deprecated.
     PrivateFinalArray,
+    PrivateLastValueNonPOD,
     GeneralMemOptConflict,
     ConflictInsn,
+    TreeConflict,
   };
 
 private:
@@ -911,6 +952,41 @@ private:
       return Instruction::FCmp;
     llvm_unreachable("Integer/Float predicate expected");
   }
+};
+
+/// Concrete class to represent last value calculation for private nonPODs in
+/// VPlan.
+class VPPrivateLastValueNonPODInst : public VPInstruction {
+public:
+  /// Create VPPrivateLastValueNonPODInst with its BaseType, operands and
+  /// private object copyassign function pointer.
+  VPPrivateLastValueNonPODInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                               Function *CopyAssign)
+      : VPInstruction(VPInstruction::PrivateLastValueNonPOD, BaseTy, Operands),
+        CopyAssign(CopyAssign) {}
+
+  /// Return the copyassign function stored by this instruction
+  Function *getCopyAssign() const { return CopyAssign; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::PrivateLastValueNonPOD;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPPrivateLastValueNonPODInst *cloneImpl() const final {
+    SmallVector<VPValue *, 2> Ops;
+    for (auto &O : operands())
+      Ops.push_back(O);
+    return new VPPrivateLastValueNonPODInst(getType(), Ops, getCopyAssign());
+  }
+
+private:
+  Function *CopyAssign = nullptr;
 };
 
 /// Concrete class to represent branch instruction in VPlan.
@@ -1781,6 +1857,28 @@ private:
     // Specifies if masked version of a vector variant should be used to
     // vectorize the unmasked call (using all-true mask).
     unsigned UseMaskedForUnmasked : 1;
+    // NOTE: the order of remarks in this enum is strictly tied to the order of
+    // remarks in Diag.cpp (15558-155562)
+    enum class SerializationReason {
+      UNDEFINED = 0,
+      // Remark #15558: Call to function '%s' was serialized due to no suitable
+      // vector variants were found.
+      NO_VECTOR_VARIANT,
+      // Remark #15559: Call to function '%s' was serialized due to no vector
+      // variants were found. Consider adding #pragma omp declare simd.
+      //
+      // This value can't be assigned directly.
+      NO_VECTOR_VARIANT_WO_PRAGMA,
+      // Remark #15560: Indirect call cannot be vectorized.
+      INDIRECT_CALL,
+      // Remark #15561: Call to function '%s' was serialized due to operating on
+      // scalar operand(s).
+      SCALAR_OPERANDS,
+      // Remark #15562: Call '%s' cannot be vectorized for current context.
+      CURRENT_CONTEXT,
+    };
+    SerializationReason Reason = SerializationReason::UNDEFINED;
+    SerializationReason getSerializationReason () { return Reason; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void printImpl(raw_ostream &OS) const {
@@ -1833,7 +1931,7 @@ private:
 
 public:
   using CallVecScenariosTy = CallVecScenarios;
-
+  using SerializationReasonTy = CallVecProperties::SerializationReason;
   VPCallInstruction(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
                     const CallInst *OrigCall)
       : VPInstruction(Instruction::Call, OrigCall->getType(), ArgList),
@@ -1903,6 +2001,12 @@ public:
     return F->getCallingConv();
   }
 
+  bool isNoVecVariant() const {
+    return VecProperties.Reason == SerializationReasonTy::NO_VECTOR_VARIANT ||
+           VecProperties.Reason == SerializationReasonTy::
+           NO_VECTOR_VARIANT_WO_PRAGMA;
+  }
+
   /// Getter for original call's tail call attribute.
   bool isOrigTailCall() const {
     if (const CallInst *Call = getUnderlyingCallInst())
@@ -1920,13 +2024,13 @@ public:
 
   // Some helpful getters based on underlying call's attributes.
   bool isKernelCallOnce() const {
-    return getOrigCallAttrs().hasFnAttribute("kernel-call-once");
+    return getOrigCallAttrs().hasFnAttr("kernel-call-once");
   }
   bool isOCLVecUniformReturn() const {
-    return getOrigCallAttrs().hasFnAttribute("opencl-vec-uniform-return");
+    return getOrigCallAttrs().hasFnAttr("opencl-vec-uniform-return");
   }
   bool isKernelUniformCall() const {
-    return getOrigCallAttrs().hasFnAttribute("kernel-uniform-call");
+    return getOrigCallAttrs().hasFnAttr("kernel-uniform-call");
   }
 
   /// Return \p true if this call is a lifetime_start/end intrinsic call.
@@ -1988,6 +2092,10 @@ public:
       report_fatal_error(
           "Calls with kernel-call-once attributes cannot be serialized.");
     VecScenario = CallVecScenarios::Serialization;
+  }
+
+  void setSerializationReason(SerializationReasonTy Value) {
+    VecProperties.Reason = Value;
   }
 
   // Vectorization using vector library functions (like SVML).
@@ -2106,6 +2214,15 @@ public:
     return Intrinsic::getName(VecID, TysForName, F->getParent());
   }
 
+  /// Getters for SerializationReason
+  int getSerialReasonNum() {
+    return static_cast<int>(VecProperties.getSerializationReason());
+  }
+
+  SerializationReasonTy getSerialReason() {
+    return VecProperties.getSerializationReason();
+  }
+
   /// Call argument list size.
   unsigned getNumArgOperands() const {
     assert(getNumOperands() != 0 && "Invalid VPCallInstruction.");
@@ -2178,7 +2295,8 @@ protected:
   virtual VPCallInstruction *cloneImpl() const final {
     VPCallInstruction *Cloned = new VPCallInstruction(
         getCalledValue(), ArrayRef<VPValue *>(op_begin(), op_end() - 1),
-        getUnderlyingCallInst() /* Clone gets same underlying Call */);
+        getType());
+    Cloned->OrigCall = getUnderlyingCallInst();
     Cloned->VecScenario = VecScenario;
     Cloned->VecProperties = VecProperties;
     return Cloned;
@@ -2821,6 +2939,146 @@ protected:
   }
 };
 
+// Class to represent scalar HIR peel and remainder loop instructions in VPlan.
+class VPPeelRemainderHIR : public VPInstruction {
+  // The original loop.
+  loopopt::HLLoop *HLp;
+
+  // Map to track temps that need to be initialized.
+  SmallVector<loopopt::DDRef *, 4> TempInitMap;
+
+  // Flag to indicate whether the scalar loop has to be cloned. (Because we need
+  // two copies of it and this is the second one.)
+  bool NeedsCloning = false;
+
+  // Temp that defines the lower bound of the scalar loop. Will be nullptr for
+  // peel loop.
+  loopopt::DDRef *LowerBoundTmp = nullptr;
+
+  // Temp that defines the upper bound of the scalar loop. Will be nullptr for
+  // remainder loop. It can be set indirectly only via the setUpperBound
+  // interface.
+  loopopt::DDRef *UpperBoundTmp = nullptr;
+
+protected:
+  using VPInstruction::addOperand;
+  using VPInstruction::removeAllOperands;
+  using VPInstruction::removeOperand;
+  using VPInstruction::setOperand;
+
+  VPInstruction *cloneImpl() const override {
+    assert(false && "not expected to clone");
+    return nullptr;
+  }
+
+public:
+  VPPeelRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone = false)
+      : VPInstruction(VPInstruction::ScalarPeelRemainderHIR,
+                      Type::getTokenTy(HLp->getHLNodeUtils().getContext()), {}),
+        HLp(HLp), NeedsCloning(ShouldClone) {}
+
+  // Get the original loop.
+  loopopt::HLLoop *getLoop() const { return HLp; }
+
+  // Return true if cloning is required.
+  bool isCloningRequired() const { return NeedsCloning; }
+
+  void setCloningRequired() { NeedsCloning = true; }
+
+  // Add \p VPVal to the instruction operands list and the \p Temp to the
+  // TempInitMap.
+  void addTemp(VPValue *VPVal, loopopt::DDRef *Temp) {
+    addOperand(VPVal);
+    TempInitMap.push_back(Temp);
+  }
+
+  // Get the temp corresponding to the \p Idx.
+  loopopt::DDRef *getTemp(unsigned Idx) const {
+    assert(Idx <= TempInitMap.size() - 1 &&
+           "Invalid entry in the temp-init map requested.");
+    return TempInitMap[Idx];
+  }
+
+  // Set the temp corresponding to the \p Idx.
+  void setClonedTemp(unsigned Idx, loopopt::DDRef *T) {
+    assert(Idx <= TempInitMap.size() - 1 &&
+           "Invalid entry in the temp-init map requested.");
+    TempInitMap[Idx] = T;
+  }
+
+  // Set lower bound temp for the loop.
+  void setLowerBoundTemp(loopopt::DDRef *Tmp) {
+    assert(!UpperBoundTmp && "Setting lower bound for peel loop?");
+    LowerBoundTmp = Tmp;
+  }
+
+  loopopt::DDRef *getLowerBoundTemp() const { return LowerBoundTmp; }
+
+  // Set upper bound for the loop. It creates a new temp and adds it to
+  // temp-initialization map.
+  void setUpperBound(VPValue *UB) {
+    assert(!LowerBoundTmp && "Setting upper bound for remainder loop?");
+    loopopt::RegDDRef *UBTmp =
+        HLp->getHLNodeUtils().createTemp(HLp->getIVType(), "ub.tmp");
+    addTemp(UB, UBTmp);
+    UpperBoundTmp = UBTmp;
+  }
+
+  // Helper to get the operand that defines the upper bound of this scalar loop.
+  // Obtained indirectly by looking up index of UpperBoundTmp in TempInitMap.
+  VPValue *getUpperBound() const {
+    if (!UpperBoundTmp)
+      return nullptr;
+
+    auto UBIter = llvm::find(TempInitMap, UpperBoundTmp);
+    assert(UBIter != TempInitMap.end() &&
+           "Upper bound temp not found in TempInitMap.");
+    unsigned UBIdx = std::distance(TempInitMap.begin(), UBIter);
+    return getOperand(UBIdx);
+  }
+
+  loopopt::DDRef *getUpperBoundTemp() const { return UpperBoundTmp; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarPeelRemainderHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void printImpl(raw_ostream &O) const {
+    formatted_raw_ostream FO(O);
+    // TODO: How to find unique ID for HLLoop?
+    FO << " "
+       << "<HLLoop>"
+       << ", NeedsCloning: " << isCloningRequired() << ", LBTemp: ";
+    if (auto *LB = getLowerBoundTemp())
+      LB->print(FO);
+    else
+      FO << "none";
+    FO << ", UBTemp: ";
+    if (auto *UB = getUpperBoundTemp())
+      UB->print(FO);
+    else
+      FO << "none";
+    FO << ", TempInitMap:";
+    assert(getNumOperands() == TempInitMap.size() &&
+           "Inconsistent temp init data!");
+    for (unsigned I = 0; I < getNumOperands(); ++I) {
+      FO << "\n       { Initialize temp ";
+      TempInitMap[I]->print(FO);
+      FO << " with -> ";
+      getOperand(I)->printAsOperand(FO);
+      FO << " }";
+    }
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 /// Class for representing the 'scalar-peel' instruction.
 /// This class holds all the information needed for representing the code
 /// required for peel-loop generation.
@@ -2966,6 +3224,11 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+protected:
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+    return nullptr;
+  }
 };
 
 /// The VPlanAdapter is a placeholder for a VPlan in CFG of another VPlan.
@@ -3043,7 +3306,11 @@ public:
   }
 
 private:
-  VPScalarPeel *getPeelLoop() const;
+  VPValue *getPeelLoop() const;
+
+  // Peel loop specific utility for HIR path where we update orig-live-out-hir
+  // created for main loop IV when upper bound of peel loop is set.
+  void updateHIROrigLiveOut();
 };
 
 // VPInstruction to allocate private memory. This is translated into
@@ -3088,6 +3355,17 @@ public:
   /// Return alignment of original alloca/global that this private memory
   /// corresponds to.
   Align getOrigAlignment() const { return OrigAlignment; }
+
+protected:
+
+  VPAllocatePrivate *cloneImpl() const override {
+    auto Ret = new VPAllocatePrivate(getType(), getOrigAlignment());
+    if (isSOASafe())
+      Ret->setSOASafe();
+    if (isSOAProfitable())
+      Ret->setSOAProfitable();
+    return Ret;
+  }
 
 private:
   bool IsSOASafe;
@@ -3202,8 +3480,8 @@ using VPPrivateFinalCond = VPPrivateFinalC<VPInstruction::PrivateFinalCond>;
 using VPPrivateFinalCondMem = VPPrivateFinalC<VPInstruction::PrivateFinalCondMem>;
 
 /// VPOrigLiveOut represents the outgoing value from the scalar
-/// loop described by VPScalarRemainder, which is its operand. It links
-/// an outgoing scalar value from the loop with VPlan.
+/// loop described by VPScalarRemainder/VPPeelRemainderHIR, which is its
+/// operand. It links an outgoing scalar value from the loop with VPlan.
 /// Example.
 ///
 /// The %vp3 describes outgoing value %add0 from the loop VP_REUSE_LOOP.
@@ -3225,19 +3503,20 @@ using VPPrivateFinalCondMem = VPPrivateFinalC<VPInstruction::PrivateFinalCondMem
 ///   i64 [[VP6:%.*]] = phi-merge  [ i64 %vp4, %bb8 ],  [ i64 live-out1, %bb6 ]
 ///   br label %bb9
 ///
-class VPOrigLiveOut : public VPInstruction {
-  const Value *LiveOutVal;
+template <class VPReuseLoopTy, class LiveOutTy, unsigned OrigLiveOutOpcode>
+class VPOrigLiveOutImpl : public VPInstruction {
+  const LiveOutTy *LiveOutVal;
   unsigned MergeId;
 
 public:
-  VPOrigLiveOut(VPPeelRemainder *PeelRemainder, const Value *LiveOutVal, unsigned Id)
-      : VPInstruction(VPInstruction::OrigLiveOut, LiveOutVal->getType(),
-                      {PeelRemainder}),
+  VPOrigLiveOutImpl(Type *BaseTy, VPReuseLoopTy *PeelRemainder,
+                    const LiveOutTy *LiveOutVal, unsigned Id)
+      : VPInstruction(OrigLiveOutOpcode, BaseTy, {PeelRemainder}),
         LiveOutVal(LiveOutVal), MergeId(Id) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::OrigLiveOut;
+    return V->getOpcode() == OrigLiveOutOpcode;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -3247,15 +3526,17 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printImpl(raw_ostream &O) const {
-    O << " ";
-    getOperand(0)->printAsOperand(O);
-    O << ", liveout: " << *LiveOutVal;
+    formatted_raw_ostream FO(O);
+    FO << " ";
+    getOperand(0)->printAsOperand(FO);
+    FO << ", liveout: ";
+    LiveOutVal->print(FO);
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Only CG needs this...
-  const Value *getLiveOutVal() const { return LiveOutVal; }
-  void setClonedLiveOutVal(Value *V) { LiveOutVal = V; }
+  const LiveOutTy *getLiveOutVal() const { return LiveOutVal; }
+  void setClonedLiveOutVal(LiveOutTy *V) { LiveOutVal = V; }
 
   // Used during CFG merge.
   unsigned getMergeId() const { return MergeId;}
@@ -3267,6 +3548,11 @@ protected:
   }
 };
 
+// Specialized types for IR and HIR versions.
+using VPOrigLiveOut =
+    VPOrigLiveOutImpl<VPPeelRemainder, Value, VPInstruction::OrigLiveOut>;
+using VPOrigLiveOutHIR = VPOrigLiveOutImpl<VPPeelRemainderHIR, loopopt::DDRef,
+                                           VPInstruction::OrigLiveOutHIR>;
 
 /// Instruction representing a wide VLS-optimized (Vector Load/Stores) load. It
 /// takes place of several adjacent loads and substitutes several
@@ -3555,6 +3841,8 @@ public:
                      });
   }
 
+  int getSize() const { return BBs.size(); }
+
   void
   addRgnLiveInsOuts(SmallVector<std::unique_ptr<VPValue>> RgnLiveIns,
                     SmallVector<std::unique_ptr<VPRegionLiveOut>> RgnLiveOuts) {
@@ -3631,7 +3919,7 @@ public:
   // the region.
   VPGeneralMemOptConflict(Type *BaseTy, VPValue *VConflictIndex,
                           std::unique_ptr<VPRegion> Rgn, VPValue *VConflictLoad,
-                          const SmallVector<VPValue *, 2> &Params)
+                          ArrayRef<VPValue *> Params)
       : VPInstruction(VPInstruction::GeneralMemOptConflict, BaseTy, {}),
         Region(std::move(Rgn)), Context(&BaseTy->getContext()) {
     // Add conflicting index as operand.
@@ -3653,7 +3941,12 @@ public:
 
   VPValue *getConflictLoad() const { return getOperand(2); }
 
-  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  // Returns VPGeneralMemOptConflict live-ins.
+  inline decltype(auto) getLiveIns() const {
+    return make_range(op_begin() + 3, op_end());
+  }
+
+  // Methods for supporting type inquiry through isa, cast and dyn_cast:
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == VPInstruction::GeneralMemOptConflict;
   }
@@ -3663,16 +3956,71 @@ public:
   }
 
   VPGeneralMemOptConflict *cloneImpl() const override {
-    SmallVector<VPValue *, 2> NewParams;
-    for (unsigned i = 2; i < getNumOperands(); i++)
-      NewParams.push_back(getOperand(i));
     return new VPGeneralMemOptConflict(
-        getType(), getOperand(0), Region->clone(), getOperand(2), NewParams);
+        getType(), getOperand(0), Region->clone(), getOperand(2),
+        ArrayRef<VPValue *>(op_begin() + 3, op_end()));
   }
 
 private:
   std::unique_ptr<VPRegion> Region;
   LLVMContext *Context;
+};
+
+// Represents simple tree-conflict idioms which contain a single reduction
+// operation in the conflicting region. It tracks 3 operands -
+// i. conflicting index
+// ii. conflict load
+// iii. value used to update reduction (will be region live-in)
+//
+// If the live-in value is uniform, then this tree-conflict idiom can be
+// optimized as Histogram.
+class VPTreeConflict final : public VPInstruction {
+public:
+  VPTreeConflict(VPValue *ConflictIdx, VPValue *ConflictLd,
+                 VPValue *RednUpdateOp, unsigned RednOpcode)
+      : VPInstruction(VPInstruction::TreeConflict, RednUpdateOp->getType(),
+                      {ConflictIdx, ConflictLd, RednUpdateOp}),
+        RednOpcode(RednOpcode) {
+    assert(RednUpdateOp->getType() == ConflictLd->getType() &&
+           "Mismatch in type for tree-conflict operands.");
+    assert(isSupportedRednOpcode(RednOpcode) &&
+           "Unsupported redution opcode for tree-conflict.");
+  }
+
+  VPValue *getConflictIndex() const { return getOperand(0); }
+
+  VPValue *getConflictLoad() const { return getOperand(1); }
+
+  VPValue *getRednUpdateOp() const { return getOperand(2); }
+
+  unsigned getRednOpcode() const { return RednOpcode; }
+
+  static bool isSupportedRednOpcode(unsigned Opcode) {
+    switch (Opcode) {
+    case Instruction::Add:
+    case Instruction::FAdd:
+      return true;
+    default:
+      return false;
+    }
+  }
+
+  // Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::TreeConflict;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPTreeConflict *cloneImpl() const override {
+    return new VPTreeConflict(getConflictIndex(), getConflictLoad(),
+                              getRednUpdateOp(), getRednOpcode());
+  }
+
+private:
+  unsigned RednOpcode;
 };
 
 class VPConflictInsn final : public VPInstruction {
@@ -4185,6 +4533,7 @@ public:
   const VPDominatorTree *getDT() const { return PlanDT.get(); }
   /// Getter for Post-Dominator Tree
   VPPostDominatorTree *getPDT() { return PlanPDT.get(); }
+  const VPPostDominatorTree *getPDT() const { return PlanPDT.get(); }
 
   /// Compute the Dominator Tree for this Plan.
   void computeDT();
@@ -4233,9 +4582,9 @@ public:
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
 
-  /// Utility method to clone VPlan. VPAnalysesFactory has methods to
+  /// Utility method to clone VPlan. VPAnalysesFactoryBase has methods to
   /// create additional analyses required for cloned VPlan.
-  virtual VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) = 0;
+  virtual VPlanVector *clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) = 0;
 
   void setPreferredPeeling(unsigned VF,
                            std::unique_ptr<VPlanPeelingVariant> Peeling) {
@@ -4305,7 +4654,8 @@ protected:
 
   // Helper method used by cloning functionality to populate data in the new
   // VPlan.
-  void copyData(VPAnalysesFactory &VPAF, UpdateDA UDA, VPlanVector *TargetPlan);
+  void copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
+                VPlanVector *TargetPlan);
 };
 
 /// Class to represent VPlan for scalar-peel loops.
@@ -4343,9 +4693,9 @@ class VPlanMasked : public VPlanVector {
 public:
   VPlanMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
 
-  /// Utility method to clone Non-Masked-vplan. VPAnalysesFactory has methods to
-  /// create additional analyses required for cloned VPlan.
-  VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) override;
+  /// Utility method to clone Non-Masked-vplan. VPAnalysesFactoryBase has
+  /// methods to create additional analyses required for cloned VPlan.
+  VPlanVector *clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) override;
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPlan *V) {
@@ -4358,12 +4708,12 @@ class VPlanNonMasked : public VPlanVector {
 public:
   VPlanNonMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
 
-  /// Utility method to clone masked-vplan. VPAnalysesFactory has methods to
+  /// Utility method to clone masked-vplan. VPAnalysesFactoryBase has methods to
   /// create additional analyses required for cloned VPlan.
-  VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) override;
+  VPlanVector *clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) override;
 
   /// Utility method to allow a Non-masked VPlan to clone a masked VPlan.
-  VPlanMasked *cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA);
+  VPlanMasked *cloneMasked(VPAnalysesFactoryBase &VPAF, UpdateDA UDA);
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:
@@ -4464,14 +4814,14 @@ public:
 /// VPLoopRegion MainLoop --> {"LOOP WAS VECTORIZED", "vector length: 4"}
 /// VPLoopRegion RemainderLoop --> {"remainder loop was not vectorized"}
 class VPlanOptReportBuilder {
-  LoopOptReportBuilder &LORBuilder;
-  // LORB needs the LoopInfo while adding remarks for llvm::Loop. This will be
-  // nullptr for HLLoop.
+  OptReportBuilder &ORBuilder;
+  // ORBuilder needs the LoopInfo while adding remarks for llvm::Loop. This
+  // will be nullptr for HLLoop.
   LoopInfo *LI;
 
 public:
-  VPlanOptReportBuilder(LoopOptReportBuilder &LORB, LoopInfo *LI = nullptr)
-      : LORBuilder(LORB), LI(LI) {}
+  VPlanOptReportBuilder(OptReportBuilder &ORB, LoopInfo *LI = nullptr)
+      : ORBuilder(ORB), LI(LI) {}
 
   /// Add a vectorization related remark for the HIR loop \p Lp. The remark
   /// message is identified by \p MsgID.

@@ -92,7 +92,7 @@ struct NotifyTabHeader {
 
 // Structure to represent anchor table entry.
 struct AnchorTabEntry {
-  std::string AnchorID;
+  char AnchorID[32];
   uint64_t AnchorAddr;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -213,7 +213,7 @@ static void parseSection(const SectionRef *Scn) {
       auto EntryAnchorIDBegin = CurrSubScn + EntryOffset;
       auto EntryAnchorIDEnd = EntryAnchorIDBegin + Header.AnchorIDLen;
       std::string AnchorID(EntryAnchorIDBegin, EntryAnchorIDEnd);
-      Entry.AnchorID = AnchorID;
+      std::strcpy(Entry.AnchorID, AnchorID.c_str());
       // Compute anchor address offset for current entry.
       unsigned EntryAnchorAddrOffset = EntryOffset + Header.AnchorIDLen;
       std::memcpy(&Entry.AnchorAddr, &*CurrSubScn + EntryAnchorAddrOffset,
@@ -294,8 +294,13 @@ static void writeReport(const opt_report_proto::BinOptReport &BOR) {
              << opt_report_proto::BinOptReport::Property_Name(R.prop_id());
           OS << ", Remark ID: " << R.remark_id();
           OS << ", Remark Args: ";
-          for (int J = 0; J < R.args_size(); ++J)
-            OS << R.args(J) << " ";
+          for (auto J = 0; J < R.args_size(); ++J) {
+            const opt_report_proto::BinOptReport::Arg &Arg = R.args(J);
+            if (Arg.has_str_arg())
+              OS << Arg.str_arg().value() << " ";
+            else if (Arg.has_int32_arg())
+              OS << Arg.int32_arg().value() << " ";
+          }
           OS << "\n";
         }
         OS << "==== Loop End ====\n";

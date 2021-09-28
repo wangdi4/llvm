@@ -1,7 +1,7 @@
-; RUN: opt -inline -inline-report=7 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -inline -inline-report=0xe807 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
 
 ; Check that at the default setting, llvm.intel.subscript intrinsics are not
 ; emitted into the inlining report.
@@ -21,7 +21,7 @@ bb3:                                              ; preds = %alloca_0, %bb3
   %"foo_$I.0" = phi i32 [ 1, %alloca_0 ], [ %add7, %bb3 ]
   %add = add nuw nsw i32 %"foo_$I.0", 6
   %int_sext = zext i32 %"foo_$I.0" to i64
-  %"foo_$A[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %"foo_$A", i64 %int_sext)
+  %"foo_$A[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %"foo_$A", i64 %int_sext)
   store i32 %add, i32* %"foo_$A[]", align 1
   %add7 = add nuw nsw i32 %"foo_$I.0", 1
   %rel13 = icmp sgt i32 %add7, %"foo_$N_fetch2"

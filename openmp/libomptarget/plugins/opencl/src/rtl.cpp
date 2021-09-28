@@ -46,11 +46,16 @@
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
 
+#include "llvm/Support/Endian.h"
+
 #if INTEL_CUSTOMIZATION
 // FIXME: when this is upstreamed for OpenCL.
 #define CL_MEM_FLAGS_INTEL                                               0x10001
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
 #endif // INTEL_CUSTOMIZATION
+
+/// Additional TARGET_ALLOC* definition for the plugin
+constexpr int32_t TARGET_ALLOC_SVM = INT32_MAX;
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -104,6 +109,9 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
     DeviceArch_XeHP, {
 #if INTEL_CUSTOMIZATION
       0x0200, // ATS
+      // Putting PVC here for now.
+      // We may decide to add another arch type if needed in the future.
+      0x0b00, // PVC
 #endif // INTEL_CUSTOMIZATION
     }
   }
@@ -193,12 +201,57 @@ getAllocMemProperties(size_t Size, cl_ulong MaxSize) {
       std::move(Properties));
 }
 
+class KernelInfoTy {
+  uint32_t Version = 0;
+  uint64_t Attributes1 = 0;
+
+  struct KernelArgInfoTy {
+    bool IsLiteral = false;
+    uint32_t Size = 0;
+    KernelArgInfoTy(bool IsLiteral, uint32_t Size)
+      : IsLiteral(IsLiteral), Size(Size) {}
+  };
+  std::vector<KernelArgInfoTy> ArgsInfo;
+
+  void checkVersion(uint32_t MinVer) const {
+    assert(Version >= MinVer &&
+           "API is not supported for this version of KernelInfoTy.");
+    (void)Version;
+  }
+
+public:
+  KernelInfoTy(uint32_t Version) : Version(Version) {}
+  void addArgInfo(bool IsLiteral, uint32_t Size) {
+    checkVersion(1);
+    ArgsInfo.emplace_back(IsLiteral, Size);
+  }
+  size_t getArgsNum() const {
+    checkVersion(1);
+    return ArgsInfo.size();
+  }
+  bool isArgLiteral(uint32_t Idx) const {
+    checkVersion(1);
+    return ArgsInfo[Idx].IsLiteral;
+  }
+  uint32_t getArgSize(uint32_t Idx) const {
+    checkVersion(1);
+    return ArgsInfo[Idx].Size;
+  }
+  void setAttributes1(uint64_t Val) {
+    Attributes1 = Val;
+  }
+  bool getHasTeamsReduction() const {
+    return (Attributes1 & 1);
+  }
+};
+
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
   __tgt_target_table Table;
   std::vector<__tgt_offload_entry> Entries;
   std::vector<cl_kernel> Kernels;
   cl_program Program;
+  std::unordered_map<cl_kernel, KernelInfoTy> KernelInfo;
 };
 
 /// Loop descriptor
@@ -369,6 +422,7 @@ struct ExtensionsTy {
 #if INTEL_CUSTOMIZATION
   ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
   ExtensionStatusTy SuggestedGroupSize = ExtensionStatusUnknown;
+  ExtensionStatusTy GitsIndirectAllocationOffsets = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
 
   // Libdevice extensions that may be supported by device runtime.
@@ -439,12 +493,6 @@ enum DataTransferMethodTy {
   DATA_TRANSFER_METHOD_LAST,
 };
 
-/// Buffer allocation information.
-struct BufferInfoTy {
-  void *Base;   // Base address
-  int64_t Size; // Allocation size
-};
-
 /// Program data to be initialized.
 /// TODO: include other runtime parameters if necessary.
 struct ProgramData {
@@ -493,6 +541,8 @@ struct KernelPropertiesTy {
   size_t Width = 0;
   size_t SIMDWidth = 0;
   size_t MaxThreadGroupSize = 0;
+  /// Kernel-specific implicit arguments
+  std::set<void *> ImplicitArgs;
 };
 
 /// Specialization constants used for an OpenCL program compilation.
@@ -530,31 +580,123 @@ public:
   void setProgramConstants(int32_t DeviceId, cl_program Program) const;
 };
 
-/// Memory ranges for tracking allocated memory region
-class MemRangeTy {
-  std::multimap<void *, size_t> Ranges;
+struct MemAllocInfoTy {
+  /// Base address allocated from compute runtime
+  void *Base = nullptr;
+  /// Allocation size known to users/libomptarget
+  size_t Size = 0;
+  /// TARGET_ALLOC kind
+  int32_t Kind = TARGET_ALLOC_DEFAULT;
+  /// Allocation from pool?
+  bool InPool = false;
+  /// Is implicit argument
+  bool ImplicitArg = false;
+
+  MemAllocInfoTy() = default;
+
+  MemAllocInfoTy(void *_Base, size_t _Size, int32_t _Kind, bool _InPool,
+                 bool _ImplicitArg) :
+      Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
+      ImplicitArg(_ImplicitArg) {}
+};
+
+/// Allocation information maintained in RTL
+class MemAllocInfoMapTy {
+  /// Map from allocated pointer to allocation information
+  std::map<void *, MemAllocInfoTy> Map;
+  /// Map from target alloc kind to number of implicit arguments
+  std::map<int32_t, uint32_t> NumImplicitArgs;
+  /// Mutex for guarding the internal data
   std::mutex Mtx;
 
 public:
-  void add(void *Ptr, size_t Size) {
+  void add(void *Ptr, void *_Base, size_t _Size, int32_t _Kind,
+           bool _InPool = false, bool _ImplicitArg = false) {
     std::lock_guard<std::mutex> Lock(Mtx);
-    Ranges.insert({Ptr, Size});
+    auto Inserted = Map.emplace(
+        Ptr, MemAllocInfoTy{_Base, _Size, _Kind, _InPool, _ImplicitArg});
+#if INTEL_INTERNAL_BUILD
+    // Check if we keep valid disjoint memory ranges.
+    bool Valid = Inserted.second;
+    if (Valid) {
+      if (Inserted.first != Map.begin()) {
+        auto I = std::prev(Inserted.first, 1);
+        Valid = Valid && (uintptr_t)I->first + I->second.Size <= (uintptr_t)Ptr;
+      }
+      if (Valid) {
+        auto I = std::next(Inserted.first, 1);
+        if (I != Map.end())
+          Valid = Valid && (uintptr_t)Ptr + _Size <= (uintptr_t)I->first;
+      }
+    }
+    assert(Valid && "Invalid overlapping memory allocation");
+#else // INTEL_INTERNAL_BUILD
+    (void)Inserted;
+#endif // INTEL_INTERNAL_BUILD
+    if (_ImplicitArg)
+      NumImplicitArgs[_Kind]++;
   }
 
-  void remove(void *Ptr) {
+  bool remove(void *Ptr, MemAllocInfoTy *Removed = nullptr) {
     std::lock_guard<std::mutex> Lock(Mtx);
-    Ranges.erase(Ptr);
+    auto AllocInfo = Map.find(Ptr);
+    if (AllocInfo == Map.end())
+      return false;
+    if (AllocInfo->second.ImplicitArg)
+      NumImplicitArgs[AllocInfo->second.Kind]--;
+    if (Removed)
+      *Removed = AllocInfo->second;
+    Map.erase(AllocInfo);
+    return true;
+  }
+
+  const MemAllocInfoTy *find(void *Ptr) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    auto AllocInfo = Map.find(Ptr);
+    if (AllocInfo == Map.end())
+      return nullptr;
+    else
+      return &AllocInfo->second;
   }
 
   bool contains(const void *Ptr, size_t Size) {
     std::lock_guard<std::mutex> Lock(Mtx);
-    auto I = Ranges.insert({const_cast<void *>(Ptr), 0});
-    auto J = I--;
+    if (Map.size() == 0)
+      return false;
+    auto I = Map.upper_bound(const_cast<void *>(Ptr));
+    if (I == Map.begin())
+      return false;
+    --I;
     bool Ret = (uintptr_t)I->first <= (uintptr_t)Ptr &&
         (uintptr_t)Ptr + (uintptr_t)Size <=
-        (uintptr_t)I->first + (uintptr_t)I->second;
-    Ranges.erase(J);
+        (uintptr_t)I->first + (uintptr_t)I->second.Size;
     return Ret;
+  }
+
+  /// Add a list of implicit arguments to the output vector.
+  void getImplicitArgs(
+      std::vector<void *> &SVMArgs, std::vector<void *> &USMArgs) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    for (auto &AllocInfo : Map) {
+      if (AllocInfo.second.ImplicitArg) {
+        if (AllocInfo.second.Kind == TARGET_ALLOC_SVM)
+          SVMArgs.push_back(AllocInfo.first);
+        else
+          USMArgs.push_back(AllocInfo.first);
+      }
+    }
+  }
+
+  bool hasImplicitUSMArg(int32_t Kind = TARGET_ALLOC_DEFAULT) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    if (Kind == TARGET_ALLOC_DEFAULT) {
+      uint32_t Num = NumImplicitArgs[TARGET_ALLOC_HOST] +
+          NumImplicitArgs[TARGET_ALLOC_DEVICE] +
+          NumImplicitArgs[TARGET_ALLOC_SHARED];
+      return Num > 0;
+    } else {
+      return NumImplicitArgs[Kind] > 0;
+    }
   }
 };
 
@@ -574,6 +716,14 @@ class RTLDeviceInfoTy {
   /// Looks up an external global variable with the given \p Name
   /// and \p Size in the device environment for device \p DeviceId.
   void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
+
+  /// Looks up an external global variable with the given \p Name
+  /// in the device environment for device \p DeviceId.
+  /// \p Size must not be null. If (*Size) is not zero, then
+  /// the lookup verifies that the found variable's size matches
+  /// (*Size), otherwise, the found variable's size is returned
+  /// via \p Size.
+  void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t *Size);
 public:
   cl_uint NumDevices;
 
@@ -598,13 +748,11 @@ public:
   std::vector<std::list<FuncOrGblEntryTy>> FuncGblEntries;
   std::vector<std::map<cl_kernel, KernelPropertiesTy>>
       KernelProperties;
-  std::vector<std::map<void *, BufferInfoTy>> Buffers;
   std::vector<std::map<cl_kernel, std::set<void *>>> ImplicitArgs;
   std::vector<std::map<int32_t, ProfileDataTy>> Profiles;
   std::vector<std::vector<char>> Names;
   std::vector<bool> Initialized;
   std::vector<cl_ulong> SLMSize;
-  std::vector<std::map<void *, int64_t>> DeviceAccessibleData;
   std::mutex *Mutexes;
   std::mutex *ProfileLocks;
   std::vector<std::vector<std::vector<DeviceOffloadEntryTy>>> OffloadTables;
@@ -612,9 +760,8 @@ public:
   // Memory owned by the plugin
   std::vector<std::vector<void *>> OwnedMemory;
 
-  /// Allocated USM host/shared memory range
-  /// We need to track the valid address ranges known to libomptarget and users.
-  std::map<cl_device_id, std::unique_ptr<MemRangeTy>> MemHostAccessible;
+  /// Internal allocation information
+  std::vector<std::unique_ptr<MemAllocInfoMapTy>> MemAllocInfo;
 
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -650,6 +797,9 @@ public:
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
   size_t SubscriptionRate = 1;
+  // For kernels that compute cross-WG reductions the number of computed WGs
+  // is reduced by this factor.
+  size_t ReductionSubscriptionRate = 1;
 #if INTEL_INTERNAL_BUILD
   size_t ForcedLocalSizes[3] = {0, 0, 0};
   size_t ForcedGlobalSizes[3] = {0, 0, 0};
@@ -729,6 +879,7 @@ public:
       // It only matters for the default ND-range parallelization,
       // i.e. when the global size is unknown on the host.
       SubscriptionRate = 4;
+      ReductionSubscriptionRate = 16;
     }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -738,6 +889,16 @@ public:
       // Set some reasonable limits.
       if (value > 0 && value <= 0xFFFF)
         SubscriptionRate = value;
+    }
+
+    if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE"))) {
+      int32_t value = std::stoi(env);
+
+      // Set some reasonable limits.
+      // '0' is a special value meaning to use regular default ND-range
+      // for kernels with reductions.
+      if (value >= 0 && value <= 0xFFFF)
+        ReductionSubscriptionRate = value;
     }
 
     // Read LIBOMPTARGET_PROFILE
@@ -952,6 +1113,9 @@ public:
           ExtensionStatusEnabled;
     case clGetKernelSuggestedLocalWorkSizeINTELId:
       return Extensions[DeviceId].SuggestedGroupSize == ExtensionStatusEnabled;
+    case clGitsIndirectAllocationOffsetsId:
+      return Extensions[DeviceId].GitsIndirectAllocationOffsets ==
+          ExtensionStatusEnabled;
 #endif // INTEL_CUSTOMIZATION
     default:
       return true;
@@ -990,12 +1154,20 @@ public:
   cl_unified_shared_memory_type_intel getMemAllocType(
       int32_t DeviceId, const void *Ptr);
 
-  /// Add host-accessible memory range
-  void addHostAccessible(int32_t DeviceId, void *Ptr, size_t Size,
-                         int32_t Kind = TARGET_ALLOC_DEFAULT);
+  /// Read KernelInfo auxiliary information for the specified kernel.
+  /// The information is stored in FuncGblEntries array.
+  /// The function is called during the binary loading.
+  bool readKernelInfo(int32_t DeviceId, const __tgt_offload_entry &KernelEntry);
 
-  /// Remove host-accessible memory range
-  void removeHostAccessible(int32_t DeviceId, void *Ptr);
+  /// For the given kernel return its KernelInfo auxiliary information
+  /// that was previously read by readKernelInfo().
+  const KernelInfoTy *
+      getKernelInfo(int32_t DeviceId, const cl_kernel &Kernel) const;
+#if INTEL_CUSTOMIZATION
+
+  /// Check if the device is discrete.
+  bool isDiscreteDevice(int32_t DeviceId) const;
+#endif // INTEL_CUSTOMIZATION
 };
 
 #ifdef _WIN32
@@ -1348,11 +1520,18 @@ void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
 }
 
 void *RTLDeviceInfoTy::getVarDeviceAddr(
-    int32_t DeviceId, const char *Name, size_t Size) {
+    int32_t DeviceId, const char *Name, size_t *SizePtr) {
   size_t DeviceSize = 0;
   void *TgtAddr = nullptr;
-  DP("Looking up device global variable '%s' of size %zu bytes on device %d.\n",
-     Name, Size, DeviceId);
+  size_t Size = *SizePtr;
+  bool SizeIsKnown = (Size != 0);
+  if (SizeIsKnown)
+    DP("Looking up device global variable '%s' of size %zu bytes "
+       "on device %d.\n", Name, Size, DeviceId);
+  else
+    DP("Looking up device global variable '%s' of unknown size "
+       "on device %d.\n", Name, DeviceId);
+
 #if INTEL_CUSTOMIZATION
   if (!isExtensionFunctionEnabled(DeviceId,
                                   clGetDeviceGlobalVariablePointerINTELId))
@@ -1370,7 +1549,7 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
     DPI("Warning: clGetDeviceGlobalVariablePointerINTEL API returned "
         "nullptr for global variable '%s'.\n", Name);
     DeviceSize = 0;
-  } else if (Size != DeviceSize) {
+  } else if (Size != DeviceSize && SizeIsKnown) {
     DPI("Warning: size mismatch for host (%zu) and device (%zu) versions "
         "of global variable: %s\n.  Direct references "
         "to this variable will not work properly.\n",
@@ -1386,8 +1565,14 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
     return nullptr;
   }
 
-  DP("Global variable lookup succeeded.\n");
+  DP("Global variable lookup succeeded (size: %zu bytes).\n", DeviceSize);
+  *SizePtr = DeviceSize;
   return TgtAddr;
+}
+
+void *RTLDeviceInfoTy::getVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  return getVarDeviceAddr(DeviceId, Name, &Size);
 }
 
 bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
@@ -1575,36 +1760,104 @@ cl_unified_shared_memory_type_intel RTLDeviceInfoTy::getMemAllocType(
   return MemType;
 }
 
-void RTLDeviceInfoTy::addHostAccessible(
-    int32_t DeviceId, void *Ptr, size_t Size, int32_t Kind) {
-  if (Kind == TARGET_ALLOC_DEFAULT) {
-    auto MemType = getMemAllocType(DeviceId, Ptr);
-    if (MemType == CL_MEM_TYPE_HOST_INTEL)
-      Kind = TARGET_ALLOC_HOST;
-    else if (MemType == CL_MEM_TYPE_SHARED_INTEL)
-      Kind = TARGET_ALLOC_SHARED;
+bool RTLDeviceInfoTy::readKernelInfo(
+    int32_t DeviceId, const __tgt_offload_entry &KernelEntry) {
+  const cl_kernel *KernelPtr =
+      reinterpret_cast<const cl_kernel *>(KernelEntry.addr);
+  const char *Name = KernelEntry.name;
+  std::string InfoVarName(Name);
+  InfoVarName += "_kernel_info";
+  size_t InfoVarSize = 0;
+  void *InfoVarAddr =
+      getVarDeviceAddr(DeviceId, InfoVarName.c_str(), &InfoVarSize);
+  // If there is no kernel info variable, then the kernel might have been
+  // produced by older toolchain - this is acceptable, so return success.
+  if (!InfoVarAddr)
+    return true;
+  if (InfoVarSize == 0) {
+    DP("Error: kernel info variable cannot have 0 size.\n");
+    return false;
   }
-  if (Kind != TARGET_ALLOC_HOST && Kind != TARGET_ALLOC_SHARED)
-    return;
+  std::vector<char> InfoBuffer;
+  InfoBuffer.resize(InfoVarSize);
+  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL, Queues[DeviceId],
+                  /*blocking=*/CL_TRUE, InfoBuffer.data(),
+                  InfoVarAddr, InfoVarSize,
+                  /*num_events_in_wait_list=*/0,
+                  /*event_wait_list=*/nullptr,
+                  /*event=*/nullptr);
+  // TODO: add support for big-endian devices, if needed.
+  //       Currently supported devices are little-endian.
+  char *ReadPtr = InfoBuffer.data();
+  uint32_t Version = llvm::support::endian::read32le(ReadPtr);
+  if (Version == 0) {
+    DP("Error: version 0 of kernel info structure is illegal.\n");
+    return false;
+  }
+  if (Version > 2) {
+    DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
+       Version);
+    DP("Error: please use newer OpenMP offload runtime.\n");
+    return false;
+  }
+  ReadPtr += 4;
+  uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
+  size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
+  // Support Attributes1 since version 2.
+  if (Version > 1)
+    ExpectedInfoVarSize += 8;
+  if (InfoVarSize != ExpectedInfoVarSize) {
+    DP("Error: expected kernel info variable size %zu - got %zu\n",
+       ExpectedInfoVarSize, InfoVarSize);
+    return false;
+  }
+  KernelInfoTy Info(Version);
+  ReadPtr += 4;
+  for (uint64_t I = 0; I < KernelArgsNum; ++I) {
+    bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
+    ReadPtr += 4;
+    uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
+    ReadPtr += 4;
+    Info.addArgInfo(ArgIsLiteral, ArgSize);
+  }
 
-  auto Device = Devices[DeviceId];
-  if (Kind == TARGET_ALLOC_HOST && Flags.UseSingleContext)
-    Device = nullptr;
+  if (Version > 1) {
+    // Read 8-byte Attributes1 since version 2.
+    uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
+    Info.setAttributes1(Attributes1);
+  }
 
-  MemHostAccessible.at(Device)->add(Ptr, Size);
+  FuncGblEntries[DeviceId].back().KernelInfo.emplace(
+      std::make_pair(*KernelPtr, std::move(Info)));
+  return true;
 }
 
-void RTLDeviceInfoTy::removeHostAccessible(int32_t DeviceId, void *Ptr) {
-  auto MemType = getMemAllocType(DeviceId, Ptr);
-  if (MemType != CL_MEM_TYPE_HOST_INTEL && MemType != CL_MEM_TYPE_SHARED_INTEL)
-    return;
+const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
+    int32_t DeviceId, const cl_kernel &Kernel) const {
+  for (auto &Entry : FuncGblEntries[DeviceId]) {
+    auto &KernelInfo = Entry.KernelInfo;
+    auto It = KernelInfo.find(Kernel);
+    if (It != KernelInfo.end())
+      return &(It->second);
+  }
 
-  auto Device = Devices[DeviceId];
-  if (MemType == CL_MEM_TYPE_HOST_INTEL && Flags.UseSingleContext)
-    Device = nullptr;
-
-  MemHostAccessible.at(Device)->remove(Ptr);
+  return nullptr;
 }
+#if INTEL_CUSTOMIZATION
+bool RTLDeviceInfoTy::isDiscreteDevice(int32_t DeviceId) const {
+  switch (DeviceArchs[DeviceId]) {
+  case DeviceArch_XeHP:
+    return true;
+
+  case DeviceArch_Gen9:
+  // FIXME: if needed, we should handle discrete cards from XeLP family
+  //        properly. XeLP is currently a mix.
+  case DeviceArch_XeLP:
+  default:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 void SpecConstantsTy::setProgramConstants(
     int32_t DeviceId, cl_program Program) const {
@@ -1833,7 +2086,6 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->QueuesInOrder.resize(DeviceInfo->NumDevices, nullptr);
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
-  DeviceInfo->Buffers.resize(DeviceInfo->NumDevices);
   DeviceInfo->ClMemBuffers.resize(DeviceInfo->NumDevices);
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
@@ -1841,18 +2093,14 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->DeviceArchs.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
   DeviceInfo->SLMSize.resize(DeviceInfo->NumDevices);
-  if (DeviceInfo->Flags.UseSVM && DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU)
-    DeviceInfo->DeviceAccessibleData.resize(DeviceInfo->NumDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
 
-  // null-key for host memory type
-  DeviceInfo->MemHostAccessible.emplace(nullptr,
-                                        std::make_unique<MemRangeTy>());
-  for (auto D : DeviceInfo->Devices)
-    DeviceInfo->MemHostAccessible.emplace(D, std::make_unique<MemRangeTy>());
+  // Host allocation information needs one additional slot
+  for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
+    DeviceInfo->MemAllocInfo.emplace_back(new MemAllocInfoMapTy());
 
   // get device specific information
   for (unsigned i = 0; i < DeviceInfo->NumDevices; i++) {
@@ -2030,7 +2278,11 @@ static void debugPrintBuildLog(cl_program program, cl_device_id did) {
   CALL_CL_RET_VOID(clGetProgramBuildInfo, program, did, CL_PROGRAM_BUILD_LOG,
                    len, buffer.data(), nullptr);
   const char *buildLog = buffer.data() ? buffer.data() : "empty";
-  DP("%s\n", buildLog);
+  DP("Target build log:\n");
+  std::stringstream Str(buildLog);
+  std::string Line;
+  while(std::getline(Str, Line, '\n'))
+    DP("  %s\n", Line.c_str());
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -2477,6 +2729,11 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     if (!kernels[i])
       continue;
 
+    if (!DeviceInfo->readKernelInfo(device_id, entries[i])) {
+      DP("Error: failed to read kernel info for kernel %s\n", name);
+      return nullptr;
+    }
+
     // Retrieve kernel group size info.
     auto &KernelProperty = DeviceInfo->KernelProperties[device_id][kernels[i]];
     auto Device = DeviceInfo->Devices[device_id];
@@ -2487,6 +2744,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                      CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, sizeof(size_t),
                      &KernelProperty.SIMDWidth, sizeof(size_t),
                      &KernelProperty.SIMDWidth, nullptr);
+    assert(KernelProperty.SIMDWidth <= KernelProperty.Width &&
+           "Invalid preferred group size multiple.");
+
     CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i], Device,
                      CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t),
                      &KernelProperty.MaxThreadGroupSize, nullptr);
@@ -2607,20 +2867,15 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
 // passed as arguments, but which are pointing to mapped objects
 // that may potentially be accessed in the kernel code (e.g. PTR_AND_OBJ
 // objects).
-EXTERN
-int32_t __tgt_rtl_manifest_data_for_region(
-    int32_t device_id,
-    void *tgt_entry_ptr,
-    void **tgt_ptrs,
-    size_t num_ptrs) {
-
-  cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
-  DP("Stashing %" PRIu64 " implicit arguments for kernel " DPxMOD "\n",
-     static_cast<uint64_t>(num_ptrs), DPxPTR(kernel));
-  DeviceInfo->Mutexes[device_id].lock();
-  DeviceInfo->ImplicitArgs[device_id][*kernel] =
-      std::set<void *>(tgt_ptrs, tgt_ptrs + num_ptrs);
-  DeviceInfo->Mutexes[device_id].unlock();
+EXTERN int32_t __tgt_rtl_manifest_data_for_region(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtPtrs, size_t NumPtrs) {
+  cl_kernel Kernel = *static_cast<cl_kernel *>(TgtEntryPtr);
+  DP("Stashing %zu implicit arguments for kernel " DPxMOD "\n", NumPtrs,
+     DPxPTR(Kernel));
+  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  std::lock_guard<std::mutex>(DeviceInfo->Mutexes[DeviceId]);
+  KernelProperty.ImplicitArgs.clear();
+  KernelProperty.ImplicitArgs.insert(TgtPtrs, TgtPtrs + NumPtrs);
 
   return OFFLOAD_SUCCESS;
 }
@@ -2720,13 +2975,6 @@ EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
   return (void *)context;
 }
 
-// Allocate a managed memory object.
-EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
-  int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
-                                                    : TARGET_ALLOC_SHARED;
-  return __tgt_rtl_data_alloc_explicit(device_id, size, kind);
-}
-
 // Check if the pointer belongs to a device-accessible pointer ranges
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
     int32_t DeviceId, void *Ptr) {
@@ -2734,17 +2982,11 @@ EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
   // For GPU device, use the USM API to allow use of external memory allocation.
   // For CPU device, use the existing internal data when SVM is enabled since
   // USM API does not return consistent result.
-  int32_t ret = false;
+  int32_t Ret = 0;
   if (DeviceInfo->Flags.UseSVM &&
       DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
-    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[DeviceId]);
-    for (auto &range : DeviceInfo->DeviceAccessibleData[DeviceId]) {
-      intptr_t base = (intptr_t)range.first;
-      if (base <= (intptr_t)Ptr && (intptr_t)Ptr < base + range.second) {
-        ret = true;
-        break;
-      }
-    }
+    if (DeviceInfo->MemAllocInfo[DeviceId]->contains(Ptr, 1))
+      Ret = 1;
   } else {
     cl_unified_shared_memory_type_intel memType = 0;
     CALL_CL_EXT_RET(DeviceId, false, clGetMemAllocInfoINTEL,
@@ -2755,41 +2997,43 @@ EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
     case CL_MEM_TYPE_HOST_INTEL:
     case CL_MEM_TYPE_DEVICE_INTEL:
     case CL_MEM_TYPE_SHARED_INTEL:    // Includes SVM on GPU
-      ret = true;
+      Ret = 1;
       break;
     case CL_MEM_TYPE_UNKNOWN_INTEL:   // Normal host memory
     default:
-      ret = false;
+      Ret = 0;
     }
   }
   DP("Ptr " DPxMOD " is %sa device-accessible pointer.\n", DPxPTR(Ptr),
-     ret ? "" : "not ");
-  return ret;
+     Ret ? "" : "not ");
+  return Ret;
 }
 
-static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
-    void *hostBase, int32_t ImplicitArg) {
-  intptr_t offset = (intptr_t)hstPtr - (intptr_t)hostBase;
+static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
+    void *HstBase, bool ImplicitArg, cl_uint Align = 0) {
+  intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   // If the offset is negative, then for our practical purposes it can be
   // considered 0 because the base address of an array will be contained
   // within or after the allocated memory.
-  intptr_t meaningfulOffset = offset >= 0 ? offset : 0;
+  intptr_t MeaningfulOffset = Offset >= 0 ? Offset : 0;
   // If the offset is negative and the size we map is not large enough to reach
   // the base, then we must allocate extra memory up to the base (+1 to include
   // at least the first byte the base is pointing to).
-  int64_t meaningfulSize =
-      offset < 0 && abs(offset) >= Size ? abs(offset) + 1 : Size;
+  int64_t MeaningfulSize =
+      Offset < 0 && abs(Offset) >= Size ? abs(Offset) + 1 : Size;
 
-  void *base = nullptr;
-  auto context = DeviceInfo->getContext(DeviceId);
-  size_t allocSize = meaningfulSize + meaningfulOffset;
+  void *Base = nullptr;
+  auto Context = DeviceInfo->getContext(DeviceId);
+  size_t AllocSize = MeaningfulSize + MeaningfulOffset;
   auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
+  int32_t AllocKind = TARGET_ALLOC_DEVICE;
 
-  ProfileIntervalTy dataAllocTimer("DataAlloc", DeviceId);
-  dataAllocTimer.start();
+  ProfileIntervalTy DataAllocTimer("DataAlloc", DeviceId);
+  DataAllocTimer.start();
 
   if (DeviceInfo->Flags.UseSVM) {
-    CALL_CL_RV(base, clSVMAlloc, context, CL_MEM_READ_WRITE, allocSize, 0);
+    AllocKind = TARGET_ALLOC_SVM;
+    CALL_CL_RV(Base, clSVMAlloc, Context, CL_MEM_READ_WRITE, AllocSize, Align);
   } else {
     if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
                                                 clDeviceMemAllocINTELId)) {
@@ -2798,131 +3042,182 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
                                               clDeviceMemAllocINTELId));
       return nullptr;
     }
-    cl_int rc;
-    CALL_CL_EXT_RVRC(DeviceId, base, clDeviceMemAllocINTEL, rc, context,
+    cl_int RC;
+    CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
                      DeviceInfo->Devices[DeviceId],
-                     getAllocMemProperties(allocSize, MaxSize)->data(),
-                     allocSize, 0);
-    if (rc != CL_SUCCESS)
+                     getAllocMemProperties(AllocSize, MaxSize)->data(),
+                     AllocSize, Align);
+    if (RC != CL_SUCCESS)
       return nullptr;
   }
-  if (!base) {
+  if (!Base) {
     DP("Error: Failed to allocate base buffer\n");
     return nullptr;
   }
-  DP("Created base buffer " DPxMOD " during data alloc\n", DPxPTR(base));
+  DP("Created base buffer " DPxMOD " during data alloc\n", DPxPTR(Base));
 
-  void *ret = (void *)((intptr_t)base + meaningfulOffset);
+  void *Ret = (void *)((intptr_t)Base + MeaningfulOffset);
 
-  // Store allocation information
-  DeviceInfo->Buffers[DeviceId][ret] = {base, meaningfulSize};
-
-  // Store list of pointers to be passed to kernel implicitly
   if (ImplicitArg) {
     DP("Stashing an implicit argument " DPxMOD " for next kernel\n",
-       DPxPTR(ret));
-    DeviceInfo->Mutexes[DeviceId].lock();
-    if (DeviceInfo->Flags.UseSVM &&
-        DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU)
-      DeviceInfo->DeviceAccessibleData[DeviceId].emplace(
-          std::make_pair(ret, meaningfulSize));
-    // key "0" for kernel-independent implicit arguments
-    DeviceInfo->ImplicitArgs[DeviceId][0].insert(ret);
-    DeviceInfo->Mutexes[DeviceId].unlock();
+       DPxPTR(Ret));
   }
+  DeviceInfo->MemAllocInfo[DeviceId]->add(
+      Ret, Base, Size, AllocKind, false, ImplicitArg);
 
-  dataAllocTimer.stop();
+  DataAllocTimer.stop();
 
-  return ret;
+  return Ret;
 }
 
-EXTERN void *__tgt_rtl_data_alloc_explicit(
-    int32_t device_id, int64_t size, int32_t kind) {
-  auto device = DeviceInfo->Devices[device_id];
-  auto context = DeviceInfo->getContext(device_id);
-  cl_int rc;
-  void *mem = nullptr;
-  auto &mutex = DeviceInfo->Mutexes[device_id];
-  auto MaxSize = DeviceInfo->MaxMemAllocSize[device_id];
-  ProfileIntervalTy dataAllocTimer("DataAlloc", device_id);
-  dataAllocTimer.start();
+static void *dataAllocExplicit(
+    int32_t DeviceId, int64_t Size, int32_t Kind, cl_uint Align = 0) {
+  auto Device = DeviceInfo->Devices[DeviceId];
+  auto Context = DeviceInfo->getContext(DeviceId);
+  cl_int RC;
+  void *Mem = nullptr;
+  auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
+  ProfileIntervalTy DataAllocTimer("DataAlloc", DeviceId);
+  DataAllocTimer.start();
+  auto ID = DeviceId;
 
-  switch (kind) {
+  switch (Kind) {
   case TARGET_ALLOC_DEVICE:
-    mem = dataAlloc(device_id, size, nullptr, nullptr, 0);
+    Mem = dataAlloc(DeviceId, Size, nullptr, nullptr, true /* ImplicitArg */,
+                    Align);
     break;
   case TARGET_ALLOC_HOST:
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
+    if (DeviceInfo->Flags.UseSingleContext)
+      ID = DeviceInfo->NumDevices;
+    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
                                                 clHostMemAllocINTELId)) {
       DP("Host memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clHostMemAllocINTEL, rc, context,
-                     getAllocMemProperties(size, MaxSize)->data(), size, 0);
-    if (mem) {
-      if (DeviceInfo->Flags.UseSVM &&
-          DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
-        std::unique_lock<std::mutex> dataLock(mutex);
-        DeviceInfo->DeviceAccessibleData[device_id].emplace(
-            std::make_pair(mem, size));
-      }
-      DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
+    CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
+                     getAllocMemProperties(Size, MaxSize)->data(), Size, Align);
+    if (Mem) {
+      DeviceInfo->MemAllocInfo[ID]->add(
+          Mem, Mem, Size, Kind, false /* InPool */, true /* IsImplicitArg */);
+      DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(Mem));
     }
     break;
   case TARGET_ALLOC_SHARED:
     if (!DeviceInfo->isExtensionFunctionEnabled(
-          device_id, clSharedMemAllocINTELId)) {
+          DeviceId, clSharedMemAllocINTELId)) {
       DP("Shared memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAllocINTEL, rc, context, device,
-                     getAllocMemProperties(size, MaxSize)->data(), size, 0);
-    if (mem) {
-      if (DeviceInfo->Flags.UseSVM &&
-          DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
-        std::unique_lock<std::mutex> dataLock(mutex);
-        DeviceInfo->DeviceAccessibleData[device_id].emplace(
-            std::make_pair(mem, size));
-      }
-      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
+    CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
+                     getAllocMemProperties(Size, MaxSize)->data(), Size, Align);
+    if (Mem) {
+      DeviceInfo->MemAllocInfo[ID]->add(
+          Mem, Mem, Size, Kind, false /* InPool */, true /* IsImplicitArg */);
+      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(Mem));
     }
     break;
   default:
     FATAL_ERROR("Invalid target data allocation kind");
   }
 
-  // Add it to implicit arguments
-  mutex.lock();
-  DeviceInfo->ImplicitArgs[device_id][0].insert(mem);
-  mutex.unlock();
+  DataAllocTimer.stop();
 
-  DeviceInfo->addHostAccessible(device_id, mem, size, kind);
-
-  dataAllocTimer.stop();
-
-  return mem;
+  return Mem;
 }
 
 EXTERN
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr,
+void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
                            int32_t Kind) {
-  return dataAlloc(device_id, size, hst_ptr, hst_ptr, 0);
+  bool ImplicitArg = false;
+
+  if (!HstPtr) {
+    ImplicitArg = true;
+    // User allocation
+    if (Kind != TARGET_ALLOC_DEFAULT) {
+      // Explicit allocation
+      return dataAllocExplicit(DeviceId, Size, Kind);
+    }
+    if (DeviceInfo->Flags.UseBuffer) {
+      // Experimental CL buffer allocation
+      return DeviceInfo->allocDataClMem(DeviceId, Size);
+    }
+  }
+  return dataAlloc(DeviceId, Size, HstPtr, HstPtr, ImplicitArg);
 }
 
 // Allocate a base buffer with the given information.
 EXTERN
-void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
-                                void *hst_base) {
-  return dataAlloc(device_id, size, hst_ptr, hst_base, 0);
+void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
+                                void *HstBase) {
+  return dataAlloc(DeviceId, Size, HstPtr, HstBase, false);
 }
 
-// Allocation was initiated by user (omp_target_alloc)
-EXTERN void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
-                                       void *hst_ptr) {
-  if (DeviceInfo->Flags.UseBuffer)
-    return DeviceInfo->allocDataClMem(device_id, size);
+// Allocate a managed memory object.
+EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
+  int32_t Kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
+                                                    : TARGET_ALLOC_SHARED;
+  return dataAllocExplicit(DeviceId, Size, Kind);
+}
 
-  return dataAlloc(device_id, size, hst_ptr, hst_ptr, 1);
+EXTERN void *__tgt_rtl_data_realloc(
+    int32_t DeviceId, void *Ptr, size_t Size, int32_t Kind) {
+  const MemAllocInfoTy *Info = nullptr;
+
+  if (Ptr) {
+    Info = DeviceInfo->MemAllocInfo[DeviceId]->find(Ptr);
+    if (!Info && DeviceInfo->Flags.UseSingleContext)
+      Info = DeviceInfo->MemAllocInfo[DeviceInfo->NumDevices]->find(Ptr);
+    if (!Info) {
+      DP("Error: Cannot find allocation information for pointer " DPxMOD "\n",
+         DPxPTR(Ptr));
+      return nullptr;
+    }
+    if (Size <= Info->Size && Kind == Info->Kind) {
+      DP("Returning the same pointer " DPxMOD " as reallocation is unneeded\n",
+         DPxPTR(Ptr));
+      return Ptr;
+    }
+  }
+
+  int32_t AllocKind =
+      (Kind == TARGET_ALLOC_DEFAULT) ? TARGET_ALLOC_DEVICE : Kind;
+
+  void *Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
+
+  if (Mem && Info) {
+    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE ||
+        Info->Kind == TARGET_ALLOC_SVM) {
+      // TARGET_ALLOC_SVM is for "Device" memory type when SVM is enabled
+      auto Queue = DeviceInfo->Queues[DeviceId];
+      if (DeviceInfo->Flags.UseSVM) {
+        CALL_CL_RET_NULL(clEnqueueSVMMemcpy, Queue, CL_TRUE, Mem, Ptr,
+                         Info->Size, 0, nullptr, nullptr);
+      } else {
+        CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_TRUE,
+                             Mem, Ptr, Info->Size, 0, nullptr, nullptr);
+      }
+    } else {
+      std::copy_n((char *)Ptr, Info->Size, (char *)Mem);
+    }
+    auto Rc = __tgt_rtl_data_delete(DeviceId, Ptr);
+    if (Rc != OFFLOAD_SUCCESS)
+      return nullptr;
+  }
+
+  return Mem;
+}
+
+EXTERN void *__tgt_rtl_data_aligned_alloc(
+    int32_t DeviceId, size_t Align, size_t Size, int32_t Kind) {
+  if (Align != 0 && (Align & (Align - 1)) != 0) {
+    DP("Error: Alignment %zu is not power of two.\n", Align);
+    return nullptr;
+  }
+
+  int32_t AllocKind =
+      (Kind == TARGET_ALLOC_DEFAULT) ? TARGET_ALLOC_DEVICE : Kind;
+
+  return dataAllocExplicit(DeviceId, Size, AllocKind, Align);
 }
 
 EXTERN
@@ -3233,44 +3528,37 @@ EXTERN int32_t __tgt_rtl_data_exchange(
 }
 
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
-  void *base = TgtPtr;
-
-  // Internal allocation may have different base pointer, so look it up first
-  auto &buffers = DeviceInfo->Buffers[DeviceId];
-
   DeviceInfo->Mutexes[DeviceId].lock();
 
   // Deallocate cl_mem data
   if (DeviceInfo->Flags.UseBuffer) {
-    auto &clMemBuffers = DeviceInfo->ClMemBuffers[DeviceId];
-    if (clMemBuffers.count(TgtPtr) > 0) {
-      clMemBuffers.erase(TgtPtr);
+    auto &ClMemBuffers = DeviceInfo->ClMemBuffers[DeviceId];
+    if (ClMemBuffers.count(TgtPtr) > 0) {
+      ClMemBuffers.erase(TgtPtr);
       CALL_CL_RET_FAIL(clReleaseMemObject, (cl_mem)TgtPtr);
       return OFFLOAD_SUCCESS;
     }
   }
 
-  // Retrieve base pointer and erase buffer information
-  bool hasBufferInfo = false;
-  if (buffers.count(TgtPtr) > 0) {
-    base = buffers[TgtPtr].Base;
-    buffers.erase(TgtPtr);
-    hasBufferInfo = true;
-  }
-
-  // Erase from the internal list
-  for (auto &J : DeviceInfo->ImplicitArgs[DeviceId])
-    J.second.erase(TgtPtr);
-
   DeviceInfo->Mutexes[DeviceId].unlock();
 
-  DeviceInfo->removeHostAccessible(DeviceId, TgtPtr);
+  MemAllocInfoTy Info;
+  auto &AllocInfos = DeviceInfo->MemAllocInfo;
+  auto Removed = AllocInfos[DeviceId]->remove(TgtPtr, &Info);
+  // Try again with device-independent allocation information (host USM)
+  if (!Removed && DeviceInfo->Flags.UseSingleContext)
+    Removed = AllocInfos[DeviceInfo->NumDevices]->remove(TgtPtr, &Info);
+  if (!Removed) {
+    DP("Error: Cannot find memory allocation information for " DPxMOD "\n",
+       DPxPTR(TgtPtr));
+    return OFFLOAD_FAIL;
+  }
 
-  auto context = DeviceInfo->getContext(DeviceId);
-  if (DeviceInfo->Flags.UseSVM && hasBufferInfo) {
-    CALL_CL_VOID(clSVMFree, context, base);
+  auto Context = DeviceInfo->getContext(DeviceId);
+  if (DeviceInfo->Flags.UseSVM) {
+    CALL_CL_VOID(clSVMFree, Context, Info.Base);
   } else {
-    CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, context, base);
+    CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, Context, Info.Base);
   }
 
   return OFFLOAD_SUCCESS;
@@ -3434,13 +3722,19 @@ static void decideKernelGroupArguments(
     DPI("totalEUs: %zu\n", numEUs);
   }
 #endif // INTEL_CUSTOMIZATION
+  const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
+  if (!KInfo) {
+    DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
+       DPxPTR(Kernel));
+  }
   size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
   bool maxGroupSizeForced = false;
   bool maxGroupCountForced = false;
 
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   size_t kernelWidth = KernelProperty.Width;
-  DP("Assumed kernel SIMD width is %zu\n", KernelProperty.SIMDWidth);
+  size_t simdWidth = KernelProperty.SIMDWidth;
+  DP("Assumed kernel SIMD width is %zu\n", simdWidth);
   DP("Preferred group size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
@@ -3514,18 +3808,29 @@ static void decideKernelGroupArguments(
       if (maxGroupSizeForced) {
         // Set group size for the HW capacity
         size_t numThreadsPerGroup =
-            (maxGroupSize + kernelWidth - 1) / kernelWidth;
+            (maxGroupSize + simdWidth - 1) / simdWidth;
         size_t numGroupsPerSubslice =
             (numThreadsPerSubslice + numThreadsPerGroup - 1) /
             numThreadsPerGroup;
         maxGroupCount = numGroupsPerSubslice * numSubslices;
       } else {
+        // For kernels with cross-WG reductions use LWS equal
+        // to kernelWidth. This is just a performance heuristic.
+        if (KInfo && KInfo->getHasTeamsReduction() &&
+#if INTEL_CUSTOMIZATION
+            // Only do this for discrete devices.
+            DeviceInfo->isDiscreteDevice(DeviceId) &&
+#endif // INTEL_CUSTOMIZATION
+            DeviceInfo->ReductionSubscriptionRate)
+          maxGroupSize = kernelWidth;
+
         assert(!maxGroupSizeForced && !maxGroupCountForced);
         assert((maxGroupSize <= kernelWidth ||
                 maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
         // Maximize group size
-        while (maxGroupSize > kernelWidth) {
-          size_t numThreadsPerGroup = maxGroupSize / kernelWidth;
+        while (maxGroupSize >= kernelWidth) {
+          size_t numThreadsPerGroup =
+              (maxGroupSize + simdWidth - 1) / simdWidth;
           if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
             size_t numGroupsPerSubslice =
                 numThreadsPerSubslice / numThreadsPerGroup;
@@ -3544,265 +3849,250 @@ static void decideKernelGroupArguments(
 
   GroupCounts[0] = maxGroupCount;
   GroupCounts[1] = GroupCounts[2] = 1;
-  if (!maxGroupCountForced)
-    GroupCounts[0] *= DeviceInfo->SubscriptionRate;
+  if (!maxGroupCountForced) {
+    if (KInfo && KInfo->getHasTeamsReduction() &&
+        DeviceInfo->ReductionSubscriptionRate) {
+#if INTEL_CUSTOMIZATION
+      if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+#endif // INTEL_CUSTOMIZATION
+      GroupCounts[0] /= DeviceInfo->ReductionSubscriptionRate;
+      GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
+#if INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
+    } else {
+      GroupCounts[0] *= DeviceInfo->SubscriptionRate;
+    }
+  }
 }
 
-static inline int32_t run_target_team_nd_region(
-    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
-    ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
-    int32_t thread_limit, void *loop_desc, void *async_event) {
+static inline int32_t runTargetTeamNDRegion(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
+    ptrdiff_t *TgtOffsets, int32_t NumArgs, int32_t NumTeams,
+    int32_t ThreadLimit, void *LoopDesc, void *AsyncEvent) {
 
-  cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
-
-  if (!*kernel) {
+  cl_kernel Kernel = *static_cast<cl_kernel *>(TgtEntryPtr);
+  if (!Kernel) {
     REPORT("Failed to invoke deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
+
 #if INTEL_INTERNAL_BUILD
   // TODO: kernels using to much SLM may limit the number of
   //       work groups running simultaneously on a sub slice.
   //       We may take this into account for computing the work partitioning.
-  size_t device_local_mem_size = (size_t)DeviceInfo->SLMSize[device_id];
-  DP("Device local mem size: %zu\n", device_local_mem_size);
-  cl_ulong local_mem_size_tmp = 0;
-  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
-                   DeviceInfo->Devices[device_id], CL_KERNEL_LOCAL_MEM_SIZE,
-                   sizeof(local_mem_size_tmp), &local_mem_size_tmp, nullptr);
-  size_t kernel_local_mem_size = (size_t)local_mem_size_tmp;
-  DP("Kernel local mem size: %zu\n", kernel_local_mem_size);
+  size_t DeviceLocalMemSize = (size_t)DeviceInfo->SLMSize[DeviceId];
+  DP("Device local mem size: %zu\n", DeviceLocalMemSize);
+  cl_ulong LocalMemSizeTmp = 0;
+  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel,
+                   DeviceInfo->Devices[DeviceId], CL_KERNEL_LOCAL_MEM_SIZE,
+                   sizeof(LocalMemSizeTmp), &LocalMemSizeTmp, nullptr);
+  size_t KernelLocalMemSize = (size_t)LocalMemSizeTmp;
+  DP("Kernel local mem size: %zu\n", KernelLocalMemSize);
 #endif // INTEL_INTERNAL_BUILD
 
   // Decide group sizes and counts
-  size_t local_work_size[3] = {1, 1, 1};
-  size_t num_work_groups[3] = {1, 1, 1};
-  if (loop_desc) {
-    decideLoopKernelGroupArguments(device_id, thread_limit,
-                                   (TgtNDRangeDescTy *)loop_desc, *kernel,
-                                   local_work_size, num_work_groups);
+  size_t LocalWorkSize[3] = {1, 1, 1};
+  size_t NumWorkGroups[3] = {1, 1, 1};
+  if (LoopDesc) {
+    decideLoopKernelGroupArguments(DeviceId, ThreadLimit,
+                                   (TgtNDRangeDescTy *)LoopDesc, Kernel,
+                                   LocalWorkSize, NumWorkGroups);
   } else {
-    decideKernelGroupArguments(device_id, num_teams, thread_limit,
-                               *kernel, local_work_size, num_work_groups);
+    decideKernelGroupArguments(DeviceId, NumTeams, ThreadLimit, Kernel,
+                               LocalWorkSize, NumWorkGroups);
   }
 
-  size_t global_work_size[3];
-  for (int32_t i = 0; i < 3; ++i)
-    global_work_size[i] = local_work_size[i] * num_work_groups[i];
+  size_t GlobalWorkSize[3];
+  for (int32_t I = 0; I < 3; ++I)
+    GlobalWorkSize[I] = LocalWorkSize[I] * NumWorkGroups[I];
 
 #if INTEL_INTERNAL_BUILD
   // Use forced group sizes. This is only for internal experiments, and we
   // don't want to plug these numbers into the decision logic.
-  auto userLWS = DeviceInfo->ForcedLocalSizes;
-  auto userGWS = DeviceInfo->ForcedGlobalSizes;
-  if (userLWS[0] > 0) {
-    std::copy(userLWS, userLWS + 3, local_work_size);
-    DP("Forced LWS = {%zu, %zu, %zu}\n", userLWS[0], userLWS[1], userLWS[2]);
+  auto UserLWS = DeviceInfo->ForcedLocalSizes;
+  auto UserGWS = DeviceInfo->ForcedGlobalSizes;
+  if (UserLWS[0] > 0) {
+    std::copy(UserLWS, UserLWS + 3, LocalWorkSize);
+    DP("Forced LWS = {%zu, %zu, %zu}\n", UserLWS[0], UserLWS[1], UserLWS[2]);
   }
-  if (userGWS[0] > 0) {
-    std::copy(userGWS, userGWS + 3, global_work_size);
-    DP("Forced GWS = {%zu, %zu, %zu}\n", userGWS[0], userGWS[1], userGWS[2]);
+  if (UserGWS[0] > 0) {
+    std::copy(UserGWS, UserGWS + 3, GlobalWorkSize);
+    DP("Forced GWS = {%zu, %zu, %zu}\n", UserGWS[0], UserGWS[1], UserGWS[2]);
   }
 #endif // INTEL_INTERNAL_BUILD
 
-  DP("Group sizes = {%zu, %zu, %zu}\n", local_work_size[0],
-     local_work_size[1], local_work_size[2]);
-  DP("Group counts = {%zu, %zu, %zu}\n",
-     global_work_size[0] / local_work_size[0],
-     global_work_size[1] / local_work_size[1],
-     global_work_size[2] / local_work_size[2]);
+  DP("Group sizes = {%zu, %zu, %zu}\n", LocalWorkSize[0], LocalWorkSize[1],
+     LocalWorkSize[2]);
+  DP("Group counts = {%zu, %zu, %zu}\n", GlobalWorkSize[0] / LocalWorkSize[0],
+     GlobalWorkSize[1] / LocalWorkSize[1],
+     GlobalWorkSize[2] / LocalWorkSize[2]);
 
   // Protect thread-unsafe OpenCL API calls
-  DeviceInfo->Mutexes[device_id].lock();
+  DeviceInfo->Mutexes[DeviceId].lock();
 
-  // Set implicit kernel args
-  std::vector<void *> implicit_args;
-  // USM Implicit arguments to be reported to the runtime.
-  std::vector<void *> implicit_usm_args;
-
-  // Array sections of zero size may result in nullptr target pointer,
-  // which will not be accepted by clSetKernelExecInfo, so we should
-  // avoid manifesting them.
-
-  // Reserve space in implicit_args to speed up the back_inserter.
-  size_t num_implicit_args = 0;
-  if (DeviceInfo->ImplicitArgs[device_id].count(*kernel) > 0) {
-    num_implicit_args += DeviceInfo->ImplicitArgs[device_id][*kernel].size();
-  }
-
-  implicit_args.reserve(num_implicit_args);
-
-  if (DeviceInfo->ImplicitArgs[device_id].count(*kernel) > 0) {
-    // kernel-dependent arguments
-    std::copy_if(DeviceInfo->ImplicitArgs[device_id][*kernel].begin(),
-                 DeviceInfo->ImplicitArgs[device_id][*kernel].end(),
-                 std::back_inserter(implicit_args),
-                 [] (void *ptr) {
-                   return ptr != nullptr;
-                 });
-  }
-  if (DeviceInfo->ImplicitArgs[device_id].count(0) > 0) {
-    // kernel-independent arguments
-    // Note that these pointers may not be nullptr.
-    implicit_args.insert(implicit_args.end(),
-        DeviceInfo->ImplicitArgs[device_id][0].begin(),
-        DeviceInfo->ImplicitArgs[device_id][0].end());
-  }
-
-  // set kernel args
-//  std::vector<void *> ptrs(num_args);
-  for (int32_t i = 0; i < num_args; ++i) {
-    ptrdiff_t offset = tgt_offsets[i];
+  // Set kernel args
+  for (int32_t I = 0; I < NumArgs; ++I) {
+    ptrdiff_t Offset = TgtOffsets[I];
     const char *ArgType = "Unknown";
-    // Offset equal to MAX(ptrdiff_t) means that the argument
-    // must be passed as literal, and the offset should be ignored.
-    if (offset == (std::numeric_limits<ptrdiff_t>::max)()) {
-      intptr_t arg = (intptr_t)tgt_args[i];
-      CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(arg), &arg);
+    auto *KernelInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
+    if (KernelInfo && KernelInfo->isArgLiteral(I)) {
+      uint32_t Size = KernelInfo->getArgSize(I);
+      CALL_CL_RET_FAIL(clSetKernelArg, Kernel, I, Size, TgtArgs[I]);
+      ArgType = "ByVal";
+    } else if (Offset == (std::numeric_limits<ptrdiff_t>::max)()) {
+      // Offset equal to MAX(ptrdiff_t) means that the argument
+      // must be passed as literal, and the offset should be ignored.
+      intptr_t Arg = (intptr_t)TgtArgs[I];
+      CALL_CL_RET_FAIL(clSetKernelArg, Kernel, I, sizeof(Arg), &Arg);
       ArgType = "Scalar";
     } else {
       ArgType = "Pointer";
-      void *ptr = (void *)((intptr_t)tgt_args[i] + offset);
+      void *Ptr = (void *)((intptr_t)TgtArgs[I] + Offset);
       if (DeviceInfo->Flags.UseBuffer &&
-          DeviceInfo->ClMemBuffers[device_id].count(ptr) > 0) {
-        CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(cl_mem), &ptr);
+          DeviceInfo->ClMemBuffers[DeviceId].count(Ptr) > 0) {
+        CALL_CL_RET_FAIL(clSetKernelArg, Kernel, I, sizeof(cl_mem), &Ptr);
         ArgType = "ClMem";
       } else if (DeviceInfo->Flags.UseSVM) {
-        CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptr);
+        CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, Kernel, I, Ptr);
       } else {
         if (!DeviceInfo->isExtensionFunctionEnabled(
-                device_id, clSetKernelArgMemPointerINTELId)) {
+                DeviceId, clSetKernelArgMemPointerINTELId)) {
           DP("Error: Extension %s is not supported\n",
              DeviceInfo->getExtensionFunctionName(
-                 device_id, clSetKernelArgMemPointerINTELId));
+                 DeviceId, clSetKernelArgMemPointerINTELId));
           return OFFLOAD_FAIL;
         }
         CALL_CL_EXT_RET_FAIL(
-            device_id, clSetKernelArgMemPointerINTEL, *kernel, i, ptr);
+            DeviceId, clSetKernelArgMemPointerINTEL, Kernel, I, Ptr);
       }
     }
-    DP("Kernel %s Arg %d set successfully\n", ArgType, i);
+    DP("Kernel %s Arg %d set successfully\n", ArgType, I);
     (void)ArgType;
   }
 
-  bool hasUSMArgDevice = false;
-  bool hasUSMArgHost = false;
-  bool hasUSMArgShared = false;
-  if (DeviceInfo->isExtensionFunctionEnabled(device_id,
-                                             clGetMemAllocInfoINTELId)) {
-    // Reserve space for USM pointers.
-    implicit_usm_args.reserve(num_implicit_args);
-    // Move USM pointers into a separate list, since they need to be
-    // reported to the runtime using a separate clSetKernelExecInfo call.
-    implicit_args.erase(
-        std::remove_if(implicit_args.begin(),
-                       implicit_args.end(),
-                       [&](void *ptr) {
-                         cl_unified_shared_memory_type_intel type = 0;
-                         CALL_CL_EXT_RET(device_id, false,
-                             clGetMemAllocInfoINTEL,
-                             DeviceInfo->getContext(device_id), ptr,
-                             CL_MEM_ALLOC_TYPE_INTEL,
-                             sizeof(cl_unified_shared_memory_type_intel),
-                             &type, nullptr);
-                         DPI("clGetMemAllocInfoINTEL API returned %d "
-                             "for pointer " DPxMOD "\n", type, DPxPTR(ptr));
-                         // USM pointers are classified as
-                         // CL_MEM_TYPE_DEVICE_INTEL.
-                         // SVM pointers (e.g. returned by clSVMAlloc)
-                         // are classified as CL_MEM_TYPE_UNKNOWN_INTEL.
-                         // We cannot allocate any other pointer type now.
-                         if (type == CL_MEM_TYPE_HOST_INTEL)
-                           hasUSMArgHost = true;
-                         else if (type == CL_MEM_TYPE_DEVICE_INTEL)
-                           hasUSMArgDevice = true;
-                         else if (type == CL_MEM_TYPE_SHARED_INTEL)
-                           hasUSMArgShared = true;
-                         else
-                           return false;
-                         implicit_usm_args.push_back(ptr);
-                         return true;
-                       }),
-        implicit_args.end());
+  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  std::vector<void *> ImplicitSVMArgs;
+  std::vector<void *> ImplicitUSMArgs;
+  std::map<int32_t, bool> HasUSMArgs{
+      {TARGET_ALLOC_DEVICE, false},
+      {TARGET_ALLOC_HOST, false},
+      {TARGET_ALLOC_SHARED, false}
+  };
+  auto &AllocInfos = DeviceInfo->MemAllocInfo;
+
+  /// Kernel-dependent implicit arguments
+  for (auto Ptr : KernelProperty.ImplicitArgs) {
+    if (!Ptr)
+      continue;
+    auto *Info = AllocInfos[DeviceId]->find(Ptr);
+    if (Info) {
+      if ((int32_t)Info->Kind == TARGET_ALLOC_SVM) {
+        ImplicitSVMArgs.push_back(Ptr);
+      } else {
+        ImplicitUSMArgs.push_back(Ptr);
+        HasUSMArgs[Info->Kind] = true;
+      }
+    }
+    if (DeviceInfo->Flags.UseSingleContext) {
+      Info = AllocInfos[DeviceInfo->NumDevices]->find(Ptr);
+      if (Info) {
+        ImplicitUSMArgs.push_back(Ptr);
+        HasUSMArgs[TARGET_ALLOC_HOST] = true;
+      }
+    }
   }
 
-  if (implicit_args.size() > 0) {
+  /// Kernel-independent implicit arguments
+  AllocInfos[DeviceId]->getImplicitArgs(ImplicitSVMArgs, ImplicitUSMArgs);
+  for (auto &ArgKind : HasUSMArgs)
+    if (AllocInfos[DeviceId]->hasImplicitUSMArg(ArgKind.first))
+      ArgKind.second = true;
+  if (DeviceInfo->Flags.UseSingleContext) {
+    auto ID = DeviceInfo->NumDevices;
+    AllocInfos[ID]->getImplicitArgs(ImplicitSVMArgs, ImplicitUSMArgs);
+    if (AllocInfos[ID]->hasImplicitUSMArg(TARGET_ALLOC_HOST))
+      HasUSMArgs[TARGET_ALLOC_HOST] = true;
+  }
+
+  if (ImplicitSVMArgs.size() > 0) {
     DP("Calling clSetKernelExecInfo to pass %zu implicit SVM arguments "
-       "to kernel " DPxMOD "\n", implicit_args.size(), DPxPTR(kernel));
-    CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel, CL_KERNEL_EXEC_INFO_SVM_PTRS,
-                     sizeof(void *) * implicit_args.size(),
-                     implicit_args.data());
+       "to kernel " DPxMOD "\n", ImplicitSVMArgs.size(), DPxPTR(Kernel));
+    CALL_CL_RET_FAIL(clSetKernelExecInfo, Kernel, CL_KERNEL_EXEC_INFO_SVM_PTRS,
+                     sizeof(void *) * ImplicitSVMArgs.size(),
+                     ImplicitSVMArgs.data());
   }
 
-  if (implicit_usm_args.size() > 0) {
+  if (ImplicitUSMArgs.size() > 0) {
     // Report non-argument USM pointers to the runtime.
     DP("Calling clSetKernelExecInfo to pass %zu implicit USM arguments "
-       "to kernel " DPxMOD "\n", implicit_usm_args.size(), DPxPTR(kernel));
-    CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+       "to kernel " DPxMOD "\n", ImplicitUSMArgs.size(), DPxPTR(Kernel));
+    CALL_CL_RET_FAIL(clSetKernelExecInfo, Kernel,
                      CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL,
-                     sizeof(void *) * implicit_usm_args.size(),
-                     implicit_usm_args.data());
+                     sizeof(void *) * ImplicitUSMArgs.size(),
+                     ImplicitUSMArgs.data());
     // Mark the kernel as supporting indirect USM accesses, otherwise,
     // clEnqueueNDRangeKernel call below will fail.
     cl_bool KernelSupportsUSM = CL_TRUE;
-    if (hasUSMArgHost)
-      CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+    if (HasUSMArgs[TARGET_ALLOC_HOST])
+      CALL_CL_RET_FAIL(clSetKernelExecInfo, Kernel,
                        CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
                        sizeof(cl_bool), &KernelSupportsUSM);
-    if (hasUSMArgDevice)
-      CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+    if (HasUSMArgs[TARGET_ALLOC_DEVICE])
+      CALL_CL_RET_FAIL(clSetKernelExecInfo, Kernel,
                        CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
                        sizeof(cl_bool), &KernelSupportsUSM);
-    if (hasUSMArgShared)
-      CALL_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+    if (HasUSMArgs[TARGET_ALLOC_SHARED])
+      CALL_CL_RET_FAIL(clSetKernelExecInfo, Kernel,
                        CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
                        sizeof(cl_bool), &KernelSupportsUSM);
   }
 
   if (OMPT_ENABLED) {
     // Push current work size
-    size_t finalNumTeams =
-        global_work_size[0] * global_work_size[1] * global_work_size[2];
-    size_t finalThreadLimit =
-        local_work_size[0] * local_work_size[1] * local_work_size[2];
-    finalNumTeams /= finalThreadLimit;
-    OmptGlobal->getTrace().pushWorkSize(finalNumTeams, finalThreadLimit);
+    size_t FinalNumTeams =
+        GlobalWorkSize[0] * GlobalWorkSize[1] * GlobalWorkSize[2];
+    size_t FinalThreadLimit =
+        LocalWorkSize[0] * LocalWorkSize[1] * LocalWorkSize[2];
+    FinalNumTeams /= FinalThreadLimit;
+    OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
   }
 
-  cl_event event;
-  CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[device_id],
-                   *kernel, 3, nullptr, global_work_size,
-                   local_work_size, 0, nullptr, &event);
+  cl_event Event;
+  CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[DeviceId],
+                   Kernel, 3, nullptr, GlobalWorkSize,
+                   LocalWorkSize, 0, nullptr, &Event);
 
-  DeviceInfo->Mutexes[device_id].unlock();
+  DeviceInfo->Mutexes[DeviceId].unlock();
 
   DP("Started executing kernel.\n");
 
-  if (async_event) {
-    if (((AsyncEventTy *)async_event)->handler) {
+  if (AsyncEvent) {
+    if (((AsyncEventTy *)AsyncEvent)->handler) {
       // Add event handler if necessary.
-      CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+      CALL_CL_RET_FAIL(clSetEventCallback, Event, CL_COMPLETE,
           &event_callback_completed,
-          new AsyncDataTy((AsyncEventTy *)async_event, device_id));
+          new AsyncDataTy((AsyncEventTy *)AsyncEvent, DeviceId));
     } else {
       // Make sure all queued commands finish before the next one starts.
       CALL_CL_RET_FAIL(clEnqueueBarrierWithWaitList,
-                       DeviceInfo->Queues[device_id], 0, nullptr, nullptr);
+                       DeviceInfo->Queues[DeviceId], 0, nullptr, nullptr);
     }
   } else {
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
     if (DeviceInfo->Flags.EnableProfile) {
-      std::vector<char> buf;
-      size_t buf_size;
-      CALL_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME, 0,
-                       nullptr, &buf_size);
-      std::string kernel_name("Kernel ");
-      if (buf_size > 0) {
-        buf.resize(buf_size);
-        CALL_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
-                         buf.size(), buf.data(), nullptr);
-        kernel_name += buf.data();
+      std::vector<char> Buf;
+      size_t BufSize;
+      CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_FUNCTION_NAME, 0,
+                       nullptr, &BufSize);
+      std::string KernelName("Kernel ");
+      if (BufSize > 0) {
+        Buf.resize(BufSize);
+        CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_FUNCTION_NAME,
+                         Buf.size(), Buf.data(), nullptr);
+        KernelName += Buf.data();
       }
-      DeviceInfo->getProfiles(device_id).update(kernel_name.c_str(), event);
+      DeviceInfo->getProfiles(DeviceId).update(KernelName.c_str(), Event);
     }
     DP("Successfully finished kernel execution.\n");
   }
@@ -3810,87 +4100,72 @@ static inline int32_t run_target_team_nd_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN int32_t
-__tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
-                                    void **tgt_args, ptrdiff_t *tgt_offsets,
-                                    int32_t num_args, int32_t num_teams,
-                                    int32_t thread_limit, void *loop_desc) {
-  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
-                                   tgt_offsets, num_args, num_teams,
-                                   thread_limit, loop_desc, nullptr);
+EXTERN int32_t __tgt_rtl_run_target_team_nd_region(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
+  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                               NumArgs, NumTeams, ThreadLimit, LoopDesc,
+                               nullptr);
 }
 
-EXTERN
-int32_t __tgt_rtl_run_target_team_nd_region_nowait(
-    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
-    ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
-    int32_t thread_limit, void *loop_desc, void *async_event) {
-  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
-                                   tgt_offsets, num_args, num_teams,
-                                   thread_limit, loop_desc, async_event);
+EXTERN int32_t __tgt_rtl_run_target_team_nd_region_nowait(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc,
+    void *AsyncEvent) {
+  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                               NumArgs, NumTeams, ThreadLimit, LoopDesc,
+                               AsyncEvent);
 }
 
-EXTERN
-int32_t __tgt_rtl_run_target_team_region_nowait(
-    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
-    ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
-    int32_t thread_limit, uint64_t loop_tripcount, void *async_event) {
-  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
-                                   tgt_offsets, arg_num, team_num, thread_limit,
-                                   nullptr, async_event);
+EXTERN int32_t __tgt_rtl_run_target_team_region_nowait(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
+    uint64_t LoopTripCount, void *AsyncEvent) {
+  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                               NumArgs, NumTeams, ThreadLimit, nullptr,
+                               AsyncEvent);
 }
 
-EXTERN
-int32_t __tgt_rtl_run_target_region_nowait(int32_t device_id,
-                                           void *tgt_entry_ptr, void **tgt_args,
-                                           ptrdiff_t *tgt_offsets,
-                                           int32_t arg_num, void *async_event) {
-  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
-                                   tgt_offsets, arg_num, 1, 0, nullptr,
-                                   async_event);
+EXTERN int32_t __tgt_rtl_run_target_region_nowait(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, void *AsyncEvent) {
+  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                               NumArgs, 1, 0, nullptr, AsyncEvent);
 }
 
-EXTERN
-int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
-                                         void **tgt_args,
-                                         ptrdiff_t *tgt_offsets,
-                                         int32_t arg_num, int32_t team_num,
-                                         int32_t thread_limit,
-                                         uint64_t loop_tripcount /*not used*/) {
-  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
-                                   tgt_offsets, arg_num, team_num, thread_limit,
-                                   nullptr, nullptr);
+EXTERN int32_t __tgt_rtl_run_target_team_region(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
+    uint64_t LoopTripCount /*not used*/) {
+  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                               NumArgs, NumTeams, ThreadLimit, nullptr,
+                               nullptr);
 }
 
-EXTERN
-int32_t __tgt_rtl_run_target_team_region_async(
-    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
-    ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
-    int32_t thread_limit, uint64_t loop_tripcount /*not used*/,
+EXTERN int32_t __tgt_rtl_run_target_team_region_async(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
+    uint64_t LoopTripCount /*not used*/,
     __tgt_async_info *AsyncInfoPtr /*not used*/) {
-  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
-                                   tgt_offsets, arg_num, team_num, thread_limit,
-                                   nullptr, nullptr);
+  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                               NumArgs, NumTeams, ThreadLimit, nullptr,
+                               nullptr);
 }
 
-EXTERN
-int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
-                                    void **tgt_args, ptrdiff_t *tgt_offsets,
-                                    int32_t arg_num) {
+EXTERN int32_t __tgt_rtl_run_target_region(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs) {
   // use one team!
-  return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
-                                          tgt_offsets, arg_num, 1, 0, 0);
+  return __tgt_rtl_run_target_team_region(DeviceId, TgtEntryPtr, TgtArgs,
+                                          TgtOffsets, NumArgs, 1, 0, 0);
 }
 
-EXTERN
-int32_t
-__tgt_rtl_run_target_region_async(int32_t device_id, void *tgt_entry_ptr,
-                                  void **tgt_args, ptrdiff_t *tgt_offsets,
-                                  int32_t arg_num,
-                                  __tgt_async_info *AsyncInfoPtr /*not used*/) {
+EXTERN int32_t __tgt_rtl_run_target_region_async(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, __tgt_async_info *AsyncInfoPtr /*not used*/) {
   // use one team!
-  return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
-                                          tgt_offsets, arg_num, 1, 0, 0);
+  return __tgt_rtl_run_target_team_region(DeviceId, TgtEntryPtr, TgtArgs,
+                                          TgtOffsets, NumArgs, 1, 0, 0);
 }
 
 EXTERN char *__tgt_rtl_get_device_name(
@@ -3909,18 +4184,18 @@ EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
 
 EXTERN int32_t __tgt_rtl_get_data_alloc_info(
     int32_t DeviceId, int32_t NumPtrs, void *TgtPtrs, void *AllocInfo) {
-  auto &buffers = DeviceInfo->Buffers[DeviceId];
-  void **tgtPtrs = static_cast<void **>(TgtPtrs);
-  __tgt_memory_info *allocInfo = static_cast<__tgt_memory_info *>(AllocInfo);
-  for (int32_t i = 0; i < NumPtrs; i++) {
-    if (buffers.count(tgtPtrs[i]) == 0) {
+  void **Ptrs = static_cast<void **>(TgtPtrs);
+  __tgt_memory_info *Info = static_cast<__tgt_memory_info *>(AllocInfo);
+  for (int32_t I = 0; I < NumPtrs; I++) {
+    auto *MemInfo = DeviceInfo->MemAllocInfo[DeviceId]->find(Ptrs[I]);
+    if (!MemInfo) {
       DP("%s cannot find allocation information for " DPxMOD "\n", __func__,
-         DPxPTR(tgtPtrs[i]));
+         DPxPTR(Ptrs[I]));
       return OFFLOAD_FAIL;
     }
-    allocInfo[i].Base = buffers[tgtPtrs[i]].Base;
-    allocInfo[i].Offset = (uintptr_t)tgtPtrs[i] - (uintptr_t)allocInfo[i].Base;
-    allocInfo[i].Size = buffers[tgtPtrs[i]].Size;
+    Info[I].Base = MemInfo->Base;
+    Info[I].Offset = (uintptr_t)Ptrs[I] - (uintptr_t)Info[I].Base;
+    Info[I].Size = MemInfo->Size + Info[I].Offset;
   }
   return OFFLOAD_SUCCESS;
 }
@@ -4103,16 +4378,47 @@ EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
   if (MemType != CL_MEM_TYPE_HOST_INTEL && MemType != CL_MEM_TYPE_SHARED_INTEL)
     return 0;
 
-  auto Device = DeviceInfo->Devices[DeviceId];
   if (MemType == CL_MEM_TYPE_HOST_INTEL && DeviceInfo->Flags.UseSingleContext)
-    Device = nullptr;
+    DeviceId = DeviceInfo->NumDevices;
 
-  if (DeviceInfo->MemHostAccessible.at(Device)->contains(Ptr, Size))
+  if (DeviceInfo->MemAllocInfo[DeviceId]->contains(Ptr, Size))
     return 1;
   else
     return 0;
 }
 
+EXTERN int32_t __tgt_rtl_notify_indirect_access(
+    int32_t DeviceId, const void *Ptr, size_t Offset) {
+#if INTEL_CUSTOMIZATION
+  auto Fn = reinterpret_cast<clGitsIndirectAllocationOffsets_fn>(
+      DeviceInfo->getExtensionFunctionPtr(DeviceId,
+                                          clGitsIndirectAllocationOffsetsId));
+  void *PtrBase = (void *)((uintptr_t)Ptr - Offset);
+  // This DP is only for testability
+  DP("Notifying indirect access: " DPxMOD " + %zu\n", DPxPTR(PtrBase), Offset);
+  if (Fn) {
+    Fn(PtrBase, 1, &Offset);
+  }
+#endif // INTEL_CUSTOMIZATION
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_is_private_arg_on_host(
+    int32_t DeviceId, const void *TgtEntryPtr, uint32_t Idx) {
+  const cl_kernel *Kernel = static_cast<const cl_kernel *>(TgtEntryPtr);
+  if (!*Kernel) {
+    REPORT("Querying information about a deleted kernel.\n");
+    return 0;
+  }
+  auto *KernelInfo = DeviceInfo->getKernelInfo(DeviceId, *Kernel);
+  if (!KernelInfo)
+    return 0;
+
+  if (KernelInfo->isArgLiteral(Idx))
+    return 1;
+
+  return 0;
+}
 #ifdef __cplusplus
 }
 #endif

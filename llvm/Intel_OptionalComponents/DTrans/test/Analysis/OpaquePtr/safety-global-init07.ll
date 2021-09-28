@@ -1,0 +1,21 @@
+; REQUIRES: asserts
+; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+
+; Test initializing an array of structure pointers with an incompatible pointer type.
+
+%struct.test01a = type { i32, i32 }
+
+@var01b = internal global i32 zeroinitializer
+@var01a = internal global [2 x %struct.test01a*] [%struct.test01a* bitcast (i32* @var01b to %struct.test01a*),
+                                                  %struct.test01a* bitcast (i32* @var01b to %struct.test01a*)], !intel_dtrans_type !0
+
+; CHECK-LABEL: LLVMType: %struct.test01a = type { i32, i32 }
+; CHECK: Safety data: Unsafe pointer store | Global pointer{{ *$}}
+
+!0 = !{!"A", i32 2, !1} ; [2 x %struct.test01a*]
+!1 = !{%struct.test01a zeroinitializer, i32 1} ; %struct.test01a*
+!2 = !{!"S", %struct.test01a zeroinitializer, i32 2, !3, !3}
+!3 = !{i32 0, i32 0} ; i32
+
+!intel.dtrans.types = !{!2}

@@ -27,11 +27,13 @@ define void @test01() {
 ; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
 
 
-declare i8* @malloc(i64)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 0}  ; i64
-!3 = !{!"S", %struct.test01a zeroinitializer, i32 4, !1, !1, !1, !1} ; { i32, i32, i32, i32 }
-!4 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i64, i64 }
+!3 = !{i8 0, i32 1}  ; i8*
+!4 = distinct !{!3}
+!5 = !{!"S", %struct.test01a zeroinitializer, i32 4, !1, !1, !1, !1} ; { i32, i32, i32, i32 }
+!6 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i64, i64 }
 
-!dtrans_types = !{!3, !4}
+!intel.dtrans.types = !{!5, !6}

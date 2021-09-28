@@ -287,6 +287,16 @@ public:
     return false;
   }
 
+  /// Return True if support 2K or above DSB
+  virtual bool has2KDSB() const {
+    return false;
+  }
+
+  /// Return True if support 4K or above DSB
+  virtual bool has4KDSB() const {
+    return false;
+  }
+
   /// Return the DSB window size
   virtual unsigned getDSBWindowSize() const {
     return 0;

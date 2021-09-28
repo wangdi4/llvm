@@ -97,6 +97,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeRegUsageInfoCollectorPass(Registry);
   initializeRegUsageInfoPropagationPass(Registry);
   initializeRegisterCoalescerPass(Registry);
+  initializeRemoveRedundantDebugValuesPass(Registry);
   initializeRenameIndependentSubregsPass(Registry);
   initializeSafeStackLegacyPassPass(Registry);
   initializeShadowStackGCLoweringPass(Registry);
@@ -121,8 +122,9 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeWinEHPreparePass(Registry);
   initializeXRayInstrumentationPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeMachineLoopOptReportEmitterPass(Registry);
+  initializeMachineOptReportEmitterPass(Registry);
   initializeFloat128ExpandPass(Registry);
+  initializeFoldLoadsToGatherPass(Registry);
   initializeRAReportEmitterPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 }

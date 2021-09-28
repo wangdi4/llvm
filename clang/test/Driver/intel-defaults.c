@@ -123,26 +123,33 @@
 // loopopt settings
 // RUN: %clang -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
-// CHECK-INTEL-LOOPOPT: "-mllvm" "-loopopt=0" "-mllvm" "-enable-lv"
+// CHECK-INTEL-LOOPOPT: "-mllvm" "-loopopt=0" "-floopopt-pipeline=none" "-mllvm" "-enable-lv"
 
 // RUN: %clang -### --intel -mllvm -loopopt=1 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
 // RUN: %clang_cl -### --intel -mllvm -loopopt=1 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
-// CHECK-INTEL-LOOPOPT1: "-mllvm" "-loopopt=1"
+// CHECK-INTEL-LOOPOPT1: "-mllvm" "-loopopt=1" {{.*}} "-floopopt-pipeline=light"
 // CHECK-INTEL-LOOPOPT1-NOT: "-mllvm" "-loopopt=0"
+// CHECK-INTEL-LOOPOPT1-NOT: floopopt-pipeline=none
 
 // RUN: %clang -### --intel -mllvm -loopopt -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT2 %s
 // RUN: %clang_cl -### --intel -mllvm -loopopt -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT2 %s
-// CHECK-INTEL-LOOPOPT2: "-mllvm" "-loopopt"
-// CHECK-INTEL-LOOPOPT2-NOT: "-mllvm" "-loopopt=0"
+// CHECK-INTEL-LOOPOPT2: "-mllvm" "-loopopt" {{.*}} "-floopopt-pipeline=full"
+// CHECK-INTEL-LOOPOPT2-NOT: "-mllvm" "-loopopt=0" "-floopopt-pipeline=none"
 
 // RUN: %clang -### --intel -c -xAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
 // RUN: %clang_cl -### --intel -c -QxAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
-// CHECK-INTEL-LOOPOPT-AVX: "-mllvm" "-loopopt"
+// CHECK-INTEL-LOOPOPT-AVX: "-mllvm" "-loopopt" "-floopopt-pipeline=full"
 // CHECK-INTEL-LOOPOPT-AVX-NOT: "-mllvm" "-enable-lv"
+
+// RUN: %clang -### -Xclang -floopopt-pipeline=none --intel -c -xAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-PIPELINE-AVX %s
+// RUN: %clang_cl -### -Xclang -floopopt-pipeline=none --intel -c -QxAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-PIPELINE-AVX %s
+// CHECK-INTEL-LOOPOPT-PIPELINE-AVX-DAG: "-mllvm" "-loopopt"
+// CHECK-INTEL-LOOPOPT-PIPELINE-AVX-DAG: "-floopopt-pipeline=none"
+// CHECK-INTEL-LOOPOPT-PIPELINE-AVX-NOT: "-floopopt-pipeline=full"
 
 // RUN: %clang -### --intel -c -flto -qopt-mem-layout-trans=4 -Ofast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-LIGHT %s
 // RUN: %clang_cl -### --intel -c -Qipo -Qopt-mem-layout-trans:4 -Ofast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-LIGHT %s
-// CHECK-INTEL-LOOPOPT-LIGHT: "-mllvm" "-loopopt=1"
+// CHECK-INTEL-LOOPOPT-LIGHT: "-mllvm" "-loopopt=1" "-floopopt-pipeline=light"
 // CHECK-INTEL-LOOPOPT-LIGHT-NOT: "-mllvm" "-enable-lv"
 
 // RUN: %clang_cl -### --intel -c -O3 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O3 %s
@@ -151,18 +158,18 @@
 // -fast settings
 // RUN: %clang -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
 // RUN: %clang_cl -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
-// CHECK-INTEL-LOOPOPT-FAST: "-flto" "-flto-unit"
+// CHECK-INTEL-LOOPOPT-FAST: "-flto=full" "-flto-unit"
 // CHECK-INTEL-LOOPOPT-FAST: "-O3"
-// CHECK-INTEL-LOOPOPT-FAST: "-mllvm" "-loopopt"
+// CHECK-INTEL-LOOPOPT-FAST: "-mllvm" "-loopopt" "-floopopt-pipeline=full"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-target-cpu" "x86_64"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-mllvm" "-enable-lv"
 
 // disable LTO in fast
 // RUN: %clang -### --intel -c -fast -fno-lto %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-FAST-NOLTO %s
 // RUN: %clang_cl -### --intel -c -fast -Qipo- %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-FAST-NOLTO %s
-// CHECK-INTEL-FAST-NOLTO-NOT: "-flto"
+// CHECK-INTEL-FAST-NOLTO-NOT: "-flto=full"
 // CHECK-INTEL-FAST-NOLTO: "-O3"
-// CHECK-INTEL-FAST-NOLTO: "-mllvm" "-loopopt"
+// CHECK-INTEL-FAST-NOLTO: "-mllvm" "-loopopt" "-floopopt-pipeline=full"
 
 // Profiling lib not linked in with -nodefaultlibs
 // RUN: %clang -target i686-pc-linux-gnu -### %s --intel -fprofile-generate -nodefaultlibs 2>&1 \

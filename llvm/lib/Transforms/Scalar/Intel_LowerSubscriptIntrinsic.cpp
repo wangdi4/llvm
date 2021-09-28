@@ -251,7 +251,9 @@ static Value *convertGEPToSubscript(const DataLayout &DL,
       // Minor optimization: "gep base, 0" == base
       if (StructOffs.size() != 1 || !isa<ConstantInt>(StructOffs[0]) ||
           !cast<ConstantInt>(StructOffs[0])->isZero())
-        Res = Builder.CreateInBoundsGEP(Res, StructOffs);
+        Res = Builder.CreateInBoundsGEP(
+            Res->getType()->getScalarType()->getPointerElementType(), Res,
+            StructOffs);
       // Reset BaseIt after new GEP generated.
       BaseIt = It;
       ++BaseIt;
@@ -266,7 +268,8 @@ static Value *convertGEPToSubscript(const DataLayout &DL,
             Rank - 1, ConstantInt::get(PtrIntTy, 0),
             ConstantInt::get(PtrIntTy,
                              DL.getTypeStoreSize(TypeIt.getIndexedType())),
-            Res, TypeIt.getOperand());
+            Res, Res->getType()->getScalarType()->getPointerElementType(),
+            TypeIt.getOperand());
     }
   }
 

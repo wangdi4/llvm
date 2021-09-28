@@ -617,10 +617,11 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
       cast<GEPOperator>(NewVDataOffsetGep)->getResultElementType(),
       NewVDataOffsetGep, OrigName + ".data.offset");
 
+  Type *Int8Ty = Builder.getInt8Ty();
   Type *Int8PtrTy = Builder.getInt8PtrTy();
   Value *TaskThunkBasePtr = Builder.CreateBitCast(TaskTWithPrivates, Int8PtrTy,
                                                   ".taskt.withprivates.base");
-  Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, NewVDataOffset,
+  Value *NewVData = Builder.CreateGEP(Int8Ty, TaskThunkBasePtr, NewVDataOffset,
                                       OrigName + ".priv.data");
 
   Builder.CreateStore(NewVData, Builder.CreateBitCast(
@@ -1147,14 +1148,14 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
     }
 
     if (FprivI->getIsVla()) {
+      Type *Int8Ty = Builder.getInt8Ty();
       Type *Int8PtrTy = Builder.getInt8PtrTy();
       Value *TaskThunkBasePtr = Builder.CreateBitCast(
           KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
 
-      Value *NewData =
-          Builder.CreateGEP(TaskThunkBasePtr,
-                            FprivI->getThunkBufferOffset(),
-                            NamePrefix + ".priv.data");
+      Value *NewData = Builder.CreateGEP(Int8Ty, TaskThunkBasePtr,
+                                         FprivI->getThunkBufferOffset(),
+                                         NamePrefix + ".priv.data");
 
       Value *OrigCast =
           Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");

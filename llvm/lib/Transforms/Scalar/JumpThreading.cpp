@@ -3155,6 +3155,15 @@ bool JumpThreadingPass::tryThreadEdge(
     return false;
   }
 
+  if ((JumpThreadCost != 0) && (RegionBlocks.size() == 1) &&
+      CountableSingleExitLoopHeaders.count(RegionBlocks.front()) &&
+      CountableSingleExitLoopLatches.count(RegionBlocks.front())) {
+    LLVM_DEBUG(dbgs() << "  Not threading single bblock countable loop which "
+                         "has non-zero duplication cost as it looks like "
+                         "unrolling and should be done by loopopt\n");
+    return false;
+  }
+
   if (ConservativeJumpThreading) {
     // Only allow multi-BB thread regions when threading across switches.
     if (RegionBlocks.size() != 1 &&

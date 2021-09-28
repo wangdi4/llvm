@@ -26,13 +26,13 @@ target triple = "x86_64-pc-linux"
 ; Function Attrs: convergent noinline norecurse nounwind
 define i32 @foo(i32 %a, i64 %b) #0 !use_fpga_pipes !5 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %AllocaWGResult = alloca i32, align 4
   store i32 0, i32* %AllocaWGResult, align 4
   br label %"Barrier BB3"
 
 "Barrier BB3":                                    ; preds = %entry
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %a.addr = alloca i32, align 4
   %b.addr = alloca i64, align 8
   store i32 %a, i32* %a.addr, align 4
@@ -52,7 +52,7 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB2"
@@ -73,7 +73,7 @@ declare i32 @_Z20work_group_broadcastim(i32, i64) #1
 ; Function Attrs: convergent noinline norecurse nounwind
 define void @addVectors(i32 addrspace(1)* %src, i32 addrspace(1)* %dst) #2 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_name !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !use_fpga_pipes !5 !kernel_has_sub_groups !5 !kernel_execution_length !13 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %src.addr = alloca i32 addrspace(1)*, align 8
   %dst.addr = alloca i32 addrspace(1)*, align 8
   %gid = alloca i64, align 8
@@ -94,7 +94,7 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   store i32 %call1, i32* %a, align 4
   %3 = load i32, i32* %a, align 4
   %4 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
@@ -111,7 +111,7 @@ entry:
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z13get_global_idj(i32) #3
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 declare i64 @_Z12get_local_idj(i32)
 

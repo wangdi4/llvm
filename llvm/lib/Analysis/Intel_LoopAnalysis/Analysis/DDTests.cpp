@@ -60,6 +60,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Delinearization.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -1221,30 +1222,35 @@ DDTest::classifyPair(const CanonExpr *Src, const HLLoop *SrcLoopNest,
 }
 
 // Given a CE of the form-
-// 4 * sext(%t) or sext(4 * %t)
+// 4 * sext(%t) + c   or    sext(4 * %t) + c
 //
 // It will return a new CE of this form if StripSExt is true-
-// 4 * %t
+// 4 * %t + c
 const CanonExpr *DDTest::stripExt(const CanonExpr *CE, bool StripSExt,
                                   bool StripZExt) {
   assert((StripSExt || StripZExt) && "Invalid arguments!");
 
-  if (!CE->isSingleBlob(false)) {
+  // Only single blob canonical expression with  no IVs and demoninator=1 is
+  // allowed.
+  if (CE->hasIV() || (CE->numBlobs() != 1) || (CE->getDenominator() != 1) ||
+      (CE->getSrcType() != CE->getDestType())) {
     return CE;
   }
 
   auto &BU = CE->getBlobUtils();
   auto *Blob = BU.getBlob(CE->getSingleBlobIndex());
+  int64_t BlobCoeff = CE->getSingleBlobCoeff();
+
+  auto CEConst = CE->getConstant();
 
   if (StripSExt && isa<SCEVSignExtendExpr>(Blob)) {
     Blob = cast<SCEVSignExtendExpr>(Blob)->getOperand();
-  } else if (StripZExt && isa<SCEVZeroExtendExpr>(Blob)) {
+  } else if (StripZExt && (CEConst >= 0) && (BlobCoeff >= 0) &&
+             isa<SCEVZeroExtendExpr>(Blob)) {
     Blob = cast<SCEVZeroExtendExpr>(Blob)->getOperand();
   } else {
     return CE;
   }
-
-  int64_t BlobCoeff = CE->getSingleBlobCoeff();
 
   if (auto *MulBlob = dyn_cast<SCEVMulExpr>(Blob)) {
     if (MulBlob->getNumOperands() == 2) {
@@ -1255,6 +1261,10 @@ const CanonExpr *DDTest::stripExt(const CanonExpr *CE, bool StripSExt,
     }
   }
 
+  // Constant should fit into smaller type.
+  if (!ConstantInt::isValueValidForType(Blob->getType(), CEConst))
+      return CE;
+
   unsigned BlobIdx = BU.findOrInsertBlob(Blob);
   auto *NewCE = CE->getCanonExprUtils().createStandAloneBlobCanonExpr(
       BlobIdx, CE->getDefinedAtLevel());
@@ -1263,44 +1273,18 @@ const CanonExpr *DDTest::stripExt(const CanonExpr *CE, bool StripSExt,
     NewCE->setBlobCoeff(BlobIdx, BlobCoeff);
   }
 
+  NewCE->setConstant(CEConst);
+
   push(NewCE);
 
   return NewCE;
 }
 
+
 // A wrapper around for dealing special cases of predicates
 // Looks for cases where we're interested in comparing for equality.
-
-bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
+bool DDTest::isKnownPredicateImpl(ICmpInst::Predicate Pred, const CanonExpr *X,
                               const CanonExpr *Y) {
-
-  auto *XSrcTy = X->getSrcType();
-  auto *YSrcTy = Y->getSrcType();
-  // If the src types of X and Y are different getMinus() call below will bail
-  // out so we first try stripping out extensions in an attempt to make the
-  // types equal. sext/zext are common occurences in 64 bit mode.
-  if (XSrcTy != YSrcTy) {
-
-    bool StripSExt = CmpInst::isSigned(Pred);
-
-    // Cannot strip extension without knowing type.
-    if (!StripSExt && !CmpInst::isUnsigned(Pred)) {
-      return false;
-    }
-
-    bool StripZExt = !StripSExt;
-
-    X = stripExt(X, StripSExt, StripZExt);
-
-    // We are testing X <s Y. Since zext(Y) >=s Y, it should be safe to replace
-    // zext(Y) with Y.
-    if (Pred == CmpInst::ICMP_SLE || Pred == CmpInst::ICMP_SLT) {
-      StripZExt = true;
-    }
-
-    Y = stripExt(Y, StripSExt, StripZExt);
-  }
-
   const CanonExpr *Delta = getMinus(X, Y);
   if (!Delta) {
     return false;
@@ -1321,6 +1305,43 @@ bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
   default:
     llvm_unreachable("unexpected predicate in isKnownPredicate");
   }
+}
+
+bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
+                              const CanonExpr *Y) {
+  // First try original canon exprs.
+  if (isKnownPredicateImpl(Pred, X, Y))
+    return true;
+
+  // If result is still unknown, try to strip SExt/ZExt from X and Y and compare
+  // them.
+  bool StripSExt = CmpInst::isSigned(Pred);
+
+  // Cannot strip extension without knowing type.
+  if (!StripSExt && !CmpInst::isUnsigned(Pred)) {
+    return false;
+  }
+
+  bool StripZExtX = !StripSExt;
+  bool StripZExtY = !StripSExt;
+
+  // We are testing X >s Y. Since zext(X) >=s X, it should be safe to replace
+  // zext(X) with X.
+  if (Pred == CmpInst::ICMP_SGE || Pred == CmpInst::ICMP_SGT) {
+    StripZExtX = true;
+  }
+
+  X = stripExt(X, StripSExt, StripZExtX);
+
+  // We are testing X <s Y. Since zext(Y) >=s Y, it should be safe to replace
+  // zext(Y) with Y.
+  if (Pred == CmpInst::ICMP_SLE || Pred == CmpInst::ICMP_SLT) {
+    StripZExtY = true;
+  }
+
+  Y = stripExt(Y, StripSExt, StripZExtY);
+
+  return isKnownPredicateImpl(Pred, X, Y);
 }
 
 // All subscripts are all the same type.
@@ -1451,10 +1472,12 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     // Our implementation  using canon will return false for 2*n
     // But GCD test should get Indep for 2*n vs 2*n+1
 
-    const CanonExpr *AbsDelta =
-        HLNodeUtils::isKnownNonNegative(Delta) ? Delta : getNegative(Delta);
-    const CanonExpr *AbsCoeff =
-        HLNodeUtils::isKnownNonNegative(Coeff) ? Coeff : getNegative(Coeff);
+    const CanonExpr *AbsDelta = HLNodeUtils::isKnownNonNegative(Delta, CurLoop)
+                                    ? Delta
+                                    : getNegative(Delta);
+    const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNonNegative(Coeff, CurLoop)
+                                    ? Coeff
+                                    : getNegative(Coeff);
     const CanonExpr *Product = getMulExpr(UpperBound, AbsCoeff);
 
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -1540,13 +1563,17 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
       }
 
       // maybe we can get a useful direction
-      bool DeltaMaybeZero = !(HLNodeUtils::isKnownNonZero(Delta));
-      bool DeltaMaybePositive = !(HLNodeUtils::isKnownNonPositive(Delta));
-      bool DeltaMaybeNegative = !(HLNodeUtils::isKnownNonNegative(Delta));
-      bool CoeffMaybePositive = !(HLNodeUtils::isKnownNonPositive(Coeff));
-      bool CoeffMaybeNegative = !(HLNodeUtils::isKnownNonNegative(Coeff));
+      bool DeltaMaybeZero = !(HLNodeUtils::isKnownNonZero(Delta, CurLoop));
+      bool DeltaMaybePositive =
+          !(HLNodeUtils::isKnownNonPositive(Delta, CurLoop));
+      bool DeltaMaybeNegative =
+          !(HLNodeUtils::isKnownNonNegative(Delta, CurLoop));
+      bool CoeffMaybePositive =
+          !(HLNodeUtils::isKnownNonPositive(Coeff, CurLoop));
+      bool CoeffMaybeNegative =
+          !(HLNodeUtils::isKnownNonNegative(Coeff, CurLoop));
       // The double negatives above are confusing.
-      // It helps to read isKnownNonZero(Delta)
+      // It helps to read isKnownNonZero(Delta, CurLoop)
       // as "Delta might be Zero"
       DVKind NewDirection = DVKind::NONE;
       if ((DeltaMaybePositive && CoeffMaybePositive) ||
@@ -4349,11 +4376,14 @@ void DDTest::updateDirection(Dependences::DVEntry &Level,
     Level.Scalar = false;
     Level.Distance = CurConstraint.getD();
     auto NewDirection = DVKind::NONE;
-    if (!HLNodeUtils::isKnownNonZero(Level.Distance)) // if may be zero
+    // if may be zero
+    if (!HLNodeUtils::isKnownNonZero(Level.Distance, DeepestLoop))
       NewDirection = DVKind::EQ;
-    if (!HLNodeUtils::isKnownNonPositive(Level.Distance)) // if may be positive
+    // if may be positive
+    if (!HLNodeUtils::isKnownNonPositive(Level.Distance, DeepestLoop))
       NewDirection |= DVKind::LT;
-    if (!HLNodeUtils::isKnownNonNegative(Level.Distance)) // if may be negative
+    // if may be negative
+    if (!HLNodeUtils::isKnownNonNegative(Level.Distance, DeepestLoop))
       NewDirection |= DVKind::GT;
     Level.Direction &= NewDirection;
   } else if (CurConstraint.isLine()) {
@@ -4408,17 +4438,17 @@ bool DependenceAnalysis::tryDelinearize(const SCEV *SrcSCEV,
 
   // First step: collect parametric terms in both array references.
   SmallVector<const SCEV *, 4> Terms;
-  SrcAR->collectParametricTerms(SE, Terms);
-  DstAR->collectParametricTerms(SE, Terms);
+  collectParametricTerms(*SrcAR, SE, Terms);
+  collectParametricTerms(*DstAR, SE, Terms);
 
   // Second step: find subscript sizes.
   SmallVector<const SCEV *, 4> Sizes;
-  SE->findArrayDimensions(Terms, Sizes, ElementSize);
+  findArrayDimensions(*SE, Terms, Sizes, ElementSize);
 
   // Third step: compute the access functions for each subscript.
   SmallVector<const SCEV *, 4> SrcSubscripts, DstSubscripts;
-  SrcAR->computeAccessFunctions(SE, SrcSubscripts, Sizes);
-  DstAR->computeAccessFunctions(SE, DstSubscripts, Sizes);
+  computeAccessFunctions(*SrcAR, SE, SrcSubscripts, Sizes);
+  computeAccessFunctions(*DstAr, SE, DstSubscripts, Sizes);
 
   // Fail when there is only a subscript: that's a linearized access function.
   if (SrcSubscripts.size() < 2 || DstSubscripts.size() < 2 ||

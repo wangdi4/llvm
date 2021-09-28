@@ -802,7 +802,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 
       // These functions are OpenMP Offloading allocation / free routines
       "declare i8* @__kmpc_alloc_shared(i64)\n"
-      "declare void @__kmpc_free_shared(i8*)\n"
+      "declare void @__kmpc_free_shared(i8*, i64)\n"
 #if INTEL_CUSTOMIZATION
       "declare %struct* @__acrt_iob_func(i32)\n"
       "declare void @__assert_fail(i8*, i8*, i32, i8*)\n"
@@ -871,6 +871,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__kmpc_serialized_parallel(i8*, i32)\n"
       "declare i32 @__kmpc_single(i8*, i32)\n"
       "declare void @__kmpc_end_single(i8*, i32)\n"
+      "declare i32 @__kmpc_masked(i8*, i32, i32)\n"
+      "declare void @__kmpc_end_masked(i8*, i32)\n"
       "declare i32 @__kmpc_master(i8*, i32)\n"
       "declare void @__kmpc_end_master(i8*, i32)\n"
       "declare i8* @__kmpc_threadprivate_cached(i8*, i32, i8*, i64, i8*)\n"

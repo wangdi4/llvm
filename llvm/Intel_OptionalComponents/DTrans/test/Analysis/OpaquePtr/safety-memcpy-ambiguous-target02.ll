@@ -8,7 +8,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.test01a = type { i64 }
 %struct.test01b = type { i32, i32 }
-define void @test01(%struct.test01b* %pStructB) !dtrans_type !3 {
+define void @test01(%struct.test01b* "intel_dtrans_func_index"="1" %pStructB) !intel.dtrans.func.type !4 {
   %pStructA = alloca %struct.test01a
   %pB = bitcast %struct.test01a* %pStructA to %struct.test01b*
 
@@ -30,21 +30,16 @@ define void @test01(%struct.test01b* %pStructB) !dtrans_type !3 {
 ; CHECK: Safety data: Ambiguous GEP | Ambiguous pointer target{{ *$}}
 
 
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+declare !intel.dtrans.func.type !6 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
 
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{i32 0, i32 0}  ; i32
-!3 = !{!"F", i1 false, i32 1, !4, !5}  ; void (%struct.test01b*)
-!4 = !{!"void", i32 0}  ; void
-!5 = !{!6, i32 1}  ; %struct.test01b*
-!6 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
-!7 = !{!"F", i1 false, i32 4, !4, !8, !8, !1, !9}  ; void (i8*, i8*, i64, i1)
-!8 = !{i8 0, i32 1}  ; i8*
-!9 = !{i1 0, i32 0}  ; i1
-!10 = !{!"S", %struct.test01a zeroinitializer, i32 1, !1} ; { i64 }
-!11 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
-!12 = !{!"llvm.memcpy.p0i8.p0i8.i64", !7}
+!3 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
+!4 = distinct !{!3}
+!5 = !{i8 0, i32 1}  ; i8*
+!6 = distinct !{!5, !5}
+!7 = !{!"S", %struct.test01a zeroinitializer, i32 1, !1} ; { i64 }
+!8 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
 
-!dtrans_types = !{!10, !11}
-!dtrans_decl_types = !{!12}
+!intel.dtrans.types = !{!7, !8}

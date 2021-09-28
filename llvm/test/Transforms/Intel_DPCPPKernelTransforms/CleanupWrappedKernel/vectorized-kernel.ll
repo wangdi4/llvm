@@ -28,8 +28,8 @@ define void @__Vectorized_.test(i8* noalias %UniformArgs, i64* noalias %pWGId, {
 }
 
 ;; TODO: replace "kernel_wrapper" with "kernel-wrapper"
-attributes #0 = { alwaysinline "kernel_wrapper"="test" "sycl-kernel" }
-attributes #1 = { alwaysinline "kernel_wrapper"="__Vectorized_.test" "sycl-kernel" }
+attributes #0 = { alwaysinline "kernel_wrapper"="test" }
+attributes #1 = { alwaysinline "kernel_wrapper"="__Vectorized_.test" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @__test_separated_args, void (i32 addrspace(1)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @____Vectorized_.test_separated_args}

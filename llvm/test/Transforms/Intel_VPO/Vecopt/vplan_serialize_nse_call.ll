@@ -91,5 +91,5 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-attributes #1 = { nounwind }
+attributes #1 = { nounwind willreturn }
 

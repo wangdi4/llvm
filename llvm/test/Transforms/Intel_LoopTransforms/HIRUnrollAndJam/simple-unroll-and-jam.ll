@@ -61,10 +61,10 @@
 
 ; Check that proper optreport is emitted for Unroll and Jam.
 ; RUN: opt -hir-ssa-deconstruction -hir-lmm -hir-unroll-and-jam -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,hir-unroll-and-jam,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,hir-unroll-and-jam,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT:      LOOP BEGIN
-; OPTREPORT-NEXT:     remark #25540: Loop has been unrolled and jammed by {{.*}}{{[[:space:]]}}
+; OPTREPORT-NEXT:     remark #25540: Loop unrolled and jammed by 8{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         remark #25563: Load hoisted out of the loop
 ; OPTREPORT-NEXT:         remark #25564: Store sinked out of the loop
@@ -72,7 +72,7 @@
 ; OPTREPORT-NEXT: LOOP END
 
 ; OPTREPORT:      LOOP BEGIN
-; OPTREPORT-NEXT: <Remainder loop for unroll-and-jam>{{[[:space:]]}}
+; OPTREPORT-NEXT: <Remainder>{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END

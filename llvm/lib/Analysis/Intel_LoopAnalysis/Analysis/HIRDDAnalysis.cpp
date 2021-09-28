@@ -16,6 +16,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
@@ -794,4 +795,12 @@ bool HIRDDAnalysis::doRefsAlias(const RegDDRef *SrcRef,
                                 const RegDDRef *DstRef) const {
   DDTest DT(*AAR, SrcRef->getHLDDNode()->getHLNodeUtils());
   return !DT.queryAAIndep(SrcRef, DstRef, 1);
+}
+
+bool HIRDDAnalysis::areRefsMustAliasOrPartialAlias(
+    const RegDDRef *SrcRef, const RegDDRef *DstRef) const {
+  AliasResult AAResult =
+      AAR->alias(SrcRef->getMemoryLocation(), DstRef->getMemoryLocation());
+  return AAResult == AliasResult::MustAlias ||
+         AAResult == AliasResult::PartialAlias;
 }

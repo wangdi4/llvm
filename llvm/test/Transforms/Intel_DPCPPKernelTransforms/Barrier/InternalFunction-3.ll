@@ -8,10 +8,10 @@
 ;;           which contains barrier itself and returns i32 value type,
 ;;           and receives uniform value "%x" that does not cross barrier.
 ;; The expected result:
-;;      1. Kernel "main" contains no more barrier/barrier_dummy instructions
+;;      1. Kernel "main" contains no more barrier/dummy_barrier. instructions
 ;;      2. Kernel "main" is still calling function "foo"
 ;;      3. Kernel "main" loads "%z" value from offset 4 in the special buffer after calling "foo".
-;;      4. function "foo" contains no more barrier/barrier_dummy instructions
+;;      4. function "foo" contains no more barrier/dummy_barrier. instructions
 ;;      5. function "foo" stores "%x" value to offset 4 in the special buffer before ret.
 ;;      5.1. This store of value "%x" happens in a new created loop over all WIs
 ;;*****************************************************************************
@@ -22,7 +22,7 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %lid = call i32 @_Z12get_local_idj(i32 0)
   %y = xor i32 %x, %lid
   br label %L2
@@ -31,13 +31,13 @@ L2:
   %z = call i32 @foo(i32 %x)
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %w = and i32 %z, %z
   br label %L4
 L4:
   call void @_Z18work_group_barrierj(i32 1)
   ret void
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: xor
 ; CHECK-NOT: store i32 %x
@@ -64,7 +64,7 @@ L4:
 ; CHECK: %w = and i32 %loadedValue7, %loadedValue7
 ; CHECK: br label %L4
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: ret
 }
@@ -72,12 +72,12 @@ L4:
 ; CHECK: @foo
 define i32 @foo(i32 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %L2
 L2:
   call void @_Z18work_group_barrierj(i32 2)
   ret i32 %x
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; The return BB
 ;;;; TODO: add regular expression for the below values.
@@ -99,7 +99,7 @@ L2:
 
 declare void @_Z18work_group_barrierj(i32)
 declare i32 @_Z12get_local_idj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 

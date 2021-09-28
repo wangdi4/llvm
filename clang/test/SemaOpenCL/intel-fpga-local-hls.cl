@@ -434,11 +434,8 @@ void foo1()
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
-  //CHECK: IntelFPGABankWidthAttr
-  //CHECK-NEXT: ConstantExpr{{.*}}'int'
-  //CHECK-NEXT: value: Int 16
-  //CHECK-NEXT: IntegerLiteral{{.*}}'int' 16
-  //expected-warning@+2{{attribute 'bankwidth' is already applied}}
+  //expected-note@+2{{previous attribute is here}}
+  //expected-warning@+2{{attribute '__bankwidth__' is already applied with different arguments}}
   __attribute__((__bankwidth__(8)))
   __attribute__((__bankwidth__(16)))
   unsigned int bw_two[64];
@@ -554,11 +551,8 @@ void foo1()
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
-  //CHECK: IntelFPGANumBanksAttr
-  //CHECK-NEXT: ConstantExpr{{.*}}'int'
-  //CHECK-NEXT: value: Int 16
-  //CHECK-NEXT: IntegerLiteral{{.*}}'int' 16
-  //expected-warning@+2{{attribute 'numbanks' is already applied}}
+  //expected-note@+2{{previous attribute is here}}
+  //expected-warning@+2{{attribute '__numbanks__' is already applied with different arguments}}
   __attribute__((__numbanks__(8)))
   __attribute__((__numbanks__(16)))
   unsigned int nb_two[64];

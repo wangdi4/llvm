@@ -5,25 +5,25 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo() {
 ; CHECK-LABEL: @foo(
-; CHECK-NEXT:  DIR.OMP.SIMD.1:
-; CHECK-NEXT:    [[DOTSOA_VEC:%.*]] = alloca [12 x <4 x i16>], align 8
-; CHECK-NEXT:    br label [[DIR_OMP_SIMD_112:%.*]]
-; CHECK:       DIR.OMP.SIMD.112:
-; CHECK-NEXT:    [[ARRAYIDX_I:%.*]] = getelementptr inbounds [12 x i16], [12 x i16]* undef, i64 0, i64 1
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[B3_I_LPRIV:%.*]] = alloca [12 x i16], align 1
+; CHECK-NEXT:    [[B3_I_LPRIV_SOA_VEC:%.*]] = alloca [12 x <4 x i16>], align 8
+; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1:%.*]]
+; CHECK:       DIR.OMP.SIMD.1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br i1 true, label [[MERGE_BLK12:%.*]], label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [12 x <4 x i16>], [12 x <4 x i16>]* [[DOTSOA_VEC]], i64 0, i64 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP2:%.*]], [[VPLANNEDBB6:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i32 [ [[TMP1:%.*]], [[VPLANNEDBB6]] ], [ undef, [[VPLANNEDBB2]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP0:%.*]], [[VPLANNEDBB6]] ], [ undef, [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i32 [ [[TMP1:%.*]], [[VPLANNEDBB6]] ], [ 0, [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP0:%.*]], [[VPLANNEDBB6]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB2]] ]
 ; CHECK-NEXT:    br i1 undef, label [[VPLANNEDBB5:%.*]], label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [12 x <4 x i16>], [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 1
 ; CHECK-NEXT:    store <4 x i16> <i16 1, i16 1, i16 1, i16 1>, <4 x i16>* [[SOA_SCALAR_GEP]], align 2
 ; CHECK-NEXT:    br label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB6:
@@ -36,28 +36,30 @@ define void @foo() {
 ; CHECK-NEXT:    br label [[ARRAY_LAST_PRIVATE_LOOP:%.*]]
 ; CHECK:       array.last.private.loop:
 ; CHECK-NEXT:    [[TMP4:%.*]] = phi i64 [ 0, [[VPLANNEDBB7]] ], [ [[TMP8:%.*]], [[ARRAY_LAST_PRIVATE_LOOP]] ]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr [12 x <4 x i16>], [12 x <4 x i16>]* [[DOTSOA_VEC]], i64 0, i64 [[TMP4]], i64 3
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr [12 x <4 x i16>], [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 [[TMP4]], i64 3
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i16, i16* [[TMP5]], align 2
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr [12 x i16], [12 x i16]* undef, i64 0, i64 [[TMP4]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr [12 x i16], [12 x i16]* [[B3_I_LPRIV]], i64 0, i64 [[TMP4]]
 ; CHECK-NEXT:    store i16 [[TMP6]], i16* [[TMP7]], align 2
 ; CHECK-NEXT:    [[TMP8]] = add i64 [[TMP4]], 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP8]], 12
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[ARRAY_LAST_PRIVATE_LOOP]], label [[ARRAY_LAST_PRIVATE_LOOP_EXIT:%.*]]
 ; CHECK:       array.last.private.loop.exit:
-;
-DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"([12 x i16]* undef) ]
-  br label %DIR.OMP.SIMD.112
+; CHECK-NEXT:    br label [[VPLANNEDBB8:%.*]]
 
-DIR.OMP.SIMD.112:                                 ; preds = %DIR.OMP.SIMD.1
-  %arrayidx.i = getelementptr inbounds [12 x i16], [12 x i16]* undef, i64 0, i64 1
+entry:
+  %b3.i.lpriv = alloca [12 x i16], align 1
+  br label %DIR.OMP.SIMD.1
+
+DIR.OMP.SIMD.1:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"([12 x i16]* %b3.i.lpriv) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:                             ; preds = %omp.body.continue.i, %DIR.OMP.SIMD.112
-  %.omp.iv.i.local.03 = phi i32 [ %add5.i, %omp.body.continue.i ], [ undef, %DIR.OMP.SIMD.112 ]
+  %.omp.iv.i.local.03 = phi i32 [ %add5.i, %omp.body.continue.i ], [ 0, %DIR.OMP.SIMD.1 ]
   br i1 undef, label %if.then.i, label %omp.body.continue.i
 
 if.then.i:                                        ; preds = %omp.inner.for.body.i
+  %arrayidx.i = getelementptr inbounds [12 x i16], [12 x i16]* %b3.i.lpriv, i64 0, i64 1
   store i16 1, i16* %arrayidx.i, align 2
   br label %omp.body.continue.i
 

@@ -9,6 +9,7 @@ add_llvm_component_library(LLVMScalarOpts
   CorrelatedValuePropagation.cpp
   DCE.cpp
   DeadStoreElimination.cpp
+  DFAJumpThreading.cpp
   DivRemPairs.cpp
   EarlyCSE.cpp
   FlattenCFGPass.cpp
@@ -32,7 +33,7 @@ add_llvm_component_library(LLVMScalarOpts
   Intel_IndirectCallConv.cpp
   Intel_LoopAttrs.cpp
   Intel_LoopOptMarker.cpp
-  Intel_LoopOptReportEmitter.cpp
+  Intel_OptReportEmitter.cpp
   Intel_LowerSubscriptIntrinsic.cpp
 # INTEL_FEATURE_SW_ADVANCED
   Intel_NontemporalStore.cpp

@@ -4,11 +4,13 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
 # Add custom Intel files below.  Files listed here will be included in
 # INTEL_CUSTOMIZATION build.
+  Intel_ExpandComplex.cpp
   Intel_FMACGCommon.cpp
   Intel_FMACommon.cpp
   Intel_Float128ExpandPass.cpp
+  Intel_FoldLoadsToGather.cpp
   Intel_MIRMatcher.cpp
-  Intel_MachineLoopOptReportEmitter.cpp
+  Intel_MachineOptReportEmitter.cpp
   Intel_RAReportEmitter.cpp
   )
 # end INTEL_CUSTOMIZATION
@@ -123,6 +125,7 @@ add_llvm_component_library(LLVMCodeGen
   MachineTraceMetrics.cpp
   MachineVerifier.cpp
   MIRFSDiscriminator.cpp
+  MIRSampleProfile.cpp
   MIRYamlMapping.cpp
   ModuloSchedule.cpp
   MultiHazardRecognizer.cpp
@@ -157,6 +160,7 @@ add_llvm_component_library(LLVMCodeGen
   RegisterCoalescer.cpp
   RegisterPressure.cpp
   RegisterScavenging.cpp
+  RemoveRedundantDebugValues.cpp
   RenameIndependentSubregs.cpp
   MachineStableHash.cpp
   MIRVRegNamerUtils.cpp

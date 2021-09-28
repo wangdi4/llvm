@@ -25,6 +25,9 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_PartialInlineAnalysis.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/LoopInfo.h"
@@ -204,6 +207,16 @@ static cl::opt<unsigned> MaxBBInnerDoubleExternalFxn(
 // double callsite external Functions.
 static cl::opt<unsigned> MaxBBOuterDoubleExternalFxn(
     "max-bb-outer-double-external-fxn", cl::init(30), cl::ReallyHidden);
+
+// Minimum number of arguments in a callee candidate for inlining in one
+// double callsite external Functions heuristic.
+static cl::opt<unsigned> MinCalleeArgsDoubleExternal(
+    "min-callee-args-double-external", cl::init(14), cl::ReallyHidden);
+
+// Minimum number of IVDEP loops in a callee candidate for inlining in one
+// double callsite external Functions heuristic.
+static cl::opt<unsigned> MinCalleeIVDEPLoopsDoubleExternal(
+    "min-callee-ivdep-loops-double-external", cl::init(21), cl::ReallyHidden);
 
 // worthInliningForFusion()
 
@@ -620,13 +633,15 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // Returns true if "I", which allocates either integer or pointer type,
   // is used by only StoreInst/CallBase/LoadInst/BitCastInst instructions.
   // BitCastInst: Allow only when bitcast is used by lifetime intrinsics.
-  // LoadInst: Allow only when DTransInlineHeuristics is true.
+  // LoadInst: Allow only when DTransInlineHeuristics is true. Also handle
+  // the case where the use of the AllocInst could directly feed a lifetime
+  // intrinsic, as will be the case when opaque pointers are enabled.
   //
   // Ex:
   //  %31 = alloca i32, align 4
   //  store i32 %30, i32* %31, align 4
   //  %32 = alloca double*, align 8
-  //  %33 = bitcast double** %33 to i8*
+  //  %33 = bitcast double** %32 to i8*
   //  call void @llvm.lifetime.start.p0i8(i64 8, i8* %33)
   //  store double* %29, double** %32, align 8, !tbaa !6
   //  call void @foo(i32* nonnull %31, i32* undef, double** nonnull %32, i64 0)
@@ -656,13 +671,13 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         // lifetime_end.
         for (auto UU : BC->users()) {
           auto ICB = dyn_cast<CallBase>(UU);
-          if (!ICB)
-            return false;
-          if (!ICB->isLifetimeStartOrEnd())
+          if (!ICB || !ICB->isLifetimeStartOrEnd())
             return false;
         }
-      } else if (isa<CallBase>(U) ||
-                 (DTransInlineHeuristics && isa<LoadInst>(U))) {
+      } else if (auto CB = dyn_cast<CallBase>(U)) {
+        if (!CB->isLifetimeStartOrEnd())
+          CallOrLoadSeen = true;
+      } else if (DTransInlineHeuristics && isa<LoadInst>(U)) {
         CallOrLoadSeen = true;
       } else {
         return false;
@@ -1868,7 +1883,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
 // a worthy double callsite while testing another callsite.
 //
 static bool hasWorthyDoubleCallSiteAttribute(CallBase &CB) {
-  return CB.hasFnAttr("inline-doubleext2");
+  return CB.hasFnAttr("inline-doubleext2") || CB.hasFnAttr("inline-doubleext3");
 }
 
 //
@@ -2138,7 +2153,8 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
   // Return 'true' if 'TV' is an AllocaInst whose use in a CallBase matches
   // the 'ArgNo' argument of 'CB', and which is stored a floating point 0 in
   // a StoreInst, and whose only other uses are bitcasts that feed lifetime
-  // intrinsics or LoadInsts.
+  // intrinsics or LoadInsts. Also handle the case when we have opaque
+  // pointers and the AllocaInst feeds the lifetime intrinsics directly.
   //
   auto MatchesSZP = [](CallBase *CB, Value *TV, unsigned ArgNo) -> bool {
     unsigned CallBaseCount = 0;
@@ -2148,6 +2164,8 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
       return false;
     for (User *U : AI->users()) {
       if (auto CBI = dyn_cast<CallBase>(U)) {
+        if (CBI->isLifetimeStartOrEnd())
+          continue;
         if (CBI != CB || TV != CB->getArgOperand(ArgNo) || CallBaseCount > 0)
           return false;
         ++CallBaseCount;
@@ -2156,9 +2174,7 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
       if (auto BCI = dyn_cast<BitCastInst>(U)) {
         for (auto UU : BCI->users()) {
           auto ICB = dyn_cast<CallBase>(UU);
-          if (!ICB)
-            return false;
-          if (!ICB->isLifetimeStartOrEnd())
+          if (!ICB || !ICB->isLifetimeStartOrEnd())
             return false;
         }
         continue;
@@ -2261,10 +2277,10 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
   if (!IsWorthyUpperCallSite(*CCB1, MaxBBOuterDoubleExternalFxn))
     return false;
   // Qualify all callsites at once by setting the same attribute on all of them.
-  CB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
-  CB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
-  CCB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
-  CCB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
+  CB0->addFnAttr("inline-doubleext2");
+  CB1->addFnAttr("inline-doubleext2");
+  CCB0->addFnAttr("inline-doubleext2");
+  CCB1->addFnAttr("inline-doubleext2");
   return true;
 }
 
@@ -2312,6 +2328,54 @@ static bool worthyDoubleExternalCallSite2(CallBase &CB) {
 
 //
 // Return 'true' if 'CB' worth inlining, given that it is a double callsite
+// with external linkage.
+//
+// The criteria for this heuristic are:
+//   (1) Is a 'PrepareForLTO' compilation.
+//   (2) The callee is Fortran.
+//   (3) The callee has many arguments.
+//   (3) Both callsites are in the same caller.
+//   (4) The callee has many loops with IVDEP directive.
+//
+static bool worthyDoubleExternalCallSite3(CallBase &CB,
+                                          bool PrepareForLTO,
+                                          InliningLoopInfoCache &ILIC) {
+  static Function *WorthyCallee = nullptr;
+  if (CB.hasFnAttr("inline-doubleext3"))
+    return true;
+  if (WorthyCallee)
+    return false;
+  Function *Callee = CB.getCalledFunction();
+  if (!PrepareForLTO || !Callee->isFortran())
+     return false;
+  if (Callee->arg_size() < MinCalleeArgsDoubleExternal)
+    return false;
+  CallBase *CB0 = nullptr;
+  CallBase *CB1 = nullptr;
+  if (!hasTwoCallSitesInSameCaller(CB, &CB0, &CB1))
+    return false;
+  LoopInfo *LI = ILIC.getLI(Callee);
+  if (!LI || LI->empty())
+    return false;
+  bool PassedIVDEPTest = false;
+  unsigned Count = 0;
+  auto Loops = LI->getLoopsInPreorder();
+  for (auto L : Loops)
+    if (findOptionMDForLoop(L, "llvm.loop.vectorize.ivdep_back"))
+      if (++Count >= MinCalleeIVDEPLoopsDoubleExternal) {
+        PassedIVDEPTest = true;
+        break;
+      }
+  if (!PassedIVDEPTest)
+    return false;
+  CB0->addFnAttr("inline-doubleext3");
+  CB1->addFnAttr("inline-doubleext3");
+  WorthyCallee = Callee;
+  return true;
+}
+
+//
+// Return 'true' if 'CB' worth inlining, given that it is a double callsite
 // with external linkage. If we need to use the big bonus to actually get
 // the callsites to inline, set '*UseBigBonus'. (NOTE: It might be useful
 // to use a single big bonus consistently, but that should be tested in
@@ -2319,6 +2383,7 @@ static bool worthyDoubleExternalCallSite2(CallBase &CB) {
 //
 static bool worthyDoubleExternalCallSite(CallBase &CB,
                                          bool PrepareForLTO,
+                                         InliningLoopInfoCache &ILIC,
                                          bool *UseBigBonus) {
   if (worthyDoubleExternalCallSite1(CB, PrepareForLTO)) {
     *UseBigBonus = true;
@@ -2326,6 +2391,10 @@ static bool worthyDoubleExternalCallSite(CallBase &CB,
   }
   if (worthyDoubleExternalCallSite2(CB)) {
     *UseBigBonus = false;
+    return true;
+  }
+  if (worthyDoubleExternalCallSite3(CB, PrepareForLTO, ILIC)) {
+    *UseBigBonus = true;
     return true;
   }
   return false;
@@ -2592,13 +2661,13 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
       !CB.hasFnAttr("inline-fusion") &&
       IsEarlyFusionCandidate(Caller, Callee, ILIC, FusionCBs)) {
     for (CallBase *CB : FusionCBs)
-      CB->addAttribute(AttributeList::FunctionIndex, "inline-fusion");
+      CB->addFnAttr("inline-fusion");
     return true;
   }
 
   // The call site was marked as candidate for inlining for fusion.
   if (CB.hasFnAttr("inline-fusion")) {
-    CB.removeAttribute(AttributeList::FunctionIndex, "inline-fusion");
+    CB.removeFnAttr("inline-fusion");
     return true;
   }
 
@@ -2804,7 +2873,7 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
   // Mark other inlining candidates with an attribute showing a strong
   // preference for inlining.
   for (auto LocalCB : LocalCSForFusion)
-    LocalCB->addAttribute(AttributeList::FunctionIndex, "inline-fusion");
+    LocalCB->addFnAttr("inline-fusion");
 
   return true;
 }
@@ -3295,8 +3364,8 @@ static bool worthInliningFunctionPassedDummyArgs(Function &F,
   unsigned PtrToIntSeriesArgCount = 0;
   unsigned PtrToIntFirstArgNo = 0;
   for (auto &Arg : F.args()) {
-    Type *Ty = Arg.getType();
-    if (Ty->isPointerTy() && Ty->getPointerElementType()->isIntegerTy()) {
+    Type *PETy = inferPtrElementType(Arg);
+    if (PETy && PETy->isIntegerTy()) {
       if (PtrToIntSeriesArgCount == 0)
         PtrToIntFirstArgNo = Arg.getArgNo();
       if (++PtrToIntSeriesArgCount >= DummyArgsMinSeriesLength)
@@ -3364,11 +3433,10 @@ static bool worthInliningCallSitePassedDummyArgs(CallBase &CB,
 // are all the same.
 //
 static bool isSpecialArrayStructArg(Argument &Arg) {
-  llvm::Type *Ty = Arg.getType();
-  if (!Ty->isPointerTy())
+  Type *PETy = inferPtrElementType(Arg);
+  if (!PETy)
     return false;
-  llvm::Type *TyE = Ty->getPointerElementType();
-  auto TyS = dyn_cast<StructType>(TyE);
+  auto TyS = dyn_cast<StructType>(PETy);
   if (!TyS)
     return false;
   uint64_t ECount = 0;
@@ -3825,7 +3893,8 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
       }
     }
     bool UseBigBonus = false;
-    if (worthyDoubleExternalCallSite(CB, PrepareForLTO, &UseBigBonus)) {
+    if (worthyDoubleExternalCallSite(CB, PrepareForLTO, *ILIC,
+                                     &UseBigBonus)) {
       YesReasonVector.push_back(InlrDoubleNonLocalCall);
       if (UseBigBonus)
         return -InlineConstants::InliningHeuristicBonus;

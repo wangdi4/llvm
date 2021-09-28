@@ -37,6 +37,7 @@
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
+#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -134,7 +135,7 @@ namespace {
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createRemoveRegionDirectivesLegacyPass();
-      (void) llvm::createLoopOptReportEmitterLegacyPass();
+      (void) llvm::createOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
       (void) llvm::createCallTreeCloningPass();
@@ -251,6 +252,7 @@ namespace {
       (void) llvm::createTailCallEliminationPass();
       (void) llvm::createJumpThreadingPass();
       (void) llvm::createIVSplitLegacyPass(); // INTEL
+      (void) llvm::createDFAJumpThreadingPass();
       (void) llvm::createUnifyFunctionExitNodesPass();
       (void) llvm::createInstCountPass();
       (void) llvm::createConstantHoistingPass();
@@ -298,7 +300,7 @@ namespace {
 #if INTEL_CUSTOMIZATION
       (void) llvm::createVPlanPragmaOmpOrderedSimdExtractPass();
       (void) llvm::createVPlanDriverPass();
-      (void) llvm::createVPlanDriverHIRPass();
+      (void) llvm::createVPlanDriverHIRPass(false);
       (void) llvm::createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createVectorCombinePass();
@@ -385,7 +387,9 @@ namespace {
       (void) llvm::createHIRLoopConcatenationPass();
       (void) llvm::createHIRArrayTransposePass();
       (void) llvm::createHIRAosToSoaPass();
+#if INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createHIRInterLoopBlockingPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createHIRLoopFusionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenWrapperPass();
@@ -411,15 +415,18 @@ namespace {
       // DPCPP Kernel Transformations
       (void)llvm::createAddFunctionAttrsLegacyPass();
       (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createCoerceWin64TypesLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
-      (void) llvm::createDPCPPKernelVecClonePass();
-      (void) llvm::createDPCPPKernelPostVecPass();
+      (void)llvm::createDPCPPKernelVecClonePass();
+      (void)llvm::createDPCPPKernelPostVecPass();
       (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
       (void)llvm::createDPCPPKernelAnalysisLegacyPass();
+      (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();
       (void)llvm::createRedundantPhiNodeLegacyPass();
       (void)llvm::createGroupBuiltinLegacyPass();
+      (void)llvm::createSetVectorizationFactorLegacyPass();
       (void)llvm::createSplitBBonBarrierLegacyPass();
       (void)llvm::createWIRelatedValueWrapperPass();
       (void)llvm::createDataPerBarrierWrapperPass();
@@ -431,9 +438,28 @@ namespace {
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
       (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
+      (void)llvm::createSGBarrierPropagateLegacyPass();
+      (void)llvm::createSGBarrierSimplifyLegacyPass();
+      (void)llvm::createSGBuiltinLegacyPass();
+      (void)llvm::createSGLoopConstructLegacyPass();
+      (void)llvm::createSGSizeAnalysisLegacyPass();
+      (void)llvm::createSGValueWidenLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
+      (void)llvm::createVFAnalysisLegacyPass();
+      (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
+      (void)llvm::createVectorVariantFillInLegacyPass();
+      (void)llvm::createVectorVariantLoweringLegacyPass(
+          llvm::VectorVariant::XMM);
+      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VectorVariant::XMM);
+      (void)llvm::createSGSizeCollectorIndirectLegacyPass(
+          llvm::VectorVariant::XMM);
+      (void)llvm::createUpdateCallAttrsLegacyPass();
+      (void)llvm::createIndirectCallLoweringLegacyPass();
+      (void)llvm::createCreateSimdVariantPropagationLegacyPass();
+      (void)llvm::createLinearIdResolverPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
@@ -457,6 +483,7 @@ namespace {
   #endif  // INTEL_FEATURE_CSA
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
       (void) llvm::createVPOParoptSharedPrivatizationPass();
+      (void) llvm::createVPOParoptTargetInlinePass();
       (void) llvm::createIntelVTableFixupPass();
   #endif // INTEL_CUSTOMIZATION
 

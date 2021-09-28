@@ -75,7 +75,7 @@ L1:
 ; CHECK: DONE
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}

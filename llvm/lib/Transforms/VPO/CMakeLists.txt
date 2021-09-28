@@ -14,6 +14,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Paropt/Intel_VPOParoptFortranUtils.cpp
   Paropt/Intel_VPOParoptOptimizeDataSharing.cpp
   Paropt/Intel_VPOParoptSharedPrivatization.cpp
+  Paropt/Intel_VPOParoptTargetInline.cpp
   )
 
 # INTEL_FEATURE_CSA
@@ -51,6 +52,7 @@ add_llvm_component_library(LLVMVPOTransforms
   VPOTransform.cpp
 
   Utils/CFGRestructuring.cpp
+  Utils/CFGSimplify.cpp
   Utils/VPORestoreOperands.cpp
   Utils/MultiVersioning.cpp
   Utils/ParSecTrans.cpp

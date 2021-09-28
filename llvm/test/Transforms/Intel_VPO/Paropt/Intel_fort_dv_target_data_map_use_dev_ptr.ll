@@ -43,7 +43,7 @@ target device_triples = "spir64"
 define void @foo_(%"QNCA_a0$i32*$rank1$"* dereferenceable(72) "ptrnoalias" %"foo_$B") #0 {
 alloca_0:
   %"foo_$B.field_6$.extent$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$B", i64 0, i32 6, i64 0, i32 0
-  %"foo_$B.field_6$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"foo_$B.field_6$.extent$", i32 0)
+  %"foo_$B.field_6$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"foo_$B.field_6$.extent$", i32 0)
   %"foo_$B.field_6$.extent$[]_fetch" = load i64, i64* %"foo_$B.field_6$.extent$[]", align 1
   %mul = shl nsw i64 %"foo_$B.field_6$.extent$[]_fetch", 2
   %"foo_$B.addr_a0$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$B", i64 0, i32 0
@@ -83,9 +83,9 @@ alloca_0:
   %"foo_$B.addr_a0$_clone" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$B", i64 0, i32 0
   %"foo_$B.field_6$.spacing$_clone" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$B", i64 0, i32 6, i64 0, i32 1
   %"foo_$B.addr_a0$_clone_fetch" = load i32*, i32** %"foo_$B.addr_a0$_clone", align 1
-  %"foo_$B.field_6$.spacing$_clone[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"foo_$B.field_6$.spacing$_clone", i32 0)
+  %"foo_$B.field_6$.spacing$_clone[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"foo_$B.field_6$.spacing$_clone", i32 0)
   %"foo_$B.field_6$.spacing$_clone[]_fetch" = load i64, i64* %"foo_$B.field_6$.spacing$_clone[]", align 1
-  %"foo_$B.addr_a0$_clone_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %"foo_$B.field_6$.spacing$_clone[]_fetch", i32* %"foo_$B.addr_a0$_clone_fetch", i64 2)
+  %"foo_$B.addr_a0$_clone_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %"foo_$B.field_6$.spacing$_clone[]_fetch", i32* elementtype(i32) %"foo_$B.addr_a0$_clone_fetch", i64 2)
   store i32 20, i32* %"foo_$B.addr_a0$_clone_fetch[]", align 1
 
 

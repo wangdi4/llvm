@@ -21,7 +21,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/AsmPrinterHandler.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
@@ -97,7 +97,7 @@ private:
     MCSymbol *MBBSym = nullptr;
 
     // Optimization report for the loop.
-    LoopOptReport OptReport;
+    OptReport OR;
 
     // Label of the corresponding entry in the expression table.
     // This is a scratch field initialized and used during the emission
@@ -107,8 +107,7 @@ private:
     // Unique ID used to indicate the MBBSym that this OptReport is anchored to.
     SmallString<32> AnchorID;
 
-    OptReportDesc(MCSymbol *MBBSym, LoopOptReport OptReport)
-      : MBBSym(MBBSym), OptReport(OptReport) {}
+    OptReportDesc(MCSymbol *MBBSym, OptReport OR) : MBBSym(MBBSym), OR(OR) {}
   };
 
   // Optimization report descriptor for a single function, which holds

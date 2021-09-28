@@ -28,7 +28,7 @@ target triple = "x86_64-pc-win32"
 ; CHECK: @main
 define void @main(i64 %x) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %lid = call i64 @_Z12get_local_idj(i32 0)
   %y = xor i64 %x, %lid
   br label %L2
@@ -37,14 +37,14 @@ L2:
   %z = call i64 @foo(i64 %y)
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 }
 
 ; CHECK: @foo
 define i64 @foo(i64 %a) nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %b = xor i64 %a, %a
   br label %L2
 L2:
@@ -88,7 +88,7 @@ L2:
 
 declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 !opencl.build.options = !{}

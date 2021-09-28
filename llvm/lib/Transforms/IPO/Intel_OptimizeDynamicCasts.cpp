@@ -319,10 +319,10 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
         // to type_info objects.
         auto ObjPointer = Call->getArgOperand(0);
         auto ObjPointerType = ObjPointer->getType();
-        (void)ObjPointerType;
+        auto ObjType = ObjPointerType->getPointerElementType();
         assert(
             ObjPointerType->isPointerTy() &&
-            ObjPointerType->getPointerElementType()->isIntegerTy(8) &&
+            ObjType->isIntegerTy(8) &&
             "Expected that the first argument of the dynamic_cast call has i8* "
             "type!");
 
@@ -339,7 +339,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
             Builder.CreateLoad(Int8PtrTy->getPointerTo(), CastObjPointer);
         // Calculate address of pointer to type_info.
         auto AddressOfTypeInfoPtr =
-            Builder.CreateGEP(Vptr, Builder.getInt32(-1));
+            Builder.CreateGEP(Int8PtrTy, Vptr, Builder.getInt32(-1));
         // Load pointer to type_info.
         auto TypeInfoPtr = Builder.CreateLoad(Int8PtrTy, AddressOfTypeInfoPtr);
 
@@ -370,7 +370,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
                 APInt::getNullValue(Hint->getType()->getScalarSizeInBits());
             NegHint -= Hint->getValue();
             CastedObjPointer = Builder.CreateGEP(
-                ObjPointer,
+                ObjType, ObjPointer,
                 ConstantInt::getIntegerValue(Hint->getType(), NegHint));
           }
           auto ResultOfDynCast = Builder.CreateSelect(

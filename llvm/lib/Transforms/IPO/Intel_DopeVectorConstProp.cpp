@@ -284,7 +284,8 @@ static bool replaceDopeVectorConstants(Argument &Arg,
 // Return true if the constants collected for the input GlobDV were propagated
 static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
 
-  // Actual function that propagates the constants for the input dope vector field
+  // Actual function that propagates the constants for the input dope
+  // vector field
   auto PropagateFieldConstant = [](DopeVectorFieldUse *DVField) -> bool {
     if (DVField->getIsBottom())
       return false;
@@ -294,11 +295,26 @@ static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
       return false;
 
     bool Change = false;
+    unsigned LoadCount = 0;
     for(auto *LI : DVField->loads()) {
+      if (DVField->isNotForDVCPLoad(LI)) {
+        LLVM_DEBUG({
+          dbgs() << "NOT REPLACING LOAD IN FXN "
+                 << LI->getFunction()->getName() << " ";
+          LI->dump();
+        });
+        continue;
+      }
+      LoadCount++;
       LI->replaceAllUsesWith(CI);
       Change = true;
     }
-
+    LLVM_DEBUG({
+      if (Change)
+        dbgs() << "REPLACING " << LoadCount << " LOAD"
+               << (LoadCount > 1 ? "S " : " ") << "WITH "
+               << CI->getZExtValue() << "\n";
+    });
     return Change;
   };
 
@@ -352,13 +368,11 @@ static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
     NumGlobalDVConstProp++;
 
   // Propagate the constants
-  for (auto *NestedDV : GlobDV.getAllNestedDopeVectors()) {
-    if(PropagateDVConstant(NestedDV)) {
+  for (auto *NestedDV : GlobDV.getAllNestedDopeVectors())
+    if (PropagateDVConstant(NestedDV)) {
       Change = true;
       NumNestedDVConstProp++;
     }
-  }
-
   return Change;
 }
 
@@ -380,7 +394,7 @@ static bool collectAndTransformDopeVectorGlobals(Module &M,
       continue;
 
     GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
-    GlobDV.collectAndValidate(DL);
+    GlobDV.collectAndValidate(DL, /*ForDVCP=*/true);
 
     // Propagate the constants
     Change |= propagateGlobalDopeVectorConstants(GlobDV);

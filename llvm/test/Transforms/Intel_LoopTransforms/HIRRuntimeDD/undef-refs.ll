@@ -1,7 +1,7 @@
 ; RUN: opt -hir-cost-model-throttling=0 -S -disable-output -disable-hir-runtime-dd-cost-model -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-cost-model-throttling=0 -S -disable-output -disable-hir-runtime-dd-cost-model -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Verify that loop will not be MV'ed because of %a access has an undef in the fake DDRef.
+; Verify that loop will not be MV'ed because the %a access has an unknown address range.
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 999, 1   <DO_LOOP>

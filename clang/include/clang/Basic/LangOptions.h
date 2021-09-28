@@ -389,6 +389,9 @@ public:
   /// A list of all -fno-builtin-* function names (e.g., memset).
   std::vector<std::string> NoBuiltinFuncs;
 
+  /// A prefix map for __FILE__, __BASE_FILE__ and __builtin_FILE().
+  std::map<std::string, std::string, std::greater<std::string>> MacroPrefixMap;
+
   /// Triples of the OpenMP targets that the host code codegen should
   /// take into account in order to generate accurate offloading descriptors.
   std::vector<llvm::Triple> OMPTargetTriples;
@@ -483,6 +486,13 @@ public:
   /// Return the OpenCL C or C++ version as a VersionTuple.
   VersionTuple getOpenCLVersionTuple() const;
 
+  /// Return the OpenCL version that kernel language is compatible with
+  unsigned getOpenCLCompatibleVersion() const;
+
+  /// Return the OpenCL C or C++ for OpenCL language name and version
+  /// as a string.
+  std::string getOpenCLVersionString() const;
+
   /// Check if return address signing is enabled.
   bool hasSignReturnAddress() const {
     return getSignReturnAddressScope() != SignReturnAddressScopeKind::None;
@@ -515,6 +525,9 @@ public:
   }
 
   bool isSYCL() const { return SYCLIsDevice || SYCLIsHost; }
+
+  /// Remap path prefix according to -fmacro-prefix-path option.
+  void remapPathPrefix(SmallString<256> &Path) const;
 };
 
 /// Floating point control options
@@ -571,9 +584,6 @@ public:
     setNoSignedZero(LO.NoSignedZero);
     setAllowReciprocal(LO.AllowRecip);
     setAllowApproxFunc(LO.ApproxFunc);
-#if INTEL_CUSTOMIZATION
-    setHonorNaNCompares(LO.HonorNaNCompares);
-#endif // INTEL_CUSTOMIZATION
     if (getFPContractMode() == LangOptions::FPM_On &&
         getRoundingMode() == llvm::RoundingMode::Dynamic &&
         getFPExceptionMode() == LangOptions::FPE_Strict)
@@ -704,9 +714,6 @@ public:
     else
       /* Precise mode disabled sets fp_contract=fast and enables ffast-math */
       setAllowFPContractAcrossStatement();
-#if INTEL_CUSTOMIZATION
-    setHonorNaNComparesOverride(Value);
-#endif // INTEL_CUSTOMIZATION
   }
 
   storage_type getAsOpaqueInt() const {
@@ -769,7 +776,11 @@ enum TranslationUnitKind {
   TU_Prefix,
 
   /// The translation unit is a module.
-  TU_Module
+  TU_Module,
+
+  /// The translation unit is a is a complete translation unit that we might
+  /// incrementally extend later.
+  TU_Incremental
 };
 
 } // namespace clang

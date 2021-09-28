@@ -1,5 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
+; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 
 ;          BEGIN REGION { }
 ;<11>         + DO i1 = 0, (-1 * %p + %q + -4)/u4, 1   <DO_LOOP>
@@ -11,8 +12,8 @@
 ;src CE type
 
 ;In order to do the arithmetic, ptrs must become ints
-; CHECK: [[Q_TO_INT:%.*]] = ptrtoint i32* %q to i64
-; CHECK: [[P_TO_INT:%.*]] = ptrtoint i32* %p to i64
+; CHECK: [[Q_TO_INT:%.*]] = ptrtoint {{.*}} %q to i64
+; CHECK: [[P_TO_INT:%.*]] = ptrtoint {{.*}} %p to i64
 
 ; -1 * (int)p
 ; CHECK: [[P_MUL:%.*]] = sub i64 0, [[P_TO_INT]]

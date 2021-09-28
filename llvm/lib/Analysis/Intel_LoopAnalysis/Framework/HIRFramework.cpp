@@ -288,7 +288,8 @@ static void cleanupRefLowerBounds(HLRegion &Reg) {
   //   return;
   // }
 
-  using Gatherer = DDRefGatherer<RegDDRef, MemRefs | IsAddressOfRefs>;
+  using Gatherer =
+      DDRefGatherer<RegDDRef, MemRefs | IsAddressOfRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
   Gatherer::gather(&Reg, Refs);
 
@@ -437,7 +438,7 @@ HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
   HNU.reset(new HLNodeUtils(*this));
   HNU->reset(F);
 
-  LORBuilder.setup(F.getContext(), VerbosityLevel);
+  ORBuilder.setup(F.getContext(), VerbosityLevel);
 
   PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, *HNU));
   PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, *HNU));
@@ -453,7 +454,7 @@ HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
 
 HIRFramework::HIRFramework(HIRFramework &&Arg)
     : Func(Arg.Func), DT(Arg.DT), PDT(Arg.PDT), LI(Arg.LI), AA(Arg.AA),
-      RI(Arg.RI), SCCF(Arg.SCCF), LORBuilder(std::move(Arg.LORBuilder)),
+      RI(Arg.RI), SCCF(Arg.SCCF), ORBuilder(std::move(Arg.ORBuilder)),
       HNU(std::move(Arg.HNU)),
       AnalysisProvider(std::move(Arg.AnalysisProvider)),
       Regions(std::move(Arg.Regions)),

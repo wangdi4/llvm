@@ -292,8 +292,9 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
                    : FixedVectorType::get(DestTy, NumVectorElements);
 
       // No wrap, Index >= Lower
-      Diff = Builder->CreateNSWSub(Builder->CreateSExt(Index, DestTy),
-                                   Builder->CreateSExt(Lower, DestTy));
+      auto *Op0 = Builder->CreateSExt(Index, DestTy);
+      auto *Op1 = Builder->CreateSExt(Lower, DestTy);
+      Diff = Builder->CreateNSWSub(Op0, Op1);
     }
   }
 
@@ -307,8 +308,9 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
         return Builder->CreateSExtOrTrunc(Diff, OffsetTy);
   }
 
-  return Builder->CreateNSWMul(Builder->CreateSExt(Stride, OffsetTy),
-                               Builder->CreateSExt(Diff, OffsetTy));
+  auto *Op0 = Builder->CreateSExt(Stride, OffsetTy);
+  auto *Op1 = Builder->CreateSExt(Diff, OffsetTy);
+  return Builder->CreateNSWMul(Op0, Op1);
 }
 }
 
@@ -316,8 +318,8 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 /// computed address.
 template <typename IRBuilderTy>
 Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
-                     Value *BasePtr, Value *Lower, Value *Index, Value *Stride,
-                     bool InBounds, bool IsExact) {
+                     Value *BasePtr, Type *BasePtrElemTy, Value *Lower,
+                     Value *Index, Value *Stride, bool InBounds, bool IsExact) {
   ConstantInt *ConstStride = dyn_cast<ConstantInt>(Stride);
 
   // Emit base pointer right away if the stride is known zero.
@@ -343,11 +345,10 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     // If addressing for the same type - use single index, prepend zero
     // otherwise.
     unsigned IndexLevel = 1;
-    Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
+    Type *BaseElTy = BasePtrElemTy;
     while (BaseElTy != ElTy) {
       ++IndexLevel;
-      BaseElTy = BaseElTy->isPointerTy() ? BaseElTy->getPointerElementType()
-                                         : BaseElTy->getArrayElementType();
+      BaseElTy = BaseElTy->getArrayElementType();
     }
 
     // Do not create GEP instruction if the Offset is known zero and no type
@@ -370,13 +371,14 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
         }
 
         BasePtr = BaseGep->getPointerOperand();
+        BasePtrElemTy = BaseGep->getSourceElementType();
         BaseGep->eraseFromParent();
       }
     }
 
     Offsets.back() = ElementOffset;
 
-    Type *Ty = BasePtr->getType()->getScalarType()->getPointerElementType();
+    Type *Ty = BasePtrElemTy;
     return InBounds ? Builder->CreateInBoundsGEP(Ty, BasePtr, Offsets)
                     : Builder->CreateGEP(Ty, BasePtr, Offsets);
   }
@@ -386,10 +388,11 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   /// After shifting the base pointer to a computed number of
   /// bytes the pointer is casted to the ElTy* type.
 
-  Type *I8Ty = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
+  Type *I8Ty = Builder->getInt8Ty();
+  Type *I8PtrTy = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
   Type *DestType = ElTy->getPointerTo(BasePtrTy->getPointerAddressSpace());
   if (BasePtrTy->isVectorTy()) {
-    I8Ty = VectorType::get(I8Ty, cast<VectorType>(BasePtrTy));
+    I8PtrTy = VectorType::get(I8PtrTy, cast<VectorType>(BasePtrTy));
     DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
   }
 
@@ -399,17 +402,16 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   // Do not create GEP instruction if the Offset is known zero and no type
   // change is needed.
   ConstantInt *ConstOffset = dyn_cast<ConstantInt>(ByteOffset);
-  Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
-  if (ConstOffset && ConstOffset->isZero() && BaseElTy == ElTy) {
+  if (ConstOffset && ConstOffset->isZero() && BasePtrElemTy == ElTy) {
     return BasePtr;
   }
 
   Value *BasePtrI8 =
-      Builder->CreateBitCast(BasePtr, I8Ty);
+      Builder->CreateBitCast(BasePtr, I8PtrTy);
 
-  Value *NewBasePtr = InBounds
-                          ? Builder->CreateInBoundsGEP(BasePtrI8, ByteOffset)
-                          : Builder->CreateGEP(BasePtrI8, ByteOffset);
+  Value *NewBasePtr =
+      InBounds ? Builder->CreateInBoundsGEP(I8Ty, BasePtrI8, ByteOffset)
+               : Builder->CreateGEP(I8Ty, BasePtrI8, ByteOffset);
 
   return Builder->CreateBitCast(NewBasePtr, DestType);
 }
@@ -419,16 +421,13 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
   SubscriptInst *CI = cast<SubscriptInst>(Subs);
 
   // Extract element type.
-  Type *ElemTy = CI->getType()
-                     ->getScalarType() // Element of <vector of pointers>
-                     ->getPointerElementType();
+  Type *ElemTy = CI->getElementType();
 
-  return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(),
+  return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(), ElemTy,
                        CI->getLowerBound(), CI->getIndex(), CI->getStride(),
                        true, CI->isExact());
 }
 #endif // INTEL_CUSTOMIZATION
-
 ///===---------------------------------------------------------------------===//
 ///  Dbg Intrinsic utilities
 ///
@@ -485,14 +484,30 @@ void salvageDebugInfo(Instruction &I);
 void salvageDebugInfoForDbgValues(Instruction &I,
                                   ArrayRef<DbgVariableIntrinsic *> Insns);
 
-/// Given an instruction \p I and DIExpression \p DIExpr operating on it, write
-/// the effects of \p I into the returned DIExpression, or return nullptr if
-/// it cannot be salvaged. \p StackVal: whether DW_OP_stack_value should be
-/// appended to the expression. \p LocNo: the index of the location operand to
-/// which \p I applies, should be 0 for debug info without a DIArgList.
-DIExpression *salvageDebugInfoImpl(Instruction &I, DIExpression *DIExpr,
-                                   bool StackVal, unsigned LocNo,
-                                   SmallVectorImpl<Value *> &AdditionalValues);
+/// Given an instruction \p I and DIExpression \p DIExpr operating on
+/// it, append the effects of \p I to the DIExpression operand list
+/// \p Ops, or return \p nullptr if it cannot be salvaged.
+/// \p CurrentLocOps is the number of SSA values referenced by the
+/// incoming \p Ops.  \return the first non-constant operand
+/// implicitly referred to by Ops. If \p I references more than one
+/// non-constant operand, any additional operands are added to
+/// \p AdditionalValues.
+///
+/// \example
+////
+///   I = add %a, i32 1
+///
+///   Return = %a
+///   Ops = llvm::dwarf::DW_OP_lit1 llvm::dwarf::DW_OP_add
+///
+///   I = add %a, %b
+///
+///   Return = %a
+///   Ops = llvm::dwarf::DW_OP_LLVM_arg0 llvm::dwarf::DW_OP_add
+///   AdditionalValues = %b
+Value *salvageDebugInfoImpl(Instruction &I, uint64_t CurrentLocOps,
+                            SmallVectorImpl<uint64_t> &Ops,
+                            SmallVectorImpl<Value *> &AdditionalValues);
 
 /// Point debug users of \p From to \p To or salvage them. Use this function
 /// only when replacing all uses of \p From with \p To, with a guarantee that
@@ -521,8 +536,7 @@ removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB);
 
 /// Insert an unreachable instruction before the specified
 /// instruction, making it and the rest of the code in the block dead.
-unsigned changeToUnreachable(Instruction *I, bool UseLLVMTrap,
-                             bool PreserveLCSSA = false,
+unsigned changeToUnreachable(Instruction *I, bool PreserveLCSSA = false,
                              DomTreeUpdater *DTU = nullptr,
                              MemorySSAUpdater *MSSAU = nullptr);
 

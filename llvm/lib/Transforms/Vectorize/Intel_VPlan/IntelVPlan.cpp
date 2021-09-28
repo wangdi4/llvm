@@ -341,6 +341,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "lane-extract";
   case VPInstruction::OrigLiveOut:
     return "orig-live-out";
+  case VPInstruction::OrigLiveOutHIR:
+    return "orig-live-out-hir";
   case VPInstruction::PushVF:
     return "pushvf";
   case VPInstruction::PopVF:
@@ -349,6 +351,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "scalar-peel";
   case VPInstruction::ScalarRemainder:
     return "scalar-remainder";
+  case VPInstruction::ScalarPeelRemainderHIR:
+    return "scalar-hir-loop";
   case VPInstruction::PlanAdapter:
     return "vplan-adapter";
   case VPInstruction::PlanPeelAdapter:
@@ -375,8 +379,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-array";
   case VPInstruction::GeneralMemOptConflict:
     return "vp-general-mem-opt-conflict";
+  case VPInstruction::TreeConflict:
+    return "tree-conflict";
   case VPInstruction::ConflictInsn:
     return "vpconflict-insn";
+  case VPInstruction::PrivateLastValueNonPOD:
+    return "private-last-value-nonpod";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -533,6 +541,13 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       << CmpInst::getPredicateName(cast<VPCmpInst>(this)->getPredicate());
     break;
   }
+  case VPInstruction::PrivateLastValueNonPOD: {
+    O << getOpcodeName(getOpcode()) << ' ';
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODInst>(this)->getCopyAssign();
+    O << "CopyAssign: " << CopyAssignFn->getName();
+    break;
+  }
   default:
     O << getOpcodeName(getOpcode());
   }
@@ -547,12 +562,22 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     return;
   }
 
+  if (auto *ScalarLpHIR = dyn_cast<VPPeelRemainderHIR>(this)) {
+    ScalarLpHIR->printImpl(O);
+    return;
+  }
+
   if (auto *SCEVWrapper = dyn_cast<VPInvSCEVWrapper>(this)) {
     SCEVWrapper->printImpl(O);
     return;
   }
 
   if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
+    LiveOut->printImpl(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPOrigLiveOutHIR>(this)) {
     LiveOut->printImpl(O);
     return;
   }
@@ -691,15 +716,18 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     }
     case VPInstruction::GeneralMemOptConflict: {
       auto *Conflict = cast<VPGeneralMemOptConflict>(this);
-      O << " -> VConflictRegion (";
-      auto *ConflictRegion = Conflict->getRegion();
-      for (VPValue *LIn : ConflictRegion->getLiveIns())
-        O << *LIn << " ";
-      O << ") {\n";
+      O << " -> VConflictRegion {\n";
       O << "    value : none \n";
       O << "    mask : none \n";
-      ConflictRegion->dump(O);
+      Conflict->getRegion()->dump(O);
       O << "   }";
+      break;
+    }
+    case VPInstruction::TreeConflict: {
+      auto *TreeConf = cast<VPTreeConflict>(this);
+      O << " { Redux Opcode: ";
+      O << getOpcodeName(TreeConf->getRednOpcode());
+      O << " }";
       break;
     }
     }
@@ -964,22 +992,66 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
     : VPInstruction(Opcode, Type::getTokenTy(*P.getLLVMContext()), {}),
       Plan(P) {}
 
-VPScalarPeel *VPlanPeelAdapter::getPeelLoop() const {
-  for (auto &BB : Plan)
-    for (auto &I : BB)
+VPValue *VPlanPeelAdapter::getPeelLoop() const {
+  for (auto &BB : Plan) {
+    for (auto &I : BB) {
       if (auto *PeelLoop = dyn_cast<VPScalarPeel>(&I))
         return PeelLoop;
+      if (auto *PeelHLoop = dyn_cast<VPPeelRemainderHIR>(&I)) {
+        if (!PeelHLoop->getLowerBoundTemp())
+          return PeelHLoop;
+      }
+    }
+  }
   llvm_unreachable("can't find scalar peel");
 }
 
+// Visit all orig-liveout-hir instructions and update original loop UB.
+// Transform looks like -
+// Before:
+//  PeelBlk:
+//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %N + -1
+//   br PostPeel
+// After:
+//  PeelBlk:
+//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %ub
+//   br PostPeel
+void VPlanPeelAdapter::updateHIROrigLiveOut() {
+  auto *PeelHLp = cast<VPPeelRemainderHIR>(getPeelLoop());
+  loopopt::DDRef *OrigUB = PeelHLp->getLoop()->getUpperDDRef();
+  loopopt::DDRef *NewUB = PeelHLp->getUpperBoundTemp();
+
+  // Iterate over instruction in the scalar VPlan and update all
+  // VPOrigLiveOutHIR that use OrigUB.
+  for (auto &BB : Plan) {
+    for (auto &I : BB) {
+      if (auto *HIRLiveOut = dyn_cast<VPOrigLiveOutHIR>(&I)) {
+        // TODO: Use HIR's equal interfaces instead?
+        if (HIRLiveOut->getLiveOutVal() == OrigUB)
+          HIRLiveOut->setClonedLiveOutVal(NewUB);
+      }
+    }
+  }
+}
+
 const VPValue *VPlanPeelAdapter::getUpperBound() const {
-  return getPeelLoop()->getUpperBound();
+  VPValue *PeelLp = getPeelLoop();
+  if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
+    return IRPeel->getUpperBound();
+  return cast<VPPeelRemainderHIR>(PeelLp)->getUpperBound();
 }
 
 void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   if (isa<VPlanScalarPeel>(Plan)) {
-    VPScalarPeel *PeelLoop = getPeelLoop();
-    PeelLoop->setUpperBound(TC);
+    VPValue *PeelLp = getPeelLoop();
+    if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
+      IRPeel->setUpperBound(TC);
+    else {
+      cast<VPPeelRemainderHIR>(PeelLp)->setUpperBound(TC);
+      updateHIROrigLiveOut();
+    }
     return;
   }
   assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
@@ -1196,10 +1268,14 @@ void VPlanScalar::setNeedCloneOrigLoop(bool V) {
   if (!V)
     return;
   for (VPBasicBlock &B : *this) {
-    auto LoopI = llvm::find_if(
-        B, [](const VPInstruction &I) { return isa<VPPeelRemainder>(I); });
+    auto LoopI = llvm::find_if(B, [](const VPInstruction &I) {
+      return isa<VPPeelRemainder>(I) || isa<VPPeelRemainderHIR>(I);
+    });
     if (LoopI != B.end()) {
-      cast<VPPeelRemainder>(*LoopI).setCloningRequired();
+      if (auto *IRPeelRem = dyn_cast<VPPeelRemainder>(&*LoopI))
+        IRPeelRem->setCloningRequired();
+      else
+        cast<VPPeelRemainderHIR>(*LoopI).setCloningRequired();
       return;
     }
   }
@@ -1473,7 +1549,7 @@ void VPlanVector::computeDA() {
               false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
     // Do SOA-analysis for loop-privates.
-    // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
+    // TODO: Consider moving SOA-analysis to VPAnalysesFactoryBase.
     VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
     SmallPtrSet<VPInstruction *, 32> SOAVars;
     VPSOAA.doSOAAnalysis(SOAVars);
@@ -1482,23 +1558,29 @@ void VPlanVector::computeDA() {
 }
 
 void VPlan::cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  allocateLiveInValues(OrigPlan.getLiveInValuesSize());
   for (auto OrigLI : OrigPlan.liveInValues()) {
-    auto ClonedLI = OrigLI->clone();
-    addLiveInValue(ClonedLI);
-    Mapper.registerClone(OrigLI, ClonedLI);
+    if (OrigLI) {
+      auto ClonedLI = OrigLI->clone();
+      setLiveInValue(ClonedLI, ClonedLI->getMergeId());
+      Mapper.registerClone(OrigLI, ClonedLI);
+    }
   }
 }
 
 void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  allocateLiveOutValues(OrigPlan.getLiveOutValuesSize());
   for (auto OrigLO : OrigPlan.liveOutValues()) {
-    auto ClonedLO = OrigLO->clone();
-    addLiveOutValue(ClonedLO);
-    Mapper.registerClone(OrigLO, ClonedLO);
+    if (OrigLO) {
+      auto ClonedLO = OrigLO->clone();
+      setLiveOutValue(ClonedLO, ClonedLO->getMergeId());
+      Mapper.registerClone(OrigLO, ClonedLO);
+    }
   }
 }
 
 // Common functionality to do a deep-copy when cloning VPlans.
-void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
+void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
                            VPlanVector *TargetPlan) {
   // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
@@ -1562,7 +1644,7 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
   }
 }
 
-VPlanVector *VPlanMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+VPlanVector *VPlanMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {
   // Create new masked VPlan
   auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
@@ -1571,7 +1653,7 @@ VPlanVector *VPlanMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   return ClonedVPlan;
 }
 
-VPlanVector *VPlanNonMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+VPlanVector *VPlanNonMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {
   // Create new non-masked VPlan
   auto *ClonedVPlan = new VPlanNonMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
@@ -1580,7 +1662,7 @@ VPlanVector *VPlanNonMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   return ClonedVPlan;
 }
 
-VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF,
+VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactoryBase &VPAF,
                                          UpdateDA UDA) {
   // Create new masked VPlan from a non-masked VPlan.
   auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());

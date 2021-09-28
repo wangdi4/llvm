@@ -13,8 +13,6 @@ define void @foo(<2 x i64> *%p, i1 %uniform) #0 {
 ; CHECK-NEXT:    [[TMP11:%.*]] = add i32 [[TMP7]], 1
 ; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <4 x i64> [[PREDBLEND]], i32 [[TMP11]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <2 x i64> [[TMP10]], i64 [[TMP12]], i64 1
-; CHECK-NEXT:    br label [[VPLANNEDBB8:%.*]]
-; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[TMP14:%.*]] = add <2 x i64> [[TMP13]], <i64 1, i64 1>
 ;
 entry:

@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -inline -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -inline-report=7 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='cgscc(inline),module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -inline-report=7 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -inline -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -inline-report=0xe807 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='cgscc(inline),module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -inline-report=0xe807 -S 2>&1 | FileCheck %s
 
 ; Check that the classic inlining report includes the results of cloning
 ; after inlining. Also check that it does NOT include 'Newly created callsite',

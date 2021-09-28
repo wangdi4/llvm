@@ -5530,6 +5530,10 @@ bool llvm::isGuaranteedToTransferExecutionToSuccessor(const Instruction *I) {
   if (isa<UnreachableInst>(I))
     return false;
 
+  // Note: Do not add new checks here; instead, change Instruction::mayThrow or
+  // Instruction::willReturn.
+  //
+  // FIXME: Move this check into Instruction::willReturn.
   if (isa<CatchPadInst>(I)) {
     switch (classifyEHPersonality(I->getFunction()->getPersonalityFn())) {
     default:
@@ -6677,6 +6681,16 @@ CmpInst::Predicate llvm::getInverseMinMaxPred(SelectPatternFlavor SPF) {
   return getMinMaxPred(getInverseMinMaxFlavor(SPF));
 }
 
+APInt llvm::getMinMaxLimit(SelectPatternFlavor SPF, unsigned BitWidth) {
+  switch (SPF) {
+  case SPF_SMAX: return APInt::getSignedMaxValue(BitWidth);
+  case SPF_SMIN: return APInt::getSignedMinValue(BitWidth);
+  case SPF_UMAX: return APInt::getMaxValue(BitWidth);
+  case SPF_UMIN: return APInt::getMinValue(BitWidth);
+  default: llvm_unreachable("Unexpected flavor");
+  }
+}
+
 std::pair<Intrinsic::ID, bool>
 llvm::canConvertToMinOrMaxIntrinsic(ArrayRef<Value *> VL) {
   // Check if VL contains select instructions that can be folded into a min/max
@@ -7399,12 +7413,42 @@ static void setLimitsForIntrinsic(const IntrinsicInst &II, APInt &Lower,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// select %cond, iXX C1, iXX C2
+// C1 and C2 must be non-negative, as we don't know the signed/unsigned
+// context.
+static void tryToMatchTwoConstIntSelect(const SelectInst &SI, APInt &Lower,
+                                        APInt &Upper) {
+  auto *C1 = dyn_cast<ConstantInt>(SI.getTrueValue());
+  auto *C2 = dyn_cast<ConstantInt>(SI.getFalseValue());
+  if (!C1 || !C2)
+    return;
+
+  auto Int1 = C1->getValue();
+  auto Int2 = C2->getValue();
+  // This checks the high bit of the value.
+  if (Int1.isNegative() || Int2.isNegative())
+    return;
+  if (Int1.ult(Int2)) {
+    Lower = Int1;
+    Upper = Int2 + 1;
+  } else {
+    Lower = Int2;
+    Upper = Int1 + 1;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void setLimitsForSelectPattern(const SelectInst &SI, APInt &Lower,
                                       APInt &Upper, const InstrInfoQuery &IIQ) {
   const Value *LHS = nullptr, *RHS = nullptr;
   SelectPatternResult R = matchSelectPattern(&SI, LHS, RHS);
-  if (R.Flavor == SPF_UNKNOWN)
+#if INTEL_CUSTOMIZATION
+  if (R.Flavor == SPF_UNKNOWN) {
+    tryToMatchTwoConstIntSelect(SI, Lower, Upper);
     return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   unsigned BitWidth = SI.getType()->getScalarSizeInBits();
 
@@ -7503,7 +7547,7 @@ ConstantRange llvm::computeConstantRange(const Value *V, bool UseInstrInfo,
       ConstantRange RHS = computeConstantRange(Cmp->getOperand(1), UseInstrInfo,
                                                AC, I, Depth + 1);
       CR = CR.intersectWith(
-          ConstantRange::makeSatisfyingICmpRegion(Cmp->getPredicate(), RHS));
+          ConstantRange::makeAllowedICmpRegion(Cmp->getPredicate(), RHS));
     }
   }
 

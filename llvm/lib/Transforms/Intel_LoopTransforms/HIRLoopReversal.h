@@ -157,7 +157,7 @@ public:
                     bool SkipLoopBoundChecks);
 
   /// \brief HIR Loop Reversal Transformation
-  bool doHIRReversalTransform(HLLoop *Lp);
+  void doHIRReversalTransform(HLLoop *Lp);
 
 private:
   /// \brief Legality check for a given DVectorTy with a loop level

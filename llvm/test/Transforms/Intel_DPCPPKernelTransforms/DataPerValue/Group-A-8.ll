@@ -18,28 +18,28 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L0:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %p = alloca i64, align 8
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %y = xor i32 %x, %x
   br label %L1
 L1:
   call void @_Z18work_group_barrierj(i32 1)
   br label %L2
 L2:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 ; CHECK: L0:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: %p = alloca i64, align 8
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: br label %L1
 ; CHECK: L1:
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: ret void
 }
 
@@ -52,7 +52,7 @@ L2:
 
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 !opencl.build.options = !{}

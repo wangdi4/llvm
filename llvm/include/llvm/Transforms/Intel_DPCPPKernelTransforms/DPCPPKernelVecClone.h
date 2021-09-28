@@ -16,24 +16,20 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VEC_CLONE_H
 
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 namespace llvm {
 
-// A tuple of three strings:
-// 1. scalar variant name
-// 2. "kernel-call-once" | ""
-// 3. mangled vector variant name
-using VecItem = std::tuple<const char *, const char *, const char *>;
 
 class DPCPPKernelVecCloneImpl : public VecCloneImpl {
 public:
-  DPCPPKernelVecCloneImpl(ArrayRef<VecItem> VectInfos,
+  DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
                           VectorVariant::ISAClass ISA, bool IsOCL);
 
 private:
   // Configuration options
-  ArrayRef<VecItem> VectInfos;
+  ArrayRef<VectItem> VectInfos;
   VectorVariant::ISAClass ISA;
   bool IsOCL;
 
@@ -47,7 +43,8 @@ private:
   // calls outside of the for-loop might create additional load/stores for some
   // kernels with barriers.
   void handleLanguageSpecifics(Function &F, PHINode *Phi, Function *Clone,
-                               BasicBlock *EntryBlock) override;
+                               BasicBlock *EntryBlock,
+                               const VectorVariant &Variant) override;
 
   // Prepare OpenCL kernel for VecClone (emits vector-variant attributes).
   void languageSpecificInitializations(Module &M) override;
@@ -59,7 +56,7 @@ private:
 
 public:
   explicit DPCPPKernelVecClonePass(
-      ArrayRef<VecItem> VectInfos = {},
+      ArrayRef<VectItem> VectInfos = {},
       VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
 
   static StringRef name() { return "DPCPPKernelVecClonePass"; }

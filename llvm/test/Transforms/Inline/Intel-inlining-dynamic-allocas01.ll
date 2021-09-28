@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0x87 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0x87 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
 ; Check that with -dtrans-inline-heuristics that @foo, which has a dynamic
 ; alloca, can be inlined.
@@ -50,7 +50,7 @@ bb5:                                              ; preds = %alloca, %bb5
   %add = add nuw nsw i32 %"foo_$I.0", 45
   %int_cast = sitofp i32 %add to float
   %int_sext8 = zext i32 %"foo_$I.0" to i64
-  %"foo_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$A", i64 %int_sext8)
+  %"foo_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$A", i64 %int_sext8)
   store float %int_cast, float* %"foo_$A[]", align 4
   %add12 = add nuw nsw i32 %"foo_$I.0", 1
   %rel18 = icmp slt i32 %"foo_$I.0", %"foo_$N_fetch"
@@ -59,7 +59,7 @@ bb5:                                              ; preds = %alloca, %bb5
 bb12:                                             ; preds = %alloca, %bb5
   %"foo_$N_fetch22" = load i32, i32* %"foo_$N", align 4
   %int_sext23 = sext i32 %"foo_$N_fetch22" to i64
-  %"foo_$A[]21" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$A", i64 %int_sext23)
+  %"foo_$A[]21" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$A", i64 %int_sext23)
   %"foo_$A[]21_fetch" = load float, float* %"foo_$A[]21", align 4
   ret float %"foo_$A[]21_fetch"
 }

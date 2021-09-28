@@ -164,6 +164,10 @@ class Item
       return;
     }
 
+    bool IsTyped = false; // true if type is transfered thru arguments
+    Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
+    Value *NumElements = nullptr; // Number of elements of this item
+
   public:
     Item(VAR Orig, ItemKind K)
 #if INTEL_CUSTOMIZATION
@@ -194,6 +198,7 @@ class Item
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
+    void setIsTyped(bool Flag) { IsTyped = Flag; }
     void setIsPointerToPointer(bool Flag) {
 #if INTEL_CUSTOMIZATION
       assert((!Flag || (!IsF90DopeVector && !IsCptr && !IsF90NonPod)) &&
@@ -217,6 +222,7 @@ class Item
     bool getIsByRef()       const { return IsByRef;        }
     bool getIsNonPod()      const { return IsNonPod;       }
     bool getIsVla()         const { return IsVla;          }
+    bool getIsTyped() const { return IsTyped; }
     bool getIsPointerToPointer() const { return IsPointerToPointer; }
     EXPR getThunkBufferSize() const { return ThunkBufferSize; }
     EXPR getNewThunkBufferSize() const { return NewThunkBufferSize; }
@@ -264,6 +270,16 @@ class Item
     void setIsWILocal(bool Flag)       { IsWILocal = Flag; }
     bool getIsWILocal()          const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
+
+    void printIfTyped(formatted_raw_ostream &OS, bool PrintType = true) const {
+      if (getIsTyped()) {
+        OS << ", TYPED (TYPE: ";
+        getOrigItemElementTypeFromIR()->print(OS);
+        OS << ", NUM_ELEMENTS: ";
+        getNumElements()->printAsOperand(OS, PrintType);
+        OS << ")";
+      }
+    }
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
 
@@ -340,6 +356,43 @@ class Item
     virtual bool getIsConditional() const {
      llvm_unreachable("Unexpected keyword: CONDITIONAL");
     }
+
+    bool canHaveTypeFromIR() const {
+      switch (Kind) {
+      case IK_Private:
+      case IK_Firstprivate:
+      case IK_Lastprivate:
+      case IK_Reduction:
+      case IK_Copyin:
+      case IK_Copyprivate:
+      case IK_Linear:
+      case IK_Uniform:
+        return true;
+      default:
+        return false;
+      }
+      // return false;
+    }
+    void setOrigItemElementTypeFromIR(Type *Ty) {
+      assert(canHaveTypeFromIR() && "Unexepected Element Type setter call for "
+                                    "a clause that doesn't support it");
+      OrigItemElementTypeFromIR = Ty;
+    }
+    void setNumElements(Value *N) {
+      assert(canHaveTypeFromIR() && "Unexepected Elements Number setter call "
+                                    "for a clause that doesn't support it");
+      NumElements = N;
+    }
+    Type *getOrigItemElementTypeFromIR() const {
+      assert(canHaveTypeFromIR() && "Unexepected Element Type getter call for "
+                                    "a clause that doesn't support it");
+      return OrigItemElementTypeFromIR;
+    }
+    Value *getNumElements() const {
+      assert(canHaveTypeFromIR() && "Unexepected Element Type getter call for "
+                                    "a clause that doesn't support it");
+      return NumElements;
+    }
 };
 
 //
@@ -378,22 +431,31 @@ class PrivateItem : public Item
     PrivateItem(VAR Orig)
         : Item(Orig, IK_Private), InAllocate(nullptr), Constructor(nullptr),
           Destructor(nullptr) {}
-    PrivateItem(const Use *Args)
+    PrivateItem(const Use *Args, bool Typed = false)
         : Item(nullptr, IK_Private), InAllocate(nullptr), Constructor(nullptr),
           Destructor(nullptr) {
       // PRIVATE nonPOD Args are: var, ctor, dtor
-      Value *V = cast<Value>(Args[0]);
+      Value *V = Args[0];
       setOrig(V);
+
+      setIsTyped(Typed);
+      int TypeOffset = 0;
+      if (getIsTyped()) {
+        // PRIVATE:TYPED nonPOD Args are: var, Type, NumElements, ctor, dtor
+        TypeOffset = 2;
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
+      }
 
       // Make sure WRegion parsing doesn't crash while handling
       // PRIVATE:NONPODs with "i8* null" constructor/destructors.
       // (An example of when the ctor/dtor can be "i8* null" is found during
       // device compilation for directives outside of a TARGET region.)
-      V = cast<Value>(Args[1]);
+      V = Args[1 + TypeOffset];
       Constructor = dyn_cast<Function>(V);
       assert(Constructor || isa<ConstantPointerNull>(V) &&
              "Constructor must be a function pointer or null");
-      V = cast<Value>(Args[2]);
+      V = Args[2 + TypeOffset];
       Destructor = dyn_cast<Function>(V);
       assert(Destructor || isa<ConstantPointerNull>(V) &&
              "Destructor must be a function pointer or null");
@@ -410,18 +472,22 @@ class PrivateItem : public Item
 #if INTEL_CUSTOMIZATION
         OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
         printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
         OS << (getIsF90NonPod() ? ", CCTOR: " : ", CTOR: ");
 #else // INTEL_CUSTOMIZATION
         OS << "NONPOD(";
         printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
         OS << ", CTOR: ";
 #endif // INTEL_CUSTOMIZATION
         printFnPtr(getConstructor(), OS, PrintType);
         OS << ", DTOR: ";
         printFnPtr(getDestructor(), OS, PrintType);
         OS << ") ";
-      } else  //invoke parent's print function for regular case
+      } else { // invoke parent's print function for regular case
         Item::print(OS, PrintType);
+        printIfTyped(OS, PrintType);
+      }
     }
     static bool classof(const Item *I) { return I->getKind() == IK_Private; }
 };
@@ -458,18 +524,29 @@ class FirstprivateItem : public Item
     FirstprivateItem(VAR Orig)
         : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
           InAllocate(nullptr), CopyConstructor(nullptr), Destructor(nullptr) {}
-    FirstprivateItem(const Use *Args)
+    FirstprivateItem(const Use *Args, bool Typed = false)
         : Item(nullptr, IK_Firstprivate), InLastprivate(nullptr),
           InMap(nullptr), InAllocate(nullptr), CopyConstructor(nullptr),
           Destructor(nullptr) {
       // FIRSTPRIVATE nonPOD Args are: var, cctor, dtor
-      Value *V = cast<Value>(Args[0]);
+
+      setIsTyped(Typed);
+      int TypeOffset = 0;
+      if (getIsTyped()) {
+        // FIRSTPRIVATE:TYPED nonPOD Args are: var, Type, NumElements, ctor,
+        // dtor
+        TypeOffset = 2;
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
+      }
+
+      Value *V = Args[0];
       setOrig(V);
-      V = cast<Value>(Args[1]);
+      V = Args[1 + TypeOffset];
       CopyConstructor = dyn_cast<Function>(V);
       assert(CopyConstructor || isa<ConstantPointerNull>(V) &&
              "CopyConstructor must be a function pointer or null");
-      V = cast<Value>(Args[2]);
+      V = Args[2 + TypeOffset];
       Destructor = dyn_cast<Function>(V);
       assert(Destructor || isa<ConstantPointerNull>(V) &&
              "Destructor must be a function pointer or null");
@@ -495,13 +572,16 @@ class FirstprivateItem : public Item
         OS << "NONPOD(";
 #endif // INTEL_CUSTOMIZATION
         printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
         OS << ", CCTOR: ";
         printFnPtr(getCopyConstructor(), OS, PrintType);
         OS << ", DTOR: ";
         printFnPtr(getDestructor(), OS, PrintType);
         OS << ") ";
-      } else  //invoke parent's print function for regular case
+      } else { // invoke parent's print function for regular case
         Item::print(OS, PrintType);
+        printIfTyped(OS, PrintType);
+      }
     }
     static bool classof(const Item *I) {
       return I->getKind() == IK_Firstprivate;
@@ -531,12 +611,22 @@ class LastprivateItem : public Item
         : Item(Orig, IK_Lastprivate), IsConditional(false),
           InFirstprivate(nullptr), InAllocate(nullptr), Constructor(nullptr),
           CopyAssign(nullptr), Destructor(nullptr) {}
-    LastprivateItem(const Use *Args)
+    LastprivateItem(const Use *Args, bool Typed = false)
         : Item(nullptr, IK_Lastprivate), IsConditional(false),
           InFirstprivate(nullptr), InAllocate(nullptr), Constructor(nullptr),
           CopyAssign(nullptr), Destructor(nullptr) {
       // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
-      Value *V = cast<Value>(Args[0]);
+
+      setIsTyped(Typed);
+      int TypeOffset = 0;
+      if (getIsTyped()) {
+        // LASTPRIVATE:TYPED nonPOD Args are: var, Type, NumElements, ctor, dtor
+        TypeOffset = 2;
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
+      }
+
+      Value *V = Args[0];
       setOrig(V);
 
       // If a nonpod var is both lastprivate and firstprivate, the ctor in
@@ -544,15 +634,15 @@ class LastprivateItem : public Item
       // because the var will not be initialized with a default constructor,
       // but rather with the copy-constructor from its firstprivate clause.
       // In this case, we stay with Constructor=nullptr.
-      V = cast<Value>(Args[1]);
+      V = Args[1 + TypeOffset];
       Constructor = dyn_cast<Function>(V);
       assert(Constructor || isa<ConstantPointerNull>(V) &&
              "Constructor must be a function pointer or null");
-      V = cast<Value>(Args[2]);
+      V = Args[2 + TypeOffset];
       CopyAssign = dyn_cast<Function>(V);
       assert(CopyAssign || isa<ConstantPointerNull>(V) &&
              "CopyAssign must be a function pointer or null");
-      V = cast<Value>(Args[3]);
+      V = Args[3 + TypeOffset];
       Destructor = dyn_cast<Function>(V);
       assert(Destructor || isa<ConstantPointerNull>(V) &&
              "Destructor must be a function pointer or null");
@@ -575,10 +665,12 @@ class LastprivateItem : public Item
 #if INTEL_CUSTOMIZATION
         OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
         printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
         OS << (getIsF90NonPod() ? ", CCTOR: " : ", CTOR: ");
 #else // INTEL_CUSTOMIZATION
         OS << "NONPOD(";
         printOrig(OS, PrintType);
+        printIfTyped(OS, PrintType);
         OS << ", CTOR: ";
 #endif // INTEL_CUSTOMIZATION
         printFnPtr(getConstructor(), OS, PrintType);
@@ -587,8 +679,10 @@ class LastprivateItem : public Item
         OS << ", DTOR: ";
         printFnPtr(getDestructor(), OS, PrintType);
         OS << ") ";
-      } else  //invoke parent's print function for regular case
+      } else { // invoke parent's print function for regular case
         Item::print(OS, PrintType);
+        printIfTyped(OS, PrintType);
+      }
     }
     static bool classof(const Item *I) {
       return I->getKind() == IK_Lastprivate;
@@ -702,6 +796,8 @@ public:
     Value *TaskRedInitOrigArg =
         nullptr; // Tasks: 2nd argument in kmpc_taskred_init's
                  // reduction init callback function.
+    Value *ArraySectionOffset = nullptr;
+
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
@@ -825,6 +921,9 @@ public:
       return !ArrSecInfo.getArraySectionDims().empty();
     };
 
+    void setArraySectionOffset(Value *Offset) { ArraySectionOffset = Offset; }
+    Value *getArraySectionOffset() { return ArraySectionOffset; }
+
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {
       int ClauseId = getClauseIdFromKind(Ty);
@@ -836,6 +935,7 @@ public:
     void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
       OS << "(" << getOpName() << ": ";
       printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
@@ -859,6 +959,11 @@ class CopyinItem : public Item
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
     static bool classof(const Item *I) { return I->getKind() == IK_Copyin; }
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
+      printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
 };
 
 
@@ -875,8 +980,12 @@ class CopyprivateItem : public Item
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
     static bool classof(const Item *I) { return I->getKind() == IK_Copyprivate; }
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
+      printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
 };
-
 
 //
 //   LinearItem: OMP LINEAR clause item
@@ -893,7 +1002,6 @@ class LinearItem : public Item
                // the normalized loop IV.
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
-
   public:
 #if INTEL_CUSTOMIZATION
     LinearItem(VAR Orig)
@@ -916,6 +1024,7 @@ class LinearItem : public Item
         OS << "IV";
       OS << "(";
       printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
       OS << ", ";
       auto *Step = getStep();
       assert(Step && "Null 'Step' for LINEAR clause.");
@@ -935,9 +1044,15 @@ class LinearItem : public Item
 //
 class UniformItem : public Item
 {
-  public:
-    UniformItem(VAR Orig) : Item(Orig, IK_Uniform) {}
-    static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
+public:
+  UniformItem(VAR Orig) : Item(Orig, IK_Uniform) {}
+  static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
+    OS << "(";
+    printOrig(OS, PrintType);
+    printIfTyped(OS, PrintType);
+    OS << ") ";
+  }
 };
 
 // MAP CHAINS

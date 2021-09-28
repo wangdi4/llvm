@@ -419,6 +419,8 @@ static unsigned getCommutativeOpcode(unsigned Opcode) {
 void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
   auto &HNU = Lp->getHLNodeUtils();
   unsigned Level = Lp->getNestingLevel();
+  OptReportBuilder &ORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Sink collected reduction in reverse order to keep lexical order same in
   // loop postexit.
@@ -487,6 +489,15 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
     // Move original reduction instructions to postexit.
     HLNodeUtils::moveAsFirstPostexitNode(Lp, StoreInst);
     HLNodeUtils::moveAsFirstPostexitNode(Lp, LoadInst);
+
+    unsigned StoreLineNum = 0;
+
+    if (StoreRef->getDebugLoc()) {
+      StoreLineNum = StoreRef->getDebugLoc().getLine();
+    }
+
+    // Load/Store of reduction at line %d sinked after loop
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25528u, StoreLineNum);
 
     // Linear (invariant) memrefs can become non-linear in post-exit as they are
     // now in outer loop scope.

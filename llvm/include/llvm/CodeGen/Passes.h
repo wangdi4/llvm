@@ -16,6 +16,8 @@
 
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Discriminator.h"
+#include "llvm/CodeGen/RegAllocCommon.h"
+
 #include <functional>
 #include <string>
 
@@ -169,20 +171,27 @@ namespace llvm {
   /// This pass adds flow sensitive discriminators.
   extern char &MIRAddFSDiscriminatorsID;
 
+  /// This pass reads flow sensitive profile.
+  extern char &MIRProfileLoaderPassID;
+
   /// FastRegisterAllocation Pass - This pass register allocates as fast as
   /// possible. It is best suited for debug code where live ranges are short.
   ///
   FunctionPass *createFastRegisterAllocator();
+  FunctionPass *createFastRegisterAllocator(RegClassFilterFunc F,
+                                            bool ClearVirtRegs);
 
   /// BasicRegisterAllocation Pass - This pass implements a degenerate global
   /// register allocator using the basic regalloc framework.
   ///
   FunctionPass *createBasicRegisterAllocator();
+  FunctionPass *createBasicRegisterAllocator(RegClassFilterFunc F);
 
   /// Greedy register allocation pass - This pass implements a global register
   /// allocator for optimized builds.
   ///
   FunctionPass *createGreedyRegisterAllocator();
+  FunctionPass *createGreedyRegisterAllocator(RegClassFilterFunc F);
 
   /// PBQPRegisterAllocation Pass - This pass implements the Partitioned Boolean
   /// Quadratic Prograaming (PBQP) based register allocator.
@@ -199,14 +208,18 @@ namespace llvm {
   extern char &ExpandPostRAPseudosID;
 
 #if INTEL_CUSTOMIZATION
-  /// MachineLoopOptReportEmitter - This pass prints loop optimization reports.
-  extern char &MachineLoopOptReportEmitterID;
+  /// MachineOptReportEmitter - This pass prints loop optimization reports.
+  extern char &MachineOptReportEmitterID;
 
   /// Float128Expand - This pass expands fp128 operations to libcalls.
   extern char &Float128ExpandID;
 
   /// RAReportEmitter - This pass prints register allocation reports.
   extern char &RAReportEmitterID;
+
+  /// FoldLoadsToGatherID -- This pass fold loads to gather intrinsic.
+  extern char &FoldLoadsToGatherID;
+
 #endif  // INTEL_CUSTOMIZATION
 
   /// PostRAHazardRecognizer - This pass runs the post-ra hazard
@@ -405,6 +418,9 @@ namespace llvm {
   /// the intrinsic for later emission to the StackMap.
   extern char &StackMapLivenessID;
 
+  /// RemoveRedundantDebugValues pass.
+  extern char &RemoveRedundantDebugValuesID;
+
   /// LiveDebugValues pass
   extern char &LiveDebugValuesID;
 
@@ -468,6 +484,12 @@ namespace llvm {
   /// printing assembly.
   ModulePass *createMachineOutlinerPass(bool RunOnAllFunctions = true);
 
+#if INTEL_CUSTOMIZATION
+  /// This pass expands the experimental complex intrinsics into regular
+  /// floating-point arithmetic or calls to __mulsc3 (or similar) functions.
+  FunctionPass *createExpandComplexPass();
+#endif // INTEL_CUSTOMIZATION
+
   /// This pass expands the experimental reduction intrinsics into sequences of
   /// shuffles.
   FunctionPass *createExpandReductionsPass();
@@ -507,6 +529,8 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION
   // Expand fp128 operations into libcalls.
   FunctionPass *createFloat128ExpandPass();
+
+  FunctionPass *createFoldLoadsToGatherPass();
 #endif // INTEL_CUSTOMIZATION
 
   /// This pass inserts pseudo probe annotation for callsite profiling.
@@ -519,6 +543,11 @@ namespace llvm {
   /// sequence number of this pass (starting from 1).
   FunctionPass *
   createMIRAddFSDiscriminatorsPass(sampleprof::FSDiscriminatorPass P);
+
+  /// Read Flow Sensitive Profile.
+  FunctionPass *createMIRProfileLoaderPass(std::string File,
+                                           std::string RemappingFile,
+                                           sampleprof::FSDiscriminatorPass P);
 
   /// Creates MIR Debugify pass. \see MachineDebugify.cpp
   ModulePass *createDebugifyMachineModulePass();

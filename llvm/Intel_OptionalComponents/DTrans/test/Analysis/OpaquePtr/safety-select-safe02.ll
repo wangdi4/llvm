@@ -8,7 +8,7 @@
 
 %class.test01.base = type { i32, %class.test01.base* }
 %class.test01.derived = type { %class.test01.base, i32 }
-define internal void @test01(%class.test01.derived* %pDerived) !dtrans_type !4 {
+define internal void @test01(%class.test01.derived* "intel_dtrans_func_index"="1" %pDerived) !intel.dtrans.func.type !5 {
   %pField = getelementptr %class.test01.derived, %class.test01.derived* %pDerived, i64 0, i32 0, i32 1
   %pField.as.pDerived = bitcast %class.test01.base** %pField to %class.test01.derived**
   %pDerived2 = load %class.test01.derived*, %class.test01.derived** %pField.as.pDerived
@@ -22,7 +22,7 @@ define internal void @test01(%class.test01.derived* %pDerived) !dtrans_type !4 {
   ret void
 }
 
-define internal void @test01helper(%class.test01.derived* %pDerived) !dtrans_type !4 {
+define internal void @test01helper(%class.test01.derived* "intel_dtrans_func_index"="1" %pDerived) !intel.dtrans.func.type !6 {
   %pField = getelementptr %class.test01.derived, %class.test01.derived* %pDerived, i64 0, i32 1
   ret void
 }
@@ -36,13 +36,12 @@ define internal void @test01helper(%class.test01.derived* %pDerived) !dtrans_typ
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %class.test01.base*
-!3 = !{!"R", %class.test01.base zeroinitializer, i32 0}  ; %class.test01.base
-!4 = !{!"F", i1 false, i32 1, !5, !6}  ; void (%class.test01.derived*)
-!5 = !{!"void", i32 0}  ; void
-!6 = !{!7, i32 1}  ; %class.test01.derived*
-!7 = !{!"R", %class.test01.derived zeroinitializer, i32 0}  ; %class.test01.derived
-!8 = !{!"S", %class.test01.base zeroinitializer, i32 2, !1, !2} ; { i32, %class.test01.base* }
-!9 = !{!"S", %class.test01.derived zeroinitializer, i32 2, !3, !1} ; { %class.test01.base, i32 }
+!2 = !{%class.test01.base zeroinitializer, i32 1}  ; %class.test01.base*
+!3 = !{%class.test01.base zeroinitializer, i32 0}  ; %class.test01.base
+!4 = !{%class.test01.derived zeroinitializer, i32 1}  ; %class.test01.derived*
+!5 = distinct !{!4}
+!6 = distinct !{!4}
+!7 = !{!"S", %class.test01.base zeroinitializer, i32 2, !1, !2} ; { i32, %class.test01.base* }
+!8 = !{!"S", %class.test01.derived zeroinitializer, i32 2, !3, !1} ; { %class.test01.base, i32 }
 
-!dtrans_types = !{!8, !9}
+!intel.dtrans.types = !{!7, !8}

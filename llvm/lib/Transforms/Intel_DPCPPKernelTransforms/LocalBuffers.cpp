@@ -37,7 +37,7 @@ public:
   static char ID;
 
   LocalBuffersLegacy(bool UseTLSGlobals = false)
-      : ModulePass(ID), Impl(UseTLSGlobals) {
+      : ModulePass(ID), Impl(UseTLSGlobals || EnableTLSGlobals) {
     initializeLocalBuffersLegacyPass(*PassRegistry::getPassRegistry());
   }
 
@@ -246,8 +246,9 @@ void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
     size_t ArraySize = DL.getTypeAllocSize(GV->getType()->getElementType());
     assert(0 != ArraySize && "zero array size!");
     // Now retrieve to the offset of the local buffer
+    Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
     GetElementPtrInst *AddrOfLocal = GetElementPtrInst::Create(
-        nullptr, LocalMem,
+        Ty, LocalMem,
         ConstantInt::get(IntegerType::get(*Context, 32), CurrLocalOffset), "",
         InsertPoint);
 
@@ -278,8 +279,9 @@ void LocalBuffersPass::runOnFunction(Function *F) {
         M, ImplicitArgsUtils::IA_SLM_BUFFER);
     assert(LocalMem && "TLS LocalMem is not found.");
     // Load the LocalMem pointer from TLS GlobalVariable
-    LocalMem = new LoadInst(LocalMem->getType()->getPointerElementType(),
-                            LocalMem, "LocalMemBase", InsertPoint);
+    IRBuilder<> Builder(InsertPoint);
+    LocalMem = Builder.CreateLoad(LocalMem->getType()->getPointerElementType(),
+                                  LocalMem, "LocalMemBase");
   } else {
     DPCPPKernelCompilationUtils::getImplicitArgs(F, &LocalMem, nullptr, nullptr,
                                                  nullptr, nullptr, nullptr);

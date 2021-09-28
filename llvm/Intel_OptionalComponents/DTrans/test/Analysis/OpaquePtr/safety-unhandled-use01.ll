@@ -10,7 +10,7 @@
 ; value. This should result in the structure type being marked as "Unhandled
 ; use".
 %struct.test01 = type { i32, i32 }
-define i32 @test01(%struct.test01* %pStruct) !dtrans_type !2 {
+define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
   %full = ptrtoint %struct.test01* %pStruct to i64
   %low = trunc i64 %full to i32
   ret i32 %low
@@ -21,9 +21,8 @@ define i32 @test01(%struct.test01* %pStruct) !dtrans_type !2 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !1, !3}  ; i32 (%struct.test01*)
-!3 = !{!4, i32 1}  ; %struct.test01*
-!4 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!5 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2}
+!4 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!5}
+!intel.dtrans.types = !{!4}

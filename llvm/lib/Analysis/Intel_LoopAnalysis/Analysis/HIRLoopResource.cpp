@@ -127,7 +127,7 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
       return (unsigned)LoopResourceInfo::OperationCost::ExpensiveOp;
     }
     return std::min(*Cost.getValue(),
-                    (int)LoopResourceInfo::OperationCost::ExpensiveOp);
+                    (int64_t)LoopResourceInfo::OperationCost::ExpensiveOp);
   }
 
   /// Main entry function to compute loop resource.

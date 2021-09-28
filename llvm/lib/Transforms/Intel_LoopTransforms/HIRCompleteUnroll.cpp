@@ -1,6 +1,6 @@
 //===- HIRCompleteUnroll.cpp - Implements CompleteUnroll class ------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -2013,8 +2013,8 @@ static bool isMemIdiomStore(const RegDDRef *StoreRef, const HLLoop *OuterLoop) {
   }
 
   // Common memset idiom:
-  // A[i1] = 0;
-  return Rval->isZero();
+  // A[i1] = const;
+  return Rval->isConstant();
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
@@ -2953,6 +2953,15 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
 std::pair<int64_t, unsigned>
 HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
+
+  if (!Loop->isInnermost() &&
+      HLNodeUtils::hasManyLifeTimeIntrinsics(Loop)) {
+    LLVM_DEBUG(dbgs() << "Avoiding CU due to LifeTime\n");
+    LLVM_DEBUG(Loop->dump());
+
+    return std::make_pair(-1, 0);
+  }
+
   SmallVector<HLLoop *, 8> CandidateChildLoops;
 
   int64_t AvgTripCnt = -1, TotalTripCnt = -1;
@@ -3077,18 +3086,30 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
 
 void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
 
-  LoopOptReportBuilder &LORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  if (Loop->isInnermost()) {
-    // Loop completely unrolled.
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25532u);
-  } else {
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                "Loopnest completely unrolled");
+  if (ORBuilder.isOptReportOn()) {
+    SmallVector<HLLoop *, 4> UnrollLoops;
+
+    HLNodeUtils::gatherAllLoops(Loop, UnrollLoops);
+
+    for (auto *Lp : UnrollLoops) {
+      uint64_t TC;
+
+      if (Lp->isConstTripLoop(&TC)) {
+        // Loop completely unrolled by %d
+        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25436u, (unsigned)TC);
+      } else {
+        // This is some inner loop of triangular loopnest.
+
+        // Loop completely unrolled
+        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25508u);
+      }
+    }
   }
 
-  LORBuilder(*Loop).preserveLostLoopOptReport();
+  ORBuilder(*Loop).preserveLostOptReport();
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
   // Also invalidate analyses for the loops being unrolled. Since we reuse the
@@ -3134,7 +3155,7 @@ void HIRCompleteUnroll::transformLoops() {
     if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
 #if INTEL_FEATURE_SW_DTRANS
       HIRTransformUtils::doConstantPropagation(ParentNode, DTII);
-#else // INTEL_FEATURE_SW_DTRANS
+#else  // INTEL_FEATURE_SW_DTRANS
       HIRTransformUtils::doConstantPropagation(ParentNode);
 #endif // INTEL_FEATURE_SW_DTRANS
     }

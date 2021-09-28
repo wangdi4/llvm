@@ -127,8 +127,8 @@ void VPOParoptUtils::genF90DVInitCode(
   IRBuilder<> AllocBuilder(AllocBuilderInsertPt);
   // Get base address from the dope vector.
   auto *Zero = AllocBuilder.getInt32(0);
-  auto *Addr0GEP =
-      AllocBuilder.CreateInBoundsGEP(DstV, {Zero, Zero}, NamePrefix + ".addr0");
+  auto *Addr0GEP = AllocBuilder.CreateInBoundsGEP(DVType, DstV, {Zero, Zero},
+                                                  NamePrefix + ".addr0");
   Value *PointeeData = genPrivatizationAlloca(
       ElementTy, NumElements, OrigAlignment, &*AllocBuilder.GetInsertPoint(),
       IsTargetSPIRV, NamePrefix + ".data");
@@ -222,8 +222,10 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
 
   // Get base address from the dope vector.
   auto *Zero = Builder.getInt32(0);
-  auto *Addr0GEP =
-      Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, NamePrefix + ".addr0");
+  // TODO: OPAQUEPOINTER: Get DV type from I->getOrigElemType().
+  auto *DVType = cast<StructType>(NewV->getType()->getPointerElementType());
+  auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, NewV, {Zero, Zero},
+                                             NamePrefix + ".addr0");
   DestArrayBeginOut = Builder.CreateLoad(
       Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
       NamePrefix + ".data");
@@ -261,9 +263,11 @@ void VPOParoptUtils::genF90DVReductionSrcDstInfo(
   IRBuilder<> Builder(InsertBefore);
   StringRef NamePrefix = DestVal->getName();
 
+  // TODO: OPAQUEPOINTER: Get DV type from I->getOrigElemType().
+  auto *DVType = cast<StructType>(DestVal->getType()->getPointerElementType());
   auto *Zero = Builder.getInt32(0);
-  auto *Addr0GEP =
-      Builder.CreateInBoundsGEP(DestVal, {Zero, Zero}, NamePrefix + ".addr0");
+  auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, DestVal, {Zero, Zero},
+                                             NamePrefix + ".addr0");
   DestArrayBeginOut = Builder.CreateLoad(
       Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
       NamePrefix + ".data");

@@ -21,9 +21,9 @@
 ; CHECK-NOT: fence acquire
 ; CHECK-NOT: fence release
 ;
-; 2. Emit the begin/end master calls without any parameters
-; CHECK: %{{[0-9]+}} = call i32 @__kmpc_master()
-; CHECK: call void @__kmpc_end_master()
+; 2. Emit the begin masked with tid = 0  and filter = 0  and emit end masked with tid =0.
+; CHECK: %{{[0-9]+}} = call spir_func  i32 @__kmpc_masked(%struct.ident_t addrspace(4)* addrspacecast (%struct.ident_t addrspace(1)* @{{.*}} to %struct.ident_t addrspace(4)*), i32 0, i32 0)
+; CHECK: call spir_func void @__kmpc_end_masked(%struct.ident_t addrspace(4)* addrspacecast (%struct.ident_t addrspace(1)* @{{.*}} to %struct.ident_t addrspace(4)*), i32 0)
 
 
 ; ModuleID = '<stdin>'

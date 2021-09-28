@@ -17,8 +17,8 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-entities-dump -vplan-print-after-initial-transforms -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-entities-dump -vplan-print-after-initial-transforms -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
 
 
 ; Check that reduction is imported as VPEntity.
@@ -30,8 +30,7 @@
 ; VPCHECK-NEXT: if (0 <u 4 * %tgu)
 ; VPCHECK-NEXT: {
 ; VPCHECK-NEXT:  %red.var = 0.000000e+00;
-
-; VPCHECK-NEXT:  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
+; VPCHECK:       + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
 ; VPCHECK-NEXT:  |   %.vec2 = undef;
 ; VPCHECK-NEXT:  |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; VPCHECK-NEXT:  |   %.vec1 = %.vec > 0.000000e+00;
@@ -41,8 +40,7 @@
 ; VPCHECK-NEXT:  |   %select = (%.vec1 == <i1 true, i1 true, i1 true, i1 true>) ? %.vec4 : %red.var;
 ; VPCHECK-NEXT:  |   %red.var = %select;
 ; VPCHECK-NEXT:  + END LOOP
-
-; VPCHECK-NEXT:  %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
+; VPCHECK:       %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 ; VPCHECK-NEXT: }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

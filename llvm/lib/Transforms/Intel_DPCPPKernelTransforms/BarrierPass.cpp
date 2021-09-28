@@ -36,13 +36,10 @@ using namespace llvm;
 static cl::opt<bool> OptEnableNativeDebug("enable-native-debug",
                                           cl::init(false), cl::Hidden,
                                           cl::desc("enable native debug"));
-static cl::opt<bool> OptEnableTLSGlobals("enable-tls-globals", cl::init(false),
-                                         cl::Hidden,
-                                         cl::desc("enable tls globals"));
 
 KernelBarrier::KernelBarrier(bool IsNativeDebug, bool UseTLSGlobals)
     : DL(nullptr), Context(nullptr), SizeT(0), SizeTTy(nullptr), I32Ty(nullptr),
-      UseTLSGlobals(UseTLSGlobals || OptEnableTLSGlobals),
+      UseTLSGlobals(UseTLSGlobals || EnableTLSGlobals),
       LocalIdAllocTy(nullptr), LocalIds(nullptr), LocalIdArrayTy(nullptr),
       ConstZero(nullptr), ConstOne(nullptr), AllocaValues(nullptr),
       SpecialValues(nullptr), CrossBarrierValues(nullptr),
@@ -1053,6 +1050,9 @@ Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
   CurrSB = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
   Value *Idxs[1] = {CurrSB};
   Value *AddrInSBinBytes = B.CreateInBoundsGEP(
+      CurrentBarrierKeyValues->SpecialBufferValue->getType()
+          ->getScalarType()
+          ->getPointerElementType(),
       CurrentBarrierKeyValues->SpecialBufferValue, ArrayRef<Value *>(Idxs));
   // Bitcast pointer according to alloca type!
   Value *AddrInSpecialBuffer =

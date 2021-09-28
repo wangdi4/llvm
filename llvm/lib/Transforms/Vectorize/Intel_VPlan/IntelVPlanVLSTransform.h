@@ -15,7 +15,7 @@
 namespace llvm {
 class OVLSGroup;
 namespace vpo {
-class VPlan;
+class VPlanVector;
 class VPlanVLSAnalysis;
 
 /// Returns true if the \p Group can be processed by VPlan-level VLS
@@ -30,7 +30,7 @@ bool isTransformableVLSGroup(OVLSGroup *Group);
 /// vector factor passed as \p VF. Once transformation is performed the Plan is
 /// NOT suitable for any other vector factor anymore, even if it was before
 /// applying it.
-void applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA, unsigned VF);
+void applyVLSTransform(VPlanVector &Plan, VPlanVLSAnalysis &VLSA, unsigned VF);
 
 } // namespace vpo
 } // namespace llvm

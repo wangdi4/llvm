@@ -66,6 +66,7 @@ FunctionPass *createFeatureInitPass();
 FunctionPass *createIVSplitLegacyPass();
 FunctionPass *createX86SplitVectorValueTypePass();
 FunctionPass *createX86PRAExpandPseudoPass();
+FunctionPass *createX86VecSpillPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -157,6 +158,9 @@ FunctionPass *createX86GenerateLEAs();
 /// Return a pass that generate load + permute for gather instruciton.
 FunctionPass *createX86Gather2LoadPermutePass();
 
+/// Return a pass that generate amx intrinsics for matrix intrinsics.
+FunctionPass *createX86LowerMatrixIntrinsicsPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -183,6 +187,7 @@ void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
 void initializeX86CFMAPass(PassRegistry&);      // INTEL
 void initializeX86PRAExpandPseudoPassPass(PassRegistry &); // INTEL
+void initializeX86VecSpillPass(PassRegistry &); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
@@ -206,6 +211,7 @@ void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
+void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);

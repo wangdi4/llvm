@@ -17,8 +17,10 @@
 
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CaptureTracking.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/InitializePasses.h"
@@ -45,6 +47,7 @@ static cl::opt<bool>
 
 static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
                                  OptimizationRemarkEmitter &ORE,
+                                 OptReportVerbosity::Level ORVerbosity,
                                  unsigned Mode) {
   bool Changed = false;
 
@@ -63,8 +66,8 @@ static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), Mode & OmpOffload,
-                        OptReportVerbosity::None, ORE, 2, false);
+                        WI.getAliasAnalysis(), Mode & OmpOffload, ORVerbosity,
+                        ORE, 2, false);
 
   Changed |= VP.privatizeSharedItems();
 
@@ -76,11 +79,12 @@ VPOParoptSharedPrivatizationPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   WRegionInfo &WI = AM.getResult<WRegionInfoAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+  auto ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
 
   PreservedAnalyses PA;
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (!privatizeSharedItems(F, WI, ORE, Mode))
+  if (!privatizeSharedItems(F, WI, ORE, ORVerbosity, Mode))
     PA = PreservedAnalyses::all();
   else
     PA = PreservedAnalyses::none();
@@ -107,9 +111,10 @@ public:
 
     WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
     auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
+    auto ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
 
     LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-    bool Changed = privatizeSharedItems(F, WI, ORE, Mode);
+    bool Changed = privatizeSharedItems(F, WI, ORE, ORVerbosity, Mode);
     LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");
     return Changed;
   }
@@ -117,6 +122,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<WRegionInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+    AU.addRequired<OptReportOptionsPass>();
   }
 
 private:
@@ -130,6 +136,7 @@ INITIALIZE_PASS_BEGIN(VPOParoptSharedPrivatization, DEBUG_TYPE, PASS_NAME,
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_END(VPOParoptSharedPrivatization, DEBUG_TYPE, PASS_NAME, false,
                     false)
 
@@ -137,29 +144,64 @@ FunctionPass *llvm::createVPOParoptSharedPrivatizationPass(unsigned Mode) {
   return new VPOParoptSharedPrivatization(Mode);
 }
 
-// Returns true if all value V users in given blocks are load instructions
-// or bitcasts/GEPs that are used by the loads.
-static bool allUsersAreLoads(Value *V,
-                             const SmallPtrSetImpl<BasicBlock *> &BBs) {
-  // Predicate to check if given value is an instruction from BBs.
-  auto IsFromBBs = [&BBs](Value *V) {
-    if (auto *I = dyn_cast<Instruction>(V))
-      return BBs.contains(I->getParent());
-    return false;
+// Returns true if all users of value V and derrived bitcasts/GEPs do not
+// capture or modify the value inside BBs.
+static bool isReadonlyAndNotCaptured(Value *V,
+                                     const SmallPtrSetImpl<BasicBlock *> &BBs) {
+  SmallVector<Use *, 8u> Worklist;
+  SmallPtrSet<Use *, 8u> Visited;
+
+  auto AddUses = [&Worklist, &Visited, &BBs](Value *V) {
+    for (Use &U : V->uses()) {
+      if (Visited.contains(&U))
+        continue;
+
+      // if user is not an instruction conservatively assume that value is
+      // modified/captured.
+      auto *I = dyn_cast<Instruction>(U.getUser());
+      if (!I)
+        return false;
+
+      // Consider only those instructions that are inside BBs.
+      if (!BBs.contains(I->getParent()))
+        continue;
+
+      Worklist.push_back(&U);
+      Visited.insert(&U);
+    }
+    return true;
   };
 
-  // Verify that all users of alloca instruction in collected blocks are
-  // either loads or bitcasts/GEPs used by the loads.
-  SmallVector<Value *, 8u> Worklist;
-  copy_if(V->users(), std::back_inserter(Worklist), IsFromBBs);
+  // Verify that all users of value V or derrived bitcasts/GEPs in collected
+  // blocks are either load or function call arguments with readonly/readnone
+  // and nocapture attributes.
+  if (!AddUses(V))
+    return false;
   while (!Worklist.empty()) {
-    Value *I = Worklist.pop_back_val();
+    Use *U = Worklist.pop_back_val();
+    Value *I = U->getUser();
+
     if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
-      copy_if(I->users(), std::back_inserter(Worklist), IsFromBBs);
+      if (!AddUses(I))
+        return false;
       continue;
     }
-    if (!isa<LoadInst>(I))
-      return false;
+    if (auto *Load = dyn_cast<LoadInst>(I)) {
+      if (Load->isVolatile())
+        return false;
+      continue;
+    }
+    if (auto *Call = dyn_cast<CallBase>(I)) {
+      if (auto *MI = dyn_cast<MemIntrinsic>(Call))
+        if (MI->isVolatile())
+          return false;
+      if (!Call->isDataOperand(U) ||
+          !Call->doesNotCapture(Call->getDataOperandNo(U)) ||
+          !Call->onlyReadsMemory(Call->getDataOperandNo(U)))
+        return false;
+      continue;
+    }
+    return false;
   }
   return true;
 }
@@ -314,9 +356,12 @@ static bool hasWRNUses(WRegionNode *W, Value *V) {
 
   // Check if value V has any uses in these blocks.
   for (const User *U : V->users())
-    if (auto *I = dyn_cast<Instruction>(U))
+    if (auto *I = dyn_cast<Instruction>(U)) {
+      if (I->isLifetimeStartOrEnd())
+        continue;
       if (is_contained(BBs, I->getParent()))
         return true;
+    }
 
   return false;
 }
@@ -357,7 +402,11 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   // Find "shared" candidates that can be privatized.
   SmallVector<AllocaInst *, 8> ToPrivatize;
   for (SharedItem *I : W->getShared().items()) {
-    if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
+    Value *V = I->getOrig();
+    if (!V)
+      continue;
+
+    if (auto *AI = dyn_cast<AllocaInst>(V)) {
       // Do not do privatization for a shared item if it is captured by a nested
       // task.
       //
@@ -373,7 +422,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
       auto BBs = findWRNBlocks(W, AI);
 
       if (!isPrivatizationCandidate(AI, BBs, AA, /*AllowStructs=*/false) ||
-          !allUsersAreLoads(AI, BBs))
+          !isReadonlyAndNotCaptured(AI, BBs))
         continue;
 
       ToPrivatize.push_back(AI);
@@ -383,7 +432,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     // Check if shared item is a bitcasted alloca instruction that can be
     // privatized. If so move bitcast into the work region and change shared
     // item to alloca instruction.
-    if (auto *BCI = dyn_cast<BitCastInst>(I->getOrig()))
+    if (auto *BCI = dyn_cast<BitCastInst>(V))
       if (auto *AI = dyn_cast<AllocaInst>(BCI->getOperand(0))) {
 
         // TODO: If the BC's region is nested, we cannot make the alloca
@@ -398,7 +447,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         auto BBs = findWRNBlocks(W, AI);
 
         if (!isPrivatizationCandidate(AI, BBs, AA, /*AllowStructs=*/false) ||
-            !allUsersAreLoads(BCI, BBs))
+            !isReadonlyAndNotCaptured(BCI, BBs))
           continue;
 
         // Change shared value to alloca instruction.
@@ -419,7 +468,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         continue;
       }
 
-    LLVM_DEBUG(reportSkipped(I->getOrig(), "not a local pointer"));
+    LLVM_DEBUG(reportSkipped(V, "not a local pointer"));
   }
 
   if (ToPrivatize.empty())
@@ -453,6 +502,74 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   W->populateBBSet(/*Always=*/true);
 
   return true;
+}
+
+// Remove item's uses from the clause bundles.
+template <typename ItemTy>
+static bool cleanupItem(WRegionNode *W, ItemTy *Item, int ClauseID,
+                        SmallSetVector<Value *, 8> &ToPrivatize, Function *F,
+                        WRegionListTy &WRegionList, OptReportBuilder &ORBuilder,
+                        bool hasOffloadCompilation) {
+  bool Changed = false;
+  Value *V = Item->getOrig();
+
+  StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
+  LLVM_DEBUG(dbgs() << ClauseName << " clause for '" << V->getName() << "' on '"
+                    << W->getName() << "' construct is redundant\n");
+
+  // Emit diagnostic in the host compilation only to avoid duplicating
+  // remarks.
+  if (!hasOffloadCompilation)
+    F->getContext().diagnose(
+        OptimizationRemarkAnalysis("openmp", "optimization note",
+                                   W->getEntryDirective())
+        << ClauseName << " clause for variable '" << V->getName() << "' on '"
+        << W->getName() << "' construct is redundant");
+
+  // Do not change target regions so far because we cannot be sure that
+  // both host and device sides will be changed the same way.
+  if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses) {
+    ORBuilder(*W, WRegionList)
+        .addRemark(OptReportVerbosity::Low,
+                   (Twine(ClauseName) + " clause for variable '" +
+                    V->getName() + "' is redundant")
+                       .str());
+    return Changed;
+  }
+
+  ORBuilder(*W, WRegionList)
+      .addRemark(OptReportVerbosity::Low,
+                 (Twine(ClauseName) + " clause for variable '" + V->getName() +
+                  "' has been changed to " +
+                  VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE))
+                     .str());
+
+  auto *Entry = cast<CallInst>(W->getEntryDirective());
+  for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
+                              Entry->bundle_op_info_end())) {
+    // Get clause ID and check if it is a clause of interest.
+    ClauseSpecifier CS(BOI.Tag->getKey());
+    if (CS.getId() != ClauseID)
+      continue;
+
+    // Check bundle operand uses and zap the ones matching given value.
+    for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+      Use &U = Entry->getOperandUse(I);
+      if (V != U.get())
+        continue;
+
+      // Change item's value to null.
+      Value *NewV = Constant::getNullValue(U->getType());
+      U.set(NewV);
+      Item->setOrig(nullptr);
+      Changed = true;
+    }
+  }
+
+  // And add item to the list that need to be privatized.
+  ToPrivatize.insert(V);
+
+  return Changed;
 }
 
 bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
@@ -579,6 +696,12 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
                                        W->getEntryDirective())
             << GetMapName(MI) << " clause for variable '" << AI->getName()
             << "' on '" << W->getName() << "' construct is redundant");
+
+        ORBuilder(*W, WRegionList)
+            .addRemark(OptReportVerbosity::Low,
+                       (Twine(GetMapName(MI)) + " clause for variable '" +
+                        AI->getName() + "' is redundant")
+                           .str());
         continue;
       }
 
@@ -595,7 +718,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       auto BBs = findWRNBlocks(W, AI);
 
       if (!isPrivatizationCandidate(AI, BBs, AA, CheckMapForStructs) ||
-          !allUsersAreLoads(AI, BBs))
+          !isReadonlyAndNotCaptured(AI, BBs))
         continue;
 
       LLVM_DEBUG(dbgs() << GetMapName(MI) << " clause for '" << AI->getName()
@@ -609,71 +732,31 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
           << "' on '" << W->getName()
           << "' construct can be changed to FIRSTPRIVATE to reduce mapping "
              "overhead");
+
+      ORBuilder(*W, WRegionList)
+          .addRemark(
+              OptReportVerbosity::Low,
+              (Twine(GetMapName(MI)) + " clause for variable '" +
+               AI->getName() + "' can be changed to " +
+               VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE) +
+               " to reduce mapping overhead")
+                  .str());
     }
   }
 
   bool Changed = false;
   if (W->canHavePrivate()) {
-    SmallPtrSet<Value *, 8u> ToPrivatize;
+    SmallSetVector<Value *, 8u> ToPrivatize;
 
-    // Remove item's uses from the clause bundles.
-    auto CleanupItem = [this, &ToPrivatize](WRegionNode *W, auto *Item,
-                                            int ClauseID) {
-      bool Changed = false;
-      Value *V = Item->getOrig();
-
-      StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
-      LLVM_DEBUG(dbgs() << ClauseName << " clause for '" << V->getName()
-                        << "' on '" << W->getName()
-                        << "' construct is redundant\n");
-
-      // Emit diagnostic in the host compilation only to avoid duplicating
-      // remarks.
-      if (!hasOffloadCompilation())
-        F->getContext().diagnose(
-            OptimizationRemarkAnalysis("openmp", "optimization note",
-                                       W->getEntryDirective())
-            << ClauseName << " clause for variable '" << V->getName()
-            << "' on '" << W->getName() << "' construct is redundant");
-
-      // Do not change target regions so far because we cannot be sure that
-      // both host and device sides will be changed the same way.
-      if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses)
-        return Changed;
-
-      auto *Entry = cast<CallInst>(W->getEntryDirective());
-      for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
-                                  Entry->bundle_op_info_end())) {
-        // Get clause ID and check if it is a clause of interest.
-        ClauseSpecifier CS(BOI.Tag->getKey());
-        if (CS.getId() != ClauseID)
-          continue;
-
-        // Check bundle operand uses and zap the ones matching given value.
-        for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
-          Use &U = Entry->getOperandUse(I);
-          if (V != U.get())
-            continue;
-
-          // Change item's value to null.
-          Value *NewV = Constant::getNullValue(U->getType());
-          U.set(NewV);
-          Item->setOrig(NewV);
-          Changed = true;
-        }
-      }
-
-      // And add item to the list that need to be privatized.
-      ToPrivatize.insert(V);
-
-      return Changed;
-    };
-
-    auto CleanupRedundantItems = [W, &CleanupItem](auto *Clause) {
+    auto CleanupRedundantItems = [this, W, &ToPrivatize](auto *Clause) {
       bool Changed = false;
       for (auto *Item : Clause->items()) {
+        // Do not try to simplify nonPOD items.
+        if (Item->getIsNonPod())
+          continue;
+
         Value *V = Item->getOrig();
-        if (hasWRNUses(W, V))
+        if (!V || hasWRNUses(W, V))
           continue;
 
         // Special handling for the schedule chunk that is loaded from a shared
@@ -707,7 +790,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
         // Item's value is not used inside the region, so it should be safe to
         // turn it into a private. Print a diagnostic that clause is redundant
         // and remove item's uses from clause bundles.
-        Changed |= CleanupItem(W, Item, Clause->getClauseID());
+        Changed |= cleanupItem(W, Item, Clause->getClauseID(), ToPrivatize, F,
+                               WRegionList, ORBuilder, hasOffloadCompilation());
 
         // Special case first-private items which can also be listed in the
         // last-private clause. Item has to be cleaned up in both clauses.
@@ -715,7 +799,9 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
           if (LastprivateClause *LPClause = W->getLprivIfSupported())
             for (auto *LPItem : LPClause->items())
               if (LPItem->getOrig() == V)
-                Changed |= CleanupItem(W, LPItem, LPClause->getClauseID());
+                Changed |= cleanupItem(W, LPItem, LPClause->getClauseID(),
+                                       ToPrivatize, F, WRegionList, ORBuilder,
+                                       hasOffloadCompilation());
       }
       return Changed;
     };
@@ -724,18 +810,168 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       Changed |= CleanupRedundantItems(Clause);
     if (auto *Clause = W->getSharedIfSupported())
       Changed |= CleanupRedundantItems(Clause);
+    if (auto *Clause = W->getLprivIfSupported())
+      Changed |= CleanupRedundantItems(Clause);
 
     if (!ToPrivatize.empty()) {
       StringRef PrivateClause =
           VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
-      for (Value *V : ToPrivatize) {
-        CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
-            cast<CallInst>(W->getEntryDirective()), {{PrivateClause, {V}}});
-        W->setEntryDirective(NewEntry);
+
+      SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> PrivateBundles;
+      PrivateBundles.reserve(ToPrivatize.size());
+      for (Value *const &V : ToPrivatize) {
+        PrivateBundles.push_back({PrivateClause, ArrayRef<Value *>(&V, 1u)});
         W->getPriv().add(V);
       }
+
+      CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
+          cast<CallInst>(W->getEntryDirective()), PrivateBundles);
+      W->setEntryDirective(NewEntry);
+
       Changed = true;
     }
+  }
+
+  // This routine does not change CFG, so there is no need to be refresh BB set.
+  return Changed;
+}
+
+bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::simplifyLastprivateClauses: "
+             << W->getName() << "\n");
+
+  if (!W->canHavePrivate() || !W->canHaveLastprivate() || W->getLpriv().empty())
+    return false;
+
+  bool Changed = false;
+  SmallSetVector<Value *, 8u> ToPrivatize;
+
+  for (LastprivateItem *Item : W->getLpriv().items()) {
+    // Do not try to simplify byref items because existing analysis is not
+    // sufficient for them.
+    if (Item->getIsByRef())
+      continue;
+
+    // Also skip nonPOD items.
+    if (Item->getIsNonPod())
+      continue;
+
+    Value *V = Item->getOrig();
+    if (!V)
+      continue;
+
+    // So far we will try to simplify locally allocated scalars only.
+    auto *AI = dyn_cast<AllocaInst>(V->stripPointerCasts());
+    if (!AI || AI->isArrayAllocation() ||
+        !AI->getAllocatedType()->isSingleValueType())
+      continue;
+
+    Optional<TypeSize> Size =
+        AI->getAllocationSizeInBits(AI->getModule()->getDataLayout());
+    if (!Size)
+      continue;
+
+    // Collect set of basic blocks where we will be checking if value is used.
+    SmallPtrSet<BasicBlock *, 8u> BBs;
+    if (WRegionNode *PW = W->getParent()) {
+      // If there is a parent work region check how that value is being used. If
+      // value is not privatized by the region assume that it is being
+      // propagated outside of the region.
+      if (!isWRNPrivate(PW, V) &&
+          !(isWRNLastprivate(PW, V) && !isWRNFirstprivate(PW, V)))
+        continue;
+
+      // Start with adding parent region's block to the list excluding its
+      // entry/exit blocks and the blocks which cannot be reached from the work
+      // region (i.e. lastprivate defined by it cannot be used by those blocks).
+      for (BasicBlock *BB : PW->blocks()) {
+        if (BB == PW->getEntryBBlock() || BB == PW->getExitBBlock())
+          continue;
+        if (!isPotentiallyReachable(W->getExitBBlock(), BB, nullptr, DT, LI))
+          continue;
+        BBs.insert(BB);
+      }
+
+      // Also exclude child region's blocks except entry blocks. Entries are
+      // needed for checking how value is used by the child region.
+      for (WRegionNode *CW : PW->getChildren())
+        for (BasicBlock *BB : CW->blocks())
+          if (BB != CW->getEntryBBlock())
+            BBs.erase(BB);
+    } else {
+      // If there is no parent region add all function's blocks to the list
+      // exluding ones that cannot be reached from the directive.
+      for (BasicBlock &BB : *F) {
+        if (!isPotentiallyReachable(W->getExitBBlock(), &BB, nullptr, DT, LI))
+          continue;
+        BBs.insert(&BB);
+      }
+
+      // And similarly exclude all child region's blocks except entries.
+      for (WRegionNode *CW : WRegionList) {
+        if (CW->getParent())
+          continue;
+        for (BasicBlock *BB : CW->blocks())
+          if (BB != CW->getEntryBBlock())
+            BBs.erase(BB);
+      }
+    }
+
+    MemoryLocation Loc{AI, LocationSize::precise(*Size)};
+    if (none_of(BBs, [&](BasicBlock *BB) {
+          if (VPOAnalysisUtils::isBeginDirective(&BB->front())) {
+            // Check if directive uses value in any way other than private or
+            // lastprivate. If so, considered the item being used.
+            auto *Entry = cast<CallInst>(&BB->front());
+            if (any_of(Entry->bundle_op_infos(),
+                       [this, Entry, V](const CallBase::BundleOpInfo &BOI) {
+                         for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+                           Use &U = Entry->getOperandUse(I);
+                           if (AA->isNoAlias(V, U.get()))
+                             continue;
+
+                           ClauseSpecifier CS(BOI.Tag->getKey());
+                           if (CS.getId() != QUAL_OMP_PRIVATE &&
+                               CS.getId() != QUAL_OMP_LASTPRIVATE)
+                             return true;
+                         }
+                         return false;
+                       }))
+              return true;
+            return false;
+          }
+
+          // Check if any block's instruction references the item's memory.
+          for (const Instruction &I : *BB) {
+            if (I.isLifetimeStartOrEnd() || isa<FenceInst>(I))
+              continue;
+            if (isRefSet(AA->getModRefInfo(&I, Loc)))
+              return true;
+          }
+          return false;
+        }))
+      Changed |=
+          cleanupItem(W, Item, W->getLpriv().getClauseID(), ToPrivatize, F,
+                      WRegionList, ORBuilder, hasOffloadCompilation());
+  }
+
+  if (!ToPrivatize.empty()) {
+    StringRef PrivateClause =
+        VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+
+    SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> PrivateBundles;
+    PrivateBundles.reserve(ToPrivatize.size());
+    for (Value *const &V : ToPrivatize) {
+      PrivateBundles.push_back({PrivateClause, ArrayRef<Value *>(&V, 1u)});
+      W->getPriv().add(V);
+    }
+
+    CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
+        cast<CallInst>(W->getEntryDirective()), PrivateBundles);
+    W->setEntryDirective(NewEntry);
+
+    Changed = true;
   }
 
   // This routine does not change CFG, so there is no need to be refresh BB set.
@@ -770,9 +1006,14 @@ bool VPOParoptTransform::privatizeSharedItems() {
     case WRegionNode::WRNSingle:
     case WRegionNode::WRNWksLoop:
     case WRegionNode::WRNDistribute:
+    case WRegionNode::WRNVecLoop:
       Changed |= simplifyRegionClauses(W);
       break;
     }
   }
+
+  for (auto *W : reverse(WRegionList))
+    Changed |= simplifyLastprivateClauses(W);
+
   return Changed;
 }

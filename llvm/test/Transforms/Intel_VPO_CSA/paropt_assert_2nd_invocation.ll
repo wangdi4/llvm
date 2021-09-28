@@ -78,8 +78,8 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !9 = distinct !{!9, !7, !"OMPAliasScope"}
 !10 = distinct !{!10, !7, !"OMPAliasScope"}
 !11 = distinct !{!11, !12}
-!12 = distinct !{!"llvm.loop.optreport", !13}
-!13 = distinct !{!"intel.loop.optreport", !14}
+!12 = distinct !{!"intel.optreport.rootnode", !13}
+!13 = distinct !{!"intel.optreport", !14}
 !14 = !{!"intel.optreport.remarks", !15}
 !15 = !{!"intel.optreport.remark", !"CSA: OpenMP parallel loop will be pipelined"}
 ; end INTEL_FEATURE_CSA

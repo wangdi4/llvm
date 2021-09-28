@@ -3,6 +3,7 @@ VERS1.0 {
     __tgt_register_requires;
     __tgt_register_lib;
     __tgt_unregister_lib;
+    __tgt_init_all_rtls;
     __tgt_target_data_begin;
     __tgt_target_data_end;
     __tgt_target_data_update;
@@ -67,6 +68,14 @@ VERS1.0 {
     omp_get_interop_rc_desc;
     omp_set_sub_device;
     omp_unset_sub_device;
+    ompx_target_realloc;
+    ompx_target_realloc_device;
+    ompx_target_realloc_host;
+    ompx_target_realloc_shared;
+    ompx_target_aligned_alloc;
+    ompx_target_aligned_alloc_device;
+    ompx_target_aligned_alloc_host;
+    ompx_target_aligned_alloc_shared;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount;
@@ -75,6 +84,7 @@ VERS1.0 {
     llvm_omp_target_alloc_shared;
     llvm_omp_target_alloc_device;
     __tgt_set_info_flag;
+    __tgt_print_device_info;
   local:
     *;
 };

@@ -473,14 +473,14 @@ void CandidateInfo::fixQsortCallsites() {
     auto *E = CB->arg_end();
     for (; I != E; I++, ArgIdx++) {
       NewArgs.push_back(*I);
-      NewArgAttrs.push_back(NFPAL.getParamAttributes(ArgIdx));
+      NewArgAttrs.push_back(NFPAL.getParamAttrs(ArgIdx));
     }
     NewArgs.push_back(NewArg);
-    NewArgAttrs.push_back(NFPAL.getParamAttributes(ArgIdx));
+    NewArgAttrs.push_back(NFPAL.getParamAttrs(ArgIdx));
     FunctionType *NFTy = NewSortFn->getFunctionType();
     AttributeList NewPAL =
-        AttributeList::get(NFTy->getContext(), Attrs.getFnAttributes(),
-                           Attrs.getRetAttributes(), NewArgAttrs);
+        AttributeList::get(NFTy->getContext(), Attrs.getFnAttrs(),
+                           Attrs.getRetAttrs(), NewArgAttrs);
 
     CallInst *NewCB;
     NewCB = CallInst::Create(NFTy, NewSortFn, NewArgs, None, "", CB);

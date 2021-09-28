@@ -10,6 +10,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // for VectorVariant::ISAClass
 
 namespace llvm {
@@ -27,7 +28,9 @@ ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");
 ModulePass *createCreateSimdVariantPropagationLegacyPass();
-ModulePass *createDPCPPEqualizerLegacyPass();
+ModulePass *createCoerceWin64TypesLegacyPass();
+ModulePass *
+createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules = {});
 ModulePass *createDPCPPKernelVecClonePass(
     ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
         {},
@@ -35,6 +38,7 @@ ModulePass *createDPCPPKernelVecClonePass(
 ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
 ModulePass *createDPCPPKernelAnalysisLegacyPass();
+ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
@@ -48,18 +52,37 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
                                           bool useTLSGlobals);
 ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createImplicitArgsAnalysisLegacyPass();
+ModulePass *createIndirectCallLoweringLegacyPass();
 ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 ModulePass *createAddImplicitArgsLegacyPass();
+ModulePass *createResolveSubGroupWICallLegacyPass(
+    const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
+    bool ResolveSGBarrier = true);
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
+ModulePass *createSGBarrierPropagateLegacyPass();
+ModulePass *createSGBarrierSimplifyLegacyPass();
+ModulePass *createSGBuiltinLegacyPass(
+    ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
+        {});
+ModulePass *createSGLoopConstructLegacyPass();
+ModulePass *createSGSizeAnalysisLegacyPass();
+ModulePass *createSGValueWidenLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();
 ModulePass *createVectorVariantFillInLegacyPass();
 ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
+ModulePass *createSGSizeCollectorLegacyPass(VectorVariant::ISAClass);
+ModulePass *createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass);
+ModulePass *createSetVectorizationFactorLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM);
+ModulePass *createVFAnalysisLegacyPass();
+ModulePass *
+createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H

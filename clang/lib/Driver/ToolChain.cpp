@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Driver/ToolChain.h"
-#include "InputInfo.h"
 #include "ToolChains/Arch/ARM.h"
 #include "ToolChains/Clang.h"
 #include "ToolChains/Flang.h"
@@ -18,6 +17,7 @@
 #include "clang/Driver/Action.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/DriverDiagnostic.h"
+#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/Job.h"
 #include "clang/Driver/Options.h"
 #include "clang/Driver/SanitizerArgs.h"
@@ -390,6 +390,7 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::InputClass:
   case Action::BindArchClass:
   case Action::OffloadClass:
+  case Action::ForEachWrappingClass:
   case Action::LipoJobClass:
   case Action::DsymutilJobClass:
   case Action::VerifyDebugInfoJobClass:
@@ -450,6 +451,9 @@ static StringRef getArchNameForCompilerRTLib(const ToolChain &TC,
   // For historic reasons, Android library is using i686 instead of i386.
   if (TC.getArch() == llvm::Triple::x86 && Triple.isAndroid())
     return "i686";
+
+  if (TC.getArch() == llvm::Triple::x86_64 && Triple.isX32())
+    return "x32";
 
   return llvm::Triple::getArchTypeName(TC.getArch());
 }
@@ -1037,6 +1041,35 @@ void ToolChain::AddIntelLibimfLibArgs(const ArgList &Args,
   CmdArgs.push_back("-limf");
 }
 
+// takes any known library specification string and returns the associated
+// option argument which can be used with the -no-intel-lib option.
+static StringRef getIntelLibArgVal(StringRef LibName) {
+  StringRef LibArg;
+  LibArg =
+      llvm::StringSwitch<StringRef>(LibName)
+          .Cases("libirc", "-lirc", "-lirc_s", "-lintlc", "-lirc_pic", "libirc")
+          .Cases("libimf", "-limf", "libimf")
+          .Cases("libsvml", "-lsvml", "libsvml")
+          .Cases("libirng", "-lirng", "libirng")
+          .Default("");
+  return LibArg;
+}
+
+// Based on input string, determine if the library should be added.
+bool ToolChain::CheckAddIntelLib(StringRef LibName, const ArgList &Args) const {
+  const Arg *A =
+      Args.getLastArg(options::OPT_no_intel_lib, options::OPT_no_intel_lib_EQ);
+  if (A) {
+    if (A->getOption().matches(options::OPT_no_intel_lib))
+      return false;
+    for (StringRef Val : A->getValues()) {
+      if (Val == getIntelLibArgVal(LibName))
+        return false;
+    }
+  }
+  return true;
+}
+
 static const std::string getIntelBasePath(const std::string DriverDir) {
   // Perf libs are located in different locations depending on the package
   // being used.  This is PSXE vs oneAPI installations.
@@ -1555,8 +1588,9 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     // at all, target and host share a toolchain.
     if (A->getOption().matches(options::OPT_m_Group)) {
       // AMD GPU is a special case, as -mcpu is required for the device
-      // compilation.
-      if (SameTripleAsHost || getTriple().getArch() == llvm::Triple::amdgcn)
+      // compilation, except for SYCL which uses --offload-arch.
+      if (SameTripleAsHost || (getTriple().getArch() == llvm::Triple::amdgcn &&
+                               DeviceOffloadKind != Action::OFK_SYCL))
         DAL->append(A);
       else
         Modified = true;

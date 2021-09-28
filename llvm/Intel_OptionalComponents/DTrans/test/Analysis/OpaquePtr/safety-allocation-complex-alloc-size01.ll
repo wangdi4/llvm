@@ -7,7 +7,7 @@
 ; This case is recognized as "Complex alloc size" for the EliminateROAccess
 ; transformation
 %struct.test01 = type { i32 }
-@var01 = internal global %struct.test01* zeroinitializer, !dtrans_type !2
+@var01 = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
 define void @test01(i64 %n) {
   %shl = mul i64 %n, 4
   %add = add i64 %shl, 4
@@ -28,7 +28,7 @@ define void @test01caller() {
 ; This case is not supported because the multiplication is not a multiple of
 ; the structure size, and will marked as "Bad alloc size""
 %struct.test02 = type { i32 }
-@var02 = internal global %struct.test02* zeroinitializer, !dtrans_type !4
+@var02 = internal global %struct.test02* zeroinitializer, !intel_dtrans_type !3
 define void @test02(i64 %n) {
   %shl = mul i64 %n, 3
   %add = add i64 %shl, 2
@@ -46,14 +46,14 @@ define void @test02caller() {
 ; CHECK: Safety data: Bad alloc size | Global pointer{{ *$}}
 
 
-declare i8* @malloc(i64)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %struct.test01*
-!3 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!4 = !{!5, i32 1}  ; %struct.test02*
-!5 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!4 = !{i8 0, i32 1}  ; i8*
+!5 = distinct !{!4}
 !6 = !{!"S", %struct.test01 zeroinitializer, i32 1, !1} ; { i32 }
 !7 = !{!"S", %struct.test02 zeroinitializer, i32 1, !1} ; { i32 }
 
-!dtrans_types = !{!6, !7}
+!intel.dtrans.types = !{!6, !7}

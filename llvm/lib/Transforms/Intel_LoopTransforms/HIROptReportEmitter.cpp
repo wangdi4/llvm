@@ -1,6 +1,6 @@
 //===---- HIROptReportEmitter.cpp - Prints Loop Optimization reports ------==//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -23,7 +23,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -65,28 +65,29 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
   }
 
   void visit(const HLRegion *Reg) {
-    LoopOptReport OptReport = Reg->getOptReport();
-    if (OptReport && OptReport.firstChild())
-      printEnclosedOptReport(FOS, Depth, OptReport.firstChild());
+    OptReport OR = Reg->getOptReport();
+    if (OR && OR.firstChild())
+      printEnclosedOptReport(FOS, Depth, OR.firstChild());
   }
 
   void visit(const HLLoop *Lp) {
-    LoopOptReport OptReport = Lp->getOptReport();
+    OptReport OR = Lp->getOptReport();
 
-    printLoopHeaderAndOrigin(FOS, Depth, OptReport, Lp->getDebugLoc());
+    printNodeHeaderAndOrigin(FOS, Depth, OR, Lp->getDebugLoc());
 
     ++Depth;
-    if (OptReport)
-      printOptReport(FOS, Depth, OptReport);
+    if (OR)
+      printOptReport(FOS, Depth, OR);
   }
 
   void postVisit(const HLLoop *Lp) {
-    --Depth;
-    printLoopFooter(FOS, Depth);
+    OptReport OR = Lp->getOptReport();
 
-    LoopOptReport OptReport = Lp->getOptReport();
-    if (OptReport && OptReport.nextSibling())
-      printEnclosedOptReport(FOS, Depth, OptReport.nextSibling());
+    --Depth;
+    printNodeFooter(FOS, Depth, OR);
+
+    if (OR && OR.nextSibling())
+      printEnclosedOptReport(FOS, Depth, OR.nextSibling());
   }
 
   void visit(const HLNode *Node) {}

@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
 define dso_local void @foo() {
-; CHECK-LABEL:  Cost Model for VPlan foo:HIR with VF = 8:
+; CHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 8:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB0]]: base cost: 0

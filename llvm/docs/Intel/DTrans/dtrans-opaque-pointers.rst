@@ -58,7 +58,7 @@ as:
 
 .. code-block:: llvm
 
-  %struct.foo = { i32, p0, p0, p0 }
+  %struct.foo = { i32, ptr, ptr, ptr }
 
 
 This presents a problem for the DTrans analysis and transformations when
@@ -66,7 +66,7 @@ analyzing an instruction to determine the Value object type, such as:
 
 .. code-block:: llvm
 
-  %fa = getelementptr %struct.foo, p0 %ptr, i64 0, i32 3
+  %fa = getelementptr %struct.foo, ptr %ptr, i64 0, i32 3
 
 
 In this case, it would not be known whether the 3rd field is a pointer to an
@@ -348,11 +348,11 @@ Metadata attached to IR
 -----------------------
 Metadata needs to be attached to the IR to help DTrans identify what type an
 object is when it refers to a pointer type, but is only described in the IR
-as being type 'p0' or an array of type 'p0', etc. Without this information,
+as being type 'ptr' or an array of type 'ptr', etc. Without this information,
 DTrans would need to infer the type by looking at the uses, which could be
 computationally expensive and lead to less precise information. Specific items
 to be marked are the following when they involve a pointer type which would
-be represented as type 'p0'. In these cases, DTrans would not be able to
+be represented as type 'ptr'. In these cases, DTrans would not be able to
 determine a precise type using a getValueType() or getAllocatedType() call
 on the object:
 
@@ -369,7 +369,7 @@ the cases where metadata would become invalidated due to transformations that
 eliminate a parameter or the return type. An attribute is attached to
 the return/parameter which provides an association to a metadata attachment on
 the function if the type directly references a pointer type that would be
-represented as 'p0' within the IR. Simple types, such as: 'i32' or 'float',
+represented as 'ptr' within the IR. Simple types, such as: 'i32' or 'float',
 will not have attributes attached to them. The value of this attribute will
 be an index (starting with 1) that indicates an operand to use from the
 metadata attachment. The metadata attachment contains a list of metadata
@@ -383,9 +383,9 @@ independently.
 .. code-block:: llvm
 
    ; %struct.op* bitop(%struct.op*, i32, i32*)
-   define intel_dtrans_func_index(1) p0 @bitop(
-       p0 intel_dtrans_func_index(2) %0, i32 %1
-       p0 intel_dtrans_func_index(3) %2)
+   define "intel_dtrans_func_index"="1" ptr @bitop(
+       ptr "intel_dtrans_func_index"="2" %0, i32 %1
+       ptr "intel_dtrans_func_index"="3" %2)
        !intel.dtrans.func.type !3
 
    !1 = !{%struct.op zeroinitializer, i32 1} ; %struct.op*

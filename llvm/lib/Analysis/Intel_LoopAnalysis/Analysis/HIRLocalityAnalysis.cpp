@@ -732,7 +732,7 @@ void HIRLoopLocality::sortedLocalityLoops(
          "Near perfect loopnest expected!");
   (void)IsNearPerfect;
 
-  HIRF.getHLNodeUtils().gatherAllLoops(OutermostLoop, SortedLoops);
+  HLNodeUtils::gatherAllLoops(OutermostLoop, SortedLoops);
   computeLoopNestLocality(OutermostLoop, SortedLoops);
 
   auto Comp = [this](const HLLoop *Lp1, const HLLoop *Lp2) {

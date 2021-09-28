@@ -1,7 +1,10 @@
 ; Test for indirect call serialization.
+; RUN: opt -vplan-enable-soa=false %s -vplan-vec -vplan-force-vf=2 -S | FileCheck %s 
+; RUN: opt -vplan-enable-soa=false %s -vplan-vec -vplan-force-vf=2 -intel-ir-optreport-emitter -intel-loop-optreport=high -disable-output 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
 
-; RUN: opt -vplan-enable-soa=false %s -vplan-vec -vplan-force-vf=2 -S | FileCheck %s
-
+; OPTREPORT:      remark #15485: serialized function calls: 1
+; OPTREPORT-NEXT: remark #15560: Indirect call cannot be vectorized.
+;
 ; CHECK-LABEL:       vector.body:
 ; CHECK:    [[F1:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_LOAD:%.*]], i32 1
 ; CHECK-NEXT:    [[F0:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_LOAD]], i32 0

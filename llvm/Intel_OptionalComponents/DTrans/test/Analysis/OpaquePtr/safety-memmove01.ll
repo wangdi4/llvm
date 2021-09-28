@@ -11,7 +11,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Move the entire structure, starting from a GEP of field 0.
 %struct.test01 = type { i32, i32, i32 }
-define void @test01(%struct.test01* %pStructA, %struct.test01* %pStructB) !dtrans_type !2 {
+define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %struct.test01* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !3 {
   %pFieldA = getelementptr %struct.test01, %struct.test01* %pStructA, i64 0, i32 0
   %pFieldB = getelementptr %struct.test01, %struct.test01* %pStructB, i64 0, i32 0
   %pDst = bitcast i32* %pFieldA to i8*
@@ -32,7 +32,7 @@ define void @test01(%struct.test01* %pStructA, %struct.test01* %pStructB) !dtran
 
 ; Move that uses a multiple of the structure size, such as for an array of structures.
 %struct.test02 = type { i32, i16, i8 }
-define void @test02(%struct.test02* %pStruct1, %struct.test02* %pStruct2) !dtrans_type !8 {
+define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %struct.test02* "intel_dtrans_func_index"="2" %pStruct2) !intel.dtrans.func.type !7 {
   %pDst = bitcast %struct.test02* %pStruct1 to i8*
   %pSrc = bitcast %struct.test02* %pStruct2 to i8*
   call void @llvm.memmove.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 80, i1 false)
@@ -49,25 +49,18 @@ define void @test02(%struct.test02* %pStruct1, %struct.test02* %pStruct2) !dtran
 ; CHECK: Safety data: No issues found
 
 
-declare void @llvm.memmove.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+declare !intel.dtrans.func.type !9 void @llvm.memmove.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 2, !3, !4, !4}  ; void (%struct.test01*, %struct.test01*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{i16 0, i32 0}  ; i16
-!7 = !{i8 0, i32 0}  ; i8
-!8 = !{!"F", i1 false, i32 2, !3, !9, !9}  ; void (%struct.test02*, %struct.test02*)
-!9 = !{!10, i32 1}  ; %struct.test02*
-!10 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!11 = !{!"F", i1 false, i32 4, !3, !12, !12, !13, !14}  ; void (i8*, i8*, i64, i1)
-!12 = !{i8 0, i32 1}  ; i8*
-!13 = !{i64 0, i32 0}  ; i64
-!14 = !{i1 0, i32 0}  ; i1
-!15 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
-!16 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !6, !7} ; { i32, i16, i8 }
-!17 = !{!"llvm.memmove.p0i8.p0i8.i64", !11}
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2, !2}
+!4 = !{i16 0, i32 0}  ; i16
+!5 = !{i8 0, i32 0}  ; i8
+!6 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!7 = distinct !{!6, !6}
+!8 = !{i8 0, i32 1}  ; i8*
+!9 = distinct !{!8, !8}
+!10 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
+!11 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !4, !5} ; { i32, i16, i8 }
 
-!dtrans_types = !{!15, !16}
-!dtrans_decl_types = !{!17}
+!intel.dtrans.types = !{!10, !11}

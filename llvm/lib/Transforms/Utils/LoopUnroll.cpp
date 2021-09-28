@@ -27,10 +27,10 @@
 #include "llvm/ADT/ilist_iterator.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"     // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -241,6 +241,40 @@ void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// Restores the opt report loop metadata present on \p OrigLatch to \p NewLatch
+/// to counteract that metadata being deleted during cloning.
+static void restoreOptReport(Instruction *OrigLatch, Instruction *ClonedLatch) {
+  assert(OrigLatch);
+  assert(ClonedLatch);
+
+  // Locate the loop metadata for the original and cloned latches.
+  const MDNode *const LoopIDOrig = OrigLatch->getMetadata(LLVMContext::MD_loop);
+  if (!LoopIDOrig)
+    return;
+  const MDNode *const LoopIDCloned =
+      ClonedLatch->getMetadata(LLVMContext::MD_loop);
+  if (!LoopIDCloned)
+    return;
+
+  // Find the opt report metadata in the original latch.
+  const auto OptReportMD =
+      find_if(LoopIDOrig->operands(), OptReport::isOptReportMetadata);
+  if (OptReportMD == LoopIDOrig->op_end())
+    return;
+
+  // Construct a new loop metadata node by appending the opt report metadata
+  // from the original latch to the loop metadata of the new latch.
+  SmallVector<Metadata *, 4> Ops(LoopIDCloned->operands());
+  Ops.push_back(*OptReportMD);
+  MDTuple *NewLoopID = MDTuple::get(ClonedLatch->getContext(), Ops);
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+
+  // Replace the metadata of the cloned latch.
+  ClonedLatch->setMetadata(LLVMContext::MD_loop, NewLoopID);
+}
+#endif // INTEL_CUSTOMIZTION
+
 /// Unroll the given loop by Count. The loop must be in LCSSA form.  Unrolling
 /// can only fail when the loop's latch block is not terminated by a conditional
 /// branch instruction. However, if the trip count (and multiple) are not known,
@@ -261,7 +295,7 @@ void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
 LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                                   ScalarEvolution *SE, DominatorTree *DT,
                                   AssumptionCache *AC,
-                                  const LoopOptReportBuilder &LORBuilder, // INTEL
+                                  const OptReportBuilder &ORBuilder, // INTEL
                                   const TargetTransformInfo *TTI,
                                   OptimizationRemarkEmitter *ORE,
                                   bool PreserveLCSSA, Loop **RemainderLoop) {
@@ -408,7 +442,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       !UnrollRuntimeLoopRemainder(L, ULO.Count, ULO.AllowExpensiveTripCount,
                                   EpilogProfitability, ULO.UnrollRemainder,
                                   ULO.ForgetAllSCEV, LI, SE, DT, AC,
-                                  LORBuilder,                        // INTEL
+                                  ORBuilder, // INTEL
                                   TTI, PreserveLCSSA, RemainderLoop)) {
     if (ULO.Force)
       ULO.Runtime = false;
@@ -432,19 +466,19 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                << NV("UnrollCount", ULO.Count) << " iterations";
       });
 #if INTEL_CUSTOMIZATION
-    LORBuilder(*L, *LI).
-        addRemark(OptReportVerbosity::Low,
-                  "LLorg: Loop has been completely unrolled").
-        preserveLostLoopOptReport();
+    ORBuilder(*L, *LI)
+        .addRemark(OptReportVerbosity::Low,
+                   "LLorg: Loop has been completely unrolled")
+        .preserveLostOptReport();
 #endif  // INTEL_CUSTOMIZATION
   } else {
 #if INTEL_CUSTOMIZATION
     // TODO (vzakhari 5/22/2018): we may want to be more precise
     //       and report all the different unrolling cases in the
     //       conditional clauses below.
-    LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
-                                  "LLorg: Loop has been unrolled by %d factor",
-                                  ULO.Count);
+    ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
+                                 "LLorg: Loop has been unrolled by %d factor",
+                                 ULO.Count);
 #endif  // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "UNROLLING loop %" << Header->getName() << " by "
                       << ULO.Count);
@@ -544,6 +578,14 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       ValueToValueMapTy VMap;
       BasicBlock *New = CloneBasicBlock(*BB, VMap, "." + Twine(It));
       Header->getParent()->getBasicBlockList().push_back(New);
+
+#if INTEL_CUSTOMIZATION
+      // Restore the opt report metadata that gets dropped during cloning to New
+      // if BB is the loop latch.
+      if (*BB == LatchBlock) {
+        restoreOptReport((*BB)->getTerminator(), New->getTerminator());
+      }
+#endif // INTEL_CUSTOMIZATION
 
       assert((*BB != Header || LI->getLoopFor(*BB) == L) &&
              "Header should not be in a sub-loop");
@@ -697,7 +739,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     BranchInst::Create(Dest, Term);
 #if INTEL_CUSTOMIZATION
     // Remove Loop metadata from the loop branch instruction
-    // to avoid failing the check of LoopOptReport metadata
+    // to avoid failing the check of OptReport metadata
     // being dropped accidentally.
     //
     // This branch is being replaced with an unconditional branch
@@ -771,8 +813,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
 
   // When completely unrolling, the last latch becomes unreachable.
   if (!LatchIsExiting && CompletelyUnroll)
-    changeToUnreachable(Latches.back()->getTerminator(), /* UseTrap */ false,
-                        PreserveLCSSA, &DTU);
+    changeToUnreachable(Latches.back()->getTerminator(), PreserveLCSSA, &DTU);
 
   // Merge adjacent basic blocks, if possible.
   for (BasicBlock *Latch : Latches) {

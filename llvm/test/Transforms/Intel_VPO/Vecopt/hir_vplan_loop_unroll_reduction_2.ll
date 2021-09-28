@@ -5,8 +5,8 @@
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM2
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM2
 
 
 ; int foo(int *a, int n) {
@@ -93,27 +93,26 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CGCHECK-NEXT:  Function: foo
 ; CGCHECK-EMPTY:
-; CGCHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CGCHECK-NEXT:  <14>               [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u12
-; CGCHECK-NEXT:  <16>               if (0 <u 12 * [[TGU0]])
-; CGCHECK-NEXT:  <16>               {
-; CGCHECK-NEXT:  <18>                     [[RED_VAR0:%.*]] = 0
-; CGCHECK-NEXT:  <19>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
-; CGCHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 178956970> <auto-vectorized> <nounroll> <novectorize>
-; CGCHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; CGCHECK-NEXT:  <21>                  |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
-; CGCHECK-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; CGCHECK-NEXT:  <23>                  |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[DOTVEC10]]
-; CGCHECK-NEXT:  <24>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; CGCHECK-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[DOTVEC30]]
-; CGCHECK-NEXT:  <15>                  + END LOOP
-; CGCHECK-NEXT:  <26>                     [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[RED_VAR0]])
-; CGCHECK-NEXT:  <16>               }
-; CGCHECK-NEXT:  <11>
-; CGCHECK-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
-; CGCHECK-NEXT:  <4>                |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
-; CGCHECK-NEXT:  <11>               + END LOOP
-; CGCHECK-NEXT:  <0>          END REGION
+; CGCHECK-NEXT:            BEGIN REGION { modified }
+; CGCHECK-NEXT:                 [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u12
+; CGCHECK-NEXT:                 if (0 <u 12 * [[TGU0]])
+; CGCHECK-NEXT:                 {
+; CGCHECK-NEXT:                    [[RED_VAR0:%.*]] = 0
+; CGCHECK-NEXT:                    [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
+; CGCHECK:                         + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 178956970> <auto-vectorized> <nounroll> <novectorize>
+; CGCHECK-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
+; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
+; CGCHECK-NEXT:                    |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[DOTVEC10]]
+; CGCHECK-NEXT:                    |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
+; CGCHECK-NEXT:                    |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[DOTVEC30]]
+; CGCHECK-NEXT:                    + END LOOP
+; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[RED_VAR0]])
+; CGCHECK-NEXT:                 }
+; CGCHECK:                      + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
+; CGCHECK-NEXT:                  |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
+; CGCHECK-NEXT:                 + END LOOP
+; CGCHECK-NEXT:            END REGION
 ;
 entry:
   %cmp6 = icmp sgt i32 %n, 0

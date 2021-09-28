@@ -17,6 +17,12 @@
 #define __AMX_LNCINTRIN_H
 #ifdef __x86_64__
 
+#define __DEFAULT_FN_ATTRS_TRANSPOSE                                           \
+  __attribute__((__always_inline__, __nodebug__, __target__("amx-transpose")))
+
+#define __DEFAULT_FN_ATTRS_AVX512                                              \
+  __attribute__((__always_inline__, __nodebug__, __target__("amx-avx512")))
+
 // Transpose
 #define _tile_2rpntlvw(tdst, base, stride, src)                                \
   __builtin_ia32_t2rpntlvw(tdst, base, stride, src)
@@ -75,6 +81,136 @@
 //AMX_LNC ELEMENTEVEX
 #define _tile_cvtd2pse(base, stride, tsrc)                                    \
   __builtin_ia32_tcvtd2pse(base, stride, tsrc)
+
+// This is internal intrinsic. C/C++ user should avoid calling it directly.
+static __inline__ _tile1024i __DEFAULT_FN_ATTRS_TRANSPOSE
+_tile_transposed_internal(unsigned short m, unsigned short n, _tile1024i src) {
+  return __builtin_ia32_ttransposed_internal(m, n, src);
+}
+
+// dst = m x n (srcdest), src1 = k x m, src2 = k x n
+static __inline__ _tile1024i __DEFAULT_FN_ATTRS_TRANSPOSE
+_tile_ttdpbf16ps_internal(unsigned short m, unsigned short n, unsigned short k,
+                          _tile1024i dst, _tile1024i src1, _tile1024i src2) {
+  return __builtin_ia32_ttdpbf16ps_internal(m, n, k, dst, src1, src2);
+}
+
+// dst = m x n (srcdest), src1 = k x m, src2 = k x n
+static __inline__ _tile1024i __DEFAULT_FN_ATTRS_TRANSPOSE
+_tile_ttdpfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
+                          _tile1024i dst, _tile1024i src1, _tile1024i src2) {
+  return __builtin_ia32_ttdpfp16ps_internal(m, n, k, dst, src1, src2);
+}
+
+static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512
+_tile_tilemovrowee_internal(unsigned short m, unsigned short n,
+                              _tile1024i src, unsigned u) {
+  return __builtin_ia32_tilemovrowee_internal(m, n, src, u);
+}
+
+#define _tile_tilemovrowei_internal(m, n, tsrc, i)                            \
+  __builtin_ia32_tilemovrowei_internal(m, n, tsrc, i)
+
+/// Transpose 32-bit elements from src and write the result to dst.
+///
+/// \headerfile <immintrin.h>
+///
+/// This intrinsic corresponds to the <c> TTRANSPOSED </c> instruction.
+///
+/// \param dst
+///    The destination tile. Max size is 1024 Bytes.
+/// \param src
+///    The 1st source tile. Max size is 1024 Bytes.
+__DEFAULT_FN_ATTRS_TRANSPOSE
+static void __tile_transposed(__tile1024i *dst, __tile1024i src) {
+  dst->tile = _tile_transposed_internal(src.row, src.col, src.tile);
+}
+
+/// Compute transpose and dot product of BF16 pairs, accumulating to single
+/// precision. This function has 3 tile operands, one source/dest accumulator
+/// operand dst and two source operands, src0 and src1. Src0 is transposed and
+/// matrix multiplied with src1. The transpose operation is done in BF16 pair
+/// granularity, transforming columns of BF16 pairs into rows. The tile
+/// registers specified must be distinct from one another, no repeats. Any
+/// attempt to execute an AMX instruction inside a TSX transaction will result
+/// in a transaction abort.
+///
+/// \headerfile <immintrin.h>
+///
+/// This intrinsic corresponds to the <c> TTDPBF16PS </c> instruction.
+///
+/// \param dst
+///    The destination tile. Max size is 1024 Bytes.
+/// \param src0
+///    The 1st source tile. Max size is 1024 Bytes.
+/// \param src1
+///    The 2nd source tile. Max size is 1024 Bytes.
+__DEFAULT_FN_ATTRS_TRANSPOSE
+static void __tile_ttdpbf16ps(__tile1024i *dst, __tile1024i src0,
+                               __tile1024i src1) {
+  dst->tile = _tile_ttdpbf16ps_internal(src0.col / 4, src1.col,
+                           src1.row * 4, dst->tile, src0.tile, src1.tile);
+}
+
+/// Compute transpose and dot product of FP16 pairs, accumulating to single
+/// precision. This function has 3 tile operands, one source/dest accumulator
+/// operand dst and two source operands, src0 and src1. Src0 is transposed and
+/// matrix multiplied with src1. The transpose operation is done in FP16 pair
+/// granularity, transforming columns of FP16 pairs into rows. The tile
+/// registers specified must be distinct from one another, no repeats. Any
+/// attempt to execute an AMX instruction inside a TSX transaction will result
+/// in a transaction abort.
+///
+/// \headerfile <immintrin.h>
+///
+/// This intrinsic corresponds to the <c> TTDPFP16PS </c> instruction.
+///
+/// \param dst
+///    The destination tile. Max size is 1024 Bytes.
+/// \param src0
+///    The 1st source tile. Max size is 1024 Bytes.
+/// \param src1
+///    The 2nd source tile. Max size is 1024 Bytes.
+__DEFAULT_FN_ATTRS_TRANSPOSE
+static void __tile_ttdpfp16ps(__tile1024i *dst, __tile1024i src0,
+                               __tile1024i src1) {
+  dst->tile = _tile_ttdpfp16ps_internal(src0.col / 4, src1.col,
+                           src1.row * 4, dst->tile, src0.tile, src1.tile);
+}
+
+/// Move one row of a tile data to a v16f32 data.
+/// The row of the tile is selected by a 32b GPR.
+///
+/// \headerfile <immintrin.h>
+///
+/// This intrinsic corresponds to the <c> TILEMOVROWE </c> instruction.
+///
+/// \param src0
+///    The 1st source tile. Max size is 1024 Bytes.
+/// \param src1
+///    The 1st source r32. Size is 4 Bytes.
+/// \ret
+///    The destination v16f32 data. Size is 64 Bytes.
+__DEFAULT_FN_ATTRS_AVX512
+static __m512 __tile_tilemovrowee(__tile1024i src0, unsigned src1) {
+  return _tile_tilemovrowee_internal(src0.row, src0.col, src0.tile, src1);
+}
+
+/// Move one row of a tile data to a v16f32 data.
+/// The row of the tile is selected by an imm8.
+///
+/// \headerfile <immintrin.h>
+///
+/// This intrinsic corresponds to the <c> TILEMOVROWE </c> instruction.
+///
+/// \param src0
+///    The 1st source tile. Max size is 1024 Bytes.
+/// \param src1
+///    The 1st source imm8. Size is 4 Bytes.
+/// \ret
+///    The destination v16f32 data. Size is 64 Bytes.
+#define __tile_tilemovrowei(src0, src1)                                     \
+  _tile_tilemovrowei_internal(src0.row, src0.col, src0.tile, src1);
 
 #endif /* __x86_64__ */
 #endif /* __AMX_LNCINTRIN_H */

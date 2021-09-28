@@ -28,14 +28,14 @@ alloca_0:
 
 bb5.preheader:                                    ; preds = %alloca_0
   %rel6 = icmp slt i32 %"fill2_$NX_fetch", 1
-  %"fill2_$Q[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* nonnull %"fill2_$Q", i64 3)
+  %"fill2_$Q[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* elementtype(double) nonnull %"fill2_$Q", i64 3)
   %"fill2_$NZL_fetch26" = load i32, i32* %"fill2_$NZL", align 1
   %add28 = add nsw i32 %"fill2_$NZL_fetch26", 3
   %int_sext30 = sext i32 %add28 to i64
-  %"fill2_$Q[]31" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* nonnull %"fill2_$Q", i64 %int_sext30)
+  %"fill2_$Q[]31" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* elementtype(double) nonnull %"fill2_$Q", i64 %int_sext30)
   %add61 = add nsw i32 %"fill2_$NZL_fetch26", 4
   %int_sext63 = sext i32 %add61 to i64
-  %"fill2_$Q[]66" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* nonnull %"fill2_$Q", i64 %int_sext63)
+  %"fill2_$Q[]66" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* elementtype(double) nonnull %"fill2_$Q", i64 %int_sext63)
   %0 = add nuw nsw i32 %"fill2_$NX_fetch", 1
   %1 = add nuw nsw i32 %"fill2_$NY_fetch", 1
   %wide.trip.count281 = sext i32 %1 to i64
@@ -46,26 +46,26 @@ bb5:                                              ; preds = %bb10, %bb5.preheade
   br i1 %rel6, label %bb10, label %bb9.preheader
 
 bb9.preheader:                                    ; preds = %bb5
-  %"fill2_$Q[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* nonnull %"fill2_$Q[]", i64 %indvars.iv279)
-  %"fill2_$Q[]31[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* nonnull %"fill2_$Q[]31", i64 %indvars.iv279)
-  %"fill2_$Q[]66[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* nonnull %"fill2_$Q[]66", i64 %indvars.iv279)
+  %"fill2_$Q[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) nonnull %"fill2_$Q[]", i64 %indvars.iv279)
+  %"fill2_$Q[]31[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) nonnull %"fill2_$Q[]31", i64 %indvars.iv279)
+  %"fill2_$Q[]66[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) nonnull %"fill2_$Q[]66", i64 %indvars.iv279)
   %wide.trip.count277 = sext i32 %0 to i64
   br label %bb9
 
 bb9:                                              ; preds = %bb16, %bb9.preheader
   %indvars.iv275 = phi i64 [ 1, %bb9.preheader ], [ %indvars.iv.next276, %bb16 ]
-  %"fill2_$Q[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"fill2_$Q[][]", i64 %indvars.iv275)
-  %"fill2_$Q[]31[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"fill2_$Q[]31[]", i64 %indvars.iv275)
-  %"fill2_$Q[]66[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"fill2_$Q[]66[]", i64 %indvars.iv275)
+  %"fill2_$Q[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"fill2_$Q[][]", i64 %indvars.iv275)
+  %"fill2_$Q[]31[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"fill2_$Q[]31[]", i64 %indvars.iv275)
+  %"fill2_$Q[]66[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"fill2_$Q[]66[]", i64 %indvars.iv275)
   br label %bb13
 
 bb13:                                             ; preds = %bb13, %bb9
   %indvars.iv272 = phi i64 [ %indvars.iv.next273, %bb13 ], [ 1, %bb9 ]
-  %"fill2_$Q[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"fill2_$Q[][][]", i64 %indvars.iv272)
+  %"fill2_$Q[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"fill2_$Q[][][]", i64 %indvars.iv272)
   %"fill2_$Q[][][][]_fetch" = load double, double* %"fill2_$Q[][][][]", align 1
-  %"fill2_$Q[]31[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"fill2_$Q[]31[][]", i64 %indvars.iv272)
+  %"fill2_$Q[]31[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"fill2_$Q[]31[][]", i64 %indvars.iv272)
   store double %"fill2_$Q[][][][]_fetch", double* %"fill2_$Q[]31[][][]", align 1
-  %"fill2_$Q[]66[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"fill2_$Q[]66[][]", i64 %indvars.iv272)
+  %"fill2_$Q[]66[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"fill2_$Q[]66[][]", i64 %indvars.iv272)
   store double %"fill2_$Q[][][][]_fetch", double* %"fill2_$Q[]66[][][]", align 1
   %indvars.iv.next273 = add nuw nsw i64 %indvars.iv272, 1
   %exitcond274 = icmp eq i64 %indvars.iv.next273, 6
@@ -84,9 +84,9 @@ bb10:                                             ; preds = %bb16, %bb5
 bb53.preheader:                                   ; preds = %bb10
   %add141 = add nsw i32 %"fill2_$NZL_fetch26", 1
   %int_sext142 = sext i32 %add141 to i64
-  %"fill2_$Q[]112" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* nonnull %"fill2_$Q", i64 %int_sext142)
-  %"fill2_$Q[]131" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* nonnull %"fill2_$Q", i64 1)
-  %"fill2_$Q[]163" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* nonnull %"fill2_$Q", i64 2)
+  %"fill2_$Q[]112" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* elementtype(double) nonnull %"fill2_$Q", i64 %int_sext142)
+  %"fill2_$Q[]131" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* elementtype(double) nonnull %"fill2_$Q", i64 1)
+  %"fill2_$Q[]163" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul8, double* elementtype(double) nonnull %"fill2_$Q", i64 2)
   br label %bb53
 
 bb53:                                             ; preds = %bb58, %bb53.preheader
@@ -94,26 +94,26 @@ bb53:                                             ; preds = %bb58, %bb53.prehead
   br i1 %rel6, label %bb58, label %bb57.preheader
 
 bb57.preheader:                                   ; preds = %bb53
-  %"fill2_$Q[]112[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* nonnull %"fill2_$Q[]112", i64 %indvars.iv268)
-  %"fill2_$Q[]131[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* nonnull %"fill2_$Q[]131", i64 %indvars.iv268)
-  %"fill2_$Q[]163[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* nonnull %"fill2_$Q[]163", i64 %indvars.iv268)
+  %"fill2_$Q[]112[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) nonnull %"fill2_$Q[]112", i64 %indvars.iv268)
+  %"fill2_$Q[]131[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) nonnull %"fill2_$Q[]131", i64 %indvars.iv268)
+  %"fill2_$Q[]163[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) nonnull %"fill2_$Q[]163", i64 %indvars.iv268)
   %wide.trip.count = sext i32 %0 to i64
   br label %bb57
 
 bb57:                                             ; preds = %bb64, %bb57.preheader
   %indvars.iv265 = phi i64 [ 1, %bb57.preheader ], [ %indvars.iv.next266, %bb64 ]
-  %"fill2_$Q[]112[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"fill2_$Q[]112[]", i64 %indvars.iv265)
-  %"fill2_$Q[]131[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"fill2_$Q[]131[]", i64 %indvars.iv265)
-  %"fill2_$Q[]163[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"fill2_$Q[]163[]", i64 %indvars.iv265)
+  %"fill2_$Q[]112[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"fill2_$Q[]112[]", i64 %indvars.iv265)
+  %"fill2_$Q[]131[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"fill2_$Q[]131[]", i64 %indvars.iv265)
+  %"fill2_$Q[]163[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"fill2_$Q[]163[]", i64 %indvars.iv265)
   br label %bb61
 
 bb61:                                             ; preds = %bb61, %bb57
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb61 ], [ 1, %bb57 ]
-  %"fill2_$Q[]112[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"fill2_$Q[]112[][]", i64 %indvars.iv)
+  %"fill2_$Q[]112[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"fill2_$Q[]112[][]", i64 %indvars.iv)
   %"fill2_$Q[]112[][][]_fetch" = load double, double* %"fill2_$Q[]112[][][]", align 1
-  %"fill2_$Q[]131[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"fill2_$Q[]131[][]", i64 %indvars.iv)
+  %"fill2_$Q[]131[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"fill2_$Q[]131[][]", i64 %indvars.iv)
   store double %"fill2_$Q[]112[][][]_fetch", double* %"fill2_$Q[]131[][][]", align 1
-  %"fill2_$Q[]163[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"fill2_$Q[]163[][]", i64 %indvars.iv)
+  %"fill2_$Q[]163[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"fill2_$Q[]163[][]", i64 %indvars.iv)
   store double %"fill2_$Q[]112[][][]_fetch", double* %"fill2_$Q[]163[][][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 6

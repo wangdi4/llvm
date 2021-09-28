@@ -35,21 +35,17 @@ define void @test01(i64 %arg)  {
 ; CHECK_OOB_F: Safety data: Global instance | Nested structure{{ *$}}
 
 
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
 
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{float 0.0e+00, i32 0}  ; float
-!3 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
+!3 = !{%struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
 !4 = !{!"A", i32 10, !5}  ; [10 x i8]
 !5 = !{i8 0, i32 0}  ; i8
-!6 = !{!"F", i1 false, i32 4, !7, !8, !8, !1, !9}  ; void (i8*, i8*, i64, i1)
-!7 = !{!"void", i32 0}  ; void
-!8 = !{i8 0, i32 1}  ; i8*
-!9 = !{i1 0, i32 0}  ; i1
-!10 = !{!"S", %struct.test01a zeroinitializer, i32 3, !1, !2, !3} ; { i64, float, %struct.test01b }
-!11 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !4} ; { i64, [10 x i8] }
-!12 = !{!"llvm.memcpy.p0i8.p0i8.i64", !6}
+!6 = !{i8 0, i32 1}  ; i8*
+!7 = distinct !{!6, !6}
+!8 = !{!"S", %struct.test01a zeroinitializer, i32 3, !1, !2, !3} ; { i64, float, %struct.test01b }
+!9 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !4} ; { i64, [10 x i8] }
 
-!dtrans_types = !{!10, !11}
-!dtrans_decl_types = !{!12}
+!intel.dtrans.types = !{!8, !9}

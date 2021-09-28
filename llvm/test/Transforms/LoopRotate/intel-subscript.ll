@@ -15,9 +15,9 @@ bb145:
   br i1 %rel25, label %bb140, label %exit
 
 bb140:                                            ; preds = %bb145
-  %i = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 2, i64 1, i64 324, i64* %p, i64 2)
-  %j = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 1, i64 1, i64 36, i64* %i, i64 1)
-  %k = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 1, i64 4, i64* %j, i64 %"var$19.0")
+  %i = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 2, i64 1, i64 328, i64* elementtype(i64) %p, i64 2)
+  %j = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 1, i64 1, i64 32, i64* elementtype(i64) %i, i64 1)
+  %k = tail call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 1, i64 8, i64* elementtype(i64) %j, i64 %"var$19.0")
 
   %v = load i64, i64* %k, align 4
   %v1 = add nsw i64 %v, 1

@@ -42,7 +42,6 @@
 ///
 /// TODO's:
 ///   - Outer loops.
-///   - Expose ZTT for inner loops.
 ///   - HLSwitch
 ///   - Loops with multiple exits.
 ///
@@ -472,8 +471,20 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // TODO: Print something more useful.
   LLVM_DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
 
-  // - ZTT for inner loops -
-  // TODO: isInnerMost(), ztt_pred_begin/end
+  // Make the zero trip test(Ztt) explicit for inner loops.
+  bool EmitZtt = HLp != TheLoop && HLp->hasZtt();
+  VPBasicBlock *ZttStartBlock = nullptr;
+  if (EmitZtt) {
+    // Force creation of a new VPBB for ztt check
+    ActiveVPBB = nullptr;
+    updateActiveVPBB();
+    ZttStartBlock = ActiveVPBB;
+
+    // Generate the compare instructions for the loop Ztt check and
+    // store the final compare as the condition bit to be used to
+    // bypass the loop.
+    CondBits[ZttStartBlock] = Decomposer.createLoopZtt(HLp, ZttStartBlock);
+  }
 
   // - Loop PH -
   // Force creation of a new VPBB for PH.
@@ -564,6 +575,18 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
     connectVPBBtoPreds(MultiExitLandingPad);
     Predecessors.push_back(MultiExitLandingPad);
     ActiveVPBB = MultiExitLandingPad;
+  }
+
+  if (EmitZtt) {
+    // Force creation of new block for Ztt check to jump to bypassing the loop.
+    ActiveVPBB = nullptr;
+    updateActiveVPBB();
+
+    assert(ZttStartBlock && "Unexpected null Ztt start block");
+    // ZttStartBlock jumps to either the preheader or the new block created
+    // here using the condition bit that we set up earlier.
+    ZttStartBlock->setTerminator(Preheader, ActiveVPBB,
+                                 CondBits[ZttStartBlock]);
   }
 
   // Restore previous current HLLoop.
@@ -834,29 +857,27 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
             std::distance(VConflictStore->getIterator(), ParentVPBB->end()) &&
         "VConflict idiom load is expected to appear before the store.");
     auto InstRange = map_range(
-      make_range(VConflictLoad->getIterator(), VConflictStore->getIterator()),
-      [](VPInstruction &I) { return &I; });
+        make_range(VConflictLoad->getIterator(), VConflictStore->getIterator()),
+        [](VPInstruction &I) { return &I; });
     SmallPtrSet<VPInstruction *, 2> InsnsBetweenLoadStore(InstRange.begin(),
                                                           InstRange.end());
-    if (any_of(VConflictLoad->users(),
-               [InsnsBetweenLoadStore](const VPUser *U) {
-                 return !InsnsBetweenLoadStore.count(cast<VPInstruction>(U));
-               }))
-      return reportMatchFail("VConflict load has uses outside of the region.");
 
     // Next, we start from VConflictLoad uses and we collect all the uses until
     // we reach VConflictStore.
     SmallVector<VPInstruction *, 2> RegionInsns;
-    for (auto *U : VConflictLoad->users())
-      for (auto It = df_begin(U), End = df_end(U); It != End;) {
-        if (*It == VConflictStore ||
-            !InsnsBetweenLoadStore.count(cast<VPInstruction>(*It))) {
-          It.skipChildren();
-          continue;
-        }
-        RegionInsns.push_back(cast<VPInstruction>(*It));
-        It++;
+    using df_iter = df_iterator<VPUser *>;
+    for (auto It = std::next(df_iter::begin(VConflictLoad)),
+              End = df_iter::end(VConflictLoad);
+         It != End;) {
+      if (*It == VConflictStore) {
+        It.skipChildren();
+        continue;
       }
+      if (!InsnsBetweenLoadStore.count(cast<VPInstruction>(*It)))
+        return reportMatchFail("VConflict load's use-chain escapes the region.");
+      RegionInsns.push_back(cast<VPInstruction>(*It));
+      It++;
+    }
 
     // Check if any of the RegionInsns has uses outside of VConflict pattern.
     // Such uses need a special processing which is not implemented yet. Hence,
@@ -866,7 +887,7 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
             return !is_contained(RegionInsns, U) && (U != VConflictStore);
           })))
         return reportMatchFail("VConflict region should not have instructions "
-                        "with uses outside of the region.");
+                               "with uses outside of the region.");
       if (I->mayHaveSideEffects())
         return reportMatchFail(
             "VConflict region should not have instructions with side effects.");
@@ -874,22 +895,19 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
 
     // Collect the live-ins of VConflict region. We check if any operands of the
     // VConflct region's instructions have definition outside of the region.
-    SmallVector<VPValue *, 2> RgnLiveIns;
+    SetVector<VPValue *> RgnLiveIns;
     for (auto *VPInst : RegionInsns) {
       for (auto *Op : VPInst->operands()) {
-        if (isa<VPConstant>(Op) || isa<VPExternalDef>(Op)) {
-          RgnLiveIns.push_back(Op);
+        if (isa<VPConstant>(Op) || isa<VPExternalDef>(Op))
+          continue;
+        if (is_contained(RegionInsns, Op))
+          continue;
+        if (cast<VPInstruction>(Op) == VConflictLoad) {
+          // We want VConflictLoad to be the third operand of VConflict
+          // instruction.
           continue;
         }
-        if (!is_contained(RegionInsns, Op))
-          if (!is_contained(RgnLiveIns, Op)) {
-            if (cast<VPInstruction>(Op) == VConflictLoad) {
-              // We want VConflictLoad to be the third operand of VConflict
-              // instruction.
-              continue;
-            }
-            RgnLiveIns.push_back(Op);
-          }
+        RgnLiveIns.insert(Op);
       }
     }
 
@@ -931,12 +949,11 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
       LInIt++;
     }
     // Generate new live-out. Its operand is the original live-out.
-    VPUser *User = cast<VPRegionLiveOut>(VConflictStore->getOperand(0));
     SmallVector<std::unique_ptr<VPRegionLiveOut>, 2> RgnLiveOuts;
-    auto NewLiveOut = std::make_unique<VPRegionLiveOut>(
-        User, Type::getVoidTy(*Plan->getLLVMContext()));
+    VPValue *LiveOutUse = VConflictStore->getOperand(0);
+    auto NewLiveOut =
+        std::make_unique<VPRegionLiveOut>(LiveOutUse, LiveOutUse->getType());
     RgnLiveOuts.push_back(std::move(NewLiveOut));
-
     Region->addRgnLiveInsOuts(std::move(RenamedLiveIns),
                               std::move(RgnLiveOuts));
 
@@ -945,7 +962,8 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     VPBldr.setInsertPoint(VConflictStore);
     auto *Conflict = VPBldr.create<VPGeneralMemOptConflict>(
         "vp.general.mem.opt.conflict", VConflictStore->getOperand(0)->getType(),
-        VConflictIndex, std::move(Region), VConflictLoad, RgnLiveIns);
+        VConflictIndex, std::move(Region), VConflictLoad,
+        RgnLiveIns.getArrayRef());
     // Update VPConflictStore's first operand with VPGeneralMemOptConflict.
     VConflictStore->setOperand(0, Conflict);
   }

@@ -58,16 +58,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define dso_local void @foo(i32 %a1, i32 %a2) local_unnamed_addr #0 {
+define dso_local void @foo(i64* %arg, %struct.test1* %Tempcast, i32 %a1, i32 %a2) local_unnamed_addr #0 {
 entry:
-  %arg = alloca i64, align 8
   %st = alloca %struct.test1, align 8
   %tt = alloca [100 x i32], align 16
   %0 = bitcast [100 x i32]* %tt to i8*
   call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #2
   %1 = load i32, i32* @val1, align 4, !tbaa !3
   %idxprom = sext i32 %1 to i64
-  %Tempcast =  bitcast i64* %arg to %struct.test1*
   %arg.temp = bitcast i64* %arg to i32*
   %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %tt, i64 0, i64 %idxprom, !intel-tbaa !7
   %arrayidx.promoted = load i32, i32* %arrayidx, align 4, !tbaa !7

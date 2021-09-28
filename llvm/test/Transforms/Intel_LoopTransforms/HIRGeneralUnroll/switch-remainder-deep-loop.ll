@@ -73,15 +73,15 @@ bb1906.exitStub:                                  ; preds = %bb1903
 
 bb1850:                                           ; preds = %newFuncRoot, %bb1903
   %tmp1851 = phi i64 [ 1, %newFuncRoot ], [ %tmp1904, %bb1903 ]
-  %tmp1852 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull bitcast ([1092056 x i8]* @global.10 to double*), i64 %tmp1851) #2
-  %tmp1853 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.59, i64 0, i64 0, i64 0), i64 %tmp1851) #2
+  %tmp1852 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* elementtype(double) nonnull bitcast ([1092056 x i8]* @global.10 to double*), i64 %tmp1851) #2
+  %tmp1853 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* elementtype(double) nonnull getelementptr inbounds ([150 x [150 x double]], [150 x [150 x double]]* @global.59, i64 0, i64 0, i64 0), i64 %tmp1851) #2
   br label %bb1854
 
 bb1854:                                           ; preds = %bb1899, %bb1850
   %tmp1855 = phi i64 [ 1, %bb1850 ], [ %tmp1901, %bb1899 ]
   %tmp1856 = phi i32 [ 1, %bb1850 ], [ %tmp1900, %bb1899 ]
   %tmp1857 = phi i32 [ 0, %bb1850 ], [ %tmp1861, %bb1899 ]
-  %tmp1858 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.8, i64 0, i64 2523600) to i32*), i64 %tmp1855) #2
+  %tmp1858 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.8, i64 0, i64 2523600) to i32*), i64 %tmp1855) #2
   %tmp1859 = load i32, i32* %tmp1858, align 1, !alias.scope !3, !noalias !6
   %tmp1860 = add i32 %tmp1859, 1
   %tmp1861 = add i32 %tmp1860, %tmp1857
@@ -90,7 +90,7 @@ bb1854:                                           ; preds = %bb1899, %bb1850
 
 bb1863:                                           ; preds = %bb1854
   %tmp1864 = icmp slt i32 %tmp1859, 0
-  %tmp1865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.8, i64 0, i64 2523720) to double*), i64 %tmp1855) #2
+  %tmp1865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.8, i64 0, i64 2523720) to double*), i64 %tmp1855) #2
   %tmp1866 = load double, double* %tmp1865, align 1, !alias.scope !13, !noalias !14
   %tmp1867 = sext i32 %tmp1856 to i64
   %tmp1868 = add i32 %tmp1857, 2
@@ -109,13 +109,13 @@ bb1874:                                           ; preds = %bb1874, %bb1873
   %tmp1875 = phi i64 [ %tmp1877, %bb1874 ], [ 0, %bb1873 ]
   %tmp1876 = phi double [ %tmp1887, %bb1874 ], [ 0.000000e+00, %bb1873 ]
   %tmp1877 = add nuw nsw i64 %tmp1875, 1
-  %tmp1878 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* nonnull bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.8, i64 0, i64 2484000) to double*), i64 %tmp1877) #2
-  %tmp1879 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %tmp1878, i64 %tmp1872) #2
+  %tmp1878 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 1200, double* elementtype(double) nonnull bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.8, i64 0, i64 2484000) to double*), i64 %tmp1877) #2
+  %tmp1879 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp1878, i64 %tmp1872) #2
   %tmp1880 = load double, double* %tmp1879, align 1, !alias.scope !15, !noalias !16
   %tmp1881 = trunc i64 %tmp1875 to i32
   %tmp1882 = add nsw i32 %tmp1856, %tmp1881
   %tmp1883 = sext i32 %tmp1882 to i64
-  %tmp1884 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %tmp1852, i64 %tmp1883) #2
+  %tmp1884 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp1852, i64 %tmp1883) #2
   %tmp1885 = load double, double* %tmp1884, align 1, !alias.scope !17, !noalias !18
   %tmp1886 = fmul fast double %tmp1885, %tmp1880
   %tmp1887 = fadd fast double %tmp1886, %tmp1876
@@ -129,7 +129,7 @@ bb1889:                                           ; preds = %bb1874
 bb1891:                                           ; preds = %bb1889, %bb1871
   %tmp1892 = phi double [ 0.000000e+00, %bb1871 ], [ %tmp1890, %bb1889 ]
   %tmp1893 = fmul fast double %tmp1866, %tmp1892
-  %tmp1894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %tmp1853, i64 %tmp1872) #2
+  %tmp1894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp1853, i64 %tmp1872) #2
   store double %tmp1893, double* %tmp1894, align 1, !alias.scope !19, !noalias !20
   %tmp1895 = add nsw i64 %tmp1872, 1
   %tmp1896 = trunc i64 %tmp1895 to i32

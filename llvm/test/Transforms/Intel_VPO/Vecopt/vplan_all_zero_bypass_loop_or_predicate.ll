@@ -33,13 +33,13 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP127:%.*]] = icmp slt i32 [[VP0]] i32 256
-; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin27
+; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin54
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.begin27: # preds: [[BB2]]
+; CHECK-NEXT:    all.zero.bypass.begin54: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_CMP127]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end29, [[BB4:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end56, [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: all.zero.bypass.begin27
+; CHECK-NEXT:      [[BB4]]: # preds: all.zero.bypass.begin54
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP127]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_DIV:%.*]] = sdiv i32 [[X0:%.*]] i32 [[Y0:%.*]]
@@ -135,12 +135,12 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB20]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP_CMP127]]
-; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end29
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end56
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.end29: # preds: [[BB20]], all.zero.bypass.begin27
+; CHECK-NEXT:    all.zero.bypass.end56: # preds: [[BB20]], all.zero.bypass.begin54
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end29
+; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end56
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND29:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND29]], [[BB21:BB[0-9]+]], [[BB2]]

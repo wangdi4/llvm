@@ -218,6 +218,11 @@ struct CGRecordLowering {
   llvm::DenseMap<const FieldDecl *, CGBitFieldInfo> BitFields;
   llvm::DenseMap<const CXXRecordDecl *, unsigned> NonVirtualBases;
   llvm::DenseMap<const CXXRecordDecl *, unsigned> VirtualBases;
+#if INTEL_CUSTOMIZATION
+  unsigned VFPtrLoc = (std::numeric_limits<unsigned>::max)();
+  unsigned VBPtrLoc = (std::numeric_limits<unsigned>::max)();
+  const FieldDecl *UnionDecl = nullptr;
+#endif // INTEL_CUSTOMIZATION
   bool IsZeroInitializable : 1;
   bool IsZeroInitializableAsBase : 1;
   bool Packed : 1;
@@ -342,6 +347,7 @@ void CGRecordLowering::lowerUnion() {
       if (SeenNamedMember && !isZeroInitializable(Field)) {
         IsZeroInitializable = IsZeroInitializableAsBase = false;
         StorageType = FieldType;
+        UnionDecl = Field; // INTEL
       }
     }
     // Because our union isn't zero initializable, we won't be getting a better
@@ -349,19 +355,29 @@ void CGRecordLowering::lowerUnion() {
     if (!IsZeroInitializable)
       continue;
     // Conditionally update our storage type if we've got a new "better" one.
+#if INTEL_CUSTOMIZATION
     if (!StorageType ||
         getAlignment(FieldType) >  getAlignment(StorageType) ||
         (getAlignment(FieldType) == getAlignment(StorageType) &&
-        getSize(FieldType) > getSize(StorageType)))
+        getSize(FieldType) > getSize(StorageType))) {
       StorageType = FieldType;
+      UnionDecl = Field;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   // If we have no storage type just pad to the appropriate size and return.
   if (!StorageType)
     return appendPaddingBytes(LayoutSize);
   // If our storage size was bigger than our required size (can happen in the
   // case of packed bitfields on Itanium) then just use an I8 array.
-  if (LayoutSize < getSize(StorageType))
+#if INTEL_CUSTOMIZATION
+  if (LayoutSize < getSize(StorageType)) {
     StorageType = getByteArrayType(LayoutSize);
+    // We can't tell anything about the inner part of the union here, so reset
+    // the union decl.
+    UnionDecl = nullptr;
+  }
+#endif // INTEL_CUSTOMIZATION
   FieldTypes.push_back(StorageType);
   appendPaddingBytes(LayoutSize - getSize(StorageType));
   // Set packed if we need it.
@@ -646,10 +662,20 @@ void CGRecordLowering::computeVolatileBitfields() {
 }
 
 void CGRecordLowering::accumulateVPtrs() {
+#if INTEL_COLLAB
+  unsigned VTableAS =
+        this->Types.getContext().getTargetAddressSpace(LangAS::Default);
+#endif // INTEL_COLLAB
   if (Layout.hasOwnVFPtr())
+#if INTEL_COLLAB
+    Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
+        llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->
+            getPointerTo()->getPointerTo(VTableAS)));
+#else // INTEL_COLLAB
     Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
         llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->
             getPointerTo()->getPointerTo()));
+#endif  // INTEL_COLLAB
   if (Layout.hasOwnVBPtr())
     Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
         llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
@@ -832,6 +858,12 @@ void CGRecordLowering::fillOutputFields() {
       NonVirtualBases[Member->RD] = FieldTypes.size() - 1;
     else if (Member->Kind == MemberInfo::VBase)
       VirtualBases[Member->RD] = FieldTypes.size() - 1;
+#if INTEL_CUSTOMIZATION
+    else if (Member->Kind == MemberInfo::VFPtr)
+      VFPtrLoc = FieldTypes.size() - 1;
+    else if (Member->Kind == MemberInfo::VBPtr)
+      VBPtrLoc = FieldTypes.size() - 1;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -890,6 +922,7 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
       BaseTy = llvm::StructType::create(
           getLLVMContext(), BaseBuilder.FieldTypes, "", BaseBuilder.Packed);
       addRecordTypeName(D, BaseTy, ".base");
+      CGM.addDTransType(D, BaseTy); // INTEL
       // BaseTy and Ty must agree on their packedness for getLLVMFieldNo to work
       // on both of them with the same index.
       assert(Builder.Packed == BaseBuilder.Packed &&
@@ -914,6 +947,12 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
 
   // Add bitfield info.
   RL->BitFields.swap(Builder.BitFields);
+#if INTEL_CUSTOMIZATION
+  RL->VFPtrLoc = Builder.VFPtrLoc;
+  RL->VBPtrLoc = Builder.VBPtrLoc;
+  RL->UnionDecl = Builder.UnionDecl;
+#endif // INTEL_CUSTOMIZATION
+
 
   // Dump the layout, if requested.
   if (getContext().getLangOpts().DumpRecordLayouts) {

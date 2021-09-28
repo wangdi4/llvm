@@ -1,22 +1,38 @@
-; RUN: opt -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-vplan-vec,vplan-vec" -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -hir-framework -hir-vplan-vec -vplan-vec -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1,CHECK
+; RUN: opt -passes="hir-vplan-vec,vplan-vec" -vplan-force-vf=2 -S -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2,CHECK
 
 ;
-; Test checks that we do not crash during HIR decomposition. Currently HIR CG
-; cannot handle vector types and we bail out during vectorization - we check
-; for the scalar HLLoop as a result. The test also checks that VPlan LLVM IR
-; path successfully vectorizes the loop.
+; Test checks that we do not crash during HIR decomposition. The test also
+; checks the generated vector HIR and that VPlan LLVM IR path successfully
+; vectorizes the loop.
 ;
+
+; Checks for HIR vectorizer
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0
 ; PM1:            IR Dump After VPlan HIR Vectorizer
 ; PM2:            IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CHECK:          DO i1 = 0, %len + -1, 1
+; CHECK:          + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2147483647> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:     |   %.vec = (<2 x float>*)(%f)[i1];
+; CHECK-NEXT:     |   %.extended = shufflevector %.vec,  undef,  <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
+; CHECK-NEXT:     |   %wide.insert = shufflevector <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00>,  %.extended,  <i32 8, i32 1, i32 2, i32 3, i32 9, i32 5, i32 6, i32 7>
+; CHECK-NEXT:     |   %serial.temp = undef;
+; CHECK-NEXT:     |   %extractsubvec. = shufflevector %wide.insert,  undef,  <i32 0, i32 1, i32 2, i32 3>;
+; CHECK-NEXT:     |   %llvm.x86.avx512bf16.mask.cvtneps2bf16.128 = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128(%extractsubvec.,  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
+; CHECK-NEXT:     |   %serial.temp = @llvm.experimental.vector.insert.v16i16.v8i16(%serial.temp,  %llvm.x86.avx512bf16.mask.cvtneps2bf16.128,  0);
+; CHECK-NEXT:     |   %extractsubvec.1 = shufflevector %wide.insert,  undef,  <i32 4, i32 5, i32 6, i32 7>;
+; CHECK-NEXT:     |   %llvm.x86.avx512bf16.mask.cvtneps2bf16.1282 = @llvm.x86.avx512bf16.mask.cvtneps2bf16.128(%extractsubvec.1,  zeroinitializer,  <i1 true, i1 true, i1 true, i1 true>);
+; CHECK-NEXT:     |   %serial.temp = @llvm.experimental.vector.insert.v16i16.v8i16(%serial.temp,  %llvm.x86.avx512bf16.mask.cvtneps2bf16.1282,  8);
+; CHECK-NEXT:     |   %wide.extract = shufflevector %serial.temp,  undef,  <i32 0, i32 8>;
+; CHECK-NEXT:     |   (<2 x i16>*)(%bf)[i1] = %wide.extract;
+; CHECK-NEXT:     + END LOOP
+
+
+; Checks for LLVM-IR vectorizer
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0
-; CHECK-LABEL:  VPlannedBB2:
-; CHECK-NEXT:    [[TMP2:%.*]] = and i32 [[LEN0:%.*]], -2
-; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
+; CHECK-LABEL:    vector.body:
+; CHECK-COUNT-2:    {{%.*}} = call <8 x i16> @llvm.x86.avx512bf16.mask.cvtneps2bf16.128
 
 define dso_local void @vec_bf(float* nocapture readonly %f, i16* nocapture %bf, i32 %len) local_unnamed_addr #0 {
 entry:

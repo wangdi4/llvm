@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
+#include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -1901,14 +1902,15 @@ private:
     assert(isa<GlobalVariable>(V) || isa<Argument>(V) || isa<AllocaInst>(V) ||
            isa<LoadInst>(V) || isa<CallInst>(V) || isa<GetElementPtrInst>(V) ||
            isa<Constant>(V) || isa<GEPOperator>(V) || isa<InvokeInst>(V) ||
-           isa<ExtractValueInst>(V) || isa<ExtractElementInst>(V));
+           isa<ExtractValueInst>(V) || isa<ExtractElementInst>(V) ||
+           isa<FreezeInst>(V));
 
-    // Note that ExtractValueInst, ExtractElementInst and InvokeInst are not
-    // handled by the main instruction visitor, so they will cause UnhandledUse
-    // safety conditions to be set. They are added to the assert here to prevent
-    // it from firing while compiling programs that we do not expect to be able
-    // to optimize. Additional implementation would be necessary to handle these
-    // correctly.
+    // Note that ExtractValueInst, ExtractElementInst, FreezeInst, and
+    // InvokeInst are not handled by the main instruction visitor, so they will
+    // cause UnhandledUse safety conditions to be set. They are added to the
+    // assert here to prevent it from firing while compiling programs that we do
+    // not expect to be able to optimize. Additional implementation would be
+    // necessary to handle these correctly.
 
     return false;
   }
@@ -3863,7 +3865,7 @@ public:
       //
       // Pointers to StructTypes are a tricky case, as the definition could
       // be recursive.  This could be resolved by struct TAGs, but these are
-      // not structly preserved in LLVM. We could try to derive them from
+      // not strictly preserved in LLVM. We could try to derive them from
       // the StructType's name, but in LLVM even anonymous types get a name.
       // (albeit a recognizable one because it is either %struct.anon or
       // of the form %struct.anon.*).
@@ -4346,9 +4348,8 @@ public:
     // analyze the allocation.
     const TargetLibraryInfo &TLI = GetTLI(*Call.getFunction());
     auto AllocKind = dtrans::getAllocFnKind(&Call, TLI);
-    if (AllocKind == dtrans::AK_NotAlloc &&
-        DTAA.isMallocPostDom(&Call))
-      AllocKind = dtrans::AK_UserMalloc;
+    if (AllocKind == dtrans::AK_NotAlloc)
+      AllocKind = DTAA.getMallocPostDomKind(&Call);
     if (AllocKind != dtrans::AK_NotAlloc) {
       analyzeAllocationCall(&Call, AllocKind);
       collectSpecialAllocArgs(AllocKind, &Call, SpecialArguments, TLI);
@@ -4363,8 +4364,8 @@ public:
                                                          : dtrans::FK_Free)
                         : dtrans::FK_NotFree;
 
-    if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(&Call))
-      FreeKind = dtrans::FK_UserFree;
+    if (FreeKind == dtrans::FK_NotFree)
+      FreeKind = DTAA.getFreePostDomKind(&Call);
 
     if (FreeKind != dtrans::FK_NotFree) {
       analyzeFreeCall(&Call, FreeKind);
@@ -10810,7 +10811,7 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) const {
 }
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
-  return SawFortran || dtrans::DTransOutOfBoundsOK;
+  return getLangRuleOutOfBoundsOK();
 }
 
 bool DTransAnalysisInfo::getDTransUseCRuleCompat() {

@@ -63,6 +63,10 @@ enum tgt_map_type {
 #endif // INTEL_COLLAB
   // runtime error if not already allocated
   OMP_TGT_MAPTYPE_PRESENT         = 0x1000,
+  // use a separate reference counter so that the data cannot be unmapped within
+  // the structured region
+  // This is an OpenMP extension for the sake of OpenACC support.
+  OMP_TGT_MAPTYPE_OMPX_HOLD       = 0x2000,
   // descriptor for non-contiguous target-update
   OMP_TGT_MAPTYPE_NON_CONTIG      = 0x100000000000,
   // member of struct, member given by [16 MSBs] - 1
@@ -414,7 +418,23 @@ EXTERN int omp_set_sub_device(int device_num, int level);
 
 /// Unset sub-device mode.
 EXTERN void omp_unset_sub_device(int device_num);
-#endif  // INTEL_COLLAB
+
+/// Target memory realloc extension
+EXTERN void *ompx_target_realloc(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc_device(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc_host(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc_shared(void *ptr, size_t size, int device_num);
+
+/// Target memory aligned alloc extension
+EXTERN void *ompx_target_aligned_alloc(
+    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc_device(
+    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc_host(
+    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc_shared(
+    size_t align, size_t size, int device_num);
+#endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
 /// Using the llvm_ prefix until they become part of the OpenMP standard.
@@ -442,6 +462,12 @@ void __tgt_register_requires(int64_t flags);
 EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_register_lib(__tgt_bin_desc *desc);
+
+/// Initialize all RTLs at once
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void __tgt_init_all_rtls();
 
 /// removes a target shared library from the target execution image
 #if INTEL_COLLAB
@@ -703,6 +729,10 @@ EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_set_info_flag(uint32_t);
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+int __tgt_print_device_info(int64_t device_id);
 #ifdef __cplusplus
 }
 #endif

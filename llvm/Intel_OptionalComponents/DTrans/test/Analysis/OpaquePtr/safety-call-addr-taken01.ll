@@ -34,4 +34,4 @@ define void @test01h(i64 %in) {
 !2 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 !3 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!2, !3}
+!intel.dtrans.types = !{!2, !3}

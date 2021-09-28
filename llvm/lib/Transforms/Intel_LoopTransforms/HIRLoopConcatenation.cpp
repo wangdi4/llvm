@@ -353,7 +353,7 @@ private:
   void concatenateLoops(HLRegion *Reg);
 
   /// Performs loop concatenation for write loop set.
-  void createConcatenatedWriteLoop(unsigned NewAllocaIndex,
+  void createConcatenatedWriteLoop(Type *AllocatedType, unsigned NewAllocaIndex,
                                    unsigned NewAllocaMemRefSymbase) const;
 
   /// Creates a loop to initialize new allocas used for holding reduction sums.
@@ -366,19 +366,19 @@ private:
   /// Performs loop concatenation for read loop set. Creates read loop from the
   /// set (1, 2, 5, 6) and returns the other set in \p UnConcatenatedLoops.
   void
-  createConcatenatedReadLoops(unsigned NewAllocaIndex,
+  createConcatenatedReadLoops(Type *AllocatedType, unsigned NewAllocaIndex,
                               unsigned NewAllocaMemRefSymbase,
                               SmallVector<HLLoop *, 4> &UnConcatenatedLoops);
 
   /// Concatenates OtherLoops's bodies to \p FirstLp after making adjustments.
-  void createConcatenatedReadLoop(unsigned NewAllocaIndex,
+  void createConcatenatedReadLoop(Type *AllocatedType, unsigned NewAllocaIndex,
                                   unsigned NewAllocaMemRefSymbase,
                                   HLLoop *FirstLp,
                                   SmallVector<HLLoop *, 3> &OtherLoops);
 
   /// Helper for createConcatenatedReadLoop() to adjust some refs for
   /// concatenation.
-  void adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp, unsigned NewAllocaIndex,
+  void adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp, Type *AllocatedType, unsigned NewAllocaIndex,
                        unsigned NewAllocaMemRefSymbase, int64_t Offset);
 
   /// Adds a reduction of the form t = t + A[i] to end of \p Lp.
@@ -1110,14 +1110,14 @@ void HIRLoopConcatenation::concatenateLoops(HLRegion *Reg) {
   unsigned NewAllocaIndex = HNU.createAlloca(ArrTy, Reg);
   unsigned NewAllocaMemRefSymbase = HNU.getDDRefUtils().getNewSymbase();
 
-  createConcatenatedWriteLoop(NewAllocaIndex, NewAllocaMemRefSymbase);
+  createConcatenatedWriteLoop(ArrTy, NewAllocaIndex, NewAllocaMemRefSymbase);
 
   if (Is16LoopMode) {
     createAllocaInitializationLoop();
   }
 
   SmallVector<HLLoop *, 4> UnConcatenatedLoops;
-  createConcatenatedReadLoops(NewAllocaIndex, NewAllocaMemRefSymbase,
+  createConcatenatedReadLoops(ArrTy, NewAllocaIndex, NewAllocaMemRefSymbase,
                               UnConcatenatedLoops);
 
   if (Is16LoopMode) {
@@ -1125,7 +1125,7 @@ void HIRLoopConcatenation::concatenateLoops(HLRegion *Reg) {
   }
 }
 
-void HIRLoopConcatenation::createConcatenatedWriteLoop(
+void HIRLoopConcatenation::createConcatenatedWriteLoop(Type *AllocatedType,
     unsigned NewAllocaIndex, unsigned NewAllocaMemRefSymbase) const {
   // Replace old alloca stores in 1st write loop with new allocas.
   auto FirstLp = AllocaWriteLoops[0];
@@ -1140,7 +1140,7 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(
     auto OldRef = Node->getLvalDDRef();
 
     RegDDRef *NewRef =
-        DDRU.createMemRef(NewAllocaIndex, 0, NewAllocaMemRefSymbase);
+        DDRU.createMemRef(AllocatedType, NewAllocaIndex, 0, NewAllocaMemRefSymbase);
     NewRef->addDimension(OldRef->getDimensionIndex(3));
     NewRef->addDimension(OldRef->getDimensionIndex(2));
     NewRef->addDimension(OldRef->getDimensionIndex(1));
@@ -1162,7 +1162,7 @@ void HIRLoopConcatenation::createConcatenatedWriteLoop(
       auto OldRef = Node->getLvalDDRef();
 
       RegDDRef *NewRef =
-          DDRU.createMemRef(NewAllocaIndex, 0, NewAllocaMemRefSymbase);
+          DDRU.createMemRef(AllocatedType, NewAllocaIndex, 0, NewAllocaMemRefSymbase);
       auto FirstCE = OldRef->getDimensionIndex(1);
       // First CE needs an adjustment.
       FirstCE->addConstant(4, true);
@@ -1222,7 +1222,7 @@ void HIRLoopConcatenation::createAllocaInitializationLoop() {
         HNU.createAlloca(ArrTy, AllocaInitLp->getParentRegion());
 
     // Create new ref of the form A[0][i1] based on the alloca.
-    RegDDRef *AllocaRef = DDRU.createMemRef(NewAllocaIndex);
+    RegDDRef *AllocaRef = DDRU.createMemRef(ArrTy, NewAllocaIndex);
     auto Zero = CEU.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
     auto IV = Zero->clone();
     IV->setIVCoeff(1, InvalidBlobIndex, 1);
@@ -1279,7 +1279,7 @@ void HIRLoopConcatenation::replaceReductionTempWithAlloca(HLLoop *Lp,
   TempAllocaPair.first = LvalRef;
 }
 
-void HIRLoopConcatenation::createConcatenatedReadLoops(
+void HIRLoopConcatenation::createConcatenatedReadLoops(Type *AllocatedType,
     unsigned NewAllocaIndex, unsigned NewAllocaMemRefSymbase,
     SmallVector<HLLoop *, 4> &UnConcatenatedLoops) {
 
@@ -1302,7 +1302,7 @@ void HIRLoopConcatenation::createConcatenatedReadLoops(
     OtherLoops.push_back(AllocaReadLoops[5]);
   }
 
-  createConcatenatedReadLoop(NewAllocaIndex, NewAllocaMemRefSymbase, FirstLp,
+  createConcatenatedReadLoop(AllocatedType, NewAllocaIndex, NewAllocaMemRefSymbase, FirstLp,
                              OtherLoops);
   FirstLp->getUpperCanonExpr()->setConstant(Is16LoopMode ? 7 : 3);
 
@@ -1314,7 +1314,7 @@ void HIRLoopConcatenation::createConcatenatedReadLoops(
   }
 }
 
-void HIRLoopConcatenation::createConcatenatedReadLoop(
+void HIRLoopConcatenation::createConcatenatedReadLoop(Type *AllocatedType, 
     unsigned NewAllocaIndex, unsigned NewAllocaMemRefSymbase, HLLoop *FirstLp,
     SmallVector<HLLoop *, 3> &OtherLoops) {
 
@@ -1330,7 +1330,7 @@ void HIRLoopConcatenation::createConcatenatedReadLoop(
     auto OldRef = Node->getRvalDDRef();
 
     RegDDRef *NewRef =
-        DDRU.createMemRef(NewAllocaIndex, 0, NewAllocaMemRefSymbase);
+        DDRU.createMemRef(AllocatedType, NewAllocaIndex, 0, NewAllocaMemRefSymbase);
     NewRef->addDimension(OldRef->getDimensionIndex(3));
     NewRef->addDimension(OldRef->getDimensionIndex(2));
     NewRef->addDimension(OldRef->getDimensionIndex(1));
@@ -1345,7 +1345,7 @@ void HIRLoopConcatenation::createConcatenatedReadLoop(
     if (Is16LoopMode) {
       replaceReductionTempWithAlloca(OtherLoops[I], I + 1);
     }
-    adjustAndAppend(FirstLp, OtherLoops[I], NewAllocaIndex,
+    adjustAndAppend(FirstLp, OtherLoops[I], AllocatedType, NewAllocaIndex,
                     NewAllocaMemRefSymbase, Offset);
     HLNodeUtils::remove(OtherLoops[I]);
   }
@@ -1357,7 +1357,7 @@ void HIRLoopConcatenation::createConcatenatedReadLoop(
   HIRInvalidationUtils::invalidateBody(FirstLp);
 }
 
-void HIRLoopConcatenation::adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp,
+void HIRLoopConcatenation::adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp, Type *AllocatedType, 
                                            unsigned NewAllocaIndex,
                                            unsigned NewAllocaMemRefSymbase,
                                            int64_t Offset) {
@@ -1374,7 +1374,7 @@ void HIRLoopConcatenation::adjustAndAppend(HLLoop *FirstLp, HLLoop *Lp,
     auto OldRef = Node->getRvalDDRef();
 
     RegDDRef *NewRef =
-        DDRU.createMemRef(NewAllocaIndex, 0, NewAllocaMemRefSymbase);
+        DDRU.createMemRef(AllocatedType, NewAllocaIndex, 0, NewAllocaMemRefSymbase);
     auto SecondCE = OldRef->getDimensionIndex(2);
     // Second CE needs an adjustment.
     SecondCE->addConstant(Offset, true);

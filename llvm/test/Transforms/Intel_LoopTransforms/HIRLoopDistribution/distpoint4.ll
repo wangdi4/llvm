@@ -1,7 +1,7 @@
 ;  Test case  for Opt Report for distribute point pragma
 ;
 ;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-memrec  -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;  for (i =0 ; i<n ; i++) {
 ;    a1[i] += b2  - 11.0;
@@ -10,12 +10,12 @@
 ;    a3[i] += b2   + i; }
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT: <Distributed chunk 1>
-;OPTREPORT:    remark #25570: Distribute point pragma processed
-;OPTREPORT:    remark #25574: Loop distributed (2 way)
+;OPTREPORT: <Distributed chunk1>
+;OPTREPORT:    remark #25483: Distribute point pragma processed
+;OPTREPORT:    remark #25426: Loop distributed (2 way)
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT: <Distributed chunk 2>
+;OPTREPORT: <Distributed chunk2>
 ;OPTREPORT: LOOP END
 
 ;Module Before HIR; ModuleID = 'distpoint4.c'

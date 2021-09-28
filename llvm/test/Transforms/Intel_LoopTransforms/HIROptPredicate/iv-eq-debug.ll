@@ -12,13 +12,13 @@
 ; }
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
-;OPTREPORT: Global loop optimization report for : foo
+;OPTREPORT: Global optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN at t1.c (3, 3)
 ;OPTREPORT: <Predicate Optimized v1>
-;OPTREPORT:     remark #25580: Condition at line 4 was optimized
+;OPTREPORT:     remark #25580: Induction variable range split using condition at line 4
 ;OPTREPORT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN at t1.c (3, 3)

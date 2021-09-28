@@ -33,11 +33,11 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"     // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LegacyDivergenceAnalysis.h"
-#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -46,6 +46,7 @@
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -77,7 +78,6 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <map>
@@ -215,7 +215,7 @@ namespace {
 
 #if INTEL_CUSTOMIZATION
     // Helper for generating optimization reports.
-    LoopOptReportBuilder LORBuilder;
+    OptReportBuilder ORBuilder;
     TargetLibraryInfo *TLI;
 #endif // INTEL CUSTOMIZATION
 
@@ -243,10 +243,8 @@ namespace {
       AU.addRequired<AssumptionCacheTracker>();
       AU.addRequired<TargetTransformInfoWrapperPass>();
       AU.addRequired<OptReportOptionsPass>(); // INTEL
-      if (EnableMSSALoopDependency) {
-        AU.addRequired<MemorySSAWrapperPass>();
-        AU.addPreserved<MemorySSAWrapperPass>();
-      }
+      AU.addRequired<MemorySSAWrapperPass>();
+      AU.addPreserved<MemorySSAWrapperPass>();
       if (HasBranchDivergence)
         AU.addRequired<LegacyDivergenceAnalysis>();
       getLoopAnalysisUsage(AU);
@@ -575,17 +573,14 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPMRef) {
   LPM = &LPMRef;
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  if (EnableMSSALoopDependency) {
-    MSSA = &getAnalysis<MemorySSAWrapperPass>().getMSSA();
-    MSSAU = std::make_unique<MemorySSAUpdater>(MSSA);
-    assert(DT && "Cannot update MemorySSA without a valid DomTree.");
-  }
+  MSSA = &getAnalysis<MemorySSAWrapperPass>().getMSSA();
+  MSSAU = std::make_unique<MemorySSAUpdater>(MSSA);
   CurrentLoop = L;
   Function *F = CurrentLoop->getHeader()->getParent();
 
 #if INTEL_CUSTOMIZATION
-  LORBuilder.setup(F->getContext(),
-                   getAnalysis<OptReportOptionsPass>().getVerbosity());
+  ORBuilder.setup(F->getContext(),
+                  getAnalysis<OptReportOptionsPass>().getVerbosity());
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(*F);
 #endif
 
@@ -593,19 +588,19 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPMRef) {
   if (SanitizeMemory)
     SafetyInfo.computeLoopSafetyInfo(L);
 
-  if (MSSA && VerifyMemorySSA)
+  if (VerifyMemorySSA)
     MSSA->verifyMemorySSA();
 
   bool Changed = false;
   do {
     assert(CurrentLoop->isLCSSAForm(*DT));
-    if (MSSA && VerifyMemorySSA)
+    if (VerifyMemorySSA)
       MSSA->verifyMemorySSA();
     RedoLoop = false;
     Changed |= processCurrentLoop();
   } while (RedoLoop);
 
-  if (MSSA && VerifyMemorySSA)
+  if (VerifyMemorySSA)
     MSSA->verifyMemorySSA();
 
   return Changed;
@@ -1322,9 +1317,9 @@ void LoopUnswitch::unswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                     << " blocks] in Function "
                     << L->getHeader()->getParent()->getName()
                     << " on cond: " << *Val << " == " << *Cond << "\n");
-  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,         // INTEL
-                                25422u,                          // INTEL
-                                AtLine(getOptReportLine(Cond))); // INTEL
+  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,         // INTEL
+                               25422u,                          // INTEL
+                               AtLine(getOptReportLine(Cond))); // INTEL
 
   // We are going to make essential changes to CFG. This may invalidate cached
   // information for L or one of its parent loops in SCEV.
@@ -1538,8 +1533,7 @@ void LoopUnswitch::splitExitEdges(
 
   for (unsigned I = 0, E = ExitBlocks.size(); I != E; ++I) {
     BasicBlock *ExitBlock = ExitBlocks[I];
-    SmallVector<BasicBlock *, 4> Preds(pred_begin(ExitBlock),
-                                       pred_end(ExitBlock));
+    SmallVector<BasicBlock *, 4> Preds(predecessors(ExitBlock));
 
     // Although SplitBlockPredecessors doesn't preserve loop-simplify in
     // general, if we call it on all predecessors of all exits then it does.
@@ -1626,9 +1620,9 @@ void LoopUnswitch::unswitchNontrivialCondition(
     ParentLoop->addBasicBlockToLoop(NewBlocks[0], *LI);
   }
 
-  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,        // INTEL
-                                25422u,                         // INTEL
-                                AtLine(getOptReportLine(LIC))); // INTEL
+  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,        // INTEL
+                               25422u,                         // INTEL
+                               AtLine(getOptReportLine(LIC))); // INTEL
 
   for (unsigned EBI = 0, EBE = ExitBlocks.size(); EBI != EBE; ++EBI) {
     BasicBlock *NewExit = cast<BasicBlock>(VMap[ExitBlocks[EBI]]);

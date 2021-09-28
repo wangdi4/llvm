@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -33,13 +33,14 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include <unordered_set>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -69,6 +70,11 @@ static cl::list<std::string> CreateFunctionLevelRegionFilterFunc(
     "-filter-func",
     cl::desc("force HIR to create a single region for the given function."),
     cl::CommaSeparated, cl::ReallyHidden);
+
+static cl::list<std::string> DisableRegionsFuncList(
+    "disable-hir-regions-func-list",
+    cl::desc("Disables HIR region creation for the given list of functions."),
+    cl::CommaSeparated, cl::Hidden);
 
 static cl::opt<bool> DisableFusionRegions(
     "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
@@ -558,19 +564,11 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
                                           const Loop *Lp) {
   assert(Ty && "Type is null!");
 
-  while (isa<ArrayType>(Ty) || isa<VectorType>(Ty) || isa<PointerType>(Ty)) {
-    if (Ty->isVectorTy()) {
-      if (IsGEPRelated) {
-        printOptReportRemark(
-            Lp, "GEP related vector types currently not supported.");
-        return false;
-      }
-      Ty = cast<VectorType>(Ty)->getElementType();
-    } else if (Ty->isArrayTy()) {
-      Ty = cast<ArrayType>(Ty)->getElementType();
-    } else {
-      Ty = Ty->getPointerElementType();
-    }
+  if (IsGEPRelated && isa<VectorType>(Ty)) {
+    printOptReportRemark(
+        Lp, "GEP related vector types currently not supported.");
+
+    return false;
   }
 
   auto IntType = dyn_cast<IntegerType>(Ty);
@@ -590,7 +588,8 @@ bool HIRRegionIdentification::containsUnsupportedTy(
 
   if (auto *SubInst = dyn_cast<SubscriptInst>(GEPOrSubs)) {
     // Subscript intrinsic can contain vector types.
-    return !isSupported(SubInst->getPointerOperandType(), true, Lp) ||
+    return !isSupported(SubInst->getElementType(), true, Lp) ||
+           !isSupported(SubInst->getPointerOperandType(), true, Lp) ||
            !isSupported(SubInst->getIndex()->getType(), true, Lp) ||
            !isSupported(SubInst->getStride()->getType(), true, Lp);
   }
@@ -1367,7 +1366,7 @@ static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
-      isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
+      isLoopCountMetadata(Node) || OptReport::isOptReportMetadata(Node) ||
       isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
       isMustProgressMetadata(Node) || isIntelVectorizeMetadata(Node)) {
     return true;
@@ -2444,6 +2443,13 @@ void HIRRegionIdentification::runImpl(Function &F) {
     return;
   }
 
+  // Disable region creation based on command line option.
+  std::unordered_set<std::string> DisabledFuncs(DisableRegionsFuncList.begin(),
+                                                DisableRegionsFuncList.end());
+  if (DisabledFuncs.count(std::string(F.getName()))) {
+    return;
+  }
+
   // -hir-create-function-level-region-filter-function
   // overrides -hir-create-function-level-region.
   // Whenever it is given, only that function is get formed of
@@ -2528,4 +2534,67 @@ bool HIRRegionIdentification::hasNonGEPAccess(
   }
 
   return false;
+}
+
+const GEPOperator *HIRRegionIdentification::tracebackToGEPOp(
+    const Value *Val, SmallPtrSetImpl<const Value *> &VisitedInsts) const {
+  while (1) {
+
+    if (auto *Phi = dyn_cast<PHINode>(Val)) {
+      // Bail out if we have already visted this phi to avoid getting into
+      // infinite cycle.
+      if (!VisitedInsts.insert(Phi).second) {
+        return nullptr;
+      }
+
+      // Trace through phis.
+      if (isHeaderPhi(Phi)) {
+        Val = getHeaderPhiUpdateVal(Phi);
+        continue;
+
+      } else {
+        // Since the traceback is specifically for getting element type of
+        // AddRec phis, we can use the first operand which can find a GEPOp.
+        unsigned NumOp = Phi->getNumIncomingValues();
+        for (unsigned I = 0; I < NumOp; ++I) {
+          if (auto *PhiGEPOp =
+                  tracebackToGEPOp(Phi->getIncomingValue(I), VisitedInsts)) {
+            return PhiGEPOp;
+          }
+        }
+      }
+    }
+
+    // Trace through bitcast with same src and dest types.
+    if (auto *BitCast = dyn_cast<BitCastInst>(Val)) {
+      if (BitCast->getType() != BitCast->getOperand(0)->getType()) {
+        return nullptr;
+      }
+
+      Val = BitCast->getOperand(0);
+      continue;
+    }
+
+    break;
+  }
+
+  return dyn_cast<GEPOperator>(Val);
+}
+
+Type *
+HIRRegionIdentification::findPhiElementType(const PHINode *AddRecPhi) const {
+  SmallPtrSet<const Value *, 12> VisitedInsts;
+
+  auto *GEPOp = tracebackToGEPOp(AddRecPhi, VisitedInsts);
+
+  if (!GEPOp) {
+    auto *PhiTy = cast<PointerType>(AddRecPhi->getType());
+
+    // This check will try to keep parsing identical for non-opaque ptrs.
+    // Parsing will change in some case with opaque ptrs.
+    // See phi-base-with-bitcast-ptr-element-type.ll for an example.
+    return PhiTy->isOpaque() ? nullptr : PhiTy->getPointerElementType();
+  }
+
+  return GEPOp->getResultElementType();
 }

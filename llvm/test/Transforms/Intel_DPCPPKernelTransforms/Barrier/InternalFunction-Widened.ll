@@ -7,7 +7,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 define void @main(i32 %x) nounwind !vectorized_width !1 {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %lid = call i32 @_Z12get_local_idj(i32 0)
   %y = xor i32 %x, %lid
   br label %L2
@@ -20,13 +20,13 @@ L2:
   call void @foo(i32 %y)
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 }
 
 define void @foo(i32 %x) #0 nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %y = xor i32 %x, %x
   br label %L2
 L2:
@@ -39,7 +39,7 @@ L2:
 
 declare void @_Z18work_group_barrierj(i32)
 declare i32 @_Z12get_local_idj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 attributes #0 = { "widened-size"="8" }
 

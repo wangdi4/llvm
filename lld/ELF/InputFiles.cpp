@@ -630,8 +630,6 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
       CHECK(obj.getSectionStringTable(objSections), this);
 
   std::vector<ArrayRef<Elf_Word>> selectedGroups;
-  // SHT_LLVM_CALL_GRAPH_PROFILE Section Index.
-  size_t cgProfileSectionIndex = 0;
 
   for (size_t i = 0, e = objSections.size(); i < e; ++i) {
     if (this->sections[i] == &InputSection::discarded)
@@ -646,11 +644,8 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
       this->isGNULTOFile = true;
 #endif
 
-    if (sec.sh_type == ELF::SHT_LLVM_CALL_GRAPH_PROFILE) {
-      cgProfile =
-          check(obj.template getSectionContentsAsArray<Elf_CGProfile>(sec));
+    if (sec.sh_type == ELF::SHT_LLVM_CALL_GRAPH_PROFILE)
       cgProfileSectionIndex = i;
-    }
 
     // SHF_EXCLUDE'ed sections are discarded by the linker. However,
     // if -r is given, we'll let the final link discard such sections.
@@ -736,13 +731,8 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
       continue;
     const Elf_Shdr &sec = objSections[i];
 
-    if (sec.sh_type == SHT_REL || sec.sh_type == SHT_RELA) {
+    if (sec.sh_type == SHT_REL || sec.sh_type == SHT_RELA)
       this->sections[i] = createInputSection(sec);
-      if (cgProfileSectionIndex && sec.sh_info == cgProfileSectionIndex) {
-        if (sec.sh_type == SHT_REL)
-          cgProfileRel = CHECK(getObj().rels(sec), this);
-      }
-    }
 
     // A SHF_LINK_ORDER section with sh_link=0 is handled as if it did not have
     // the flag.
@@ -1238,7 +1228,7 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
   }
 
   // Symbol resolution of non-local symbols.
-  SmallVector<unsigned, 32> unds;
+  SmallVector<unsigned, 32> undefineds;
   for (size_t i = firstGlobal, end = eSyms.size(); i != end; ++i) {
     const Elf_Sym &eSym = eSyms[i];
     uint8_t binding = eSym.getBinding();
@@ -1255,7 +1245,7 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
 
     // Handle global undefined symbols.
     if (eSym.st_shndx == SHN_UNDEF) {
-      unds.push_back(i);
+      undefineds.push_back(i);
       continue;
     }
 
@@ -1309,7 +1299,7 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
   // does not change the symbol resolution behavior. In addition, a set of
   // interconnected symbols will all be resolved to the same file, instead of
   // being resolved to different files.
-  for (unsigned i : unds) {
+  for (unsigned i : undefineds) {
     const Elf_Sym &eSym = eSyms[i];
     StringRefZ name = this->stringTable.data() + eSym.st_name;
     this->symbols[i]->resolve(Undefined{this, name, eSym.getBinding(),
@@ -1395,7 +1385,7 @@ void ArchiveFile::fetch(const Archive::Symbol &sym) {
 //
 // 2) Consider the tentative definition as still undefined (ie the promotion to
 //    a real definition happens only after all symbol resolution is done).
-//    The linker searches archive members for global or weak definitions to
+//    The linker searches archive members for STB_GLOBAL definitions to
 //    replace the tentative definition with. This is the behavior used by
 //    GNU ld.
 //
@@ -1411,7 +1401,7 @@ static bool isBitcodeNonCommonDef(MemoryBufferRef mb, StringRef symName,
   for (const irsymtab::Reader::SymbolRef &sym :
        symtabFile.TheReader.symbols()) {
     if (sym.isGlobal() && sym.getName() == symName)
-      return !sym.isUndefined() && !sym.isCommon();
+      return !sym.isUndefined() && !sym.isWeak() && !sym.isCommon();
   }
   return false;
 }
@@ -1425,7 +1415,8 @@ static bool isNonCommonDef(MemoryBufferRef mb, StringRef symName,
   for (auto sym : obj->template getGlobalELFSyms<ELFT>()) {
     Expected<StringRef> name = sym.getName(stringtable);
     if (name && name.get() == symName)
-      return sym.isDefined() && !sym.isCommon();
+      return sym.isDefined() && sym.getBinding() == STB_GLOBAL &&
+             !sym.isCommon();
   }
   return false;
 }
@@ -1761,6 +1752,8 @@ static uint16_t getBitcodeMachineKind(StringRef path, const Triple &t) {
     return EM_ARM;
   case Triple::avr:
     return EM_AVR;
+  case Triple::hexagon:
+    return EM_HEXAGON;
   case Triple::mips:
   case Triple::mipsel:
   case Triple::mips64:
@@ -1876,9 +1869,12 @@ static Symbol *createBitcodeSymbol(const std::vector<bool> &keptComdats,
 
 template <class ELFT> void BitcodeFile::parse() {
   std::vector<bool> keptComdats;
-  for (StringRef s : obj->getComdatTable())
+  for (std::pair<StringRef, Comdat::SelectionKind> s : obj->getComdatTable()) {
     keptComdats.push_back(
-        symtab->comdatGroups.try_emplace(CachedHashStringRef(s), this).second);
+        s.second == Comdat::NoDeduplicate ||
+        symtab->comdatGroups.try_emplace(CachedHashStringRef(s.first), this)
+            .second);
+  }
 
   for (const lto::InputFile::Symbol &objSym : obj->symbols())
     symbols.push_back(createBitcodeSymbol<ELFT>(keptComdats, objSym, *this));

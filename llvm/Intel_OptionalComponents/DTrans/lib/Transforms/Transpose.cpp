@@ -109,8 +109,15 @@ public:
       Strides.push_back(Stride);
       Stride *= ArrayLength[RankNum];
     }
-    if (DVI)
+    if (DVI) {
       DVI->identifyPtrAddrSubs(SubscriptCalls);
+      DVI->identifyStrideStores(StrideStores);
+    } else {
+      SubscriptCalls.clear();
+      for (unsigned I = 0; I < ArrayRank; ++I)
+        StrideStores[I].clear();
+    }
+    DVSubscriptCalls.clear();
   }
 
   ~TransposeCandidate() { cleanup(); }
@@ -267,6 +274,9 @@ public:
       for (DopeVectorAnalyzer *DVA : DopeVectorInstances) {
         auto Range = DVA->funcsWithDVParam();
         FuncsWithDopeVector.insert(Range.begin(), Range.end());
+        for (unsigned I = 0; I < ArrayRank; ++I)
+          StrideStores[I].insert(DVA->getStrideStores(I).begin(),
+              DVA->getStrideStores(I).end());
       }
 
       for (auto &FuncPos : FuncsWithDopeVector)
@@ -845,18 +855,17 @@ public:
     OS << "Rank         : " << ArrayRank << "\n";
     OS << "Element size : " << ElementSize << "\n";
     OS << "Element type : " << *ElementType << "\n";
-    OS << "Dope vector  : " << IsGlobalDV << "\n";
+    OS << "Dope vector  : " << (IsGlobalDV ? true : false) << "\n";
     if (getNestedFieldNumber())
       OS << "Nested Field Number : " << *getNestedFieldNumber() << "\n";
     OS << "Strides      :";
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
       OS << " " << Strides[RankNum];
     OS << "\n";
-    OS << "Array Length :";
+    OS << "Array Lengths :";
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
       OS << " " << ArrayLength[RankNum];
     OS << "\n";
-
     OS << "Transposition:";
     if (!Transposition.empty())
       for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
@@ -924,6 +933,10 @@ private:
   // vector.
   SubscriptInstSet DVSubscriptCalls;
 
+  // Stores to strides of the dope vector (which must be updated if the
+  // transpose is performed.)
+  DopeVectorFieldUse::StoreInstSet StrideStores[FortranMaxRank];
+
   // Set of dope vector objects that were directly created from the global
   // variable.
   SmallPtrSet<DopeVectorAnalyzer *, 4> DopeVectorInstances;
@@ -950,8 +963,7 @@ private:
     for (auto *Call : DVSubscriptCalls)
       transposeSubscriptCall(*Call, /*TransposeStrides=*/false);
 
-    for (auto *DV : DopeVectorInstances)
-      transposeDopeVector(*DV);
+    transposeDopeVector();
   }
 
   // This takes a subscript call for the highest Rank, whose result is fed to a
@@ -997,10 +1009,17 @@ private:
           // At this point we know the constant stride values whether or not
           // they have been replaced in the IR. So, we can generate constant
           // stride arguments for the updated SubscriptInsts regardless.
-          uint64_t NewStride = Strides[TransposeIdx];
+          uint64_t NewStride = Strides[0];
+          for (unsigned I = 0; I < TransposeIdx; ++I)
+            NewStride *= ArrayLength[Transposition[I]];
           auto *NewStrideConst = ConstantInt::get(
               Subs.getArgOperand(StrideOpNum)->getType(), NewStride);
           Subs.setArgOperand(StrideOpNum, NewStrideConst);
+          // We may as well set the lower bound, since we have screened
+          // for a constant value of 1.
+          auto *NewLBConst = ConstantInt::get(
+              Subs.getArgOperand(LBOpNum)->getType(), 1);
+          Subs.setArgOperand(LBOpNum, NewLBConst);
         }
 
         // Modify the 'Rank' field because loop opt expects the stride
@@ -1022,20 +1041,53 @@ private:
     ProcessSubscriptCall(Subs, ArrayRank - 1, TransposeStrides, Visited);
   }
 
-  // Modify the value stored into the stride and extent fields of the
-  // dope vector.
-  void transposeDopeVector(DopeVectorAnalyzer &DV) {
+  //
+  // Modify the value stored into the stride fields of the dope vector.
+  //
+  // Here's an important thing to note:
+  // Before the transpose operation, the subscripts indexing a multi-dimension
+  // array will be chained so that the highest dimension appears first
+  // (outermost) in the chain. For example, in this chain for a 2-dimensional
+  // array with base pointer %33, the first subscript call is for the rank-1
+  // dimension:
+  //   %37 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(
+  //       i8 1, i64 %36, i64 %35, float* %33, i64 %29)
+  //   %38 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(
+  //       i8 0, i64 %34, i64 4, float* %37, i64 %27)
+  // after the transposing the array, the subscript chain would look like this:
+  //   %37 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(
+  //       i8 0, i64 %36, i64 4, float* %33, i64 %29)
+  //   %38 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(
+  //       i8 1, i64 %34, i64 400, float* %37, i64 %27)
+  // This is counter to the expectation of Loop Opt which genenerally expects
+  // the subscript calls in the previous order.  To compensate, after the
+  // transpose, the i-th dimension of the dope vector will actually be in the
+  // TranspositionOrder[i]-th position. So, for example, if the 2-dimensional
+  // array is transposed, dimension 0 of the dope vector will refer to
+  // dimension 1 of the array, and vice versa. This implies that updating the
+  // dope vector involves only updating the strides, as the lower bounds and
+  // extents will stay the same.
+  //
+  // Alternately, we could have chosen to rethread the chain so that reference
+  // to the highest dimension appeared first in the chain after the transpose
+  // was done. This would be difficult, though, because hoisting of the
+  // subscripts is done before the transpose is performed and it could require
+  // sinking all of the subscript calls in a chain so that they are all in the
+  // same basic block before we do the rethreading. That is why the rethreading
+  // approach was not chosen.
+  //
+  void transposeDopeVector() {
 
+    uint64_t NewStride = Strides[0];
     for (unsigned Rank = 0; Rank < ArrayRank; ++Rank) {
       unsigned TransposeIdx = Transposition[Rank];
       // Check if this index is being transposed from its original rank.
-      if (TransposeIdx == Rank)
+      uint64_t Multiplier = ArrayLength[TransposeIdx];
+      if (TransposeIdx == Rank) {
+        NewStride *= Multiplier;
         continue;
-      uint64_t NewStride = Strides[TransposeIdx];
-      uint64_t NewExtent = ArrayLength[TransposeIdx];
-
-      auto StrideStores = DV.getStrideStores(Rank);
-      for (auto *SI : StrideStores) {
+      }
+      for (auto *SI : StrideStores[TransposeIdx]) {
         DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << *SI << "\n");
 
         auto *NewStrideConst =
@@ -1043,16 +1095,7 @@ private:
         SI->setOperand(0, NewStrideConst);
         DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << *SI << "\n");
       }
-
-      auto ExtentStores = DV.getExtentStores(Rank);
-      for (auto *SI : ExtentStores) {
-        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << *SI << "\n");
-
-        auto *NewExtentConst =
-            ConstantInt::get(SI->getOperand(0)->getType(), NewExtent);
-        SI->setOperand(0, NewExtentConst);
-        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << *SI << "\n");
-      }
+      NewStride *= Multiplier;
     }
   }
 };
@@ -1204,7 +1247,7 @@ private:
       // dope vectors, but not all. For now, the GlobalDopeVector analysis
       // is all or nothing, so return immediately if it does not pass.
       GlobalDopeVector GlobDV(GV, GV->getValueType(), GetTLI);
-      GlobDV.collectAndValidate(DL);
+      GlobDV.collectAndValidate(DL, /*ForDVCP=*/false);
       auto GAR = GlobDV.getAnalysisResult();
       if (GAR != GlobalDopeVector::AnalysisResult::AR_Pass)
         return true;

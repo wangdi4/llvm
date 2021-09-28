@@ -1,5 +1,4 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -loopopt=0 -O3 -S -analyze -scalar-evolution < %s -enable-new-pm=0 | FileCheck %s
 ; RUN: opt -loopopt=0 -passes='default<O3>,print<scalar-evolution>' -S < %s 2>&1 | FileCheck %s
 ; END INTEL_CUSTOMIZATION
 ;

@@ -19,6 +19,10 @@ if (CMAKE_SYCL_USE_LEVEL0)
 endif()
 # end INTEL_CUSTOMIZATION
 
-if (SYCL_BUILD_PI_ESIMD_CPU)
-  add_subdirectory(esimd_cpu)
+# TODO : Remove 'if (NOT MSVC)' when CM_EMU supports Windows
+# environment
+if (NOT MSVC)
+  if (SYCL_BUILD_PI_ESIMD_CPU)
+    add_subdirectory(esimd_cpu)
+  endif()
 endif()

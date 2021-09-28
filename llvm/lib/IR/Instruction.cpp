@@ -12,7 +12,7 @@
 
 #include "llvm/IR/Instruction.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReport.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -109,7 +109,7 @@ iplist<Instruction>::iterator Instruction::eraseFromParent() {
   if (DetectLostOptReports && isTerminator())
     if (auto *MD = getMetadata(LLVMContext::MD_loop))
       for (unsigned I = 1, IE = MD->getNumOperands(); I < IE; ++I)
-        if (LoopOptReport::isOptReportMetadata(MD->getOperand(I)))
+        if (OptReport::isOptReportMetadata(MD->getOperand(I)))
           llvm_unreachable("The deleted OptReport will be missing.");
 #endif  // NDEBUG
 #endif  // INTEL_CUSTOMIZATION
@@ -202,6 +202,23 @@ void Instruction::dropPoisonGeneratingFlags() {
   // TODO: FastMathFlags!
 }
 
+void Instruction::dropUndefImplyingAttrsAndUnknownMetadata(
+    ArrayRef<unsigned> KnownIDs) {
+  dropUnknownNonDebugMetadata(KnownIDs);
+  auto *CB = dyn_cast<CallBase>(this);
+  if (!CB)
+    return;
+  // For call instructions, we also need to drop parameter and return attributes
+  // that are can cause UB if the call is moved to a location where the
+  // attribute is not valid.
+  AttributeList AL = CB->getAttributes();
+  if (AL.isEmpty())
+    return;
+  AttrBuilder UBImplyingAttributes = AttributeFuncs::getUBImplyingAttributes();
+  for (unsigned ArgNo = 0; ArgNo < CB->getNumArgOperands(); ArgNo++)
+    CB->removeParamAttrs(ArgNo, UBImplyingAttributes);
+  CB->removeRetAttrs(UBImplyingAttributes);
+}
 
 bool Instruction::isExact() const {
   return cast<PossiblyExactOperator>(this)->isExact();
@@ -700,12 +717,20 @@ bool Instruction::mayThrow() const {
   return isa<ResumeInst>(this);
 }
 
+bool Instruction::mayHaveSideEffects() const {
+  return mayWriteToMemory() || mayThrow() || !willReturn();
+}
+
 bool Instruction::isSafeToRemove() const {
   return (!isa<CallInst>(this) || !this->mayHaveSideEffects()) &&
          !this->isTerminator();
 }
 
 bool Instruction::willReturn() const {
+  // Volatile store isn't guaranteed to return; see LangRef.
+  if (auto *SI = dyn_cast<StoreInst>(this))
+    return !SI->isVolatile();
+
   if (const auto *CB = dyn_cast<CallBase>(this))
     // FIXME: Temporarily assume that all side-effect free intrinsics will
     // return. Remove this workaround once all intrinsics are appropriately
@@ -839,12 +864,12 @@ void Instruction::swapProfMetadata() {
 }
 
 #if INTEL_CUSTOMIZATION
-static MDNode *eraseLoopOptReport(MDNode *LoopID, LLVMContext &Context) {
+static MDNode *eraseOptReport(MDNode *LoopID, LLVMContext &Context) {
   SmallVector<Metadata *, 4> Ops;
   Ops.push_back(nullptr);
-  std::copy_if(
-      std::next(LoopID->op_begin()), LoopID->op_end(), std::back_inserter(Ops),
-      [](Metadata *M) { return !LoopOptReport::isOptReportMetadata(M); });
+  std::copy_if(std::next(LoopID->op_begin()), LoopID->op_end(),
+               std::back_inserter(Ops),
+               [](Metadata *M) { return !OptReport::isOptReportMetadata(M); });
   if (Ops.size() == 1) {
     return nullptr;
   }
@@ -891,7 +916,7 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
     if (WL.empty() || WLS.count(MD.first)) {
       // Erase loop opt report before copying loop metadata.
       if (MD.first == LLVMContext::MD_loop) {
-        auto *NewMD = eraseLoopOptReport(MD.second, getContext());
+        auto *NewMD = eraseOptReport(MD.second, getContext());
         setMetadata(MD.first, NewMD);
         continue;
       }

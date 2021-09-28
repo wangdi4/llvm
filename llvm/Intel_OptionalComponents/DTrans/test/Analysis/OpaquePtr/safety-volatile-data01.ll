@@ -61,13 +61,12 @@ define void @test03() {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %struct.test02b*
-!3 = !{!"R", %struct.test02b zeroinitializer, i32 0}  ; %struct.test02b
-!4 = !{!"R", %struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
-!5 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
-!6 = !{!"S", %struct.test02a zeroinitializer, i32 1, !2} ; { %struct.test02b* }
-!7 = !{!"S", %struct.test02b zeroinitializer, i32 1, !1} ; { i32 }
-!8 = !{!"S", %struct.test03a zeroinitializer, i32 2, !1, !4} ; { i32, %struct.test03b }
-!9 = !{!"S", %struct.test03b zeroinitializer, i32 1, !1} ; { i32 }
+!2 = !{%struct.test02b zeroinitializer, i32 1}  ; %struct.test02b*
+!3 = !{%struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
+!4 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
+!5 = !{!"S", %struct.test02a zeroinitializer, i32 1, !2} ; { %struct.test02b* }
+!6 = !{!"S", %struct.test02b zeroinitializer, i32 1, !1} ; { i32 }
+!7 = !{!"S", %struct.test03a zeroinitializer, i32 2, !1, !3} ; { i32, %struct.test03b }
+!8 = !{!"S", %struct.test03b zeroinitializer, i32 1, !1} ; { i32 }
 
-!dtrans_types = !{!5, !6, !7, !8, !9}
+!intel.dtrans.types = !{!4, !5, !6, !7, !8}

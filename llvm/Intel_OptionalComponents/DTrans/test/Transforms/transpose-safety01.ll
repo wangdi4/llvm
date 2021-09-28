@@ -42,11 +42,11 @@
   ; rejects this candidate.
   %ptr_part1 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(
      i8 1, i64 1, i64 72,
-     i32* getelementptr ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var3, i64 0, i64 0, i64 0),
+     i32* elementtype(i32) getelementptr ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var3, i64 0, i64 0, i64 0),
      i64 0)
 
    %ptr = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(
-     i8 0, i64 1, i64 8, i32 *%ptr_part1, i64 0)
+     i8 0, i64 1, i64 8, i32* elementtype(i32) %ptr_part1, i64 0)
    store i32 0, i32* %ptr
 
    ret void
@@ -62,12 +62,12 @@
  define void @test04() {
  %ptr_part1 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(
      i8 1, i64 1, i64 36,
-     i32* getelementptr ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var4, i64 0, i64 0, i64 0),
+     i32* elementtype(i32) getelementptr ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var4, i64 0, i64 0, i64 0),
      i64 0)
 
    ; Specify that the lower bound starts with 4.
    %ptr = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(
-     i8 0, i64 4, i64 4, i32 *%ptr_part1, i64 0)
+     i8 0, i64 4, i64 4, i32* elementtype(i32) %ptr_part1, i64 0)
    store i32 0, i32* %ptr
 
    ret void
@@ -82,14 +82,14 @@
  define void @test05() {
  %ptr_part1 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(
      i8 2, i64 1, i64 324,
-     i32* getelementptr ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @test_var5, i64 0, i64 0, i64 0, i64 0),
+     i32* elementtype(i32) getelementptr ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @test_var5, i64 0, i64 0, i64 0, i64 0),
      i64 0)
 
    %ptr_part2 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(
-     i8 1, i64 1, i64 36, i32 *%ptr_part1, i64 0)
+     i8 1, i64 1, i64 36, i32* elementtype(i32) %ptr_part1, i64 0)
 
    %ptr = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(
-     i8 0, i64 1, i64 4, i32 *%ptr_part2, i64 0)
+     i8 0, i64 1, i64 4, i32* elementtype(i32) %ptr_part2, i64 0)
 
    store i32 0, i32* %ptr
 

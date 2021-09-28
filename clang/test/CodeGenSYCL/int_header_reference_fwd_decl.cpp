@@ -29,5 +29,5 @@ class Wrapper{};
 void foo() {
   using namespace WrapsType;
   using KernelName = Wrapper<PassedAsRef<InsidePassedAsRef>&>;
-  cl::sycl::kernel_single_task<KernelName>([]{}); // INTEL
+  sycl::kernel_single_task<KernelName>([]{});
 }

@@ -19,6 +19,9 @@
 
 namespace clang {
 
+class DiagnosticsEngine;
+class TargetInfo;
+
 namespace {
 // This enum maps OpenCL version(s) into value. These values are used as
 // a mask to indicate in which OpenCL version(s) extension is a core or
@@ -55,7 +58,7 @@ static inline OpenCLVersionID encodeOpenCLVersion(unsigned OpenCLVersion) {
 // mask.
 static inline bool isOpenCLVersionContainedInMask(const LangOptions &LO,
                                                   unsigned Mask) {
-  auto CLVer = LO.OpenCLCPlusPlus ? 200 : LO.OpenCLVersion;
+  auto CLVer = LO.getOpenCLCompatibleVersion();
   OpenCLVersionID Code = encodeOpenCLVersion(CLVer);
   return Mask & Code;
 }
@@ -64,8 +67,8 @@ static inline bool isOpenCLVersionContainedInMask(const LangOptions &LO,
 
 /// OpenCL supported extensions and optional core features
 class OpenCLOptions {
+
 public:
-#if INTEL_CUSTOMIZATION
   // OpenCL C v1.2 s6.5 - All program scope variables must be declared in the
   // __constant address space.
   // OpenCL C v2.0 s6.5.1 - Variables defined at program scope and static
@@ -76,11 +79,10 @@ public:
   // the __opencl_c_program_scope_global_variables feature is supported
   // C++ for OpenCL inherits rule from OpenCL C v2.0.
   bool areProgramScopeVariablesSupported(const LangOptions &Opts) const {
-    return Opts.OpenCLCPlusPlus || Opts.OpenCLVersion == 200 ||
+    return Opts.getOpenCLCompatibleVersion() == 200 ||
            (Opts.OpenCLVersion == 300 &&
             isSupported("__opencl_c_program_scope_global_variables", Opts));
   }
-#endif // INTEL_CUSTOMIZATION
 
   struct OpenCLOptionInfo {
     // Does this option have pragma.
@@ -113,8 +115,7 @@ public:
     // Is option available in OpenCL version \p LO.
     bool isAvailableIn(const LangOptions &LO) const {
       // In C++ mode all extensions should work at least as in v2.0.
-      auto CLVer = LO.OpenCLCPlusPlus ? 200 : LO.OpenCLVersion;
-      return CLVer >= Avail;
+      return LO.getOpenCLCompatibleVersion() >= Avail;
     }
 
     // Is core option in OpenCL version \p LO.
@@ -237,6 +238,16 @@ public:
                                         Args &&... args) {
     return OpenCLOptionInfo(std::forward<Args>(args)...).isAvailableIn(LO);
   }
+
+  // Diagnose feature dependencies for OpenCL C 3.0. Return false if target
+  // doesn't follow these requirements.
+  static bool diagnoseUnsupportedFeatureDependencies(const TargetInfo &TI,
+                                                     DiagnosticsEngine &Diags);
+
+  // Diagnose that features and equivalent extension are set to same values.
+  // Return false if target doesn't follow these requirements.
+  static bool diagnoseFeatureExtensionDifferences(const TargetInfo &TI,
+                                                  DiagnosticsEngine &Diags);
 
 private:
   // Option is enabled via pragma

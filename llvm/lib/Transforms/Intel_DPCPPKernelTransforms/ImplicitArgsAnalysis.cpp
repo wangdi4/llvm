@@ -19,17 +19,12 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
-
-static std::string AppendWithDimension(const Twine &S, const Value *Dimension) {
-  if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
-    return (S + Twine(C->getZExtValue())).str();
-  else
-    return (S + Twine("var")).str();
-}
+using namespace llvm::DPCPPKernelCompilationUtils;
 
 ImplicitArgsInfo::ImplicitArgsInfo(Module &M)
     : ArgTypes(ImplicitArgsUtils::IA_NUMBER, 0),
@@ -97,8 +92,9 @@ Value *ImplicitArgsInfo::GenerateGetFromWorkInfo(unsigned RecordID,
   Params.push_back(ConstantInt::get(Type::getInt32Ty(*C), 0));
   Params.push_back(ConstantInt::get(Type::getInt32Ty(*C), RecordID));
   Params.push_back(Dimension);
-  auto *Addr =
-      cast<GEPOperator>(Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(Params)));
+  auto *Addr = cast<GEPOperator>(Builder.CreateGEP(
+      WorkInfo->getType()->getScalarType()->getPointerElementType(), WorkInfo,
+      ArrayRef<Value *>(Params)));
   StringRef Name(NDInfo::getRecordName(RecordID));
   std::string NameWithDim = AppendWithDimension(Name, Dimension);
   return Builder.Insert(new LoadInst(Addr->getResultElementType(), Addr, "",
@@ -113,8 +109,9 @@ Value *ImplicitArgsInfo::GenerateGetFromWorkInfo(unsigned RecordID,
   Type *Int32Ty = Type::getInt32Ty(*C);
   Params.push_back(ConstantInt::get(Int32Ty, 0));
   Params.push_back(ConstantInt::get(Int32Ty, RecordID));
-  auto *Addr =
-      cast<GEPOperator>(Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(Params)));
+  auto *Addr = cast<GEPOperator>(Builder.CreateGEP(
+      WorkInfo->getType()->getScalarType()->getPointerElementType(), WorkInfo,
+      ArrayRef<Value *>(Params)));
   StringRef Name(NDInfo::getRecordName(RecordID));
   Value *V = Builder.Insert(new LoadInst(Addr->getResultElementType(), Addr, "",
                                          /*volatile*/ false, Align()));
@@ -193,8 +190,9 @@ Value *ImplicitArgsInfo::GenerateGetLocalSizeGeneric(Value *WorkInfo,
   Params.push_back(ConstantInt::get(Type::getInt32Ty(*C), NDInfo::LOCAL_SIZE));
   Params.push_back(LocalSizeIdx);
   Params.push_back(Dimension);
-  auto *Addr =
-      cast<GEPOperator>(Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(Params)));
+  auto *Addr = cast<GEPOperator>(Builder.CreateGEP(
+      WorkInfo->getType()->getScalarType()->getPointerElementType(), WorkInfo,
+      ArrayRef<Value *>(Params)));
   StringRef Name(NDInfo::getRecordName(NDInfo::LOCAL_SIZE));
   std::string NameWithDim = AppendWithDimension(Name, Dimension);
   return Builder.Insert(new LoadInst(Addr->getResultElementType(), Addr, "",
@@ -209,7 +207,9 @@ Value *ImplicitArgsInfo::GenerateGetGroupID(Value *GroupID, unsigned Dimension,
 }
 Value *ImplicitArgsInfo::GenerateGetGroupID(Value *GroupID, Value *Dimension,
                                             IRBuilder<> &Builder) {
-  auto *IdAddr = cast<GEPOperator>(Builder.CreateGEP(GroupID, Dimension));
+  auto *IdAddr = cast<GEPOperator>(Builder.CreateGEP(
+      GroupID->getType()->getScalarType()->getPointerElementType(), GroupID,
+      Dimension));
   StringRef Name("GroupID_");
   std::string NameWithDim = AppendWithDimension(Name, Dimension);
   return Builder.Insert(new LoadInst(IdAddr->getResultElementType(), IdAddr, "",
@@ -237,7 +237,8 @@ Value *ImplicitArgsInfo::GenerateGetBaseGlobalID(Value *BaseGlobalID,
     std::vector<Value *> Indices;
     Indices.push_back(ConstantInt::get(IntegerType::get(*C, 32), 0));
     Indices.push_back(Dimension);
-    auto *GEP = cast<GEPOperator>(Builder.CreateGEP(A, Indices));
+    auto *GEP =
+        cast<GEPOperator>(Builder.CreateGEP(A->getAllocatedType(), A, Indices));
     return Builder.Insert(new LoadInst(GEP->getResultElementType(), GEP, "",
                                        /*volatile*/ false, Align()),
                           NameWithDim);

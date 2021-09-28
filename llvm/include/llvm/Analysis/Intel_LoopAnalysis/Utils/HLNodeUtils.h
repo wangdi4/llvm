@@ -928,6 +928,13 @@ public:
                                      bool NoNaN = false,
                                      RegDDRef *LvalRef = nullptr);
 
+  /// Creates a new vector insert intrinsic call using
+  /// llvm.experimental.vector.insert. OpRef1 is the target vector and SubVecRef
+  /// is the sub-vector to be inserted starting at location Idx.
+  HLInst *createVectorInsert(RegDDRef *OpRef1, RegDDRef *SubVecRef,
+                             unsigned Idx, const Twine &Name,
+                             RegDDRef *LvalRef = nullptr);
+
   /// Creates a new ShuffleVector instruction
   HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                   RegDDRef *Mask, const Twine &Name = "shuffle",
@@ -1455,7 +1462,7 @@ public:
 
   /// Gathers all the loops inside the Node and stores them in the Loops vector.
   template <typename T>
-  void gatherAllLoops(HLNode *Node, SmallVectorImpl<T> &Loops) {
+  static void gatherAllLoops(HLNode *Node, SmallVectorImpl<T> &Loops) {
     assert(Node && " Node is null.");
     LoopLevelVisitor<T, VisitKind::All> LoopVisit(Loops);
     visit(LoopVisit, Node);
@@ -1463,7 +1470,7 @@ public:
 
   /// Constant Node version of gatherAllLoops.
   template <typename T>
-  void gatherAllLoops(const HLNode *Node, SmallVectorImpl<T> &Loops) {
+  static void gatherAllLoops(const HLNode *Node, SmallVectorImpl<T> &Loops) {
     static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
                   "Type of SmallVector parameter should be const HLLoop *.");
     gatherAllLoops(const_cast<HLNode *>(Node), Loops);
@@ -1742,6 +1749,10 @@ public:
                                       RequiredLabelsTy &RequiredLabels);
   /// Returns true if "IF/SWITCH" never falls through.
   static bool hasGotoOnAllBranches(HLNode *Node);
+
+  /// Returns true if \p Loop has many lifetime.begin intrinsics
+  /// in the beginning.
+  static bool hasManyLifeTimeIntrinsics(const HLLoop *Loop);
 };
 
 } // End namespace loopopt

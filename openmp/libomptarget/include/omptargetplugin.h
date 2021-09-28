@@ -207,14 +207,13 @@ EXTERN
 void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
                                 void *HostBase);
 
-// Similar to __tgt_rtl_data_alloc, but additionally specify that user initiated
-// the allocation
-EXTERN
-void *__tgt_rtl_data_alloc_user(int32_t ID, int64_t Size, void *HostPtr);
+// Entry for supporting realloc
+EXTERN void *__tgt_rtl_data_realloc(
+    int32_t ID, void *Ptr, size_t Size, int32_t Kind);
 
-// Explicit target memory allocator
-EXTERN void *__tgt_rtl_data_alloc_explicit(
-    int32_t ID, int64_t Size, int32_t Kind);
+// Entry for supporting aligned_alloc
+EXTERN void *__tgt_rtl_data_aligned_alloc(
+    int32_t ID, size_t Align, size_t Size, int32_t Kind);
 
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
@@ -328,9 +327,54 @@ EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);
 // Check if given host pointer and size is accessible by device
 EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
     int32_t ID, const void *Ptr, size_t Size);
+
+// Notify indirectly accessed target pointer
+EXTERN int32_t __tgt_rtl_notify_indirect_access(
+    int32_t ID, const void *Ptr, size_t Offset);
+
+// Check if the RTL expects that the outlined function's argument
+// specified by Idx will be passed from libomptarget to the RTL
+// in the host memory.
+EXTERN int32_t __tgt_rtl_is_private_arg_on_host(
+    int32_t ID, const void *TgtEntryPtr, uint32_t Idx);
+
+// Begin data batch commands
+EXTERN int32_t __tgt_rtl_command_batch_begin(int32_t ID, int32_t BatchLevel);
+
+// End data batch commands
+EXTERN int32_t __tgt_rtl_command_batch_end(int32_t ID, int32_t BatchLevel);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
+
+// Print the device information
+void __tgt_rtl_print_device_info(int32_t ID);
+
+// Event related interfaces. It is expected to use the interfaces in the
+// following way:
+// 1) Create an event on the target device (__tgt_rtl_create_event).
+// 2) Record the event based on the status of \p AsyncInfo->Queue at the moment
+// of function call to __tgt_rtl_record_event. An event becomes "meaningful"
+// once it is recorded, such that others can depend on it.
+// 3) Call __tgt_rtl_wait_event to set dependence on the event. Whether the
+// operation is blocking or non-blocking depends on the target. It is expected
+// to be non-blocking, just set dependence and return.
+// 4) Call __tgt_rtl_sync_event to sync the event. It is expected to block the
+// thread calling the function.
+// 5) Destroy the event (__tgt_rtl_destroy_event).
+// {
+int32_t __tgt_rtl_create_event(int32_t ID, void **Event);
+
+int32_t __tgt_rtl_record_event(int32_t ID, void *Event,
+                               __tgt_async_info *AsyncInfo);
+
+int32_t __tgt_rtl_wait_event(int32_t ID, void *Event,
+                             __tgt_async_info *AsyncInfo);
+
+int32_t __tgt_rtl_sync_event(int32_t ID, void *Event);
+
+int32_t __tgt_rtl_destroy_event(int32_t ID, void *Event);
+// }
 
 #ifdef __cplusplus
 }

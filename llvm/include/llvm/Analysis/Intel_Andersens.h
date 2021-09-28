@@ -635,6 +635,7 @@ private:
   void visitAtomicRMWInst(AtomicRMWInst &AI);
   void visitPtrToIntInst(PtrToIntInst &AI);
   void visitIntToPtrInst(IntToPtrInst &AI);
+  void visitFreezeInst(FreezeInst &FI);
   void visitUnaryOperator(UnaryOperator &AI);
   void visitBinaryOperator(BinaryOperator &AI);
   void visitExtractElementInst(ExtractElementInst &AI);

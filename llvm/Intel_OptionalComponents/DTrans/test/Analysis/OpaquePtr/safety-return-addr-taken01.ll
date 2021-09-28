@@ -7,7 +7,7 @@
 
 ; Return an i8* typed pointer for a pointer to a structure.
 %struct.test01 = type { i32, i32 }
-define i8* @test3(%struct.test01* %pStruct) !dtrans_type !2 {
+define "intel_dtrans_func_index"="1" i8* @test3(%struct.test01* "intel_dtrans_func_index"="2" %pStruct) !intel.dtrans.func.type !4 {
   %pStruct.as.p8 = bitcast %struct.test01* %pStruct to i8*
   ret i8* %pStruct.as.p8
 }
@@ -18,7 +18,7 @@ define i8* @test3(%struct.test01* %pStruct) !dtrans_type !2 {
 
 ; Return a pointer-sized int for a pointer to a structure.
 %struct.test02 = type { i32, i32 }
-define i64 @test4(%struct.test02* %pStruct) !dtrans_type !6 {
+define i64 @test4(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
   %pStruct.as.i64 = ptrtoint %struct.test02* %pStruct to i64
   ret i64 %pStruct.as.i64
 }
@@ -28,15 +28,12 @@ define i64 @test4(%struct.test02* %pStruct) !dtrans_type !6 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; i8* (%struct.test01*)
-!3 = !{i8 0, i32 1}  ; i8*
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{!"F", i1 false, i32 1, !7, !8}  ; i64 (%struct.test02*)
-!7 = !{i64 0, i32 0}  ; i64
-!8 = !{!9, i32 1}  ; %struct.test02*
-!9 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!10 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!11 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{i8 0, i32 1}  ; i8*
+!3 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!4 = distinct !{!2, !3}
+!5 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!6 = distinct !{!5}
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!10, !11}
+!intel.dtrans.types = !{!7, !8}

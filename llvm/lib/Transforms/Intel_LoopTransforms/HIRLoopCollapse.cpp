@@ -1,6 +1,6 @@
-//==--- HIRLoopCollpase.cpp -Implements Loop Collapse Pass -*- C++ -*---===//
+//==--- HIRLoopCollapse.cpp -Implements Loop Collapse Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,6 +49,7 @@
 // -hir-loop-collapse:          Perform HIR Loop Collapse
 // -disable-hir-loop-collapse:  Disable/Bypass HIR Loop Collapse
 //
+//
 // TODO:
 // Revise transformation to allow collapse from non-innermost level.
 // E.g.
@@ -76,7 +77,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
@@ -94,11 +94,17 @@ static cl::opt<bool>
                            cl::Hidden,
                            cl::desc("Disable HIR Loop Collapse (HLC)"));
 
+// Disable dynamic-shape array support.
+// -default is false: allow dynamic-shape array matching.
+static cl::opt<bool>
+    DisableDynShapeArray("disable-dynshape-array", cl::init(false), cl::Hidden,
+                         cl::desc("Disable Dynamic Shape Array Support"));
+
 STATISTIC(HIRLoopNestsCollapsed, "Number of HIR LoopNest(s) Collapsed");
 
 // ** Ref Collector **
-// - Collect all LoopNest-IV relevant GEPRef (GEP and MemRef) into GEPRefVec;
-// - Collect all LoopNest-IV relevant non-GEPRef Ref into RefVec;
+// - collect all LoopNest-IV relevant GEPRef into GEPRefVec
+// - collect all LoopNest-IV relevant non-GEPRef Ref into RefVec
 class HIRLoopCollapse::CollectRefs final : public HLNodeVisitorBase {
 private:
   HIRLoopCollapse *HLC = nullptr;
@@ -111,8 +117,7 @@ public:
       : HLC(HLC), RefVec(RefVec), GEPRefVec(GEPRefVec) {}
 
   void visit(HLDDNode *Node) {
-    for (auto I = Node->op_ddref_begin(), E = Node->op_ddref_end(); I != E;
-         ++I) {
+    for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
       collectRef(*I);
     }
   }
@@ -126,15 +131,50 @@ public:
   void postVisit(const HLNode *Node) {}
 
   unsigned getNumGEPRef(void) const { return GEPRefVec.size(); }
-  unsigned getNumNonGEPRef(void) const { return RefVec.size(); }
 
   void collectRef(RegDDRef *Ref);
+
+  void print(raw_ostream &OS, bool PrintDetail) const {
+    // Non-GEP RefVec:
+    unsigned const RefVecSize = RefVec.size();
+    OS << "Non-GEP RefVec: " << RefVecSize << "\n";
+    if (RefVecSize) {
+      unsigned Count = 0;
+      for (auto &Ref : RefVec) {
+        OS << Count++ << " : ";
+        StringRef RW = (Ref->isLval()) ? " W " : " R ";
+        OS << RW;
+        Ref->dump(PrintDetail);
+        OS << "\n";
+      }
+    }
+
+    // GEPRef Vec:
+    unsigned const GEPRefVecSize = GEPRefVec.size();
+    OS << "GEP RefVec: " << GEPRefVecSize << "\n";
+    if (GEPRefVecSize) {
+      unsigned Count = 0;
+      for (auto &Ref : GEPRefVec) {
+        OS << Count++ << " : ";
+        StringRef RW = (Ref->isLval()) ? " W " : " R ";
+        OS << RW;
+        Ref->dump(PrintDetail);
+        OS << "\n";
+      }
+    }
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(bool PrintDetail = false) const {
+    formatted_raw_ostream FOS(dbgs());
+    print(FOS, PrintDetail);
+  }
+#endif
 };
 
 // Collect any Ref that has at least 1 LoopNest-relevant IV in it, into either
 // GEPRefVec (for GEPRef) and RefVec (for non-GEPRef Ref)
 void HIRLoopCollapse::CollectRefs::collectRef(RegDDRef *Ref) {
-
   bool HasLoopNestIV = false;
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
@@ -205,8 +245,7 @@ bool HIRLoopCollapse::run() {
 
   // Collect all possible perfect-LoopNest candidate InnerOuterLoopPairs into
   // CandidateLoops. Each InnerOuterLoopPair marks (OutermostLp,InnermostLp),
-  // forming a
-  // perfect (sub) LoopNest.
+  // forming a perfect (sub) LoopNest.
   //
   // E.g.
   // | i1:
@@ -219,8 +258,7 @@ bool HIRLoopCollapse::run() {
   //
   // There is no perfect loop nest within the original i1-i2-i3 nesting, but
   // (i2-i3) is a perfect sub loop nest, thus is collected as a
-  // InnerOuterLoopPair
-  // candidate for collapsing.
+  // InnerOuterLoopPair candidate.
   //
   SmallVector<InnerOuterLoopPairTy, 12> CandidateLoops;
   CollectCandidateLoops CCL(CandidateLoops);
@@ -249,7 +287,7 @@ bool HIRLoopCollapse::doLoopCollapse(HLLoop *OutermostLp, HLLoop *InnermostLp) {
   setupEnvLoopNest(OutermostLp, InnermostLp);
 
   // Analyze the LoopNest for loop collapse and reject if unsuitable
-  if (!doAnalysis()) {
+  if (!doAnalysis(InnermostLp)) {
     return false;
   }
 
@@ -284,25 +322,24 @@ void HIRLoopCollapse::setupEnvLoopNest(HLLoop *OutermostLp,
   }
 }
 
-bool HIRLoopCollapse::doAnalysis(void) {
-
+bool HIRLoopCollapse::doAnalysis(HLLoop *InnermostLp) {
   if (!doPreliminaryChecks()) {
-    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed PreliminaryChecks\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse::doPreliminaryChecks() failed\n");
     return false;
   }
 
   if (!doCollection()) {
-    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed Collection\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse::doCollection() failed\n");
     return false;
   }
 
-  if (!areGEPRefsLegal()) {
-    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed legal test\n");
+  if (!areGEPRefsLegal(InnermostLp)) {
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse::areGEPRefsLegal(.) failed\n");
     return false;
   }
 
   if (!areNonGEPRefsProfitable()) {
-    LLVM_DEBUG(dbgs() << "HIRLoopCollapse: failed profit test\n");
+    LLVM_DEBUG(dbgs() << "HIRLoopCollapse::areNonGEPRefsProfitable() failed\n");
     return false;
   }
 
@@ -310,7 +347,6 @@ bool HIRLoopCollapse::doAnalysis(void) {
 }
 
 bool HIRLoopCollapse::doPreliminaryChecks(void) {
-
   IVType = InnermostLp->getIVType();
   uint64_t TripCount = 0;
   HLLoop *CurLp = InnermostLp;
@@ -327,31 +363,30 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
 
     if (CurLp->hasUnrollEnablingPragma() ||
         CurLp->hasUnrollAndJamEnablingPragma() ||
-        CurLp->hasVectorizeEnablingPragma()) {
+        CurLp->hasVectorizeEnablingPragma() || CurLp->isMVFallBack()) {
       break;
     }
 
     unsigned LoopLevel = CurLp->getNestingLevel();
-    CanonExpr *UBCE = CurLp->getUpperCanonExpr();
 
     // Check: does CurLp have a constant TripCount?
-    // If yes: save its trip count into UBTCArry;
+    // If yes: save its trip count into TCArry;
     if (CurLp->isConstTripLoop(&TripCount)) {
-      UBTCArry[LoopLevel].set(TripCount);
+      TCArry[LoopLevel].set(TripCount);
       continue;
     }
 
-    // Simplest case is single blob with constant==-1 and denominator==1.
-    // This ensures trip count equals the blob value. Other cases require
-    // changes to the blob (refer to convertToStandAloneBlobOrConstant())
-    // TODO: Handle non-unit denominator.
-    if (UBCE->numBlobs() == 1 && !UBCE->hasIV() &&
-        UBCE->getDenominator() == 1 && UBCE->getConstant() == -1) {
-      UBTCArry[LoopLevel].set(UBCE);
+    CanonExpr *UB = CurLp->getUpperCanonExpr();
+    if (UB->canConvertToStandAloneBlobOrConstant()) {
+      CanonExpr *TC = CurLp->getTripCountCanonExpr();
+      const bool CanConvert = TC->convertToStandAloneBlobOrConstant();
+      assert(CanConvert && "Expect a good conversion");
+      (void)CanConvert;
+      TCArry[LoopLevel].set(TC);
       continue;
     }
 
-    // OTHER CASES NOT HANDLED
+    // OTHER CASES ARE NOT HANDLED
     break;
   }
 
@@ -368,10 +403,11 @@ bool HIRLoopCollapse::doCollection(void) {
                   InnermostLp->getLastChild());
 
   // Examine all Ref(s) collected:
+  LLVM_DEBUG(Collector.dump(););
 
   // Check if there is at least 1 GEPRef available after collection.
   //
-  // Note:
+  // [Note]
   // After collection, the results are in RefVec for non GEPRef(s) and
   // GEPRefVec for GEPRef(s).
   return (Collector.getNumGEPRef() >= 1);
@@ -383,62 +419,104 @@ bool HIRLoopCollapse::doCollection(void) {
 // Note:
 // - NumCollapsableLoops has a default value. The legal test may reduce it.
 //
-bool HIRLoopCollapse::areGEPRefsLegal(void) {
+bool HIRLoopCollapse::areGEPRefsLegal(HLLoop *InnerLp) {
+  const unsigned InnerLpLevel = InnerLp->getNestingLevel();
 
   for (RegDDRef *GEPRef : GEPRefVec) {
+    if (GEPRef->isFake())
+      continue;
 
-    bool Has1DimensionOnly = (GEPRef->getNumDimensions() == 1);
-    unsigned CollapseLevel = getNumDimensionsOfMatchedSrcAndDestType(GEPRef);
-    if (Has1DimensionOnly) {
-      // This ref has only 1 dimenstion, so return false if the number of
-      // collapsable dimesions is zero (i.e. no dimension to work on).
-      // Also, do not update global NumCollapsableLoops with
-      // getNumDimensionsOfMatchedSrcAndDestType
-      if (CollapseLevel == 0) {
-        return false;
-      }
-      // Check: does GEPRef match pattern on Dimension1?
-      CollapseLevel = getLevelsOfIVPattern(GEPRef->getDimensionIndex(1));
-    } else {
-      if (CollapseLevel <= 1) {
-        return false;
-      }
-      NumCollapsableLoops = std::min(NumCollapsableLoops, CollapseLevel);
-      // ------------------------------
-      // GEPRef        |CollapseLevel |
-      // ------------------------------
-      // A[ 0][ 0][i1] |  1           |
-      // A[ 0][i1][i2] |  2           |
-      // A[i1][i2][i3] |  3           |
-      // ------------------------------
-      CollapseLevel = getNumCollapsableLevels(GEPRef);
-    }
-
-    // Check: if CollapseLevel <= 1, legal test fails
-    // Note:
-    // - for A[i1][i2][0], getNumCollapsableLevels() will return 0, since
-    // Dimension1 is not valid.
-    //
-    // - for A[i1].0[i2], getNumCollapsableLevels() will return 0, since there
-    // is at least 1 struct-access not on Dimension1.
+    const unsigned NumDims = GEPRef->getNumDimensions();
+    unsigned CollapseLevel = (NumDims == 1)
+                                 ? matchSingleDimDynShapeArray(GEPRef)
+                                 : getNumMatchedDimensions(GEPRef);
     if (CollapseLevel <= 1) {
       return false;
     }
-
-    // Update NumCollapsableLoops
     NumCollapsableLoops = std::min(NumCollapsableLoops, CollapseLevel);
+
+    // Multi-dim array:
+    if (NumDims > 1) {
+      // Try: match GEPRef with dynamic-shape pattern
+      CollapseLevel = matchMultiDimDynShapeArray(GEPRef, InnerLpLevel);
+
+      // If matchMultiDimDynShapeArray() returns 0 or 1, the dyn match failed.
+      // Need to count collapsable levels on Ref as a normal ref.
+      // E.g.
+      // -----------------------------
+      // GEPRef        |CollapseLevel |
+      // -----------------------------
+      // A[ 0][ 0][i1] |  1           |
+      // A[ 0][i1][i2] |  2           |
+      // A[i1][i2][i3] |  3           |
+      // -----------------------------
+      if (CollapseLevel < 2) {
+        CollapseLevel = getNumCollapsableLevels(GEPRef);
+      }
+
+      NumCollapsableLoops = std::min(NumCollapsableLoops, CollapseLevel);
+    }
   }
 
-  assert((NumCollapsableLoops > 1) && "Invalid NumCollapsableLoops\n");
+  return NumCollapsableLoops > 1;
+}
+
+// For any partial match: check for anomaly in any unmatched dimension(s).
+//
+// E.g.
+// |i1:
+// ||i2:
+// ||    . = A[i1][i2][i1][i2];
+// ||          ^   ^
+// ||         (1)  (2)
+// ||    ...
+//
+// This function should return false.
+//
+// Return: bool
+// - true: if there is NO anomaly in any un-match dimension
+//         - the unmatched dimensions are all good.
+// - false: otherwise.
+//
+static bool hasValidUnmatchedDims(RegDDRef *Ref, unsigned MatchedDims,
+                                  const unsigned OutermostLoopLevel) {
+  const unsigned DimMax = Ref->getNumDimensions();
+  assert((MatchedDims >= 2) && (MatchedDims <= DimMax));
+
+  // Check: in any non-matched dimension index -- CE, expect any call to
+  // CE->isInvariantAtLevel(OutermostLoopLevel) is true.
+  //
+  // E.g.
+  // | i1
+  // || i2
+  // ||    . = A[i1][i2][i1][i2];
+  //             ^   ^
+  //            (1) (2)
+  // The partial match recognized 2 dimensions (dim1-dim2). Consider the
+  // high-dimension CEs in both (1) and (2), if any CE->isInvariantAtLevel(1)
+  // is not true, bail out and return 0 as the final result.
+  //
+  // [Note]
+  // - 1 is the outermost loop level (i1).
+  //
+  for (unsigned I = MatchedDims + 1; I <= DimMax; ++I) {
+    if (Ref->getDimensionIndex(I)->isInvariantAtLevel(OutermostLoopLevel) ==
+        false) {
+      return false;
+    }
+  }
 
   return true;
 }
 
+// ------------------------------
+// GEPRef        |CollapseLevel |
+// ------------------------------
+// A[ 0][ 0][i1] |  1           |
+// A[ 0][i1][i2] |  2           |
+// A[i1][i2][i3] |  3           |
+// ------------------------------
 unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
-
-  // Note that references to variable length arrays are linearized into one
-  // dimension and handled in getLevelsOfIVPattern(), not here.
-
   unsigned NewNumCollapsableLevels =
       std::min(GEPRef->getNumDimensions(), NumCollapsableLoops);
 
@@ -453,17 +531,23 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
     // 2) The index of inner dimension is a standalone IV, and
     // 3) The index of outer dimension has outer standalone IV, and
     // 4) The trip count of inner loop matches the number of elements in the
-    // lower dimension.
+    //    lower dimension.
 
-    unsigned IVBlob;
-    int64_t IVCoeff;
+    unsigned IVBlob = 0;
+    int64_t IVCoeff = 0;
 
     auto *OuterIdxCE = GEPRef->getDimensionIndex(Idx);
     OuterIdxCE->getIVCoeff(InnerLoopLevel - 1, &IVBlob, &IVCoeff);
 
     bool OuterDimCollapsible = !GEPRef->hasTrailingStructOffsets(Idx) &&
                                IVBlob == InvalidBlobIndex && IVCoeff == 1 &&
-                               OuterIdxCE->getDenominator() == 1;
+                               OuterIdxCE->getDenominator() == 1 &&
+                               OuterIdxCE->isInvariantAtLevel(InnerLoopLevel);
+
+    if (!OuterDimCollapsible) {
+      LLVM_DEBUG(dbgs() << "Dimension number " << Idx
+                        << " is illegal to collapse\n";);
+    }
 
     unsigned InnerDimIVLevel = UINT_MAX;
     bool InnerDimCollapsible =
@@ -472,8 +556,8 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
         (InnerDimIVLevel == InnerLoopLevel);
 
     bool Collapsable = OuterDimCollapsible && InnerDimCollapsible &&
-                       UBTCArry[InnerLoopLevel].isConstant() &&
-                       (UBTCArry[InnerLoopLevel].getTripCount() ==
+                       TCArry[InnerLoopLevel].isConstant() &&
+                       (TCArry[InnerLoopLevel].getConstTripCount() ==
                         GEPRef->getNumDimensionElements(Idx - 1));
 
     if (!Collapsable) {
@@ -487,54 +571,48 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
     return 0;
   }
 
-  // Check for the dimensions outside [1, Idx], i.e. [idx + 1,
-  // getNumDimensions()], These dimesions should not have IV in the range of
-  // collapsed loop levels. I.e. [OutermostCollapsableLevel, InnermostLevel].
+  // Check the dimensions outside [1, Idx], i.e. [idx+1, getNumDimensions()].
+  // These dimensions should not have IV in the range of collapsed loop levels.
+  // I.e. [OutermostCollapsableLevel, InnermostLevel].
   // E.g. [i2][i2][i3] is not valid when two innermost loops are collapsed.
   // Note that in a ref [3rd dim][2nd dim][1st dim], but in loop-level
   // [i1][i2][i3].
-  unsigned OutermostCollapsableLevel =
+  const unsigned OutermostCollapsableLevel =
       InnermostLevel - NewNumCollapsableLevels + 1;
 
-  for (unsigned I = Idx, E = GEPRef->getNumDimensions(); I <= E; I++) {
-    CanonExpr *CE = GEPRef->getDimensionIndex(I);
-    for (unsigned K = InnermostLevel; K >= OutermostCollapsableLevel; K--) {
-      if (CE->hasIV(K)) {
-        return 0;
-      }
-    }
-  }
-
-  return NewNumCollapsableLevels;
+  return hasValidUnmatchedDims(GEPRef, NewNumCollapsableLevels,
+                               OutermostCollapsableLevel)
+             ? NewNumCollapsableLevels
+             : 0;
 }
 
-unsigned
-HIRLoopCollapse::getNumDimensionsOfMatchedSrcAndDestType(RegDDRef *GEPRef) {
-  assert(IVType && "IVType must have been set by now\n");
+unsigned HIRLoopCollapse::getNumMatchedDimensions(RegDDRef *GEPRef) {
+  assert(IVType && "IVType must have been set by now");
+  assert(GEPRef->getNumDimensions() > 1 && "Expect a multi-dimension Ref");
 
   unsigned Idx = 1;
   for (unsigned End = std::min(GEPRef->getNumDimensions(), NumCollapsableLoops);
        Idx <= End; ++Idx) {
     CanonExpr *CE = GEPRef->getDimensionIndex(Idx);
-    if (hasLoopNestIV(CE)) {
-      if ((CE->getSrcType() != IVType) || (CE->getDestType() != IVType)) {
-        break;
-      }
+    if ((CE->getSrcType() != IVType) || (CE->getDestType() != IVType)) {
+      break;
     }
   }
+
   return Idx - 1;
 }
 
 bool HIRLoopCollapse::areNonGEPRefsProfitable(void) {
 
-  // Test on each Non-GEPRef
   for (auto Ref : RefVec) {
+    if (Ref->isFake())
+      continue;
 
     for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
       CanonExpr *CE = (*I);
 
       // Check: match IVPattern?
-      unsigned NumLevels = getLevelsOfIVPattern(CE);
+      unsigned NumLevels = matchCEOnIVLevels(CE);
 
       if (NumLevels <= 1) {
         // Check: Not a IVPattern, but outstanding IVs within CollapseLevels?
@@ -543,13 +621,15 @@ bool HIRLoopCollapse::areNonGEPRefsProfitable(void) {
           return false;
         }
       }
+
       NumCollapsableLoops = std::min(NumCollapsableLoops, NumLevels);
     }
   }
+
   return true;
 }
 
-// clear loop-relevant IV(s) in the given CE
+// Clear loop-relevant IV(s) in the given CE,
 // the range of loop-relevant IVs are given in [LowLpLevel .. HighLpLevel]
 static bool clearRelevantIVs(CanonExpr *CE, unsigned HighLpLevel,
                              unsigned LowLpLevel) {
@@ -566,10 +646,10 @@ static bool clearRelevantIVs(CanonExpr *CE, unsigned HighLpLevel,
   return IsRemoved;
 }
 
-// Replace each relevant IV inside GEPRefVec and NonGEPRef
-// with the newIV from NewLp.
+// Replace each relevant IV inside GEPRefVec and NonGEPRef with the newIV from
+// NewLp.
 //
-// - Simplify any GEPRef with only 1 dimension:
+// - Simplify any GEPRef with multiple dimensions:
 //   FROM: A[0][i1][i2]
 //   TO  : A[0][0 ][i3]
 //
@@ -619,12 +699,13 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                                   const unsigned OrigInnermostLevel,
                                   const unsigned OrigOutermostLevel) {
 
-  // *** Identify relevant loops for collapsing ***
-
   HLLoop *OrigOutermostLp =
       ToCollapseLp->getParentLoopAtLevel(OrigOutermostLevel);
-  LLVM_DEBUG(dbgs() << "Before LoopCollase:\n"; OrigOutermostLp->dump();
-             dbgs() << "\n";);
+  LLVM_DEBUG({
+    dbgs() << "Before HIR Loop Collapse:\n";
+    OrigOutermostLp->dump();
+    dbgs() << "\n";
+  });
 
   OrigOutermostLp->extractPreheaderAndPostexit();
 
@@ -638,15 +719,12 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   // (exclude the Innermost loop)
   for (unsigned Level = OrigInnermostLevel - 1, E = OrigOutermostLevel;
        Level >= E; --Level) {
-    if (UBTCArry[Level].isConstant()) {
+    if (TCArry[Level].isConstant()) {
       AccumulatedTripCountCE->multiplyByConstant(
-          UBTCArry[Level].getTripCount());
+          TCArry[Level].getConstTripCount());
     } else {
-      auto UBCE = UBTCArry[Level].getUBCE();
-      assert(UBCE->getConstant() == -1 &&
-             "Expected UBCE with Blob to be of form '%n-1'\n");
-      AccumulatedTripCountCE->multiplyByConstant(UBCE->getSingleBlobCoeff());
-      AccumulatedTripCountCE->multiplyByBlob(UBCE->getSingleBlobIndex());
+      CanonExpr *TCCE = TCArry[Level].getTripCount();
+      AccumulatedTripCountCE->multiplyByBlob(TCCE->getSingleBlobIndex());
     }
   }
 
@@ -687,7 +765,7 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   // Collapse each relevant Ref from collection:
   // E.g.
   // [FROM]  A[0][i1][i2] = 10*i1+i2;
-  // [TO]    A[0][0][i3] = i3;
+  // [TO]    A[0][0][i3]  = i3;
 
   for (RegDDRef *GEPRef : GEPRefVec) {
     // Collapse current GEPRef:
@@ -704,7 +782,7 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                    OrigInnermostLevel, OrigOutermostLevel, true);
   }
 
-  // Transform each non-GEPRef Ref in RefVec
+  // Transform each non-GEP Ref in RefVec:
   for (RegDDRef *Ref : RefVec) {
     // Collapse current non-GEPRef Ref:
     // E.g.: with-Blob case
@@ -745,14 +823,13 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   //        END LOOP
   //
   updateProfDataforCollapsedLoop(OrigOutermostLp, ToCollapseLp);
-
   ++HIRLoopNestsCollapsed;
 
-  LoopOptReportBuilder &LORBuilder =
-      ToCollapseLp->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      ToCollapseLp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  // %d loops have been collapsed
-  LORBuilder(*ToCollapseLp)
+  // ID: 25567u, remark string: "%d loops have been collapsed"
+  ORBuilder(*ToCollapseLp)
       .addRemark(OptReportVerbosity::Low, 25567u, NumCollapsableLoops);
 
   LLVM_DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump();
@@ -791,15 +868,187 @@ void HIRLoopCollapse::clearWorkingSetMemory(void) {
   RefVec.clear();
   GEPRefVec.clear();
   NumCollapsableLoops = 0;
-  initializeUBTCArry();
+  initializeTCArry();
   IVType = nullptr;
 }
 
-unsigned HIRLoopCollapse::getLevelsOfIVPattern(CanonExpr *CE) const {
+unsigned HIRLoopCollapse::matchSingleDimDynShapeArray(RegDDRef *Ref) {
+  if (DisableDynShapeArray) {
+    LLVM_DEBUG(dbgs() << "Dynamic-shape array not supported\n";);
+    return 0;
+  }
 
-  int64_t IVConstCoeff;
-  unsigned IVIndex;
-  unsigned LevelsMatched = 0;
+  if ((uint64_t)Ref->getDimensionConstStride(1) !=
+      Ref->getSrcTypeSizeInBytes()) {
+    LLVM_DEBUG(
+        dbgs() << "Expect Ref's Stride be a positive integer constant in "
+                  "Dimension 1\n");
+    return false;
+  }
+
+  // Match Ref's dimension-1 index:
+  return matchCEOnIVLevels(Ref->getDimensionIndex(1));
+}
+
+// Match: a multi-dimension dynamic-shape RegDDRef similar to
+// (%A)[0:i1:8*(%N2*%N1)(double*:0)][0:i2:8*%N1(double*:0)][0:i3:8(double*:0)].
+//
+// [Rules]
+// On any dimension of the Ref:
+// - LB: may not necessarily be 0
+// - index: stand-alone IV
+// - stride:
+//   . dim1: a positive integer constant, value: size of (src element type)
+//   . any other dim: accumulated, stride_i = stride_(i+1) * TripCount(i+1)
+//
+// Return:
+// - a positive integer: the number of matched dimensions
+// - 0: match failure, nothing matched
+//
+unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
+                                                     unsigned Level) {
+  if (DisableDynShapeArray) {
+    LLVM_DEBUG(dbgs() << "Dynamic-shape array not supported\n";);
+    return 0;
+  }
+
+  LLVM_DEBUG(dbgs() << "Ref: "; Ref->dump(); dbgs() << "\n";);
+
+  // Special case for dimension1:
+  unsigned Dim = 1;
+
+  // Index: expect a standalone IV, with IV Level matching dimension
+  // E.g.
+  // | i1:
+  // | | i2
+  // | | | i3:
+  // | | | ...
+  // | | |  . = A[i1][i2][i3] .
+  // | | | ...
+  //
+  // The following cases are invalid:
+  // A[i1][i1][i1], A[i3][i1][i2], A[i1][i2][i3+i1], etc.
+  //
+  // [Note]
+  // -stride: expect an integer constant with value equal to sizeof(src type)
+  //
+  const int64_t SrcTypeSize = Ref->getSrcTypeSizeInBytes();
+  if (Ref->getDimensionConstStride(Dim) != SrcTypeSize) {
+    LLVM_DEBUG(dbgs() << "Expect Dim1 stride be an integer constant with value "
+                         "equal to src type size\n");
+    return 0;
+  }
+
+  // Expect: Index is a standlone IV on Level:
+  CanonExpr *IndexCE = Ref->getDimensionIndex(Dim);
+  LLVM_DEBUG(dbgs() << "IndexCE: "; IndexCE->dump(); dbgs() << "\n";);
+  unsigned CurLevel = 0;
+  if (!IndexCE->isStandAloneIV(false, &CurLevel) || (Level != CurLevel)) {
+    return 0;
+  }
+
+  // Initialize the CarryBlob:
+  unsigned CarryBlob = -1;
+  BU->createBlob(SrcTypeSize, Ref->getDimensionStride(Dim)->getDestType(),
+                 true /* insert */, &CarryBlob);
+  //[Note]
+  // - the pattern is accumulating multiplications in blob form.
+  LLVM_DEBUG({
+    dbgs() << "CarryBlob - index: " << CarryBlob << ",\tBlob Print: ";
+    BU->printBlob(dbgs(), BU->getBlob(CarryBlob));
+    dbgs() << "\n";
+  });
+
+  // On any non-dim1 dimension:
+  // - Stride: stride_i = stride_(i+1) * TripCount(i+1)
+  //
+  const unsigned DimMax = Ref->getNumDimensions();
+  CurLevel = Level;
+  for (Dim = 2; Dim <= DimMax; ++Dim) {
+    --CurLevel;
+
+    // Expect: Index is a standlone IV on CurLevel
+    IndexCE = Ref->getDimensionIndex(Dim);
+    LLVM_DEBUG(dbgs() << "IndexCE: "; IndexCE->dump(); dbgs() << "\n";);
+    unsigned TheLevel = 0;
+    if (!IndexCE->isStandAloneIV(false, &TheLevel) || (TheLevel != CurLevel)) {
+      break;
+    }
+
+    // Expect: Stride not be a constant
+    CanonExpr *Stride = Ref->getDimensionStride(Dim);
+    LLVM_DEBUG(dbgs() << "StrideCE: "; Stride->dump(); dbgs() << "\n";);
+    if (Stride->isConstant()) {
+      LLVM_DEBUG(dbgs() << "Not expect Stride be a constant for dimension "
+                        << Dim << "\n";);
+      break;
+    }
+
+    // Expect: Stride can convert into a single stand-alone blob
+    std::unique_ptr<CanonExpr> StrideCE(Stride->clone());
+    const bool CanConvert = StrideCE->convertToStandAloneBlobOrConstant();
+    assert(CanConvert && "Expect a good conversion");
+    (void)CanConvert;
+
+    unsigned StrideBlobIndex = StrideCE->getSingleBlobIndex();
+    LLVM_DEBUG({
+      dbgs() << "StrideBlobIndex - index: " << StrideBlobIndex
+             << ",\tBlob Print: ";
+      BU->printBlob(dbgs(), BU->getBlob(StrideBlobIndex));
+      dbgs() << "\n";
+    });
+
+    // Handle TC as either a constant integer or a blob:
+    unsigned TCBlobIndex = -1;
+    if (TCArry[CurLevel + 1].isConstant()) {
+      BU->createBlob(TCArry[CurLevel + 1].getConstTripCount(),
+                     Ref->getDimensionStride(Dim)->getDestType(),
+                     true /* insert */, &TCBlobIndex);
+    } else {
+      TCBlobIndex = TCArry[CurLevel + 1].getTripCount()->getSingleBlobIndex();
+    }
+
+    LLVM_DEBUG({
+      dbgs() << "\nTCBlobIndex - index: " << TCBlobIndex << ",\tBlob Print: ";
+      BU->printBlob(dbgs(), BU->getBlob(TCBlobIndex));
+      dbgs() << "\n";
+    });
+
+    // Compute the accumulated stride: stride_i = stride_(i+1) * TC(i+1)
+    unsigned NewBlobIndex = 0;
+    BU->createMulBlob(BU->getBlob(CarryBlob), BU->getBlob(TCBlobIndex), true,
+                      &NewBlobIndex);
+    LLVM_DEBUG({
+      dbgs() << "\nNewBlobIndex: ";
+      BU->printBlob(dbgs(), BU->getBlob(NewBlobIndex));
+      dbgs() << "\n";
+    });
+
+    // Verify: the computed stride equals to the stride fetched from Dim
+    if (NewBlobIndex != StrideBlobIndex) {
+      LLVM_DEBUG(dbgs() << "Stride Mismatch in dimension " << Dim << "\n";);
+      break;
+    }
+
+    // Match in Dim, save the Blob Index into CarryBlob, and continue
+    CarryBlob = NewBlobIndex;
+  }
+
+  // For a potential partial match, check any un-matched dimension(s):
+  const unsigned MatchedDimNum = Dim - 1;
+  if (MatchedDimNum < 2) {
+    return 0;
+  }
+
+  const unsigned OutermostLoopLevel = Level - Dim + 2;
+  return hasValidUnmatchedDims(Ref, MatchedDimNum, OutermostLoopLevel)
+             ? MatchedDimNum
+             : 0;
+}
+
+unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
+  int64_t IVConstCoeff = 0;
+  unsigned IVIndex = 0, LevelsMatched = 0;
 
   // Try to match the 1st level (on InnermostLevel):
   CE->getIVCoeff(InnermostLevel, &IVIndex, &IVConstCoeff);
@@ -818,11 +1067,11 @@ unsigned HIRLoopCollapse::getLevelsOfIVPattern(CanonExpr *CE) const {
     CE->getIVCoeff(Level, &IVIndex, &IVConstCoeff);
     unsigned PrevLevel = Level + 1;
 
-    if (UBTCArry[PrevLevel].isConstant()) {
-      AccumuConst *= UBTCArry[PrevLevel].getTripCount();
+    if (TCArry[PrevLevel].isConstant()) {
+      AccumuConst *= TCArry[PrevLevel].getConstTripCount();
     } else {
-      CanonExpr *CurUBCE = UBTCArry[PrevLevel].getUBCE();
-      unsigned BlobIndex = CurUBCE->getSingleBlobIndex();
+      CanonExpr *TCCE = TCArry[PrevLevel].getTripCount();
+      unsigned BlobIndex = TCCE->getSingleBlobIndex();
 
       // Accumulate Blob into AccumuBlobIndex:
       if (AccumuBlobIndex == InvalidBlobIndex) {
@@ -831,7 +1080,6 @@ unsigned HIRLoopCollapse::getLevelsOfIVPattern(CanonExpr *CE) const {
         unsigned NewBlobIndex = 0;
         BU->createMulBlob(BU->getBlob(AccumuBlobIndex), BU->getBlob(BlobIndex),
                           true, &NewBlobIndex);
-
         AccumuBlobIndex = NewBlobIndex;
       }
     }
@@ -927,6 +1175,7 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printCandidateLoops(
 
     HLLoop *InnermostLp = LPPair.second;
     assert(InnermostLp && "InnermostLp can't be null\n");
+    (void)InnermostLp;
 
     dbgs() << "OutermostLp: \n";
     OutermostLp->dump();
@@ -934,8 +1183,8 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printCandidateLoops(
   }
 }
 
-LLVM_DUMP_METHOD void HIRLoopCollapse::printUBTCArry(void) const {
-  for (auto &Item : UBTCArry) {
+LLVM_DUMP_METHOD void HIRLoopCollapse::printTCArry(void) const {
+  for (auto &Item : TCArry) {
     Item.print(true, true);
   }
 }

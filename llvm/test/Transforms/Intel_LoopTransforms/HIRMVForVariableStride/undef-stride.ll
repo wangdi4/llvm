@@ -89,8 +89,8 @@ alloca:
   %"bcint_$IBC_fetch" = load i32, i32* %"bcint_$IBC", align 4
   %int_sext9 = sext i32 %"bcint_$IBC_fetch" to i64
   %mul10 = shl nsw i64 %int_sext9, 2
-  %"bcint_$P.addr_a0$_fetch[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 undef, i64 undef, i32* null, i64 4)
-  %"bcint_$NBCT[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @"bcint_$NBCT", i64 0, i64 0), i64 5)
+  %"bcint_$P.addr_a0$_fetch[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 undef, i64 undef, i32* elementtype(i32) null, i64 4)
+  %"bcint_$NBCT[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([5 x i32], [5 x i32]* @"bcint_$NBCT", i64 0, i64 0), i64 5)
   %"bcint_$NBCT[]_fetch" = load i32, i32* %"bcint_$NBCT[]", align 4
   br label %bb6
 
@@ -100,7 +100,7 @@ bb6:                                              ; preds = %bb3, %alloca
 
 bb10:                                             ; preds = %bb76_endif, %bb6
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb76_endif ], [ 2, %bb6 ]
-  %"bcint_$P.addr_a0$_fetch[][]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 undef, i64 undef, i32* %"bcint_$P.addr_a0$_fetch[]", i64 %indvars.iv)
+  %"bcint_$P.addr_a0$_fetch[][]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 undef, i64 undef, i32* elementtype(i32) %"bcint_$P.addr_a0$_fetch[]", i64 %indvars.iv)
   %"bcint_$P.addr_a0$_fetch[][]_fetch" = load i32, i32* %"bcint_$P.addr_a0$_fetch[][]", align 4
   %rel = icmp sgt i32 %"bcint_$P.addr_a0$_fetch[][]_fetch", %"bcint_$NBCT[]_fetch"
   br i1 %rel, label %bb37_then, label %bb76_endif
@@ -108,11 +108,11 @@ bb10:                                             ; preds = %bb76_endif, %bb6
 bb67:                                             ; preds = %bb67, %bb37_then
   %"var$7.084" = phi i64 [ 3, %bb37_then ], [ %add43, %bb67 ]
   %"var$5.083" = phi i64 [ 1, %bb37_then ], [ %add47, %bb67 ]
-  %"bcint_$P.addr_a0$_fetch[]36" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 undef, i64 undef, i32* null, i64 %"var$5.083")
-  %"bcint_$P.addr_a0$_fetch[]36[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 undef, i64 undef, i32* %"bcint_$P.addr_a0$_fetch[]36", i64 %int_sext23)
+  %"bcint_$P.addr_a0$_fetch[]36" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 undef, i64 undef, i32* elementtype(i32) null, i64 %"var$5.083")
+  %"bcint_$P.addr_a0$_fetch[]36[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 undef, i64 undef, i32* elementtype(i32) %"bcint_$P.addr_a0$_fetch[]36", i64 %int_sext23)
   %"bcint_$P.addr_a0$_fetch[]36[]_fetch" = load i32, i32* %"bcint_$P.addr_a0$_fetch[]36[]", align 4
-  %"bcint_$BC[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %mul10, i32* %"bcint_$BC", i64 %"var$7.084")
-  %"bcint_$BC[][]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %"bcint_$BC[]", i64 %int_sext13)
+  %"bcint_$BC[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %mul10, i32* elementtype(i32) %"bcint_$BC", i64 %"var$7.084")
+  %"bcint_$BC[][]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %"bcint_$BC[]", i64 %int_sext13)
   store i32 %"bcint_$P.addr_a0$_fetch[]36[]_fetch", i32* %"bcint_$BC[][]", align 4
   %add43 = add nuw nsw i64 %"var$7.084", 1
   %add47 = add nuw nsw i64 %"var$5.083", 1
@@ -121,7 +121,7 @@ bb67:                                             ; preds = %bb67, %bb37_then
 
 bb37_then:                                        ; preds = %bb10
   %indvars.iv.lcssa = phi i64 [ %indvars.iv, %bb10 ]
-  %"bcint_$NBCT[]11" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @"bcint_$NBCT", i64 0, i64 0), i64 %indvars.iv88)
+  %"bcint_$NBCT[]11" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([5 x i32], [5 x i32]* @"bcint_$NBCT", i64 0, i64 0), i64 %indvars.iv88)
   %"bcint_$NBCT[]11_fetch" = load i32, i32* %"bcint_$NBCT[]11", align 4
   %int_sext13 = sext i32 %"bcint_$NBCT[]11_fetch" to i64
   %sub = shl i64 %indvars.iv.lcssa, 32

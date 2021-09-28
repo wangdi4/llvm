@@ -235,6 +235,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_MASTER:
       W = new WRNMasterNode(EntryBB);
       break;
+    case DIR_OMP_MASKED:
+      W = new WRNMaskedNode(EntryBB);
+      break;
     case DIR_OMP_ORDERED:
       W = new WRNOrderedNode(EntryBB);
       break;
@@ -266,6 +269,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_THREADPRIVATE:
       // #pragma omp threadprivate can be a module-level directive so we
       // handle it outside of the WRN framework
+      break;
+    case DIR_OMP_SCOPE:
+      W = new WRNScopeNode(EntryBB);
       break;
   }
   if (W) {
@@ -870,7 +876,7 @@ bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
 }
 
 // Return nullptr if W has no parent of the specified kind.
-WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
+WRegionNode *WRegionUtils::getParentRegion(const WRegionNode *W,
                                            unsigned WRegionKind) {
   while (W) {
     WRegionNode *ParentRegion = W->getParent();
@@ -884,9 +890,9 @@ WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
 }
 
 WRegionNode *WRegionUtils::getParentRegion(
-    WRegionNode *W,
-    std::function<bool(WRegionNode *)> IsMatch,
-    std::function<bool(WRegionNode *)> ProcessNext) {
+    const WRegionNode *W,
+    std::function<bool(const WRegionNode *)> IsMatch,
+    std::function<bool(const WRegionNode *)> ProcessNext) {
   while (W) {
     WRegionNode *ParentRegion = W->getParent();
     if (!ParentRegion)
@@ -906,7 +912,7 @@ WRegionNode *WRegionUtils::getParentRegion(
 // The container can be the top-level WRGraph or the Children of a WRN.
 bool WRegionUtils::hasTargetDirective(WRContainerImpl &WrnContainer) {
   for (WRegionNode *W : WrnContainer) {
-    if (W->getIsTarget())
+    if (isa<WRNTargetNode>(W))
       return true;
     if (hasTargetDirective(W->getChildren()))
       return true;
@@ -921,21 +927,24 @@ bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
   return false;
 }
 
-bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
-  Function *F = W->getEntryDirective()->getFunction();
-  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                      "target.declare"))
-    return true;
-
+bool WRegionUtils::hasLexicalParentTarget(const WRegionNode *W) {
   WRegionNode *PW = W->getParent();
   while (PW) {
-    if (PW->getIsTarget())
+    if (isa<WRNTargetNode>(PW))
       return true;
 
     PW = PW->getParent();
   }
-
   return false;
+}
+
+bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
+  Function *F = W->getEntryDirective()->getFunction();
+  if (F->getAttributes().hasFnAttr("target.declare") ||
+      F->getAttributes().hasFnAttr("openmp-target-declare"))
+    return true;
+
+  return hasLexicalParentTarget(W);
 }
 
 // Returns true iff W contains a WRN for which Predicate is true.
@@ -1043,31 +1052,46 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     }
   };
 
+  auto collectNumElementsIfTyped = [&](Item *I) {
+    if (I->getIsTyped())
+      collectIfNonPointerNonConstant(I->getNumElements());
+  };
+
   if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
-    for (PrivateItem *PrivI : PrivClause.items())
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      collectNumElementsIfTyped(PrivI);
       collectSizeIfVLA(PrivI->getOrig());
+    }
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
-    for (FirstprivateItem *FprivI : FprivClause.items())
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      collectNumElementsIfTyped(FprivI);
       collectSizeIfVLA(FprivI->getOrig());
+    }
   }
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
-    for (ReductionItem *RedI : RedClause.items())
+    for (ReductionItem *RedI : RedClause.items()) {
+      collectNumElementsIfTyped(RedI);
       if (RedI->getIsArraySection())
         collectArraySectionBounds(RedI->getArraySectionInfo());
+      else if (RedI->getIsTyped())
+        collectIfNonPointerNonConstant(RedI->getArraySectionOffset());
       else
         collectSizeIfVLA(RedI->getOrig());
+    }
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
-    for (LastprivateItem *LprivI : LprivClause.items())
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      collectNumElementsIfTyped(LprivI);
       collectSizeIfVLA(LprivI->getOrig());
+    }
   }
 
   if (W->canHaveLinear()) {

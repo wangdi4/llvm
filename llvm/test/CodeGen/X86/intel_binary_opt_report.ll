@@ -25,8 +25,9 @@
 ; PROTO-BOR-NEXT:     Version: 1.5
 ; PROTO-BOR-NEXT:     Property Message Map:
 ; PROTO-BOR-DAG:        C_LOOP_VEC_VL --> vectorization support: vector length %s
-; PROTO-BOR-DAG:        C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; PROTO-BOR-DAG:        C_LOOP_COMPLETE_UNROLL_FACTOR --> Loop completely unrolled by %d
 ; PROTO-BOR-DAG:        C_LOOP_VECTORIZED --> LOOP WAS VECTORIZED
+; PROTO-BOR-DAG:        C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
 ; PROTO-BOR-NEXT:     Number of reports: 7
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
@@ -36,7 +37,8 @@
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
 ; PROTO-BOR-DAG:      Anchor ID: fa1bbf46649ed0a2ce779d054e268257
-; PROTO-BOR-DAG:      Number of remarks: 0
+; PROTO-BOR-DAG:      Number of remarks: 1
+; PROTO-BOR-DAG:        Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25508, Remark Args:
 ; PROTO-BOR-DAG:      ==== Loop End ====
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
@@ -49,7 +51,7 @@
 ; PROTO-BOR-DAG:      === Loop Begin ===
 ; PROTO-BOR-DAG:      Anchor ID: 7570d5ba2a865bcde3ab13af9e215a98
 ; PROTO-BOR-DAG:      Number of remarks: 1
-; PROTO-BOR-DAG:        Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; PROTO-BOR-DAG:        Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 8
 ; PROTO-BOR-DAG:      ==== Loop End ====
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
@@ -76,7 +78,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @sum = dso_local local_unnamed_addr global double* null, align 8, !dbg !0
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local double @_Z3fooPdi(double* nocapture readonly %x, i32 %n) local_unnamed_addr #0 !dbg !13 !llvm.loop.optreport !28 {
+define dso_local double @_Z3fooPdi(double* nocapture readonly %x, i32 %n) local_unnamed_addr #0 !dbg !13 !intel.optreport.rootnode !28 {
 entry:
   call void @llvm.dbg.value(metadata double* %x, metadata !18, metadata !DIExpression()), !dbg !37
   call void @llvm.dbg.value(metadata i32 %n, metadata !19, metadata !DIExpression()), !dbg !38
@@ -348,15 +350,15 @@ attributes #1 = { nounwind readnone speculatable }
 !25 = distinct !DILexicalBlock(scope: !13, file: !3, line: 17, column: 3)
 !26 = !DILocalVariable(name: "i", scope: !27, file: !3, line: 21, type: !16)
 !27 = distinct !DILexicalBlock(scope: !13, file: !3, line: 21, column: 3)
-!28 = distinct !{!"llvm.loop.optreport", !29}
-!29 = distinct !{!"intel.loop.optreport", !30}
+!28 = distinct !{!"intel.optreport.rootnode", !29}
+!29 = distinct !{!"intel.optreport", !30}
 !30 = !{!"intel.optreport.first_child", !31}
-!31 = distinct !{!"llvm.loop.optreport", !32}
-!32 = distinct !{!"intel.loop.optreport", !33, !35}
+!31 = distinct !{!"intel.optreport.rootnode", !32}
+!32 = distinct !{!"intel.optreport", !33, !35}
 !33 = !{!"intel.optreport.debug_location", !34}
 !34 = !DILocation(line: 21, column: 3, scope: !27)
 !35 = !{!"intel.optreport.remarks", !36}
-!36 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+!36 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 8}
 !37 = !DILocation(line: 3, column: 20, scope: !13)
 !38 = !DILocation(line: 3, column: 27, scope: !13)
 !39 = !DILocation(line: 10, column: 12, scope: !21)
@@ -381,8 +383,8 @@ attributes #1 = { nounwind readnone speculatable }
 !58 = !{!"llvm.loop.vectorize.width", i32 1}
 !59 = !{!"llvm.loop.interleave.count", i32 1}
 !60 = !{!"llvm.loop.unroll.disable"}
-!61 = distinct !{!"llvm.loop.optreport", !62}
-!62 = distinct !{!"intel.loop.optreport", !63, !64, !66}
+!61 = distinct !{!"intel.optreport.rootnode", !62}
+!62 = distinct !{!"intel.optreport", !63, !64, !66}
 !63 = !{!"intel.optreport.debug_location", !46}
 !64 = !{!"intel.optreport.origin", !65}
 !65 = !{!"intel.optreport.remark", i32 0, !"Multiversioned loop"}
@@ -393,15 +395,15 @@ attributes #1 = { nounwind readnone speculatable }
 !70 = !DILocation(line: 11, column: 27, scope: !41)
 !71 = distinct !{!71, !46, !56, !57, !72, !58, !59, !73}
 !72 = !{!"llvm.loop.intel.loopcount_maximum", i32 7}
-!73 = distinct !{!"llvm.loop.optreport", !74}
-!74 = distinct !{!"intel.loop.optreport", !63, !75, !77}
+!73 = distinct !{!"intel.optreport.rootnode", !74}
+!74 = distinct !{!"intel.optreport", !63, !75, !77}
 !75 = !{!"intel.optreport.origin", !76}
 !76 = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
 !77 = !{!"intel.optreport.remarks", !78}
 !78 = !{!"intel.optreport.remark", i32 15441, !"remainder loop was not vectorized: %s ", !""}
 !79 = distinct !{!79, !46, !56, !57, !58, !59, !60, !80}
-!80 = distinct !{!"llvm.loop.optreport", !81}
-!81 = distinct !{!"intel.loop.optreport", !63, !82}
+!80 = distinct !{!"intel.optreport.rootnode", !81}
+!81 = distinct !{!"intel.optreport", !63, !82}
 !82 = !{!"intel.optreport.remarks", !83}
 !83 = !{!"intel.optreport.remark", i32 0, !"The loop has been multiversioned"}
 !84 = !DILocation(line: 13, column: 12, scope: !23)
@@ -420,13 +422,13 @@ attributes #1 = { nounwind readnone speculatable }
 !97 = !DILocation(line: 13, column: 3, scope: !23)
 !98 = distinct !{!98, !97, !99, !58, !59, !60, !100}
 !99 = !DILocation(line: 14, column: 32, scope: !23)
-!100 = distinct !{!"llvm.loop.optreport", !101}
-!101 = distinct !{!"intel.loop.optreport", !102, !82, !103}
+!100 = distinct !{!"intel.optreport.rootnode", !101}
+!101 = distinct !{!"intel.optreport", !102, !82, !103}
 !102 = !{!"intel.optreport.debug_location", !97}
 !103 = !{!"intel.optreport.next_sibling", !104}
-!104 = distinct !{!"llvm.loop.optreport", !105}
-!105 = distinct !{!"intel.loop.optreport", !102, !75, !106}
-!106 = !{!"intel.optreport.remarks", !78, !107}
+!104 = distinct !{!"intel.optreport.rootnode", !105}
+!105 = distinct !{!"intel.optreport", !102, !75, !106}
+!106 = !{!"intel.optreport.remarks", !78, !107, !130}
 !107 = !{!"intel.optreport.remark", i32 0, !"LLorg: Loop has been completely unrolled"}
 !108 = !DILocation(line: 18, column: 20, scope: !95)
 !109 = !DILocation(line: 18, column: 27, scope: !95)
@@ -436,8 +438,8 @@ attributes #1 = { nounwind readnone speculatable }
 !113 = !DILocation(line: 17, column: 3, scope: !25)
 !114 = distinct !{!114, !113, !115, !60, !116}
 !115 = !DILocation(line: 18, column: 32, scope: !25)
-!116 = distinct !{!"llvm.loop.optreport", !117}
-!117 = distinct !{!"intel.loop.optreport", !118, !119}
+!116 = distinct !{!"intel.optreport.rootnode", !117}
+!117 = distinct !{!"intel.optreport", !118, !119}
 !118 = !{!"intel.optreport.debug_location", !113}
 !119 = !{!"intel.optreport.remarks", !120}
 !120 = !{!"intel.optreport.remark", i32 0, !"Loop has been unrolled by %d factor", i32 2}
@@ -450,3 +452,4 @@ attributes #1 = { nounwind readnone speculatable }
 !127 = !DILocation(line: 24, column: 16, scope: !13)
 !128 = !DILocation(line: 24, column: 10, scope: !13)
 !129 = !DILocation(line: 24, column: 3, scope: !13)
+!130 = !{!"intel.optreport.remark", i32 25508, !"Loop completely unrolled"}

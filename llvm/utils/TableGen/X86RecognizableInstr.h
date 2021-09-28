@@ -135,10 +135,8 @@ namespace X86Local {
   };
 
   enum {
-#if INTEL_CUSTOMIZATION
     OB = 0, TB = 1, T8 = 2, TA = 3, XOP8 = 4, XOP9 = 5, XOPA = 6, ThreeDNow = 7,
     T_MAP5 = 8, T_MAP6 = 9, T_MAP8 = 10
-#endif // INTEL_CUSTOMIZATION
   };
 
   enum {

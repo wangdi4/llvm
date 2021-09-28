@@ -21,6 +21,8 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 
+#if INTEL_FEATURE_SW_ADVANCED
+
 namespace llvm {
 
 namespace vpo {
@@ -56,14 +58,16 @@ public:
   template <typename ScopeTy>
   void dump(raw_ostream &OS, ScopeTy *Scope) const {}
 
-  // Formatted print of cost increase/decrease due to Heuristics.
-  // The output is a full line.
-  void printCostChange(raw_ostream *OS,
-                       unsigned RefCost, unsigned NewCost) const;
-  // The short form of 'cost change' output. The utility is invoked during per
-  // instruction cost model debug dump.
-  void printCostChangeInline(raw_ostream *OS,
-                             unsigned RefCost, unsigned NewCost) const;
+  // Utilities for formatted print of cost increase/decrease due to Heuristics.
+  // The output format depends on the Scope argument type. When ScopeTy is
+  // VPlan the output is a full line with carriage return. If ScopeTy is
+  // VPInstruction, the output line is short and w/o '\n' meaining that
+  // several Heuristics are expected to report in a single line. Output format
+  // for basic block is undefined and unused yet.
+  void printCostChange(unsigned RefCost, unsigned NewCost,
+                       const VPlan *Scope, raw_ostream *OS) const;
+  void printCostChange(unsigned RefCost, unsigned NewCost,
+                       const VPInstruction *Scope, raw_ostream *OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   // An heuristic can feature the VPlan level initialization routine which is
   // to be called explicitly by demand when CM is about to use the heuristic
@@ -279,4 +283,5 @@ public:
 } // namespace vpo
 
 } // namespace llvm
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELHEURISTICS_H

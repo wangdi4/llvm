@@ -36,7 +36,7 @@ alloca:
 bb5:                                            ; preds = %bb5, %alloca
   %p0 = phi i32 [ 1, %alloca ], [ %add21, %bb5 ]
   %int_sext17 = sext i32 %p0 to i64
-  %pR = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* getelementptr inbounds ([100 x %complex_64bit], [100 x %complex_64bit]* @pR, i32 0, i32 0), i64 %int_sext17)
+  %pR = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) getelementptr inbounds ([100 x %complex_64bit], [100 x %complex_64bit]* @pR, i32 0, i32 0), i64 %int_sext17)
   %pR_fetch = load %complex_64bit, %complex_64bit* %pR
   %int_cast = sitofp i32 %p0 to float
   %pR_fetch_c0 = extractvalue %complex_64bit %pR_fetch, 0

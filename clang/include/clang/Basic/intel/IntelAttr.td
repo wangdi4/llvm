@@ -531,7 +531,7 @@ def IntelOclBiccAVX512 : DeclOrTypeAttr {
 
 def AllowCpuFeatures : InheritableAttr,
                        TargetSpecificAttr<TargetAnyX86> {
-  let Spellings = [Clang<"allow_cpu_features">];
+  let Spellings = [Clang<"allow_cpu_features">, Declspec<"allow_cpu_features">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [AllowCPUFeatureDocs];
   let Args = [ExprArgument<"Page1">, ExprArgument<"Page2", 1>];

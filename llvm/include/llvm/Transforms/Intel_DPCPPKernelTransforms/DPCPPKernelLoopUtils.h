@@ -14,18 +14,14 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 
 namespace llvm {
-
-/// Helpful shortcuts for structures.
-using ValueVec = SmallVector<Value *, 4>;
-using InstVec = SmallVector<Instruction *, 4>;
-using InstVecVec = SmallVector<InstVec, 4>;
-using FuncSet = DPCPPKernelCompilationUtils::FuncSet;
 
 /// Struct that represent loop Region in the CFG.
 struct LoopRegion {
@@ -87,7 +83,7 @@ void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
 
 /// Returns size_t type.
 /// M - current module.
-Type *getIntTy(Module *M);
+Type *getIndTy(Module *M);
 
 /// Collect the get_***_id() in F.
 /// TIDName - name of the tid generator get_global_id\ get_local_id.
@@ -115,6 +111,20 @@ void fillDirectUsers(FuncSet *Funcs, FuncSet *UserFuncs, FuncSet *NewUsers);
 /// UserInsts vector to fill.
 void fillInstructionUsers(Function *F,
                           SmallVectorImpl<Instruction *> &UserInsts);
+
+/// Generate the mask argument for masked vectorized kernel.
+/// \param VF the vectorization factor.
+/// \param LoopLen max number of active workitems.
+/// \param BB entry basicblock of the masked vectorized kernel.
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, BasicBlock *BB);
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, BasicBlock *BB);
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, Instruction *IP);
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP);
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, IRBuilder<> &Builder,
+                             Module *M);
+
+/// Inline the masked kernel into scalar kernel.
+void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel);
 
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm

@@ -1,5 +1,5 @@
 ; REQUIRES: proto_bor
-; RUN: llc %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
+; RUN: llc < %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
 ; RUN: intel-bin-opt-report %t.o | FileCheck %s
 
 ; Check reader tool's correctness for a simple loop which is completely unrolled.
@@ -18,13 +18,13 @@
 ; CHECK:      --- Start Intel Binary Optimization Report ---
 ; CHECK-NEXT: Version: 1.5
 ; CHECK-NEXT: Property Message Map:
-; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL_FACTOR --> Loop completely unrolled by %d
 ; CHECK-NEXT: Number of reports: 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT: === Loop Begin ===
-; CHECK-NEXT: Anchor ID: b872981369bec6a71028b6890b9ca9a6
+; CHECK-NEXT: Anchor ID: e9a3f5d79e7ea2f824577e5b6b1e4d85
 ; CHECK-NEXT: Number of remarks: 1
-; CHECK-NEXT:   Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; CHECK-NEXT:   Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 4
 ; CHECK-NEXT: ==== Loop End ====
 ; CHECK-EMPTY:
 ; CHECK-NEXT: --- End Intel Binary Optimization Report ---
@@ -35,7 +35,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree noinline norecurse nounwind uwtable
-define dso_local void @foo(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !6 !llvm.loop.optreport !8 {
+define dso_local void @foo(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !6 !intel.optreport.rootnode !8 {
 entry:
   %gepload = load float, float* %c, align 4, !dbg !17, !tbaa !18
   %gepload26 = load float, float* %b, align 4, !dbg !22, !tbaa !18
@@ -138,15 +138,15 @@ attributes #3 = { nounwind }
 !5 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.2.0 (YYYY.x.0.MMDD)"}
 !6 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 3, type: !7, scopeLine: 3, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !7 = !DISubroutineType(types: !2)
-!8 = distinct !{!"llvm.loop.optreport", !9}
-!9 = distinct !{!"intel.loop.optreport", !10}
+!8 = distinct !{!"intel.optreport.rootnode", !9}
+!9 = distinct !{!"intel.optreport", !10}
 !10 = !{!"intel.optreport.first_child", !11}
-!11 = distinct !{!"llvm.loop.optreport", !12}
-!12 = distinct !{!"intel.loop.optreport", !13, !15}
+!11 = distinct !{!"intel.optreport.rootnode", !12}
+!12 = distinct !{!"intel.optreport", !13, !15}
 !13 = !{!"intel.optreport.debug_location", !14}
 !14 = !DILocation(line: 5, column: 3, scope: !6)
 !15 = !{!"intel.optreport.remarks", !16}
-!16 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+!16 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 4}
 !17 = !DILocation(line: 6, column: 19, scope: !6)
 !18 = !{!19, !19, i64 0}
 !19 = !{!"float", !20, i64 0}

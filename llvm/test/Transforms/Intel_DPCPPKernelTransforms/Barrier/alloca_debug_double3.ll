@@ -32,7 +32,7 @@ entry:
 ; CHECK-NEXT: [[LocalId_data:%pSB_LocalId[0-9]+]] = bitcast i8* [[Ptr_data]] to <3 x double>*
 ; CHECK-NEXT: store <3 x double>* [[LocalId_data]], <3 x double>** %data.addr
 
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %p.addr = alloca <3 x double> addrspace(1)*, align 8
   %data = alloca <3 x double>, align 32
   %i = alloca i64, align 8
@@ -58,7 +58,7 @@ entry:
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z13get_global_idj(i32) #2
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 ; Function Attrs: convergent
 declare void @_Z18work_group_barrierj(i32) #3

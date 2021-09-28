@@ -1,4 +1,6 @@
 # -*- Python -*-
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-31399: The file was removed upstream. Need to accomodate intel tests
 
 import os
 import platform
@@ -35,7 +37,8 @@ config.test_source_root = os.path.dirname(__file__)
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
-llvm_config.use_clang(use_installed=True)
+llvm_config.use_clang(use_installed=True,
+                      additional_flags=config.sycl_clang_extra_flags.split(' '))
 
 # Propagate some variables from the host environment.
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
@@ -58,8 +61,6 @@ if platform.system() == "Linux":
     config.available_features.add('linux')
     llvm_config.with_system_environment(['LD_LIBRARY_PATH','LIBRARY_PATH','CPATH'])
     llvm_config.with_environment('LD_LIBRARY_PATH', config.sycl_libs_dir, append_path=True)
-    llvm_config.with_system_environment('CFLAGS')
-    llvm_config.with_environment('CFLAGS', config.sycl_clang_extra_flags)
 
 elif platform.system() == "Windows":
     config.available_features.add('windows')
@@ -107,6 +108,8 @@ if 'GET_DEVICE_TOOL' in lit_config.params.keys():
 def getDeviceCount(device_type):
     is_cuda = False;
     is_level_zero = False;
+    is_rocm_amd = False;
+    is_rocm_nvidia = False;
     process = subprocess.Popen([get_device_count_by_type_path, device_type, backend],
         stdout=subprocess.PIPE)
     (output, err) = process.communicate()
@@ -132,11 +135,15 @@ def getDeviceCount(device_type):
             is_cuda = True;
         if re.match(r".*level zero", result[1]):
             is_level_zero = True;
+        if re.match(r".*rocm-amd", result[1]):
+            is_rocm_amd = True;
+        if re.match(r".*rocm-nvidia", result[1]):
+            is_rocm_nvidia = True;
 
     if err:
         lit_config.warning("getDeviceCount {TYPE} {BACKEND} stderr:{ERR}".format(
             TYPE=device_type, BACKEND=backend, ERR=err))
-    return [value,is_cuda,is_level_zero]
+    return [value,is_cuda,is_level_zero,is_rocm_amd,is_rocm_nvidia]
 
 # check if compiler supports CL command line options
 cl_options=False
@@ -185,6 +192,22 @@ else:
     config.substitutions.append( ('%debug_option',  '-g' ) )
     config.substitutions.append( ('%cxx_std_option',  '-std=' ) )
 
+# INTEL_CUSTOMIZATION
+# Add an extra include directory which points to a fake sycl/sycl.hpp (which just points to CL/sycl.hpp)
+# location to workaround compiler versions which do not provide this header
+check_sycl_hpp_file='sycl_hpp_include.cpp'
+with open(check_sycl_hpp_file, 'w') as fp:
+     fp.write('#include <sycl/sycl.hpp>\n')
+     fp.write('int main() {}')
+
+sycl_hpp_available = subprocess.getstatusoutput(config.clang+' -fsycl  ' + check_sycl_hpp_file)
+if sycl_hpp_available[0] != 0:
+    if platform.system() == 'Windows':
+        llvm_config.with_environment('INCLUDE', config.extra_include, append_path=True)
+    else:
+        llvm_config.with_environment('CPATH', config.extra_include, append_path=True)
+# end INTEL_CUSTOMIZATION
+
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
 
@@ -193,8 +216,8 @@ config.available_features.add('host')
 
 found_at_least_one_device = False
 
-cpu_run_substitute = "true"
-cpu_run_on_linux_substitute = "true "
+cpu_run_substitute = "echo "
+cpu_run_on_linux_substitute = "echo "
 cpu_check_substitute = ""
 cpu_check_on_linux_substitute = ""
 
@@ -215,14 +238,16 @@ config.substitutions.append( ('%CPU_RUN_ON_LINUX_PLACEHOLDER',  cpu_run_on_linux
 config.substitutions.append( ('%CPU_CHECK_PLACEHOLDER',  cpu_check_substitute) )
 config.substitutions.append( ('%CPU_CHECK_ON_LINUX_PLACEHOLDER',  cpu_check_on_linux_substitute) )
 
-gpu_run_substitute = "true"
-gpu_run_on_linux_substitute = "true "
+gpu_run_substitute = "echo "
+gpu_run_on_linux_substitute = "echo "
 gpu_check_substitute = ""
 gpu_check_on_linux_substitute = ""
 
 cuda = False
 level_zero = False
-[gpu_count, cuda, level_zero] = getDeviceCount("gpu")
+rocm_amd = False
+rocm_nvidia = False
+[gpu_count, cuda, level_zero, rocm_amd, rocm_nvidia] = getDeviceCount("gpu")
 
 if gpu_count > 0:
     found_at_least_one_device = True
@@ -234,6 +259,16 @@ if gpu_count > 0:
        config.available_features.add('cuda')
     elif level_zero:
        config.available_features.add('level_zero')
+    elif rocm_amd:
+       config.available_features.add('rocm_amd')
+       # For AMD the specific GPU has to be specified with --offload-arch
+       if not re.match('.*--offload-arch.*', config.sycl_clang_extra_flags):
+        raise Exception("Error: missing --offload-arch flag when trying to "  \
+                        "run lit tests for AMD GPU, please add "              \
+                        "`-Xsycl-target-backend=amdgcn-amd-amdhsa-sycldevice --offload-arch=<target>` to " \
+                        "the CMake variable SYCL_CLANG_EXTRA_FLAGS")
+    elif rocm_nvidia:
+       config.available_features.add('rocm_nvidia')
 
     if platform.system() == "Linux":
         gpu_run_on_linux_substitute = "env SYCL_DEVICE_FILTER={SYCL_PLUGIN}:gpu,host ".format(SYCL_PLUGIN=backend)
@@ -246,7 +281,7 @@ config.substitutions.append( ('%GPU_RUN_ON_LINUX_PLACEHOLDER',  gpu_run_on_linux
 config.substitutions.append( ('%GPU_CHECK_PLACEHOLDER',  gpu_check_substitute) )
 config.substitutions.append( ('%GPU_CHECK_ON_LINUX_PLACEHOLDER',  gpu_check_on_linux_substitute) )
 
-acc_run_substitute = "true"
+acc_run_substitute = "echo "
 acc_check_substitute = ""
 if getDeviceCount("accelerator")[0]:
     found_at_least_one_device = True
@@ -263,8 +298,10 @@ config.substitutions.append( ('%ACC_CHECK_PLACEHOLDER',  acc_check_substitute) )
 if not cuda and not level_zero and found_at_least_one_device:
     config.available_features.add('opencl')
 
-if cuda:
+if cuda or rocm_nvidia:
     config.substitutions.append( ('%sycl_triple',  "nvptx64-nvidia-cuda-sycldevice" ) )
+elif rocm_amd:
+    config.substitutions.append( ('%sycl_triple',  "amdgcn-amd-amdhsa-sycldevice" ) )
 else:
     config.substitutions.append( ('%sycl_triple',  "spir64-unknown-unknown-sycldevice" ) )
 
@@ -292,3 +329,4 @@ try:
     lit_config.maxIndividualTestTime = 600
 except ImportError:
     pass
+# end INTEL_CUSTOMIZATION

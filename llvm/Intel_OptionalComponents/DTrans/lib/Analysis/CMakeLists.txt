@@ -13,6 +13,7 @@
 
 add_llvm_component_library(LLVMIntel_DTransAnalysis
   DTransAllocAnalyzer.cpp
+  DTransAllocCollector.cpp
   DTransAnalysis.cpp
   DTransAnnotator.cpp
   DTransArraysWithConstant.cpp
@@ -22,6 +23,7 @@ add_llvm_component_library(LLVMIntel_DTransAnalysis
   DTransSafetyAnalyzer.cpp
   DTransTypes.cpp
   DTransUtils.cpp
+  MemoryBuiltinsExtras.cpp
   PtrTypeAnalyzer.cpp
   PtrTypeAnalyzerTest.cpp
   TypeMetadataReader.cpp

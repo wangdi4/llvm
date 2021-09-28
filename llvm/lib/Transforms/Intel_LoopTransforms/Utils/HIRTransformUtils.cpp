@@ -281,8 +281,8 @@ static void getFactoredWeights(HIRTransformUtils::ProfInfo *Prof,
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
     const RegDDRef *NewTCRef, bool NeedRemainderLoop,
-    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy,
-    HLIf *RuntimeCheck, ProfInfo *Prof) {
+    OptReportBuilder &ORBuilder, OptimizationType OptTy, HLIf *RuntimeCheck,
+    ProfInfo *Prof) {
   HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
@@ -376,24 +376,24 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
   // NewLoop is the main loop now and hence, we want to associate all the opt
   // report with it.
-  LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+  ORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
   if (OptTy == OptimizationType::Unroll) {
 
     if (NeedRemainderLoop) {
       // Loop unrolled with remainder by %d
-      LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25439u,
-                                     UnrollOrVecFactor);
+      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25439u,
+                                    UnrollOrVecFactor);
     } else {
       // Loop unrolled without remainder by %d
-      LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25438u,
-                                     UnrollOrVecFactor);
+      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25438u,
+                                    UnrollOrVecFactor);
     }
 
   } else if (OptTy == OptimizationType::UnrollAndJam) {
 
     // Loop has been unrolled and jammed by %d
-    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25540u,
-                                   UnrollOrVecFactor);
+    ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25540u,
+                                  UnrollOrVecFactor);
   } else {
     assert(OptTy == OptimizationType::Vectorizer &&
            "Invalid optimization type!");
@@ -478,7 +478,7 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
 
 HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
+    OptReportBuilder &ORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
     const RegDDRef *PeelArrayRef,
     SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
         *RuntimeChecks) {
@@ -534,7 +534,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   // Profile data is calculated internally in createUnrollOrVecLoop
   HLLoop *MainLoop = createUnrollOrVecLoop(
       OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, NeedRemainderLoop,
-      LORBuilder, OptTy, RuntimeCheck, ProfExists ? &Prof : nullptr);
+      ORBuilder, OptTy, RuntimeCheck, ProfExists ? &Prof : nullptr);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
@@ -545,15 +545,14 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
 
     // Since OrigLoop became a remainder and will be lexicographicaly
     // second to MainLoop, we move all the next siblings back there.
-    LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
+    ORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
     if (OptTy == OptimizationType::Vectorizer) {
-      LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
-    } else if (OptTy == OptimizationType::Unroll) {
-      LORBuilder(*OrigLoop).addOrigin("Remainder");
+      ORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
     } else {
-      assert(OptTy == OptimizationType::UnrollAndJam &&
+      assert(((OptTy == OptimizationType::Unroll) ||
+              (OptTy == OptimizationType::UnrollAndJam)) &&
              "Invalid optimization type!");
-      LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
+      ORBuilder(*OrigLoop).addOrigin("Remainder");
     }
   } else
     assert((!RuntimeChecks || RuntimeChecks->empty()) &&

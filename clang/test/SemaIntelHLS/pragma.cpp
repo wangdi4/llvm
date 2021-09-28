@@ -33,9 +33,11 @@ void foo_coalesce()
   #pragma loop_coalesce
   for (int i=0;i<32;++i) {}
 
-  //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGALoopCoalesceAttr
-  //CHECK-NEXT: IntegerLiteral{{.*}}4
+  // CHECK: AttributedStmt
+  // CHECK-NEXT:  SYCLIntelFPGALoopCoalesceAttr
+  // CHECK-NEXT:  ConstantExpr{{.*}}'int'
+  // CHECK-NEXT:  value: Int 4
+  // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
   #pragma loop_coalesce 4
   for (int i=0;i<32;++i) {}
 
@@ -74,9 +76,11 @@ void foo_coalesce()
 //CHECK: FunctionDecl{{.*}}foo_ii
 void foo_ii()
 {
-  //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAInitiationIntervalAttr
-  //CHECK-NEXT: IntegerLiteral{{.*}}4
+  // CHECK: AttributedStmt
+  // CHECK-NEXT:  SYCLIntelFPGAInitiationIntervalAttr
+  // CHECK-NEXT:  ConstantExpr{{.*}}'int'
+  // CHECK-NEXT:  value: Int 4
+  // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
   #pragma ii 4
   for (int i=0;i<32;++i) {}
 
@@ -117,9 +121,11 @@ void foo_ii()
 //CHECK: FunctionDecl{{.*}}foo_max_concurrency
 void foo_max_concurrency()
 {
-  //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAMaxConcurrencyAttr
-  //CHECK-NEXT: IntegerLiteral{{.*}}4
+  // CHECK: AttributedStmt
+  // CHECK-NEXT:  SYCLIntelFPGAMaxConcurrencyAttr
+  // CHECK-NEXT:  ConstantExpr{{.*}}'int'
+  // CHECK-NEXT:  value: Int 4
+  // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
   #pragma max_concurrency 4
   for (int i=0;i<32;++i) {}
 
@@ -159,9 +165,11 @@ void foo_max_concurrency()
 //CHECK: FunctionDecl{{.*}}foo_max_interleaving
 void foo_max_interleaving()
 {
-  //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAMaxInterleavingAttr
-  //CHECK-NEXT: IntegerLiteral{{.*}}1
+  // CHECK: AttributedStmt
+  // CHECK-NEXT:  SYCLIntelFPGAMaxInterleavingAttr
+  // CHECK-NEXT:  ConstantExpr{{.*}}'int'
+  // CHECK-NEXT:  value: Int 1
+  // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 1
   #pragma max_interleaving 1
   for (int i=0;i<32;++i) {}
 
@@ -464,9 +472,11 @@ void foo_ii_at_least()
 //CHECK: FunctionDecl{{.*}}foo_speculated_iterations
 void foo_speculated_iterations()
 {
-  //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGASpeculatedIterationsAttr
-  //CHECK-NEXT: IntegerLiteral{{.*}} 4
+  // CHECK: AttributedStmt
+  // CHECK-NEXT:  SYCLIntelFPGASpeculatedIterationsAttr
+  // CHECK-NEXT:  ConstantExpr{{.*}}'int'
+  // CHECK-NEXT:  value: Int 4
+  // CHECK-NEXT:  IntegerLiteral {{.*}} 'int' 4
   #pragma speculated_iterations 4
   for (int i=0;i<32;++i) {}
 

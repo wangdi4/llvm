@@ -127,9 +127,10 @@ class BoolMultiVersioningImpl {
       //    do not even bother with further validation.
       // 2. Check type consistency. All GEPs and loads are supposed to have
       //    matching types.
-      if (getNumUses() < MultiVersioningThreshold) {
+      unsigned NumUses = getNumUses();
+      if (NumUses < MultiVersioningThreshold) {
         LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Not enough uses (pre-check) - "
-                          << getNumUses() << "\n");
+                          << NumUses << "\n");
         return false;
       }
       if (!hasConsistentTypes()) {
@@ -179,9 +180,10 @@ class BoolMultiVersioningImpl {
 
       // After removing unsafe loads check again if the number of conditional
       // uses is still sufficient for the transformation.
-      if (getNumUses() < MultiVersioningThreshold) {
+      unsigned NewNumUses = getNumUses();
+      if (NewNumUses < MultiVersioningThreshold) {
         LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Not enough uses (post-check) - "
-                          << getNumUses() << "\n");
+                          << NewNumUses << "\n");
         return false;
       }
       return true;
@@ -280,12 +282,46 @@ class BoolMultiVersioningImpl {
 
           // Count the number of cmp uses which use it as condition.
           unsigned NumCondUses = 0u;
-          for (const auto &Use : Cmp->uses())
-            if (isa<BranchInst>(Use.getUser()))
-              ++NumCondUses;
-            else if (auto *Select = dyn_cast<SelectInst>(Use.getUser()))
-              if (Select->getCondition() == Cmp)
+          FreezeInst *FI = nullptr;
+          bool BadFreeze = false;
+          Instruction *CurrI = Cmp;
+          SetVector<FreezeInst *> VisitedFreeze;
+
+          // We need to count all branch and select instructions. If there is
+          // a freeze instruction, then we need to collect it and keep tracing
+          // from that point.
+          do {
+            FI = nullptr;
+            for (const auto &Use : CurrI->uses()) {
+              if (isa<BranchInst>(Use.getUser())) {
                 ++NumCondUses;
+              }
+              else if (auto *Select = dyn_cast<SelectInst>(Use.getUser())) {
+                if (Select->getCondition() == CurrI)
+                  ++NumCondUses;
+              }
+              else if (auto *Freeze = dyn_cast<FreezeInst>(Use.getUser())) {
+                if (!FI && VisitedFreeze.insert(Freeze)) {
+                  FI = Freeze;
+                } else {
+                  BadFreeze = true;
+                  FI = nullptr;
+                  break;
+                }
+              }
+            }
+
+            if (!BadFreeze && FI)
+              CurrI = FI;
+          } while (!BadFreeze && FI);
+
+          if (BadFreeze) {
+            LLVM_DEBUG(dbgs()
+                       << DEBUG_PREFIX "(Skip) Multiple freeze "
+                                       " instructions\n");
+            Cmps.clear();
+            break;
+          }
 
           // Ok, this compare matches pattern - add it to the tree.
           LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Adding compare with "
@@ -405,49 +441,68 @@ class BoolMultiVersioningImpl {
           auto Pred = Inst->getPredicate();
           assert(ICmpInst::isEquality(Pred));
 
+          // We need to find all the branch instructions first. If there is
+          // a freeze instruction, then we need to collect it and then keep
+          // tracing for more branches using it.
+          SetVector<BranchInst *> Branches;
+          Instruction *CurrI = Inst;
+          FreezeInst *FI = nullptr;
+          do {
+            FI = nullptr;
+            for (auto *U : CurrI->users()) {
+              if (auto *BrInst = dyn_cast<BranchInst>(U)) {
+                Branches.insert(BrInst);
+              }
+              else if (auto *Freeze = dyn_cast<FreezeInst>(U)) {
+                assert (!FI && "Multiple freeze found\n");
+                FI = Freeze;
+              }
+            }
+            if (FI)
+              CurrI = FI;
+          } while (FI);
+
           // Collect the profile counts to enable setting the branch weights on
           // the version selection branch instruction. The version selection
           // branch always uses not-equal, update and accumulate the weights
           // based on which way the branches will be revised below.
           bool PredIsNE = Pred == ICmpInst::ICMP_NE;
-          for (auto *U : Inst->users()) {
-            if (auto *BrInst = dyn_cast<BranchInst>(U)) {
-              if (Optional<std::pair<uint64_t, uint64_t>> Weights =
-                      getBranchWeights(BrInst)) {
-                auto *BrInstClone = VMap.getClone(BrInst);
-                assert(BrInstClone && "Branch should have a clone");
+          for (auto *BrInst : Branches) {
+            if (Optional<std::pair<uint64_t, uint64_t>> Weights =
+                    getBranchWeights(BrInst)) {
+              auto *BrInstClone = VMap.getClone(BrInst);
+              assert(BrInstClone && "Branch should have a clone");
 
-                // The version selection branch always uses "not equal", update
-                // and accumulate the weights based on which way the branches
-                // will be revised below.
-                TrueWeight += PredIsNE ? Weights.getValue().first
-                                       : Weights.getValue().second;
-                FalseWeight += PredIsNE ? Weights.getValue().second
-                                        : Weights.getValue().first;
+              // The version selection branch always uses "not equal", update
+              // and accumulate the weights based on which way the branches
+              // will be revised below.
+              TrueWeight += PredIsNE ? Weights.getValue().first
+                                     : Weights.getValue().second;
+              FalseWeight += PredIsNE ? Weights.getValue().second
+                                      : Weights.getValue().first;
 
-                // Update the profiling data on the branches. The conditional
-                // will eventually be discarded, so this is not strictly
-                // necessary, but do it to try to keep the profile info
-                // in a consistent state.
-                if (PredIsNE) {
-                  // The original branch will become 'if i1 true ...'
-                  // The clone branch will become 'if i1 false ...'
-                  BrInst->setMetadata(
-                      LLVMContext::MD_prof,
-                      MDB.createBranchWeights(Weights.getValue().first, 0));
-                  BrInstClone->setMetadata(
-                      LLVMContext::MD_prof,
-                      MDB.createBranchWeights(0, Weights.getValue().second));
-                } else {
-                  // The original branch will become 'if i1 false ...'
-                  // The clone branch will become 'if i1 true ...'
-                  BrInst->setMetadata(
-                      LLVMContext::MD_prof,
-                      MDB.createBranchWeights(0, Weights.getValue().second));
-                  BrInstClone->setMetadata(
-                      LLVMContext::MD_prof,
-                      MDB.createBranchWeights(Weights.getValue().first, 0));
-                }
+              // Update the profiling data on the branches. The conditional
+              // will eventually be discarded, so this is not strictly
+              // necessary, but do it to try to keep the profile info
+              // in a consistent state.
+              if (PredIsNE) {
+                // The original branch will become 'if i1 true ...'
+                // The clone branch will become 'if i1 false ...'
+                BrInst->setMetadata(
+                    LLVMContext::MD_prof,
+                    MDB.createBranchWeights(Weights.getValue().first, 0));
+                BrInstClone->setMetadata(
+                    LLVMContext::MD_prof,
+                    MDB.createBranchWeights(0, Weights.getValue().second));
+              } else {
+                // The original branch will become 'if i1 false ...'
+                // The clone branch will become 'if i1 true ...'
+                BrInst->setMetadata(
+                    LLVMContext::MD_prof,
+                    MDB.createBranchWeights(0, Weights.getValue().second));
+                BrInstClone->setMetadata(
+                    LLVMContext::MD_prof,
+                    MDB.createBranchWeights(Weights.getValue().first, 0));
               }
             }
           }

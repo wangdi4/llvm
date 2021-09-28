@@ -201,7 +201,18 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
       startDistPPNode(I);
     }
 
-    if (I->isUnsafeSideEffectsCallInst() || I->isUnknownAliasingCallInst()) {
+    // Although lifetime intrinsics are safe to distribute, it doesn't help
+    // to distribute in most cases, but may inhibit later optimizations, so we
+    // bail out as a heuristic here.
+    auto isLifetimeIntrin = [&](HLInst *I) {
+      Intrinsic::ID IntrinId;
+      return I && I->isIntrinCall(IntrinId) &&
+             (IntrinId == Intrinsic::lifetime_start ||
+              IntrinId == Intrinsic::lifetime_end);
+    };
+
+    if (I->isUnsafeSideEffectsCallInst() || I->isUnknownAliasingCallInst() ||
+        isLifetimeIntrin(I)) {
       // Add unsafe side effect nodes without duplicates.
       if (UnsafeSideEffectNodes.empty() ||
           UnsafeSideEffectNodes.back() != CurDistPPNode) {

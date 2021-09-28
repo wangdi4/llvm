@@ -101,10 +101,10 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION
   //===--------------------------------------------------------------------===//
   //
-  // LoopOptReportEmitterLegacyPass - emit Loop Optimization Reports in hierarchical
+  // OptReportEmitterLegacyPass - emit Optimization Reports in hierarchical
   // order.
   //
-  FunctionPass *createLoopOptReportEmitterLegacyPass();
+  FunctionPass *createOptReportEmitterLegacyPass();
 
   //===--------------------------------------------------------------------===//
   //

@@ -45,8 +45,6 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
@@ -75,16 +73,16 @@ static cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
                clEnumValN(GWS_TRUE, "true", ""),
                clEnumValN(GWS_FALSE, "false", "")));
 
-static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
-                                            cl::desc("Builtin VectInfo list"),
-                                            cl::value_desc("filename"));
+extern bool DPCPPEnableDirectFunctionCallVectorization;
+extern bool DPCPPEnableSubgroupDirectCallVectorization;
 
 // Static container storing all the vector info entries.
 // Each entry would be a tuple of three strings:
 // 1. scalar variant name
 // 2. "kernel-call-once" | ""
 // 3. mangled vector variant name
-static std::vector<std::tuple<std::string, std::string, std::string>> VecInfo;
+static std::vector<std::tuple<std::string, std::string, std::string>>
+    ExtendedVectInfos;
 
 namespace llvm {
 
@@ -128,7 +126,7 @@ public:
   static char ID;
 
   explicit DPCPPKernelVecCloneLegacy(
-      ArrayRef<VecItem> VectInfos = {},
+      ArrayRef<VectItem> VectInfos = {},
       VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
 
   bool runOnModule(Module &M) override;
@@ -151,7 +149,7 @@ INITIALIZE_PASS_END(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
                     false /* not modifies CFG */, true /* transform pass */)
 
 DPCPPKernelVecCloneLegacy::DPCPPKernelVecCloneLegacy(
-    ArrayRef<VecItem> VectInfos, VectorVariant::ISAClass ISA, bool IsOCL)
+    ArrayRef<VectItem> VectInfos, VectorVariant::ISAClass ISA, bool IsOCL)
     : ModulePass(ID), Impl(VectInfos, ISA, IsOCL) {
   initializeDPCPPKernelVecCloneLegacyPass(*PassRegistry::getPassRegistry());
 }
@@ -160,13 +158,13 @@ bool DPCPPKernelVecCloneLegacy::runOnModule(Module &M) {
   return Impl.runImpl(M);
 }
 
-ModulePass *llvm::createDPCPPKernelVecClonePass(ArrayRef<VecItem> VectInfos,
+ModulePass *llvm::createDPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
                                                 VectorVariant::ISAClass ISA,
                                                 bool IsOCL) {
   return new DPCPPKernelVecCloneLegacy(VectInfos, ISA, IsOCL);
 }
 
-DPCPPKernelVecClonePass::DPCPPKernelVecClonePass(ArrayRef<VecItem> VectInfos,
+DPCPPKernelVecClonePass::DPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
                                                  VectorVariant::ISAClass ISA,
                                                  bool IsOCL)
     : Impl(VectInfos, ISA, IsOCL) {}
@@ -178,16 +176,11 @@ PreservedAnalyses DPCPPKernelVecClonePass::run(Module &M,
 
 bool DPCPPKernelVecClonePass::runImpl(Module &M) { return Impl.runImpl(M); }
 
-// Update references of functions
-// Remove the "recommended-vector-length" attribute from the
-// original kernel. "recommended-vector-length" attribute is used
-// only by Kernel VecClone.
-static void updateReferences(Function &F, Function *Clone) {
-  // Remove "sycl-kernel" property from the Clone kernel.
-  // This preserves the property that only original kernel is indicated
-  // with this attribute. It can't be kept as vectorized kernel would get
-  // its own treatment by WGLoopCreator pass (which breaks design).
-
+// Remove the "recommended_vector_length" metadata from the original kernel.
+// "recommened_vector_length" metadata is used only by DPCPPKernelVecClone.
+// The rest DPCPP kernel transform passes recognize the "vector_width" metadata.
+// Thus, we add "vector_width" metadata to original kernel and cloned kernel.
+static void updateMetadata(Function &F, Function *Clone) {
   KernelInternalMetadataAPI KIMD(&F);
   // Get VL from the attribute from the original kernel.
   unsigned VectorLength =
@@ -478,188 +471,15 @@ static bool TIDFitsInInt32(const CallInst *CI) {
   return false;
 }
 
-#define PRIM_TYPE(prim_type_enum)                                              \
-  (new reflection::PrimitiveType(prim_type_enum))
-#define PRIM_POINTER_TYPE(pointee_type, attrs)                                 \
-  (new reflection::PointerType(                                                \
-      PRIM_TYPE(pointee_type),                                                 \
-      std::vector<reflection::TypeAttributeEnum> attrs))
-#define CONST_GLOBAL_PTR(pointee_type)                                         \
-  PRIM_POINTER_TYPE(pointee_type,                                              \
-                    ({reflection::ATTR_GLOBAL, reflection::ATTR_CONST}))
-#define GLOBAL_PTR(pointee_type)                                               \
-  PRIM_POINTER_TYPE(pointee_type, ({reflection::ATTR_GLOBAL}))
-#define VECTOR_TYPE(element_type, len)                                         \
-  (new reflection::VectorType(element_type, len))
-#define INT2_TYPE VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_INT), 2)
-
-static reflection::TypeVector
-widenParameters(reflection::TypeVector ScalarParams, unsigned int VF) {
-  reflection::TypeVector VectorParams;
-  for (auto Param : ScalarParams) {
-    if (auto *VecParam =
-            reflection::dyn_cast<reflection::VectorType>(Param.get())) {
-      int widen_len = VecParam->getLength() * VF;
-      VectorParams.emplace_back(
-          VECTOR_TYPE(VecParam->getScalarType(), widen_len));
-    } else {
-      VectorParams.emplace_back(VECTOR_TYPE(Param, VF));
-    }
-  }
-
-  return VectorParams;
-}
-
-static void
-pushSGBlockBuiltinDivergentVectInfo(const Twine &BaseName, unsigned int len,
-                                    unsigned int VF,
-                                    reflection::TypeVector ScalarParams) {
-  // Get mangled name of scalar variant
-  reflection::FunctionDescriptor ScalarFunc{
-      (BaseName + (len == 1 ? "" : Twine(len))).str(), ScalarParams,
-      reflection::width::SCALAR};
-  std::string ScalarMangleName = NameMangleAPI::mangle(ScalarFunc);
-
-  // Get mangled name of vector variant
-  reflection::TypeVector VectorParams = widenParameters(ScalarParams, VF);
-  size_t v_num = VectorParams.size();
-  // Add mask param
-  auto *Mask = VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_UINT), VF);
-  VectorParams.push_back(Mask);
-  reflection::FunctionDescriptor VectorFunc{
-      (BaseName + Twine(len) + "_" + Twine(VF)).str(), VectorParams,
-      reflection::width::NONE};
-  std::string VectorMangleName = NameMangleAPI::mangle(VectorFunc);
-
-  // Get vector variant string repr
-  VectorVariant Variant{VectorVariant::ISAClass::XMM,
-                        true,
-                        VF,
-                        std::vector<VectorKind>(v_num, VectorKind::vector()),
-                        ScalarMangleName,
-                        VectorMangleName};
-
-  VecInfo.push_back({ScalarMangleName, std::string(KernelAttribute::CallOnce),
-                     Variant.toString()});
-}
-
-static void pushSGBlockBuiltinDivergentVectInfo(
-    StringRef TySuffix, reflection::TypePrimitiveEnum Ty,
-    std::vector<unsigned int> Lens, std::vector<unsigned int> VFs) {
-  const Twine SG_BLOCK_READ_PREFIX("intel_sub_group_block_read");
-  const Twine SG_BLOCK_WRITE_PREFIX("intel_sub_group_block_write");
-
-  for (unsigned int Len : Lens) {
-    for (unsigned int VF : VFs) {
-      // sub_group_block_read(const __global T*)
-      pushSGBlockBuiltinDivergentVectInfo(SG_BLOCK_READ_PREFIX + TySuffix, Len,
-                                          VF, {CONST_GLOBAL_PTR(Ty)});
-      // sub_group_block_read(readonly image2d_t, int2)
-      pushSGBlockBuiltinDivergentVectInfo(
-          SG_BLOCK_READ_PREFIX + TySuffix, Len, VF,
-          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RO_T), INT2_TYPE});
-      // sub_group_block_read(readwrite image2d_t, int2)
-      pushSGBlockBuiltinDivergentVectInfo(
-          SG_BLOCK_READ_PREFIX + TySuffix, Len, VF,
-          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE});
-
-      if (Len == 1) {
-        // sub_group_block_write(__global T*, T)
-        pushSGBlockBuiltinDivergentVectInfo(SG_BLOCK_WRITE_PREFIX + TySuffix,
-                                            Len, VF,
-                                            {GLOBAL_PTR(Ty), PRIM_TYPE(Ty)});
-        // sub_group_block_write(writeonly image2d_t, int2, T)
-        pushSGBlockBuiltinDivergentVectInfo(
-            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
-            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
-             PRIM_TYPE(Ty)});
-        // sub_group_block_write(readwrite image2d_t, int2, T)
-        pushSGBlockBuiltinDivergentVectInfo(
-            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
-            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
-             PRIM_TYPE(Ty)});
-      } else {
-        // sub_group_block_write(__global T*, T<Len>)
-        pushSGBlockBuiltinDivergentVectInfo(
-            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
-            {GLOBAL_PTR(Ty), VECTOR_TYPE(PRIM_TYPE(Ty), Len)});
-        // sub_group_block_write(writeonly image2d_t, int2, T<Len>)
-        pushSGBlockBuiltinDivergentVectInfo(
-            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
-            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
-             VECTOR_TYPE(PRIM_TYPE(Ty), Len)});
-        // sub_group_block_write(readwrite image2d_t, int2, T<Len>)
-        pushSGBlockBuiltinDivergentVectInfo(
-            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
-            {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
-             VECTOR_TYPE(PRIM_TYPE(Ty), Len)});
-      }
-    }
-  }
-}
-
-static void InitializeVectInfoOnce(ArrayRef<VecItem> VectInfos) {
-  // Load Table-Gen'erated VectInfo.gen
-  if (!VectInfos.empty()) {
-    VecInfo.insert(VecInfo.end(), std::begin(VectInfos), std::end(VectInfos));
-  } else if (OptVectInfoFile.getNumOccurrences()) {
-    static ErrorOr<std::unique_ptr<MemoryBuffer>> BufOrErr =
-        MemoryBuffer::getFile(OptVectInfoFile, /* IsText */ true);
-    if (BufOrErr) {
-      SmallVector<StringRef, 8192 * 3> Items;
-      SplitString(BufOrErr.get()->getBuffer(), Items, " \t\n\v\f\r,{}");
-      assert(Items.size() % 3 == 0 &&
-             "Invalid number of items in VectInfo.gen");
-      for (size_t I = 0; I < Items.size(); I += 3)
-        VecInfo.emplace_back(Items[I].trim('\"'), Items[I + 1].trim('\"'),
-                             Items[I + 2].trim('\"'));
-    }
-  }
-
-  // Add extra vector info for 'sub_group_ballot'
-  VecInfo.push_back(
-      {"intel_sub_group_ballot", std::string(KernelAttribute::CallOnce),
-       "_ZGVbM4v_intel_sub_group_balloti(intel_sub_group_ballot_vf4)"});
-  VecInfo.push_back(
-      {"intel_sub_group_ballot", std::string(KernelAttribute::CallOnce),
-       "_ZGVbM8v_intel_sub_group_balloti(intel_sub_group_ballot_vf8)"});
-  VecInfo.push_back(
-      {"intel_sub_group_ballot", std::string(KernelAttribute::CallOnce),
-       "_ZGVbM16v_intel_sub_group_balloti(intel_sub_group_ballot_vf16)"});
-
-  // Add extra vector info for 'sub_group_block_read*', 'sub_group_block_write*'
-  std::vector<std::tuple<std::string, reflection::TypePrimitiveEnum,
-                         std::vector<unsigned int>, std::vector<unsigned int>>>
-      Entries{
-          {"", reflection::PRIMITIVE_UINT, {1, 2, 4, 8}, {4, 8, 16, 32, 64}},
-          {"_uc",
-           reflection::PRIMITIVE_UCHAR,
-           {1, 2, 4, 8, 16},
-           {4, 8, 16, 32, 64}},
-          {"_us",
-           reflection::PRIMITIVE_USHORT,
-           {1, 2, 4, 8},
-           {4, 8, 16, 32, 64}},
-          {"_ui", reflection::PRIMITIVE_UINT, {1, 2, 4, 8}, {4, 8, 16, 32, 64}},
-          {"_ul",
-           reflection::PRIMITIVE_ULONG,
-           {1, 2, 4, 8},
-           {4, 8, 16, 32, 64}},
-      };
-  for (auto &Entry : Entries) {
-    pushSGBlockBuiltinDivergentVectInfo(std::get<0>(Entry), std::get<1>(Entry),
-                                        std::get<2>(Entry), std::get<3>(Entry));
-  }
-}
-
-DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VecItem> VectInfos,
+DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
                                                  VectorVariant::ISAClass ISA,
                                                  bool IsOCL)
     : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL) {}
 
 void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                                       Function *Clone,
-                                                      BasicBlock *EntryBlock) {
+                                                      BasicBlock *EntryBlock,
+                                                      const VectorVariant &Variant) {
   // The FunctionsAndActions array has only the Kernel function built-ins that
   // are uniform.
   std::pair<std::string, FnAction> FunctionsAndActions[] = {
@@ -674,6 +494,10 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       {mangledGetEnqueuedLocalSize(), FnAction::MoveOnly},
       {mangledGetGlobalLinearId(), FnAction::AssertIfEncountered},
       {mangledGetLocalLinearId(), FnAction::AssertIfEncountered}};
+
+  auto Kernels = getKernels(*F.getParent());
+  std::set<Function *> KernelsSet(Kernels.begin(), Kernels.end());
+  bool IsKernel = KernelsSet.count(&F);
 
   // Collect all Kernel function built-ins.
   SmallVector<Instruction *, 4> InstsToRemove;
@@ -747,14 +571,18 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   for (auto *I : InstsToRemove)
     I->eraseFromParent();
 
-  updateReferences(F, Clone);
+  const unsigned VF = Variant.getVlen();
 
-  // Load all vector info into VecInfo, at most once.
+  if (IsKernel)
+    updateMetadata(F, Clone);
+  else
+    Clone->addFnAttr("widened-size", std::to_string(VF));
+
+  // Load all vector info into ExtendedVectInfos, at most once.
   static llvm::once_flag InitializeVectInfoFlag;
-  llvm::call_once(InitializeVectInfoFlag,
-                  [&]() { InitializeVectInfoOnce(VectInfos); });
-
-  unsigned VF = KernelInternalMetadataAPI(Clone).VectorizedWidth.get();
+  llvm::call_once(InitializeVectInfoFlag, [&]() {
+    initializeVectInfoOnce(VectInfos, ExtendedVectInfos);
+  });
 
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
@@ -770,7 +598,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     // May be more than one entry, e.g. mask/unmasked (although currently that's
     // not the case).
     auto MatchingVariants = make_filter_range(
-        VecInfo,
+        ExtendedVectInfos,
         [FnName,
          VF](const std::tuple<std::string, std::string, std::string> &Info)
             -> bool {
@@ -811,20 +639,16 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     AttributeList AL = Call->getAttributes();
 
-    AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                         "vector-variants", Variants);
+    AL = AL.addFnAttribute(Call->getContext(), "vector-variants", Variants);
     // TODO: So far the functions that have their vector variants assigned here
     // are essentially "kernel-call-once" functions.
     if (KernelCallOnce)
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           KernelAttribute::CallOnce);
+      AL = AL.addFnAttribute(Call->getContext(), KernelAttribute::CallOnce);
     if (HasMask)
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           KernelAttribute::HasVPlanMask);
+      AL = AL.addFnAttribute(Call->getContext(), KernelAttribute::HasVPlanMask);
     else if (!NotHasMask) {
       unsigned ParamsNum = Call->arg_size();
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           KernelAttribute::CallParamNum,
+      AL = AL.addFnAttribute(Call->getContext(), KernelAttribute::CallParamNum,
                            std::to_string(ParamsNum));
     }
     Call->setAttributes(AL);
@@ -927,9 +751,8 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
   for (auto *F : SyncBuiltins) {
     for (auto *U : F->users())
       if (auto *CI = dyn_cast<CallInst>(U))
-        CI->setAttributes(CI->getAttributes().addAttribute(
-            CI->getContext(), AttributeList::FunctionIndex,
-            "kernel-uniform-call"));
+        CI->setAttributes(CI->getAttributes().addFnAttribute(
+            CI->getContext(), "kernel-uniform-call"));
   }
 
   auto Kernels = getKernels(M);
@@ -941,15 +764,9 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
   }
 
   DPCPPPrepareKernelForVecClone PK(ISA);
-  FuncSet UnsupportedFuncs =
-      VectorizerUtils::CanVectorize::getNonInlineUnsupportedFunctions(M);
   for (auto *F : Kernels) {
-    // TODO: replace canVectorizeForVPO with "KIMD.RecommendedVL.get() > 1" once
-    // RecommendedVL is unconditionally set by a previous pass and OCLVPOCheckVF
-    // is ported.
-    if (VectorizerUtils::CanVectorize::canVectorizeForVPO(*F,
-                                                          UnsupportedFuncs) &&
-        !F->hasOptNone())
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    if (KIMD.RecommendedVL.get() > 1)
       PK.run(*F);
   }
 }

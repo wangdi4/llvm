@@ -24,17 +24,17 @@ bb2.bb7_crit_edge:                                ; preds = %bb2
 
 bb6.preheader:                                    ; preds = %bb2
   %1 = add nuw nsw i64 %indvars.iv26, 1
-  %"foo_$PINT[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 800, double* nonnull %"foo_$PINT", i64 %1)
-  %"foo_$UO3_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* nonnull %"foo_$UO3", i64 %indvars.iv26)
+  %"foo_$PINT[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 800, double* elementtype(double) nonnull %"foo_$PINT", i64 %1)
+  %"foo_$UO3_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* elementtype(double) nonnull %"foo_$UO3", i64 %indvars.iv26)
   %wide.trip.count24 = sext i32 %0 to i64
   br label %bb6
 
 bb6:                                              ; preds = %bb6.preheader, %bb6
   %indvars.iv22 = phi i64 [ 1, %bb6.preheader ], [ %indvars.iv.next23, %bb6 ]
-  %"foo_$PINT[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"foo_$PINT[]", i64 %indvars.iv22)
+  %"foo_$PINT[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"foo_$PINT[]", i64 %indvars.iv22)
   %"foo_$PINT[][]_fetch.6" = load double, double* %"foo_$PINT[][]", align 1
   %sub.1 = fadd reassoc ninf nsz arcp contract afn double %"foo_$PINT[][]_fetch.6", -2.000000e+00
-  %"foo_$UO3_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"foo_$UO3_entry[]", i64 %indvars.iv22)
+  %"foo_$UO3_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"foo_$UO3_entry[]", i64 %indvars.iv22)
   store double %sub.1, double* %"foo_$UO3_entry[][]", align 1
   %indvars.iv.next23 = add nuw nsw i64 %indvars.iv22, 1
   %exitcond25 = icmp eq i64 %indvars.iv.next23, %wide.trip.count24
@@ -57,11 +57,11 @@ bb10.preheader:                                   ; preds = %bb5
 
 bb10:                                             ; preds = %bb10.preheader, %bb10
   %indvars.iv = phi i64 [ 1, %bb10.preheader ], [ %indvars.iv.next, %bb10 ]
-  %"foo_$PINT[]5" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 800, double* nonnull %"foo_$PINT", i64 %indvars.iv)
-  %"foo_$PINT[][]6" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"foo_$PINT[]5", i64 2)
+  %"foo_$PINT[]5" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 800, double* elementtype(double) nonnull %"foo_$PINT", i64 %indvars.iv)
+  %"foo_$PINT[][]6" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"foo_$PINT[]5", i64 2)
   %"foo_$PINT[][]_fetch.17" = load double, double* %"foo_$PINT[][]6", align 1
   %sub.2 = fadd reassoc ninf nsz arcp contract afn double %"foo_$PINT[][]_fetch.17", -1.000000e+00
-  %"foo_$PINT[][]9" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"foo_$PINT[]5", i64 1)
+  %"foo_$PINT[][]9" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"foo_$PINT[]5", i64 1)
   store double %sub.2, double* %"foo_$PINT[][]9", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

@@ -44,7 +44,7 @@ entry:
 ; CHECK-NEXT: [[L0:%[0-9]+]] = load i32*, i32** %g.addr, align 8
 ; CHECK-NEXT: store i32 1, i32* [[L0]], align 4
 
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %g = alloca i32, align 4
   store i32 1, i32* %g, align 4
   br label %while.cond
@@ -66,7 +66,7 @@ while.end:                                        ; preds = %while.cond
   ret void
 }
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 ; Function Attrs: convergent
 declare void @_Z18work_group_barrierj(i32) #2

@@ -21,7 +21,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline nounwind optnone
-define spir_kernel void @test(i32 addrspace(1)* %data, i32 %input) #0 {
+define spir_kernel void @test(i32 addrspace(1)* %data, i32 %input) {
 entry:
   %data.addr = alloca i32 addrspace(1)*, align 8
   %input.addr = alloca i32, align 4
@@ -36,8 +36,6 @@ entry:
   store i32 %call, i32 addrspace(1)* %2, align 4
   ret void
 }
-
-attributes #0 = { "sycl-kernel" }
 
 ; DEBUGIFY-NOT: WARNING
 

@@ -29,8 +29,8 @@ void map_with_overlap_elems() {
   StructWithPtr s;
 //CHECK:[[S:%s]] = alloca %struct.foo, align 8
 //CHECK:[[SASC:%s.ascast]] = addrspacecast %struct.foo* %s to %struct.foo addrspace(4)*
-//CHECK: [[L:%[0-9]+]] = bitcast %struct.foo addrspace(4)* %s.ascast to i8 addrspace(4)*
-//CHECK: [[L1:%[0-9]+]] = getelementptr i8, i8 addrspace(4)* [[L]], i64 55
+//CHECK: [[L1:%[0-9]+]] = bitcast %struct.foo addrspace(4)* %s.ascast to %struct.Base addrspace(4)*
+//CHECK: [[ptrBase:%[^ ]+]] = getelementptr inbounds %struct.Base, %struct.Base addrspace(4)* [[L1]], i32 0, i32 2
 //CHECK: [[L27:%[0-9]+]] = getelementptr %struct.foo, %struct.foo addrspace(4)* %s.ascast, i32 1
   #pragma omp target map(to:s, s.ptr1 [0:1], s.ptrBase1 [0:1])
   {

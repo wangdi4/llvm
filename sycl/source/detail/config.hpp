@@ -43,6 +43,11 @@ constexpr bool ConfigFromCompileDefEnabled = false;
 constexpr bool ConfigFromCompileDefEnabled = true;
 #endif // DISABLE_CONFIG_FROM_COMPILE_TIME
 
+constexpr int MAX_CONFIG_NAME = 256;
+#ifdef INTEL_CUSTOMIZATION
+constexpr int MAX_CONFIG_VALUE = 1024;
+#endif // INTEL_CUSTOMIZATION
+
 // Enum of config IDs for accessing other arrays
 enum ConfigID {
   START = 0,
@@ -58,7 +63,7 @@ constexpr const char *getStrOrNullptr(const char *Str) {
 }
 
 // Intializes configs from the configuration file
-void readConfig();
+void readConfig(bool ForceInitialization = false);
 
 template <ConfigID Config> class SYCLConfigBase;
 
@@ -176,21 +181,70 @@ public:
   }
 };
 
-// Array is used by SYCL_DEVICE_FILTER and SYCL_DEVICE_ALLOWLIST
-static const std::array<std::pair<std::string, info::device_type>, 5>
-    SyclDeviceTypeMap = {{{"host", info::device_type::host},
-                          {"cpu", info::device_type::cpu},
-                          {"gpu", info::device_type::gpu},
-                          {"acc", info::device_type::accelerator},
-                          {"*", info::device_type::all}}};
+template <> class SYCLConfig<SYCL_PARALLEL_FOR_RANGE_ROUNDING_TRACE> {
+  using BaseT = SYCLConfigBase<SYCL_PARALLEL_FOR_RANGE_ROUNDING_TRACE>;
+
+public:
+  static bool get() {
+    static const char *ValStr = BaseT::getRawValue();
+    return ValStr != nullptr;
+  }
+};
+
+template <> class SYCLConfig<SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING> {
+  using BaseT = SYCLConfigBase<SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING>;
+
+public:
+  static bool get() {
+    static const char *ValStr = BaseT::getRawValue();
+    return ValStr != nullptr;
+  }
+};
+
+template <> class SYCLConfig<SYCL_PARALLEL_FOR_RANGE_ROUNDING_PARAMS> {
+  using BaseT = SYCLConfigBase<SYCL_PARALLEL_FOR_RANGE_ROUNDING_PARAMS>;
+
+private:
+public:
+  static void GetSettings(size_t &MinFactor, size_t &GoodFactor,
+                          size_t &MinRange) {
+    static const char *RoundParams = BaseT::getRawValue();
+    if (RoundParams == nullptr)
+      return;
+
+    static bool ProcessedFactors = false;
+    static size_t MF;
+    static size_t GF;
+    static size_t MR;
+    if (!ProcessedFactors) {
+      // Parse optional parameters of this form (all values required):
+      // MinRound:PreferredRound:MinRange
+      std::string Params(RoundParams);
+      size_t Pos = Params.find(':');
+      if (Pos != std::string::npos) {
+        MF = std::stoi(Params.substr(0, Pos));
+        Params.erase(0, Pos + 1);
+        Pos = Params.find(':');
+        if (Pos != std::string::npos) {
+          GF = std::stoi(Params.substr(0, Pos));
+          Params.erase(0, Pos + 1);
+          MR = std::stoi(Params);
+        }
+      }
+      ProcessedFactors = true;
+    }
+    MinFactor = MF;
+    GoodFactor = GF;
+    MinRange = MR;
+  }
+};
 
 // Array is used by SYCL_DEVICE_FILTER and SYCL_DEVICE_ALLOWLIST
-static const std::array<std::pair<std::string, backend>, 5> SyclBeMap = {
-    {{"host", backend::host},
-     {"opencl", backend::opencl},
-     {"level_zero", backend::level_zero},
-     {"cuda", backend::cuda},
-     {"*", backend::all}}};
+const std::array<std::pair<std::string, info::device_type>, 5> &
+getSyclDeviceTypeMap();
+
+// Array is used by SYCL_DEVICE_FILTER and SYCL_DEVICE_ALLOWLIST
+const std::array<std::pair<std::string, backend>, 6> &getSyclBeMap();
 
 template <> class SYCLConfig<SYCL_DEVICE_FILTER> {
   using BaseT = SYCLConfigBase<SYCL_DEVICE_FILTER>;
@@ -230,6 +284,38 @@ public:
     // the threads will get the same value as the first thread.
     Initialized = true;
     return FilterList;
+  }
+};
+
+template <> class SYCLConfig<SYCL_ENABLE_DEFAULT_CONTEXTS> {
+  using BaseT = SYCLConfigBase<SYCL_ENABLE_DEFAULT_CONTEXTS>;
+
+public:
+  static bool get() {
+#ifdef _WIN32
+    constexpr bool DefaultValue = false;
+#else
+    constexpr bool DefaultValue = true;
+#endif
+
+    const char *ValStr = getCachedValue();
+
+    if (!ValStr)
+      return DefaultValue;
+
+    return ValStr[0] == '1';
+  }
+
+  static void reset() { (void)getCachedValue(/*ResetCache=*/true); }
+
+  static const char *getName() { return BaseT::MConfigName; }
+
+private:
+  static const char *getCachedValue(bool ResetCache = false) {
+    static const char *ValStr = BaseT::getRawValue();
+    if (ResetCache)
+      ValStr = BaseT::getRawValue();
+    return ValStr;
   }
 };
 

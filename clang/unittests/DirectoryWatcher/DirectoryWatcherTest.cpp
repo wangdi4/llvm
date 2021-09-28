@@ -43,7 +43,11 @@ typedef DirectoryWatcher::Event::EventKind EventKind;
 // longer timeout are most likely to occur when other tests are also running at
 // the same time (e.g. as part of the full check-clang suite), in which case the
 // latency of the timeout will be masked by the latency of the other tests.
-constexpr std::chrono::seconds EventualResultTimeout(60);
+#if INTEL_CUSTOMIZATION
+// This test has been flaky on NetBatch systems with a 60 second timeout
+// so we're raising it even higher.
+constexpr std::chrono::seconds EventualResultTimeout(240);
+#endif // INTEL_CUSTOMIZATION
 
 struct DirectoryWatcherTestFixture {
   std::string TestRootDir;

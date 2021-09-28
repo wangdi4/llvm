@@ -125,7 +125,7 @@ bb10:                                             ; preds = %bb6
   br label %bb11
 
 bb17:                                             ; preds = %bb16
-  %func_result2 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %ptr_cast, i64 1)
+  %func_result2 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %ptr_cast, i64 1)
   store %complex_64bit { float 0x3FBF7CEDA0000000, float 0x3FBF7CEDA0000000 }, %complex_64bit* %func_result2
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.REDUCTION.MUL:CMPLX"([1 x %complex_64bit]* %"omp_test_$R"), "QUAL.OMP.SHARED"(i32* @"omp_test_$NUM_THREADS") ]
   br label %bb18
@@ -137,7 +137,7 @@ bb16:                                             ; preds = %bb12
   br label %bb17
 
 bb19:                                             ; preds = %bb18
-  %func_result4 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %ptr_cast21, i64 1)
+  %func_result4 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %ptr_cast21, i64 1)
   %func_result4_fetch = load %complex_64bit, %complex_64bit* %func_result4
   %"omp_test_$NUM_THREADS_fetch" = load i32, i32* @"omp_test_$NUM_THREADS"
   %int_cast = sitofp i32 %"omp_test_$NUM_THREADS_fetch" to float
@@ -179,7 +179,7 @@ bb20:                                             ; preds = %bb19
 
 
 bb21:                                             ; preds = %bb20
-  %func_result20 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %ptr_cast18, i64 1)
+  %func_result20 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %ptr_cast18, i64 1)
   store %complex_64bit %insertval16, %complex_64bit* %func_result20
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   br label %bb22
@@ -214,7 +214,7 @@ bb23:                                             ; preds = %bb22
   br label %bb24
 
 bb25:                                             ; preds = %bb24
-  %func_result35 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %ptr_cast149, i64 1)
+  %func_result35 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %ptr_cast149, i64 1)
   %func_result35_fetch = load %complex_64bit, %complex_64bit* %func_result35
   %"omp_test_$TMP_fetch37" = load %complex_64bit, %complex_64bit* %"omp_test_$TMP"
   %func_result35_fetch_comp_0 = extractvalue %complex_64bit %func_result35_fetch, 0
@@ -244,7 +244,7 @@ bb28:                                             ; preds = %bb27
   br label %bb29
 
 bb29:                                             ; preds = %bb28
-  %func_result57 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %ptr_cast55, i64 1)
+  %func_result57 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %ptr_cast55, i64 1)
   %func_result57_fetch = load %complex_64bit, %complex_64bit* %func_result57
   %func_result57_fetch_comp_0 = extractvalue %complex_64bit %func_result57_fetch, 0
   %func_result57_fetch_comp_1 = extractvalue %complex_64bit %func_result57_fetch, 1
@@ -297,7 +297,7 @@ bb38:                                             ; preds = %bb37
   br label %bb39
 
 bb39:                                             ; preds = %bb38
-  %func_result93 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %ptr_cast91, i64 1)
+  %func_result93 = call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %ptr_cast91, i64 1)
   %func_result93_fetch = load %complex_64bit, %complex_64bit* %func_result93
   store [4 x i8] c"\1D\01\02\00", [4 x i8]* %addressof94
   br label %bb40

@@ -22,6 +22,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
@@ -191,6 +192,8 @@ public:
   Instruction *visitExtractValueInst(ExtractValueInst &EV);
   Instruction *visitLandingPadInst(LandingPadInst &LI);
   Instruction *visitVAEndInst(VAEndInst &I);
+  Value *pushFreezeToPreventPoisonFromPropagating(FreezeInst &FI);
+  bool freezeDominatedUses(FreezeInst &FI);
   Instruction *visitFreeze(FreezeInst &I);
 
   /// Specify what to return for unhandled instructions.
@@ -346,7 +349,7 @@ private:
   Instruction *narrowMathIfNoOverflow(BinaryOperator &I);
   Instruction *narrowFunnelShift(TruncInst &Trunc);
   Instruction *optimizeBitCastFromPhi(CastInst &CI, PHINode *PN);
-  Instruction *matchSAddSubSat(SelectInst &MinMax1);
+  Instruction *matchSAddSubSat(Instruction &MinMax1);
 
   void freelyInvertAllUsersOf(Value *V);
 
@@ -362,10 +365,13 @@ private:
   /// \see CastInst::isEliminableCastPair
   Instruction::CastOps isEliminableCastPair(const CastInst *CI1,
                                             const CastInst *CI2);
+  Value *simplifyIntToPtrRoundTripCast(Value *Val);
 
   Value *foldAndOfICmps(ICmpInst *LHS, ICmpInst *RHS, BinaryOperator &And);
   Value *foldOrOfICmps(ICmpInst *LHS, ICmpInst *RHS, BinaryOperator &Or);
   Value *foldXorOfICmps(ICmpInst *LHS, ICmpInst *RHS, BinaryOperator &Xor);
+
+  Value *foldEqOfParts(ICmpInst *Cmp0, ICmpInst *Cmp1, bool IsAnd);
 
   /// Optimize (fcmp)&(fcmp) or (fcmp)|(fcmp).
   /// NOTE: Unlike most of instcombine, this returns a Value which should
@@ -463,16 +469,6 @@ public:
   void replaceUse(Use &U, Value *NewValue) {
     Worklist.addValue(U);
     U = NewValue;
-  }
-
-  /// Creates a result tuple for an overflow intrinsic \p II with a given
-  /// \p Result and a constant \p Overflow value.
-  Instruction *CreateOverflowTuple(IntrinsicInst *II, Value *Result,
-                                   Constant *Overflow) {
-    Constant *V[] = {UndefValue::get(Result->getType()), Overflow};
-    StructType *ST = cast<StructType>(II->getType());
-    Constant *Struct = ConstantStruct::get(ST, V);
-    return InsertValueInst::Create(Struct, Result, 0);
   }
 
   /// Create and insert the idiom we use to indicate a block is unreachable
@@ -699,6 +695,7 @@ public:
   Instruction *foldPHIArgGEPIntoPHI(PHINode &PN);
   Instruction *foldPHIArgLoadIntoPHI(PHINode &PN);
   Instruction *foldPHIArgZextsIntoPHI(PHINode &PN);
+  Instruction *foldPHIArgIntToPtrToPHI(PHINode &PN);
 
   /// If an integer typed PHI has only one use which is an IntToPtr operation,
   /// replace the PHI with an existing pointer typed PHI if it exists. Otherwise
@@ -733,7 +730,7 @@ public:
   Instruction *foldSignBitTest(ICmpInst &I);
   Instruction *foldICmpWithZero(ICmpInst &Cmp);
 
-  Value *foldUnsignedMultiplicationOverflowCheck(ICmpInst &Cmp);
+  Value *foldMultiplicationOverflowCheck(ICmpInst &Cmp);
 
   Instruction *foldICmpSelectConstant(ICmpInst &Cmp, SelectInst *Select,
                                       ConstantInt *C);
@@ -777,6 +774,7 @@ public:
                                              const APInt &C);
   Instruction *foldICmpEqIntrinsicWithConstant(ICmpInst &ICI, IntrinsicInst *II,
                                                const APInt &C);
+  Instruction *foldICmpBitCast(ICmpInst &Cmp);
 #if INTEL_CUSTOMIZATION
   Instruction *foldNotCmpOverTwoSelects(ICmpInst &I, const SimplifyQuery &Q);
 #endif // INTEL_CUSTOMIZATION
@@ -824,6 +822,10 @@ public:
   // whether or not a value can be descaled.
   Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
                  bool TestOnly = false);
+
+  /// Try to match a complex intrinsic that produces the given real/imaginary
+  /// pair. Returns whether or not it was successful.
+  bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
 };
 

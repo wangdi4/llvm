@@ -40,17 +40,17 @@ bb3.preheader:                                    ; preds = %alloca_0
 
 bb11.preheader.preheader:                         ; preds = %bb8, %bb3.preheader
   %indvars.iv63 = phi i64 [ 1, %bb3.preheader ], [ %indvars.iv.next64, %bb8 ]
-  %"sub2_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* nonnull %"sub2_$B", i64 %indvars.iv63)
+  %"sub2_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub2_$B", i64 %indvars.iv63)
   br label %bb11.preheader
 
 bb11.preheader:                                   ; preds = %bb11.preheader.preheader, %bb12
   %indvars.iv59 = phi i64 [ 1, %bb11.preheader.preheader ], [ %indvars.iv.next60, %bb12 ]
-  %"sub2_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 80, double* nonnull %"sub2_$B[]", i64 %indvars.iv59)
+  %"sub2_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 80, double* elementtype(double) nonnull %"sub2_$B[]", i64 %indvars.iv59)
   br label %bb11
 
 bb11:                                             ; preds = %bb11.preheader, %bb11
   %indvars.iv = phi i64 [ 1, %bb11.preheader ], [ %indvars.iv.next, %bb11 ]
-  %"sub2_$B[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub2_$B[][]", i64 %indvars.iv)
+  %"sub2_$B[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub2_$B[][]", i64 %indvars.iv)
   store double 1.000000e+00, double* %"sub2_$B[][][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count65

@@ -80,6 +80,30 @@ Type *WRNLoopInfo::getNormUBElemTy(unsigned I) const {
   return NormUBElemTy[I];
 }
 
+void WRNLoopInfo::printNormIVUB(formatted_raw_ostream &OS) const {
+  if (NormIV.size() > 0) {
+    OS << "  IV clause: ";
+    for (unsigned I = 0; I < NormIV.size(); I++) {
+      NormIV[I]->print(OS);
+      OS << ", TYPED (TYPE: ";
+      NormIVElemTy[I]->print(OS);
+      OS << ", NUM_ELEMENTS: i32 1); ";
+    }
+    OS << "\n";
+  }
+
+  if (NormUB.size() > 0) {
+    OS << "  UB clause: ";
+    for (unsigned I = 0; I < NormUB.size(); I++) {
+      NormUB[I]->print(OS);
+      OS << ", TYPED (TYPE: ";
+      NormUBElemTy[I]->print(OS);
+      OS << ", NUM_ELEMENTS: i32 1); ";
+    }
+    OS << "\n";
+  }
+}
+
 void WRNLoopInfo::print(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity) const {
   int Ind = 2*Depth;
@@ -90,11 +114,12 @@ void WRNLoopInfo::print(formatted_raw_ostream &OS, unsigned Depth,
     return;
   }
 
+  printNormIVUB(OS);
+
   vpo::printBB("Loop Preheader", L->getLoopPreheader(), OS, Ind, Verbosity);
   vpo::printBB("Loop Header", L->getHeader(), OS, Ind, Verbosity);
   vpo::printBB("Loop Latch", L->getLoopLatch(), OS, Ind, Verbosity);
   vpo::printBB("Loop ZTTBB", getZTTBBOrNull(), OS, Ind, Verbosity);
-
   OS << "\n";
 }
 
@@ -811,6 +836,24 @@ WRNMasterNode::WRNMasterNode(BasicBlock *BB)
 }
 
 //
+// Methods for WRNMaskedNode
+//
+
+// constructor
+WRNMaskedNode::WRNMaskedNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNMasked, BB) {
+  setFilter(nullptr);
+  LLVM_DEBUG(dbgs() << "\nCreated WRNMaskedNode <" << getNumber() << ">\n");
+}
+
+// printer
+void WRNMaskedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                               unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("FILTER", getFilter(), OS, Indent, Verbosity);
+}
+
+//
 // Methods for WRNOrderedNode
 //
 
@@ -931,6 +974,24 @@ WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTaskyield, BB) {
   LLVM_DEBUG(dbgs() << "\nCreated WRNTaskyieldNode <" << getNumber() << ">\n");
 }
+
+//
+// Methods for WRNScopeNode
+//
+
+// constructor
+WRNScopeNode::WRNScopeNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNScope, BB) {
+  setNowait(false);
+  LLVM_DEBUG(dbgs() << "\nCreated WRNScopeNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNScopeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                 unsigned Verbosity) const {
+  vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
+}
+
 
 //
 // Methods for WRNGenericLoopNode

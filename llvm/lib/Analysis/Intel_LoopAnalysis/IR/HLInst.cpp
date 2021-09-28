@@ -511,6 +511,25 @@ void HLInst::verify() const {
            "Lval of copy instruction is not a terminal!");
     assert((getRvalDDRef()->isTerminalRef() || getRvalDDRef()->isAddressOf()) &&
            "Rval of copy instruction is not a terminal or an AddressOf ref!");
+  } else if (isCallInst()) {
+    for (auto FakeIter = fake_ddref_begin(), FakeEndIter = fake_ddref_end();
+         FakeIter != FakeEndIter; ++FakeIter) {
+      auto *FakeRef = *FakeIter;
+      if (FakeRef->isMemRef()) {
+        bool hasMatchingOpRef = false;
+        for (auto OpIter = op_ddref_begin(), OpEndIter = op_ddref_end();
+             OpIter != OpEndIter; ++OpIter) {
+          auto *OpRef = *OpIter;
+          if (OpRef->isAddressOf()) {
+            if (DDRefUtils::areEqualWithoutAddressOf(FakeRef, OpRef)) {
+              hasMatchingOpRef = true;
+              break;
+            }
+          }
+        }
+        assert(hasMatchingOpRef && "Fake ref has no matching op dd ref!");
+      }
+    }
   }
 }
 

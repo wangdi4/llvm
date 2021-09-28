@@ -72,6 +72,11 @@ public:
   // type. If MD is nullptr, clear any existing DTrans metadata from the object.
   static void addDTransMDNode(Value &V, MDNode *MD);
 
+  // Remove any existing DTransFuncIndex metadata on 'F'. And set the return and
+  // argument attributes for the DTrans type metadata based on the function type
+  // defined by 'FnType'
+  static void setDTransFuncMetadata(Function *F, DTransFunctionType *FnType);
+
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
   // This method should be called first to walk the named metadata node,
@@ -82,7 +87,7 @@ public:
 
   // If the Value has DTrans type metadata that can be decoded, return the
   // DTransType, otherwise nullptr.
-  DTransType *getDTransTypeFromMD(Value *V);
+  DTransType *getDTransTypeFromMD(const Value *V);
 private:
   // This method returns a DTransType* by decoding the information in the
   // metadata node. Returns nullptr, if an error occurs during decoding.
@@ -97,7 +102,7 @@ private:
   DTransType *decodeMDVectorNode(MDNode *MD);
 
   // Lookup a value from the FunctionToDTransTypeMap table.
-  DTransFunctionType *getDTransType(Function *F) const;
+  DTransFunctionType *getDTransType(const Function *F) const;
 
   // Build of cache of DTransFunctionType objects to map Functions to a
   // DTransFunctionType for each function that has DTrans metadata tags.
@@ -126,11 +131,6 @@ private:
 
   // Map of functions with DTrans metadata tags to a DTransFunctionType.
   DenseMap<Function *, DTransFunctionType *> FunctionToDTransTypeMap;
-
-  // Deprecated:
-  // Map of external symbol name to MDNode that describes the type.
-  // TODO: Remove when LIT tests are updated.
-  StringMap<MDNode *> SymbolNameToMDNodeMap;
 };
 
 #if !INTEL_PRODUCT_RELEASE

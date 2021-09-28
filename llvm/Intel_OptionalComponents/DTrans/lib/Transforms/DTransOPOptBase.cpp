@@ -769,6 +769,45 @@ void DTransOPOptBase::createCloneFunctionDeclarations(Module &M) {
     // then a clone will be necessary.
     Type *FuncValueTy = F->getValueType();
     Type *FuncReplValueTy = TypeRemapper.remapType(FuncValueTy);
+    if (FuncReplValueTy == FuncValueTy) {
+      // To support transformations that convert an opaque pointer type to an
+      // integer, this needs to examine the function signature using the
+      // DTransType representation to determine whether it takes or returns a
+      // pointer that would be impacted.
+      DTransType *DTy = DTInfo->getTypeMetadataReader().getDTransTypeFromMD(F);
+      if (!DTy)
+        continue;
+
+      DTransType *DReplTy = TypeRemapper.remapType(DTy);
+      if (DTy == DReplTy)
+        continue;
+
+      auto *DFnTy = cast<DTransFunctionType>(DTy);
+      auto *DReplFnTy = cast<DTransFunctionType>(DReplTy);
+      bool NeedsReplaced = false;
+      DTransType *OrigRetTy = DFnTy->getReturnType();
+      DTransType *ReplRetTy = DReplFnTy->getReturnType();
+      assert(OrigRetTy && ReplRetTy && "Bad function sig");
+      if (OrigRetTy->isPointerTy() != ReplRetTy->isPointerTy() ||
+          (!OrigRetTy->isPointerTy() && OrigRetTy != ReplRetTy)) {
+        NeedsReplaced = true;
+      } else {
+        unsigned NumArgs = F->arg_size();
+        for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+          DTransType *OrigArgTy = DFnTy->getArgType(ArgIdx);
+          DTransType *ReplArgTy = DReplFnTy->getArgType(ArgIdx);
+          assert(OrigArgTy && ReplArgTy && "Bad function sig");
+          if (OrigArgTy->isPointerTy() != ReplArgTy->isPointerTy() ||
+              (!OrigArgTy->isPointerTy() && OrigArgTy != ReplArgTy)) {
+            NeedsReplaced = true;
+            break;
+          }
+        }
+      }
+      if (NeedsReplaced)
+        FuncReplValueTy = DReplTy->getLLVMType();
+    }
+
     if (FuncReplValueTy != FuncValueTy) {
       Function *NewF = Function::Create(cast<FunctionType>(FuncReplValueTy),
                                         F->getLinkage(), F->getName(), &M);
@@ -778,8 +817,8 @@ void DTransOPOptBase::createCloneFunctionDeclarations(Module &M) {
       CloneFuncToOrigFuncMap[NewF] = F;
 
       // Create VMap entries for the arguments that will be used during the
-      // call to cloneFunctionInfo. This must be done to make it available in
-      // the call to cloneFunctionInto made by the transformIR function.
+      // call to cloneFunctionInfo. This must be done to make it available
+      // in the call to cloneFunctionInto made by the transformIR function.
       Function::arg_iterator DestI = NewF->arg_begin();
       for (Argument &I : F->args()) {
         DestI->setName(I.getName());
@@ -1021,7 +1060,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
              "CloneFuncToOrigFuncMap is invalid");
 
       CloneFunctionInto(CloneFunc, &F, VMap,
-                        CloneFunctionChangeType::LocalChangesOnly, Returns, "",
+                        CloneFunctionChangeType::GlobalChanges, Returns, "",
                         &CodeInfo, &TypeRemapper, getMaterializer());
       UpdateCallInfoForFunction(&F, /* IsCloned=*/true);
 
@@ -1180,8 +1219,7 @@ void DTransOPOptBase::updateAttributeTypes(Function *F) {
                         Attribute::getWithStructRetType(Context, RemapTy));
       }
     } else if (A.value().hasPreallocatedAttr()) {
-      AttributeSet ParamAttrs =
-          F->getAttributes().getParamAttributes(A.index());
+      AttributeSet ParamAttrs = F->getAttributes().getParamAttrs(A.index());
       if (auto *RemapTy = TypeChangeNeeded(ParamAttrs.getPreallocatedType())) {
         F->removeParamAttr(A.index(), Attribute::Preallocated);
         F->addParamAttr(A.index(),

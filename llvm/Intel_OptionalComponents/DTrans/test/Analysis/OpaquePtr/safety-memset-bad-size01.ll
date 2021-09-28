@@ -9,7 +9,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; Test with element pointee when calling memset using a runtime dependent size.
 %struct.test01 = type { i32, i32, i32, i32 }
-define void @test01(%struct.test01* %pStruct, i64 %size) !dtrans_type !2 {
+define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i64 %size) !intel.dtrans.func.type !3 {
   %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 0
   %pStart = bitcast i32* %pField to i8*
   call void @llvm.memset.p0i8.i64(i8* %pStart, i8 1, i64 %size, i1 false)
@@ -23,7 +23,7 @@ define void @test01(%struct.test01* %pStruct, i64 %size) !dtrans_type !2 {
 ; Test with pointer to structure type when calling memset using a runtime
 ; dependent size.
 %struct.test02 = type { i32, i32, i32, i32 }
-define void @test02(%struct.test02* %a, i64 %size) !dtrans_type !7 {
+define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %a, i64 %size) !intel.dtrans.func.type !5 {
   %p = bitcast %struct.test02* %a to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 %size, i1 false)
   ret void
@@ -33,24 +33,16 @@ define void @test02(%struct.test02* %a, i64 %size) !dtrans_type !7 {
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
 
 
-declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 2, !3, !4, !6}  ; void (%struct.test01*, i64)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{i64 0, i32 0}  ; i64
-!7 = !{!"F", i1 false, i32 2, !3, !8, !6}  ; void (%struct.test02*, i64)
-!8 = !{!9, i32 1}  ; %struct.test02*
-!9 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!10 = !{!"F", i1 false, i32 4, !3, !11, !12, !6, !13}  ; void (i8*, i8, i64, i1)
-!11 = !{i8 0, i32 1}  ; i8*
-!12 = !{i8 0, i32 0}  ; i8
-!13 = !{i1 0, i32 0}  ; i1
-!14 = !{!"S", %struct.test01 zeroinitializer, i32 4, !1, !1, !1, !1} ; { i32, i32, i32, i32 }
-!15 = !{!"S", %struct.test02 zeroinitializer, i32 4, !1, !1, !1, !1} ; { i32, i32, i32, i32 }
-!16 = !{!"llvm.memset.p0i8.i64", !10}
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2}
+!4 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!5 = distinct !{!4}
+!6 = !{i8 0, i32 1}  ; i8*
+!7 = distinct !{!6}
+!8 = !{!"S", %struct.test01 zeroinitializer, i32 4, !1, !1, !1, !1} ; { i32, i32, i32, i32 }
+!9 = !{!"S", %struct.test02 zeroinitializer, i32 4, !1, !1, !1, !1} ; { i32, i32, i32, i32 }
 
-!dtrans_types = !{!14, !15}
-!dtrans_decl_types = !{!16}
+!intel.dtrans.types = !{!8, !9}

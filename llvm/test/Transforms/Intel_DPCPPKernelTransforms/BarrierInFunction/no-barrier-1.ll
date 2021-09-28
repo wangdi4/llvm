@@ -7,7 +7,7 @@
 ;; This test checks the BarrierInFunction pass
 ;; The case: kernel "main" with no barrier instruction
 ;; The expected result:
-;;      1. A call to @barrier_dummy() at the begining of the kernel "main"
+;;      1. A call to @dummy_barrier.() at the begining of the kernel "main"
 ;;      2. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
 ;;*****************************************************************************
 
@@ -19,7 +19,7 @@ target triple = "i686-pc-win32"
 define void @main(i32 %x) nounwind {
   %y = xor i32 %x, %x
   ret void
-; CHECK: @barrier_dummy()
+; CHECK: @dummy_barrier.()
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: @_Z18work_group_barrierj(i32 1)
 ; CHECK: ret
@@ -30,5 +30,5 @@ define void @main(i32 %x) nounwind {
 
 !0 = !{void (i32)* @main}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @barrier_dummy()
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummy_barrier.()
 ; DEBUGIFY-NOT: WARNING

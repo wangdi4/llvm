@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===----------- HIRCrossLoopArrayContraction.h ----------------*- C++-*---===//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
@@ -20,8 +21,11 @@ namespace loopopt {
 
 class HIRCrossLoopArrayContractionPass
     : public HIRPassInfoMixin<HIRCrossLoopArrayContractionPass> {
+  bool IsMultiJob;
 
 public:
+  HIRCrossLoopArrayContractionPass(bool IsMultiJob = true)
+      : IsMultiJob(IsMultiJob) {}
   static constexpr auto PassName = "hir-cross-loop-array-contraction";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             HIRFramework &HIRF);
@@ -31,4 +35,5 @@ public:
 
 } // namespace llvm
 
-#endif //LLVM_HIRCROSSLOOPARRAYCONTRACTION_H
+#endif // LLVM_HIRCROSSLOOPARRAYCONTRACTION_H
+#endif // INTEL_FEATURE_SW_ADVANCED

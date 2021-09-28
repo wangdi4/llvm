@@ -15,9 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlannerHIR.h"
+#include "../IntelVPlanCFGMerger.h"
 #include "../IntelVPlanCallVecDecisions.h"
-#include "../IntelVPlanVLSTransform.h"
 #include "../IntelVPlanSSADeconstruction.h"
+#include "../IntelVPlanVLSTransform.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
 
@@ -33,6 +34,11 @@ static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
 static cl::opt<bool>
     EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
                            cl::Hidden, cl::desc("Enable in memory entities."));
+
+static cl::opt<bool, true>
+    EnableNewCFGMergeHIROpt("vplan-enable-new-cfg-merge-hir", cl::Hidden,
+                            cl::location(EnableNewCFGMergeHIR),
+                            cl::desc("Enable the new CFG merger for HIR."));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
                                                   unsigned UF) {
@@ -68,11 +74,14 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
 
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
-  // TODO: Update to use runForMergedCFG when CFGMerger is available for HIR
-  // path.
-  CallVecDecisions.runForVF(BestVF, TLI, TTI);
-  std::string Label("CallVecDecisions analysis for VF=" +
-                    std::to_string(BestVF));
+  std::string Label;
+  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
+    CallVecDecisions.runForMergedCFG(TLI, TTI);
+    Label = "CallVecDecisions analysis for merged CFG";
+  } else {
+    CallVecDecisions.runForVF(BestVF, TLI, TTI);
+    Label = "CallVecDecisions analysis for VF=" + std::to_string(BestVF);
+  }
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
@@ -174,6 +183,11 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   return true;
 }
 
+void LoopVectorizationPlannerHIR::createLiveInOutLists(VPlanVector &Plan) {
+  VPLiveInOutCreator LICreator(Plan);
+  LICreator.createInOutValues(TheLoop);
+}
+
 unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   bool ForcedValue = false;
   unsigned UF = LoopVectorizationPlanner::getLoopUnrollFactor(&ForcedValue);
@@ -201,6 +215,16 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   return UF;
 }
 
+std::unique_ptr<VPlanCostModelInterface>
+LoopVectorizationPlannerHIR::createCostModel(
+  const VPlanVector *Plan, unsigned VF) const {
+  if (LightWeightMode)
+    return VPlanCostModelLite::makeUniquePtr(Plan, VF, TTI, TLI, DL,
+                                             VF > 1 ? VLSA : nullptr);
+  else
+    return LoopVectorizationPlanner::createCostModel(Plan, VF);
+}
+
 bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
 
   bool Result = LoopVectorizationPlanner::unroll(Plan);
@@ -213,6 +237,34 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
   }
 
   return Result;
+}
+
+void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
+                                                           unsigned UF) {
+  if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR)
+    return;
+  assert(getBestVF() > 1 && "Unexpected VF");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
+
+  VPlanCFGMerger CFGMerger(*Plan, VF, UF);
+
+  // Run CFGMerger.
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
+}
+
+void LoopVectorizationPlannerHIR::createMergerVPlans(
+    VPAnalysesFactoryBase &VPAF) {
+  assert(MergerVPlans.empty() && "Non-empty list of VPlans");
+  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
+    assert(getBestVF() > 1 && "Unexpected VF");
+
+    VPlanVector *Plan = getBestVPlan();
+    assert(Plan && "No best VPlan found.");
+
+    VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
+                                *Plan, VPAF);
+  }
 }
 
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {

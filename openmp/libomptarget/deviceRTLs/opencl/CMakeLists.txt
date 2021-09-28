@@ -17,23 +17,23 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   set(opencl_inc
     src/internal.h
     src/omptarget-opencl.h
-    )
-  set(opencl_src
+  )
+
+  # Required part that should not be optimized away with --only-needed
+  set(opencl_src_required src/omptarget-opencl.cl)
+
+  # Optional part that can be optimized away with --only-needed
+  set(opencl_src_optional
     src/abi.cl
     src/abi-atomic.cl
     src/abi-loop.cl
     src/abi-parallel.cl
     src/api.cl
-    src/omptarget-opencl.cl
-    )
-  set(omp_src src/abi-atomic-fp.cpp)
-  set(opencl_device_rtl_tmp_bc
-    ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.tmp.bc
-    )
-  set(opencl_device_rtl_regularized_tmp_bc
-    ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.reg.tmp.bc
-    )
-  set(opencl_device_rtl_bc ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.bc)
+    src/abi-atomic-fp.cpp
+  )
+
+  set(opencl_src ${opencl_src_optional} ${opencl_src_required})
+
   if (WIN32)
     set(objext .obj)
     set(host_target_name host-x86_64-pc-windows-msvc)
@@ -41,14 +41,10 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     set(objext .o)
     set(host_target_name host-x86_64-unknown-linux-gnu)
   endif()
-  # We use libomp- prefix to unify the naming with libdevice parts.
-  set(opencl_device_rtl_obj
-    ${LIBOMPTARGET_LIBRARY_DIR}/libomp-spirvdevicertl${objext}
-    )
   set(opencl_flags_spirv
     -cc1 -emit-llvm-bc -triple spir64-unknown-unknown -cl-std=CL2.0
     -disable-llvm-passes -include opencl-c.h -DINTEL_COLLAB=1
-    )
+  )
   set(omp_cpp_flags -DINTEL_COLLAB=1 -c -fiopenmp -fopenmp-targets=spir64)
 
   if("$ENV{LIBOMPTARGET_NO_DOUBLE_PRECISION}" STREQUAL "1")
@@ -60,13 +56,30 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     list(APPEND opencl_flags_spirv
       -DINTEL_CUSTOMIZATION=1
       -disable-intel-proprietary-opts
-      )
+    )
     list(PREPEND omp_cpp_flags --intel -DINTEL_CUSTOMIZATION=1)
   endif(INTEL_CUSTOMIZATION)
 
-  add_custom_target(omptarget-opencl ALL
-    DEPENDS ${opencl_device_rtl_bc} ${opencl_device_rtl_obj}
+  set(opencl_device_rtl_required
+    ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl-required)
+  set(opencl_device_rtl_required_obj
+    ${LIBOMPTARGET_LIBRARY_DIR}/libomp-spirvdevicertl-required${objext})
+
+  set(opencl_device_rtl_optional
+    ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl-optional)
+  set(opencl_device_rtl_optional_obj
+    ${LIBOMPTARGET_LIBRARY_DIR}/libomp-spirvdevicertl-optional${objext})
+
+  # TODO: Set this to FALSE if it becomes redundant later.
+  set(BUILD_ONE_DEVICE_RTL TRUE)
+
+  if (BUILD_ONE_DEVICE_RTL)
+    set(opencl_device_rtl ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl)
+    # We use libomp- prefix to unify the naming with libdevice parts.
+    set(opencl_device_rtl_obj
+      ${LIBOMPTARGET_LIBRARY_DIR}/libomp-spirvdevicertl${objext}
     )
+  endif()
 
   # Set required tools
   set(ocl_cmplr $<TARGET_FILE:clang>)
@@ -75,104 +88,128 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   set(llvm_spirv $<TARGET_FILE:llvm-spirv>)
   set(clang_offload_bundler $<TARGET_FILE:clang-offload-bundler>)
 
-  # Generate LLVM IR and SPIR-V from the OpenCL code
-  set(bc_all "")
+  macro(build_rtl rtl_name rtl_obj rtl_src)
+    set(bc_all "")
 
-  # Generate LLVM IR for each file
-  foreach(src ${opencl_src})
-    get_filename_component(cl_src ${src} ABSOLUTE)
-    get_filename_component(filename ${src} NAME_WE)
+    # Generate LLVM IR for each file
+    foreach(src ${rtl_src})
+      get_filename_component(src_abs ${src} ABSOLUTE)
+      get_filename_component(src_ext ${src} EXT)
+      get_filename_component(filename ${src} NAME_WE)
+      if(${src_ext} MATCHES .cl)
+        # Compile target code with ocl compiler and extract the LLVM IR
+        add_custom_command(
+          OUTPUT ${filename}.bc
+          COMMAND ${ocl_cmplr} ${opencl_flags_spirv} -o ${filename}.tmp.bc
+                  ${src_abs}
+          # Regularize the IR early for printf.
+          COMMAND ${llvm_spirv} -s -o ${filename}.bc ${filename}.tmp.bc
+          DEPENDS ${src_abs} ${opencl_inc} ${ocl_cmplr} ${llvm_spirv}
+          VERBATIM
+        )
+      else()
+        # Compile target code with omp compiler and extract the LLVM IR
+        add_custom_command(
+          OUTPUT ${filename}.bc
+          COMMAND ${omp_cmplr} ${omp_cpp_flags} -o ${filename}${objext}
+                  ${src_abs}
+          COMMAND ${clang_offload_bundler}
+                  --unbundle --type=o --targets=openmp-spir64
+                  --inputs=${filename}${objext} --outputs=${filename}.bc
+          DEPENDS ${src_abs} ${omp_cmplr} ${clang_offload_bundler}
+          VERBATIM
+        )
+      endif()
+      list(APPEND bc_all ${filename}.bc)
+    endforeach()
+
+    set(rtl_tmp_bc ${rtl_name}.tmp.bc)
+    set(rtl_reg_bc ${rtl_name}.reg.tmp.bc)
+    set(rtl_bc ${rtl_name}.bc)
+
+    # Generate LLVM IR for the device RTL.
     add_custom_command(
-      OUTPUT ${filename}.bc
-      COMMAND ${ocl_cmplr} ${opencl_flags_spirv} -o ${filename}.tmp.bc ${cl_src}
-      # Regularize the IR early for printf.
-      COMMAND ${llvm_spirv} -s -o ${filename}.bc ${filename}.tmp.bc
-      DEPENDS ${cl_src} ${opencl_inc} ${ocl_cmplr} ${llvm_spirv}
+      OUTPUT ${rtl_tmp_bc}
+      COMMAND ${llvm_link} -o ${rtl_tmp_bc} ${bc_all}
+      DEPENDS ${bc_all} ${llvm_link}
       VERBATIM
-      )
-    list(APPEND bc_all ${filename}.bc)
-  endforeach()
-
-  # Compile target code with omp compiler and extract the LLVM IR
-  foreach(src ${omp_src})
-    get_filename_component(omp_src ${src} ABSOLUTE)
-    get_filename_component(filename ${src} NAME_WE)
-    add_custom_command(
-      OUTPUT ${filename}.bc
-      COMMAND ${omp_cmplr} ${omp_cpp_flags} -o ${filename}${objext} ${omp_src}
-      COMMAND ${clang_offload_bundler}
-              --unbundle --type=o --targets=openmp-spir64
-              --inputs=${filename}${objext} --outputs=${filename}.bc
-      DEPENDS ${omp_src} ${omp_cmplr} ${clang_offload_bundler}
-      VERBATIM
-      )
-    list(APPEND bc_all ${filename}.bc)
-  endforeach()
-
-  # Generate LLVM IR for the device RTL.
-  add_custom_command(
-    OUTPUT ${opencl_device_rtl_tmp_bc}
-    COMMAND ${llvm_link} -o ${opencl_device_rtl_tmp_bc} ${bc_all}
-    DEPENDS ${bc_all} ${llvm_link}
-    VERBATIM
     )
 
-  # Generate regularized LLVM IR for the device RTL.
-  add_custom_command(
-    OUTPUT ${opencl_device_rtl_regularized_tmp_bc}
-    COMMAND ${llvm_spirv} -s -o ${opencl_device_rtl_regularized_tmp_bc}
-            ${opencl_device_rtl_tmp_bc}
-    DEPENDS ${opencl_device_rtl_tmp_bc} ${llvm_spirv}
-    VERBATIM
+    # Generate regularized LLVM IR for the device RTL.
+    add_custom_command(
+      OUTPUT ${rtl_reg_bc}
+      COMMAND ${llvm_spirv} -s -o ${rtl_reg_bc} ${rtl_tmp_bc}
+      DEPENDS ${rtl_tmp_bc} ${llvm_spirv}
+      VERBATIM
     )
 
-  if(TRUE)
-    # Annotate device RTL code with ITT API calls.
-    # This should be done after the regularization, because the annotation
-    # pass only recognizes __spirv calls, and does not recognize OpenCL calls.
-    add_custom_command(
-      OUTPUT ${opencl_device_rtl_bc}
-      COMMAND opt -SPIRITTAnnotations -o ${opencl_device_rtl_bc}
-              ${opencl_device_rtl_regularized_tmp_bc}
-      DEPENDS ${opencl_device_rtl_regularized_tmp_bc} opt
-      VERBATIM
+    if(TRUE)
+      # Annotate device RTL code with ITT API calls.
+      # This should be done after the regularization, because the annotation
+      # pass only recognizes __spirv calls, and does not recognize OpenCL calls.
+      add_custom_command(
+        OUTPUT ${rtl_bc}
+        COMMAND opt -SPIRITTAnnotations -o ${rtl_bc} ${rtl_reg_bc}
+        DEPENDS ${rtl_reg_bc} opt
+        VERBATIM
       )
-  else()
-    # FIME: remove this soon.
-    add_custom_command(
-      OUTPUT ${opencl_device_rtl_bc}
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-              ${opencl_device_rtl_regularized_tmp_bc} ${opencl_device_rtl_bc}
-      DEPENDS ${opencl_device_rtl_regularized_tmp_bc}
-      VERBATIM
+    else()
+      # FIME: remove this soon.
+      add_custom_command(
+        OUTPUT ${rtl_bc}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${rtl_reg_bc} ${rtl_bc}
+        DEPENDS ${rtl_reg_bc}
+        VERBATIM
       )
+    endif()
+    list(APPEND opencl_device_rtl_bc_list ${rtl_bc})
+
+    # Generate bundled object file for the device RTL with an "empty" host part.
+    add_custom_command(
+      OUTPUT ${rtl_obj}
+      COMMAND ${CMAKE_COMMAND} -E echo > empty_host.c
+      COMMAND ${ocl_cmplr} -c -o empty_host${objext} empty_host.c
+      COMMAND ${clang_offload_bundler} --type=o
+              --targets=${host_target_name},openmp-spir64,openmp-spir64_gen,openmp-spir64_x86_64
+              --inputs=empty_host${objext},${rtl_bc},${rtl_bc},${rtl_bc}
+              --outputs=${rtl_obj}
+      DEPENDS ${rtl_bc} ${ocl_cmplr} ${clang_offload_bundler}
+      VERBATIM
+    )
+    list(APPEND opencl_device_rtl_obj_list ${rtl_obj})
+  endmacro()
+
+  set(opencl_device_rtl_bc_list "")
+  set(opencl_device_rtl_obj_list "")
+
+  build_rtl(${opencl_device_rtl_optional} ${opencl_device_rtl_optional_obj}
+    "${opencl_src_optional}"
+  )
+
+  build_rtl(${opencl_device_rtl_required} ${opencl_device_rtl_required_obj}
+    "${opencl_src_required}"
+  )
+
+  if(BUILD_ONE_DEVICE_RTL)
+    build_rtl(${opencl_device_rtl} ${opencl_device_rtl_obj} "${opencl_src}")
   endif()
 
-  # Generate bundled object file for the device RTL with an "empty" host part.
-  add_custom_command(
-    OUTPUT ${opencl_device_rtl_obj}
-    COMMAND ${CMAKE_COMMAND} -E echo > empty_host.c
-    COMMAND clang -c -o empty_host${objext} empty_host.c
-    COMMAND clang-offload-bundler --type=o
-            --targets=${host_target_name},openmp-spir64,openmp-spir64_gen,openmp-spir64_x86_64
-            --inputs=empty_host${objext},${opencl_device_rtl_bc},${opencl_device_rtl_bc},${opencl_device_rtl_bc}
-            --outputs=${opencl_device_rtl_obj}
-    DEPENDS ${opencl_device_rtl_bc} ${ocl_cmplr} ${clang_offload_bundler}
-    VERBATIM
-    )
+  add_custom_target(omptarget-opencl ALL
+    DEPENDS ${opencl_device_rtl_bc_list} ${opencl_device_rtl_obj_list}
+  )
 
   set(install_dest lib${LIBOMPTARGET_LIBDIR_SUFFIX})
 
   # FIXME: remove this from install, when IFX driver switches to
   #        the object file linking.
-  install(FILES ${opencl_device_rtl_bc}
+  install(FILES ${opencl_device_rtl_bc_list}
     COMPONENT omptarget-opencl-rtl
     DESTINATION ${install_dest}
-    )
-  install(FILES ${opencl_device_rtl_obj}
+  )
+  install(FILES ${opencl_device_rtl_obj_list}
     COMPONENT omptarget-opencl-rtl
     DESTINATION ${install_dest}
-    )
+  )
 else()
   libomptarget_say("Not building OpenCL offloading device RTL: OpenCL SDK not found")
 endif()

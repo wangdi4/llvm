@@ -16,8 +16,17 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-vectorize-non-readonly-libcalls=false -vector-library=SVML -print-after=hir-vplan-vec -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; Checks for HIR VPlan vectorizer
-; TODO: Update when HIR vectorizer supports call serialization.
-; HIR: DO i1 = 0, 1023, 1   <DO_LOOP>
+; HIR:           + DO i1 = 0, 1023, 2   <DO_LOOP> <simd-vectorized> <novectorize>
+; HIR-NEXT:      |   %.vec = (<2 x float>*)(%a)[i1];
+; HIR-NEXT:      |   %serial.temp = undef;
+; HIR-NEXT:      |   %extract.0. = extractelement %.vec,  0;
+; HIR-NEXT:      |   %logf = @logf(%extract.0.);
+; HIR-NEXT:      |   %serial.temp = insertelement %serial.temp,  %logf,  0;
+; HIR-NEXT:      |   %extract.1. = extractelement %.vec,  1;
+; HIR-NEXT:      |   %logf2 = @logf(%extract.1.);
+; HIR-NEXT:      |   %serial.temp = insertelement %serial.temp,  %logf2,  1;
+; HIR-NEXT:      |   (<2 x float>*)(%a)[i1] = %serial.temp;
+; HIR-NEXT:      + END LOOP
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

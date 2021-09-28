@@ -69,7 +69,7 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-attributes #0 = { "recommended-vector-length"="16" "prefer-vector-width"="512" "scalar-kernel" "sycl-kernel" "target-cpu"="skylake-avx512" "vector-variants"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_" "vectorized-kernel"="_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_" "vectorized-width"="1" }
+attributes #0 = { "recommended-vector-length"="16" "prefer-vector-width"="512" "scalar-kernel" "target-cpu"="skylake-avx512" "vector-variants"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_" "vectorized-kernel"="_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_" "vectorized-width"="1" }
 attributes #1 = { "recommended-vector-length"="16" "prefer-vector-width"="512" "scalar-kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_" "target-cpu"="skylake-avx512" "vector-variants"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_" "vectorized-kernel" "vectorized-width"="16" }
 
 !0 = distinct !{!0, !1}

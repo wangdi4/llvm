@@ -9,13 +9,13 @@ define i32 @main() {
 ; CHECK-NEXT:       [[TGU0:%.*]] = (sext.i32.i64([[TMP2:%.*]]) + -1 * sext.i32.i64([[TMP3:%.*]]))/u4
 ; CHECK-NEXT:       if (0 <u 4 * [[TGU0]])
 ; CHECK-NEXT:       {
-; CHECK-NEXT:             [[RED_VAR0:%.*]] = [[TMP13:%.*]];
-; CHECK-NEXT:             [[RED_VAR10:%.*]] = -1
-; CHECK-NEXT:             [[RED_VAR20:%.*]] = [[TMP10:%.*]];
-; CHECK-NEXT:             [[RED_VAR30:%.*]] = [[TMP12:%.*]];
-; CHECK-NEXT:             [[RED_VAR40:%.*]] = -1
-; CHECK-NEXT:             [[RED_VAR50:%.*]] = [[TMP9:%.*]];
-; CHECK-NEXT:          + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:          [[RED_VAR0:%.*]] = [[TMP13:%.*]];
+; CHECK-NEXT:          [[RED_VAR10:%.*]] = -1
+; CHECK-NEXT:          [[RED_VAR20:%.*]] = [[TMP10:%.*]];
+; CHECK-NEXT:          [[RED_VAR30:%.*]] = [[TMP12:%.*]];
+; CHECK-NEXT:          [[RED_VAR40:%.*]] = -1
+; CHECK-NEXT:          [[RED_VAR50:%.*]] = [[TMP9:%.*]];
+; CHECK:               + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:          |   [[DOTVEC0:%.*]] = [[RED_VAR0]] > 0.000000e+00
 ; CHECK-NEXT:          |   [[RED_VAR10]] = ([[RED_VAR0]] > 0.000000e+00) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[RED_VAR10]]
 ; CHECK-NEXT:          |   [[RED_VAR20]] = ([[RED_VAR0]] > 0.000000e+00) ? i1 + sext.i32.i64([[TMP3]]) + <i64 0, i64 1, i64 2, i64 3> : [[RED_VAR20]]
@@ -25,20 +25,20 @@ define i32 @main() {
 ; CHECK-NEXT:          |   [[RED_VAR50]] = ([[RED_VAR30]] > 0.000000e+00) ? i1 + sext.i32.i64([[TMP3]]) + <i64 0, i64 1, i64 2, i64 3> : [[RED_VAR50]]
 ; CHECK-NEXT:          |   [[RED_VAR30]] = ([[RED_VAR30]] > 0.000000e+00) ? 0.000000e+00 : [[RED_VAR30]]
 ; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:             [[TMP13]] = @llvm.vector.reduce.fmin.v4f64([[RED_VAR0]])
-; CHECK-NEXT:             [[IDX_BLEND0:%.*]] = ([[TMP13]] == [[RED_VAR0]]) ? [[RED_VAR10]] : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>
-; CHECK-NEXT:             [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.smin.v4i64([[IDX_BLEND0]])
-; CHECK-NEXT:             [[MMIDX_CMP_0:%.*]] = [[VEC_REDUCE0]] == [[RED_VAR10]]
-; CHECK-NEXT:             [[BSFINTMASK0:%.*]] = bitcast.<4 x i1>.i4([[MMIDX_CMP_0]])
-; CHECK-NEXT:             [[BSF0:%.*]] = @llvm.cttz.i4([[BSFINTMASK0]],  1)
-; CHECK-NEXT:             [[TMP10]] = extractelement [[RED_VAR20]],  [[BSF0]]
-; CHECK-NEXT:             [[TMP12]] = @llvm.vector.reduce.fmin.v4f64([[RED_VAR30]])
-; CHECK-NEXT:             [[IDX_BLEND190:%.*]] = ([[TMP12]] == [[RED_VAR30]]) ? [[RED_VAR40]] : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>
-; CHECK-NEXT:             [[VEC_REDUCE200:%.*]] = @llvm.vector.reduce.smin.v4i64([[IDX_BLEND190]])
-; CHECK-NEXT:             [[MMIDX_CMP_210:%.*]] = [[VEC_REDUCE200]] == [[RED_VAR40]]
-; CHECK-NEXT:             [[BSFINTMASK220:%.*]] = bitcast.<4 x i1>.i4([[MMIDX_CMP_210]])
-; CHECK-NEXT:             [[BSF230:%.*]] = @llvm.cttz.i4([[BSFINTMASK220]],  1)
-; CHECK-NEXT:             [[TMP9]] = extractelement [[RED_VAR50]],  [[BSF230]]
+; CHECK:               [[TMP13]] = @llvm.vector.reduce.fmin.v4f64([[RED_VAR0]])
+; CHECK-NEXT:          [[IDX_BLEND0:%.*]] = ([[TMP13]] == [[RED_VAR0]]) ? [[RED_VAR10]] : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>
+; CHECK-NEXT:          [[VEC_REDUCE0:%.*]] = @llvm.vector.reduce.smin.v4i64([[IDX_BLEND0]])
+; CHECK-NEXT:          [[MMIDX_CMP_0:%.*]] = [[VEC_REDUCE0]] == [[RED_VAR10]]
+; CHECK-NEXT:          [[BSFINTMASK0:%.*]] = bitcast.<4 x i1>.i4([[MMIDX_CMP_0]])
+; CHECK-NEXT:          [[BSF0:%.*]] = @llvm.cttz.i4([[BSFINTMASK0]],  1)
+; CHECK-NEXT:          [[TMP10]] = extractelement [[RED_VAR20]],  [[BSF0]]
+; CHECK-NEXT:          [[TMP12]] = @llvm.vector.reduce.fmin.v4f64([[RED_VAR30]])
+; CHECK-NEXT:          [[IDX_BLEND190:%.*]] = ([[TMP12]] == [[RED_VAR30]]) ? [[RED_VAR40]] : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>
+; CHECK-NEXT:          [[VEC_REDUCE200:%.*]] = @llvm.vector.reduce.smin.v4i64([[IDX_BLEND190]])
+; CHECK-NEXT:          [[MMIDX_CMP_210:%.*]] = [[VEC_REDUCE200]] == [[RED_VAR40]]
+; CHECK-NEXT:          [[BSFINTMASK220:%.*]] = bitcast.<4 x i1>.i4([[MMIDX_CMP_210]])
+; CHECK-NEXT:          [[BSF230:%.*]] = @llvm.cttz.i4([[BSFINTMASK220]],  1)
+; CHECK-NEXT:          [[TMP9]] = extractelement [[RED_VAR50]],  [[BSF230]]
 ; CHECK-NEXT:       }
 ;
 ; CHECK:            + DO i1 = 4 * [[TGU0]], sext.i32.i64([[TMP2]]) + -1 * sext.i32.i64([[TMP3]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>

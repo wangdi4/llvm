@@ -32,5 +32,5 @@ unreachable.exit:                                 ; No predecessors!
 
 declare void @_Z18work_group_barrierj(i32)
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- call void @barrier_dummy()
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- call void @dummy_barrier.()
 ; DEBUGIFY-NOT: WARNING

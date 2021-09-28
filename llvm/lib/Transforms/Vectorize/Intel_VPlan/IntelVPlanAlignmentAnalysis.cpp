@@ -75,6 +75,24 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
       Multiplier(computeMultiplierForPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPlanDynamicPeeling::print(raw_ostream &OS) const {
+  OS << "VPlanDynamicPeeling: \n"
+     << '\t' << "Memref: ";
+  if (Memref)
+    Memref->dump();
+  else
+    OS << "nullptr\n";
+  OS << '\t' << "InvariantBase: ";
+  // VPlanSCEV is an opaque pointer. Just print the hex value.
+  // During the debugging pointer can be casted and explored further.
+  (OS << "0x").write_hex(reinterpret_cast<size_t>(InvariantBase)) << '\n';
+  OS << '\t' << "RequiredAlignment: " << RequiredAlignment.value() << '\n'
+     << '\t' << "TargetAlignment: " << TargetAlignment.value() << '\n'
+     << '\t' << "Multiplier: " << Multiplier << '\n';
+}
+#endif
+
 int VPlanPeelingCostModelSimple::getCost(VPLoadStoreInst *Mrf, int VF,
                                          Align Alignment) {
   auto Size = DL->getTypeAllocSize(Mrf->getValueType());
@@ -329,6 +347,8 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
         auto CandBase = Cand->accessAddress().InvariantBase;
         auto PrevBase = Prev->accessAddress().InvariantBase;
         auto Diff = VPSE->getMinusExpr(CandBase, PrevBase);
+        if (!Diff)
+          continue;
         auto KB = VPVT->getKnownBits(Diff, nullptr);
 
         // "Alignment" of the pointer difference determines how much alignment
@@ -443,6 +463,7 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     return AlignFromIR;
 
   VPlanSCEV *Diff = VPSE->getMinusExpr(DstScev, SrcScev);
+  assert(Diff && "Cannot compute alignment for peeled memref");
   auto KB = VPVT->getKnownBits(Diff, &Memref);
   Align AlignFromDiff{1ULL << KB.countMinTrailingZeros()};
 

@@ -27,7 +27,11 @@ config.test_format = lit.formats.ShTest()
 config.suffixes = ['.c', '.cpp', '.dump'] #add .spv. Currently not clear what to do with those
 
 # feature tests are considered not so lightweight, so, they are excluded by default
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-31399: on-device was removed upstream. Need to keep this here
+# until intel-fptr* tests are moved elsewhere.
 config.excludes = ['Inputs', 'feature-tests', 'on-device']
+# end INTEL_CUSTOMIZATION
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
@@ -37,7 +41,7 @@ config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
 # INTEL_CUSTOMIZATION
 def getAdditionalFlags():
-    flags = []
+    flags = config.sycl_clang_extra_flags.split(' ')
     # Propagate --gcc-toolchain if we are overriding system installed gcc.
     if 'ICS_GCCBIN' in os.environ:
         flags += ['--gcc-toolchain='
@@ -58,6 +62,20 @@ def getAdditionalFlags():
     return flags
 
 llvm_config.use_clang(additional_flags=getAdditionalFlags())
+
+# Add an extra include directory which points to a fake sycl/sycl.hpp (which just points to CL/sycl.hpp)
+# location to workaround compiler versions which do not provide this header
+# TODO: Remove the code below once sycl/sycl.hpp is supported in xmain compiler
+check_sycl_hpp_file='sycl_hpp_include.cpp'
+with open(check_sycl_hpp_file, 'w') as fp:
+     fp.write('#include <sycl/sycl.hpp>\n')
+     fp.write('int main() {}')
+sycl_hpp_available = subprocess.getstatusoutput(config.clang+' -fsycl  ' + check_sycl_hpp_file)
+if sycl_hpp_available[0] != 0:
+    if platform.system() == 'Windows':
+        llvm_config.with_environment('INCLUDE', config.extra_include, append_path=True)
+    else:
+        llvm_config.with_environment('CPATH', config.extra_include, append_path=True)
 # end INTEL_CUSTOMIZATION
 
 # Propagate some variables from the host environment.
@@ -86,8 +104,6 @@ if platform.system() == "Linux":
         config.available_features.add('libcxx')
     llvm_config.with_system_environment('LD_LIBRARY_PATH')
     llvm_config.with_environment('LD_LIBRARY_PATH', config.sycl_libs_dir, append_path=True)
-    llvm_config.with_system_environment('CFLAGS')
-    llvm_config.with_environment('CFLAGS', config.sycl_clang_extra_flags)
 
 elif platform.system() == "Windows":
     config.available_features.add('windows')
@@ -133,14 +149,23 @@ config.substitutions.append( ('%RUN_ON_HOST', "env SYCL_DEVICE_FILTER=host ") )
 
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
-triple=lit_config.params.get('SYCL_TRIPLE', 'spir64-unknown-unknown-sycldevice')
+triple=lit_config.params.get('SYCL_TRIPLE', 'spir64-unknown-unknown')
 lit_config.note("Triple: {}".format(triple))
 config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
-if triple == 'nvptx64-nvidia-cuda-sycldevice':
+if triple == 'nvptx64-nvidia-cuda':
     config.available_features.add('cuda')
+
+if triple == 'amdgcn-amd-amdhsa':
+    config.available_features.add('rocm_amd')
+    # For AMD the specific GPU has to be specified with --offload-arch
+    if not re.match('.*--offload-arch.*', config.sycl_clang_extra_flags):
+        raise Exception("Error: missing --offload-arch flag when trying to "  \
+                        "run lit tests for AMD GPU, please add "              \
+                        "`-Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=<target>` to " \
+                        "the CMake variable SYCL_CLANG_EXTRA_FLAGS")
 
 # INTEL_CUSTOMIZATION
 # Needed for disable some test in case of use of particular linker

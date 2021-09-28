@@ -185,7 +185,8 @@ bool VecClone::runOnModule(Module &M) { return Impl.runImpl(M); }
 // implementation is empty.
 void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        Function *Clone,
-                                       BasicBlock *EntryBlock) {}
+                                       BasicBlock *EntryBlock,
+                                       const VectorVariant &Variant) {}
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 #endif // INTEL_CUSTOMIZATION
@@ -246,13 +247,9 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
     ParmTypes.push_back(MaskVecTy);
   }
 
-  FunctionType* CloneFuncType = FunctionType::get(ReturnType, ParmTypes,
-                                                  false);
-
-  std::string VariantName = V.generateFunctionName(F.getName());
-  Function* Clone = Function::Create(CloneFuncType,
-                                     GlobalValue::ExternalLinkage,
-                                     VariantName, F.getParent());
+  Function* Clone = getOrInsertVectorFunction(&F, V.getVlen(), ParmTypes,
+                                              nullptr, Intrinsic::not_intrinsic,
+                                              &V, V.isMasked());
 
   // Remove vector variant attributes from the original function. They are
   // not needed for the cloned function and it prevents any attempts at
@@ -263,7 +260,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
     AB.addAttribute(Attr);
   }
 
-  F.removeAttributes(AttributeList::FunctionIndex, AB);
+  F.removeFnAttrs(AB);
 
   // Copy all the attributes from the scalar function to its vector version
   // except for the vector variant attributes.
@@ -280,7 +277,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
     Type* ArgType = (*ArgIt).getType();
     AB = AttributeFuncs::typeIncompatible(ArgType);
-    Clone->removeAttributes(Idx, AB);
+    Clone->removeFnAttrs(AB);
   }
 
   ArgIt = F.arg_begin();
@@ -1893,13 +1890,16 @@ bool VecCloneImpl::runImpl(Module &M) {
 
 #if INTEL_CUSTOMIZATION
       // Language specific hook.
-      handleLanguageSpecifics(F, Phi, Clone, &*EntryBlock);
+      handleLanguageSpecifics(F, Phi, Clone, &*EntryBlock, Variant);
 #endif // INTEL_CUSTOMIZATION
 
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
       insertDirectiveIntrinsics(M, Clone, F, Variant, &*EntryBlock,
                                 LoopExitBlock, ReturnBlock);
       PrivateAllocas.clear();
+
+      // Add may-have-openmp-directive attribute since we inserted directives.
+      Clone->addFnAttr("may-have-openmp-directive", "true");
 
       LLVM_DEBUG(dbgs() << "After SIMD Function Cloning\n");
       LLVM_DEBUG(Clone->dump());

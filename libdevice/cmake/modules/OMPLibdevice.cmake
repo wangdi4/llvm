@@ -69,6 +69,9 @@ function(add_obj_file src dst)
     if (LIBDEVICE_C_SUPPORTS_ZL AND LIBDEVICE_CXX_SUPPORTS_ZL)
       list(APPEND omp_compile_opts /Zl)
     endif()
+    # Avoid linker directives like this in the resulting object files:
+    #   /FAILIFMISMATCH:RuntimeLibrary=MT_StaticRelease
+    list(APPEND omp_compile_opts -D_ALLOW_RUNTIME_LIBRARY_MISMATCH)
   endif(WIN32)
 
   add_custom_command(OUTPUT ${dst}

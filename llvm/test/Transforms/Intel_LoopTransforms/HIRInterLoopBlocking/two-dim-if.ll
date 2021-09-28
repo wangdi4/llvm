@@ -88,16 +88,16 @@ bb4.preheader:                                    ; preds = %alloca_0
 
 bb4:                                              ; preds = %bb4.preheader, %bb12
   %indvars.iv91 = phi i64 [ %indvars.iv.next92, %bb12 ], [ 1, %bb4.preheader ]
-  %"sub1_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %"sub1_$B", i64 %indvars.iv91)
-  %"sub1_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %"sub1_$A", i64 %indvars.iv91)
+  %"sub1_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$B", i64 %indvars.iv91)
+  %"sub1_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$A", i64 %indvars.iv91)
   br label %bb9
 
 bb9:                                              ; preds = %bb9, %bb4
   %indvars.iv88 = phi i64 [ %indvars.iv.next89, %bb9 ], [ 1, %bb4 ]
-  %"sub1_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$B[]", i64 %indvars.iv88)
+  %"sub1_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$B[]", i64 %indvars.iv88)
   %"sub1_$B[][]_fetch" = load double, double* %"sub1_$B[][]", align 1
   %add13 = fadd reassoc ninf nsz arcp contract afn double %"sub1_$B[][]_fetch", 1.000000e+00
-  %"sub1_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$A[]", i64 %indvars.iv88)
+  %"sub1_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$A[]", i64 %indvars.iv88)
   store double %add13, double* %"sub1_$A[][]", align 1
   %indvars.iv.next89 = add nuw nsw i64 %indvars.iv88, 1
   %exitcond90.not = icmp eq i64 %indvars.iv.next89, 4
@@ -114,16 +114,16 @@ bb18.preheader:                                   ; preds = %bb12
 bb18:                                             ; preds = %bb18.preheader, %bb25
   %rel64 = phi i1 [ false, %bb25 ], [ true, %bb18.preheader ]
   %"sub1_$I.1" = phi i64 [ 2, %bb25 ], [ 1, %bb18.preheader ]
-  %"sub1_$A[]38" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %"sub1_$A", i64 %"sub1_$I.1")
-  %"sub1_$B[]47" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %"sub1_$B", i64 %"sub1_$I.1")
+  %"sub1_$A[]38" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$A", i64 %"sub1_$I.1")
+  %"sub1_$B[]47" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub1_$B", i64 %"sub1_$I.1")
   br label %bb22
 
 bb22:                                             ; preds = %bb22, %bb18
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb22 ], [ 1, %bb18 ]
-  %"sub1_$A[][]39" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$A[]38", i64 %indvars.iv)
+  %"sub1_$A[][]39" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$A[]38", i64 %indvars.iv)
   %"sub1_$A[][]_fetch" = load double, double* %"sub1_$A[][]39", align 1
   %add40 = fadd reassoc ninf nsz arcp contract afn double %"sub1_$A[][]_fetch", 2.000000e+00
-  %"sub1_$B[][]48" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub1_$B[]47", i64 %indvars.iv)
+  %"sub1_$B[][]48" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub1_$B[]47", i64 %indvars.iv)
   store double %add40, double* %"sub1_$B[][]48", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 4

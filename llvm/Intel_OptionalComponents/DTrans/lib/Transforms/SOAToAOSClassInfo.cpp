@@ -508,7 +508,7 @@ bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj, Value *NumOfElems,
   if (CallInfo->getCallInfoKind() != dtrans::CallInfo::CIK_Alloc)
     return false;
   auto AKind = cast<AllocCallInfo>(CallInfo)->getAllocKind();
-  if (AKind != AK_Malloc && AKind != AK_New && AKind != AK_UserMalloc)
+  if (AKind != AK_Malloc && AKind != AK_New && !isUserAllocKind(AKind))
     return false;
 
   SmallPtrSet<const Value *, 3> Args;

@@ -1,5 +1,5 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplify-cfg)' -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -S %s | FileCheck %s
 ;
 ; Check that paropt pass adds "llvm.loop.intel.loopcount_maximum" and
 ; "llvm.loop.intel.loopcount_average" metadata to the parallel loop with known
@@ -61,13 +61,13 @@
 ; CHECK:   [[BAR_CMP:%.+]] = icmp sle i32 [[BAR_ADD]], [[BAR_UB]]
 ; CHECK:   br i1 [[BAR_CMP]], label %[[BAR_LOOP_BODY]], label %[[BAR_DISPATCH_INC:.+]], !llvm.loop [[BAR_LOOP_MD:![0-9]+]]
 ;
-; CHECK: [[BAR_LOOP_EXIT]]:
-; CHECK:   call void @__kmpc_for_static_fini(%struct.ident_t* {{.+}}, i32 %{{.+}})
-;
 ; CHECK: [[BAR_DISPATCH_INC]]:
 ; CHECK:   br label %[[BAR_DISPATCH_HEADER]]
-; CHECK: }
 
+; CHECK: [[BAR_LOOP_EXIT]]:
+; CHECK:   call void @__kmpc_for_static_fini(%struct.ident_t* {{.+}}, i32 %{{.+}})
+; CHECK: }
+;
 ; CHECK-DAG: [[FOO_LOOP_CM:![0-9]+]] = !{!"llvm.loop.intel.loopcount_maximum", i32 1000}
 ; CHECK-DAG: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]]{{.*}}, [[FOO_LOOP_CM]]{{[,\}]}}
 ;

@@ -40,21 +40,21 @@ define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4
 ; CHECK-NEXT:  + END LOOP
 ;
 14:
-  %15 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* nonnull undef, i64 1)
-  %16 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* nonnull undef, i64 1)
+  %15 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull undef, i64 1)
+  %16 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull undef, i64 1)
   br label %17
 
 17:                                               ; preds = %28, %14
   %18 = phi i64 [ 1, %14 ], [ %29, %28 ]
-  %19 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %15, i64 %18)
-  %20 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %16, i64 %18)
+  %19 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %15, i64 %18)
+  %20 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %16, i64 %18)
   br label %21
 
 21:                                               ; preds = %21, %17
   %22 = phi i64 [ %26, %21 ], [ 1, %17 ]
-  %23 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %19, i64 %22)
+  %23 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %19, i64 %22)
   %24 = load double, double* %23, align 1, !alias.scope !0, !noalias !3
-  %25 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %20, i64 %22)
+  %25 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %20, i64 %22)
   store double %24, double* %25, align 1, !alias.scope !0, !noalias !3
   %26 = add nuw nsw i64 %22, 1
   %27 = icmp eq i64 %26, 6

@@ -1,6 +1,6 @@
 //===-------- HLRegion.h - High level IR region node ------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -22,8 +22,8 @@
 #include <iterator>
 #include <set>
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include <functional>
 
 namespace llvm {
@@ -82,7 +82,7 @@ private:
   DebugIntrinMap DbgIntrinMap;
 
   // Optimization report for some nested but lost loops.
-  LoopOptReport OptReport;
+  OptReport OR;
 
 public:
   /// Returns the map between symbase and llvm.dbg.* intrinsics.
@@ -225,22 +225,22 @@ public:
   /// Returns true if the last child of the region is a return instruction.
   bool exitsFunction() const;
 
-  LoopOptReport getOptReport() const { return OptReport; }
-  void setOptReport(LoopOptReport R) { OptReport = R; }
-  void eraseOptReport() { OptReport = nullptr; }
+  OptReport getOptReport() const { return OR; }
+  void setOptReport(OptReport R) { OR = R; }
+  void eraseOptReport() { OR = nullptr; }
 };
 
 } // End namespace loopopt
 
-// Traits of HLRegion for LoopOptReportBuilder.
-template <> struct LoopOptReportTraits<loopopt::HLRegion> {
+// Traits of HLRegion for OptReportBuilder.
+template <> struct OptReportTraits<loopopt::HLRegion> {
   using ObjectHandleTy = loopopt::HLRegion &;
 
-  static LoopOptReport getOptReport(const loopopt::HLRegion &R) {
+  static OptReport getOptReport(const loopopt::HLRegion &R) {
     return R.getOptReport();
   }
 
-  static void setOptReport(loopopt::HLRegion &R, LoopOptReport OR) {
+  static void setOptReport(loopopt::HLRegion &R, OptReport OR) {
     R.setOptReport(OR);
   }
 
@@ -248,6 +248,10 @@ template <> struct LoopOptReportTraits<loopopt::HLRegion> {
 
   static DebugLoc getDebugLoc(const loopopt::HLRegion &R) {
     return R.getDebugLoc();
+  }
+
+  static Optional<std::string> getOptReportTitle(const loopopt::HLRegion &R) {
+    return None;
   }
 };
 

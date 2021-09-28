@@ -192,4 +192,224 @@ bb5:
   %bb5.add = add i32 %ld, 5
   ret void
 }
+
+define void @active_lane_as_branch_cond(i32 *%a, i32 %b) {
+; CHECK-LABEL:  VPlan IR for: active_lane_as_branch_cond
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_BB0_ADD:%.*]] = add i32 [[VP_LD]] i32 0
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BLEND_BLEND_BB5:%.*]] = blend [ i1 false, i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i1 true, i1 [[VP_BB3_BR_VP_UNIFORM]] ]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VARYING_ACTIVE:%.*]] = active-lane i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BLEND_BLEND_BB5_ACTIVE:%.*]] = lane-extract i1 [[VP_BLEND_BLEND_BB5]] i1 [[VP_VARYING_ACTIVE]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BLEND_NOT:%.*]] = not i1 [[VP_BLEND_BLEND_BB5_ACTIVE]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP_BLEND_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_BLEND_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB7_BR_VP_BLEND_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %gep = getelementptr i32, i32 *%a, i32 %lane
+  %ld = load i32, i32* %gep, align 4
+  %uniform = icmp eq i32 %b,  42
+  %varying = icmp eq i32 %ld,  42
+  br label %bb0
+
+bb0:
+  %bb0.add = add i32 %ld, 0
+  br i1 %varying, label %bb1, label %bb6
+
+bb1:
+  br i1 %uniform, label %bb2, label %bb3
+
+bb2:
+  br label %bb4
+
+bb3:
+  br label %bb4
+
+bb4:
+  %blend = phi i1 [ true, %bb2 ], [ false, %bb3 ] ; active-lane
+  br i1 %blend, label %bb6, label %bb5
+
+bb5:
+  br label %bb6
+
+bb6:
+  ret void
+}
+
+; Same as above, but active-lane's operand is a phi and not a blend
+; post-predicator.
+define void @active_lane_as_branch_cond2(i32 *%a, i32 %b) {
+; CHECK-LABEL:  VPlan IR for: active_lane_as_branch_cond2
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BB0_UNIFORM:%.*]] = or i1 [[VP_UNIFORM]] i1 true
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BB0_UNIFORM_NOT:%.*]] = not i1 [[VP_BB0_UNIFORM]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_BB0_ADD:%.*]] = add i32 [[VP_LD]] i32 0
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_BB0_UNIFORM]], [[BB2:BB[0-9]+]], [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = or i1 [[VP_VARYING]] i1 true
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB1_VARYING_NOT:%.*]] = not i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_BB1_ADD:%.*]] = add i32 [[VP_LD]] i32 1
+; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LD]] i32 2
+; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LD]] i32 3
+; CHECK-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB5_BR_VP_VARYING_NOT:%.*]] = and i1 [[VP_BB1_VARYING]] i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Uni] br [[BLEND_BB0:blend.bb[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BLEND_BB0]]: # preds: [[BB6]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_UNI_PHI_BLEND_BB5:%.*]] = blend [ i1 true, i1 [[VP_BB1_VARYING_NOT]] ], [ i1 true, i1 [[VP_BB1_VARYING]] ]
+; CHECK-NEXT:       [DA: Div] br [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]], [[BLEND_BB0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB5_BR_VP_VARYING_NOT]], [[BLEND_BB0]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB1_VARYING_NOT]], [[BLEND_BB0]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_UNI_PHI:%.*]] = phi  [ i1 undef, [[BB1]] ],  [ i1 [[VP_UNI_PHI_BLEND_BB5]], [[BLEND_BB0]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB0_UNIFORM_NOT]] i1 [[VP_BB5_BR_VP_VARYING_NOT_PHI_BB4]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = or i1 [[VP_BB1_VARYING_NOT_PHI_BB4]] i1 [[VP2]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_ACTIVE_LANE:%.*]] = active-lane i1 [[VP3]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNI_PHI_ACTIVE:%.*]] = lane-extract i1 [[VP_UNI_PHI]] i1 [[VP_ACTIVE_LANE]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNI_PHI_NOT:%.*]] = not i1 [[VP_UNI_PHI_ACTIVE]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
+; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP_VARYING:%.*]] = and i1 [[VP3]] i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_UNI_PHI_NOT:%.*]] = and i1 [[VP_BB4_BR_VP_VARYING]] i1 [[VP_UNI_PHI_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_UNI_PHI_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB11]]: # preds: [[BB10]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+;          entry
+;           |
+;         BB0 (U)
+;       /     \
+;     BB1 (D)  |
+;    /   \     |
+;   /     \   /
+;  BB3   BB2 /
+;  |\    /  /
+;  | \  /  /
+;  |  \ | /
+;  |   BB4
+;  |   / |
+;  | BB5 |
+;  |  |\ |
+;  +  |BB6
+;   \ | /
+;    BB7
+  %lane = call i32 @llvm.vplan.laneid()
+  %gep = getelementptr i32, i32 *%a, i32 %lane
+  %ld = load i32, i32* %gep, align 4
+  %uniform = icmp eq i32 %b,  42
+  %varying = icmp eq i32 %ld,  42
+  br label %bb0
+
+bb0:
+  %bb0.uniform = or i1 %uniform, true
+  %bb0.add = add i32 %ld, 0
+  br i1 %bb0.uniform, label %bb1, label %bb4
+
+bb1:
+  %bb1.varying = or i1 %varying, true
+  %bb1.add = add i32 %ld, 1
+  br i1 %bb1.varying, label %bb3, label %bb2
+
+bb2:
+  %bb2.add = add i32 %ld, 2
+  br label %bb4
+
+bb3:
+  %bb3.add = add i32 %ld, 3
+  br i1 %varying, label %bb7, label %bb4
+
+bb4:
+  %uni.phi = phi i1 [ true, %bb3 ], [ true, %bb2 ], [ undef, %bb0 ]
+  %bb4.add = add i32 %ld, 4
+  br i1 %varying, label %bb5, label %bb7
+
+bb5:
+  br i1 %uni.phi, label %bb7, label %bb6
+
+bb6:
+  br label %bb7
+
+bb7:
+  ret void
+}
+
 declare i32 @llvm.vplan.laneid()

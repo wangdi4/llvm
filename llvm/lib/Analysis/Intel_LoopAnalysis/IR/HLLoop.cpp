@@ -1,6 +1,6 @@
 //===-------- HLLoop.cpp - Implements the HLLoop class --------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,7 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
@@ -78,7 +78,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
   // optreport with it. Otherwise it will initialize it with zero.
   // We also don't erase the opt report from LoopID. We only do that
   // at the HIRCodeGen stage, if needed.
-  setOptReport(LoopOptReport::findOptReportInLoopID(LLVMLoop->getLoopID()));
+  setOptReport(OptReport::findOptReportInLoopID(LLVMLoop->getLoopID()));
 
   // Drop any "llvm.loop.parallel_accesses" metadata. This metadata is not yet
   // used or preserved by HIR transformations.
@@ -594,17 +594,17 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 void HLLoop::dumpOptReport() const {
 #if !INTEL_PRODUCT_RELEASE
   formatted_raw_ostream OS(dbgs());
-  LoopOptReport OptReport = getOptReport();
+  OptReport OR = getOptReport();
 
-  OptReportUtils::printLoopHeaderAndOrigin(OS, 0, OptReport, getDebugLoc());
+  OptReportUtils::printNodeHeaderAndOrigin(OS, 0, OR, getDebugLoc());
 
-  if (OptReport)
-    OptReportUtils::printOptReport(OS, 0, OptReport);
+  if (OR)
+    OptReportUtils::printOptReport(OS, 0, OR);
 
-  OptReportUtils::printLoopFooter(OS, 0);
+  OptReportUtils::printNodeFooter(OS, 0, OR);
 
-  if (OptReport && OptReport.nextSibling())
-    OptReportUtils::printEnclosedOptReport(OS, 0, OptReport.nextSibling());
+  if (OR && OR.nextSibling())
+    OptReportUtils::printEnclosedOptReport(OS, 0, OR.nextSibling());
 #endif // !INTEL_PRODUCT_RELEASE
 }
 #endif
@@ -2223,8 +2223,8 @@ void HLLoop::populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos) {
   assert((Gotos.size() == getNumExits() - 1) && "Mismatch in number of exits!");
 }
 
-LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(
-    HLLoop &Loop, const LoopOptReportBuilder &Builder) {
+OptReport OptReportTraits<HLLoop>::getOrCreatePrevOptReport(
+    HLLoop &Loop, const OptReportBuilder &Builder) {
 
   struct PrevLoopFinder : public HLNodeVisitorBase {
     const HLLoop *FoundLoop = nullptr;
@@ -2264,8 +2264,8 @@ LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreatePrevOptReport(
   return Builder(Lp).getOrCreateOptReport();
 }
 
-LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreateParentOptReport(
-    HLLoop &Loop, const LoopOptReportBuilder &Builder) {
+OptReport OptReportTraits<HLLoop>::getOrCreateParentOptReport(
+    HLLoop &Loop, const OptReportBuilder &Builder) {
   if (HLLoop *Dest = Loop.getParentLoop())
     return Builder(*Dest).getOrCreateOptReport();
 
@@ -2275,13 +2275,13 @@ LoopOptReport LoopOptReportTraits<HLLoop>::getOrCreateParentOptReport(
   llvm_unreachable("Failed to find a parent");
 }
 
-void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
-    HLLoop &Loop, LoopVisitorTy Func) {
+void OptReportTraits<HLLoop>::traverseChildNodesBackward(HLLoop &Loop,
+                                                         NodeVisitorTy Func) {
   struct LoopVisitor : public HLNodeVisitorBase {
-    using LoopVisitorTy = LoopOptReportTraits<HLLoop>::LoopVisitorTy;
-    LoopVisitorTy Func;
+    using NodeVisitorTy = OptReportTraits<HLLoop>::NodeVisitorTy;
+    NodeVisitorTy Func;
 
-    LoopVisitor(LoopVisitorTy Func) : Func(Func) {}
+    LoopVisitor(NodeVisitorTy Func) : Func(Func) {}
     void postVisit(HLLoop *Lp) { Func(*Lp); }
     void visit(const HLNode *Node) {}
     void postVisit(const HLNode *Node) {}

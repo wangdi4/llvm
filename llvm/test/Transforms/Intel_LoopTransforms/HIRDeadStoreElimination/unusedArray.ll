@@ -74,13 +74,13 @@ bb13.preheader:                                   ; preds = %alloca
 
 bb13:                                             ; preds = %bb13.preheader, %bb13
   %"var$3.055" = phi i64 [ %add18, %bb13 ], [ 1, %bb13.preheader ]
-  %"sub_$A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"sub_$A", i64 %"var$3.055")
+  %"sub_$A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"sub_$A", i64 %"var$3.055")
   %"sub_$A[]_fetch" = load float, float* %"sub_$A[]", align 4
-  %"sub_$B[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"sub_$B", i64 %"var$3.055")
+  %"sub_$B[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"sub_$B", i64 %"var$3.055")
   %"sub_$B[]_fetch" = load float, float* %"sub_$B[]", align 4
   %add = fadd float %"sub_$A[]_fetch", %"sub_$B[]_fetch"
   %add8 = fadd float %add, 1.000000e+00
-  %"sub_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"sub_$C", i64 %"var$3.055")
+  %"sub_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"sub_$C", i64 %"var$3.055")
   store float %add8, float* %"sub_$C[]", align 4
   %add18 = add nuw nsw i64 %"var$3.055", 1
   %exitcond = icmp eq i64 %"var$3.055", %int_sext

@@ -104,5 +104,5 @@ declare void @llvm.directive.region.exit(token)
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 declare i64 @foo(i32) local_unnamed_addr #1
 
-attributes #1 = { nounwind readnone  }
+attributes #1 = { nounwind readnone willreturn }
 

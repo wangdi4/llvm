@@ -321,6 +321,16 @@ public:
     return (Call && !Call->getCalledFunction());
   }
 
+  /// Returns the operand representing the function pointer of indirect call.
+  RegDDRef *getIndirectCallPtr() {
+    assert(isIndirectCallInst() && "Inst is not an indirect call!");
+    return *op_ddref_rbegin();
+  }
+  const RegDDRef *getIndirectCallPtr() const {
+    assert(isIndirectCallInst() && "Inst is not an indirect call!");
+    return *op_ddref_rbegin();
+  }
+
   /// Verifies HLInst integrity.
   virtual void verify() const override;
 

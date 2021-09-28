@@ -41,7 +41,8 @@ using namespace llvm;
 #define DEBUG_TYPE "dpcpp-prepare-kernel-for-vec-clone"
 
 cl::opt<VectorVariant::ISAClass> IsaEncodingOverride(
-    "dpcpp-vector-variant-isa-encoding-override", cl::Hidden,
+    "dpcpp-vector-variant-isa-encoding-override", cl::init(VectorVariant::XMM),
+    cl::Hidden,
     cl::desc("Override target CPU ISA encoding for Vector Variant passes."),
     cl::values(clEnumValN(VectorVariant::ZMM, "AVX512Core", "AVX512Core"),
                clEnumValN(VectorVariant::YMM2, "AVX2", "AVX2"),
@@ -88,31 +89,8 @@ void DPCPPPrepareKernelForVecClone::createEncodingForVectorVariants(
 // activate the VecClone pass.
 void DPCPPPrepareKernelForVecClone::addVectorVariantAttrsToKernel(Function &F) {
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
-  unsigned VF;
-  if (KIMD.RecommendedVL.hasValue()) {
-    VF = KIMD.RecommendedVL.get();
-  } else {
-    // Previously vector length was calculated by WeightedInstCounter pass.
-    // We will probably not port WeightedInstCounter pass.
-    // TODO: remove following code once RecommendedVL is unconditionally set by
-    // a previous pass and OCLVPOCheckVF is ported.
-    auto getPreferredVectorizationWidth = [&]() {
-      switch (ISA) {
-      case VectorVariant::XMM:
-        LLVM_FALLTHROUGH;
-      case VectorVariant::YMM1:
-        return 4;
-      case VectorVariant::YMM2:
-        return 8;
-      case VectorVariant::ZMM:
-        return 16;
-      default:
-        llvm_unreachable("unexpected ISA");
-      }
-    };
-    VF = getPreferredVectorizationWidth();
-    KIMD.RecommendedVL.set(VF);
-  }
+  assert(KIMD.RecommendedVL.hasValue());
+  unsigned VF = KIMD.RecommendedVL.get();
 
   // Use "uniform" parameter for all arguments.
   std::vector<VectorKind> ParamsKind(F.arg_size(), VectorKind::uniform());

@@ -499,6 +499,12 @@ def GR64 : RegisterClass<"X86", [i64], 64,
                          (add RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11,
                               RBX, R14, R15, R12, R13, RBP, RSP, RIP)>;
 
+// GR64 - 64-bit GPRs without R8 and RIP. Could be used when emitting code for
+// intrinsics, which use implict input registers.
+def GR64NoR8 : RegisterClass<"X86", [i64], 64,
+                              (add RAX, RCX, RDX, RSI, RDI, R9, R10, R11,
+                                   RBX, R14, R15, R12, R13, RBP, RSP)>;
+
 // Segment registers for use by MOV instructions (and others) that have a
 //   segment register as one operand.  Always contain a 16-bit segment
 //   descriptor.
@@ -639,13 +645,9 @@ def RSTi : RegisterOperand<RST, "printSTiRegOperand">;
 // Generic vector registers: VR64 and VR128.
 // Ensure that float types are declared first - only float is legal on SSE1.
 def VR64: RegisterClass<"X86", [x86mmx], 64, (sequence "MM%u", 0, 7)>;
-#if INTEL_CUSTOMIZATION
 def VR128 : RegisterClass<"X86", [v4f32, v2f64, v8f16, v16i8, v8i16, v4i32, v2i64, f128],
-#endif // INTEL_CUSTOMIZATION
                           128, (add FR32)>;
-#if INTEL_CUSTOMIZATION
 def VR256 : RegisterClass<"X86", [v8f32, v4f64, v16f16, v32i8, v16i16, v8i32, v4i64],
-#endif // INTEL_CUSTOMIZATION
                           256, (sequence "YMM%u", 0, 15)>;
 
 // Status flags registers.
@@ -663,9 +665,7 @@ def DFCCR : RegisterClass<"X86", [i32], 32, (add DF)> {
 }
 
 // AVX-512 vector/mask registers.
-#if INTEL_CUSTOMIZATION
 def VR512 : RegisterClass<"X86", [v16f32, v8f64, v32f16, v64i8, v32i16, v16i32, v8i64],
-#endif // INTEL_CUSTOMIZATION
                           512, (sequence "ZMM%u", 0, 31)>;
 
 // Represents the lower 16 registers that have VEX/legacy encodable subregs.
@@ -677,18 +677,12 @@ def FR32X : RegisterClass<"X86", [f32], 32, (sequence "XMM%u", 0, 31)>;
 
 def FR64X : RegisterClass<"X86", [f64], 64, (add FR32X)>;
 
-#if INTEL_CUSTOMIZATION
 def FR16X : RegisterClass<"X86", [f16], 16, (add FR32X)>;
-#endif // INTEL_CUSTOMIZATION
 
 // Extended VR128 and VR256 for AVX-512 instructions
-#if INTEL_CUSTOMIZATION
 def VR128X : RegisterClass<"X86", [v4f32, v2f64, v8f16, v16i8, v8i16, v4i32, v2i64, f128],
-#endif // INTEL_CUSTOMIZATION
                            128, (add FR32X)>;
-#if INTEL_CUSTOMIZATION
 def VR256X : RegisterClass<"X86", [v8f32, v4f64, v16f16, v32i8, v16i16, v8i32, v4i64],
-#endif // INTEL_CUSTOMIZATION
                            256, (sequence "YMM%u", 0, 31)>;
 
 // Mask registers
@@ -753,8 +747,8 @@ def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Siz
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // Tiles
-let isAllocatable = 0 in
-def TILEX : RegisterClass<"X86", [x86amx], 0,
+let isAllocatable = 1 in
+def TILEX : RegisterClass<"X86", [x86amx], 8192,
                           (sequence "TMM%u", 0, 31)> {let Size = 8192;}
 
 // TMM0-TMM31 register pairs
@@ -767,7 +761,7 @@ def TPAIRSX : RegisterTuples<[sub_t0, sub_t1],
                                TMM29, TMM31)]>;
 
 // Need check alignment 3rd operand size=1024*2*8
-let isAllocatable = 0 in
+let isAllocatable = 1 in
 def TILEPAIRX : RegisterClass<"X86", [untyped], 0, (add TPAIRSX)> {let Size = 16384;}
 
 // TMM register quad

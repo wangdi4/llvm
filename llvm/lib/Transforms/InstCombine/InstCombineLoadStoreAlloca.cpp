@@ -262,8 +262,8 @@ private:
 
 bool PointerReplacer::collectUsers(Instruction &I) {
   for (auto U : I.users()) {
-    Instruction *Inst = cast<Instruction>(&*U);
-    if (LoadInst *Load = dyn_cast<LoadInst>(Inst)) {
+    auto *Inst = cast<Instruction>(&*U);
+    if (auto *Load = dyn_cast<LoadInst>(Inst)) {
       if (Load->isVolatile())
         return false;
       Worklist.insert(Load);
@@ -271,8 +271,12 @@ bool PointerReplacer::collectUsers(Instruction &I) {
       Worklist.insert(Inst);
       if (!collectUsers(*Inst))
         return false;
-    } else if (isa<MemTransferInst>(Inst)) {
+    } else if (auto *MI = dyn_cast<MemTransferInst>(Inst)) {
+      if (MI->isVolatile())
+        return false;
       Worklist.insert(Inst);
+    } else if (Inst->isLifetimeStartOrEnd()) {
+      continue;
     } else {
       LLVM_DEBUG(dbgs() << "Cannot handle pointer user: " << *U << '\n');
       return false;
@@ -1734,6 +1738,35 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
         eraseInstFromFunction(*PrevSI);
         return nullptr;
       }
+
+#if INTEL_CUSTOMIZATION
+      // Is this potentially a complex instruction?
+      auto OurGEP = dyn_cast<GetElementPtrInst>(Ptr);
+      auto TheirGEP = dyn_cast<GetElementPtrInst>(PrevSI->getOperand(1));
+      if (PrevSI->isUnordered() && OurGEP && TheirGEP &&
+          OurGEP->getOperand(0) == TheirGEP->getOperand(0) &&
+          OurGEP->getNumIndices() == TheirGEP->getNumIndices() &&
+          OurGEP->getType() == TheirGEP->getType()) {
+        bool AllMatch = true;
+        unsigned LastIndex = OurGEP->getNumIndices();
+        for (unsigned Index = 1; Index < LastIndex; Index++) {
+          if (OurGEP->getOperand(Index) != TheirGEP->getOperand(Index)) {
+            AllMatch = false;
+            break;
+          }
+        }
+        if (!AllMatch)
+          break;
+        if (match(OurGEP->getOperand(LastIndex), m_ConstantInt<1>()) &&
+            match(TheirGEP->getOperand(LastIndex), m_ConstantInt<0>())) {
+          IRBuilderBase::InsertPointGuard Guard(Builder);
+          Builder.SetInsertPoint(PrevSI);
+          if (createComplexMathInstruction(PrevSI->getOperand(0), Val))
+            return &SI;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
+
       break;
     }
 

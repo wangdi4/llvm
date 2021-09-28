@@ -1,6 +1,6 @@
 //===--- HIRLMMImpl.h -----------------------------------------*- C++ -*---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -182,13 +182,13 @@ public:
 #if INTEL_FEATURE_SW_DTRANS
          FieldModRefResult *FieldModRef = nullptr,
 #endif // INTEL_FEATURE_SW_DTRANS
-         DominatorTree *DT = nullptr,
-         bool LoopNestHoistingOnly = false)
+         DominatorTree *DT = nullptr, bool LoopNestHoistingOnly = false)
       : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
 #if INTEL_FEATURE_SW_DTRANS
         FieldModRef(FieldModRef),
 #endif // INTEL_FEATURE_SW_DTRANS
-        DT(DT), LoopNestHoistingOnly(LoopNestHoistingOnly) {}
+        DT(DT), LoopNestHoistingOnly(LoopNestHoistingOnly) {
+  }
 
   bool run();
 
@@ -242,14 +242,14 @@ private:
   void handleInLoopMemRef(unsigned Level, RegDDRef *Ref, RegDDRef *TmpDDRef,
                           bool IsLoadOnly);
 
-  bool hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
-                                     SmallSet<unsigned, 32> &TempRefSet,
-                                     LoopOptReportBuilder &LORBuilder);
+  bool hoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
+                                   SmallSet<unsigned, 32> &TempRefSet,
+                                   OptReportBuilder &ORBuilder);
 
-  bool sinkedStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
-                                     MemRefGroup &Group,
-                                     SmallSet<unsigned, 32> &TempRefSet,
-                                     LoopOptReportBuilder &LORBuilder);
+  bool sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
+                                   MemRefGroup &Group,
+                                   SmallSet<unsigned, 32> &TempRefSet,
+                                   OptReportBuilder &ORBuilder);
 
   HLLoop *getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
                                              MemRefGroup &Group);

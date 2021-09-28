@@ -17,7 +17,7 @@
 ; <0>    END REGION
 
 ; Fully VPValue-based HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 ; Mixed HIR codegen
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
@@ -41,7 +41,7 @@
 ; CHECK-LLVMIR: [[RED_SELECT:%.*]] = select <4 x i1> [[RED_CMP]], <4 x i32> [[RED_PHI]], <4 x i32> [[VEC_LD]]
 ; CHECK-LLVMIR-LABEL: VPlannedBB6:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[RED_SELECT]])
-; CHECK-LLVMIR-LABEL: merge.blk10:
+; CHECK-LLVMIR-LABEL: merge.blk17:
 ; CHECK-LLVMIR: [[UNI_PHI80:%.*]] = phi i32 [ [[RED_LVC]], [[MIDDLE_BLOCK0:%.*]] ], [ -2147483648, [[VPLANNEDBB20:%.*]] ]
 
 

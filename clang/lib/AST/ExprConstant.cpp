@@ -1826,6 +1826,8 @@ static bool EvaluateComplex(const Expr *E, ComplexValue &Res, EvalInfo &Info);
 static bool EvaluateAtomic(const Expr *E, const LValue *This, APValue &Result,
                            EvalInfo &Info);
 static bool EvaluateAsRValue(EvalInfo &Info, const Expr *E, APValue &Result);
+static bool EvaluateBuiltinStrLen(const Expr *E, uint64_t &Result,
+                                  EvalInfo &Info);
 
 /// Evaluate an integer or fixed point expression into an APResult.
 static bool EvaluateFixedPointOrInteger(const Expr *E, APFixedPoint &Result,
@@ -8992,6 +8994,8 @@ static bool isOneByteCharacterType(QualType T) {
 bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
                                                 unsigned BuiltinOp) {
   switch (BuiltinOp) {
+  case Builtin::BI__fence: // INTEL
+    return !evaluatePointer(E->getArg(0), Result); // INTEL
   case Builtin::BI__builtin_addressof:
     return evaluateLValue(E->getArg(0), Result);
   case Builtin::BI__builtin_assume_aligned: {
@@ -10487,13 +10491,17 @@ bool ArrayExprEvaluator::VisitInitListExpr(const InitListExpr *E,
   // C++11 [dcl.init.string]p1: A char array [...] can be initialized by [...]
   // an appropriately-typed string literal enclosed in braces.
   if (E->isStringLiteralInit()) {
-    auto *SL = dyn_cast<StringLiteral>(E->getInit(0)->IgnoreParens());
+    auto *SL = dyn_cast<StringLiteral>(E->getInit(0)->IgnoreParenImpCasts());
     // FIXME: Support ObjCEncodeExpr here once we support it in
     // ArrayExprEvaluator generally.
     if (!SL)
       return Error(E);
     return VisitStringLiteral(SL, AllocType);
   }
+  // Any other transparent list init will need proper handling of the
+  // AllocType; we can't just recurse to the inner initializer.
+  assert(!E->isTransparent() &&
+         "transparent array list initialization is not string literal init?");
 
   bool Success = true;
 
@@ -11545,6 +11553,16 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   default:
     return ExprEvaluatorBaseTy::VisitCallExpr(E);
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__fence: {
+    APSInt Val;
+    if (!EvaluateInteger(E->getArg(0), Val, Info))
+      return false;
+
+    return Success(Val, E);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   case Builtin::BI__builtin_dynamic_object_size:
   case Builtin::BI__builtin_object_size: {
     // The type was checked when we built the expression.
@@ -11881,46 +11899,10 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   case Builtin::BI__builtin_wcslen: {
     // As an extension, we support __builtin_strlen() as a constant expression,
     // and support folding strlen() to a constant.
-    LValue String;
-    if (!EvaluatePointer(E->getArg(0), String, Info))
-      return false;
-
-    QualType CharTy = E->getArg(0)->getType()->getPointeeType();
-
-    // Fast path: if it's a string literal, search the string value.
-    if (const StringLiteral *S = dyn_cast_or_null<StringLiteral>(
-            String.getLValueBase().dyn_cast<const Expr *>())) {
-      // The string literal may have embedded null characters. Find the first
-      // one and truncate there.
-      StringRef Str = S->getBytes();
-      int64_t Off = String.Offset.getQuantity();
-      if (Off >= 0 && (uint64_t)Off <= (uint64_t)Str.size() &&
-          S->getCharByteWidth() == 1 &&
-          // FIXME: Add fast-path for wchar_t too.
-          Info.Ctx.hasSameUnqualifiedType(CharTy, Info.Ctx.CharTy)) {
-        Str = Str.substr(Off);
-
-        StringRef::size_type Pos = Str.find(0);
-        if (Pos != StringRef::npos)
-          Str = Str.substr(0, Pos);
-
-        return Success(Str.size(), E);
-      }
-
-      // Fall through to slow path to issue appropriate diagnostic.
-    }
-
-    // Slow path: scan the bytes of the string looking for the terminating 0.
-    for (uint64_t Strlen = 0; /**/; ++Strlen) {
-      APValue Char;
-      if (!handleLValueToRValueConversion(Info, E, CharTy, String, Char) ||
-          !Char.isInt())
-        return false;
-      if (!Char.getInt())
-        return Success(Strlen, E);
-      if (!HandleLValueArrayAdjustment(Info, E, String, CharTy, 1))
-        return false;
-    }
+    uint64_t StrLen;
+    if (EvaluateBuiltinStrLen(E->getArg(0), StrLen, Info))
+      return Success(StrLen, E);
+    return false;
   }
 
   case Builtin::BIstrcmp:
@@ -13737,6 +13719,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
       Result.changeSign();
     return true;
 
+  case Builtin::BI__fence: // INTEL
   case Builtin::BI__arithmetic_fence:
     return EvaluateFloat(E->getArg(0), Result, Info);
 
@@ -15785,4 +15768,59 @@ bool Expr::tryEvaluateObjectSize(uint64_t &Result, ASTContext &Ctx,
   Expr::EvalStatus Status;
   EvalInfo Info(Ctx, Status, EvalInfo::EM_ConstantFold);
   return tryEvaluateBuiltinObjectSize(this, Type, Info, Result);
+}
+
+static bool EvaluateBuiltinStrLen(const Expr *E, uint64_t &Result,
+                                  EvalInfo &Info) {
+  if (!E->getType()->hasPointerRepresentation() || !E->isPRValue())
+    return false;
+
+  LValue String;
+
+  if (!EvaluatePointer(E, String, Info))
+    return false;
+
+  QualType CharTy = E->getType()->getPointeeType();
+
+  // Fast path: if it's a string literal, search the string value.
+  if (const StringLiteral *S = dyn_cast_or_null<StringLiteral>(
+          String.getLValueBase().dyn_cast<const Expr *>())) {
+    StringRef Str = S->getBytes();
+    int64_t Off = String.Offset.getQuantity();
+    if (Off >= 0 && (uint64_t)Off <= (uint64_t)Str.size() &&
+        S->getCharByteWidth() == 1 &&
+        // FIXME: Add fast-path for wchar_t too.
+        Info.Ctx.hasSameUnqualifiedType(CharTy, Info.Ctx.CharTy)) {
+      Str = Str.substr(Off);
+
+      StringRef::size_type Pos = Str.find(0);
+      if (Pos != StringRef::npos)
+        Str = Str.substr(0, Pos);
+
+      Result = Str.size();
+      return true;
+    }
+
+    // Fall through to slow path.
+  }
+
+  // Slow path: scan the bytes of the string looking for the terminating 0.
+  for (uint64_t Strlen = 0; /**/; ++Strlen) {
+    APValue Char;
+    if (!handleLValueToRValueConversion(Info, E, CharTy, String, Char) ||
+        !Char.isInt())
+      return false;
+    if (!Char.getInt()) {
+      Result = Strlen;
+      return true;
+    }
+    if (!HandleLValueArrayAdjustment(Info, E, String, CharTy, 1))
+      return false;
+  }
+}
+
+bool Expr::tryEvaluateStrLen(uint64_t &Result, ASTContext &Ctx) const {
+  Expr::EvalStatus Status;
+  EvalInfo Info(Ctx, Status, EvalInfo::EM_ConstantFold);
+  return EvaluateBuiltinStrLen(this, Result, Info);
 }

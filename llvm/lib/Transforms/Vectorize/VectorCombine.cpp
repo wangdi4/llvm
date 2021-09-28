@@ -93,6 +93,7 @@ private:
   bool foldExtractedCmps(Instruction &I);
   bool foldSingleElementStore(Instruction &I);
   bool scalarizeLoadExtract(Instruction &I);
+  bool foldVLSInsert(Instruction &I); // INTEL
 };
 } // namespace
 
@@ -782,6 +783,9 @@ static bool canScalarizeAccess(FixedVectorType *VecTy, Value *Idx,
   if (auto *C = dyn_cast<ConstantInt>(Idx))
     return C->getValue().ult(VecTy->getNumElements());
 
+  if (!isGuaranteedNotToBePoison(Idx, &AC))
+    return false;
+
   APInt Zero(Idx->getType()->getScalarSizeInBits(), 0);
   APInt MaxElts(Idx->getType()->getScalarSizeInBits(), VecTy->getNumElements());
   ConstantRange ValidIndices(Zero, MaxElts);
@@ -947,6 +951,285 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+struct VLSInsert {
+  VLSInsert(Value *V, unsigned SizeInGroup, unsigned NumElems, Type *ElemTy)
+      : V(V), SizeInGroup(SizeInGroup), NumElems(NumElems), ElemTy(ElemTy) {}
+
+  Value *V;
+  unsigned SizeInGroup;
+  unsigned NumElems;
+  Type *ElemTy;
+};
+
+// Find the first vls-insert pattern like:
+// %g0 = shufflevector <2 x i8> %in0, <2 x i8> undef, <6 x i32>
+//            <i32 0, i32 undef, i32 undef, i32 1, i32 undef, i32 undef>
+// This function will assume the offset is 0 for the first vls-insert
+// instruction.
+// For the example code, we assume it has 2 groups, and each group has 3
+// elements.
+// group 0: <i32 0, i32 undef, i32 undef>
+// group 1: <i32 1, i32 undef, i32 undef>
+// This function also saves NumElem/ElemTy for matching other vls-insert.
+static Optional<VLSInsert> get1stVLSInsert(const ShuffleVectorInst *Shuf) {
+  const ArrayRef<int>& Mask = Shuf->getShuffleMask();
+  auto LHS = Shuf->getOperand(0);
+  auto RHS = Shuf->getOperand(1);
+  auto Ty = dyn_cast<FixedVectorType>(LHS->getType());
+  if (!Ty) return None;
+
+  unsigned NumElems = Ty->getNumElements();
+  unsigned NumMasks = Mask.size();
+
+  if (!isa<UndefValue>(RHS))
+    return None;
+
+  unsigned SizeInGroup = 0;
+  // Find the next >= 0 index, and assume it is the group size.
+  for (unsigned I = 1; I < NumMasks; ++I) {
+    if (Mask[I] < 0)
+      continue;
+    SizeInGroup = I;
+    break;
+  }
+
+  // Mask sure all the elements of %in are used.
+  if (NumMasks != SizeInGroup * NumElems)
+    return None;
+
+  // Invalid type.
+  if (!Ty->getElementType()->isSized())
+    return None;
+
+  // When I%SizeInGroup is equal to Offset, the mask value should be
+  // ElementSize(LHS)
+  // When I%SizeInGroup is not equal to Offset, the mask value should be Undef.
+  for (unsigned I = 0, GroupNo = 0; I < NumMasks; I++) {
+    unsigned OffsetInGroup = I % SizeInGroup;
+    // Assume the first vls-insert's offset is 0.
+    if (OffsetInGroup == 0) {
+      if (Mask[I] != (int)GroupNo)
+        return None;
+      ++GroupNo;
+    } else {
+      if (Mask[I] >= 0)
+        return None;
+    }
+  }
+
+  VLSInsert VLS(LHS, SizeInGroup, NumElems, Ty->getElementType());
+  return VLS;
+}
+
+// Find the extended vector:
+// %ext_vec = shufflevector <2 x i8> %in1, <2 x i8> undef, <6 x i32>
+//               <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef>
+// This function check if the 'shufflevector' just extends the LHS with undef.
+static Optional<VLSInsert> getVectorWidthExtend(const Value *V) {
+  auto ExtVec = dyn_cast<ShuffleVectorInst>(V);
+  if (!ExtVec)
+    return None;
+
+  const ArrayRef<int> &Mask = ExtVec->getShuffleMask();
+  auto LHS = ExtVec->getOperand(0);
+  auto RHS = ExtVec->getOperand(1);
+  auto Ty = dyn_cast<FixedVectorType>(LHS->getType());
+
+  if (!Ty || !isa<UndefValue>(RHS))
+    return None;
+
+  unsigned NumElems = Ty->getNumElements();
+
+  // LHS is bigger than mask's size?
+  if (NumElems > Mask.size())
+    return None;
+
+  // Just copy LHS?
+  for (unsigned I = 0; I < NumElems; ++I)
+    if (Mask[I] != (int)I)
+      return None;
+
+  // Other indices must be undef.
+  for (unsigned I = NumElems, E = Mask.size(); I < E; ++I)
+    if (Mask[I] >= 0)
+      return None;
+
+  VLSInsert VLS(LHS, 0, NumElems, Ty->getElementType());;
+  return VLS;
+}
+
+// Find next vls-insert pattern like:
+// %ext_vec = shufflevector <2 x i8> %in1, <2 x i8> undef, <6 x i32>
+//               <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef>
+// %g1 = shufflevector <6 x i8> %g0, <6 x i8> %ext_vec,
+//               <6 x i32> <i32 0, i32 6, i32 undef, i32 3, i32 7, i32 undef>
+// For this example, it has two groups, eacho group's size is 3.
+// Offset in the parameter means where to insert the extend vector in the group.
+// The example's Offset should be 1.
+static Optional<VLSInsert> getNextVLSInsert(const ShuffleVectorInst *Shuf,
+                                            const VLSInsert *FirstVLSInsert,
+                                            const unsigned Offset) {
+  const ArrayRef<int>& Mask = Shuf->getShuffleMask();
+  auto LHS = Shuf->getOperand(0);
+  auto RHS = Shuf->getOperand(1);
+  auto Ty = dyn_cast<FixedVectorType>(LHS->getType());
+  if (!Ty) return None;
+
+  unsigned NumElems = Ty->getNumElements();
+  if (NumElems != Mask.size())
+    return None;
+
+  auto VLSOpt = getVectorWidthExtend(RHS);
+  if (!VLSOpt)
+    return None;
+
+  auto VLS = VLSOpt.getValue();
+
+  // Check if in1's type and length is equal to
+  // the first vls-insert one.
+  if (FirstVLSInsert->ElemTy != VLS.ElemTy ||
+    FirstVLSInsert->NumElems != VLS.NumElems)
+    return None;
+
+  // When I%SizeInGroup is less than Offset, the mask value should be 'I'.
+  // When I%SizeInGroup is bigger than Offset, the mask value should be Undef.
+  // When I%SizeInGroup is equal to Offset, the mask value should be
+  // ElementSize(LHS) + GroupNumber
+  unsigned SizeInGroup = FirstVLSInsert->SizeInGroup;
+  for (unsigned I = 0, GroupNo = 0, E = Mask.size(); I < E; ++I) {
+    unsigned OffsetInGroup = I % SizeInGroup;
+    if (OffsetInGroup == Offset) {
+      // The extend vector is on the right, need to add the length of LHS.
+      int RHSIndex = (int)(GroupNo + NumElems);
+      if (Mask[I] != RHSIndex)
+        return None;
+      ++GroupNo;
+    } else if (OffsetInGroup < Offset) {
+      if ((int)I != Mask[I])
+        return None;
+    } else {
+      // Must be undef.
+      if (Mask[I] >= 0)
+        return None;
+    }
+  }
+
+  return VLS;
+}
+
+// This function try to transform vls-insert patterns to the parallel code:
+// %g0 = shufflevector <2 x i8> %in0, <2 x i8> undef, <6 x i32>
+//               <i32 0, i32 undef, i32 undef, i32 1, i32 undef, i32 undef>
+// %ext_vec1 = shufflevector <2 x i8> %in1, <2 x i8> undef, <6 x i32>
+//               <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef>
+// %g1 = shufflevector <6 x i8> %g0, <6 x i8> %ext_vec1,
+//               <6 x i32> <i32 0, i32 6, i32 undef, i32 3, i32 7, i32 undef>
+// %ext_vec2 = shufflevector <2 x i8> %in2, <2 x i8> undef, <6 x i32>
+//               <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef>
+// %g2 = shufflevector <6 x i8> %g1, <6 x i8> %ext_vec2,
+//               <6 x i32> <i32 0, i32 1, i32 6, i32 3, i32 4, i32 7>
+// ==>
+// %g0 = shufflevector <2 x i8> %in0, <2 x i8> %in1,
+//                      <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+// %g1 = shufflevector <2 x i8> %in2, <2 x i8> undef,
+//                      <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+// %g2 = shufflevector <4 x i8> %g0, <4 x i8> %g1,
+//                       <6 x i32> <i32 0, i32 2, i32 4, i32 1, i32 3, i32 5>
+bool VectorCombine::foldVLSInsert(Instruction &I) {
+  auto Shuf = dyn_cast<ShuffleVectorInst>(&I);
+  if (!Shuf)
+    return false;
+
+  // Find the first vls-insert.
+  auto FirstVLSInsertOpt = get1stVLSInsert(Shuf);
+  if (!FirstVLSInsertOpt) return false;
+
+  VLSInsert FirstInsert = FirstVLSInsertOpt.getValue();
+
+  SmallVector<VLSInsert, 8> List;
+  List.push_back(FirstInsert);
+
+  // find the next vls-insert.
+  for (unsigned I = 1; I < FirstInsert.SizeInGroup; ++I) {
+    if (!Shuf->hasOneUser())
+      return false;
+    auto V = *Shuf->users().begin();
+    auto NextShuf = dyn_cast<ShuffleVectorInst>(V);
+    if (!NextShuf)
+      return false;
+    // Must be same basic block.
+    if (Shuf->getParent() != NextShuf->getParent())
+      return false;
+    if (Shuf != NextShuf->getOperand(0))
+      return false;
+
+    // Check if the potential shuffle is vls-insert.
+    auto NextVLSInsertOpt = getNextVLSInsert(NextShuf, &FirstInsert, I);
+    if (!NextVLSInsertOpt)
+      return false;
+
+    Shuf = NextShuf;
+    List.push_back(NextVLSInsertOpt.getValue());
+  }
+
+  if (FirstInsert.SizeInGroup <= 1)
+    return false;
+
+  // Now we can do the transformation:
+  // 1. Combine the extended vector(in0, in1, in2) to 2 same length vectors
+  //    sequentially. It will combine them like reduction.
+  // 2. Do the real vls shuffle one time.
+  SmallVector<Value *, 8> ReduceQueue;
+  SmallVector<int, 16> Mask;
+
+  for (int I = 0, E = FirstInsert.NumElems * 2; I < E; ++I)
+    Mask.push_back(I);
+
+  for (int I = 0, E = List.size(); I < E; ++I)
+    ReduceQueue.push_back(List[I].V);
+
+  Builder.SetInsertPoint(Shuf);
+
+  // Combine the extended vector parallel.
+  while (ReduceQueue.size() > 2) {
+    SmallVector<Value *, 8> NewReduceQ;
+    for (unsigned I = 0, E = ReduceQueue.size(); I < E; I += 2) {
+      // Make sure the index is not overflow.
+      if (I + 1 < E)
+        NewReduceQ.push_back(Builder.CreateShuffleVector(
+            ReduceQueue[I], ReduceQueue[I + 1], Mask));
+      else
+        NewReduceQ.push_back(Builder.CreateShuffleVector(ReduceQueue[I], Mask));
+    }
+
+    // Double the mask, combine the new ReduceQueue if possible.
+    for (int I = Mask.size(), E = Mask.size() * 2; I < E; ++I)
+      Mask.push_back(I);
+
+    ReduceQueue = NewReduceQ;
+  }
+
+  Mask.clear();
+  // Do the real vls shuffle one time.
+  unsigned Offset = 0;
+  for (unsigned I = 0, E = FirstInsert.NumElems; I < E; ++I) {
+    for (unsigned J = 0; J < FirstInsert.SizeInGroup; ++J)
+      Mask.push_back(FirstInsert.NumElems * J + Offset);
+    ++Offset;
+  }
+
+  assert(ReduceQueue.size() == 2 && "Invalid ReduceQueue size.");
+  auto NewShuf =
+      Builder.CreateShuffleVector(ReduceQueue[0], ReduceQueue[1], Mask);
+
+  replaceValue(*Shuf, *NewShuf);
+
+  Builder.SetInsertPoint(&I);
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// This is the entry point for all transforms. Pass manager differences are
 /// handled in the callers of this function.
 bool VectorCombine::run() {
@@ -973,6 +1256,11 @@ bool VectorCombine::run() {
       MadeChange |= scalarizeBinopOrCmp(I);
       MadeChange |= foldExtractedCmps(I);
       MadeChange |= scalarizeLoadExtract(I);
+#if INTEL_CUSTOMIZATION
+      // Need put all the customized functions in front of
+      // foldSingleElementStore since it may erase 'I'.
+      MadeChange |= foldVLSInsert(I);
+#endif // INTEL_CUSTOMIZATION
       MadeChange |= foldSingleElementStore(I);
     }
   }

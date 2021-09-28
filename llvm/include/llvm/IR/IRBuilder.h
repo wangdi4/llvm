@@ -363,7 +363,7 @@ public:
   }
 
   void setConstrainedFPCallAttr(CallBase *I) {
-    I->addAttribute(AttributeList::FunctionIndex, Attribute::StrictFP);
+    I->addFnAttr(Attribute::StrictFP);
   }
 
   void setDefaultOperandBundles(ArrayRef<OperandBundleDef> OpBundles) {
@@ -709,12 +709,16 @@ public:
       MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr,
       MDNode *NoAliasTag = nullptr);
 
-  /// Create a vector fadd reduction intrinsic of the source vector.
-  /// The first parameter is a scalar accumulator value for ordered reductions.
+  /// Create a sequential vector fadd reduction intrinsic of the source vector.
+  /// The first parameter is a scalar accumulator value. An unordered reduction
+  /// can be created by adding the reassoc fast-math flag to the resulting
+  /// sequential reduction.
   CallInst *CreateFAddReduce(Value *Acc, Value *Src);
 
-  /// Create a vector fmul reduction intrinsic of the source vector.
-  /// The first parameter is a scalar accumulator value for ordered reductions.
+  /// Create a sequential vector fmul reduction intrinsic of the source vector.
+  /// The first parameter is a scalar accumulator value. An unordered reduction
+  /// can be created by adding the reassoc fast-math flag to the resulting
+  /// sequential reduction.
   CallInst *CreateFMulReduce(Value *Acc, Value *Src);
 
   /// Create a vector int add reduction intrinsic of the source vector.
@@ -877,7 +881,8 @@ public:
 
   /// Create a call to llvm.intel.subscript.
   Instruction *CreateSubscript(unsigned Rank, Value *LowerBound, Value *Stride,
-                               Value *Ptr, Value *Index, bool IsExact = true);
+                               Value *Ptr, Type *ElemTy, Value *Index,
+                               bool IsExact = true);
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a call to the experimental.gc.pointer.base intrinsic to get the
@@ -1669,6 +1674,36 @@ public:
   Value *CreateNAryOp(unsigned Opc, ArrayRef<Value *> Ops,
                       const Twine &Name = "", MDNode *FPMathTag = nullptr);
 
+#if INTEL_CUSTOMIZATION
+  /// Construct a complex value out of a pair of real and imaginary values.
+  /// The resulting value will be a vector, with lane 0 being the real value and
+  /// lane 1 being the complex value.
+  /// Either the \p Real or \p Imag parameter may be null, if the input is a
+  /// pure real or pure imaginary number.
+  Value *CreateComplexValue(Value *Real, Value *Imag, const Twine &Name = "") {
+    Type *ScalarTy = (Real ? Real : Imag)->getType();
+    assert(ScalarTy->isFloatingPointTy() &&
+        "Only floating-point types may be complex values.");
+    Type *ComplexTy = FixedVectorType::get(ScalarTy, 2);
+    Value *Base = PoisonValue::get(ComplexTy);
+    if (Real)
+      Base = CreateInsertElement(Base, Real, uint64_t(0), Name);
+    if (Imag)
+      Base = CreateInsertElement(Base, Imag, uint64_t(1), Name);
+    return Base;
+  }
+
+  /// Construct a complex multiply operation, setting fast-math flags and the
+  /// complex-limited-range attribute as appropriate.
+  Value *CreateComplexMul(Value *L, Value *R, bool CxLimitedRange,
+                          const Twine &Name = "");
+
+  /// Construct a complex divide operation, setting fast-math flags and the
+  /// complex-limited-range and complex-no-scale attributes as appropriate.
+  Value *CreateComplexDiv(Value *L, Value *R, bool CxLimitedRange,
+                          bool CxNoScale = false, const Twine &Name = "");
+#endif // INTEL_CUSTOMIZATION
+
   //===--------------------------------------------------------------------===//
   // Instruction creation methods: Memory Instructions
   //===--------------------------------------------------------------------===//
@@ -1821,8 +1856,10 @@ public:
     return Insert(new AtomicRMWInst(Op, Ptr, Val, *Align, Ordering, SSID));
   }
 
-  Value *CreateGEP(Value *Ptr, ArrayRef<Value *> IdxList,
-                   const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateGEP(Value *Ptr, ArrayRef<Value *> IdxList,
+                       const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateGEP(Ptr->getType()->getScalarType()->getPointerElementType(),
                      Ptr, IdxList, Name);
   }
@@ -1841,8 +1878,10 @@ public:
     return Insert(GetElementPtrInst::Create(Ty, Ptr, IdxList), Name);
   }
 
-  Value *CreateInBoundsGEP(Value *Ptr, ArrayRef<Value *> IdxList,
-                           const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateInBoundsGEP(Value *Ptr, ArrayRef<Value *> IdxList,
+                               const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateInBoundsGEP(
         Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, IdxList,
         Name);
@@ -1863,11 +1902,6 @@ public:
     return Insert(GetElementPtrInst::CreateInBounds(Ty, Ptr, IdxList), Name);
   }
 
-  Value *CreateGEP(Value *Ptr, Value *Idx, const Twine &Name = "") {
-    return CreateGEP(Ptr->getType()->getScalarType()->getPointerElementType(),
-                     Ptr, Idx, Name);
-  }
-
   Value *CreateGEP(Type *Ty, Value *Ptr, Value *Idx, const Twine &Name = "") {
     if (auto *PC = dyn_cast<Constant>(Ptr))
       if (auto *IC = dyn_cast<Constant>(Idx))
@@ -1883,7 +1917,10 @@ public:
     return Insert(GetElementPtrInst::CreateInBounds(Ty, Ptr, Idx), Name);
   }
 
-  Value *CreateConstGEP1_32(Value *Ptr, unsigned Idx0, const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateConstGEP1_32(Value *Ptr, unsigned Idx0,
+                                const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateConstGEP1_32(
         Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
         Name);
@@ -1945,7 +1982,10 @@ public:
     return Insert(GetElementPtrInst::Create(Ty, Ptr, Idx), Name);
   }
 
-  Value *CreateConstGEP1_64(Value *Ptr, uint64_t Idx0, const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateConstGEP1_64(Value *Ptr, uint64_t Idx0,
+                                const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateConstGEP1_64(
         Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
         Name);
@@ -1961,8 +2001,10 @@ public:
     return Insert(GetElementPtrInst::CreateInBounds(Ty, Ptr, Idx), Name);
   }
 
-  Value *CreateConstInBoundsGEP1_64(Value *Ptr, uint64_t Idx0,
-                                    const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateConstInBoundsGEP1_64(Value *Ptr, uint64_t Idx0,
+                                        const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateConstInBoundsGEP1_64(
         Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
         Name);
@@ -1981,8 +2023,10 @@ public:
     return Insert(GetElementPtrInst::Create(Ty, Ptr, Idxs), Name);
   }
 
-  Value *CreateConstGEP2_64(Value *Ptr, uint64_t Idx0, uint64_t Idx1,
-                            const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateConstGEP2_64(Value *Ptr, uint64_t Idx0, uint64_t Idx1,
+                                const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateConstGEP2_64(
         Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
         Idx1, Name);
@@ -2001,8 +2045,10 @@ public:
     return Insert(GetElementPtrInst::CreateInBounds(Ty, Ptr, Idxs), Name);
   }
 
-  Value *CreateConstInBoundsGEP2_64(Value *Ptr, uint64_t Idx0, uint64_t Idx1,
-                                    const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateConstInBoundsGEP2_64(Value *Ptr, uint64_t Idx0,
+                                        uint64_t Idx1, const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateConstInBoundsGEP2_64(
         Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
         Idx1, Name);
@@ -2013,7 +2059,9 @@ public:
     return CreateConstInBoundsGEP2_32(Ty, Ptr, 0, Idx, Name);
   }
 
-  Value *CreateStructGEP(Value *Ptr, unsigned Idx, const Twine &Name = "") {
+  LLVM_ATTRIBUTE_DEPRECATED(
+      Value *CreateStructGEP(Value *Ptr, unsigned Idx, const Twine &Name = ""),
+      "Use the version with explicit element type instead") {
     return CreateConstInBoundsGEP2_32(
         Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, 0, Idx,
         Name);

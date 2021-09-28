@@ -74,19 +74,19 @@ bb395.bb426_crit_edge:                            ; preds = %bb395
   br label %bb426
 
 bb403.preheader:                                  ; preds = %bb395
-  %"xlm_apply_y_rotation_$Q[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 %add.274, double* nonnull %"xlm_apply_y_rotation_$Q", i64 %"xlm_apply_y_rotation_$L_fetch.1784")
-  %"val$[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 488, double* bitcast (i8* getelementptr inbounds ([458560 x i8], [458560 x i8]* @ncomxlm_, i64 0, i64 163480) to double*), i64 %"xlm_apply_y_rotation_$L_fetch.1784")
+  %"xlm_apply_y_rotation_$Q[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 %add.274, double* elementtype(double) nonnull %"xlm_apply_y_rotation_$Q", i64 %"xlm_apply_y_rotation_$L_fetch.1784")
+  %"val$[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 488, double* elementtype(double) bitcast (i8* getelementptr inbounds ([458560 x i8], [458560 x i8]* @ncomxlm_, i64 0, i64 163480) to double*), i64 %"xlm_apply_y_rotation_$L_fetch.1784")
   %0 = add i64 %"xlm_apply_y_rotation_$L_fetch.1784", 1
   br label %bb403
 
 bb403:                                            ; preds = %bb403, %bb403.preheader
   %"xlm_apply_y_rotation_$M.0" = phi i64 [ %add.277, %bb403 ], [ %neg.213, %bb403.preheader ]
-  %"xlm_apply_y_rotation_$Q[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.0")
+  %"xlm_apply_y_rotation_$Q[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* elementtype(double) nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.0")
   %"xlm_apply_y_rotation_$Q[][]_fetch.1797" = load double, double* %"xlm_apply_y_rotation_$Q[][]", align 1
-  %"val$[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* %"val$[]", i64 %"xlm_apply_y_rotation_$M.0")
+  %"val$[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* elementtype(double) %"val$[]", i64 %"xlm_apply_y_rotation_$M.0")
   %"val$[][]_fetch.1800" = load double, double* %"val$[][]", align 1
   %mul.294 = fmul reassoc ninf nsz arcp contract afn double %"xlm_apply_y_rotation_$Q[][]_fetch.1797", %"val$[][]_fetch.1800"
-  %"xlm_apply_y_rotation_$QQ[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* getelementptr inbounds ([61 x double], [61 x double]* @"xlm_apply_y_rotation_$QQ", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$M.0")
+  %"xlm_apply_y_rotation_$QQ[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* elementtype(double) getelementptr inbounds ([61 x double], [61 x double]* @"xlm_apply_y_rotation_$QQ", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$M.0")
   store double %mul.294, double* %"xlm_apply_y_rotation_$QQ[]", align 1
   store double 0.000000e+00, double* %"xlm_apply_y_rotation_$Q[][]", align 1
   %add.277 = add nsw i64 %"xlm_apply_y_rotation_$M.0", 1
@@ -99,16 +99,16 @@ bb407.preheader:                                  ; preds = %bb403
 bb411.preheader:                                  ; preds = %bb412, %bb407.preheader
   %"xlm_apply_y_rotation_$MP.0" = phi i64 [ %add.281, %bb412 ], [ 0, %bb407.preheader ]
   %"xlm_apply_y_rotation_$IND.0" = phi i64 [ %1, %bb412 ], [ 1, %bb407.preheader ]
-  %"xlm_apply_y_rotation_$QQ[]5" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* getelementptr inbounds ([61 x double], [61 x double]* @"xlm_apply_y_rotation_$QQ", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$MP.0")
+  %"xlm_apply_y_rotation_$QQ[]5" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* elementtype(double) getelementptr inbounds ([61 x double], [61 x double]* @"xlm_apply_y_rotation_$QQ", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$MP.0")
   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = load double, double* %"xlm_apply_y_rotation_$QQ[]5", align 1
   br label %bb411
 
 bb411:                                            ; preds = %bb411, %bb411.preheader
   %"xlm_apply_y_rotation_$M.1" = phi i64 [ %add.280, %bb411 ], [ 0, %bb411.preheader ]
   %"xlm_apply_y_rotation_$IND.1" = phi i64 [ %add.279, %bb411 ], [ %"xlm_apply_y_rotation_$IND.0", %bb411.preheader ]
-  %"xlm_apply_y_rotation_$Q[][]4" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.1")
+  %"xlm_apply_y_rotation_$Q[][]4" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* elementtype(double) nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.1")
   %"xlm_apply_y_rotation_$Q[][]_fetch.1819" = load double, double* %"xlm_apply_y_rotation_$Q[][]4", align 1
-  %"xlm_apply_y_rotation_$DP[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([961 x double], [961 x double]* @"xlm_apply_y_rotation_$DP", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$IND.1")
+  %"xlm_apply_y_rotation_$DP[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([961 x double], [961 x double]* @"xlm_apply_y_rotation_$DP", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$IND.1")
   %"xlm_apply_y_rotation_$DP[]_fetch.1821" = load double, double* %"xlm_apply_y_rotation_$DP[]", align 1
   %mul.295 = fmul reassoc ninf nsz arcp contract afn double %"xlm_apply_y_rotation_$DP[]_fetch.1821", %"xlm_apply_y_rotation_$QQ[]_fetch.1823"
   %add.278 = fadd reassoc ninf nsz arcp contract afn double %"xlm_apply_y_rotation_$Q[][]_fetch.1819", %mul.295
@@ -134,16 +134,16 @@ bb419.preheader.preheader:                        ; preds = %bb408
 bb419.preheader:                                  ; preds = %bb420, %bb419.preheader.preheader
   %"xlm_apply_y_rotation_$MP.1" = phi i64 [ %add.285, %bb420 ], [ %neg.213, %bb419.preheader.preheader ]
   %"xlm_apply_y_rotation_$IND.3" = phi i64 [ %2, %bb420 ], [ 1, %bb419.preheader.preheader ]
-  %"xlm_apply_y_rotation_$QQ[]10" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* getelementptr inbounds ([61 x double], [61 x double]* @"xlm_apply_y_rotation_$QQ", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$MP.1")
+  %"xlm_apply_y_rotation_$QQ[]10" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* elementtype(double) getelementptr inbounds ([61 x double], [61 x double]* @"xlm_apply_y_rotation_$QQ", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$MP.1")
   %"xlm_apply_y_rotation_$QQ[]_fetch.1848" = load double, double* %"xlm_apply_y_rotation_$QQ[]10", align 1
   br label %bb419
 
 bb419:                                            ; preds = %bb419, %bb419.preheader
   %"xlm_apply_y_rotation_$M.2" = phi i64 [ %add.284, %bb419 ], [ %neg.213, %bb419.preheader ]
   %"xlm_apply_y_rotation_$IND.4" = phi i64 [ %add.283, %bb419 ], [ %"xlm_apply_y_rotation_$IND.3", %bb419.preheader ]
-  %"xlm_apply_y_rotation_$Q[][]9" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.2")
+  %"xlm_apply_y_rotation_$Q[][]9" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* elementtype(double) nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.2")
   %"xlm_apply_y_rotation_$Q[][]_fetch.1844" = load double, double* %"xlm_apply_y_rotation_$Q[][]9", align 1
-  %"xlm_apply_y_rotation_$DM[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([900 x double], [900 x double]* @"xlm_apply_y_rotation_$DM", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$IND.4")
+  %"xlm_apply_y_rotation_$DM[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([900 x double], [900 x double]* @"xlm_apply_y_rotation_$DM", i64 0, i64 0), i64 %"xlm_apply_y_rotation_$IND.4")
   %"xlm_apply_y_rotation_$DM[]_fetch.1846" = load double, double* %"xlm_apply_y_rotation_$DM[]", align 1
   %mul.296 = fmul reassoc ninf nsz arcp contract afn double %"xlm_apply_y_rotation_$DM[]_fetch.1846", %"xlm_apply_y_rotation_$QQ[]_fetch.1848"
   %add.282 = fadd reassoc ninf nsz arcp contract afn double %"xlm_apply_y_rotation_$Q[][]_fetch.1844", %mul.296
@@ -163,14 +163,14 @@ bb425.preheader.loopexit:                         ; preds = %bb420
   br label %bb425.preheader
 
 bb425.preheader:                                  ; preds = %bb425.preheader.loopexit, %bb408
-  %"val$[]16" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 488, double* bitcast (i8* getelementptr inbounds ([458560 x i8], [458560 x i8]* @ncomxlm_, i64 0, i64 193736) to double*), i64 %"xlm_apply_y_rotation_$L_fetch.1784")
+  %"val$[]16" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 488, double* elementtype(double) bitcast (i8* getelementptr inbounds ([458560 x i8], [458560 x i8]* @ncomxlm_, i64 0, i64 193736) to double*), i64 %"xlm_apply_y_rotation_$L_fetch.1784")
   br label %bb425
 
 bb425:                                            ; preds = %bb425, %bb425.preheader
   %"xlm_apply_y_rotation_$M.3" = phi i64 [ %add.286, %bb425 ], [ %neg.213, %bb425.preheader ]
-  %"xlm_apply_y_rotation_$Q[][]15" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.3")
+  %"xlm_apply_y_rotation_$Q[][]15" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %neg.214, i64 8, double* elementtype(double) nonnull %"xlm_apply_y_rotation_$Q[]", i64 %"xlm_apply_y_rotation_$M.3")
   %"xlm_apply_y_rotation_$Q[][]_fetch.1867" = load double, double* %"xlm_apply_y_rotation_$Q[][]15", align 1
-  %"val$[][]17" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* %"val$[]16", i64 %"xlm_apply_y_rotation_$M.3")
+  %"val$[][]17" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 -30, i64 8, double* elementtype(double) %"val$[]16", i64 %"xlm_apply_y_rotation_$M.3")
   %"val$[][]_fetch.1870" = load double, double* %"val$[][]17", align 1
   %mul.298 = fmul reassoc ninf nsz arcp contract afn double %"xlm_apply_y_rotation_$Q[][]_fetch.1867", %"val$[][]_fetch.1870"
   store double %mul.298, double* %"xlm_apply_y_rotation_$Q[][]15", align 1

@@ -192,7 +192,23 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
            "Call VPInstruction should have atleast one operand.");
     if (auto *ScalarF = dyn_cast<Function>(Ops.back())) {
       Ops = Ops.drop_back();
-      SerialInst = Builder.CreateCall(ScalarF, Ops);
+      if (ScalarF->getIntrinsicID() == Intrinsic::assume) {
+        SmallVector<OperandBundleDef, 1> OpBundles;
+        auto *VPCall = cast<VPCallInstruction>(VPInst);
+        auto UnderlyingCI = VPCall->getUnderlyingCallInst();
+        assert (UnderlyingCI && "Underlying call instruction expected here");
+        UnderlyingCI->getOperandBundlesAsDefs(OpBundles);
+        int CurrentIndex = 1;
+        for (OperandBundleDef &BD : OpBundles) {
+          StringRef ClauseString = BD.getTag();
+          BD = OperandBundleDef(ClauseString.str(),
+                                makeArrayRef(Ops).slice(CurrentIndex, BD.input_size()));
+          CurrentIndex += BD.input_size();
+        }
+        SerialInst = Builder.CreateAssumption(Ops.front(), OpBundles);
+      } else {
+        SerialInst = Builder.CreateCall(ScalarF, Ops);
+      }
     } else {
       // Indirect call (via function pointer).
       Value *FuncPtr = Ops.back();
@@ -221,10 +237,14 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (!VPGEP->isOpaque())
       // FIXME: SOA transformation cuts lots of corners and doesn't preserve
       // consistency in SourceElementType.
-      SourceElementType = nullptr;
+      SourceElementType =
+          GepBasePtr->getType()->getScalarType()->getPointerElementType();
 
-    SerialInst = Builder.CreateGEP(SourceElementType, GepBasePtr, Ops);
-    cast<GetElementPtrInst>(SerialInst)->setIsInBounds(VPGEP->isInBounds());
+    if (VPGEP->isInBounds())
+      SerialInst =
+          Builder.CreateInBoundsGEP(SourceElementType, GepBasePtr, Ops);
+    else
+      SerialInst = Builder.CreateGEP(SourceElementType, GepBasePtr, Ops);
     StringRef GepName =
         isSOAAccess(VPGEP, Plan) ? "soa.scalar.gep" : "scalar.gep";
     SerialInst->setName(GepName);
@@ -310,6 +330,9 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                            "serial.insertvalue");
   } else if (VPInst->getOpcode() == Instruction::ShuffleVector) {
     SerialInst = Builder.CreateShuffleVector(Ops[0], Ops[1], Ops[2]);
+  } else if (VPInst->getOpcode() == Instruction::Select) {
+    assert(Ops.size() == 3 && "Select instruction should have three operands.");
+    SerialInst = Builder.CreateSelect(Ops[0], Ops[1], Ops[2]);
   } else if (VPInst->getOpcode() == Instruction::BitCast ||
              VPInst->getOpcode() == Instruction::AddrSpaceCast) {
     assert(Ops.size() == 1 &&
@@ -317,6 +340,10 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialInst = Builder.CreateCast(
         static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0],
         VPInst->getType());
+  } else if (VPInst->getOpcode() == Instruction::PHI) {
+    assert(Ops.size() == 0 && "No operands expected for serialized PHIs.");
+    SerialInst = Builder.CreatePHI(VPInst->getType(), VPInst->getNumOperands(),
+                                   "serial.phi");
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("Serialization support for opcode is not implemented.");
@@ -1086,8 +1113,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
     // FIXME: SOA transformation cuts lots of corners and doesn't preserve
     // consistency in SourceElementType.
-    Type *SourceElementType =
-        GEP->isOpaque() ? GEP->getSourceElementType() : nullptr;
+    Type *SourceElementType = GEP->isOpaque() ? GEP->getSourceElementType()
+                                              : WideGepBasePtr->getType()
+                                                    ->getScalarType()
+                                                    ->getPointerElementType();
 
     Value *VectorGEP = Builder.CreateGEP(SourceElementType,
                                          WideGepBasePtr, OpsV, GepName);
@@ -1162,8 +1191,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     if (MaskValue && !DivisorIsSafe) {
       if (DA->isUniform(*VPInst))
         serializePredicatedUniformInstruction(VPInst);
-      else
+      else {
         serializeWithPredication(VPInst);
+        // Remark: division was scalarized due to fp-model requirements
+        OptRptStats.SerializedInstRemarks.emplace_back(15566,
+            Instruction::getOpcodeName(VPInst->getOpcode()));
+      }
       return;
     }
     LLVM_FALLTHROUGH;
@@ -1389,9 +1422,21 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // Call cannot be vectorized for current context, emulate with
-      // serialization.
+      // serialization
+      auto *Func = VPCall->getCalledFunction();
       serializeWithPredication(VPCall);
       ++OptRptStats.SerializedCalls;
+      // Below we add in OptReport remarks about serialized calls.
+      // Check if called function is indirect call
+      assert(VPCall->getSerialReason() != VPCallInstruction::
+           SerializationReasonTy::UNDEFINED &&
+           "Serialization reason is undefined");
+      if (Func == nullptr)
+         OptRptStats.SerializedInstRemarks.emplace_back
+             (15557 + VPCall->getSerialReasonNum(), "");
+      else
+         OptRptStats.SerializedInstRemarks.emplace_back
+             (15557 + VPCall->getSerialReasonNum(), (Func->getName()).str());
       return;
     }
     default:
@@ -1723,10 +1768,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
       // Loop body. Copying element in VF - 1 position from each vector.
       Value *Ptr = Builder.CreateGEP(
-          Res, {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
+          Res->getType()->getScalarType()->getPointerElementType(), Res,
+          {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
       Value *Val =
           Builder.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr);
-      Value *Target = Builder.CreateGEP(Orig, {Builder.getInt64(0), Phi});
+      Value *Target =
+          Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
       Builder.CreateStore(Val, Target);
 
       // Increment of loop variable.
@@ -1755,6 +1802,18 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
     return;
   }
+  case VPInstruction::PrivateLastValueNonPOD: {
+    // We need to copy private from last private allocated memory into the
+    // original private location.
+    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Value *Res = getScalarValue(Priv, VF - 1);
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODInst>(VPInst)->getCopyAssign();
+    Builder.CreateCall(CopyAssignFn, {Orig, Res});
+    return;
+  }
+
   case VPInstruction::VLSLoad: {
     auto *VLSLoad = cast<VPVLSLoad>(VPInst);
     assert(DA->isUniform(*VLSLoad) &&
@@ -2161,7 +2220,8 @@ Value *VPOCodeGen::createVectorPrivatePtrs(VPAllocatePrivate *V) {
 
   auto Base =
       Builder.CreateBitCast(PtrToVec, PrivTy, PtrToVec->getName() + ".bc");
-  return Builder.CreateGEP(Base, Cv, PtrToVec->getName() + ".base.addr");
+  return Builder.CreateGEP(PrivTy->getScalarType()->getPointerElementType(),
+                           Base, Cv, PtrToVec->getName() + ".base.addr");
 }
 
 template <typename CastInstTy>
@@ -2363,7 +2423,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     Value *VecArg = ProcessCallArg(OrigArgIdx, ParamsIdx);
     VecArgs.push_back(VecArg);
     VecArgTys.push_back(VecArg->getType());
-    VecArgAttrs.push_back(Attrs.getParamAttributes(ParamsIdx));
+    VecArgAttrs.push_back(Attrs.getParamAttrs(ParamsIdx));
   }
 
   // Process mask parameters for current part being pumped. Masked intrinsics
@@ -2453,6 +2513,9 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   // If the selector is loop invariant we can create a select
   // instruction with a scalar condition. Otherwise, use vector-select.
   VPValue *Cond = VPInst->getOperand(0);
+  if (!isVectorizableTy(VPInst->getOperand(1)->getType())) {
+    return serializeWithPredication(VPInst);
+  }
   Value *Op0 = getVectorValue(VPInst->getOperand(1));
   Value *Op1 = getVectorValue(VPInst->getOperand(2));
   bool UniformCond = Plan->getVPlanDA()->isUniform(*Cond);
@@ -2593,6 +2656,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
 
   // Loads that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPLoad)) {
+    // Remark: serilalized due to operating on non-vectorizable types
+    OptRptStats.SerializedInstRemarks.emplace_back(15563, "");
     return serializeWithPredication(VPLoad);
   }
 
@@ -2708,8 +2773,11 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   VPValue *Ptr = VPStore->getPointerOperand();
 
   // Stores that are non-vectorizable should be serialized.
-  if (!isVectorizableLoadStore(VPStore))
+  if (!isVectorizableLoadStore(VPStore)) {
+    // Remark: serilalized due to operating on non-vectorizable types
+    OptRptStats.SerializedInstRemarks.emplace_back(15563, "");
     return serializeWithPredication(VPStore);
+  }
 
   // Stores to uniform pointers can be optimally generated as a scalar store in
   // vectorized code.
@@ -2861,10 +2929,10 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
     // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
-  VecPtr = Reverse
-               ? Builder.CreateGEP(
-                     VecPtr, Builder.getInt32(1 - WideDataTy->getNumElements()))
-               : VecPtr;
+  VecPtr = Reverse ? Builder.CreateGEP(
+                         WideDataTy->getScalarType(), VecPtr,
+                         Builder.getInt32(1 - WideDataTy->getNumElements()))
+                   : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;
 }
@@ -3532,6 +3600,8 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
 
     if (MaskValue) {
       serializeWithPredication(VPInst);
+      // Remark: masked instruction can't be vectorized
+      OptRptStats.SerializedInstRemarks.emplace_back(15565, "");
       return;
     }
 
@@ -3547,6 +3617,8 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
           WideExtract, Builder.CreateExtractElement(ExtrFrom, VectorIdx), VIdx);
     }
     VPWidenMap[VPInst] = WideExtract;
+    // Remark: instruction was serialized due to non-const index
+    OptRptStats.SerializedInstRemarks.emplace_back(15564, "");
     return;
   }
 
@@ -3580,6 +3652,8 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
       !cast<VPConstant>(OrigIndexVal)->isConstantInt()) {
     if (MaskValue) {
       serializeWithPredication(VPInst);
+      // Remark: masked instruction can't be vectorized
+      OptRptStats.SerializedInstRemarks.emplace_back(15565, "");
       return;
     }
     Value *WideInsert = InsertTo;
@@ -3596,6 +3670,8 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
           WideInsert, getScalarValue(VPInst->getOperand(1), VIdx), VectorIdx);
     }
     VPWidenMap[VPInst] = WideInsert;
+    // Remark: instruction was serialized due to non-const index
+    OptRptStats.SerializedInstRemarks.emplace_back(15564, "");
     return;
   }
 
@@ -3795,19 +3871,25 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
           ? 1
           : VF;
 
+  auto *VPPhiInst = dyn_cast<VPPHINode>(VPInst);
   for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
     SmallVector<Value *, 4> ScalarOperands;
-    // All operands to the serialized Instruction should be scalar Values.
-    for (unsigned Op = 0, e = VPInst->getNumOperands(); Op != e; ++Op) {
-      auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), Lane);
-      assert(ScalarOp && "Operand for serialized instruction not found.");
-      LLVM_DEBUG(dbgs() << "LVCG: Serialize scalar op: "; ScalarOp->dump());
-      ScalarOperands.push_back(ScalarOp);
+    // All operands to the serialized Instruction should be scalar Values. Skip
+    // PHIs since their operands may not be generated yet.
+    if (!VPPhiInst) {
+      for (unsigned Op = 0, e = VPInst->getNumOperands(); Op != e; ++Op) {
+        auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), Lane);
+        assert(ScalarOp && "Operand for serialized instruction not found.");
+        LLVM_DEBUG(dbgs() << "LVCG: Serialize scalar op: "; ScalarOp->dump());
+        ScalarOperands.push_back(ScalarOp);
+      }
     }
 
     Value *SerialInst = generateSerialInstruction(VPInst, ScalarOperands);
     assert(SerialInst && "Instruction not serialized.");
     VPScalarMap[VPInst][Lane] = SerialInst;
+    if (VPPhiInst)
+      PhisToFix[cast<PHINode>(SerialInst)] = std::make_pair(VPPhiInst, Lane);
     LLVM_DEBUG(dbgs() << "LVCG: SerialInst: "; SerialInst->dump());
   }
 }
@@ -3847,6 +3929,14 @@ void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
 
 void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   auto PhiTy = VPPhi->getType();
+  if (!isVectorizableTy(PhiTy)) {
+    // PHIs cannot be predicated so it should be safe to serialize without
+    // predication.
+    assert(!MaskValue && "PHIs cannot be predicated.");
+    serializeInstruction(VPPhi);
+    return;
+  }
+
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
   if (isSOAAccess(VPPhi, Plan) && !isOnlyUsedInLifetimeIntrinsics(VPPhi)) {
@@ -3859,7 +3949,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   if (needScalarCode(VPPhi) || EmitScalarOnly || isSOAUnitStride(VPPhi, Plan)) {
     NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
     VPScalarMap[VPPhi][0] = NewPhi;
-    ScalarPhisToFix[VPPhi] = NewPhi;
+    PhisToFix[NewPhi] = std::make_pair(VPPhi, 0);
   }
   if (EmitScalarOnly)
     return;
@@ -3867,7 +3957,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
     PhiTy = getWidenedType(PhiTy, VF);
     NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
     VPWidenMap[VPPhi] = NewPhi;
-    PhisToFix[VPPhi] = NewPhi;
+    PhisToFix[NewPhi] = std::make_pair(VPPhi, -1);
   }
 }
 
@@ -4251,7 +4341,9 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     auto *Start = getScalarValue(VPStart, 0);
     LastValue =
         (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
-            ? Builder.CreateInBoundsGEP(Start, {MulV}, "final_gep")
+            ? Builder.CreateInBoundsGEP(
+                  Start->getType()->getScalarType()->getPointerElementType(),
+                  Start, MulV, "final_gep")
             : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                   Start, MulV);
   }
@@ -4392,61 +4484,57 @@ void VPOCodeGen::fixPrivateLastVal(VPInstruction *PrivFinal) {
 }
 
 void VPOCodeGen::fixNonInductionVPPhis() {
-  std::function<void(DenseMap<VPPHINode *, PHINode *> &)> fixInductions =
-      [&](DenseMap<VPPHINode *, PHINode *> &Table) -> void {
-    bool IsScalar = &Table == &ScalarPhisToFix;
-    for (auto PhiToFix : Table) {
-      auto *VPPhi = PhiToFix.first;
-      auto *Phi = PhiToFix.second;
-      const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
-      for (unsigned I = 0; I < NumPhiValues; ++I) {
-        auto *VPVal = VPPhi->getIncomingValue(I);
-        auto *VPBB = VPPhi->getIncomingBlock(I);
-        Value *IncValue =
-            IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
-        // We can have a scenario when dealing with SOA pointers
-        // where it is not the same as the targeted type. We have to insert a
-        // bitcast it to an appropriate type.
-        // This is typically on account of phi's inserted by AZB where one of
-        // the argument is of SOA-type and the other is a null. Since DA is
-        // unaware of this, we should typecast the pointer argument to the
-        // PHi-type.
-        // i32* %vp1 = phi  [ i32* %vp2, BB16 ],  [ i32* null, BB17 ]
-        if (isSOAAccess(VPPhi, Plan) && IncValue->getType() != Phi->getType()) {
-          assert(isa<Constant>(IncValue) &&
-                 cast<Constant>(IncValue)->isNullValue() &&
-                 "Expect this argument to be a constant null-value.");
-          // We expect this to be a constant nullptr value, so, no need of
-          // setting up builder's insertion point.
-          IncValue = Builder.CreateBitCast(IncValue, Phi->getType());
-        }
-        BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
-        if (Plan->hasExplicitRemainder()) {
-          auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
-          if (LiveOut && !isa<VPScalarPeel>(LiveOut->getOperand(0))) {
-            // Add outgoing from the scalar loop.
-            Loop *L =
-                cast<VPScalarRemainder>(LiveOut->getOperand(0))->getLoop();
-            BB = L->getLoopLatch();
-            if (!any_of(predecessors(Phi->getParent()),
-                        [BB](auto Pred) { return Pred == BB; })) {
-              // If the latch is not a predecessor of the phi-block
-              // try its non-loop-header successor.
-              auto *Br = cast<BranchInst>(BB->getTerminator());
-              BB = Br->getOperand(1) == L->getHeader()
-                       ? cast<BasicBlock>(Br->getOperand(2))
-                       : cast<BasicBlock>(Br->getOperand(1));
-            }
-            assert(any_of(predecessors(Phi->getParent()),
-                          [BB](auto Pred) { return Pred == BB; }) &&
-                   "can't find correct incoming block");
-          }
-        }
-        Phi->addIncoming(IncValue, BB);
+  auto fixPHI = [&](VPPHINode *VPPhi, PHINode *Phi, int Lane = -1) -> void {
+    const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
+    for (unsigned I = 0; I < NumPhiValues; ++I) {
+      auto *VPVal = VPPhi->getIncomingValue(I);
+      auto *VPBB = VPPhi->getIncomingBlock(I);
+      bool IsScalar = Lane != -1;
+      Value *IncValue =
+          IsScalar ? getScalarValue(VPVal, Lane) : getVectorValue(VPVal);
+      // We can have a scenario when dealing with SOA pointers
+      // where it is not the same as the targeted type. We have to insert a
+      // bitcast it to an appropriate type.
+      // This is typically on account of phi's inserted by AZB where one of
+      // the argument is of SOA-type and the other is a null. Since DA is
+      // unaware of this, we should typecast the pointer argument to the
+      // PHi-type.
+      // i32* %vp1 = phi  [ i32* %vp2, BB16 ],  [ i32* null, BB17 ]
+      if (isSOAAccess(VPPhi, Plan) && IncValue->getType() != Phi->getType()) {
+        assert(isa<Constant>(IncValue) &&
+               cast<Constant>(IncValue)->isNullValue() &&
+               "Expect this argument to be a constant null-value.");
+        // We expect this to be a constant nullptr value, so, no need of
+        // setting up builder's insertion point.
+        IncValue = Builder.CreateBitCast(IncValue, Phi->getType());
       }
+      BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
+      if (Plan->hasExplicitRemainder()) {
+        auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
+        if (LiveOut && !isa<VPScalarPeel>(LiveOut->getOperand(0))) {
+          // Add outgoing from the scalar loop.
+          Loop *L = cast<VPScalarRemainder>(LiveOut->getOperand(0))->getLoop();
+          BB = L->getLoopLatch();
+          if (!any_of(predecessors(Phi->getParent()),
+                      [BB](auto Pred) { return Pred == BB; })) {
+            // If the latch is not a predecessor of the phi-block
+            // try its non-loop-header successor.
+            auto *Br = cast<BranchInst>(BB->getTerminator());
+            BB = Br->getOperand(1) == L->getHeader()
+                     ? cast<BasicBlock>(Br->getOperand(2))
+                     : cast<BasicBlock>(Br->getOperand(1));
+          }
+          assert(any_of(predecessors(Phi->getParent()),
+                        [BB](auto Pred) { return Pred == BB; }) &&
+                 "can't find correct incoming block");
+        }
+      }
+      Phi->addIncoming(IncValue, BB);
     }
-    return;
   };
-  fixInductions(ScalarPhisToFix);
-  fixInductions(PhisToFix);
+
+  for (auto &MapIt : PhisToFix) {
+    int Lane = MapIt.second.second;
+    fixPHI(MapIt.second.first, MapIt.first, Lane);
+  }
 }

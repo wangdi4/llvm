@@ -16,54 +16,28 @@
 ; END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
 
-
-; Checks for generated HIR code
-; CHECK:                     %red.var = 0.000000e+00;
-; CHECK-NEXT:                + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:                |   %wide.cmp. = %N2 > 0;
-; CHECK-NEXT:                |   %phi.temp = %red.var;
-; CHECK-NEXT:                |   %unifcond = extractelement %wide.cmp.,  0;
-; CHECK-NEXT:                |   if (%unifcond == 1)
-; CHECK-NEXT:                |   {
-; CHECK-NEXT:                |   }
-; CHECK-NEXT:                |   else
-; CHECK-NEXT:                |   {
-; CHECK-NEXT:                |      goto BB5.39;
-; CHECK-NEXT:                |   }
-; CHECK-NEXT:                |   %add.vec = (<4 x float>*)(@B)[0][i1]  +  (<4 x float>*)(@C)[0][i1];
-; CHECK-NEXT:                |   %.vec = %red.var  +  %add.vec;
-; CHECK-NEXT:                |   %phi.temp = %.vec;
-; CHECK-NEXT:                |   BB5.39:
-; CHECK-NEXT:                |   %red.var = %phi.temp;
-; CHECK-NEXT:                + END LOOP
-; CHECK:                     %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 
 ; Checks for VPValue based code generation.
 ; VPCHECK:                   %red.var = 0.000000e+00;
-; VPCHECK-NEXT:              + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; VPCHECK:                   + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPCHECK-NEXT:              |   %.vec = %N2 > 0;
 ; VPCHECK-NEXT:              |   %phi.temp = %red.var;
 ; VPCHECK-NEXT:              |   %unifcond = extractelement %.vec,  0;
 ; VPCHECK-NEXT:              |   if (%unifcond == 1)
 ; VPCHECK-NEXT:              |   {
+; VPCHECK-NEXT:              |      %.vec1 = (<4 x float>*)(@B)[0][i1];
+; VPCHECK-NEXT:              |      %.vec2 = (<4 x float>*)(@C)[0][i1];
+; VPCHECK-NEXT:              |      %.vec3 = %.vec1  +  %.vec2;
+; VPCHECK-NEXT:              |      %.vec4 = %red.var  +  %.vec3;
+; VPCHECK-NEXT:              |      %phi.temp = %.vec4;
 ; VPCHECK-NEXT:              |   }
-; VPCHECK-NEXT:              |   else
-; VPCHECK-NEXT:              |   {
-; VPCHECK-NEXT:              |      goto BB5.41;
-; VPCHECK-NEXT:              |   }
-; VPCHECK-NEXT:              |   %.vec1 = (<4 x float>*)(@B)[0][i1];
-; VPCHECK-NEXT:              |   %.vec2 = (<4 x float>*)(@C)[0][i1];
-; VPCHECK-NEXT:              |   %.vec3 = %.vec1  +  %.vec2;
-; VPCHECK-NEXT:              |   %.vec4 = %red.var  +  %.vec3;
-; VPCHECK-NEXT:              |   %phi.temp = %.vec4;
-; VPCHECK-NEXT:              |   BB5.41:
 ; VPCHECK-NEXT:              |   %red.var = %phi.temp;
 ; VPCHECK-NEXT:              + END LOOP
-; VPCHECK-NEXT:              %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
-
+; VPCHECK:                   %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
+ 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

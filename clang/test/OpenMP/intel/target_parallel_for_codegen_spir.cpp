@@ -260,7 +260,7 @@ void foo2_defaultmap() {
   // ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
 }
 
-// Don't hoist if global is used in loop bounds.
+// Don't hoist if global with same restrictions as autos.
 #pragma omp declare target
 int global_sixteen = 16;
 #pragma omp end declare target
@@ -287,10 +287,79 @@ void foo2_global() {
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
   // ALL: {{call|invoke}}{{.*}}void {{.*}}bar
 
-  #pragma omp target
+  #pragma omp target map(tofrom:global_sixteen)
   #pragma omp parallel for
   for(i=0;i<global_sixteen;++i) {
     bar(42,i,j);
+  }
+  // ALL: directive.region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  // ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+}
+
+// Also don't hoist combined loops if bounds are used in map clause
+// ALL-LABEL: foo2_map_combined
+void foo2_map_combined() {
+  // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
+  // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
+
+  int i;
+  int j = 20;
+  int sixteen = 16;
+  // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_LB]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]]),
+  // HOST: store i32 0, i32* [[OMP_LB]],
+  // TARG: store i32 0, i32 addrspace(4)* [[OMP_LB_CAST]],
+  // HOST: store i32 {{.*}}, i32* [[OMP_UB]],
+  // TARG: store i32 {{.*}}, i32 addrspace(4)* [[OMP_UB_CAST]],
+  // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
+  // ALL: {{call|invoke}}{{.*}}void {{.*}}bar
+
+  #pragma omp target parallel for map(sixteen)
+  for(i=0;i<sixteen;++i) {
+    bar(42,i,j);
+  }
+  // ALL: directive.region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  // ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+}
+
+// Hoisting ok for globals that are firstprivate (implicit/explicit).
+#pragma omp declare target
+int global_sixteen2 = 16;
+#pragma omp end declare target
+// ALL-LABEL: foo2_global2
+void foo2_global2() {
+  // ALL: [[OMP_LB1:%.omp.lb.*]] = alloca i32,
+  // TARG: [[OMP_LB1_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
+  // ALL: [[OMP_UB1:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_UB1_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
+
+  int ii;
+  int jj = 20;
+  // HOST: store i32 0, i32* [[OMP_LB1]],
+  // TARG: store i32 0, i32 addrspace(4)* [[OMP_LB1_CAST]],
+  // HOST: store i32 {{.*}}, i32* [[OMP_UB1]],
+  // TARG: store i32 {{.*}}, i32 addrspace(4)* [[OMP_UB1_CAST]],
+  // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB1]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB1_CAST]]),
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB1]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_UB1_CAST]]),
+  // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
+  // ALL: {{call|invoke}}{{.*}}void {{.*}}bar
+
+  #pragma omp target
+  #pragma omp parallel for
+  for(ii=0;ii<global_sixteen2;++ii) {
+    bar(42,ii,jj);
   }
   // ALL: directive.region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   // ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
@@ -450,8 +519,8 @@ void foo5(double *qq, int nq) {
 
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[K]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[K_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[K]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[K_CAST]]),
   // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
   // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
   // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB]])

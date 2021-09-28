@@ -112,9 +112,6 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK-LABEL: newFuncRoot:
 ; CHECK:   br label %.split
 ;
-; CHECK-LABEL: DIR.OMP.END.PARALLEL.EXIT.ret.exitStub:           ; preds = %DIR.OMP.END.PARALLEL.EXIT
-; CHECK:   ret void
-;
 ; CHECK-LABEL: DIR.OMP.PARALLEL.START:                           ; preds = %.split
 ; CHECK:   [[TMP0:%.*]] = tail call noalias i8* @mallocFunc(i64 100)
 ; CHECK:   store i8* [[TMP0:%.*]], i8** getelementptr inbounds (%struct.testStruct, %struct.testStruct* @globalstruct, i64 0, i32 0), align 8
@@ -128,6 +125,9 @@ DIR.OMP.END.PARALLEL.EXIT:
 ;
 ; CHECK-LABEL: .split:                                           ; preds = %newFuncRoot
 ; CHECK:   br label %DIR.OMP.PARALLEL.START
+;
+; CHECK-LABEL: DIR.OMP.END.PARALLEL.EXIT.ret.exitStub:           ; preds = %DIR.OMP.END.PARALLEL.EXIT
+; CHECK:   ret void
 ; CHECK: }
 
 ; Verify that the interface was created

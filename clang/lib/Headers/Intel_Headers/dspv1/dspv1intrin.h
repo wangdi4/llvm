@@ -15,16 +15,19 @@
 #ifndef __DSPINTRIN_H
 #define __DSPINTRIN_H
 
+/* Below intrinsics defined in other headers can be used for DSPV1 */
+// \fn __m128i _mm_alignr_epi8(__m128i a, __m128i b, int imm8)
+
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS128                                                  \
   __attribute__((__always_inline__, __nodebug__, __target__("dspv1"),          \
                  __min_vector_width__(128)))
 
 #define _mm_dsp_pcr2bfrsw_epi16(A, B, C, D)                                    \
-  (__m128i) __builtin_ia32_dvpcr2bfrsw((__v8hi)A, (__v8hi)B, (__v8hi)C, (int)D)
+  ((__m128i) __builtin_ia32_dvpcr2bfrsw((__v8hi)A, (__v8hi)B, (__v8hi)C, (int)D))
 
 #define _mm_dsp_plutsincosw_epi16(A, B)                                        \
-  (__m128i) __builtin_ia32_dvplutsincosw((__v8hi)A, (int)B)
+  ((__m128i) __builtin_ia32_dvplutsincosw((__v8hi)A, (int)B))
 
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_dsp_pmuludhhq_epi64(__m128i __A, __m128i __B) {
@@ -159,18 +162,6 @@ _mm_dsp_pdpbssds_epi32(__m128i __A, __m128i __B, __m128i __C) {
 }
 
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
-_mm_dsp_pdpbusd_epi32(__m128i __A, __m128i __B, __m128i __C) {
-  return (__m128i)__builtin_ia32_dvpdpbusd((__v4su)__A, (__v16qu)__B,
-                                           (__v16qu)__C);
-}
-
-static __inline__ __m128i __DEFAULT_FN_ATTRS128
-_mm_dsp_pdpbusds_epi32(__m128i __A, __m128i __B, __m128i __C) {
-  return (__m128i)__builtin_ia32_dvpdpbusds((__v4su)__A, (__v16qu)__B,
-                                            (__v16qu)__C);
-}
-
-static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_dsp_pdpbsud_epi32(__m128i __A, __m128i __B, __m128i __C) {
   return (__m128i)__builtin_ia32_dvpdpbsud((__v4su)__A, (__v16qu)__B,
                                            (__v16qu)__C);
@@ -219,10 +210,10 @@ _mm_dsp_pndpwssq_epi64(__m128i __A, __m128i __B, __m128i __C) {
 }
 
 #define _mm_dsp_pcmulwrs_epi16(A, B, C)                                        \
-  (__m128i) __builtin_ia32_dvpcmulwrs((__v8hu)(A), (__v8hu)(B), (int)(C))
+  ((__m128i) __builtin_ia32_dvpcmulwrs((__v8hu)(A), (__v8hu)(B), (int)(C)))
 
 #define _mm_dsp_pccmulwrs_epi16(A, B, C)                                       \
-  (__m128i) __builtin_ia32_dvpccmulwrs((__v8hu)(A), (__v8hu)(B), (int)(C))
+  ((__m128i) __builtin_ia32_dvpccmulwrs((__v8hu)(A), (__v8hu)(B), (int)(C)))
 
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_dsp_pcdpwqre_epi64(__m128i __A, __m128i __B, __m128i __C) {
@@ -259,6 +250,100 @@ _mm_dsp_pnccdpwqimm_epi64(__m128i __A, __m128i __B, __m128i __C) {
   return (__m128i)__builtin_ia32_dvpnccdpwqimm((__v2du)__A, (__v8hu)__B,
                                                (__v8hu)__C);
 }
+
+#define _mm_dsp_psrard_epi32(A, B)                                             \
+  ((__m128i) __builtin_ia32_dvpsrard((__v4su)(A), (int)(B)))
+
+#define _mm_dsp_pslsd_epi32(A, B)                                              \
+  ((__m128i) __builtin_ia32_dvpslsd((__v4su)(A), (int)(B)))
+
+#define _mm_dsp_psrrud_epi32(A, B)                                             \
+  ((__m128i) __builtin_ia32_dvpsrrud((__v4su)(A), (int)(B)))
+
+#define _mm_dsp_pslsud_epi32(A, B)                                             \
+  ((__m128i) __builtin_ia32_dvpslsud((__v4su)(A), (int)(B)))
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_psravrd_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpsravrd((__v4su)__A, (__v4su)__B);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pslvsd_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpslvsd((__v4su)__A, (__v4su)__B);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_psrvrud_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpsrvrud((__v4su)__A, (__v4su)__B);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pslvsud_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpslvsud((__v4su)__A, (__v4su)__B);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlswuq_epi16(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlswuq((__v8hu)__A);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlswq_epi16(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlswq((__v8hu)__A);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlsduq_epi32(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlsduq((__v4su)__A);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlsdq_epi32(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlsdq((__v4su)__A);
+}
+
+#define _mm_max_epi16(__a, __b)                                                \
+  ((__m128i)__builtin_ia32_pmaxsw128((__v8hi)(__a), (__v8hi)(__b)))
+
+#define _mm_max_epu8(__a, __b)                                                 \
+  ((__m128i)__builtin_ia32_pmaxub128((__v16qi)(__a), (__v16qi)(__b)))
+
+#define _mm_min_epi16(__a, __b)                                                \
+  ((__m128i)__builtin_ia32_pminsw128((__v8hi)(__a), (__v8hi)(__b)))
+
+#define _mm_min_epu8(__a, __b)                                                 \
+  ((__m128i)__builtin_ia32_pminub128((__v16qi)(__a), (__v16qi)(__b)))
+
+#define _mm_min_epi8(__V1, __V2)                                               \
+  ((__m128i)__builtin_ia32_pminsb128((__v16qi)(__V1), (__v16qi)(__V2)))
+
+#define _mm_max_epi8(__V1, __V2)                                               \
+  ((__m128i)__builtin_ia32_pmaxsb128((__v16qi)(__V1), (__v16qi)(__V2)))
+
+#define _mm_min_epu16(__V1, __V2)                                              \
+  ((__m128i)__builtin_ia32_pminuw128((__v8hi)(__V1), (__v8hi)(__V2)))
+
+#define _mm_max_epu16(__V1, __V2)                                              \
+  ((__m128i)__builtin_ia32_pmaxuw128((__v8hi)(__V1), (__v8hi)(__V2)))
+
+#define _mm_min_epi32(__V1, __V2)                                              \
+  ((__m128i)__builtin_ia32_pminsd128((__v4si)(__V1), (__v4si)(__V2)))
+
+#define _mm_max_epi32(__V1, __V2)                                              \
+  ((__m128i)__builtin_ia32_pmaxsd128((__v4si)(__V1), (__v4si)(__V2)))
+
+#define _mm_min_epu32(__V1, __V2)                                              \
+  ((__m128i)__builtin_ia32_pminud128((__v4si)(__V1), (__v4si)(__V2)))
+
+#define _mm_max_epu32(__V1, __V2)                                              \
+  ((__m128i)__builtin_ia32_pmaxud128((__v4si)(__V1), (__v4si)(__V2)))
+
+#define _mm_dpbusd_epi32(S, A, B)                                              \
+  ((__m128i)__builtin_ia32_vpdpbusd128((__v4si)(S), (__v4si)(A), (__v4si)(B)))
+
+#define _mm_dpbusds_epi32(S, A, B)                                             \
+  ((__m128i)__builtin_ia32_vpdpbusds128((__v4si)(S), (__v4si)(A), (__v4si)(B)))
 
 #undef __DEFAULT_FN_ATTRS128
 #endif // __DSPINTRIN_H

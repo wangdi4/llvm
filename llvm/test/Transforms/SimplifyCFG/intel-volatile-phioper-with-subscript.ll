@@ -24,7 +24,7 @@ define void @test(i8** nocapture %PeiServices) #0 {
 ; CHECK-NEXT:    [[ADDR_017:%.*]] = phi i8* [ [[INCDEC_PTR:%.*]], [[WHILE_BODY]] ], [ null, [[IF_THEN]] ], [ null, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[X_016:%.*]] = phi i8 [ [[INC:%.*]], [[WHILE_BODY]] ], [ 0, [[IF_THEN]] ], [ 0, [[ENTRY]] ]
 ; CHECK-NEXT:    [[INC]] = add i8 [[X_016]], 1
-; CHECK-NEXT:    [[INCDEC_PTR]] = call i8* @llvm.intel.subscript.p0i8.i64.i64.p0i8.i64(i8 0, i64 0, i64 1, i8* [[ADDR_017]], i64 1)
+; CHECK-NEXT:    [[INCDEC_PTR]] = call i8* @llvm.intel.subscript.p0i8.i64.i64.p0i8.i64(i8 0, i64 0, i64 1, i8* elementtype(i8) [[ADDR_017]], i64 1)
 ; CHECK-NEXT:    store volatile i8 [[X_016]], i8* [[ADDR_017]], align 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint i8* [[INCDEC_PTR]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i64 [[TMP0]] to i32

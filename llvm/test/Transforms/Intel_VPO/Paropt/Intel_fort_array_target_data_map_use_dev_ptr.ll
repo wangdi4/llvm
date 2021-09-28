@@ -56,7 +56,7 @@ alloca_0:
 ; CHECK: call void @foo_.DIR.OMP.TARGET.DATA{{[^ ]+}}([10 x i32]* %"foo_$B_entry.updated.val")
 
   %ptr_cast = bitcast [10 x i32]* %"foo_$B_entry" to i32*
-  %"foo_$B_entry[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %ptr_cast, i64 2)
+  %"foo_$B_entry[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %ptr_cast, i64 2)
   store i32 20, i32* %"foo_$B_entry[]", align 1
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET.DATA"() ]

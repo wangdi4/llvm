@@ -126,7 +126,7 @@ namespace {
 class IRBuilderPrefixedInserter final : public IRBuilderDefaultInserter {
   std::string Prefix;
 
-  const Twine getNameWithPrefix(const Twine &Name) const {
+  Twine getNameWithPrefix(const Twine &Name) const {
     return Name.isTriviallyEmpty() ? Name : Prefix + Name;
   }
 
@@ -1376,10 +1376,11 @@ static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
     assert(GEP->hasAllZeroIndices() && "Expected all zero indices!!!");
 
+    auto *ElementTy = Ptr->getType()->getScalarType()->getPointerElementType();
     SmallVector<Value*, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
     Value *NewGEP = GEP->isInBounds()
-          ? IRB.CreateInBoundsGEP(Ptr, IdxList)
-          : IRB.CreateGEP(Ptr, IdxList);
+          ? IRB.CreateInBoundsGEP(ElementTy, Ptr, IdxList)
+          : IRB.CreateGEP(ElementTy, Ptr, IdxList);
 
     for (auto *U : Inst->users())
       injectGEPsLoads(IRB, cast<Instruction>(U), NewGEP, NewLoads);
@@ -1472,51 +1473,21 @@ static void speculatePHINodeLoads(PHINode &PN) {
 ///   %V = select i1 %cond, i32 %V1, i32 %V2
 ///
 /// We can do this to a select if its only uses are loads and if the operand
-/// to the select can be loaded unconditionally.
+/// to the select can be loaded unconditionally. If found an intervening bitcast
+/// with a single use of the load, allow the promotion.
 static bool isSafeSelectToSpeculate(SelectInst &SI) {
   Value *TValue = SI.getTrueValue();
   Value *FValue = SI.getFalseValue();
   const DataLayout &DL = SI.getModule()->getDataLayout();
 
   for (User *U : SI.users()) {
-#if INTEL_CUSTOMIZATION
-    /// Due to a normalization applied by InstructionCombining, loads
-    /// of floating point elements may first be bitcast to i32 types,
-    /// and then loaded. In that case, rewriting the SelectInst to choose
-    /// between 2 BitCastInst values, instead of performing the BitCastInst
-    /// on the result of the SelectInst can enable the 'load' to be
-    /// recognized by the SROA conversions.
-    ///
-    /// This code is to recognize the pattern:
-    ///   %A = alloca float, align 4
-    ///   %1 = select i1 %cmp1, float* %A, float* %0
-    ///   %2 = bitcast float* %1 to i32*
-    ///   %3 = load i32, i32* %2
-    ///
-    /// When recognized, it can transform into:
-    ///   %A = alloca float, align 4
-    ///   %1.bc.true = bitcast float* %A to i32*
-    ///   %1.bc.false = bitcast float* %0 to i32*
-    ///   %1 = select i1 %cmp1, i32* %1.bc.true, i32* %%1.bc.false
-    ///   %3 = load i32, i32* %1
-    ///
-    /// The rest of SROA can then trace the uses of %A, to determine whether
-    /// to eliminate the alloca.
-    ///
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      for (User *BCI_U : BCI->users()) {
-        /// We only need to check that the bitcast feeds a 'load'
-        /// instruction. Since the 'load' is being done unconditionally
-        /// already, there is no need to check for whether it a safe to
-        /// load unconditionally.
-        if (!isa<LoadInst>(BCI_U))
-          return false;
-      }
-      continue;
-    }
-#endif // INTEL_CUSTOMIZATION
+    LoadInst *LI;
+    BitCastInst *BC = dyn_cast<BitCastInst>(U);
+    if (BC && BC->hasOneUse())
+      LI = dyn_cast<LoadInst>(*BC->user_begin());
+    else
+      LI = dyn_cast<LoadInst>(U);
 
-    LoadInst *LI = dyn_cast<LoadInst>(U);
     if (!LI || !LI->isSimple())
       return false;
 
@@ -1542,31 +1513,27 @@ static void speculateSelectInstLoads(SelectInst &SI) {
   Value *FV = SI.getFalseValue();
   // Replace the loads of the select with a select of two loads.
   while (!SI.use_empty()) {
-#if INTEL_CUSTOMIZATION
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(SI.user_back())) {
-      /// Replace the BitCastInst use of the SelectInst result
-      /// with a SelectInst that chooses between two BitCastInst
-      /// instructions.
-      IRB.SetInsertPoint(BCI);
-      Value *BT = IRB.CreateBitCast(TV, BCI->getDestTy(),
-          BCI->getName() + ".sroa.speculate.bc.true");
-      Value *BF = IRB.CreateBitCast(FV, BCI->getDestTy(),
-          BCI->getName() + ".sroa.speculate.bc.false");
-      Value *V = IRB.CreateSelect(SI.getCondition(), BT, BF,
-          BCI->getName() + ".sroa.speculated");
-
-      BCI->replaceAllUsesWith(V);
-      BCI->eraseFromParent();
-      continue;
+    LoadInst *LI;
+    BitCastInst *BC = dyn_cast<BitCastInst>(SI.user_back());
+    if (BC) {
+      assert(BC->hasOneUse() && "Bitcast should have a single use.");
+      LI = cast<LoadInst>(BC->user_back());
+    } else {
+      LI = cast<LoadInst>(SI.user_back());
     }
-#endif // INTEL_CUSTOMIZATION
-    LoadInst *LI = cast<LoadInst>(SI.user_back());
+
     assert(LI->isSimple() && "We only speculate simple loads");
 
     IRB.SetInsertPoint(LI);
-    LoadInst *TL = IRB.CreateLoad(LI->getType(), TV,
+    Value *NewTV =
+        BC ? IRB.CreateBitCast(TV, BC->getType(), TV->getName() + ".sroa.cast")
+           : TV;
+    Value *NewFV =
+        BC ? IRB.CreateBitCast(FV, BC->getType(), FV->getName() + ".sroa.cast")
+           : FV;
+    LoadInst *TL = IRB.CreateLoad(LI->getType(), NewTV,
                                   LI->getName() + ".sroa.speculate.load.true");
-    LoadInst *FL = IRB.CreateLoad(LI->getType(), FV,
+    LoadInst *FL = IRB.CreateLoad(LI->getType(), NewFV,
                                   LI->getName() + ".sroa.speculate.load.false");
     NumLoadsSpeculated += 2;
 
@@ -1587,6 +1554,8 @@ static void speculateSelectInstLoads(SelectInst &SI) {
     LLVM_DEBUG(dbgs() << "          speculated to: " << *V << "\n");
     LI->replaceAllUsesWith(V);
     LI->eraseFromParent();
+    if (BC)
+      BC->eraseFromParent();
   }
   SI.eraseFromParent();
 }
@@ -1785,6 +1754,15 @@ static Value *getNaturalGEPWithOffset(IRBuilderTy &IRB, const DataLayout &DL,
 static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
                              APInt Offset, Type *PointerTy,
                              const Twine &NamePrefix) {
+  // Create i8 GEP for opaque pointers.
+  if (Ptr->getType()->isOpaquePointerTy()) {
+    if (Offset != 0)
+      Ptr = IRB.CreateInBoundsGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(Offset),
+                                  NamePrefix + "sroa_idx");
+    return IRB.CreatePointerBitCastOrAddrSpaceCast(Ptr, PointerTy,
+                                                   NamePrefix + "sroa_cast");
+  }
+
   // Even though we don't look through PHI nodes, we could be called on an
   // instruction in an unreachable block, which may be on a cycle.
   SmallPtrSet<Value *, 4> Visited;
@@ -2048,13 +2026,13 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
   } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U->getUser())) {
     if (!II->isLifetimeStartOrEnd() && !II->isDroppable())
       return false;
-  } else if (U->get()->getType()->getPointerElementType()->isStructTy()) {
-    // Disable vector promotion when there are loads or stores of an FCA.
-    return false;
   } else if (LoadInst *LI = dyn_cast<LoadInst>(U->getUser())) {
     if (LI->isVolatile())
       return false;
     Type *LTy = LI->getType();
+    // Disable vector promotion when there are loads or stores of an FCA.
+    if (LTy->isStructTy())
+      return false;
     if (P.beginOffset() > S.beginOffset() || P.endOffset() < S.endOffset()) {
       assert(LTy->isIntegerTy());
       LTy = SplitIntTy;
@@ -2065,6 +2043,9 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
     if (SI->isVolatile())
       return false;
     Type *STy = SI->getValueOperand()->getType();
+    // Disable vector promotion when there are loads or stores of an FCA.
+    if (STy->isStructTy())
+      return false;
     if (P.beginOffset() > S.beginOffset() || P.endOffset() < S.endOffset()) {
       assert(STy->isIntegerTy());
       STy = SplitIntTy;
@@ -2940,7 +2921,9 @@ private:
     deleteIfTriviallyDead(OldOp);
 
     LLVM_DEBUG(dbgs() << "          to: " << *NewSI << "\n");
-    return NewSI->getPointerOperand() == &NewAI && !SI.isVolatile();
+    return NewSI->getPointerOperand() == &NewAI &&
+           NewSI->getValueOperand()->getType() == NewAllocaTy &&
+           !SI.isVolatile();
   }
 
   /// Compute an integer value from splatting an i8 across the given
@@ -2986,7 +2969,7 @@ private:
 
     // If the memset has a variable size, it cannot be split, just adjust the
     // pointer to the new alloca.
-    if (!isa<Constant>(II.getLength())) {
+    if (!isa<ConstantInt>(II.getLength())) {
       assert(!IsSplit);
       assert(NewBeginOffset == BeginOffset);
       II.setDest(getNewAllocaSlicePtr(IRB, OldPtr->getType()));
@@ -3008,10 +2991,11 @@ private:
       if (BeginOffset > NewAllocaBeginOffset ||
           EndOffset < NewAllocaEndOffset)
         return false;
+      // Length must be in range for FixedVectorType.
       auto *C = cast<ConstantInt>(II.getLength());
-      if (C->getBitWidth() > 64)
+      const uint64_t Len = C->getLimitedValue();
+      if (Len > std::numeric_limits<unsigned>::max())
         return false;
-      const auto Len = C->getZExtValue();
       auto *Int8Ty = IntegerType::getInt8Ty(NewAI.getContext());
       auto *SrcTy = FixedVectorType::get(Int8Ty, Len);
       return canConvertValue(DL, SrcTy, AllocaTy) &&

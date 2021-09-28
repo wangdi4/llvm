@@ -1,12 +1,12 @@
 ; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
 
 ; CHECK: DPCPPKernelAnalysisPass
-; CHECK: variable_gid no
-; CHECK: variable_lid no
-; CHECK: out_of_range_gid no
-; CHECK: out_of_range_lid no
-; CHECK: in_range_gid yes
-; CHECK: in_range_lid yes
+; CHECK-DAG: Kernel <variable_gid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <variable_lid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <out_of_range_gid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <out_of_range_lid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <in_range_gid>: NoBarrierPath=1
+; CHECK-DAG: Kernel <in_range_lid>: NoBarrierPath=1
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 target triple = "i686-pc-win32"

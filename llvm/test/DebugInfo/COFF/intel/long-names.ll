@@ -53,7 +53,7 @@
 ;
 ; Test
 ; ----
-; RUN: llc -filetype=obj -o - %s | llvm-readobj -codeview - | FileCheck %s
+; RUN: llc -filetype=obj -o - %s | llvm-readobj --codeview - | FileCheck %s
 ;
 ; CHECK: CodeViewDebugInfo [
 ; CHECK:   Section: .debug$S

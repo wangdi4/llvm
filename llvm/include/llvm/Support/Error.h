@@ -257,8 +257,7 @@ private:
   // of debug prints can cause the function to be too large for inlining.  So
   // it's important that we define this function out of line so that it can't be
   // inlined.
-  LLVM_ATTRIBUTE_NORETURN
-  void fatalUncheckedError() const;
+  [[noreturn]] void fatalUncheckedError() const;
 #endif
 
   void assertIsChecked() {
@@ -314,7 +313,7 @@ private:
   }
 
   friend raw_ostream &operator<<(raw_ostream &OS, const Error &E) {
-    if (auto P = E.getPtr())
+    if (auto *P = E.getPtr())
       P->log(OS);
     else
       OS << "success";
@@ -374,7 +373,7 @@ class ErrorList final : public ErrorInfo<ErrorList> {
 public:
   void log(raw_ostream &OS) const override {
     OS << "Multiple errors:\n";
-    for (auto &ErrPayload : Payloads) {
+    for (const auto &ErrPayload : Payloads) {
       ErrPayload->log(OS);
       OS << "\n";
     }
@@ -688,9 +687,7 @@ private:
   }
 
 #if LLVM_ENABLE_ABI_BREAKING_CHECKS
-  LLVM_ATTRIBUTE_NORETURN
-  LLVM_ATTRIBUTE_NOINLINE
-  void fatalUncheckedExpected() const {
+  [[noreturn]] LLVM_ATTRIBUTE_NOINLINE void fatalUncheckedExpected() const {
     dbgs() << "Expected<T> must be checked before access or destruction.\n";
     if (HasError) {
       dbgs() << "Unchecked Expected<T> contained error:\n";
@@ -722,8 +719,7 @@ private:
 
 /// Report a serious error, calling any installed error handler. See
 /// ErrorHandling.h.
-LLVM_ATTRIBUTE_NORETURN void report_fatal_error(Error Err,
-                                                bool gen_crash_diag = true);
+[[noreturn]] void report_fatal_error(Error Err, bool gen_crash_diag = true);
 
 /// Report a fatal error if Err is a failure value.
 ///

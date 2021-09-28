@@ -356,10 +356,10 @@ bool GenerateLEAPass::generateLEAs(MachineBasicBlock &MBB) {
     unsigned Threshold = 7;
 
     // 548.exchange2's front-end bound is too heavy,
-    // set a smaller threshold.
+    // set a smaller threshold for skylake which only have 1.5K entries.
     if (MBB.getParent()->getFunction()
            .hasFnAttribute("contains-rec-pro-clone") &&
-        ST->hasDSB()) {
+        ST->hasDSB() && !ST->has2KDSB()) {
       Threshold = 3;
     }
 
@@ -385,6 +385,7 @@ bool GenerateLEAPass::runOnMachineFunction(MachineFunction &MF) {
   MRI = &MF.getRegInfo();
   ST = &MF.getSubtarget<X86Subtarget>();
   TII = ST->getInstrInfo();
+
   if (MF.getFunction().hasFnAttribute("contains-rec-pro-clone")) {
     // Process all basic blocks.
     for (auto &MBB : MF) {

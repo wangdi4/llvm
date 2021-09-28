@@ -10,7 +10,7 @@ target triple = "i686-pc-win32"
 ; CHECK-LABEL: define void @main
 define void @main(i32 %x) #0 {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
 ;CHECK: %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
 ;CHECK: [[LID:%LocalId_[0-9]*]] = load i32, i32* %pLocalId_0, align 4
 ;CHECK-NEXT: {{%GlobalID_[0-9]*}} = add i32 [[LID]], %BaseGlobalId_0
@@ -41,9 +41,9 @@ entry:
 declare void @_Z18work_group_barrierj(i32)
 declare i32 @_Z12get_local_idj(i32)
 declare i32 @_Z13get_global_idj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
-attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
+attributes #0 = { "no-barrier-path"="false" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32)* @main}

@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPOCodeGenHIR.h"
+#include "../IntelLoopVectorizationPlanner.h"
 #include "../IntelVPlanCallVecDecisions.h"
 #include "../IntelVPlanUtils.h"
 #include "../IntelVPlanVLSAnalysis.h"
@@ -52,6 +53,11 @@ using namespace llvm::loopopt;
 using namespace llvm::vpo;
 
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
+
+static cl::opt<bool>
+    EnableNaiveIfElseGeneration("enable-naive-if-else-generation",
+                                cl::init(false), cl::Hidden,
+                                cl::desc("Enable naive if/else generation"));
 
 static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
@@ -92,12 +98,6 @@ static cl::opt<bool> EnablePeelMEVec(
     "enable-peel-me-vec", cl::init(true), cl::Hidden,
     cl::desc("Enable peel loop for vectorized multi-exit loops."));
 
-// Force full VPValue based code generation.
-static cl::opt<bool, true> EnableVPValueCodegenHIROpt(
-    "enable-vp-value-codegen-hir", cl::Hidden,
-    cl::location(EnableVPValueCodegenHIR),
-    cl::desc("Enable VPValue based codegen for HIR vectorizer"));
-
 static cl::opt<bool> DisableCondLastPrivCG(
     "disable-hir-cond-last-priv-cg", cl::init(true), cl::Hidden,
     cl::desc(
@@ -124,12 +124,10 @@ static cl::opt<bool> PrintHIRAfterVPlan(
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace llvm {
-namespace vpo {
-bool EnableVPValueCodegenHIR = true;
-} // namespace vpo
-} // namespace llvm
 
-namespace llvm {
+// Helper method to check if we are dealing with merged CFG in CG. This is
+// decided based on status of compiler options that control CFGMerger.
+static bool isMergedCFG() { return EnableNewCFGMerge && EnableNewCFGMergeHIR; }
 
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
                                        unsigned VF) {
@@ -257,25 +255,12 @@ private:
 
   // Add instruction at end of main loop after adding mask if mask is not null.
   void addInst(HLInst *Inst) {
-    if (MaskDDRef)
-      Inst->setMaskDDRef(MaskDDRef->clone());
-    if (auto InsertRegion = dyn_cast<HLLoop>(ACG->getInsertRegion()))
-      HLNodeUtils::insertAsLastChild(InsertRegion, Inst);
-    else
-      addInst(Inst, true);
+    ACG->addInst(Inst, MaskDDRef);
   }
 
   // Insert instruction into HLIf region.
   void addInst(HLInst *Inst, const bool IsThenChild) {
-    // Simply put MaskDDRef on each instruction under if. For innermost uniform
-    // predicates it's responsibility of predicator to remove unnecessary
-    // predicates.
-    if (MaskDDRef)
-      Inst->setMaskDDRef(MaskDDRef->clone());
-    auto InsertRegion = dyn_cast<HLIf>(ACG->getInsertRegion());
-    assert(InsertRegion && "HLIf is expected as insert region.");
-    IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Inst)
-                : HLNodeUtils::insertAsLastElseChild(InsertRegion, Inst);
+    ACG->addInst(Inst, MaskDDRef, IsThenChild);
   }
 
   RegDDRef *codegenStandAloneBlob(const SCEV *SC);
@@ -574,10 +559,10 @@ public:
 } // End anonymous namespace
 
 void HandledCheck::visit(HLDDNode *Node) {
-  if (!isa<HLInst>(Node) && !isa<HLIf>(Node)) {
+  if (!isa<HLInst>(Node) && !isa<HLIf>(Node) && !isa<HLLoop>(Node)) {
     DEBUG_WITH_TYPE("VPOCGHIR-bailout",
                     dbgs() << "VPLAN_OPTREPORT: Loop not handled - only "
-                              "HLInst/HLIf are supported\n");
+                              "HLInst/HLIf/HLLoop are supported\n");
     IsHandled = false;
     return;
   }
@@ -632,8 +617,7 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     if (const CallInst *Call = Inst->getCallInst()) {
-      if (!CG->isIgnoredCall(Call) &&
-          (CG->getForceMixedCG() || !EnableVPValueCodegenHIR)) {
+      if (!CG->isIgnoredCall(Call) && (CG->getForceMixedCG())) {
         // TODO: Is this case possible? We use mixed CG only for search loops
         // now.
         LLVM_DEBUG(Inst->dump());
@@ -658,24 +642,17 @@ void HandledCheck::visit(HLDDNode *Node) {
       StringRef CalledFunc = Fn->getName();
       Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
 
-      bool TrivialVectorIntrinsic =
-          (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
       // Prevent vectorization of loop if masked fabs intrinsic vectorization is
       // not profitable specifically for non-AVX512 targets. Check JIRA :
       // CMPLRLLVM-11468.
-      if (TrivialVectorIntrinsic && ID == Intrinsic::fabs &&
-          !VPlanAssumeMaskedFabsProfitable && !CG->targetHasIntelAVX512())
-        TrivialVectorIntrinsic = false;
-      if (isa<HLIf>(Inst->getParent()) &&
-          (VF > 1 && !TrivialVectorIntrinsic &&
-           !TLI->isFunctionVectorizable(CalledFunc,
-                                        ElementCount::getFixed(VF)))) {
-        // Masked svml calls are supported, but masked non-trivially
-        // vectorizable intrinsics are not at the moment.
+      bool IsUnprofitableFabs = ID == Intrinsic::fabs &&
+                                !VPlanAssumeMaskedFabsProfitable &&
+                                !CG->targetHasIntelAVX512();
+      if (isa<HLIf>(Inst->getParent()) && VF > 1 && IsUnprofitableFabs) {
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
         DEBUG_WITH_TYPE("VPOCGHIR-bailout",
                         dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
-                                  "non-trivially vectorizable intrinsic\n");
+                                  "fabs intrinsic for non-AVX512.\n");
         IsHandled = false;
         return;
       }
@@ -692,43 +669,6 @@ void HandledCheck::visit(HLDDNode *Node) {
                       "disabled\n");
         IsHandled = false;
         return;
-      }
-
-      // Scalar math library calls without readnone or readonly attributes
-      // cannot be vectorized. Current default behavior is to relax readonly
-      // restriction.
-      if ((VF > 1 &&
-           (!TLI->isFunctionVectorizable(CalledFunc,
-                                         ElementCount::getFixed(VF)) ||
-            (!VPlanVecNonReadonlyLibCalls && !Call->onlyReadsMemory()))) &&
-          !ID) {
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
-                                  "not vectorizable\n");
-        IsHandled = false;
-        return;
-      }
-
-      // If the always scalar operand of vector intrinsic call is loop variant
-      // then we bail out of vectorization.
-      // TODO: In the future such calls should be serialized in outgoing vector
-      // code.
-      if (ID != Intrinsic::not_intrinsic) {
-        unsigned ArgOffset = Inst->hasLval() ? 1 : 0;
-        for (unsigned I = 0; I < Call->getNumArgOperands(); ++I) {
-          if (hasVectorInstrinsicScalarOpd(ID, I)) {
-            auto *OperandCE =
-                Inst->getOperandDDRef(ArgOffset + I)->getSingleCanonExpr();
-            if (!OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel())) {
-              DEBUG_WITH_TYPE(
-                  "VPOCGHIR-bailout",
-                  dbgs() << "VPLAN_OPTREPORT: Loop not handled - always scalar "
-                            "operand of vector intrinsic is loop variant\n");
-              IsHandled = false;
-              return;
-            }
-          }
-        }
       }
 
       if (!CG->isIgnoredCall(Call))
@@ -762,7 +702,13 @@ void HandledCheck::visit(HLDDNode *Node) {
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
-  if (!isVectorizableTy(RegDD->getDestType())) {
+  bool NodeIsCall = false;
+  if (auto *Inst = dyn_cast<HLInst>(RegDD->getHLDDNode()))
+    NodeIsCall = Inst->isCallInst();
+
+  // Call serialization is supported by CG, so don't check for non-vectorizable
+  // types for calls.
+  if (!NodeIsCall && !isVectorizableTy(RegDD->getDestType())) {
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->dump(); dbgs() << "\n");
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getDestType()->dump());
     DEBUG_WITH_TYPE("VPOCGHIR-bailout",
@@ -851,6 +797,33 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   // Search loop representation is not explicit. Force mixed CG.
   if (isSearchLoop())
     setForceMixedCG(true);
+  else {
+    // Check that all VPLoops are in loop simplified form and that Latch
+    // has conditional branch.
+    const VPLoop *OuterMostVPLoop = getVPLoop();
+    for (auto *VPLp : post_order(OuterMostVPLoop)) {
+      // Essentially the same checks as the ones done by isLoopSimplifyForm used
+      // by loopopt, except for the additional check for single exit block.
+      auto isLoopSimplifyForm = [](const VPLoop *VPLp) {
+        return VPLp->getLoopPreheader() && VPLp->getLoopLatch() &&
+               VPLp->hasDedicatedExits() && VPLp->getExitBlock();
+      };
+      if (!isLoopSimplifyForm(VPLp)) {
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - expect "
+                                  "loopsimplify form\n");
+        return false;
+      }
+      auto *Latch = VPLp->getLoopLatch();
+      assert(Latch && "Expected non-null loop latch");
+      if (Latch->getNumSuccessors() != 2) {
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - expect "
+                                  "latch with 2 successors\n");
+        return false;
+      }
+    }
+  }
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
@@ -1007,9 +980,18 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
                 false /*OrigLoop will also executed peeled its.*/);
   }
 
-  auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
-      OrigLoop, VF * UF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
-      &PeelLoop, SearchLoopPeelArrayRef, &RTChecks);
+  HLLoop *MainLoop = nullptr;
+  // For merged CFG just create an empty clone of original scalar loop to
+  // correspond to the main vector loop. For legacy CFG continue to use
+  // HIRTransformUtils to emit implicit peel, vector and remainder loops.
+  if (isMergedCFG()) {
+    MainLoop = OrigLoop->cloneEmpty();
+  } else {
+    MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
+        OrigLoop, VF * UF, NeedRemainderLoop, ORBuilder,
+        OptimizationType::Vectorizer, &PeelLoop, SearchLoopPeelArrayRef,
+        &RTChecks);
+  }
 
   if (!MainLoop) {
     assert(false && "Main loop could not be setup.");
@@ -1025,6 +1007,24 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
       if (NeedFirstIterationPeelLoop)
         setTripCount(TripCount - 1);
       // TODO : What about generic peel loop?
+    }
+  }
+
+  // Setup skeleton loop for every VPLoop in VPlan. We use MainLoop
+  // for the outer most and create a new unknown loop for others.
+  const VPLoop *OuterMostVPLoop = getVPLoop();
+  for (auto *VPLp : post_order(OuterMostVPLoop)) {
+    LoopPreheaderBlocks.insert(VPLp->getLoopPreheader());
+    LoopHeaderBlocks.insert(VPLp->getHeader());
+    LoopExitBlocks.insert(VPLp->getExitBlock());
+    if (VPLp == OuterMostVPLoop) {
+      VPLoopHLLoopMap[VPLp] = MainLoop;
+    } else {
+      auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
+      auto *DDR = DDRefUtilities.createConstDDRef(Int64Ty, 0);
+      auto *UnknownLoop = HLNodeUtilities.createHLLoop(
+          nullptr, DDR, DDR->clone(), DDR->clone(), 1);
+      VPLoopHLLoopMap[VPLp] = UnknownLoop;
     }
   }
 
@@ -1048,9 +1048,6 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   // preheader/postexit.
   if (RednHoistLp != MainLoop)
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(RednHoistLp);
-
-  RedInitInsertPoint = RednHoistLp;
-  RedFinalInsertPoint = RednHoistLp;
 
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);
@@ -1076,8 +1073,96 @@ void VPOCodeGenHIR::dumpFinalHIR() {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+void VPOCodeGenHIR::setupLiveInLiveOut() {
+  auto addLiveInLiveOut = [this](const VPValue *Def, const VPUser *User,
+                                 const RegDDRef *DefRef) -> void {
+    const VPLoop *DefVPLoop = nullptr, *UseVPLoop = nullptr;
+    HLLoop *DefHLLoop = nullptr, *UseHLLoop = nullptr;
+
+    // DefHLLoop is set to the HLLoop corresponding to the VPLoop in which
+    // Def occurs if Def is an instruction. Otherwise, it remains null(for
+    // external def or def instruction outside the vector loop).
+    if (auto *DefInst = dyn_cast<VPInstruction>(Def))
+      DefVPLoop = Plan->getVPLoopInfo()->getLoopFor(DefInst->getParent());
+    if (DefVPLoop)
+      DefHLLoop = VPLoopHLLoopMap[DefVPLoop];
+
+    // UseHLLoop is set to the HLLoop corresponding to the VPLoop in which
+    // Use occurs if Use is an instruction. Otherwise, it remains null(for
+    // external use or use instruction outside the vector loop).
+    if (auto *UseInst = dyn_cast<VPInstruction>(User))
+      UseVPLoop = Plan->getVPLoopInfo()->getLoopFor(UseInst->getParent());
+    if (UseVPLoop)
+      UseHLLoop = VPLoopHLLoopMap[UseVPLoop];
+
+    // Simple case - no need to add livein/liveout information
+    if (DefVPLoop == UseVPLoop)
+      return;
+
+    // Def outside the outer most loop. Propagate livein information
+    // starting from use loop all the way up to and including MainLoop.
+    if (!DefVPLoop) {
+      assert(UseHLLoop && "Expected non-null use loop");
+      while (UseHLLoop != MainLoop->getParentLoop()) {
+        UseHLLoop->addLiveInTemp(DefRef);
+        UseHLLoop = UseHLLoop->getParentLoop();
+      }
+      return;
+    }
+
+    // Use outside the outer most loop. Propagate liveout information
+    // starting from  def loop all the way up to and including MainLoop.
+    if (!UseVPLoop) {
+      assert(DefHLLoop && "Expected non-null def loop");
+      while (DefHLLoop != MainLoop->getParentLoop()) {
+        DefHLLoop->addLiveOutTemp(DefRef);
+        DefHLLoop = DefHLLoop->getParentLoop();
+      }
+      return;
+    }
+
+    assert(UseHLLoop && DefHLLoop && "Expected non-null use and def loops");
+    auto *LCAHLLoop =
+        HLNodeUtils::getLowestCommonAncestorLoop(DefHLLoop, UseHLLoop);
+
+    // Add DefRef as livein into UseHLLoop and recursively into its parent loop
+    // until we reach LCAHLLoop.
+    while (UseHLLoop != LCAHLLoop) {
+      UseHLLoop->addLiveInTemp(DefRef);
+      UseHLLoop = UseHLLoop->getParentLoop();
+    }
+
+    while (DefHLLoop != LCAHLLoop) {
+      DefHLLoop->addLiveOutTemp(DefRef);
+      DefHLLoop = DefHLLoop->getParentLoop();
+    }
+  };
+
+  // For each definition in VPValWideRef map, get the users and add the
+  // livein/liveout information
+  for (auto &ValRef : VPValWideRefMap) {
+    auto *Def = ValRef.first;
+    auto *DefRef = ValRef.second;
+    for (auto *User : Def->users())
+      addLiveInLiveOut(Def, User, DefRef);
+  }
+
+  // For each definition in VPValScalRef map, get the users and add the
+  // livein/liveout information
+  for (auto &ValRef : VPValScalRefMap) {
+    auto *Def = ValRef.first;
+    auto &ScalMap = ValRef.second;
+    for (auto &LaneRef : ScalMap) {
+      auto *DefRef = LaneRef.second;
+      for (auto *User : Def->users())
+        addLiveInLiveOut(Def, User, DefRef);
+    }
+  }
+}
+
 void VPOCodeGenHIR::finalizeVectorLoop(void) {
-  finalizeGotos();
+  eliminateRedundantGotosLabels();
+  setupLiveInLiveOut();
 
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
   LLVM_DEBUG(dumpFinalHIR());
@@ -1248,7 +1333,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       // and call instruction can be generated.
       CallArgs.push_back(WideRef);
       ArgTys.push_back(VecDestTy);
-      ArgAttrs.push_back(Call->getAttributes().getParamAttributes(ArgNum));
+      ArgAttrs.push_back(Call->getAttributes().getParamAttrs(ArgNum));
     }
 
     // Using the newly created vector call arguments, generate the vector
@@ -1400,18 +1485,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     if (isReductionRef(Ref, RedOpCode)) {
       llvm_unreachable(
           "HIR vectorizer is trying to handle reductions without entities.");
-
-      // TODO: Pass correct FastMathFlags. We have them in VPReduction.
-      auto Identity =
-          HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy, FastMathFlags());
-      auto RedOpVecInst = insertReductionInitializer(Identity, Ref->clone());
-
-      // Add to WidenMap and handle generating code for building reduction tail
-      addToMapAndHandleLiveOut(Ref, RedOpVecInst, RednHoistLp);
-
-      // LVAL ref of the initialization instruction is the widened reduction
-      // ref.
-      return RedOpVecInst->getLvalDDRef()->clone();
+      return nullptr;
     }
 
     // Lval terminal refs get the widened ref duing the widened HLInst creation
@@ -1544,11 +1618,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
             // Replicate invariant vector blob VF times.
             HLInst *ReplBlobInst = replicateVector(WideRef, VF);
             // Insert the replicating instruction into preheader of vector loop.
-            // TODO: Need insertion point tracking mechanism here.
-            HLNodeUtils::insertAsLastPreheaderNode(MainLoop, ReplBlobInst);
+            HLNodeUtils::insertBefore(MainLoop, ReplBlobInst);
             auto NewRef = ReplBlobInst->getLvalDDRef();
-            // Add the new replicated Ref as a live-in for vector loop.
-            MainLoop->addLiveInTemp(NewRef->getSymbase());
 
             AuxRefs.push_back(NewRef);
             CE->replaceBlob(BI,
@@ -1606,84 +1677,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   // the utility to update the widened Ref consistent.
   WideRef->makeConsistent(AuxRefs, NestingLevel);
   return WideRef;
-}
-
-/// Return result of combining horizontal vector binary operation with initial
-/// value. Instead of splitting VecRef recursively into 2 parts of half VF until
-/// the VF becomes 2, VecRef is shuffled in such a way that the resulting vector
-/// stays VF-wide and the upper elements are shuffled down into the lower
-/// positions to form a new vector. Then, the horizontal operation is performed
-/// on VF-wide vectors, but the upper elements of the operation are simply
-/// ignored. The final result of the horizontal operation is then extracted from
-/// position 0, the leftmost position of the vector. The rightmost position
-/// is 7. E.g., if VF=8, we will have 3 horizontal operation stages. So, if we
-/// start with elements <0,2,1,4,5,1,3,0> and the horizontal operation is add,
-/// we end up with the following sequence of operations, where u is undefined.
-///
-/// <0,2,1,4,5,1,3,0> + <5,1,3,0,u,u,u,u> = <5,3,4,4,u,u,u,u>
-/// Now, only the first 4 elements are considered for the next stage.
-/// <5,3,4,4,u,u,u,u> + <4,4,u,u,u,u,u,u> = <9,7,u,u,u,u,u,u>
-/// And, now just two.
-/// <9,7,u,u,u,u,u,u> + <7,u,u,u,u,u,u,u> = <16,u,u,u,u,u,u,u>
-/// extract<0> = 16 and add this value to the initial value.
-///
-/// This transformation is necessary so that X86/Target SAD idiom for
-/// reductions is enabled.
-static HLInst *buildReductionTail(HLContainerTy &InstContainer,
-                                  unsigned BOpcode, const RegDDRef *VecRef,
-                                  RegDDRef *InitValRefClone, HLLoop *HLLp,
-                                  RegDDRef *ResultRefClone) {
-
-  // Take Vector Length from the WideRedInst type
-  Type *VecTy = VecRef->getDestType();
-
-  // For Sub/FSub operation, we need to use Add/FAdd for the horizontal
-  // vector and combine operations.
-  if (BOpcode == Instruction::Sub)
-    BOpcode = Instruction::Add;
-  else if (BOpcode == Instruction::FSub)
-    BOpcode = Instruction::FAdd;
-
-  unsigned VF = cast<VectorType>(VecTy)->getNumElements();
-  unsigned Stages = Log2_32(VF);
-  unsigned MaskElems = VF / 2;
-  const RegDDRef *LastVal = VecRef;
-  HLNodeUtils &HNU = HLLp->getHLNodeUtils();
-  DDRefUtils &DDRU = HLLp->getDDRefUtils();
-  LLVMContext &Context = HNU.getContext();
-  for (unsigned i = 0; i < Stages; i++) {
-    SmallVector<Constant *, 16> ShuffleMask;
-    unsigned MaskElemVal = MaskElems;
-    for (unsigned j = 0; j < VF; j++) {
-      if (j > MaskElems - 1) {
-        // Use undef for the mask when we don't care what the result of the
-        // horizontal operation is for that element.
-        Constant *UndefVal = UndefValue::get(Type::getInt32Ty(Context));
-        ShuffleMask.push_back(UndefVal);
-      } else {
-        Constant *Mask =
-            ConstantInt::get(Type::getInt32Ty(Context), MaskElemVal);
-        ShuffleMask.push_back(Mask);
-        MaskElemVal++;
-      }
-    }
-    MaskElems /= 2;
-    Constant *MaskVec = ConstantVector::get(ShuffleMask);
-    RegDDRef *MaskVecDDRef = DDRU.createConstDDRef(MaskVec);
-    HLInst *Shuffle = HNU.createShuffleVectorInst(
-        LastVal->clone(), LastVal->clone(), MaskVecDDRef, "rdx.shuf");
-    HLInst *BinOp = HNU.createBinaryHLInst(
-        BOpcode, LastVal->clone(), Shuffle->getLvalDDRef()->clone(), "bin.rdx");
-    InstContainer.push_back(*Shuffle);
-    InstContainer.push_back(*BinOp);
-    LastVal = BinOp->getLvalDDRef();
-  }
-
-  HLInst *Extract = HNU.createExtractElementInst(LastVal->clone(), unsigned(0),
-                                                 "bin.final", ResultRefClone);
-  InstContainer.push_back(*Extract);
-
-  return Extract;
 }
 
 /// Create a call to llvm.experimental.vector.reduce intrinsic in order to
@@ -2455,7 +2448,7 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
     auto *WideArg = widenRef(VPCall->getOperand(I), VF);
     CallArgs.push_back(WideArg);
     ArgTys.push_back(WideArg->getDestType());
-    ArgAttrs.push_back(Attrs.getParamAttributes(I));
+    ArgAttrs.push_back(Attrs.getParamAttrs(I));
   }
 
   if (VectorIntrinID != Intrinsic::not_intrinsic) {
@@ -2519,6 +2512,30 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
   setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, ArgAttrs);
 
   return WideInst;
+}
+
+HLInst *VPOCodeGenHIR::generateScalarCall(const VPCallInstruction *VPCall,
+                                          unsigned LaneID) {
+  // Populate scalar arguments of call for given vector lane.
+  SmallVector<RegDDRef *, 4> ScalarArgs;
+  for (unsigned I = 0; I < VPCall->getNumArgOperands(); ++I) {
+    RegDDRef *ScalarArg = getOrCreateScalarRef(VPCall->getOperand(I), LaneID);
+    assert(ScalarArg && "Unexpected null scalar arg for call.");
+    ScalarArgs.push_back(ScalarArg);
+  }
+
+  Function *ScalarF = VPCall->getCalledFunction();
+  assert(ScalarF && "Expected only direct calls.");
+  FastMathFlags FMF =
+      VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags() : FastMathFlags();
+  auto *ScalarCall = HLNodeUtilities.createCall(
+      ScalarF, ScalarArgs, ScalarF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
+      {} /*BundleOps*/, FMF);
+  CallInst *LLVMCall = const_cast<CallInst *>(ScalarCall->getCallInst());
+  LLVMCall->setCallingConv(VPCall->getOrigCallingConv());
+  LLVMCall->setAttributes(VPCall->getOrigCallAttrs());
+
+  return ScalarCall;
 }
 
 void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
@@ -2650,30 +2667,6 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
   addInst(WideInst, Mask);
 }
 
-HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden,
-                                                  RegDDRef *ScalarRednRef) {
-
-  // ScalarRednRef is the initial value that is assigned to result of the
-  // reduction operation. We are blending in the initial value into the
-  // identity vector in lane 0.
-
-  auto IdentityVec = getConstantSplatDDRef(DDRefUtilities, Iden, VF);
-
-  HLInst *InsertElementInst = HLNodeUtilities.createInsertElementInst(
-      IdentityVec, ScalarRednRef, 0, "result.vector");
-  insertReductionInit(InsertElementInst);
-
-  auto LvalSymbase = InsertElementInst->getLvalDDRef()->getSymbase();
-  // Add the reduction ref as a live-in for each loop up to and including
-  // the hoist loop.
-  HLLoop *ThisLoop = MainLoop;
-  while (ThisLoop != RednHoistLp->getParentLoop()) {
-    ThisLoop->addLiveInTemp(LvalSymbase);
-    ThisLoop = ThisLoop->getParentLoop();
-  }
-  return InsertElementInst;
-}
-
 void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
                                              HLInst *WideInst,
                                              HLLoop *HoistLp) {
@@ -2704,11 +2697,7 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
   if (isReductionRef(ScalRef, OpCode)) {
     llvm_unreachable(
         "HIR vectorizer is trying to handle reductions without entities.");
-    HLContainerTy Tail;
-
-    buildReductionTail(Tail, OpCode, VecRef, ScalRef->clone(), MainLoop,
-                       FinalLvalRef);
-    insertReductionFinal(&Tail);
+    return;
   } else {
     auto Extr = HLNodeUtilities.createExtractElementInst(
         VecRef->clone(), VF - 1, "Last", FinalLvalRef);
@@ -2744,7 +2733,7 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
     unsigned PaddedMallocAddrIdx;
     BlobUtilities.createGlobalVarBlob(PaddedMallocVariable, true,
                                       &PaddedMallocAddrIdx);
-    RegDDRef *PaddedMalloc = DDRefUtilities.createMemRef(PaddedMallocAddrIdx);
+    RegDDRef *PaddedMalloc = DDRefUtilities.createMemRef(PaddedMallocVariable->getValueType(), PaddedMallocAddrIdx);
     PaddedMalloc->addDimension(CanonExprUtilities.createCanonExpr(IntTy));
 
     // Construct PaddedMallocLimit.
@@ -2768,6 +2757,10 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
   // Check if VPValue already has scalar Ref for lane 0. Uniform instructions
   // that are scalarized are expected to be handled here.
   RegDDRef *ScalarRef = nullptr;
+
+  if (auto *LiveOut = dyn_cast<VPLiveOutValue>(VPVal))
+    return getUniformScalarRef(LiveOut->getOperand(0));
+
   if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
     return ScalarRef->clone();
 
@@ -2845,6 +2838,11 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
 RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   RegDDRef *WideRef = nullptr;
 
+  // TODO: Probable improvement is to "inline" liveouts after CFG merge. Then we
+  // don't need this code. Same for getUniformScalarRef.
+  if (auto *LiveOut = dyn_cast<VPLiveOutValue>(VPVal))
+    return widenRef(LiveOut->getOperand(0), VF);
+
   // If the DDREF has a widened counterpart, return the same.
   if ((WideRef = getWideRefForVPVal(VPVal)))
     return WideRef->clone();
@@ -2857,6 +2855,11 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   LLVM_DEBUG(errs() << "\n");
   addVPValueWideRefMapping(VPVal, WideRef);
 
+  // Keep the VPValue for dropping when we switch VF. TODO: Move it to
+  // addVPValueWideRefMapping instead?
+  if (!isa<VPInstruction>(VPVal))
+    VPValsToFlushForVF.insert(VPVal);
+
   // Clients can potentially modify the returned value. Return the cloned value.
   return WideRef->clone();
 }
@@ -2867,7 +2870,7 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
   auto &HIRF = HLNodeUtilities.getHIRFramework();
   llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
   auto Is64Bit = TargetTriple.isArch64Bit();
-  RegDDRef *MemRef = DDRefUtilities.createMemRef(PtrRef->getSelfBlobIndex(),
+  RegDDRef *MemRef = DDRefUtilities.createMemRef(PtrRef->getDestType()->getScalarType()->getPointerElementType(), PtrRef->getSelfBlobIndex(),
                                                  PtrRef->getDefinedAtLevel());
   auto Int32Ty = Type::getInt32Ty(HLNodeUtilities.getContext());
   auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
@@ -2940,7 +2943,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   //
   // &(%ReplWidePtr)[< 0, 1, ..., OriginalVL - 1, ... VF times>]
   RegDDRef *ReplWidePtr = ReplWidePtrInst->getLvalDDRef();
-  RegDDRef *ReplWidePtrAddr = DDRefUtilities.createAddressOfRef(
+  RegDDRef *ReplWidePtrAddr = DDRefUtilities.createAddressOfRef(VecType->getElementType(),
       ReplWidePtr->getSelfBlobIndex(), ReplWidePtr->getDefinedAtLevel());
   ReplWidePtrAddr->setInBounds(WidePtr->isInBounds());
   ReplWidePtrAddr->addDimension(IndexCE);
@@ -3188,8 +3191,6 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
   // Get DDRef for parent reduced value.
   RegDDRef *ParentFinal =
       widenRef(RedFinal->getParentFinalValOperand(), getVF());
-  // Get broadcasted DDRef.
-  ParentFinal = widenRef(ParentFinal, getVF());
   assert(ParentFinal && "trying to broadcast Lval?");
   unsigned Opc = RedFinal->getBinOpcode();
   PredicateTy Pred = ParentFinal->getDestType()->isFPOrFPVectorTy()
@@ -3260,15 +3261,14 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   // BaseRef = &((i32*)(<VF x i32>* %priv.mem)[i32 0])
   // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
 
-  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(
+  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
       AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
       AllocaMemRefSym);
   BaseRef->setBitCastDestType(PvtTy);
   // Need to create a copy inst to capture base-address since HIR does not allow
   // GEP Refs to be embedded into each other.
   HLInst *BaseRefCopy = HLNodeUtilities.createCopyInst(BaseRef, "priv.mem.bc");
-  HLNodeUtils::insertAsFirstPreheaderNode(MainLoop, BaseRefCopy);
-  MainLoop->addLiveInTemp(BaseRefCopy->getLvalDDRef()->getSymbase());
+  addInstUnmasked(BaseRefCopy);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] createVectorPrivatePtrs: BaseRef: ";
              BaseRef->dump(1); dbgs() << "\n");
 
@@ -3288,13 +3288,56 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
       CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
 
   // Create address-of ref to compute vector of pointers using base-address and
-  // vector indices.
-  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
+  // vector indices. The base ptr of this address-of ref will be defined in loop
+  // preheader always, hence set defined at level as (LoopLevel - 1).
+  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(PvtTy->getElementType(),
       BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
-      BaseRef->getDefinedAtLevel(), AllocaMemRefSym);
+      OrigLoop->getNestingLevel() - 1, AllocaMemRefSym);
   VecPvtPtrs->addDimension(IndexCE);
   VecPvtPtrs->setBitCastDestType(getWidenedType(PvtTy, getVF()));
   return VecPvtPtrs;
+}
+
+void VPOCodeGenHIR::insertReductionInit(HLContainerTy *List) {
+  HLNode *Save = &List->back();
+
+  // If the reductions are not being hoisted simply use the addInst interface.
+  if (RednHoistLp == MainLoop) {
+    addInst(List);
+    return;
+  }
+
+  // The list of nodes are effectively added as the last pre-header nodes
+  // either using the non-null insertion point or the pre-header of the
+  // reduction hoist loop. Insertion point is updated appropriately for
+  // subsequent reduction initializer instructions.
+  if (!RednInitInsertPoint)
+    HLNodeUtils::insertAsLastPreheaderNodes(cast<HLLoop>(RednHoistLp), List);
+  else
+    HLNodeUtils::insertAfter(RednInitInsertPoint, List);
+
+  RednInitInsertPoint = Save;
+}
+
+void VPOCodeGenHIR::insertReductionFinal(HLContainerTy *List) {
+  HLNode *Save = &List->back();
+
+  // If the reductions are not being hoisted simply use the addInst interface.
+  if (RednHoistLp == MainLoop) {
+    addInst(List);
+    return;
+  }
+
+  // The list of nodes are added after the non-null insertion point or
+  // at the start of the post-exit of the reduction hoist loop if the
+  // insertion point is null. Insertion point is updated appropriately for
+  // subsequent reduction finalizer instructions.
+  if (!RednFinalInsertPoint)
+    HLNodeUtils::insertAsFirstPostexitNodes(RednHoistLp, List);
+  else
+    HLNodeUtils::insertAfter(RednFinalInsertPoint, List);
+
+  RednFinalInsertPoint = Save;
 }
 
 void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
@@ -3326,16 +3369,15 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       WInst = InsertElementInst;
       RedInitHLInsts.push_back(*InsertElementInst);
     }
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
     insertReductionInit(&RedInitHLInsts);
 
     // Add the reduction init ref as a live-in for each loop up to and including
-    // the hoist loop.
+    // the hoist loop starting from MainLoop's parent loop. The livein/liveout
+    // information for MainLoop will be added by setupLiveInLiveOut call.
     // TODO: The same ref should also be LiveOut, so that can also be done here
     // only. Any exceptions?
     auto LvalSymbase = WInst->getLvalDDRef()->getSymbase();
-    HLLoop *ThisLoop = MainLoop;
+    HLLoop *ThisLoop = MainLoop->getParentLoop();
     while (ThisLoop != RednHoistLp->getParentLoop()) {
       ThisLoop->addLiveInTemp(LvalSymbase);
       ThisLoop->addLiveOutTemp(LvalSymbase);
@@ -3406,10 +3448,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       }
     }
 
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
     insertReductionFinal(&RedTail);
-    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+    addVPValueScalRefMapping(VPInst, WInst->getLvalDDRef(), 0);
     return;
   }
 
@@ -3467,8 +3507,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                       << "\n");
     PrivateMemBlobRefs[VPAllocaPriv] =
         std::make_pair(AllocaBlob, AllocaMemRefSym);
-    // Add the newly generated alloca as live-in to the main loop.
-    MainLoop->addLiveInTemp(AllocaBlob->getSymbase());
+    // Since we are adding a new r-val use of temp outside the loop (check
+    // createVectorPrivatePtrs), make the temp live-in at all parent loop
+    // levels.
+    makeSymLiveInForParentLoops(AllocaBlob->getSymbase());
 
     // Generated blob provides a pointer to the widened memory, here we generate
     // code to compute a vector of pointers pointing to each element of widened
@@ -3477,11 +3519,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // VecTyForAlloca = <VF x i32>
     // AllocaBlob = <VF x i32>* %priv.mem
     // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
-    // ScalPvtPtr = &((<VF x i32>* %priv.mem)[i32 0])
+    // ScalPvtPtr = &((i32 *)(<VF x i32>* %priv.mem)[i32 0])
     RegDDRef *VecPvtPtrs = createVectorPrivatePtrs(VPAllocaPriv);
-    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(
+    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
         AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
         AllocaMemRefSym);
+    ScalPvtPtr->setBitCastDestType(VPAllocaPriv->getType());
 
     LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
                dbgs() << " got the vector of private pointers: ";
@@ -3506,13 +3549,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
     RegDDRef *OrigPrivDescr = getUniformScalarRef(ExtUse);
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
-    // Mark the temp to extract from live-out of the loop.
-    MainLoop->addLiveOutTemp(VecRef->getSymbase());
     auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
         VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
-    HLNodeUtils::insertAfter(MainLoop, PrivExtract);
+    addInstUnmasked(PrivExtract);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
 
     return;
@@ -3535,9 +3574,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     auto *CondPrivateFinal = cast<VPPrivateFinalCond>(VPInst);
     RegDDRef *VecExit = widenRef(CondPrivateFinal->getExit(), getVF());
     RegDDRef *VecIndex = widenRef(CondPrivateFinal->getIndex(), getVF());
-    // Mark the temps to extract from live-out of the loop.
-    MainLoop->addLiveOutTemp(VecExit->getSymbase());
-    MainLoop->addLiveOutTemp(VecIndex->getSymbase());
 
     HLContainerTy CondPrivFinalInsts;
 
@@ -3569,9 +3605,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // definition to the temp in loop post-exit.
     PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
 
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
-    HLNodeUtils::insertAfter(MainLoop, &CondPrivFinalInsts);
+    addInst(&CondPrivFinalInsts);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
     return;
   }
@@ -3731,6 +3765,18 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     Mask = RevInst->getLvalDDRef();
   }
 
+  // If the load/store element type is a vector, we need to replicate mask
+  // vector elements if non-null.
+  if (Mask) {
+    auto *ValueTy = VPLoadStore->getValueType();
+    if (auto *ValueVecTy = dyn_cast<VectorType>(ValueTy)) {
+      HLInst *ReplMaskInst =
+          replicateVectorElts(Mask, ValueVecTy->getNumElements());
+      addInstUnmasked(ReplMaskInst);
+      Mask = ReplMaskInst->getLvalDDRef();
+    }
+  }
+
   if (Opcode == Instruction::Load) {
     if (IsUnitStride)
       ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideLoads
@@ -3780,7 +3826,7 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
     PointerRef = CopyInst->getLvalDDRef();
   }
 
-  auto *NewRef = DDRefUtilities.createAddressOfRef(
+  auto *NewRef = DDRefUtilities.createAddressOfRef(PointerRef->getDestType()->getScalarType()->getPointerElementType(),
       PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
   NewRef->setInBounds(VPSubscript->isInBounds());
   NewRef->setBitCastDestType(ResultRefTy);
@@ -3805,9 +3851,11 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
     AuxRefs.insert(AuxRefs.end(), {Idx, Lower, Stride});
     ArrayRef<unsigned> StructOffsets = VPSubscript->getStructOffsets(Dim);
     Type *DimTy = VPSubscript->getDimensionType(Dim);
+    Type *DimElemTy = isa<ArrayType>(DimTy) ? DimTy->getArrayElementType()
+                                            : DimTy->getPointerElementType();
     NewRef->addDimension(Idx->getSingleCanonExpr(), StructOffsets,
                          Lower->getSingleCanonExpr(),
-                         Stride->getSingleCanonExpr(), DimTy);
+                         Stride->getSingleCanonExpr(), DimTy, DimElemTy);
   }
 
   makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen, ScalarLaneID);
@@ -3859,7 +3907,8 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
 
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 bool Widen, unsigned ScalarLaneID) {
-  assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
+  assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode()) ||
+          isa<VPCallInstruction>(VPInst)) &&
          "Unxpected instruction for scalar constructs");
 
   HLInst *NewInst = nullptr;
@@ -3882,10 +3931,17 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         VPInst->HIR().isMaster()
             ? VPInst->HIR().getUnderlyingNode()
             : VPInst->HIR().getMaster()->HIR().getUnderlyingNode();
-    if (isa<HLLoop>(HNode))
-      if (VPInst->getOpcode() != Instruction::Add ||
-          !MainLoopIVInsts.count(VPInst))
+    if (isa<HLLoop>(HNode) && HNode == OrigLoop) {
+      if (isMergedCFG()) {
+        // For merged CFG we can only ignore the backedge cmp. Other main loop
+        // IV associated instructions like vector-tc needs to be handled
+        // explicitly.
+        if (VPInst->getOpcode() == Instruction::ICmp)
+          return;
+      } else if (VPInst->getOpcode() != Instruction::Add ||
+                 !MainLoopIVInsts.count(VPInst))
         return;
+    }
   }
 
   auto Opcode = VPInst->getOpcode();
@@ -4093,6 +4149,106 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::Br:
     // Do nothing.
     return;
+
+  case VPInstruction::VectorTripCountCalculation: {
+    // TODO: Revisit for constant TC.
+    auto *VPVectorTC = cast<VPVectorTripCountCalculation>(VPInst);
+    RegDDRef *OrigTC = getUniformScalarRef(VPVectorTC->getOperand(0));
+    RegDDRef *UBRef = OrigTC->clone();
+    // HLLoop upper bounds are normalized, so increment by 1 to get actual UB.
+    UBRef->getSingleCanonExpr()->addConstant(1, true);
+    // The following call is required because self-blobs do not have BlobDDRefs.
+    // +1 operation could make non-self blob a self-blob and vice-versa.
+    // For example if UB is (%b - 1) or (%b).
+    SmallVector<const RegDDRef *, 1> Aux = {OrigTC};
+    UBRef->makeConsistent(Aux,
+                          OrigTC->getSingleCanonExpr()->getDefinedAtLevel());
+
+    // For given original loop TC say %N, we emit following sequence of
+    // instructions to compute vector TC -
+    // %tgu = %N /u VF*UF
+    // %vec.tc = %tgu * VF*UF
+
+    assert(!Mask && "Vector TC calculation should not be masked.");
+    RegDDRef *VFUFDD = DDRefUtilities.createConstDDRef(VPVectorTC->getType(),
+                                                       getVF() * getUF());
+    auto *DivInst = HLNodeUtilities.createUDiv(UBRef, VFUFDD, "tgu");
+    addInstUnmasked(DivInst);
+
+    auto *MulInst = HLNodeUtilities.createMul(DivInst->getLvalDDRef()->clone(),
+                                              VFUFDD->clone(), "vec.tc");
+    addInstUnmasked(MulInst);
+    addVPValueScalRefMapping(VPVectorTC, MulInst->getLvalDDRef(), 0);
+    return;
+  }
+
+  case VPInstruction::ScalarPeelRemainderHIR: {
+    auto *VPScalarLp = cast<VPPeelRemainderHIR>(VPInst);
+    HLLoop *ScalarLoop = VPScalarLp->getLoop()->clone();
+
+    // Emit scalar loop at current insertion point and initialize required
+    // live-in temps before the loop. We also set scalar loop's lower/upper
+    // bound based on temps captured in corresponding VPScalarRemainderHIR
+    // instruction. For example simple scalar remainder that looks like -
+    // %scal.rem = scalar-hir-loop <HLLoop>, LBTemp: %rem.lb, TempInitMap:
+    //   { Initialize temp %rem.lb with -> i64 %vp.rem.lb }
+    //   { Initialize temp %red.var with -> i32 %vp.red.var }
+    //
+    // is lowered into HIR as -
+    //
+    // %rem.lb = %extract.vec.rem.lb;
+    // %red.var = %extract.vec.red.var;
+    // + DO i1 = %rem.lb, %N - 1, 1   <DO_LOOP> <vectorize>
+    // |   %A.i = (%A)[i1];
+    // |   %red.var = %A.i  +  %red.var;
+    // + END LOOP
+
+    for (unsigned I = 0; I < VPScalarLp->getNumOperands(); ++I) {
+      RegDDRef *TempToInit = cast<RegDDRef>(VPScalarLp->getTemp(I));
+      RegDDRef *InitValue = getOrCreateScalarRef(VPScalarLp->getOperand(I), 0);
+      HLInst *InitInst = HLNodeUtilities.createCopyInst(InitValue, "temp.init",
+                                                        TempToInit->clone());
+      addInstUnmasked(InitInst);
+      // Initialized temp will be live-in to scalar loop.
+      ScalarLoop->addLiveInTemp(TempToInit);
+    }
+
+    // Track bound refs whose def@level needs to be updated after attaching the
+    // scalar loop.
+    SmallVector<RegDDRef *, 2> BoundRefsToFixDefLevel;
+
+    if (auto *LB = VPScalarLp->getLowerBoundTemp()) {
+      auto *LBRef = cast<RegDDRef>(LB);
+      ScalarLoop->setLowerDDRef(LBRef);
+      BoundRefsToFixDefLevel.push_back(LBRef);
+    }
+
+    if (auto *UB = VPScalarLp->getUpperBoundTemp()) {
+      auto *UBRef = cast<RegDDRef>(UB);
+      UBRef->setSymbase(GenericRvalSymbase);
+      ScalarLoop->setUpperDDRef(UBRef);
+      BoundRefsToFixDefLevel.push_back(UBRef);
+    }
+
+    LLVM_DEBUG(dbgs() << "[VPOCGHIR] ScalarLoop:\n"; ScalarLoop->dump();
+               dbgs() << "\n");
+    addInst(ScalarLoop, nullptr /*Mask*/);
+
+    // Sets the defined at level of new bounds to (nesting level - 1) as the
+    // bound temp is defined just before the loop.
+    for (auto *Bound : BoundRefsToFixDefLevel)
+      Bound->getSingleCanonExpr()->setDefinedAtLevel(
+          ScalarLoop->getNestingLevel() - 1);
+
+    return;
+  }
+
+  case VPInstruction::OrigLiveOutHIR: {
+    auto *LiveOut = cast<VPOrigLiveOutHIR>(VPInst);
+    auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
+    addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
+    return;
+  }
   }
 
   // Skip widening the first select operand. The select instruction is generated
@@ -4211,7 +4367,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       if (CI->getBitWidth() <= 64) {
         SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone()};
 
-        CE1->setDenominator(CI->getSExtValue());
+        if (Opcode == Instruction::UDiv)
+          CE1->setDenominator(CI->getZExtValue());
+        else
+          CE1->setDenominator(CI->getSExtValue());
+
         CE1->setDivisionType(VPInst->getOpcode() == Instruction::SDiv);
         makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
         return;
@@ -4342,14 +4502,26 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::Select: {
-    auto PredInst = cast<VPCmpInst>(VPInst->getOperand(0));
+    auto PredInst = dyn_cast<VPCmpInst>(VPInst->getOperand(0));
+    CmpInst::Predicate Pred;
     RegDDRef *Pred0, *Pred1;
 
     // In order for HIR idiom recognition to work, when generating the widened
     // select we need to use operands of the compare instruction corresponding
-    // to the select mask.
-    Pred0 = widenRef(PredInst->getOperand(0), getVF());
-    Pred1 = widenRef(PredInst->getOperand(1), getVF());
+    // to the select mask when possible.
+    if (PredInst) {
+      Pred0 = widenRef(PredInst->getOperand(0), getVF());
+      Pred1 = widenRef(PredInst->getOperand(1), getVF());
+      Pred = PredInst->getPredicate();
+    } else {
+      Pred0 = widenRef(VPInst->getOperand(0), getVF());
+      Type *CondTy = Pred0->getDestType();
+      Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
+      Pred1 = getConstantSplatDDRef(
+          DDRefUtilities, OneVal,
+          cast<FixedVectorType>(CondTy)->getNumElements());
+      Pred = CmpInst::ICMP_EQ;
+    }
 
     // If this select instruction corresponds to a reduction (min/max), then we
     // need to write the result back to the corresponding reduction variable.
@@ -4359,7 +4531,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     FastMathFlags FMF = VPInst->hasFastMathFlags() ? VPInst->getFastMathFlags()
                                                    : FastMathFlags();
     NewInst = HLNodeUtilities.createSelect(
-        PredInst->getPredicate(), Pred0, Pred1, RefOp0, RefOp1, InstName,
+        Pred, Pred0, Pred1, RefOp0, RefOp1, InstName,
         RedRef ? RedRef->clone() : nullptr, FMF);
     break;
   }
@@ -4524,7 +4696,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       addInstUnmasked(CopyInst);
       PointerRef = CopyInst->getLvalDDRef()->clone();
 
-      auto *NewRef = DDRefUtilities.createAddressOfRef(
+      auto *NewRef = DDRefUtilities.createAddressOfRef(PointerRef->getDestType()->getPointerElementType(),
           PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
       RegDDRef *Idx = getOrCreateScalarRef(VPInst->getOperand(1), 0);
       NewRef->addDimension(Idx->getSingleCanonExpr());
@@ -4539,13 +4711,23 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::Call: {
-    assert(Widen && "Below code assumes that calls are always widened.");
+    auto *VPCall = cast<VPCallInstruction>(VPInst);
+
+    // Handle call that should not be widended for given lane ID.
+    if (!Widen) {
+      HLInst *ScalarCall = generateScalarCall(VPCall, ScalarLaneID);
+      addInstUnmasked(ScalarCall);
+      assert((CurMaskValue == nullptr || isa<HLIf>(ScalarCall->getParent())) &&
+             "Scalar calls can be generated only in unmasked context.");
+      if (ScalarCall->hasLval())
+        addVPValueScalRefMapping(VPCall, ScalarCall->getLvalDDRef(),
+                                 ScalarLaneID);
+      return;
+    }
 
     // Calls need to be masked with current mask value if Mask is null.
     if (!Mask)
       Mask = CurMaskValue;
-
-    auto *VPCall = cast<VPCallInstruction>(VPInst);
 
     // For all calls vectorization scenario should be available for current VF.
     assert(VPCall->getVFForScenario() == VF &&
@@ -4567,16 +4749,23 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       ++OptRptStats.VectorMathCalls;
       break;
     }
+    // TODO: Vector variant based CG is not supported yet, serialize
+    // temporarily.
+    case VPCallInstruction::CallVecScenariosTy::VectorVariant:
+    case VPCallInstruction::CallVecScenariosTy::Serialization: {
+      serializeInstruction(VPCall, Mask);
+      ++OptRptStats.SerializedCalls;
+      // Since multiple new instructions are created for this VPInst, explicit
+      // addInst and mapping is not needed. It is handled internally in
+      // serializeInstruction.
+      return;
+    }
+    case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
+      // TODO: Support for DoNotWiden in HIR path(similar to LLVM path).
+      generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
+      return;
+    }
     default: {
-      Intrinsic::ID ID =
-          getVectorIntrinsicIDForCall(VPCall->getUnderlyingCallInst(), TLI);
-      // FIXME: We should scalarize calls to @llvm.assume intrinsic instead of
-      // completely ignoring them.
-      if (ID == Intrinsic::assume || ID == Intrinsic::lifetime_end ||
-          ID == Intrinsic::lifetime_start) {
-        return;
-      }
-
       llvm_unreachable("VPCallInstruction does not have a valid decision for "
                        "HIR vectorizer.");
     }
@@ -4759,15 +4948,13 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         }
         // Since we are adding a new r-val use of temp outside the loop, make
         // the temp live-in at all parent loop levels.
-        auto *ParentLoop = MainLoop->getParentLoop();
-        while (ParentLoop != nullptr) {
-          ParentLoop->addLiveInTemp(RvalSym);
-          ParentLoop = ParentLoop->getParentLoop();
-        }
+        makeSymLiveInForParentLoops(RvalSym);
       }
-      HLNodeUtils::insertBefore(MainLoop, NewInst);
-      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
-      MainLoop->addLiveInTemp(NewInst->getLvalDDRef()->getSymbase());
+      addInstUnmasked(NewInst);
+      SmallVector<const RegDDRef *, 1> AuxRefs;
+      makeConsistentAndAddToMap(NewInst->getLvalDDRef(), VPInst, AuxRefs, Widen,
+                                ScalarLaneID);
+
       return;
     }
 
@@ -4776,13 +4963,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case VPInstruction::AllZeroCheck: {
     RegDDRef *A = RefOp0;
-    if (Mask || CurMaskValue) {
-      // TODO: Is this needed for HIR? The comment block in LLVM-IR CG adds this
-      // case for masked inner-loops which we won't see in HIR. add A, Mask
-      assert(false && "Mask supported for AllZeroCheck?");
+    if (!Mask)
+      Mask = CurMaskValue;
+    if (Mask) {
+      HLInst *And =
+          HLNodeUtilities.createAnd(Mask->clone(), RefOp0, "allz.and.");
+      addInstUnmasked(And);
+      A = And->getLvalDDRef()->clone();
     }
 
-    RegDDRef *AllZeroCmp = generateCompareToZero(A, Mask, true /* Equal */);
+    RegDDRef *AllZeroCmp = generateCompareToZero(A, nullptr, true /* Equal */);
     addVPValueScalRefMapping(VPInst, AllZeroCmp, 0);
     NewInst = HLNodeUtilities.createCopyInst(
         widenRef(AllZeroCmp->clone(), getVF()), "all.zero.check");
@@ -4800,6 +4990,28 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // TODO: FMF for these conflict intrinsics?
     NewInst = HLNodeUtilities.createCall(ConflictFunc, {RefOp0}, "conflicts");
     break;
+  }
+
+  case VPInstruction::PushVF: {
+    assert(isMergedCFG() && "PushVF expected only for merged CFG.");
+    unsigned NewVF = cast<VPPushVF>(VPInst)->getVF();
+    unsigned NewUF = cast<VPPushVF>(VPInst)->getUF();
+    assert((NewVF != 0 && NewUF != 0) && "expected nonzero VF and UF");
+    VFStack.emplace_back(getVF(), getUF());
+    dropExternalValsFromMaps();
+    setVF(NewVF);
+    setUF(NewUF);
+    return;
+  }
+
+  case VPInstruction::PopVF: {
+    assert(isMergedCFG() && "PopVF expected only for merged CFG.");
+    assert(!VFStack.empty() && "unexpected PopVF");
+    auto V = VFStack.pop_back_val();
+    dropExternalValsFromMaps();
+    setVF(V.first);
+    setUF(V.second);
+    return;
   }
 
   default:
@@ -4946,6 +5158,7 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
   assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
          "Expected single outermost loop!");
   VPLoop *OuterMostVPLoop = *VPLI->begin();
+
   VPBasicBlock *OuterMostLpPreheader =
       cast<VPBasicBlock>(OuterMostVPLoop->getLoopPreheader());
 
@@ -5015,9 +5228,8 @@ bool VPOCodeGenHIR::targetHasIntelAVX512() const {
 
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
 
-  // Use VPValue based code generation if it is enabled and mixed CG has not
-  // been forced
-  if (EnableVPValueCodegenHIR && !getForceMixedCG()) {
+  // Use VPValue based code generation if mixed CG has not been forced
+  if (!getForceMixedCG()) {
     widenNodeImpl(VPInst, Mask);
     return;
   }
@@ -5103,35 +5315,231 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
   widenNodeImpl(VPInst, Mask);
 }
 
-void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
-  // Nothing to do if no uniform control flow is seen
-  if (!getUniformControlFlowSeen())
-    return;
+void VPOCodeGenHIR::serializeInstruction(const VPInstruction *VPInst,
+                                         RegDDRef *Mask) {
+  // Temp that represents the final value of VPInst after serialization, it
+  // remains null for void type instructions.
+  RegDDRef *SerialTemp = nullptr;
 
-  if (VLoop->contains(VPBB)) {
-    HLLabel *Label = HLNodeUtilities.createHLLabel(VPBB->getName());
-    addInst(Label, nullptr /* Mask */);
-    VPBBLabelMap[VPBB] = Label;
+  // Initialize the temp to undef if it is known to produce a l-val i.e.
+  // non-void return type.
+  if (!VPInst->getType()->isVoidTy()) {
+    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(
+        getWidenedType(VPInst->getType(), getVF()));
+    auto SerialTempInit = HLNodeUtilities.createCopyInst(Undef, "serial.temp");
+    addInstUnmasked(SerialTempInit);
+    SerialTemp = SerialTempInit->getLvalDDRef();
+    // Map VPInst to SerialTemp in vector map.
+    addVPValueWideRefMapping(VPInst, SerialTemp);
   }
+
+  // Genrate serial instruction for each vector lane.
+  for (unsigned Lane = 0; Lane < getVF(); ++Lane) {
+    // Track marker and HLIf potentially created for masked serialization.
+    HLNode *Marker = nullptr;
+    HLIf *If = nullptr;
+
+    // If the instruction to be serialized is masked then we create HLIf with
+    // predicate "LaneMask == 1" and insert possible extractelements plus the
+    // scalar HLInst and corresponding insertelement into the then branch of the
+    // HLIf. Pseudo-IR -
+    // if (%mask.lane.x == 1) {
+    //   %scalar.operand = extract %vec.op, x
+    //   %scalar.lane.x = opcode %vec.op, ...
+    //   %serial.temp = insert %serial.temp, %scalar.lane.x, x
+    // }
+    if (Mask) {
+      auto ExtractMask = HLNodeUtilities.createExtractElementInst(
+          Mask->clone(), Lane, "mask." + Twine(Lane) + ".");
+      addInstUnmasked(ExtractMask);
+      RegDDRef *LaneMask = ExtractMask->getLvalDDRef();
+
+      // We create the HLIf here and set the insertion point appropriately.
+      If = HLNodeUtilities.createHLIf(
+          PredicateTy::ICMP_EQ, LaneMask->clone(),
+          DDRefUtilities.createConstDDRef(LaneMask->getDestType(), 1));
+      addInst(If, nullptr /*Mask*/);
+      Marker = HLNodeUtilities.getOrCreateMarkerNode();
+      HLNodeUtils::insertAsFirstThenChild(If, Marker);
+      InsertPoint = Marker;
+    }
+
+    // Generate a scalar HLInst for given VPInstruction using operands for
+    // corresponding lane.
+    generateHIR(VPInst, Mask, false /*Widen*/, Lane);
+
+    // If the scalar HLInst produces an l-val then we need to insert it into
+    // SerialTemp at appropriate lane.
+    RegDDRef *ScalarRef = getScalRefForVPVal(VPInst, Lane);
+    if (ScalarRef) {
+      assert(SerialTemp && "Non-null serial temp expected when serialized "
+                           "instruction produces l-val");
+      HLInst *InsertInst = nullptr;
+      if (auto *VecTy = dyn_cast<VectorType>(ScalarRef->getDestType())) {
+        unsigned OrigNumElts = VecTy->getNumElements();
+        InsertInst = HLNodeUtilities.createVectorInsert(
+            SerialTemp->clone(), ScalarRef->clone(), Lane * OrigNumElts,
+            "subvec.insert", SerialTemp->clone());
+      } else {
+        InsertInst = HLNodeUtilities.createInsertElementInst(
+            SerialTemp->clone(), ScalarRef->clone(), Lane, "serial.insert",
+            SerialTemp->clone());
+      }
+      addInstUnmasked(InsertInst);
+    }
+
+    // If the serialization is done under a mask, we would have created an HLIf
+    // to place the generated instructions. We can safely delete the Marker
+    // created inside this HLIf. Subsequent instructions need to be placed after
+    // this HLIf and we update the insertion point accordingly.
+    if (Mask) {
+      assert(If && Marker &&
+             "Expected an HLIf and a Marker for masked serialization.");
+      HLNodeUtils::remove(Marker);
+      InsertPoint = If;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "\n[VPOCGHIR] After serialization"; MainLoop->dump();
+             dbgs() << "\n");
 }
 
-void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
-  // Nothing to do if no uniform control flow is seen
-  if (!getUniformControlFlowSeen())
+HLLabel *VPOCodeGenHIR::getBlockLabel(const VPBasicBlock *VPBB) {
+  auto Itr = VPBBLabelMap.find(VPBB);
+  if (Itr != VPBBLabelMap.end())
+    return Itr->second;
+  else
+    return nullptr;
+}
+
+HLLabel *VPOCodeGenHIR::createBlockLabel(const VPBasicBlock *VPBB) {
+  assert(!VPBBLabelMap.count(VPBB) && "Unexpected block with existing label");
+  HLLabel *Label = HLNodeUtilities.createHLLabel(VPBB->getName());
+  VPBBLabelMap[VPBB] = Label;
+  return Label;
+}
+
+HLLabel *VPOCodeGenHIR::getOrCreateBlockLabel(const VPBasicBlock *VPBB) {
+  HLLabel *Label;
+  if (Label = getBlockLabel(VPBB))
+    return Label;
+
+  return createBlockLabel(VPBB);
+}
+
+void VPOCodeGenHIR::setUBForVectorLoop(VPLoop *VPLp) {
+  HLLoop *VecLoop = VPLoopHLLoopMap[VPLp];
+
+  // Upper bound for the vectorized HLLoop is obtained from the vector-tc
+  // VPInstruction that is generated for every vectorized VPLoop in its
+  // corresponding preheader block.
+  VPBasicBlock *VPLpPreheader = VPLp->getLoopPreheader();
+  VPInstruction *VectorTC = nullptr;
+  for (auto &I : *VPLpPreheader)
+    if (auto *TC = dyn_cast<VPVectorTripCountCalculation>(&I))
+      VectorTC = TC;
+
+  assert(VectorTC && "Vector TC computation expected in PH of vector loop.");
+  RegDDRef *UBRef = getOrCreateScalarRef(VectorTC, 0 /*Lane*/);
+  assert(UBRef && "Non-null ref expected to compute TC.");
+  UBRef = UBRef->clone();
+
+  // Add blobs and adjust def@level since UB is defined outside the loop.
+  auto *UBCanonExpr = UBRef->getSingleCanonExpr();
+  unsigned LoopLevel = VecLoop->getNestingLevel();
+  UBRef->addBlobDDRef(UBCanonExpr->getSingleBlobIndex(), LoopLevel - 1);
+  UBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+  // Subtract 1
+  UBCanonExpr->addConstant(-1, true);
+  UBRef->setSymbase(GenericRvalSymbase);
+  VecLoop->setUpperDDRef(UBRef);
+
+  // TODO: Use PH induction-init-step to set stride? Currently we are assuming
+  // VF*UF by default.
+  VecLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(getVF() *
+                                                               getUF());
+
+  // TODO: Dirty hack to map induction-final -> vector HLLoop's UB.
+  for (auto &I : *VPLp->getExitBlock())
+    if (isa<VPInductionFinal>(&I))
+      addVPValueScalRefMapping(&I, getScalRefForVPVal(VectorTC, 0), 0);
+}
+
+void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
+  // TODO - search loop representation is currently not explicit.
+  if (isSearchLoop())
     return;
 
-  // Create a HLGoto that is expected to jump to the start of the specified
-  // Block and add it to the needed vectors. Return the created HLGoto.
-  auto createGoto = [this](const VPBasicBlock *Block) {
-    HLGoto *Goto = HLNodeUtilities.createHLGoto(nullptr);
-    GotoTargetVPBBPairVector.push_back(std::make_pair(Goto, Block));
+  HLLabel *Label = getBlockLabel(VPBB);
+  // If we have a block label and it is already attached, just update the
+  // instruction insertion point and return.
+  if (Label && Label->getParent()) {
+    InsertPoint = Label;
+    return;
+  }
+  if (!Label)
+    Label = createBlockLabel(VPBB);
+
+  // NOTE - the implementation here still assumes few things
+  // -- that the blocks are traversed in RPO order. We start the insertion
+  // point before the MainLoop and set the same appropriately once we hit
+  // the loop header and exit blocks.
+  // -- Reduction related instructions are placed either at current insertion
+  // point or reduction related insertion points depending on whether
+  // they are hoisted.
+  // -- We still rely on MainLoop/Remainder loops being created implicitly.
+  // This will be changed once we have CFG merger working for HIR path
+  // and the remainder loop is made explicit.
+  if (!InsertPoint) {
+    if (isMergedCFG()) {
+      // We are encountering the first VPBB in merged CFG, insert its label
+      // before the original scalar loop.
+      // TODO: This is a good spot to remove OrigLoop from its parent. Remainder
+      // loop is represented explicitly in CFG and we don't need to repurpose
+      // OrigLoop as remainder.
+      HLNodeUtilities.insertBefore(OrigLoop, Label);
+    } else {
+      HLNodeUtilities.insertBefore(MainLoop, Label);
+    }
+  } else if (LoopHeaderBlocks.count(VPBB)) {
+    auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
+    auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
+    // Main vector loop is already linked in (except in case merged CFG)
+    if (isMergedCFG() || CurVPLoop != getVPLoop())
+      HLNodeUtilities.insertAfter(InsertPoint, CurHLLoop);
+    HLNodeUtilities.insertAsFirstChild(CurHLLoop, Label);
+    // Setup upper bound and stride for vectorized loop.
+    if (isMergedCFG())
+      setUBForVectorLoop(CurVPLoop);
+  } else if (LoopExitBlocks.count(VPBB)) {
+    auto *CurVPLoop =
+        Plan->getVPLoopInfo()->getLoopFor(VPBB->getSinglePredecessor());
+    auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
+    HLNodeUtilities.insertAfter(CurHLLoop, Label);
+  } else
+    HLNodeUtilities.insertAfter(InsertPoint, Label);
+
+  InsertPoint = Label;
+}
+
+void VPOCodeGenHIR::emitBlockTerminatorNaive(const VPBasicBlock *SourceBB) {
+  // Get or create the label corresponding to Block start and create a HLGoto
+  // with target set to this label. Return the created HLGoto after adding it
+  // to the needed vector.
+  auto createGotoAndSetTargetLabel = [this](const VPBasicBlock *Block) {
+    HLLabel *Label = getOrCreateBlockLabel(Block);
+    HLGoto *Goto = HLNodeUtilities.createHLGoto(Label);
+    GotosVector.push_back(Goto);
     return Goto;
   };
 
   // The loop backedge/exit is implicit in the vector loop. Do not emit
-  // gotos in the latch block.
-  if (VLoop->contains(SourceBB) && !VLoop->isLoopLatch(SourceBB)) {
-    assert(SourceBB->getNumSuccessors() && "Expected at least one successor");
+  // gotos in the main vector loop latch block. TODO - look into why we need
+  // to suppress goto in PreHeader.
+  bool MainLoopLatch =
+      VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
+  if (SourceBB->getNumSuccessors() && !MainLoopLatch &&
+      !LoopPreheaderBlocks.count(SourceBB)) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
     // If the block has two successors, we emit the following sequence
@@ -5146,9 +5554,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
     // 'SourceBB: Successors: Succ1'.
     //
     //     goto Succ1_Label.
-    // The gotos are created initially with a null target label. These are
-    // fixed up at the end of vector code generation when the labels
-    // are available for all basic blocks.
+    // The gotos are created with appropriate target label.
     if (SourceBB->getNumSuccessors() == 2) {
       const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
       const VPValue *CondBit = SourceBB->getCondBit();
@@ -5163,36 +5569,168 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
           DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
       addInst(If, nullptr /* Mask */);
 
-      HLGoto *ThenGoto = createGoto(Succ1);
+      HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);
       HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
 
-      HLGoto *ElseGoto = createGoto(Succ2);
+      HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
       HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
       LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
     } else {
-      HLGoto *Goto = createGoto(Succ1);
+      HLGoto *Goto = createGotoAndSetTargetLabel(Succ1);
       addInst(Goto, nullptr /* Mask */);
     }
   }
 }
 
-void VPOCodeGenHIR::finalizeGotos(void) {
-  // Vector used to contain HLGotos created during vector code generation.
-  // This vector is setup to be used in the call to eliminate redundant
-  // gotos.
-  SmallVector<HLGoto *, 8> Gotos;
+void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
+  // TODO - search loop representation is currently not explicit.
+  if (isSearchLoop())
+    return;
 
-  for (auto It : GotoTargetVPBBPairVector) {
-    HLGoto *Goto = It.first;
-    const VPBasicBlock *TargetBB = It.second;
-
-    Goto->setTargetLabel(VPBBLabelMap[TargetBB]);
-    Gotos.push_back(Goto);
+  // Use naive if/else generation when the corresponding flag is true. This is
+  // needed when CFG merger is enabled as we need further improvements in how we
+  // pull in code into the then and else parts in the presence of
+  // unstructured control flow.
+  if (EnableNaiveIfElseGeneration || isMergedCFG()) {
+    emitBlockTerminatorNaive(SourceBB);
+    return;
   }
+
+  // Get or create the label corresponding to Block start and create a HLGoto
+  // with target set to this label. Return the created HLGoto after adding it
+  // to the needed vector.
+  auto createGotoAndSetTargetLabel = [this](const VPBasicBlock *Block) {
+    HLLabel *Label = getOrCreateBlockLabel(Block);
+    HLGoto *Goto = HLNodeUtilities.createHLGoto(Label);
+    GotosVector.push_back(Goto);
+    return Goto;
+  };
+
+  // Insert the target label of Goto immediately after Goto if the label
+  // has not been inserted already.
+  auto insertUnlinkedGotoLabel = [](HLGoto *Goto) {
+    HLLabel *Label = Goto->getTargetLabel();
+    if (!Label->getParent())
+      HLNodeUtils::insertAfter(Goto, Label);
+  };
+
+  // The loop backedge/exit is implicit in the vector loop. Do not emit
+  // gotos in the main vector loop latch block. TODO - look into why we need
+  // to suppress goto in PreHeader.
+  bool MainLoopLatch =
+      VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
+  if (SourceBB->getNumSuccessors() && !MainLoopLatch &&
+      !LoopPreheaderBlocks.count(SourceBB)) {
+    const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
+
+    // Generate an appropriate if/else or goto target block depending on the
+    // block's successor node(s).
+    if (SourceBB->getNumSuccessors() == 2) {
+      const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
+
+      // Check and set flags to see if then or else successors are fall through.
+      //
+      // -- neither fall through
+      // br cond succ1 succ2
+      // succ1
+      //   ...
+      //   br ifmerge
+      // succ2
+      //   ...
+      //   br ifmerge
+      // ifmerge:
+      //   ...
+      //
+      // -- then successor falls through
+      // br cond ifmerge succ2
+      // succ2:
+      //    ...
+      //    br ifmerge
+      // ifmerge:
+      //    ...
+      //
+      // - else successor falls through
+      // br cond succ1 ifmerge
+      // succ1:
+      //    ...
+      //    br ifmerge
+      // ifmerge:
+      //    ...
+      auto *PDT = cast<VPlanVector>(Plan)->getPDT();
+      bool ThenFallThru = PDT->dominates(Succ1, SourceBB);
+      bool ElseFallThru = PDT->dominates(Succ2, SourceBB);
+
+      // Predicate to use in if condition
+      PredicateTy Pred = PredicateTy::ICMP_EQ;
+
+      // Swap the successors for the case where then successor falls through to
+      // avoid ifs like:  if (cond) {} else { ... }
+      if (ThenFallThru && !ElseFallThru) {
+        ThenFallThru = false;
+        ElseFallThru = true;
+        std::swap(Succ1, Succ2);
+        Pred = PredicateTy::ICMP_NE;
+      }
+
+      const VPValue *CondBit = SourceBB->getCondBit();
+      auto *CondRef = getWideRefForVPVal(CondBit);
+      assert(CondRef && "Missind widened DDRef!");
+      HLInst *Extract = HLNodeUtilities.createExtractElementInst(
+          CondRef->clone(), (unsigned)0, "unifcond");
+      addInst(Extract, nullptr /* Mask */);
+      CondRef = Extract->getLvalDDRef()->clone();
+      HLIf *If = HLNodeUtilities.createHLIf(
+          Pred, CondRef,
+          DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
+      addInst(If, nullptr /* Mask */);
+
+      HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);
+      HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
+      // If then does not fall through, insert Succ1 label after then
+      // goto if the label has not been inserted earlier.
+      if (!ThenFallThru)
+        insertUnlinkedGotoLabel(ThenGoto);
+
+      // If else does not fall through generate the else part
+      if (!ElseFallThru) {
+        HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
+        HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
+        assert(!ThenFallThru && "if-else with unexpected empty if-then");
+        insertUnlinkedGotoLabel(ElseGoto);
+      }
+
+      // Insert the if-merge block label if not inserted already. This is
+      // placed after the if or after the loop if the conditional branch
+      // is in a loop latch(check that Succ1 is a loop header block).
+      assert(PDT->getNode(SourceBB) && "SourceBB should be in PDT");
+      auto *IfSuccBlock =
+          ElseFallThru ? Succ2 : PDT->getNode(SourceBB)->getIDom()->getBlock();
+      HLNode *IfSuccLabel = getOrCreateBlockLabel(IfSuccBlock);
+      if (!IfSuccLabel->getParent()) {
+        if (LoopHeaderBlocks.count(Succ1)) {
+          auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(Succ1);
+          auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
+          HLNodeUtils::insertAfter(CurHLLoop, IfSuccLabel);
+        } else {
+          HLNodeUtils::insertAfter(If, IfSuccLabel);
+        }
+      }
+
+      LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
+    } else {
+      HLGoto *Goto = createGotoAndSetTargetLabel(Succ1);
+      addInst(Goto, nullptr /* Mask */);
+    }
+  }
+}
+
+void VPOCodeGenHIR::eliminateRedundantGotosLabels(void) {
+  LLVM_DEBUG(dbgs() << "Loop before redundant gotos/labels removal: \n");
+  LLVM_DEBUG(MainLoop->getParent()->dump());
 
   // Eliminate redundant Gotos.
   HLNodeUtils::RequiredLabelsTy RequiredLabels;
-  HLNodeUtils::eliminateRedundantGotos(Gotos, RequiredLabels);
+  HLNodeUtils::eliminateRedundantGotos(GotosVector, RequiredLabels);
 
   // Eliminate redundant labels.
   for (auto It : VPBBLabelMap) {
@@ -5200,5 +5738,8 @@ void VPOCodeGenHIR::finalizeGotos(void) {
     if (!RequiredLabels.count(Label))
       HLNodeUtils::remove(Label);
   }
+
+  LLVM_DEBUG(dbgs() << "Loop after redundant gotos/labels removal: \n");
+  LLVM_DEBUG(MainLoop->getParent()->dump());
 }
 } // end namespace llvm

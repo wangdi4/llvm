@@ -378,6 +378,7 @@ protected:
   /// Add passes that perform advanced pattern matching optimizations.
   /// These passes are run while the machine code is still in SSA form.
   virtual void addAdvancedPatternMatchingOpts() { }
+  virtual void addPreStackSlotColoring() { }
 #endif // INTEL_CUSTOMIZATION
 
   /// This method may be implemented by targets that want to run passes

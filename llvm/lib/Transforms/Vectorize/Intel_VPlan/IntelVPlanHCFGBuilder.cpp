@@ -118,16 +118,29 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     assert(Lp &&
            "VPLoopLatch does not correspond to Latch, massaging happened?");
     assert(SE && "SCEV has not been calculated.");
-    if (auto KnownTC = SE->getSmallConstantTripCount(Lp)) {
+
+    using TripCountTy = TripCountInfo::TripCountTy;
+    // Check if we know the TC exactly.
+    if (TripCountTy KnownTC = SE->getSmallConstantTripCount(Lp)) {
       VPL->setKnownTripCount(KnownTC);
-      LLVM_DEBUG(dbgs() << "The trip count for loop " << Lp->getLoopDepth()
+      LLVM_DEBUG(dbgs() << "The trip count for loop " << Lp->getName()
                         << " is " << KnownTC << "\n";);
       continue;
     } else {
       LLVM_DEBUG(dbgs() << "Could not estimate trip count for loop "
                         << Lp->getLoopDepth() << " using ScalarEvolution\n";);
     }
+    // If not, check if an estimation for max TC can be obtained.
+    // First, try reading pragmas.
     TripCountInfo TCInfo = readIRLoopMetadata(Lp);
+    if (TripCountTy KnownMaxTC = SE->getSmallConstantMaxTripCount(Lp)) {
+      // Then see if the compiler can infer a better estimate.
+      TCInfo.MaxTripCount = std::min(TCInfo.MaxTripCount, KnownMaxTC);
+      LLVM_DEBUG(dbgs() << "The max trip count for loop " << Lp->getName()
+                        << " is estimated to be " << TCInfo.MaxTripCount
+                        << "\n";);
+    }
+
     TCInfo.calculateEstimatedTripCount();
     VPL->setTripCountInfo(TCInfo);
   }

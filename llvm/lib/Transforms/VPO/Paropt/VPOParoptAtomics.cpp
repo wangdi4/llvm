@@ -145,6 +145,9 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   // So, only the ptr operand is used for both kmpc_atomic_rd, and both ptr and
   // val are needed for kmpc_atomic_wr.
   Value *Ptr = AtomicRead ? Inst->getOperand(0) : Inst->getOperand(1);
+  Type *OpndTy = AtomicRead ? Inst->getType() :
+      cast<StoreInst>(Inst)->getValueOperand()->getType();
+  assert(OpndTy != nullptr && "Operand Type is null.");
   if (IsTargetSPIRV)
     Ptr =
         VPOParoptUtils::genAddrSpaceCast(Ptr, Inst, vpo::ADDRESS_SPACE_GENERIC);
@@ -155,8 +158,6 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   // We have the val and ptr operands now. So we can use them to get the
   // operand type, and find the KMPC intrinsic name, if it exists for the type.
   assert(isa<PointerType>(Ptr->getType()) && "Unexpected type for operand.");
-  Type* OpndTy = Ptr->getType()->getPointerElementType();
-  assert(OpndTy != nullptr && "Operand Type is null.");
   const std::string Name =
       getAtomicRWSIntrinsicName<AtomicKind>(*(Inst->getParent()), *OpndTy);
   if (Name.empty())
@@ -253,6 +254,9 @@ Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
   if (!UpdateOpFound)
     return nullptr; // Handle using critical sections.
 
+  assert(OpndStore == AtomicOpndStore &&
+         "Invalid atomic operand store found.");
+
   removeDuplicateInstsFromList(InstsToDelete);
 
   if (instructionsAreUsedOutsideBB(InstsToDelete, BB))
@@ -260,8 +264,9 @@ Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
   // the types of AtomicOpnd and ValueOpnd are not the same.
+  Type* AtomicOpndElemTy = OpndStore->getValueOperand()->getType();
   CastInst *ValueOpndCast = genCastForValueOpnd<WRNAtomicUpdate>(
-      OpInst, Reversed, AtomicOpnd, ValueOpnd);
+      OpInst, Reversed, AtomicOpndElemTy, ValueOpnd);
 
   ValueOpnd = ValueOpndCast ? ValueOpndCast : ValueOpnd;
   // Note that we have not yet inserted this Cast into the IR. We do that only
@@ -274,7 +279,7 @@ Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
                     << "\n");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Value Opnd: " << *ValueOpnd << "\n");
   const std::string Name = getAtomicUCIntrinsicName<WRNAtomicUpdate>(
-      *OpInst, OpKind, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
+      *OpInst, OpKind, Reversed, AtomicOpndElemTy, *ValueOpnd, IsTargetSPIRV);
   if (Name.empty()) {
     if (ValueOpndCast)
       delete ValueOpndCast;
@@ -285,7 +290,7 @@ Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
   // We found the matching intrinsic. So, it's safe to insert ValueOpndCast
   // into the IR.
   if (ValueOpndCast)
-    ValueOpndCast->insertBefore(AtomicOpndStore);
+    ValueOpndCast->insertBefore(OpndStore);
 
   if (IsTargetSPIRV)
     AtomicOpnd = VPOParoptUtils::genAddrSpaceCast(AtomicOpnd, OpndStore,
@@ -383,8 +388,9 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
   // the types of AtomicOpnd and ValueOpnd are not the same.
+  Type* AtomicOpndElemTy = AtomicStore->getValueOperand()->getType();
   CastInst *ValueOpndCast = genCastForValueOpnd<WRNAtomicCapture>(
-      OpInst, Reversed, AtomicOpnd, ValueOpnd);
+      OpInst, Reversed, AtomicOpndElemTy, ValueOpnd);
 
   ValueOpnd = ValueOpndCast != nullptr ? ValueOpndCast : ValueOpnd;
   // Note that we have not yet inserted this Cast into the IR. We do that only
@@ -401,7 +407,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(CaptureOpnd->getType()->isPointerTy() && "Unexpected CaptureOpnd.");
 
   const std::string Name = getAtomicCaptureIntrinsicName(
-      CaptureKind, BB, OpInst, OpKind, Reversed, AtomicOpnd, ValueOpnd,
+      CaptureKind, BB, OpInst, OpKind, Reversed, AtomicOpndElemTy, ValueOpnd,
       IsTargetSPIRV);
   if (Name.empty()) {
     if (ValueOpndCast != nullptr)
@@ -438,7 +444,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   }
 
   // Second, the return type.
-  Type* ReturnTy = AtomicOpnd->getType()->getPointerElementType();
+  Type* ReturnTy = AtomicStore->getValueOperand()->getType();
   assert(ReturnTy != nullptr && "Invalid return type for KMPC call.");
 
   // Now we can generate the call.
@@ -455,7 +461,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   if (CaptureOpndCast != nullptr)
     CaptureVal =
         CastInst::Create(CaptureOpndCast->getOpcode(), AtomicCall,
-                         CaptureOpnd->getType()->getPointerElementType(),
+                         CaptureOpndCast->getType(),
                          "cpt.opnd.cast", Anchor);
 
   // Now generate the store to CaptureOpnd.
@@ -1078,7 +1084,7 @@ bool VPOParoptAtomics::extractSwapOp(
 template <WRNAtomicKind AtomicKind>
 CastInst *VPOParoptAtomics::genCastForValueOpnd(const Instruction *Op,
                                                 bool Reversed,
-                                                const Value *AtomicOpnd,
+                                                Type *AtomicOpndElemTy,
                                                 Value *ValueOpnd) {
   assert((AtomicKind == WRNAtomicUpdate || AtomicKind == WRNAtomicCapture) &&
          "Invalid atomic kind.");
@@ -1086,35 +1092,30 @@ CastInst *VPOParoptAtomics::genCastForValueOpnd(const Instruction *Op,
          "Op is needed for atomic update.");
   assert((AtomicKind == WRNAtomicCapture || isa<BinaryOperator>(Op) ||
           isa<SelectInst>(Op)) && "Unsupported Op type.");
-  assert(AtomicOpnd != nullptr && "AtomicOpnd is null.");
+  assert(AtomicOpndElemTy != nullptr && "AtomicOpndElemTy is null.");
   assert(ValueOpnd != nullptr && "ValueOpnd is null.");
 
   Type* ValueOpndTy = ValueOpnd->getType();
-  Type* AtomicOpndTy = AtomicOpnd->getType()->getPointerElementType();
 
-  if (AtomicOpndTy->isIntegerTy() && ValueOpndTy->isIntegerTy())
-    return genTruncForValueOpnd(*AtomicOpnd, *ValueOpnd);
+  if (AtomicOpndElemTy->isIntegerTy() && ValueOpndTy->isIntegerTy())
+    return genTruncForValueOpnd(AtomicOpndElemTy, *ValueOpnd);
 
-  if (AtomicKind == WRNAtomicUpdate && AtomicOpndTy->isIntegerTy() &&
+  if (AtomicKind == WRNAtomicUpdate && AtomicOpndElemTy->isIntegerTy() &&
       ValueOpndTy->isFloatingPointTy())
-    return genFPExtForValueOpnd(*Op, Reversed, *AtomicOpnd, *ValueOpnd);
+    return genFPExtForValueOpnd(*Op, Reversed, AtomicOpndElemTy, *ValueOpnd);
 
-  if (AtomicOpndTy->isFloatingPointTy() && ValueOpndTy->isFloatingPointTy())
-    return genFPTruncForValueOpnd<AtomicKind>(*AtomicOpnd, *ValueOpnd);
+  if (AtomicOpndElemTy->isFloatingPointTy() && ValueOpndTy->isFloatingPointTy())
+    return genFPTruncForValueOpnd<AtomicKind>(AtomicOpndElemTy, *ValueOpnd);
 
   // No need for a Cast.
   return nullptr;
 }
 
 // Generates an integer Trunc Cast for ValueOpnd for Atomic Update, if needed.
-CastInst *VPOParoptAtomics::genTruncForValueOpnd(const Value &AtomicOpnd,
+CastInst *VPOParoptAtomics::genTruncForValueOpnd(Type *AtomicOpndElemTy,
                                                  Value &ValueOpnd) {
-  assert(AtomicOpnd.getType()->isPointerTy() &&
-         "Unexpected type for Atomic operand.");
-
   IntegerType *ValueOpndTy = dyn_cast<IntegerType>(ValueOpnd.getType());
-  IntegerType *AtomicOpndTy =
-      dyn_cast<IntegerType>(AtomicOpnd.getType()->getPointerElementType());
+  IntegerType *AtomicOpndTy = dyn_cast<IntegerType>(AtomicOpndElemTy);
 
   if (AtomicOpndTy == nullptr || ValueOpndTy == nullptr ||
       AtomicOpndTy->getBitWidth() >=
@@ -1132,15 +1133,13 @@ CastInst *VPOParoptAtomics::genTruncForValueOpnd(const Value &AtomicOpnd,
 // Generates an FPExt cast for ValueOpnd for Atomic Update, if needed.
 CastInst *VPOParoptAtomics::genFPExtForValueOpnd(const Instruction &Op,
                                                  bool Reversed,
-                                                 const Value &AtomicOpnd,
+                                                 Type *AtomicOpndElemTy,
                                                  Value &ValueOpnd) {
   assert(isa<BinaryOperator>(Op) && "Unsupported Op type.");
 
   Type *ValueOpndTy = ValueOpnd.getType();
-  Type *AtomicOpndTy = AtomicOpnd.getType();
-  assert(AtomicOpndTy->isPointerTy() && "Unexpected type for Atomic operand.");
 
-  if (!AtomicOpndTy->getPointerElementType()->isIntegerTy() ||    // Ptr to Int
+  if (!AtomicOpndElemTy->isIntegerTy() ||                         // Ptr to Int
       !(ValueOpndTy->isFloatTy() || ValueOpndTy->isX86_FP80Ty())) // F32 or F80
     return nullptr;
 
@@ -1168,30 +1167,29 @@ CastInst *VPOParoptAtomics::genFPExtForValueOpnd(const Instruction &Op,
 
 // Generates an FPTrunc cast for ValueOpnd for Atomic Update, if needed.
 template <WRNAtomicKind AtomicKind>
-CastInst *VPOParoptAtomics::genFPTruncForValueOpnd(const Value &AtomicOpnd,
+CastInst *VPOParoptAtomics::genFPTruncForValueOpnd(Type *AtomicOpndElemTy,
                                                    Value &ValueOpnd) {
   assert((AtomicKind == WRNAtomicUpdate || AtomicKind == WRNAtomicCapture) &&
          "Invalid atomic kind.");
-  assert(AtomicOpnd.getType()->isPointerTy() &&
-         "Unexpected type for Atomic operand.");
 
   Type *ValueOpndTy = ValueOpnd.getType();
-  Type *AtomicOpndTy = AtomicOpnd.getType()->getPointerElementType();
 
-  if (!AtomicOpndTy->isFloatingPointTy() || !ValueOpndTy->isFloatingPointTy() ||
-      AtomicOpndTy->getScalarSizeInBits() >=
+  if (!AtomicOpndElemTy->isFloatingPointTy() ||
+      !ValueOpndTy->isFloatingPointTy() ||
+      AtomicOpndElemTy->getScalarSizeInBits() >=
           ValueOpndTy->getScalarSizeInBits()) // Cast not needed when AtomicOpnd
                                               // has more bits than ValueOpnd.
     return nullptr;
 
-  if (AtomicKind == WRNAtomicUpdate && AtomicOpndTy->isFloatTy() &&
+  if (AtomicKind == WRNAtomicUpdate && AtomicOpndElemTy->isFloatTy() &&
       ValueOpndTy->isDoubleTy()) // float4-float8 update intrinsics exist.
     return nullptr;
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Generating FPTrunc for ValueOpnd: "
                     << ValueOpnd << "\n");
 
-  return CastInst::CreateFPCast(&ValueOpnd, AtomicOpndTy, "val.opnd.fptrunc");
+  return CastInst::CreateFPCast(&ValueOpnd, AtomicOpndElemTy,
+                                "val.opnd.fptrunc");
 }
 
 // Misc helper methods.
@@ -1380,7 +1378,7 @@ template <WRNAtomicKind AtomicKind,
           VPOParoptAtomics::AtomicCaptureKind CaptureKind>
 const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
     const Instruction &Operation, AtomicUpdateOp OpKind,
-    bool Reversed, const Value &AtomicOpnd,
+    bool Reversed, Type *AtomicOpndElemTy,
     const Value &ValueOpnd, bool IsTargetSPIRV) {
 
   assert((AtomicKind == WRNAtomicUpdate || ((AtomicKind == WRNAtomicCapture) &&
@@ -1389,11 +1387,9 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
          "Unsupported AtomicKind for genAtomicUCIntrinsicName");
   assert((!Reversed || !Operation.isCommutative()) &&
          "Unexpected Reversed flag for commutative operation.");
-  assert(isa<PointerType>(AtomicOpnd.getType()) && "Invalid AtomicOpnd.");
 
-  Type *AtomicOpndType = AtomicOpnd.getType()->getPointerElementType();
   Type *ValueOpndType = ValueOpnd.getType();
-  assert(AtomicOpndType != nullptr && "AtomicOpndType is null");
+  assert(AtomicOpndElemTy != nullptr && "AtomicOpndElemTy is null");
   assert(ValueOpndType != nullptr && "ValueOpndType is null");
 
   const Function *F = Operation.getFunction();
@@ -1402,7 +1398,7 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
       ((!Enable64BitOpenCLAtomics ||
         // Do not use 64-bit atomics, if optimizations are not enabled.
         !F || F->hasFnAttribute(Attribute::OptimizeNone)) &&
-       (AtomicOpndType->getScalarSizeInBits() > 32 ||
+       (AtomicOpndElemTy->getScalarSizeInBits() > 32 ||
         ValueOpndType->getScalarSizeInBits() > 32))) {
     // If 64-bit OpenCL atomics are not supported,
     // then we have to use critical section.
@@ -1430,7 +1426,8 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 
   // We need the operand types and the operation's op code to do a map lookup.
   const IntrinsicOperandTy AtomicOpndTy = {
-      AtomicOpndType->getTypeID(), AtomicOpndType->getPrimitiveSizeInBits()};
+      AtomicOpndElemTy->getTypeID(),
+      AtomicOpndElemTy->getPrimitiveSizeInBits()};
   const IntrinsicOperandTy ValueOpndTy = {
       ValueOpndType->getTypeID(), ValueOpndType->getPrimitiveSizeInBits()};
 
@@ -1453,7 +1450,7 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 const std::string VPOParoptAtomics::getAtomicCaptureIntrinsicName(
     AtomicCaptureKind CaptureKind, const BasicBlock *BB,
     const Instruction *Operation, AtomicUpdateOp OpKind,
-    bool Reversed, const Value *AtomicOpnd,
+    bool Reversed, Type *AtomicOpndElemTy,
     const Value *ValueOpnd, bool IsTargetSPIRV) {
 
   assert(CaptureKind != CaptureUnknown && "Unknown capture operation.");
@@ -1463,23 +1460,23 @@ const std::string VPOParoptAtomics::getAtomicCaptureIntrinsicName(
   assert((CaptureKind == CaptureSwap || !Reversed ||
           !Operation->isCommutative()) &&
          "Reversed flag found true for commutative operation.");
-  assert(AtomicOpnd != nullptr && "AtomicOpnd is null.");
-  assert(AtomicOpnd->getType()->isPointerTy() &&
-         "Atomic operand should be pointer type.");
+  assert(AtomicOpndElemTy != nullptr && "AtomicOpndElemTy is null.");
   assert(ValueOpnd != nullptr && "ValueOpnd is null.");
 
   switch (CaptureKind) {
   case CaptureSwap:
     return getAtomicRWSIntrinsicName<WRNAtomicCapture, CaptureSwap>(
-        *BB, *(AtomicOpnd->getType()->getPointerElementType()));
+        *BB, *AtomicOpndElemTy);
 
   case CaptureBeforeOp:
     return getAtomicUCIntrinsicName<WRNAtomicCapture, CaptureBeforeOp>(
-        *Operation, OpKind, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
+        *Operation, OpKind, Reversed, AtomicOpndElemTy, *ValueOpnd,
+        IsTargetSPIRV);
 
   case CaptureAfterOp:
     return getAtomicUCIntrinsicName<WRNAtomicCapture, CaptureAfterOp>(
-        *Operation, OpKind, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
+        *Operation, OpKind, Reversed, AtomicOpndElemTy, *ValueOpnd,
+        IsTargetSPIRV);
   default:
     llvm_unreachable("Unknown capture kind in getAtomicCaptureIntrinsicName.");
   }

@@ -1,3 +1,5 @@
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-31399: The file was removed upstream. Need to accomodate intel tests
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
@@ -40,3 +42,18 @@ if(SYCL_BUILD_PI_CUDA)
     add_dependencies(check-sycl-cuda check-sycl-cuda-on-device)
   endif()
 endif()
+
+if(SYCL_BUILD_PI_ROCM)
+  add_lit_testsuite(check-sycl-rocm-on-device "Running the SYCL regression tests for ROCm"
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ARGS ${RT_TEST_ARGS}
+    PARAMS "SYCL_PLUGIN=rocm"
+    DEPENDS ${SYCL_TEST_DEPS}
+    EXCLUDE_FROM_CHECK_ALL
+  )
+  set_target_properties(check-sycl-rocm-on-device PROPERTIES FOLDER "SYCL ROCm device tests")
+  if(TARGET check-sycl-rocm)
+    add_dependencies(check-sycl-rocm check-sycl-rocm-on-device)
+  endif()
+endif()
+# end INTEL_CUSTOMIZATION

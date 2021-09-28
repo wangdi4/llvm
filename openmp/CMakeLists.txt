@@ -86,6 +86,9 @@ option(OPENMP_ENABLE_LIBOMP_PROFILING "Enable time profiling for libomp." OFF)
 # add_subdirectory(runtime)
 # end INTEL_CUSTOMIZATION
 
+# Build libompd.so
+add_subdirectory(libompd)
+
 if (OPENMP_ENABLE_LIBOMPTARGET)
   # Check that the library can actually be built.
   if (APPLE OR WIN32)

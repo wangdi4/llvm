@@ -1,6 +1,4 @@
-; RUN: opt -S -analyze -stack-safety-local -enable-new-pm=0 < %s | FileCheck %s
 ; RUN: opt -S -passes="print<stack-safety-local>" -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -S -analyze -stack-safety < %s -enable-new-pm=0 | FileCheck %s
 ; RUN: opt -S -passes="print-stack-safety" -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -70,7 +68,10 @@ define void @MemsetNonConstInBounds(i1 zeroext %z) {
 ; CHECK-LABEL: MemsetNonConstInBounds dso_preemptable{{$}}
 ; CHECK-NEXT: args uses:
 ; CHECK-NEXT: allocas uses:
-; CHECK-NEXT: x[4]: [0,7){{$}}
+; INTEL_CUSTOMIZATION
+; Refined from [0,7): memset runs from 0 to size-1
+; CHECK-NEXT: x[4]: [0,4){{$}}
+; end INTEL_CUSTOMIZATION
 ; CHECK-EMPTY:
 entry:
   %x = alloca i32, align 4

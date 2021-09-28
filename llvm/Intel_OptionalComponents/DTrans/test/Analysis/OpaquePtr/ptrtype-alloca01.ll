@@ -1,12 +1,14 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery for alloca instruction
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are placeholders for check lines that will
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
 ; Lines marked with CHECK should remain the same when changing to use opaque
 ;   pointers.
@@ -91,12 +93,12 @@ define internal void @test06() {
 
 ; allocate a pointer to a structure
 define internal void @test07() {
-  %local = alloca %struct.test*, !dtrans_type !1
+  %local = alloca %struct.test*, !intel_dtrans_type !3
   ret void
 }
 ; CHECK-LABEL: void @test07()
-; CHECK-CUR:  %local = alloca %struct.test*
-; CHECK-FUT:  %local = alloca p0
+; CHECK-NONOPAQUE:  %local = alloca %struct.test*
+; CHECK-OPAQUE:  %local = alloca ptr
 ; CHECK:      Aliased types:
 ; CHECK:        %struct.test**
 ; CHECK:      No element pointees.
@@ -104,23 +106,22 @@ define internal void @test07() {
 
 ; allocate a pointer to an array of structure pointers
 define internal void @test08() {
-  %local = alloca [9 x %struct.test*]*, !dtrans_type !3
+  %local = alloca [9 x %struct.test*]*, !intel_dtrans_type !4
   ret void
 }
 ; CHECK-LABEL: void @test08()
-; CHECK-CUR:  %local = alloca [9 x %struct.test*]*
-; CHECK-FUT:  %local = alloca p0
+; CHECK-NONOPAQUE:  %local = alloca [9 x %struct.test*]*
+; CHECK-OPAQUE:  %local = alloca ptr
 ; CHECK:      Aliased types:
 ; CHECK:        [9 x %struct.test*]**
 ; CHECK:      No element pointees.
 
 
-!1 = !{!2, i32 1}  ; %struct.test*
-!2 = !{!"R", %struct.test zeroinitializer, i32 0}  ; %struct.test
-!3 = !{!4, i32 1}  ; [9 x %struct.test*]*
-!4 = !{!"A", i32 9, !1}  ; [9 x %struct.test*]
-!5 = !{i32 0, i32 0}  ; i32
-!6 = !{i64 0, i32 0}  ; i64
-!7 = !{!"S", %struct.test zeroinitializer, i32 3, !5, !5, !6} ; { i32, i32, i64 }
+!1 = !{i32 0, i32 0}  ; i32
+!2 = !{i64 0, i32 0}  ; i64
+!3 = !{%struct.test zeroinitializer, i32 1}  ; %struct.test*
+!4 = !{!5, i32 1}  ; [9 x %struct.test*]*
+!5 = !{!"A", i32 9, !3}  ; [9 x %struct.test*]
+!6 = !{!"S", %struct.test zeroinitializer, i32 3, !1, !1, !2} ; { i32, i32, i64 }
 
-!dtrans_types = !{!7}
+!intel.dtrans.types = !{!6}

@@ -12,7 +12,7 @@ define void @test01() {
   call void @test01h(i32* %pFieldAddr)
   ret void
 }
-define void @test01h(i32* %pAddr) !dtrans_type !2 {
+define void @test01h(i32* "intel_dtrans_func_index"="1" %pAddr) !intel.dtrans.func.type !3 {
   store i32 0, i32* %pAddr
   ret void
 }
@@ -27,9 +27,8 @@ define void @test01h(i32* %pAddr) !dtrans_type !2 {
 ; CHECK: Safety data: Local instance | Field address taken call{{ *$}}
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (i32*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{i32 0, i32 1}  ; i32*
-!5 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{i32 0, i32 1}  ; i32*
+!3 = distinct !{!2}
+!4 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!5}
+!intel.dtrans.types = !{!4}

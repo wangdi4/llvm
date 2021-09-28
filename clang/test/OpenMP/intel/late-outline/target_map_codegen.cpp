@@ -95,18 +95,11 @@ typedef struct : public Base {
 
 void map_with_overlap_elems() {
   StructWithPtr s;
-// CHECK: [[L8:%[0-9]+]] = sdiv exact i64
-// CHECK: [[L9:%[0-9]+]] = getelementptr i32*, i32** %ptrBase1, i64 1
-// CHECK: [[L15:%[0-9]+]] = sdiv exact i64
-// CHECK: [[L16:%[0-9]+]] = getelementptr i32*, i32** %ptr1, i64 1
-// CHECK: [[L22:%[0-9]+]] = sdiv exact i64
 // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, {{.*}}, i64 32
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, i64 [[L8]], i64 281474976710657
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, i32** [[L9]], i64 [[L15]], i64 281474976710657
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, i32** [[L16]], i64 [[L22]], i64 281474976710657
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(i32** %ptr11, i32* %arrayidx, i64 4, i64 281474976710673
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(i32** %ptrBase13, i32* %arrayidx5, i64 4, i64 281474976710673
+// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, i64 {{56|28}}, i64 281474976710657
+// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(i32** %ptr1, i32* %arrayidx, i64 4, i64 281474976710673
+// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(i32** %ptrBase1, i32* %arrayidx3, i64 4, i64 281474976710673
 #pragma omp target map(to:s, s.ptr1 [0:1], s.ptrBase1 [0:1])
   {
     s.val++;
@@ -124,11 +117,15 @@ private:
 public:
   Mapper (T* p) : ptr(p) {
     int *axx;
+  // CHECK: [[L1:%[0-9]+]] = load i32*, i32** %pt{{.}}
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** %axx, i32** %axx, i64 8, i64 33
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.Mapper* %this1, %class.AOO** %ptr{{.*}}, i64 8, i64 547
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]],
+  // CHECK: store i32* [[L1]]
+  // CHECK: [[L4:%[0-9]+]] = load i32*, i32** %pt.map.ptr.tmp
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** %pt{{.*}} 
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32* [[L4]],
 #pragma omp target parallel for map(to:axx) reduction(+:pt[0:9])
     for (int i=0; i <20 ; i++) {
   // CHECK:load i32*, i32** %axx,

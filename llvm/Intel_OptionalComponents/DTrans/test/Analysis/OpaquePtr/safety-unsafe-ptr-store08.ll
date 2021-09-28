@@ -9,7 +9,7 @@
 %struct.test01 = type { i32, i32 }
 define void @test01() {
   %localStruct = alloca %struct.test01
-  %localPtr = alloca i8*, !dtrans_type !2
+  %localPtr = alloca i8*, !intel_dtrans_type !2
   %localStruct.as.p8 = bitcast %struct.test01* %localStruct to i8*
   store i8* %localStruct.as.p8, i8** %localPtr
   ret void
@@ -22,7 +22,7 @@ define void @test01() {
 %struct.test02 = type { i32, i32 }
 define void @test02() {
   %localStruct = alloca %struct.test02
-  %localPtr = alloca i16*, !dtrans_type !3
+  %localPtr = alloca i16*, !intel_dtrans_type !3
   %localStruct.as.p16 = bitcast %struct.test02* %localStruct to i16*
   store i16* %localStruct.as.p16, i16** %localPtr
   ret void
@@ -35,7 +35,7 @@ define void @test02() {
 %struct.test03 = type { i32, i32 }
 define void @test03() {
   %localStruct = alloca %struct.test03
-  %localPtr = alloca i64*, !dtrans_type !4
+  %localPtr = alloca i64*, !intel_dtrans_type !4
   %localStruct.as.p64 = bitcast %struct.test03* %localStruct to i64*
   store i64* %localStruct.as.p64, i64** %localPtr
   ret void
@@ -49,7 +49,7 @@ define void @test03() {
 %struct.test04b = type { i64 }
 define void @test04() {
   %localStruct = alloca %struct.test04a
-  %localPtr = alloca %struct.test04b*, !dtrans_type !6
+  %localPtr = alloca %struct.test04b*, !intel_dtrans_type !6
   %localStruct.as.pB = bitcast %struct.test04a* %localStruct to %struct.test04b*
   store %struct.test04b* %localStruct.as.pB, %struct.test04b** %localPtr
   ret void
@@ -68,12 +68,11 @@ define void @test04() {
 !3 = !{i16 0, i32 1}  ; i16*
 !4 = !{i64 0, i32 1}  ; i64*
 !5 = !{i64 0, i32 0}  ; i64
-!6 = !{!7, i32 1}  ; %struct.test04b*
-!7 = !{!"R", %struct.test04b zeroinitializer, i32 0}  ; %struct.test04b
-!8 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!9 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!10 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!11 = !{!"S", %struct.test04a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!12 = !{!"S", %struct.test04b zeroinitializer, i32 1, !5} ; { i64 }
+!6 = !{%struct.test04b zeroinitializer, i32 1}  ; %struct.test04b*
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!9 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!10 = !{!"S", %struct.test04a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!11 = !{!"S", %struct.test04b zeroinitializer, i32 1, !5} ; { i64 }
 
-!dtrans_types = !{!8, !9, !10, !11, !12}
+!intel.dtrans.types = !{!7, !8, !9, !10, !11}

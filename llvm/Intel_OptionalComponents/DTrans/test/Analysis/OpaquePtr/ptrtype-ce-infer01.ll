@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery where a BitcastOperator needs to be
 ; inferred using another constant operator expression
@@ -18,7 +20,7 @@
 ; CHECK-LABEL: @g_u01 = internal global %test01.union.u
 ; CHECK-NEXT:   LocalPointerInfo:
 ; CHECK-NEXT:    Aliased types:
-; CHECK-FUT-NEXT:  %test01.struct.anon*{{ *$}}
+; CHECK-OPAQUE-NEXT:  %test01.struct.anon*{{ *$}}
 ; CHECK-NEXT:      %test01.union.u*{{ *$}}
 ; CHECK-NEXT:    No element pointees.
 
@@ -32,8 +34,8 @@ define i32 @test01() {
   }
 
 ; CHECK-LABEL: i32 @test01()
-; CHECK-CUR: CE: i32* getelementptr (%test01.struct.anon, %test01.struct.anon* bitcast (%test01.union.u* @g_u01 to %test01.struct.anon*), i64 0, i32 1)
-; CHECK-FUT: CE: p0 getelementptr inbounds (%test01.struct.anon, p0 @g_u01, i64 0, i32 1)
+; CHECK-NONOPAQUE: CE: i32* getelementptr (%test01.struct.anon, %test01.struct.anon* bitcast (%test01.union.u* @g_u01 to %test01.struct.anon*), i64 0, i32 1)
+; CHECK-OPAQUE: CE: ptr getelementptr inbounds (%test01.struct.anon, ptr @g_u01, i64 0, i32 1)
 ; CHECK-NEXT:   LocalPointerInfo:
 ; CHECK-NEXT:     Aliased types:
 ; CHECK-NEXT:       i32*
@@ -41,18 +43,17 @@ define i32 @test01() {
 ; CHECK-NEXT:       %test01.struct.anon @ 1
 
 ; The bitcast will only appear in the form without opaque pointers
-; CHECK-CUR: CE: %test01.struct.anon* bitcast (%test01.union.u* @g_u01 to %test01.struct.anon*)
-; CHECK-CUR-NEXT:   LocalPointerInfo:
-; CHECK-CUR-NEXT:      Aliased types:
-; CHECK-CUR-NEXT:        %test01.struct.anon*
-; CHECK-CUR-NEXT:        %test01.union.u*
-; CHECK-CUR-NEXT:      No element pointees.
+; CHECK-NONOPAQUE: CE: %test01.struct.anon* bitcast (%test01.union.u* @g_u01 to %test01.struct.anon*)
+; CHECK-NONOPAQUE-NEXT:   LocalPointerInfo:
+; CHECK-NONOPAQUE-NEXT:      Aliased types:
+; CHECK-NONOPAQUE-NEXT:        %test01.struct.anon*
+; CHECK-NONOPAQUE-NEXT:        %test01.union.u*
+; CHECK-NONOPAQUE-NEXT:      No element pointees.
 
 
-!1 = !{double 0.0e+00, i32 0}  ; double
-!2 = !{i32 0, i32 0}  ; i32
-!3 = !{!"S", %test01.union.u zeroinitializer, i32 1, !1} ; { double }
-!4 = !{!"S", %test01.struct.anon zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
+!1 = !{i32 0, i32 0}  ; i32
+!2 = !{double 0.0e+00, i32 0}  ; double
+!3 = !{!"S", %test01.struct.anon zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!4 = !{!"S", %test01.union.u zeroinitializer, i32 1, !2} ; { double }
 
-!dtrans_types = !{!3, !4}
-
+!intel.dtrans.types = !{!3, !4}

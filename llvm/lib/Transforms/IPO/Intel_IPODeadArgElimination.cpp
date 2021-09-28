@@ -125,7 +125,7 @@ class IPDeadArgElimination {
 public:
   IPDeadArgElimination(Module &M) : M(M) {}
 
-  bool runImpl();
+  bool runImpl(WholeProgramInfo &WPInfo);
 
 private:
   Module &M;
@@ -518,9 +518,9 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
 
   // Collect the arguments attribute list, return and function attributes
   const AttributeList &ArgsAttrList = F->getAttributes();
-  AttrBuilder RAttrs(ArgsAttrList.getRetAttributes());
+  AttrBuilder RAttrs(ArgsAttrList.getRetAttrs());
   AttributeSet RetAttrs = AttributeSet::get(F->getContext(), RAttrs);
-  AttributeSet FnAttrs = ArgsAttrList.getFnAttributes();
+  AttributeSet FnAttrs = ArgsAttrList.getFnAttrs();
 
   // Collect the type and the attributes for the parameters that are live
   unsigned DeadArgI = 0;
@@ -537,7 +537,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     }
     Argument *Arg = F->getArg(ArgNo);
     LiveArgsType.push_back(Arg->getType());
-    LiveArgsAttrVec.push_back(ArgsAttrList.getParamAttributes(ArgNo));
+    LiveArgsAttrVec.push_back(ArgsAttrList.getParamAttrs(ArgNo));
   }
 
   assert((LiveArgsType.size() == LiveArgsAttrVec.size()) &&
@@ -553,7 +553,10 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
 
   // Create the new function and set the attributes
   Function *NF =
-      Function::Create(NFTy, F->getLinkage(), F->getAddressSpace(), "", &M);
+      Function::Create(NFTy, F->getLinkage(), F->getAddressSpace());
+  // Insert the function in the same place as the old function to prevent
+  // non-deterministic IR.
+  M.getFunctionList().insert(F->getIterator(), NF);
   // NOTE: copyAttributesFrom is not copying the llvm::Attributes, it is
   // copying information like visibility, linkage, etc.
   NF->copyAttributesFrom(F);
@@ -568,9 +571,9 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     // Get the call, actual parameters and return attributes
     CallBase &Call = cast<CallBase>(*F->user_back());
     const AttributeList &CallAttrList = Call.getAttributes();
-    AttrBuilder CallRAttrs(CallAttrList.getRetAttributes());
+    AttrBuilder CallRAttrs(CallAttrList.getRetAttrs());
     AttributeSet CallRetAttrs = AttributeSet::get(F->getContext(), CallRAttrs);
-    AttributeSet CallFnAttrs = CallAttrList.getFnAttributes();
+    AttributeSet CallFnAttrs = CallAttrList.getFnAttrs();
 
     // Collect the live actual parameters and the attributes
     DeadArgI = 0;
@@ -588,7 +591,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
         continue;
       }
       LiveArgs.push_back(ActualArg);
-      LiveArgsAttrVec.push_back(CallAttrList.getParamAttributes(ArgNo));
+      LiveArgsAttrVec.push_back(CallAttrList.getParamAttrs(ArgNo));
     }
 
     assert(LiveArgsAttrVec.size() == LiveArgs.size() &&
@@ -624,6 +627,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
       NewCall->setMetadata(MD.first, MD.second);
 
     getInlineReport()->replaceCallBaseWithCallBase(&Call, NewCall);
+    getMDInlineReport()->replaceCallBaseWithCallBase(&Call, NewCall);
 
     // Replace the users if needed and take the name
     if (!Call.use_empty() || Call.isUsedByMetadata())
@@ -727,21 +731,35 @@ bool IPDeadArgElimination::applyTransformation() {
   return Changed;
 }
 
-bool IPDeadArgElimination::runImpl() {
+bool IPDeadArgElimination::runImpl(WholeProgramInfo &WPInfo) {
 
   if (!EnableDeadArgEliminationStore)
     return false;
 
+  // Check if AVX2 is supported.
+  LLVM_DEBUG(dbgs() << "Debug information for IPO dead arg elimination:\n");
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+    LLVM_DEBUG({
+      dbgs() << "  AVX disabled\n";
+      dbgs() << "  Total functions modified: "
+             << NumOfFunctionsTransformed << "\n\n";
+    });
+    return false;
+  }
+
   for (Function &F : M) {
-    if (F.isDeclaration() || F.arg_empty())
+    // The function must be local, no varargs and shouldn't be naked.
+    if (F.isDeclaration() || F.arg_empty() ||
+        !F.hasLocalLinkage() || F.isVarArg() ||
+        F.hasFnAttribute(Attribute::Naked))
       continue;
 
     collectData(F);
   }
 
   LLVM_DEBUG({
-    dbgs() << "Debug information for IPO dead arg elimination:\n";
-    dbgs() << "  Cadidates collected: " << DeadArgsCandidatesMap.size()
+    dbgs() << "  Candidates collected: " << DeadArgsCandidatesMap.size()
            << "\n";
     for (auto Pair : DeadArgsCandidatesMap) {
       dbgs() << "    Function: " << Pair.first->getName() << "\n";
@@ -787,8 +805,9 @@ bool IPDeadArgElimination::runImpl() {
 PreservedAnalyses
 IntelIPODeadArgEliminationPass::run(Module &M, ModuleAnalysisManager &AM) {
 
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   IPDeadArgElimination DeleteDeadArgs(M);
-  if (!DeleteDeadArgs.runImpl())
+  if (!DeleteDeadArgs.runImpl(WPInfo))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
@@ -817,10 +836,12 @@ public:
       return false;
 
     IPDeadArgElimination DeleteDeadArgs(M);
-    return DeleteDeadArgs.runImpl();
+    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+    return DeleteDeadArgs.runImpl(WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
@@ -835,6 +856,7 @@ char IntelIPODeadArgEliminationWrapper::ID = 0;
 
 INITIALIZE_PASS_BEGIN(IntelIPODeadArgEliminationWrapper, DEBUG_TYPE,
                       "Intel IPO Dead Argument Elimination", false, false)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(IntelIPODeadArgEliminationWrapper, DEBUG_TYPE,
                     "Intel IPO Dead Argument Elimination", false, false)
 

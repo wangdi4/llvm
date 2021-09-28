@@ -5,14 +5,14 @@
 
 ; RUN: opt -S -convert-to-subscript %s 2>&1 | FileCheck -check-prefix=CHECK %s
 ; CHECK:  getelementptr inbounds [9 x [8 x i32]], [9 x [8 x i32]]* %A, i64 0, i64 0, i64 0
-; CHECK-NEXT:  call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 0, i64 288, i32*
-; CHECK-NEXT:  call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 32, i32*
-; CHECK-NEXT:  call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32*
+; CHECK-NEXT:  call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 0, i64 288, i32* elementtype(i32)
+; CHECK-NEXT:  call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 32, i32* elementtype(i32)
+; CHECK-NEXT:  call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32)
 
-; CHECK: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 3, i64 0, i64 2880, i32* getelementptr inbounds ([10 x [9 x [8 x i32]]], [10 x [9 x [8 x i32]]]* @A, i64 0, i64 0, i64 0, i64 0), i64 0)
-; CHECK-NEXT: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 0, i64 288, i32* {{.*}}, i64 1)
-; CHECK-NEXT: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 32, i32* {{.*}}, i64 2)
-; CHECK-NEXT: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* {{.*}}, i64 3)
+; CHECK: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 3, i64 0, i64 2880, i32* elementtype(i32) getelementptr inbounds ([10 x [9 x [8 x i32]]], [10 x [9 x [8 x i32]]]* @A, i64 0, i64 0, i64 0, i64 0), i64 0)
+; CHECK-NEXT: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 0, i64 288, i32* elementtype(i32) {{.*}}, i64 1)
+; CHECK-NEXT: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 32, i32* elementtype(i32) {{.*}}, i64 2)
+; CHECK-NEXT: call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) {{.*}}, i64 3)
 
 
 ; ModuleID = 'intel-subscript-conv.cc'

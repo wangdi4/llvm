@@ -52,4 +52,4 @@ define { i8, %struct.test04 } @test04() {
 !4 = !{!"S", %struct.test02 zeroinitializer, i32 1, !2} ; { i8 }
 !5 = !{!"S", %struct.test04 zeroinitializer, i32 2, !2, !2} ; { i8, i8 }
 
-!dtrans_types = !{!3, !4, !5}
+!intel.dtrans.types = !{!3, !4, !5}

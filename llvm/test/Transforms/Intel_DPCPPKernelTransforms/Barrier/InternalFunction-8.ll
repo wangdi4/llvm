@@ -7,9 +7,9 @@
 ;; The case: kernel "main" with barrier instruction and function "foo",
 ;;           which contains get_local_id() and returns void.
 ;; The expected result:
-;;      1. Kernel "main" contains no more barrier/barrier_dummy instructions
+;;      1. Kernel "main" contains no more barrier/dummy_barrier. instructions
 ;;      2. Kernel "main" is still calling function "foo"
-;;      3. function "foo" contains no more barrier/barrier_dummy instructions
+;;      3. function "foo" contains no more barrier/dummy_barrier. instructions
 ;;      4. function "foo" calls get_curr_wi exactly once
 ;;      5. function "foo" calls get_new_local_id.() instead of get_local_id
 ;;*****************************************************************************
@@ -21,20 +21,20 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main() nounwind {
 L1:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   br label %L2
 L2:
   call void @_Z18work_group_barrierj(i32 1)
   call void @foo(i32 0)
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: call void @foo(i32 0, [3 x i32]* %pLocalIds)
 ; CHECK: br label %
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: ret
 }
@@ -48,7 +48,7 @@ L2:
   call i32 @_Z13get_global_idj(i32 0)
   ret void
 
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
 ; CHECK: %pLocalId_0 = getelementptr inbounds [3 x i32], [3 x i32]* %pLocalIdValues, i32 0, i32 0
@@ -61,7 +61,7 @@ L2:
 }
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 declare i32 @_Z12get_local_idj(i32)
 declare i32 @_Z13get_global_idj(i32)
 

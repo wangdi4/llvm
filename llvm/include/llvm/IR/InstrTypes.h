@@ -1490,109 +1490,123 @@ public:
   Attribute getFnAttr(StringRef Kind) const { return getFnAttrImpl(Kind); }
 #endif // INTEL_CUSTOMIZATION
 
+  // TODO: remove non-AtIndex versions of these methods.
   /// adds the attribute to the list of attributes.
-  void addAttribute(unsigned i, Attribute::AttrKind Kind) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.addAttribute(getContext(), i, Kind);
-    setAttributes(PAL);
+  void addAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
+    Attrs = Attrs.addAttributeAtIndex(getContext(), i, Kind);
   }
 
   /// adds the attribute to the list of attributes.
-  void addAttribute(unsigned i, Attribute Attr) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.addAttribute(getContext(), i, Attr);
-    setAttributes(PAL);
+  void addAttributeAtIndex(unsigned i, Attribute Attr) {
+    Attrs = Attrs.addAttributeAtIndex(getContext(), i, Attr);
   }
 
 #if INTEL_CUSTOMIZATION
   /// adds the attribute to the list of attributes.
-  void addAttribute(unsigned i, StringRef Kind) {
+  /*void addAttribute(unsigned i, StringRef Kind) {
     AttributeList PAL = getAttributes();
     PAL = PAL.addAttribute(getContext(), i, Kind);
     setAttributes(PAL);
-  }
+  }*/
 #endif // INTEL_CUSTOMIZATION
+
+  /// Adds the attribute to the function.
+  void addFnAttr(Attribute::AttrKind Kind) {
+    Attrs = Attrs.addFnAttribute(getContext(), Kind);
+  }
+
+  /// Adds the attribute to the function.
+  void addFnAttr(Attribute Attr) {
+    Attrs = Attrs.addFnAttribute(getContext(), Attr);
+  }
+
+  /// Adds the attribute to the function
+  void addFnAttr(StringRef Kind) {
+    Attrs = Attrs.addFnAttribute(getContext(), Kind);
+  }
+
+  /// Adds the attribute to the return value.
+  void addRetAttr(Attribute::AttrKind Kind) {
+    Attrs = Attrs.addRetAttribute(getContext(), Kind);
+  }
+
+  /// Adds the attribute to the return value.
+  void addRetAttr(Attribute Attr) {
+    Attrs = Attrs.addRetAttribute(getContext(), Attr);
+  }
+
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
     assert(ArgNo < getNumArgOperands() && "Out of bounds");
-    AttributeList PAL = getAttributes();
-    PAL = PAL.addParamAttribute(getContext(), ArgNo, Kind);
-    setAttributes(PAL);
+    Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute Attr) {
     assert(ArgNo < getNumArgOperands() && "Out of bounds");
-    AttributeList PAL = getAttributes();
-    PAL = PAL.addParamAttribute(getContext(), ArgNo, Attr);
-    setAttributes(PAL);
+    Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Attr);
   }
 
   /// removes the attribute from the list of attributes.
-  void removeAttribute(unsigned i, Attribute::AttrKind Kind) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.removeAttribute(getContext(), i, Kind);
-    setAttributes(PAL);
+  void removeAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
+    Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
   }
 
   /// removes the attribute from the list of attributes.
-  void removeAttribute(unsigned i, StringRef Kind) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.removeAttribute(getContext(), i, Kind);
-    setAttributes(PAL);
+  void removeAttributeAtIndex(unsigned i, StringRef Kind) {
+    Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
   }
 
-  void removeAttributes(unsigned i, const AttrBuilder &Attrs) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.removeAttributes(getContext(), i, Attrs);
-    setAttributes(PAL);
+  /// Removes the attributes from the function
+  void removeFnAttrs(const AttrBuilder &AttrsToRemove) {
+    Attrs = Attrs.removeFnAttributes(getContext(), AttrsToRemove);
+  }
+
+  /// Removes the attribute from the function
+  void removeFnAttr(Attribute::AttrKind Kind) {
+    Attrs = Attrs.removeFnAttribute(getContext(), Kind);
+  }
+
+  /// Removes the attribute from the function
+  void removeFnAttr(StringRef Kind) {
+    Attrs = Attrs.removeFnAttribute(getContext(), Kind);
+  }
+
+  /// Removes the attribute from the return value
+  void removeRetAttr(Attribute::AttrKind Kind) {
+    Attrs = Attrs.removeRetAttribute(getContext(), Kind);
+  }
+
+  /// Removes the attributes from the return value
+  void removeRetAttrs(const AttrBuilder &AttrsToRemove) {
+    Attrs = Attrs.removeRetAttributes(getContext(), AttrsToRemove);
   }
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
     assert(ArgNo < getNumArgOperands() && "Out of bounds");
-    AttributeList PAL = getAttributes();
-    PAL = PAL.removeParamAttribute(getContext(), ArgNo, Kind);
-    setAttributes(PAL);
+    Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, StringRef Kind) {
     assert(ArgNo < getNumArgOperands() && "Out of bounds");
-    AttributeList PAL = getAttributes();
-    PAL = PAL.removeParamAttribute(getContext(), ArgNo, Kind);
-    setAttributes(PAL);
+    Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Removes the attributes from the given argument
-  void removeParamAttrs(unsigned ArgNo, const AttrBuilder &Attrs) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.removeParamAttributes(getContext(), ArgNo, Attrs);
-    setAttributes(PAL);
-  }
-
-  /// Removes noundef and other attributes that imply undefined behavior if a
-  /// `undef` or `poison` value is passed from the given argument.
-  void removeParamUndefImplyingAttrs(unsigned ArgNo) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
-    AttributeList PAL = getAttributes();
-    PAL = PAL.removeParamUndefImplyingAttributes(getContext(), ArgNo);
-    setAttributes(PAL);
+  void removeParamAttrs(unsigned ArgNo, const AttrBuilder &AttrsToRemove) {
+    Attrs = Attrs.removeParamAttributes(getContext(), ArgNo, AttrsToRemove);
   }
 
   /// adds the dereferenceable attribute to the list of attributes.
-  void addDereferenceableAttr(unsigned i, uint64_t Bytes) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.addDereferenceableAttr(getContext(), i, Bytes);
-    setAttributes(PAL);
+  void addDereferenceableParamAttr(unsigned i, uint64_t Bytes) {
+    Attrs = Attrs.addDereferenceableParamAttr(getContext(), i, Bytes);
   }
 
-  /// adds the dereferenceable_or_null attribute to the list of
-  /// attributes.
-  void addDereferenceableOrNullAttr(unsigned i, uint64_t Bytes) {
-    AttributeList PAL = getAttributes();
-    PAL = PAL.addDereferenceableOrNullAttr(getContext(), i, Bytes);
-    setAttributes(PAL);
+  /// adds the dereferenceable attribute to the list of attributes.
+  void addDereferenceableRetAttr(uint64_t Bytes) {
+    Attrs = Attrs.addDereferenceableRetAttr(getContext(), Bytes);
   }
 
   /// Determine whether the return value has the given attribute.
@@ -1606,13 +1620,18 @@ public:
   bool paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const;
 
   /// Get the attribute of a given kind at a position.
-  Attribute getAttribute(unsigned i, Attribute::AttrKind Kind) const {
-    return getAttributes().getAttribute(i, Kind);
+  Attribute getAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) const {
+    return getAttributes().getAttributeAtIndex(i, Kind);
   }
 
   /// Get the attribute of a given kind at a position.
-  Attribute getAttribute(unsigned i, StringRef Kind) const {
-    return getAttributes().getAttribute(i, Kind);
+  Attribute getAttributeAtIndex(unsigned i, StringRef Kind) const {
+    return getAttributes().getAttributeAtIndex(i, Kind);
+  }
+
+  /// Get the attribute of a given kind for the function.
+  Attribute getFnAttr(Attribute::AttrKind Kind) const {
+    return getAttributes().getFnAttr(Kind);
   }
 
   /// Get the attribute of a given kind from a given arg
@@ -1631,42 +1650,35 @@ public:
   /// A.
   ///
   /// Data operands include call arguments and values used in operand bundles,
-  /// but does not include the callee operand.  This routine dispatches to the
-  /// underlying AttributeList or the OperandBundleUser as appropriate.
+  /// but does not include the callee operand.
   ///
   /// The index \p i is interpreted as
   ///
-  ///  \p i == Attribute::ReturnIndex  -> the return value
-  ///  \p i in [1, arg_size + 1)  -> argument number (\p i - 1)
-  ///  \p i in [arg_size + 1, data_operand_size + 1) -> bundle operand at index
-  ///     (\p i - 1) in the operand list.
+  ///  \p i in [0, arg_size)  -> argument number (\p i)
+  ///  \p i in [arg_size, data_operand_size) -> bundle operand at index
+  ///     (\p i) in the operand list.
   bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const {
     // Note that we have to add one because `i` isn't zero-indexed.
-    assert(i < (getNumArgOperands() + getNumTotalBundleOperands() + 1) &&
+    assert(i < getNumArgOperands() + getNumTotalBundleOperands() &&
            "Data operand index out of bounds!");
 
     // The attribute A can either be directly specified, if the operand in
     // question is a call argument; or be indirectly implied by the kind of its
     // containing operand bundle, if the operand is a bundle operand.
 
-    if (i == AttributeList::ReturnIndex)
-      return hasRetAttr(Kind);
+    if (i < getNumArgOperands())
+      return paramHasAttr(i, Kind);
 
-    // FIXME: Avoid these i - 1 calculations and update the API to use
-    // zero-based indices.
-    if (i < (getNumArgOperands() + 1))
-      return paramHasAttr(i - 1, Kind);
-
-    assert(hasOperandBundles() && i >= (getBundleOperandsStartIndex() + 1) &&
+    assert(hasOperandBundles() && i >= getBundleOperandsStartIndex() &&
            "Must be either a call argument or an operand bundle!");
-    return bundleOperandHasAttr(i - 1, Kind);
+    return bundleOperandHasAttr(i, Kind);
   }
 
   /// Determine whether this data operand is not captured.
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool doesNotCapture(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::NoCapture);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::NoCapture);
   }
 
   /// Determine whether this argument is passed by value.
@@ -1707,21 +1719,21 @@ public:
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool doesNotAccessMemory(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadNone);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::ReadNone);
   }
 
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool onlyReadsMemory(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadOnly) ||
-           dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadNone);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::ReadOnly) ||
+           dataOperandHasImpliedAttr(OpNo, Attribute::ReadNone);
   }
 
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool doesNotReadMemory(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::WriteOnly) ||
-           dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadNone);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::WriteOnly) ||
+           dataOperandHasImpliedAttr(OpNo, Attribute::ReadNone);
   }
 
   /// Extract the alignment of the return value.
@@ -1765,14 +1777,26 @@ public:
 
   /// Extract the number of dereferenceable bytes for a call or
   /// parameter (0=unknown).
-  uint64_t getDereferenceableBytes(unsigned i) const {
-    return Attrs.getDereferenceableBytes(i);
+  uint64_t getRetDereferenceableBytes() const {
+    return Attrs.getRetDereferenceableBytes();
   }
 
-  /// Extract the number of dereferenceable_or_null bytes for a call or
+  /// Extract the number of dereferenceable bytes for a call or
   /// parameter (0=unknown).
-  uint64_t getDereferenceableOrNullBytes(unsigned i) const {
-    return Attrs.getDereferenceableOrNullBytes(i);
+  uint64_t getParamDereferenceableBytes(unsigned i) const {
+    return Attrs.getParamDereferenceableBytes(i);
+  }
+
+  /// Extract the number of dereferenceable_or_null bytes for a call
+  /// (0=unknown).
+  uint64_t getRetDereferenceableOrNullBytes() const {
+    return Attrs.getRetDereferenceableOrNullBytes();
+  }
+
+  /// Extract the number of dereferenceable_or_null bytes for a
+  /// parameter (0=unknown).
+  uint64_t getParamDereferenceableOrNullBytes(unsigned i) const {
+    return Attrs.getParamDereferenceableOrNullBytes(i);
   }
 
   /// Return true if the return value is known to be not null.
@@ -1782,7 +1806,7 @@ public:
 
   /// Determine if the return value is marked with NoAlias attribute.
   bool returnDoesNotAlias() const {
-    return Attrs.hasAttribute(AttributeList::ReturnIndex, Attribute::NoAlias);
+    return Attrs.hasRetAttr(Attribute::NoAlias);
   }
 
   /// If one of the arguments has the 'returned' attribute, returns its
@@ -1801,40 +1825,30 @@ public:
 
   /// Return true if the call should not be inlined.
   bool isNoInline() const { return hasFnAttr(Attribute::NoInline); }
-  void setIsNoInline() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::NoInline);
-  }
+  void setIsNoInline() { addFnAttr(Attribute::NoInline); }
   /// Determine if the call does not access memory.
   bool doesNotAccessMemory() const { return hasFnAttr(Attribute::ReadNone); }
-  void setDoesNotAccessMemory() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::ReadNone);
-  }
+  void setDoesNotAccessMemory() { addFnAttr(Attribute::ReadNone); }
 
   /// Determine if the call does not access or only reads memory.
   bool onlyReadsMemory() const {
     return doesNotAccessMemory() || hasFnAttr(Attribute::ReadOnly);
   }
 
-  void setOnlyReadsMemory() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::ReadOnly);
-  }
+  void setOnlyReadsMemory() { addFnAttr(Attribute::ReadOnly); }
 
   /// Determine if the call does not access or only writes memory.
   bool doesNotReadMemory() const {
     return doesNotAccessMemory() || hasFnAttr(Attribute::WriteOnly);
   }
-  void setDoesNotReadMemory() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::WriteOnly);
-  }
+  void setDoesNotReadMemory() { addFnAttr(Attribute::WriteOnly); }
 
   /// Determine if the call can access memmory only using pointers based
   /// on its arguments.
   bool onlyAccessesArgMemory() const {
     return hasFnAttr(Attribute::ArgMemOnly);
   }
-  void setOnlyAccessesArgMemory() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::ArgMemOnly);
-  }
+  void setOnlyAccessesArgMemory() { addFnAttr(Attribute::ArgMemOnly); }
 
   /// Determine if the function may only access memory that is
   /// inaccessible from the IR.
@@ -1842,7 +1856,7 @@ public:
     return hasFnAttr(Attribute::InaccessibleMemOnly);
   }
   void setOnlyAccessesInaccessibleMemory() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::InaccessibleMemOnly);
+    addFnAttr(Attribute::InaccessibleMemOnly);
   }
 
   /// Determine if the function may only access memory that is
@@ -1851,44 +1865,31 @@ public:
     return hasFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
   }
   void setOnlyAccessesInaccessibleMemOrArgMem() {
-    addAttribute(AttributeList::FunctionIndex,
-                 Attribute::InaccessibleMemOrArgMemOnly);
+    addFnAttr(Attribute::InaccessibleMemOrArgMemOnly);
   }
   /// Determine if the call cannot return.
   bool doesNotReturn() const { return hasFnAttr(Attribute::NoReturn); }
-  void setDoesNotReturn() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::NoReturn);
-  }
+  void setDoesNotReturn() { addFnAttr(Attribute::NoReturn); }
 
   /// Determine if the call should not perform indirect branch tracking.
   bool doesNoCfCheck() const { return hasFnAttr(Attribute::NoCfCheck); }
 
   /// Determine if the call cannot unwind.
   bool doesNotThrow() const { return hasFnAttr(Attribute::NoUnwind); }
-  void setDoesNotThrow() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::NoUnwind);
-  }
+  void setDoesNotThrow() { addFnAttr(Attribute::NoUnwind); }
 
   /// Determine if the invoke cannot be duplicated.
   bool cannotDuplicate() const { return hasFnAttr(Attribute::NoDuplicate); }
-  void setCannotDuplicate() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::NoDuplicate);
-  }
+  void setCannotDuplicate() { addFnAttr(Attribute::NoDuplicate); }
 
   /// Determine if the call cannot be tail merged.
   bool cannotMerge() const { return hasFnAttr(Attribute::NoMerge); }
-  void setCannotMerge() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::NoMerge);
-  }
+  void setCannotMerge() { addFnAttr(Attribute::NoMerge); }
 
   /// Determine if the invoke is convergent
   bool isConvergent() const { return hasFnAttr(Attribute::Convergent); }
-  void setConvergent() {
-    addAttribute(AttributeList::FunctionIndex, Attribute::Convergent);
-  }
-  void setNotConvergent() {
-    removeAttribute(AttributeList::FunctionIndex, Attribute::Convergent);
-  }
+  void setConvergent() { addFnAttr(Attribute::Convergent); }
+  void setNotConvergent() { removeFnAttr(Attribute::Convergent); }
 
   /// Determine if the call returns a structure through first
   /// pointer argument.
@@ -1938,6 +1939,13 @@ public:
   bool isBundleOperand(unsigned Idx) const {
     return hasOperandBundles() && Idx >= getBundleOperandsStartIndex() &&
            Idx < getBundleOperandsEndIndex();
+  }
+
+  /// Return true if the operand at index \p Idx is a bundle operand that has
+  /// tag ID \p ID.
+  bool isOperandBundleOfType(uint32_t ID, unsigned Idx) const {
+    return isBundleOperand(Idx) &&
+           getOperandBundleForOperand(Idx).getTagID() == ID;
   }
 
   /// Returns true if the use is a bundle operand.
@@ -2289,7 +2297,7 @@ private:
   bool hasFnAttrOnCalledFunction(StringRef Kind) const;
 
   template <typename AttrKind> bool hasFnAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasFnAttribute(Kind))
+    if (Attrs.hasFnAttr(Kind))
       return true;
 
     // Operand bundles override attributes on the called function, but don't
@@ -2302,15 +2310,14 @@ private:
 
 #if INTEL_CUSTOMIZATION
   template <typename AttrKind> Attribute getFnAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasAttribute(AttributeList::FunctionIndex, Kind))
-      return Attrs.getAttribute(AttributeList::FunctionIndex, Kind);
+    if (Attrs.hasFnAttr(Kind))
+      return Attrs.getFnAttr(Kind);
 
     if (isFnAttrDisallowedByOpBundle(Kind))
       return Attribute();
 
     if (const Function *F = getCalledFunction())
-      return F->getAttributes().getAttribute(AttributeList::FunctionIndex,
-                                             Kind);
+      return F->getAttributes().getFnAttr(Kind);
 
     return Attribute();
   }
@@ -2319,12 +2326,12 @@ private:
   /// Determine whether the return value has the given attribute. Supports
   /// Attribute::AttrKind and StringRef as \p AttrKind types.
   template <typename AttrKind> bool hasRetAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasAttribute(AttributeList::ReturnIndex, Kind))
+    if (Attrs.hasRetAttr(Kind))
       return true;
 
     // Look at the callee, if available.
     if (const Function *F = getCalledFunction())
-      return F->getAttributes().hasAttribute(AttributeList::ReturnIndex, Kind);
+      return F->getAttributes().hasRetAttr(Kind);
     return false;
   }
 };

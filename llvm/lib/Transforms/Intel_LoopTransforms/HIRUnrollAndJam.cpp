@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -233,6 +233,7 @@ public:
 class HIRUnrollAndJam::Analyzer final : public HLNodeVisitorBase {
   HIRUnrollAndJam &HUAJ;
 
+  HLNode *SkipNode;
 private:
   /// Computes and returns unroll factor for the loop using cost model. Returns
   /// 0 to indicate that unroll & jam should be throttled recursively and 1 to
@@ -247,7 +248,7 @@ private:
   void refineUnrollFactorUsingParentLoop(HLLoop *Lp, unsigned &UnrollFactor);
 
 public:
-  Analyzer(HIRUnrollAndJam &HUAJ) : HUAJ(HUAJ) {}
+  Analyzer(HIRUnrollAndJam &HUAJ) : HUAJ(HUAJ), SkipNode(nullptr) {}
 
   /// Performs preliminary checks to throttle loops for unroll & jam.
   void visit(HLLoop *Lp);
@@ -262,6 +263,8 @@ public:
   void visit(HLNode *Node);
 
   void postVisit(HLNode *) {}
+
+  bool skipRecursion(const HLNode* Node) const { return Node == SkipNode; }
 
   /// Driver function performing legality/profitability analysis on a loopnest
   /// represented by \p Lp.
@@ -595,6 +598,16 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
 
   HUAJ.initializeUnrollFactor(Lp);
 
+  if (!Lp->isInnermost() &&
+      HLNodeUtils::hasManyLifeTimeIntrinsics(Lp)) {
+    LLVM_DEBUG(dbgs() << "Avoiding UaJ due to LifeTime\n");
+    LLVM_DEBUG(Lp->dump());
+
+    HUAJ.throttleRecursively(Lp);
+    SkipNode = Lp;
+    return;
+  }
+
   if (!Lp->isDo()) {
     LLVM_DEBUG(dbgs() << "Skipping unroll & jam of non-DO loop!\n");
     HUAJ.throttleRecursively(Lp);
@@ -747,7 +760,7 @@ bool HIRUnrollAndJam::hasNonInnermostChildrenLoop(HLLoop *Lp) const {
 static bool isCompleteUnrollCandidate(HLLoop *OuterLp) {
   SmallVector<HLLoop *, 8> Loops;
 
-  OuterLp->getHLNodeUtils().gatherAllLoops(OuterLp, Loops);
+  HLNodeUtils::gatherAllLoops(OuterLp, Loops);
 
   uint64_t TC;
   for (auto Lp : Loops) {
@@ -1525,10 +1538,10 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
     }
 
     // Opt reports for inner loops in unroll & jam mode are moved here.
-    LoopOptReportBuilder &LORBuilder =
-        OrigLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+    OptReportBuilder &ORBuilder =
+        OrigLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-    LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+    ORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
   }
 
   HLNode *CurFirstNode = OrigLoop->getFirstChild();
@@ -1689,8 +1702,8 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   bool IsUnknownLoop = Loop->isUnknown();
   HLLoop *MainLoop = nullptr;
 
-  LoopOptReportBuilder &LORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   uint64_t LoopBackedgeWeightBeforeUnroll = 0;
   uint64_t FalseWeight = 0;
@@ -1702,13 +1715,13 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     MainLoop->dividePragmaBasedTripCount(UnrollFactor);
 
     // While loop unrolled by %d
-    LORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
-                                    UnrollFactor);
+    ORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
+                                   UnrollFactor);
 
   } else {
     // Create the unrolled main loop and setup remainder loop.
     MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
-        Loop, UnrollFactor, NeedRemainderLoop, LORBuilder,
+        Loop, UnrollFactor, NeedRemainderLoop, ORBuilder,
         LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }
 

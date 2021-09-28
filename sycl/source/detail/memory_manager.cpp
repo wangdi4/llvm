@@ -242,6 +242,11 @@ void *MemoryManager::allocateMemSubBuffer(ContextImplPtr TargetContext,
         "Specified offset of the sub-buffer being constructed is not a "
         "multiple of the memory base address alignment",
         PI_INVALID_VALUE);
+
+  if (Error != PI_SUCCESS) {
+    Plugin.reportPiError(Error, "allocateMemSubBuffer()");
+  }
+
   return NewMem;
 }
 
@@ -259,7 +264,7 @@ void prepTermPositions(TermPositions &pos, int Dimensions,
   //  3 ==>  {depth, height, width}
   // Some callers schedule 0 as DimDst/DimSrc.
 
-  if (Type == detail::SYCLMemObjI::MemObjType::BUFFER) {
+  if (Type == detail::SYCLMemObjI::MemObjType::Buffer) {
     if (Dimensions == 3) {
       pos.XTerm = 2, pos.YTerm = 1, pos.ZTerm = 0;
     } else if (Dimensions == 2) {
@@ -300,7 +305,7 @@ void copyH2D(SYCLMemObjI *SYCLMemObj, char *SrcMem, QueueImplPtr,
   size_t DstSzWidthBytes = DstSize[DstPos.XTerm] * DstElemSize;
   size_t SrcSzWidthBytes = SrcSize[SrcPos.XTerm] * SrcElemSize;
 
-  if (MemType == detail::SYCLMemObjI::MemObjType::BUFFER) {
+  if (MemType == detail::SYCLMemObjI::MemObjType::Buffer) {
     if (1 == DimDst && 1 == DimSrc) {
       Plugin.call<PiApiKind::piEnqueueMemBufferWrite>(
           Queue, DstMem,
@@ -378,7 +383,7 @@ void copyD2H(SYCLMemObjI *SYCLMemObj, RT::PiMem SrcMem, QueueImplPtr SrcQueue,
   size_t DstSzWidthBytes = DstSize[DstPos.XTerm] * DstElemSize;
   size_t SrcSzWidthBytes = SrcSize[SrcPos.XTerm] * SrcElemSize;
 
-  if (MemType == detail::SYCLMemObjI::MemObjType::BUFFER) {
+  if (MemType == detail::SYCLMemObjI::MemObjType::Buffer) {
     if (1 == DimDst && 1 == DimSrc) {
       Plugin.call<PiApiKind::piEnqueueMemBufferRead>(
           Queue, SrcMem,
@@ -447,7 +452,7 @@ void copyD2D(SYCLMemObjI *SYCLMemObj, RT::PiMem SrcMem, QueueImplPtr SrcQueue,
   size_t DstSzWidthBytes = DstSize[DstPos.XTerm] * DstElemSize;
   size_t SrcSzWidthBytes = SrcSize[SrcPos.XTerm] * SrcElemSize;
 
-  if (MemType == detail::SYCLMemObjI::MemObjType::BUFFER) {
+  if (MemType == detail::SYCLMemObjI::MemObjType::Buffer) {
     if (1 == DimDst && 1 == DimSrc) {
       Plugin.call<PiApiKind::piEnqueueMemBufferCopy>(
           Queue, SrcMem, DstMem, SrcXOffBytes, DstXOffBytes,
@@ -573,7 +578,7 @@ void MemoryManager::fill(SYCLMemObjI *SYCLMemObj, void *Mem, QueueImplPtr Queue,
   assert(SYCLMemObj && "The SYCLMemObj is nullptr");
 
   const detail::plugin &Plugin = Queue->getPlugin();
-  if (SYCLMemObj->getType() == detail::SYCLMemObjI::MemObjType::BUFFER) {
+  if (SYCLMemObj->getType() == detail::SYCLMemObjI::MemObjType::Buffer) {
     if (Dim == 1) {
       Plugin.call<PiApiKind::piEnqueueMemBufferFill>(
           Queue->getHandleRef(), pi::cast<RT::PiMem>(Mem), Pattern, PatternSize,

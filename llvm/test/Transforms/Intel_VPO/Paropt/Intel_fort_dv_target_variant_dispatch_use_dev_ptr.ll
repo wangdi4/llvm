@@ -125,11 +125,11 @@ alloca_3:
   store i64 4, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 1), align 1
   store i64 1, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 4), align 1
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 2), align 1
-  %"val$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"val$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 6, i32 0, i32 2), i32 0)
   store i64 1, i64* %"val$[]", align 1
-  %"val$[]5" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 6, i32 0, i32 0), i32 0)
+  %"val$[]5" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 6, i32 0, i32 0), i32 0)
   store i64 10, i64* %"val$[]5", align 1
-  %"val$[]8" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 6, i32 0, i32 1), i32 0)
+  %"val$[]8" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 6, i32 0, i32 1), i32 0)
   store i64 4, i64* %"val$[]8", align 1
   %val_fetch = load i64, i64* getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 3), align 1
   %and = and i64 %val_fetch, -68451041281
@@ -162,7 +162,7 @@ alloca_3:
   %func_result56 = call i32 @for_alloc_allocatable(i64 40, i8** bitcast (%"QNCA_a0$i32*$rank1$.1"* @"main_$Y" to i8**), i32 %or54)
   %val_fetch80 = load i32*, i32** getelementptr inbounds (%"QNCA_a0$i32*$rank1$.1", %"QNCA_a0$i32*$rank1$.1"* @"main_$Y", i32 0, i32 0), align 1
   %"val$[]72_fetch" = load i64, i64* %"val$[]", align 1
-  %"val_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %"val$[]72_fetch", i64 4, i32* %val_fetch80, i64 2)
+  %"val_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %"val$[]72_fetch", i64 4, i32* elementtype(i32) %val_fetch80, i64 2)
   store i32 2, i32* %"val_fetch[]", align 1
   br label %region.entry
 

@@ -671,7 +671,9 @@ void X86FrameLowering::emitStackProbeInlineGenericLoop(
   MF.insert(MBBIter, testMBB);
   MF.insert(MBBIter, tailMBB);
 
-  Register FinalStackProbed = Uses64BitFramePtr ? X86::R11 : X86::R11D;
+  Register FinalStackProbed = Uses64BitFramePtr ? X86::R11
+                              : Is64Bit         ? X86::R11D
+                                                : X86::EAX;
   BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::COPY), FinalStackProbed)
       .addReg(StackPtr)
       .setMIFlag(MachineInstr::FrameSetup);
@@ -1092,7 +1094,9 @@ void X86FrameLowering::BuildStackAlignAND(MachineBasicBlock &MBB,
       MF.insert(MBBIter, bodyMBB);
       MF.insert(MBBIter, footMBB);
       const unsigned MovMIOpc = Is64Bit ? X86::MOV64mi32 : X86::MOV32mi;
-      Register FinalStackProbed = Uses64BitFramePtr ? X86::R11 : X86::R11D;
+      Register FinalStackProbed = Uses64BitFramePtr ? X86::R11
+                                  : Is64Bit         ? X86::R11D
+                                                    : X86::EAX;
 
       // Setup entry block
       {
@@ -1349,14 +1353,11 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   // to determine the end of the prologue.
   DebugLoc DL;
 
-  // Add RETADDR move area to callee saved frame size.
-  int TailCallReturnAddrDelta = X86FI->getTCReturnAddrDelta();
-  if (TailCallReturnAddrDelta && IsWin64Prologue)
+  // Space reserved for stack-based arguments when making a (ABI-guaranteed)
+  // tail call.
+  unsigned TailCallArgReserveSize = -X86FI->getTCReturnAddrDelta();
+  if (TailCallArgReserveSize  && IsWin64Prologue)
     report_fatal_error("Can't handle guaranteed tail call under win64 yet");
-
-  if (TailCallReturnAddrDelta < 0)
-    X86FI->setCalleeSavedFrameSize(
-      X86FI->getCalleeSavedFrameSize() - TailCallReturnAddrDelta);
 
   const bool EmitStackProbeCall =
       STI.getTargetLowering()->hasStackProbeSymbol(MF);
@@ -1391,7 +1392,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       !EmitStackProbeCall &&                   // No stack probes.
       !MFI.hasCopyImplyingStackAdjustment() && // Don't push and pop.
       !MF.shouldSplitStack()) {                // Regular stack
-    uint64_t MinSize = X86FI->getCalleeSavedFrameSize();
+    uint64_t MinSize =
+        X86FI->getCalleeSavedFrameSize() - X86FI->getTCReturnAddrDelta();
     if (HasFP) MinSize += SlotSize;
     X86FI->setUsesRedZone(MinSize > 0 || StackSize > 0);
     StackSize = std::max(MinSize, StackSize > 128 ? StackSize - 128 : 0);
@@ -1401,8 +1403,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   // Insert stack pointer adjustment for later moving of return addr.  Only
   // applies to tail call optimized functions where the callee argument stack
   // size is bigger than the callers.
-  if (TailCallReturnAddrDelta < 0) {
-    BuildStackAdjustment(MBB, MBBI, DL, TailCallReturnAddrDelta,
+  if (TailCallArgReserveSize != 0) {
+    BuildStackAdjustment(MBB, MBBI, DL, -(int)TailCallArgReserveSize,
                          /*InEpilogue=*/false)
         .setMIFlag(MachineInstr::FrameSetup);
   }
@@ -1451,7 +1453,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
     if (X86FI->getRestoreBasePointer())
       FrameSize += SlotSize;
 
-    NumBytes = FrameSize - X86FI->getCalleeSavedFrameSize();
+    NumBytes = FrameSize -
+               (X86FI->getCalleeSavedFrameSize() + TailCallArgReserveSize);
 
     // Callee-saved registers are pushed on stack before the stack is realigned.
     if (TRI->hasStackRealignment(MF) && !IsWin64Prologue)
@@ -1554,7 +1557,8 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
     }
   } else {
     assert(!IsFunclet && "funclets without FPs not yet implemented");
-    NumBytes = StackSize - X86FI->getCalleeSavedFrameSize();
+    NumBytes = StackSize -
+               (X86FI->getCalleeSavedFrameSize() + TailCallArgReserveSize);
   }
 
   // Update the offset adjustment, which is mainly used by codeview to translate
@@ -2011,6 +2015,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   uint64_t StackSize = MFI.getStackSize();
   uint64_t MaxAlign = calculateMaxStackAlign(MF);
   unsigned CSSize = X86FI->getCalleeSavedFrameSize();
+  unsigned TailCallArgReserveSize = -X86FI->getTCReturnAddrDelta();
   bool HasFP = hasFP(MF);
   uint64_t NumBytes = 0;
 
@@ -2024,14 +2029,14 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   } else if (HasFP) {
     // Calculate required stack adjustment.
     uint64_t FrameSize = StackSize - SlotSize;
-    NumBytes = FrameSize - CSSize;
+    NumBytes = FrameSize - CSSize - TailCallArgReserveSize;
 
     // Callee-saved registers were pushed on stack before the stack was
     // realigned.
     if (TRI->hasStackRealignment(MF) && !IsWin64Prologue)
       NumBytes = alignTo(FrameSize, MaxAlign);
   } else {
-    NumBytes = StackSize - CSSize;
+    NumBytes = StackSize - CSSize - TailCallArgReserveSize;
   }
   uint64_t SEHStackAllocAmt = NumBytes;
 
@@ -2098,7 +2103,6 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 
   if (MBBI != MBB.end())
     DL = MBBI->getDebugLoc();
-
   // If there is an ADD32ri or SUB32ri of ESP immediately before this
   // instruction, merge the two instructions.
   if (NumBytes || MFI.hasVarSizedObjects())
@@ -2140,10 +2144,11 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   } else if (NumBytes) {
     // Adjust stack pointer back: ESP += numbytes.
     emitSPUpdate(MBB, MBBI, DL, NumBytes, /*InEpilogue=*/true);
-    if (!hasFP(MF) && NeedsDwarfCFI) {
+    if (!HasFP && NeedsDwarfCFI) {
       // Define the current CFA rule to use the provided offset.
       BuildCFI(MBB, MBBI, DL,
-               MCCFIInstruction::cfiDefCfaOffset(nullptr, CSSize + SlotSize));
+               MCCFIInstruction::cfiDefCfaOffset(
+                   nullptr, CSSize + TailCallArgReserveSize + SlotSize));
     }
     --MBBI;
   }
@@ -2157,7 +2162,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   if (NeedsWin64CFI && MF.hasWinCFI())
     BuildMI(MBB, MBBI, DL, TII.get(X86::SEH_Epilogue));
 
-  if (!hasFP(MF) && NeedsDwarfCFI) {
+  if (!HasFP && NeedsDwarfCFI) {
     MBBI = FirstCSPop;
     int64_t Offset = -CSSize - SlotSize;
     // Mark callee-saved pop instruction.
@@ -2177,9 +2182,8 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   // Emit DWARF info specifying the restores of the callee-saved registers.
   // For epilogue with return inside or being other block without successor,
   // no need to generate .cfi_restore for callee-saved registers.
-  if (NeedsDwarfCFI && !MBB.succ_empty() && !MBB.isReturnBlock()) {
+  if (NeedsDwarfCFI && !MBB.succ_empty())
     emitCalleeSavedFrameMoves(MBB, AfterPop, DL, false);
-  }
 
   if (Terminator == MBB.end() || !isTailCallOpcode(Terminator->getOpcode())) {
     // Add the return addr area delta back since we are not tail calling.
@@ -2226,7 +2230,6 @@ StackOffset X86FrameLowering::getFrameIndexReference(const MachineFunction &MF,
   const X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
   unsigned CSSize = X86FI->getCalleeSavedFrameSize();
   uint64_t StackSize = MFI.getStackSize();
-  bool HasFP = hasFP(MF);
   bool IsWin64Prologue = MF.getTarget().getMCAsmInfo()->usesWindowsCFI();
   int64_t FPDelta = 0;
 
@@ -2262,39 +2265,27 @@ StackOffset X86FrameLowering::getFrameIndexReference(const MachineFunction &MF,
            "FPDelta isn't aligned per the Win64 ABI!");
   }
 
-
-  if (TRI->hasBasePointer(MF)) {
-    assert(HasFP && "VLAs and dynamic stack realign, but no FP?!");
-    if (FI < 0) {
-      // Skip the saved EBP.
-      return StackOffset::getFixed(Offset + SlotSize + FPDelta);
-    } else {
-      assert(isAligned(MFI.getObjectAlign(FI), -(Offset + StackSize)));
-      return StackOffset::getFixed(Offset + StackSize);
-    }
-  } else if (TRI->hasStackRealignment(MF)) {
-    if (FI < 0) {
-      // Skip the saved EBP.
-      return StackOffset::getFixed(Offset + SlotSize + FPDelta);
-    } else {
-      assert(isAligned(MFI.getObjectAlign(FI), -(Offset + StackSize)));
-      return StackOffset::getFixed(Offset + StackSize);
-    }
-    // FIXME: Support tail calls
-  } else {
-    if (!HasFP)
-      return StackOffset::getFixed(Offset + StackSize);
-
-    // Skip the saved EBP.
+  if (FrameReg == TRI->getFramePtr()) {
+    // Skip saved EBP/RBP
     Offset += SlotSize;
+
+    // Account for restricted Windows prologue.
+    Offset += FPDelta;
 
     // Skip the RETADDR move area
     int TailCallReturnAddrDelta = X86FI->getTCReturnAddrDelta();
     if (TailCallReturnAddrDelta < 0)
       Offset -= TailCallReturnAddrDelta;
+
+    return StackOffset::getFixed(Offset);
   }
 
-  return StackOffset::getFixed(Offset + FPDelta);
+  // FrameReg is either the stack pointer or a base pointer. But the base is
+  // located at the end of the statically known StackSize so the distinction
+  // doesn't really matter.
+  if (TRI->hasStackRealignment(MF) || TRI->hasBasePointer(MF))
+    assert(isAligned(MFI.getObjectAlign(FI), -(Offset + StackSize)));
+  return StackOffset::getFixed(Offset + StackSize);
 }
 
 int X86FrameLowering::getWin64EHFrameIndexRef(const MachineFunction &MF, int FI,
@@ -3614,6 +3605,43 @@ void X86FrameLowering::orderFrameObjects(
     ObjectsToAllocate[i++] = Obj.ObjectIndex;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (MFI.VecSpillSet.size()) {
+    // Reorder stack objects if there is vectorized spilling objects
+    SmallVector<int, 8> OTA;
+    SmallSet<int, 8> ValidObjs;
+    for (int FI : ObjectsToAllocate) {
+      OTA.push_back(FI);
+      ValidObjs.insert(FI);
+    }
+
+    int Cur = 0;
+    for (std::pair<MachineBasicBlock *, SmallVector<int, 8>> It :
+        MFI.VecSpillMap) {
+      SmallVector<int, 8> &Vec = It.second;
+      // Put Larger vec spilling objects first (e.g: 256bit 256bit 128bit)
+      // so that there won't be any holes caused by alignment.
+      auto Cmp = [&](int LHS, int RHS) {
+        return MFI.getObjectSize(LHS) > MFI.getObjectSize(RHS);
+      };
+      llvm::sort(Vec, Cmp);
+      for (int FI : Vec) {
+        if (!ValidObjs.count(FI))
+          continue;
+        if (MFI.VecSpillSet.count(FI))
+          ObjectsToAllocate[Cur++] = FI;
+      }
+    }
+    // Put remaining objects after vec spilling objects
+    int E = ObjectsToAllocate.size();
+    for (int I = 0; I < E; I++) {
+      if (!MFI.VecSpillSet.count(OTA[I])) {
+        ObjectsToAllocate[Cur++] = OTA[I];
+      }
+    }
+    assert(Cur == E);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Flip it if we're accessing off of the FP.
   if (!TRI->hasStackRealignment(MF) && hasFP(MF))
     std::reverse(ObjectsToAllocate.begin(), ObjectsToAllocate.end());
@@ -3650,6 +3678,14 @@ void X86FrameLowering::processFunctionBeforeFrameFinalized(
           EHPersonality::MSVC_CXX) {
     adjustFrameForMsvcCxxEh(MF);
   }
+#if INTEL_CUSTOMIZATION
+  // Restore default Stack ID for offset calculation.
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  for (int FI : MFI.VecSpillSet) {
+    assert(MFI.getStackID(FI));
+    MFI.setStackID(FI, TargetStackID::Default);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86FrameLowering::adjustFrameForMsvcCxxEh(MachineFunction &MF) const {
@@ -3701,6 +3737,149 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     MachineFunction &MF, RegScavenger *RS) const {
   if (STI.is32Bit() && MF.hasEHFunclets())
     restoreWinEHStackPointersInParent(MF);
+#if INTEL_CUSTOMIZATION
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  if (!MFI.VecSpillMap.size())
+    return;
+
+  for (std::pair<MachineBasicBlock *, SmallVector<int, 8>> It :
+      MFI.VecSpillMap) {
+    MachineBasicBlock* MBB = It.first;
+    SmallVector<int, 8> &Vec = It.second;
+    SmallVector<MachineInstr *, 8> DeleteMI;
+    int Sz = Vec.size();
+    assert(Sz);
+    SmallSet<int, 8> VecSpillSet;
+    for (int i = 0 ; i < Sz ; i++)
+      VecSpillSet.insert(Vec[i]);
+
+    int MaxFI = -1, MinFI = -1;
+    int64_t Max = std::numeric_limits<int64_t>::min();
+    int64_t Min = std::numeric_limits<int64_t>::max();
+    int64_t TotalSz = 0;
+    // Collect Vec Spill objects for MBB
+    for (auto &MI : *MBB) {
+      if (MI.isDebugValue())
+        continue;
+      if (!TII.isVecSpillInst(MI))
+        continue;
+      int FI = -1;
+      for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+        MachineOperand &MO = MI.getOperand(i);
+        if (!MO.isFI())
+          continue;
+        FI = MO.getIndex();
+        if (FI < 0)
+          continue;
+        break;
+      }
+      if (VecSpillSet.count(FI)) {
+        auto Offset = MFI.getObjectOffset(FI);
+        if (Offset > Max) {
+          Max = Offset;
+          MaxFI = FI;
+        }
+        if (Offset < Min) {
+          Min = Offset;
+          MinFI = FI;
+        }
+        DeleteMI.push_back(&MI);
+        TotalSz += MFI.getObjectSize(FI);
+      }
+    }
+
+    assert((MinFI != -1) && (MaxFI != -1));
+    int64_t TotalObjectOffset = Max - Min + MFI.getObjectSize(MaxFI);
+
+    if (TotalObjectOffset != TotalSz)
+      llvm_unreachable("unexpected vec spill objects");
+
+    LLVM_DEBUG({
+      dbgs() << "VecSpill: " << MF.getName() << "\n";
+      dbgs() << "Before Opt:\n";
+      MBB->dump();
+    });
+
+    // Insert vectorized spill code and remove original scalar spill code
+    int LastFI = MinFI;
+    MachineInstr *FirstMI = &MBB->front();
+    if (FirstMI != DeleteMI[0]) {
+      // If MBB (e.g entry BB) setup frame then vectorized code should
+      // be put after the frame setup code (i.e RSP is changed).
+      auto MRII = DeleteMI[0]->getReverseIterator();
+      auto MRIE = MBB->instr_rend();
+      while (++MRII != MRIE) {
+        MachineInstr *MI = &*MRII;
+        if (MI->getFlag(MachineInstr::FrameSetup)) {
+          MRII = std::prev(MRII);
+          break;
+        }
+      }
+      if (MRII != MRIE)
+        FirstMI = &*MRII; // Find setup frame instruction
+    }
+    assert(FirstMI);
+    int RegNum = MFI.VecSpillPhysRegMap[MBB] - X86::XMM0;
+    int Offset = 0;
+    if (STI.useAVX512Regs()) {
+      int ZMMNum = TotalSz / 64;
+      TotalSz -= ZMMNum * 64;
+      if (ZMMNum) {
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
+            X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum);
+        for (int i = 0; i < ZMMNum; i++) {
+          addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
+              TII.get(X86::VMOVUPSZmr)),
+              LastFI, Offset).addReg(X86::ZMM0+RegNum);
+          Offset += 64;
+        }
+      }
+    }
+
+    int YMMNum = TotalSz / 32;
+    TotalSz -= YMMNum * 32;
+    if (YMMNum) {
+      if (!Offset)
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
+            X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum);
+      for (int i = 0; i < YMMNum; i++) {
+        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
+            TII.get(X86::VMOVUPSZ256mr)),
+            LastFI, Offset).addReg(X86::YMM0+RegNum);
+        Offset += 32;
+      }
+    }
+
+    int XMMNum = TotalSz / 16;
+    TotalSz -= XMMNum * 16;
+    if (XMMNum) {
+      if (!Offset)
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
+            X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum);
+      for (int i = 0; i < XMMNum; i++) {
+        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
+            TII.get(X86::VMOVAPSZ128mr)),
+            LastFI, Offset).addReg(X86::XMM0+RegNum);
+        Offset += 16;
+      }
+    }
+
+    assert(!TotalSz);
+    for (MachineInstr * MI: DeleteMI)
+      MI->eraseFromParent();
+
+    LLVM_DEBUG({
+      dbgs() << "After Opt:\n";
+      MBB->dump();
+    });
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86FrameLowering::restoreWinEHStackPointersInParent(

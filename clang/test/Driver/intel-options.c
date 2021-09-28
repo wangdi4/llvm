@@ -30,7 +30,7 @@
 // -ZI support (same as /Zi and /Z7)
 // RUN: %clang_cl -### /c /ZI %s 2>&1 | FileCheck -check-prefix=CHECK-ZI %s
 // CHECK-ZI: "-gcodeview"
-// CHECK-ZI: "-debug-info-kind=limited"
+// CHECK-ZI: "-debug-info-kind=constructor"
 
 // -ax support (accept, but don't use)
 // RUN: %clang_cl -### /c /QaxCORE-AVX2 %s 2>&1 | \
@@ -52,14 +52,25 @@
 // Behavior with -ipo/Qipo option
 // RUN: %clang -### -c -ipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
 // RUN: %clang_cl -### -c /Qipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
-// CHECK-IPO: "-flto"
+// CHECK-IPO: "-flto=full"
 // CHECK-IPO: "-flto-unit"
 
 // -vec and -no-vec behavior
 // RUN: %clang -### -c -vec %s 2>&1 | FileCheck -check-prefix CHECK-VEC %s
-// RUN: %clang -### -c -vec -no-vec %s 2>&1 | FileCheck -check-prefix CHECK-NO-VEC %s
+// RUN: %clang -### -c -vec -no-vec %s 2>&1 | FileCheck -check-prefixes=CHECK-NO-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang -### --intel -c -no-vec %s 2>&1 | FileCheck -check-prefixes=CHECK-NO-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang_cl -### --intel -c /Qvec- %s 2>&1 | FileCheck -check-prefixes=CHECK-NO-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang -### --intel -c -no-vec -O2 %s 2>&1 | FileCheck -check-prefixes=CHECK-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang_cl -### --intel -c /Qvec- /O2 %s 2>&1 | FileCheck -check-prefixes=CHECK-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux-gnu -flto -no-vec %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang_cl -### --intel /Qipo /Qvec- %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-WIN-DISABLE-HIR-VEC-DIR-INSERT %s
+// #RUN: %clang -### --intel -target x86_64-unknown-linux-gnu -flto -no-vec -O2 %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-DISABLE-HIR-VEC-DIR-INSERT %s
+// #RUN: %clang_cl -### --intel /Qipo /Qvec- /O2 %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-WIN-DISABLE-HIR-VEC-DIR-INSERT %s
 // CHECK-VEC: "-vectorize-loops"
 // CHECK-NO-VEC-NOT: "-vectorize-loops"
+// CHECK-DISABLE-HIR-VEC-DIR-INSERT: "-mllvm" "-disable-hir-vec-dir-insert"
+// CHECK-LTO-DISABLE-HIR-VEC-DIR-INSERT: "-plugin-opt=-disable-hir-vec-dir-insert"
+// CHECK-LTO-WIN-DISABLE-HIR-VEC-DIR-INSERT: "-mllvm:-disable-hir-vec-dir-insert"
 
 // Behavior with -no-ansi-alias option
 // RUN: %clang -### -c -no-ansi-alias %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
@@ -94,6 +105,9 @@
 // CHECK-QOPENMP: "-fopenmp"
 // CHECK-QOPENMP: "-mllvm" "-paropt=31"
 // CHECK-LD-IOMP5: "-liomp5"
+
+// RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp /Zl %s 2>&1 | FileCheck -check-prefixes=ZL_OPENMP %s
+// ZL_OPENMP-NOT: --dependent-lib=libiomp5md
 
 // Behavior with Qopt-jump-tables-,qno-opt-jump-tables option
 // RUN: %clang -### -c -qno-opt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES %s
@@ -155,26 +169,23 @@
 
 // Behavior with -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -dynamic -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
 // CHECK-INTEL-STATIC: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-STATIC: "-Bstatic" "-lirc" "-Bdynamic"
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-SHARED-STATIC-INTEL %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-SHARED-STATIC-INTEL %s
 // CHECK-SHARED-STATIC-INTEL: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-SHARED-STATIC-INTEL: "-Bstatic" "-lirc" "-Bdynamic"
 
 // Behavior with -shared-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-INTEL-SHARED %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-INTEL-SHARED %s
 // CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
 // CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lintlc" "-Bstatic"
-// CHECK-INTEL-SHARED: "-lsvml"
-// CHECK-INTEL-SHARED: "-lintlc"
 
 // Behavior with combination of -shared-intel and -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // CHECK-INTEL-LIBS-NOT: "-Bdynamic" "-lsvml" "-Bstatic"
 // CHECK-INTEL-LIBS-NOT: "-Bdynamic" "-lirc" "-Bstatic"
 // CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lsvml" "-Bdynamic"
@@ -184,6 +195,8 @@
 // -i_no-use-libirc
 // RUN: %clang -### --intel -i_no-use-libirc -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
 // RUN: %clang_cl -### --intel /Q_no-use-libirc %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// RUN: %clang -### --intel -no-intel-lib=libirc -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// RUN: %clang_cl -### --intel /Qno-intel-lib:libirc %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
 // CHECK-INTEL-NOIRC-NOT: "-intel-libirc-allowed"
 // CHECK-INTEL-NOIRC-NOT: "-lirc"
 // CHECK-INTEL-NOIRC-NOT: "--dependent-lib=libircmt"
@@ -195,7 +208,6 @@
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target i386-unknown-linux -shared-intel %s 2>&1 \
 // RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // CHECK-INTEL-LIBS-SHARED-INTEL: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lintlc"
@@ -208,6 +220,26 @@
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-STATIC %s
 // CHECK-INTEL-LIBS-SHARED-STATIC: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc"
+
+// -no-intel-lib
+// RUN: %clangxx -### --intel -no-intel-lib -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefixes=CHECK_INTEL_LIB_NOIMF,CHECK_INTEL_LIB_NOSVML,CHECK_INTEL_LIB_NOIRNG,CHECK_INTEL_LIB_NOIRC %s
+// RUN: %clangxx -### --intel -no-intel-lib=libimf -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOIMF %s
+// RUN: %clangxx -### --intel -no-intel-lib=libsvml -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOSVML %s
+// RUN: %clangxx -### --intel -no-intel-lib=libirng -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOIRNG %s
+// RUN: %clangxx -### --intel -no-intel-lib -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_NOVECLIB %s
+// RUN: %clangxx -### --intel -no-intel-lib=libsvml -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_NOVECLIB %s
+// CHECK_INTEL_LIB_NOSVML-NOT: "-lsvml"
+// CHECK_INTEL_LIB_NOIMF-NOT: "-limf"
+// CHECK_INTEL_LIB_NOIRNG-NOT: "-lirng"
+// CHECK_INTEL_LIB_NOIRC-NOT: "-lirc"
+// CHECK_NOVECLIB-NOT: "-fveclib=SVML"
+
+// -Qno-intel-lib
+// RUN: %clang_cl -### --intel -Qno-intel-lib --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefixes=CHECK_INTEL_LIB_WIN_NOIRC,CHECK_INTEL_LIB_WIN_NOSVML %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libirc --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOIRC %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libsvml --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOSVML %s
+// CHECK_INTEL_LIB_WIN_NOIRC-NOT: "--dependent-lib=libircmt"
+// CHECK_INTEL_LIB_WIN_NOSVML-NOT: "--dependent-lib=svml.*"
 
 // Behavior with Qvla and Qvla- option
 // RUN: %clang_cl -### -c /Qvla- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-VLA %s
@@ -237,11 +269,8 @@
 // CHECK-FAST: "-ffp-contract=fast"
 
 // RUN: %clang_cl -### -Qlong-double --target=x86_64-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
+// RUN: %clang_cl -### -Qlong-double --target=i386-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
 // LONG_DOUBLE: clang{{.*}} "-fintel-long-double-size=80"
-
-// RUN: %clang_cl -### -Qlong-double --target=i386-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE_ERROR %s
-// LONG_DOUBLE_ERROR: unsupported option
-// LONG_DOUBLE_ERROR-NOT: clang{{.*}} "-fintel-long-double-size=80"
 
 // RUN: %clang -### -fimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
@@ -275,7 +304,7 @@
 
 // Behavior with -femit-class-debug-always option maps to -fstandalone-debug
 // RUN: %clang -### -c -g %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND-DEFAULT %s
-// CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=limited"
+// CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=constructor"
 // RUN: %clang -### -c -g -femit-class-debug-always %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND %s
 // CHECK-DEBUG-INFO-KIND: "-debug-info-kind=standalone"
 
@@ -541,6 +570,8 @@
 // RUN: %clang_cl -### -Qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
 // RUN: %clang -### -qopt-report=med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
 // RUN: %clang_cl -### -Qopt-report:med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 -S -qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -S -Qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
 // CHECK-OPT-REPORT: "-debug-info-kind=line-tables-only"
 // CHECK-OPT-REPORT: "-opt-record-file" "{{.*}}.yaml"
 // CHECK-OPT-REPORT: "-opt-record-format" "yaml"
@@ -548,6 +579,7 @@
 // CHECK-OPT-REPORT: "-mllvm" "-enable-ra-report"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
+// CHECK-OPT-REPORT-NAME: "-opt-record-file" "intel-options-openmp-spir64.opt.yaml"
 
 // RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
 // RUN: %clang_cl -### -Qopt-report:min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
@@ -708,3 +740,23 @@
 // RUN: %clang_cl -### /Qprotect-parens- -c %s 2>&1 | FileCheck -check-prefix=NO-PROTECT-PARENS %s
 // PROTECT-PARENS: "-fprotect-parens"
 // NO-PROTECT-PARENS-NOT: "-fprotect-parens"
+
+// -x<code> should not be overriden by following -x <language> options
+// RUN: %clang -### -xAVX -x c -c %s 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-C %s
+// RUN: %clang -### -xAVX -x c++ -c %s 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-CPP %s
+// RUN: %clang -### -x c %s -xAVX -c 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-C %s
+// RUN: %clang -### -x c++ %s -xAVX -c 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-CPP %s
+// TARGET-CPU-FILE-TYPE-C: "corei7-avx" {{.*}}"-x" "c"
+// TARGET-CPU-FILE-TYPE-CPP: "corei7-avx" {{.*}}"-x" "c++"
+
+// -align
+// RUN: %clang -### -align -c %s 2>&1 | FileCheck -check-prefix=ALIGN %s
+// ALIGN: "-malign-double"
+
+// -sox and /Qsox
+// RUN: %clang -### -sox -c %s 2>&1 | FileCheck -check-prefix=SOX %s
+// RUN: %clang_cl -### /Qsox -c %s 2>&1 | FileCheck -check-prefix=SOX %s
+// RUN: %clang -### -c %s 2>&1 | FileCheck -check-prefix=NOSOX %s
+// SOX: -sox=
+// SOX-SAME: -### -sox -c {{.*}}intel-options.c
+// NOSOX-NOT: -sox

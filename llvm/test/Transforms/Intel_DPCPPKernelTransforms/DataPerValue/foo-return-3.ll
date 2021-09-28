@@ -38,7 +38,7 @@ L2:
   %z = add i32 %ret, %x
   br label %L3
 L3:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 ; CHECK: L0:
 ; CHECK: %lid = call i32 @_Z12get_local_idj(i32 0)
@@ -53,7 +53,7 @@ L3:
 ; CHECK: %z = add i32 %ret, %x
 ; CHECK: br label %L3
 ; CHECK: L3:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: ret void
 }
 
@@ -101,7 +101,7 @@ L4:
 ; CHECK: DONE
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}

@@ -161,8 +161,8 @@ Current experimental implementation does not support "free" operation.
 
 **Default**: 0 (disabled)
 
-``INTEL_LIBITTNOTIFY64=<Path>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``INTEL_ENABLE_OFFLOAD_ANNOTATIONS=<Path>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Enables ITT annotations in the target program if ``<Path>`` is not empty.
 
 **Default**: Disabled
@@ -262,15 +262,22 @@ not exceeding ``<PoolSize>``.
 
 **Default**: Equivalent to ``<Option>=all,1,4,256``
 
-``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Disable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
+  <Value>   := <Disable> | <Type>
   <Disable> := 0 | F | f
+  <Type>    := main | link | all
 
-Disables use of copy engine for memory copy operations.
+Controls how to use copy engines for data transfer if device supports.
 
-**Default**: Enabled if device supports
+``0 | F | f``: Disables use of copy engines.
+``main``: Enables only main copy engines if device supports.
+``link``: Enables only link copy engines if device supports.
+``all``: Enables all copy engines if device supports.
+
+**Default**: all
 
 ``LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM=<MemType>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -299,6 +306,18 @@ size/counts for a target region.
 
 **Default**: 4
 
+``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets under-subscription parameter that is used when computing the team
+counts for a target region that requires cross-team reduction updates.
+
+  <Num> is a number greater than or equal to 0.
+
+'0' disables special handling for kernels with reductions, so
+``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE`` takes the effect.
+
+**Default**: 8 for discrete devices, 1 for non-discrete devices
+
 ``LIBOMPTARGET_LEVEL0_KERNEL_WIDTH=<Width>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
@@ -318,6 +337,28 @@ temporary storage for two-step copy operation. The buffer is only used for
 discrete devices.
 
 **Default**: 4
+
+``LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Value> := <Type>[,<Count>]
+  <Type>  := none | NONE | copy | COPY | compute | COMPUTE
+  <Count> := maximum number of commands to batch
+
+Enables command batching for a target region.
+
+``<Type>=none|NONE``: Disables command batching.
+``<Type>=copy|COPY``: Enables command batching for a target region for data
+transfer.
+``<Type>=compute|COMPUTE``: Enables command batching for a target region for
+data transfer and compute, disabling use of copy engine.
+
+If ``<Type>`` is either ``copy`` or ``compute`` (enabled) and ``<Count>`` is not
+specified, batching is performed for all eligible commands for the target
+region.
+
+**Default**: ``<Type>=none`` (Disabled)
 
 
 Plugin OpenCL
@@ -347,6 +388,18 @@ Sets over-subscription parameter that is used when computing the team
 size/counts for a target region.
 
 **Default**: 4
+
+``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets under-subscription parameter that is used when computing the team
+counts for a target region that requires cross-team reduction updates.
+
+  <Num> is a number greater than or equal to 0.
+
+'0' disables special handling for kernels with reductions, so
+``LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE`` takes the effect.
+
+**Default**: 8 for discrete devices, 1 for non-discrete devices
 
 ``LIBOMPTARGET_ENABLE_SIMD=<Enable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

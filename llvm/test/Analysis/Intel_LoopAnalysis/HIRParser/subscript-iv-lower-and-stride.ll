@@ -18,10 +18,10 @@ entry:
 loop:
   %i = phi i64 [0, %entry], [%ip, %loop]
 
-  %p4 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %i, i64 8, double* nonnull %p, i64 %i)
+  %p4 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %i, i64 8, double* elementtype(double) nonnull %p, i64 %i)
   store double 1.0, double* %p4
 
-  %q4 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 %i, double* nonnull %q, i64 %i)
+  %q4 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 %i, double* elementtype(double) nonnull %q, i64 %i)
   store double 1.0, double* %q4
 
   %ip = add nsw nuw i64 %i, 1

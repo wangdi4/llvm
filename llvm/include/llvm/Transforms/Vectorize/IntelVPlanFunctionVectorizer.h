@@ -49,6 +49,7 @@ public:
   VPlanFunctionVectorizerLegacyPass();
 
   bool runOnFunction(Function &Fn) override;
+  bool skipFunction(const Function &F) const override;
 };
 
 } // namespace vpo

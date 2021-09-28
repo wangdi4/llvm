@@ -1576,9 +1576,6 @@ void ompd_dll_locations_valid(void);
 #include <mutex>
 #include "omptarget.h"
 
-#ifndef OMPT_SUPPORT
-#define OMPT_SUPPORT 1
-#endif
 #define OMPT_SUCCESS 1
 #define OMPT_FAIL 0
 #ifndef HOST_DEVICE
@@ -1658,6 +1655,12 @@ struct OmptGlobalTy {
     OmptCallbacksTy *pCallbacks = nullptr;
     OmptEnabledTy *pEnabled = nullptr;
     std::memset(&Enabled, 0, sizeof(Enabled));
+#ifndef _WIN32
+    if (!__kmpc_get_ompt_callbacks) {
+      DPOMPT("Warning: OMPT is disabled\n");
+      return;
+    }
+#endif
     __kmpc_get_ompt_callbacks((void **)&pCallbacks, (void **)&pEnabled);
     if (!pCallbacks || !pEnabled) {
       DPOMPT("Warning: cannot initialize OMPT\n");

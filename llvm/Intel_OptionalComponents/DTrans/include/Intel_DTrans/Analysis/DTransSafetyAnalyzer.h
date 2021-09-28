@@ -69,6 +69,10 @@ public:
 
   ~DTransSafetyInfo();
 
+  /// Handle invalidation events in the new pass manager.
+  bool invalidate(Module &M, const PreservedAnalyses &PA,
+                  ModuleAnalysisManager::Invalidator &Inv);
+
   // Access methods to get the classes used when constructing the DTransTypes.
   DTransTypeManager &getTypeManager() {
     assert(TM.get() && "DTransTypeManager not initialized");
@@ -108,6 +112,14 @@ public:
   // of the structure.
   bool getDTransOutOfBoundsOK() const;
 
+  // Return the value used during analysis for the command line option
+  // "dtrans-usecrulecompat" which controls the assumptions regarding whether
+  // C language rules may be applied to disambiguate types.  NOTE: If a
+  // Fortran function is seen, we will conservatively return 'false' for
+  // getDTransUseCRuleCompat() even if the command line option is 'true', as
+  // the appropriate rules for Fortran have not yet been implemented.
+  bool getDTransUseCRuleCompat() const;
+
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, create one.
   dtrans::TypeInfo *getOrCreateTypeInfo(DTransType *Ty);
@@ -115,6 +127,10 @@ public:
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, return nullptr.
   dtrans::TypeInfo *getTypeInfo(DTransType *Ty) const;
+
+  // Retrieve the DTrans StructInfo entry for the specified structure.
+  // Note: Only named structures are permitted, not literal structures.
+  dtrans::StructInfo *getStructInfo(llvm::StructType *STy) const;
 
   // Add an entry to the 'PtrSubInfoMap'
   void addPtrSubMapping(llvm::BinaryOperator *BinOp, DTransType *Ty);
@@ -131,6 +147,50 @@ public:
   // a GEPOperator.
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GetElementPtrInst *GEP);
+
+  // Update the mapping from LoadInst instructions that have been identified as
+  // being structure element reads to a type-index pair for the element being
+  // read. If the instruction is already tracked, update the
+  // MultiElemLoadStoreInfo set.
+  void addLoadMapping(LoadInst *LdInst,
+    std::pair<llvm::Type *, size_t> Pointee);
+
+  // Update the mapping from StoreInst instructions that have been identified as
+  // being structure element writes to a type-index pair for the element being
+  // written. If the instruction is already tracked, update the
+  // MultiElemLoadStoreInfo set.
+  void addStoreMapping(StoreInst *StInst,
+    std::pair<llvm::Type *, size_t> Pointee);
+
+  // If the specified 'LdInst' was identified as structure element read, return
+  // the type-index pair for the element read. Otherwise, return <nullptr, 0>.
+  std::pair<llvm::Type *, size_t> getLoadElement(LoadInst *LdInst);
+
+  // If the specified 'StInst' was identified as structure element written,
+  // return the type-index pair for the element read. Otherwise,
+  // return <nullptr, 0>.
+  std::pair<llvm::Type *, size_t> getStoreElement(StoreInst *StInst);
+
+  // Update the set of Load/Store instructions that are accessing more than one
+  // structure field.
+  void addMultiElemLoadStore(Instruction *I);
+
+  // Returns true if 'I' was identified as Load/Store instruction
+  // that is accessing more than one structure field.
+  bool isMultiElemLoadStore(Instruction *I);
+
+  // A helper routine to get a DTrans structure type and field index from the
+  // GEP instruction which is a pointer argument of 'Load'.
+  // :
+  //  %b = getelementptr inbounds %struct.s, %struct.s* %a, i64 x, i32 y
+  //  %c = load i8* (i8*, i64, i64)*, i8* (i8*, i64, i64)** %b, align 8
+  //
+  // Given load instruction returns dtrans::StructInfo for %struct.s and y.
+  std::pair<dtrans::StructInfo *, uint64_t> getInfoFromLoad(LoadInst *Load);
+
+  // A helper routine to retrieve structure type - field index pair from a
+// GEPOperator.
+  std::pair<llvm::StructType *, uint64_t> getStructField(GEPOperator *GEP);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
@@ -188,6 +248,18 @@ public:
     return CIM.call_info_entries();
   }
 
+  uint64_t getMaxTotalFrequency() const { return MaxTotalFrequency; }
+  void setMaxTotalFrequency(uint64_t MTFreq) { MaxTotalFrequency = MTFreq; }
+
+  // Interface routine to check if the field that supposed to be loaded in the
+  // instruction is only read and its parent structure has no safety data
+  // violations.
+  bool isReadOnlyFieldAccess(LoadInst *Load);
+
+  bool isFunctionPtr(llvm::StructType *STy, unsigned Idx);
+
+  bool isPtrToStruct(Argument *A);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
   void printCallInfo();
@@ -195,6 +267,11 @@ public:
 
 private:
   void PostProcessFieldValueInfo();
+  void computeStructFrequency(dtrans::StructInfo *StInfo);
+
+  // Check language specific info that may affect whether certain rules
+  // like DTransUseCRuleCompat can be applied.
+  void checkLanguages(Module &M);
 
   std::unique_ptr<DTransTypeManager> TM;
   std::unique_ptr<TypeMetadataReader> MDReader;
@@ -214,6 +291,25 @@ private:
   using PtrSubInfoMapType = ValueMap<Value *, DTransType *>;
   PtrSubInfoMapType PtrSubInfoMap;
 
+  // A mapping from LoadInst instructions that have been identified as being
+  // structure element reads to a type-index pair for the element being read.
+  using LoadInfoMapType = DenseMap<Value *, std::pair<llvm::Type *, size_t>>;
+  LoadInfoMapType LoadInfoMap;
+
+  // A mapping from StoreInst instructions that have been identified as being
+  // structure element writes to a type-index pair for the element being
+  // written.
+  using StoreInfoMapType = DenseMap<Value *, std::pair<llvm::Type *, size_t>>;
+  StoreInfoMapType StoreInfoMap;
+
+  // Set of Load/Store instructions that are accessing more than one structure
+  // field.
+  using MultiElemLoadStoreSetType = SmallPtrSet<Instruction *, 32>;
+  MultiElemLoadStoreSetType MultiElemLoadStoreInfo;
+
+  // Maximum of TotalFrequency from all structures.
+  uint64_t MaxTotalFrequency = 0;
+
   // Indicates DTrans safety information could not be computed because a Value
   // object was encountered that the PointerTypeAnalyzer could not collect
   // information for.
@@ -221,6 +317,10 @@ private:
 
   // Indicates whether the module was completely analyzed for safety checks.
   bool DTransSafetyAnalysisRan = false;
+
+  // Indicates that a Fortran function was seen. This will disable
+  // DTransUseCRuleCompat.
+  bool SawFortran = false;
 };
 
 class DTransSafetyAnalyzer : public AnalysisInfoMixin<DTransSafetyAnalyzer> {

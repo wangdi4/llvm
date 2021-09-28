@@ -569,10 +569,10 @@ void HIRAosToSoa::TransformAosToSoa::populatedBodyOfCopyLoop(
     CE->setIVCoeff(InnerLevel - 1, OrigBlobIndex, 1);
 
     // Create Lval of store, alloca0[%add * i2  + i3]
-    HLInst *AllocaInst = TrailingOffsetToAlloca.find(TrailingOffset)->second;
+    HLInst *Alloca = TrailingOffsetToAlloca.find(TrailingOffset)->second;
     RegDDRef *AllocaRef =
-        DDRU.createMemRef(AllocaInst->getLvalDDRef()->getSelfBlobIndex(),
-                          AllocaInst->getNodeLevel());
+        DDRU.createMemRef(cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(), Alloca->getLvalDDRef()->getSelfBlobIndex(),
+                          Alloca->getNodeLevel());
 
     CanonExpr *NewDimension = CEU.createCanonExpr(IVType);
     NewDimension->setIVCoeff(InnerLevel, InvalidBlobIndex, 1);
@@ -599,11 +599,12 @@ void HIRAosToSoa::TransformAosToSoa::replaceTrailingOffsetWithAlloca(
   for (auto *Ref : RefsToCopy) {
     HLDDNode *Src = Ref->getHLDDNode();
 
-    HLInst *AllocaInst =
+    HLInst *Alloca =
         TrailingOffsetToAlloca.find(getTrailingOffset(Ref))->second;
-    RegDDRef *AllocaRef = DDRU.createMemRef(
-        AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
-        AllocaInst->getNodeLevel());
+
+    RegDDRef *AllocaRef = DDRU.createMemRef(cast<AllocaInst>(Alloca->getLLVMInstruction())->getAllocatedType(),
+        Alloca->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
+        Alloca->getNodeLevel());
 
     CanonExpr *NewDimension = HIRAosToSoa::getIndexCE(Ref)->clone();
     NewDimension->setIVBlobCoeff(IVBlobLevel, AddBlobIndex);
@@ -634,9 +635,10 @@ HLInst *HIRAosToSoa::TransformAosToSoa::insertCallToStacksave() {
 
 void HIRAosToSoa::TransformAosToSoa::insertCallToStackrestore(
     RegDDRef *StackAddrRef) {
-
+  auto Int8Ty = Type::getInt8Ty(HNU.getContext());
   Type *Ty = StackAddrRef->getDestType();
-  StackAddrRef = DDRU.createAddressOfRef(StackAddrRef->getSelfBlobIndex(),
+
+  StackAddrRef = DDRU.createAddressOfRef(Int8Ty, StackAddrRef->getSelfBlobIndex(),
                                          StackAddrRef->getDefinedAtLevel(),
                                          StackAddrRef->getSymbase(), true);
 

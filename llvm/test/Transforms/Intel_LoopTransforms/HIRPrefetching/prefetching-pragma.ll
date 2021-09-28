@@ -33,7 +33,7 @@
 ;*** IR Dump After HIR Prefetching ***
 ;Function: sub
 ;
-; CHECK:    BEGIN REGION { modified }
+; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:         %1 = (%B.addr)[0];
 ; CHECK-NEXT:         %2 = (%C.addr)[0];
 ; CHECK-NEXT:         %3 = (%A.addr)[0];
@@ -49,7 +49,7 @@
 ; CHECK-NEXT:      + END LOOP
 ;
 ; CHECK:           ret &((undef)[0]);
-; CHECK:     END REGION
+; CHECK:       END REGION
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

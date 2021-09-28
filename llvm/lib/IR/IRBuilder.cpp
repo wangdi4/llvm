@@ -562,11 +562,16 @@ Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
 // Intrinsic generated for structured address computations.
 Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
                                             Value *Stride, Value *Ptr,
-                                            Value *Index, bool IsExact) {
+                                            Type *ElemTy, Value *Index,
+                                            bool IsExact) {
+
+  auto *BaseType = Ptr->getType();
+  assert(isa<PointerType>(BaseType) && "Invalid type for subscript");
+  assert(ElemTy && "Expect valid Elementtype for subscript intrinsic");
 
   // First element is reserved for return type.
-  Type *Types[5] = {nullptr, LowerBound->getType(), Stride->getType(),
-                    Ptr->getType(), Index->getType()};
+  Type *Types[5] = {nullptr, LowerBound->getType(), Stride->getType(), BaseType,
+                    Index->getType()};
 
   Value *Ops[] = {
       ConstantInt::get(Context, APInt(8, static_cast<uint64_t>(Rank), false)),
@@ -575,7 +580,7 @@ Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
   // Result's type.
   {
     unsigned ResVNE = SubscriptInst::getResultVectorNumElements(Ops);
-    Type *ResTy = Ptr->getType();
+    Type *ResTy = BaseType;
     if (ResVNE != 0 && !isa<VectorType>(ResTy)) {
       ResTy = FixedVectorType::get(ResTy, ResVNE);
     }
@@ -590,8 +595,14 @@ Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
                                 Types);
 
   Instruction *Ret = createCallHelper(FnSubscript, Ops, this);
+
+  SubscriptInst *Call = cast<SubscriptInst>(Ret);
+
+  Call->addParamAttr(3, Attribute::get(FnSubscript->getContext(),
+                                       Attribute::ElementType, ElemTy));
   return Ret;
 }
+
 #endif // INTEL_CUSTOMIZATION
 
 Instruction *IRBuilderBase::CreateNoAliasScopeDeclaration(Value *Scope) {
@@ -1097,6 +1108,31 @@ CallInst *IRBuilderBase::CreateConstrainedFPCall(
   return C;
 }
 
+#if INTEL_CUSTOMIZATION
+Value *IRBuilderBase::CreateComplexMul(Value *L, Value *R, bool CxLimitedRange,
+    const Twine &Name) {
+  CallInst *Result = CreateBinaryIntrinsic(Intrinsic::intel_complex_fmul, L, R,
+      nullptr, Name);
+  Result->setFastMathFlags(FMF);
+  if (CxLimitedRange)
+    Result->addFnAttr("complex-limited-range");
+  return Result;
+}
+
+Value *IRBuilderBase::CreateComplexDiv(Value *L, Value *R, bool CxLimitedRange,
+    bool CxNoScale, const Twine &Name) {
+  CallInst *Result = CreateBinaryIntrinsic(Intrinsic::intel_complex_fdiv, L, R,
+      nullptr, Name);
+  Result->setFastMathFlags(FMF);
+  if (CxLimitedRange)
+    Result->addFnAttr("complex-limited-range");
+  // complex-limited-range implies complex-no-scale
+  if (CxNoScale || CxLimitedRange)
+    Result->addFnAttr("complex-no-scale");
+  return Result;
+}
+#endif // INTEL_CUSTOMIZATION
+
 Value *IRBuilderBase::CreateSelect(Value *C, Value *True, Value *False,
                                    const Twine &Name, Instruction *MDFrom) {
   if (auto *CC = dyn_cast<Constant>(C))
@@ -1269,9 +1305,11 @@ Value *IRBuilderBase::CreateExtractInteger(
 Value *IRBuilderBase::CreatePreserveArrayAccessIndex(
     Type *ElTy, Value *Base, unsigned Dimension, unsigned LastIndex,
     MDNode *DbgInfo) {
-  assert(isa<PointerType>(Base->getType()) &&
-         "Invalid Base ptr type for preserve.array.access.index.");
   auto *BaseType = Base->getType();
+  assert(isa<PointerType>(BaseType) &&
+         "Invalid Base ptr type for preserve.array.access.index.");
+  assert(cast<PointerType>(BaseType)->isOpaqueOrPointeeTypeMatches(ElTy) &&
+         "Pointer element type mismatch");
 
   Value *LastIndexV = getInt32(LastIndex);
   Constant *Zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
@@ -1288,6 +1326,8 @@ Value *IRBuilderBase::CreatePreserveArrayAccessIndex(
   Value *DimV = getInt32(Dimension);
   CallInst *Fn =
       CreateCall(FnPreserveArrayAccessIndex, {Base, DimV, LastIndexV});
+  Fn->addParamAttr(
+      0, Attribute::get(Fn->getContext(), Attribute::ElementType, ElTy));
   if (DbgInfo)
     Fn->setMetadata(LLVMContext::MD_preserve_access_index, DbgInfo);
 
@@ -1316,9 +1356,11 @@ Value *IRBuilderBase::CreatePreserveUnionAccessIndex(
 Value *IRBuilderBase::CreatePreserveStructAccessIndex(
     Type *ElTy, Value *Base, unsigned Index, unsigned FieldIndex,
     MDNode *DbgInfo) {
-  assert(isa<PointerType>(Base->getType()) &&
-         "Invalid Base ptr type for preserve.struct.access.index.");
   auto *BaseType = Base->getType();
+  assert(isa<PointerType>(BaseType) &&
+         "Invalid Base ptr type for preserve.struct.access.index.");
+  assert(cast<PointerType>(BaseType)->isOpaqueOrPointeeTypeMatches(ElTy) &&
+         "Pointer element type mismatch");
 
   Value *GEPIndex = getInt32(Index);
   Constant *Zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
@@ -1332,6 +1374,8 @@ Value *IRBuilderBase::CreatePreserveStructAccessIndex(
   Value *DIIndex = getInt32(FieldIndex);
   CallInst *Fn = CreateCall(FnPreserveStructAccessIndex,
                             {Base, GEPIndex, DIIndex});
+  Fn->addParamAttr(
+      0, Attribute::get(Fn->getContext(), Attribute::ElementType, ElTy));
   if (DbgInfo)
     Fn->setMetadata(LLVMContext::MD_preserve_access_index, DbgInfo);
 

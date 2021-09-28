@@ -21,8 +21,8 @@
 ; CHECK: ret i32 %[[R6]]
 ; CHECK: define internal void @foo.1.if.then
 ; CHECK: br label %[[L3:.*]]
-; CHECK: ret void
 ; CHECK: [[L3]]:
+; CHECK: ret void
 
 @time_check_log = internal unnamed_addr global i1 false, align 4
 

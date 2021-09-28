@@ -214,7 +214,8 @@ class VecCloneImpl {
     /// the for-loop is created.
     virtual void handleLanguageSpecifics(Function &F, PHINode *Phi,
                                          Function *Clone,
-                                         BasicBlock *EntryBlock);
+                                         BasicBlock *EntryBlock,
+                                         const VectorVariant &Variant);
 #endif // INTEL_CUSTOMIZATION
 
   public:

@@ -1,7 +1,9 @@
 ; REQUIRES: asserts
 
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test pointer type recovery on getelementptr instructions involving a
 ; address of array element zero for an array contained within structure.
@@ -9,8 +11,8 @@
 ; of a structure field member. This requires extra information to be stored
 ; for the "Element pointee" that will be used by the DTransSafetyAnalyzer.
 
-; Lines marked with CHECK-CUR are tests for the current form of IR.
-; Lines marked with CHECK-FUT are placeholders for check lines that will
+; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
+; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
 ; Lines marked with CHECK should remain the same when changing to use opaque
 ;   pointers.
@@ -25,8 +27,8 @@ define i8 @test01()  {
   ret i8 %val
 }
 ; CHECK-LABEL: i8 @test01
-; CHECK-CUR:  %array_elem_addr = getelementptr %struct.test01a, %struct.test01a* @var01a, i64 0, i32 2, i32 1, i64 0
-; CHECK-FUT:  %array_elem_addr = getelementptr %struct.test01a, p0 @var01a, i64 0, i32 2, i32 1, i64 0
+; CHECK-NONOPAQUE:  %array_elem_addr = getelementptr %struct.test01a, %struct.test01a* @var01a, i64 0, i32 2, i32 1, i64 0
+; CHECK-OPAQUE:  %array_elem_addr = getelementptr %struct.test01a, ptr @var01a, i64 0, i32 2, i32 1, i64 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -35,10 +37,10 @@ define i8 @test01()  {
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{float 0.0e+00, i32 0}  ; float
-!3 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
+!3 = !{%struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
 !4 = !{!"A", i32 10, !5}  ; [10 x i8]
 !5 = !{i8 0, i32 0}  ; i8
 !6 = !{!"S", %struct.test01a zeroinitializer, i32 3, !1, !2, !3} ; { i64, float, %struct.test01b }
 !7 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !4} ; { i64, [10 x i8] }
 
-!dtrans_types = !{!6, !7}
+!intel.dtrans.types = !{!6, !7}

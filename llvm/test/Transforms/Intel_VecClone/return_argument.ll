@@ -5,7 +5,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @bar(i32 %gid) #0 {
-; CHECK:  define <4 x i32> @_ZGVbN4v_bar(<4 x i32> [[GID0:%.*]]) #0 {
+; CHECK:  define <4 x i32> @_ZGVbN4v_bar(<4 x i32> [[GID0:%.*]]) #1 {
 ; CHECK-NEXT:    [[VEC_GID0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[VEC_GID_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_GID0]] to i32*
 ; CHECK-NEXT:    store <4 x i32> [[GID0]], <4 x i32>* [[VEC_GID0]], align 16

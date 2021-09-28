@@ -2,7 +2,7 @@
 ; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
 
-; This test verifies the dtrans eliminate read-only field access pass.
+; This test verifies the DTrans eliminate read-only field access pass.
 ; Second IF basic block doesn't meet the criteria.
 
 %struct.lzma_allocator = type { i8* (i8*, i64, i64)*, void (i8*, i8*)*, i8* }
@@ -38,4 +38,5 @@ if.end6:                                          ; preds = %if.else, %if.then3
 
 declare i8* @malloc(i64)
 
+; CHECK-LABEL: DTRANS-ELIM-RO-FIELD-ACCESS: Analysing lzma_alloc
 ; CHECK: DTRANS-ELIM-RO-FIELD-ACCESS: Second IF BB did not fit - skipping.

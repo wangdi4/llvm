@@ -395,12 +395,28 @@ static void assignCalleeSavedSpillSlots(MachineFunction &F,
 
   const TargetRegisterInfo *RegInfo = F.getSubtarget().getRegisterInfo();
   const MCPhysReg *CSRegs = F.getRegInfo().getCalleeSavedRegs();
+  BitVector CSMask(SavedRegs.size());
+
+  for (unsigned i = 0; CSRegs[i]; ++i)
+    CSMask.set(CSRegs[i]);
 
   std::vector<CalleeSavedInfo> CSI;
   for (unsigned i = 0; CSRegs[i]; ++i) {
     unsigned Reg = CSRegs[i];
-    if (SavedRegs.test(Reg))
-      CSI.push_back(CalleeSavedInfo(Reg));
+    if (SavedRegs.test(Reg)) {
+      bool SavedSuper = false;
+      for (const MCPhysReg &SuperReg : RegInfo->superregs(Reg)) {
+        // Some backends set all aliases for some registers as saved, such as
+        // Mips's $fp, so they appear in SavedRegs but not CSRegs.
+        if (SavedRegs.test(SuperReg) && CSMask.test(SuperReg)) {
+          SavedSuper = true;
+          break;
+        }
+      }
+
+      if (!SavedSuper)
+        CSI.push_back(CalleeSavedInfo(Reg));
+    }
   }
 
   const TargetFrameLowering *TFI = F.getSubtarget().getFrameLowering();
@@ -1042,6 +1058,14 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     computeFreeStackSlots(MFI, StackGrowsDown, MinCSFrameIndex, MaxCSFrameIndex,
                           FixedCSEnd, StackBytesFree);
 
+#if INTEL_CUSTOMIZATION
+  if (MFI.VecSpillMap.size()) {
+    // VecSpill alignment boundary is at least 16 bytes (XMM registers).
+    Align Alignment(16);
+    MaxAlign = std::max(MaxAlign, Alignment);
+    Offset = alignTo(Offset, Alignment, Skew);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Now walk the objects and actually assign base offsets to them.
   for (auto &Object : ObjectsToAllocate)
     if (!scavengeStackSlot(MFI, Object, StackGrowsDown, MaxAlign,

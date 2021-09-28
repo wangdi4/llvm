@@ -63,6 +63,9 @@ def "DIR.OMP.END.TASK" : Directive;
 def "DIR.OMP.MASTER" : Directive;
 def "DIR.OMP.END.MASTER" : Directive;
 
+def "DIR.OMP.MASKED" : Directive;
+def "DIR.OMP.END.MASKED" : Directive;
+
 def "DIR.OMP.CRITICAL" : Directive;
 def "DIR.OMP.END.CRITICAL" : Directive;
 
@@ -139,6 +142,9 @@ def "DIR.OMP.END.INTEROP" : Directive;
 
 def "DIR.OMP.PREFETCH"     : Directive;
 def "DIR.OMP.END.PREFETCH" : Directive;
+
+def "DIR.OMP.SCOPE" : Directive;
+def "DIR.OMP.END.SCOPE" : Directive;
 
 #if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
@@ -255,6 +261,7 @@ def "QUAL.OMP.ALIGNED" : Clause;
 def "QUAL.OMP.NONTEMPORAL" : Clause;
 def "QUAL.OMP.FLUSH" : Clause;
 def "QUAL.OMP.THREADPRIVATE" : Clause;
+def "QUAL.OMP.FILTER" : Clause;
 def "QUAL.OMP.DEVICE" : Clause;
 def "QUAL.OMP.SUBDEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
@@ -327,6 +334,7 @@ def "QUAL.OMP.JUMP.TO.END.IF" : Clause;
 def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
 def "QUAL.OMP.OFFLOAD.NDRANGE" : Clause;
 def "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE" : Clause;
+def "QUAL.OMP.OFFLOAD.HAS.TEAMS.REDUCTION" : Clause;
 
 // =====================================================================
 // * Begin Non-OpenMP Clauses

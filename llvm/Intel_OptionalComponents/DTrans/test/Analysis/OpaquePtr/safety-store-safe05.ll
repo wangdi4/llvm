@@ -8,9 +8,9 @@
 
 %struct.test01arc = type { i64, i64 }
 %struct.test01basket = type { %struct.test01arc*, i64 }
-@var01 = internal global %struct.test01basket*** null, !dtrans_type !4
+@var01 = internal global %struct.test01basket*** null, !intel_dtrans_type !3
 define void @test01() {
-  %basket_ptrs = alloca [4061 x %struct.test01basket*], !dtrans_type !6
+  %basket_ptrs = alloca [4061 x %struct.test01basket*], !intel_dtrans_type !4
   %first = getelementptr inbounds [4061 x %struct.test01basket*], [4061 x %struct.test01basket*]* %basket_ptrs, i64 0, i64 0
   %second = getelementptr inbounds %struct.test01basket*, %struct.test01basket** %first, i64 1
   %glob = load %struct.test01basket***, %struct.test01basket**** @var01
@@ -32,13 +32,11 @@ define void @test01() {
 
 
 !1 = !{i64 0, i32 0}  ; i64
-!2 = !{!3, i32 1}  ; %struct.test01arc*
-!3 = !{!"R", %struct.test01arc zeroinitializer, i32 0}  ; %struct.test01arc
-!4 = !{!5, i32 3}  ; %struct.test01basket***
-!5 = !{!"R", %struct.test01basket zeroinitializer, i32 0}  ; %struct.test01basket
-!6 = !{!"A", i32 4061, !7}  ; [4061 x %struct.test01basket*]
-!7 = !{!5, i32 1}  ; %struct.test01basket*
-!8 = !{!"S", %struct.test01arc zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
-!9 = !{!"S", %struct.test01basket zeroinitializer, i32 2, !2, !1} ; { %struct.test01arc*, i64 }
+!2 = !{%struct.test01arc zeroinitializer, i32 1}  ; %struct.test01arc*
+!3 = !{%struct.test01basket zeroinitializer, i32 3}  ; %struct.test01basket***
+!4 = !{!"A", i32 4061, !5}  ; [4061 x %struct.test01basket*]
+!5 = !{%struct.test01basket zeroinitializer, i32 1}  ; %struct.test01basket*
+!6 = !{!"S", %struct.test01arc zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
+!7 = !{!"S", %struct.test01basket zeroinitializer, i32 2, !2, !1} ; { %struct.test01arc*, i64 }
 
-!dtrans_types = !{!8, !9}
+!intel.dtrans.types = !{!6, !7}

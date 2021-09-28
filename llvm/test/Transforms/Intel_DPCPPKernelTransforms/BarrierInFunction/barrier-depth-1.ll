@@ -8,11 +8,11 @@
 ;; The case: kernel "main" with no barrier instruction,
 ;;    which is calling function "foo" that contains barrier instruction
 ;; The expected result:
-;;      1. A call to @barrier_dummy() at the begining of the kernel "main"
+;;      1. A call to @dummy_barrier.() at the begining of the kernel "main"
 ;;      2. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) just before calling the function "foo"
-;;      3. A call to @barrier_dummy() just after calling the function "foo"
+;;      3. A call to @dummy_barrier.() just after calling the function "foo"
 ;;      4. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
-;;      5. A call to @barrier_dummy() at the begining of the function "foo"
+;;      5. A call to @dummy_barrier.() at the begining of the function "foo"
 ;;      6. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) at the end of the function "foo"
 ;;*****************************************************************************
 
@@ -25,11 +25,11 @@ define void @main(i32 %x) nounwind {
   %y = xor i32 %x, %x
   call void @foo(i32 %x)
   ret void
-; CHECK: @barrier_dummy
+; CHECK: @dummy_barrier.
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: @_Z18work_group_barrierj(i32 1)
 ; CHECK: call void @foo(i32 %x)
-; CHECK: @barrier_dummy
+; CHECK: @dummy_barrier.
 ; CHECK: @_Z18work_group_barrierj(i32 1)
 ; CHECK: ret
 }
@@ -39,7 +39,7 @@ define void @foo(i32 %x) nounwind {
   %y = xor i32 %x, %x
   call void @_Z18work_group_barrierj(i32 2)
   ret void
-; CHECK: @barrier_dummy()
+; CHECK: @dummy_barrier.()
 ; CHECK-NEXT: %y = xor i32 %x, %x
 ; CHECK: @_Z18work_group_barrierj(i32 2)
 ; CHECK: @_Z18work_group_barrierj(i32 1)
@@ -53,6 +53,6 @@ declare void @_Z18work_group_barrierj(i32)
 
 !0 = !{void (i32)* @main}
 
-; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function main -- call void @barrier_dummy()
-; DEBUGIFY-COUNT-1: WARNING: Instruction with empty DebugLoc in function foo -- call void @barrier_dummy()
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function main -- call void @dummy_barrier.()
+; DEBUGIFY-COUNT-1: WARNING: Instruction with empty DebugLoc in function foo -- call void @dummy_barrier.()
 ; DEBUGIFY-NOT: WARNING

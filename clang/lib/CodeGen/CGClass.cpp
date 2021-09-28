@@ -467,8 +467,6 @@ llvm::Value *CodeGenFunction::GetVTTParameter(GlobalDecl GD,
   const CXXRecordDecl *RD = cast<CXXMethodDecl>(CurCodeDecl)->getParent();
   const CXXRecordDecl *Base = cast<CXXMethodDecl>(GD.getDecl())->getParent();
 
-  llvm::Value *VTT;
-
   uint64_t SubVTTIndex;
 
   if (Delegating) {
@@ -494,15 +492,14 @@ llvm::Value *CodeGenFunction::GetVTTParameter(GlobalDecl GD,
 
   if (CGM.getCXXABI().NeedsVTTParameter(CurGD)) {
     // A VTT parameter was passed to the constructor, use it.
-    VTT = LoadCXXVTT();
-    VTT = Builder.CreateConstInBoundsGEP1_64(VTT, SubVTTIndex);
+    llvm::Value *VTT = LoadCXXVTT();
+    return Builder.CreateConstInBoundsGEP1_64(VoidPtrTy, VTT, SubVTTIndex);
   } else {
     // We're the complete constructor, so get the VTT by name.
-    VTT = CGM.getVTables().GetAddrOfVTT(RD);
-    VTT = Builder.CreateConstInBoundsGEP2_64(VTT, 0, SubVTTIndex);
+    llvm::GlobalValue *VTT = CGM.getVTables().GetAddrOfVTT(RD);
+    return Builder.CreateConstInBoundsGEP2_64(
+        VTT->getValueType(), VTT, 0, SubVTTIndex);
   }
-
-  return VTT;
 }
 
 namespace {
@@ -1744,6 +1741,7 @@ namespace {
           llvm::ConstantInt::get(CGF.SizeTy, PoisonStart.getQuantity());
 
       llvm::Value *OffsetPtr = CGF.Builder.CreateGEP(
+          CGF.Int8Ty,
           CGF.Builder.CreateBitCast(CGF.LoadCXXThis(), CGF.Int8PtrTy),
           OffsetSizePtr);
 
@@ -2514,14 +2512,31 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // support optimization.
   unsigned GlobalsAS = CGM.getDataLayout().getDefaultGlobalsAddressSpace();
   unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
+#if INTEL_COLLAB
+  unsigned TAS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
+  llvm::Type *VTablePtrTy =
+      llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
+          ->getPointerTo(ProgAS)
+          ->getPointerTo(GlobalsAS ? GlobalsAS : TAS);
+#else  // INTEL_COLLAB
   llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
+#endif // INTEL_COLLAB
   // vtable field is is derived from `this` pointer, therefore it should be in
   // default address space.
+#if INTEL_COLLAB
+  if (GlobalsAS)
+    VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
+        VTableField, VTablePtrTy->getPointerTo());
+  else
+    VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
+        VTableField, VTablePtrTy->getPointerTo(TAS));
+#else  // INTEL_COLLAB
   VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
       VTableField, VTablePtrTy->getPointerTo());
+#endif // INTEL_COLLAB
   VTableAddressPoint = Builder.CreatePointerBitCastOrAddrSpaceCast(
       VTableAddressPoint, VTablePtrTy);
 
@@ -2619,6 +2634,10 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
 llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
+#if INTEL_COLLAB
+  unsigned  AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
+  VTableTy = VTableTy->getPointerElementType()->getPointerTo(AS);
+#endif  // INTEL_COLLAB
   Address VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTableTy);

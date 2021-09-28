@@ -1552,6 +1552,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalArray)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::PrivateLastValueNonPOD)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::AllocatePrivate)
     NewShape = computeVectorShapeForAllocatePrivateInst(
         cast<const VPAllocatePrivate>(I));
@@ -1582,9 +1584,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::VLSInsert)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::GeneralMemOptConflict)
-    NewShape = getUniformVectorShape();
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ConflictInsn)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::TreeConflict)
+    NewShape = getRandomVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
@@ -1596,6 +1600,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
 }
 
 void VPlanDivergenceAnalysis::improveStrideUsingIR() {
+  // Restrict stride improvements using IR to inner loops.
+  if (!RegionLoop || !RegionLoop->isInnermost())
+    return;
+
   for (const VPBasicBlock &VPBB : *Plan) {
     for (auto &VPInst : VPBB) {
       auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);

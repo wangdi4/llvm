@@ -24,8 +24,6 @@ class DPCPPKernelWGLoopCreatorPass
 public:
   DPCPPKernelWGLoopCreatorPass();
 
-  static StringRef name() { return "DPCPPKernelWGLoopCreatorPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
@@ -39,25 +37,28 @@ public:
 private:
   /// Struct that contains dimesion 0 loop attributes.
   struct LoopBoundaries {
+    Value *PeelLoopSize;   // num peel loop iterations.
     Value *VectorLoopSize; // num vector loop iterations.
     Value *ScalarLoopSize; // num scalar loop iterations.
-    Value *MaxVector;      // max vector global id
+    Value *MaxPeel;        // max peeling global id.
+    Value *MaxVector;      // max vector global id.
 
     /// C'tor.
-    LoopBoundaries(Value *VectorLoopSize, Value *ScalarLoopSize,
-                   Value *MaxVector)
-        : VectorLoopSize(VectorLoopSize), ScalarLoopSize(ScalarLoopSize),
+    LoopBoundaries(Value *PeelLoopSize, Value *VectorLoopSize,
+                   Value *ScalarLoopSize, Value *MaxPeel, Value *MaxVector)
+        : PeelLoopSize(PeelLoopSize), VectorLoopSize(VectorLoopSize),
+          ScalarLoopSize(ScalarLoopSize), MaxPeel(MaxPeel),
           MaxVector(MaxVector) {}
   };
 
-  /// LLVM context of the current function.
-  LLVMContext *Context;
+  /// LLVM context of the current module.
+  LLVMContext *Ctx;
 
   /// Prefix for name of instructions used for loop of the dimension.
   std::string DimStr;
 
-  /// Scalar kernel return.
-  ReturnInst *ScalarRet;
+  // Remainder scalar or masked vector kernel return.
+  ReturnInst *RemainderRet;
 
   /// vector kernel return.
   ReturnInst *VectorRet;
@@ -72,25 +73,25 @@ private:
   Constant *ConstOne;
 
   /// size_t packet constant
-  Constant *ConstPacket;
+  Constant *ConstVF;
 
   /// Function being processed.
-  Function *Func;
+  Function *F;
 
-  /// Number of WG dimensions.
-  unsigned NumDim;
+  /// Vectorized inner loop func.
+  Function *VectorF;
 
-  /// Scalar kernel entry.
-  BasicBlock *ScalarEntry;
+  /// Masked function being processed.
+  Function *MaskedF;
+
+  /// Scalar or masked vector kernel entry.
+  BasicBlock *RemainderEntry;
+
+  /// Vector kernel entry.
+  BasicBlock *VectorEntry;
 
   /// New entry block.
   BasicBlock *NewEntry;
-
-  /// Vectorized inner loop func.
-  Function *VectorFunc;
-
-  /// Vectorized function width.
-  unsigned PacketWidth;
 
   /// global_id lower bounds per dimension.
   ValueVec InitGIDs;
@@ -101,11 +102,13 @@ private:
   /// LoopSize per dimension.
   ValueVec LoopSizes;
 
-  /// Index i contains vector with scalar kernel get_global_id(i) calls.
-  InstVecVec GidCallsSc;
+  /// Index i contains vector with scalar or masked vector kernel
+  /// get_global_id(i) calls.
+  InstVecVec GidCalls;
 
-  /// Index i contains vector with scalar kernel get_local_id(i) calls.
-  InstVecVec LidCallsSc;
+  /// Index i contains vector with scalar or masked vector kernel
+  /// get_local_id(i) calls.
+  InstVecVec LidCalls;
 
   /// Index i contains vector with vector kernel get_global_id(i) calls.
   InstVecVec GidCallsVec;
@@ -113,8 +116,23 @@ private:
   /// Index i contains vector with vector kernel get_local_id(i) calls.
   InstVecVec LidCallsVec;
 
+  /// Early exit call.
+  CallInst *EECall;
+
+  /// Number of WG dimensions.
+  unsigned NumDim;
+
   /// The dimension by which we vectorize (usually 0).
-  unsigned int VectorizedDim;
+  unsigned VectorizedDim;
+
+  /// Vectorization factor.
+  unsigned VF;
+
+  /// Whether current function has subgroup path.
+  bool HasSubGroupPath;
+
+  /// Implicit GIDs in scalar/masked kernel.
+  SmallVector<AllocaInst *, 3> ImplicitGIDs;
 
   /// Map from function to its return instruction.
   MapFunctionToReturnInst FuncReturn;
@@ -128,10 +146,23 @@ private:
 
   /// Public interface that allows running on pair of scalar - vector
   /// kernels not through pass manager.
-  void processFunction(Function *F, Function *VectorFunc, unsigned PacketWidth);
+  void processFunction(Function *F, Function *VectorF, unsigned VF);
+
+  /// Create the early exit call.
+  void createEECall(Function *Func);
+
+  /// Create a condition jump over the entire WG loops according to uniform
+  /// early exit value.
+  /// \param RetBB Return block to jump to in case of uniform early exit.
+  void handleUniformEE(BasicBlock *RetBB);
+
+  /// Get or create the base global id for dimension Dim.
+  /// \param Dim dimension to get base global id for.
+  /// \returns base global id value.
+  Value *getOrCreateBaseGID(unsigned Dim);
 
   /// Obtain initial global id, and loop size per dimension.
-  void getLoopsBoundaries(Function *F);
+  void getLoopsBoundaries();
 
   /// Add work group loops on the kernel. converts get_***_id according
   /// to the generated loops. Moves Alloca instruction in kernel entry
@@ -163,6 +194,14 @@ private:
   /// Returns a struct with entry and exit block of the WG loop region.
   LoopRegion createVectorAndRemainderLoops();
 
+  /// Create WG loops over vector kernel and remainder loop over masked vector
+  /// kernel.
+  LoopRegion createVectorAndMaskedRemainderLoops();
+
+  /// Create WG loops over peeling loop over scalar or masked vector kernel,
+  LoopRegion
+  createPeelAndVectorAndRemainderLoops(LoopBoundaries &Dim0Boundaries);
+
   /// Inline the vector kernel into the scalar kernel.
   /// BB - location to move the vector blocks.
   /// Returns the vector kernel entry block.
@@ -181,9 +220,12 @@ private:
   /// is 0, then the returned value is always the same as Dim.
   /// but suppose m_vectorizedDim is 1, then resolveDimension(1) = 0,
   /// and resolveDimension(0) = 1. Since now Dim 1 is the innermost loop.
-  unsigned int resolveDimension(unsigned int Dim);
+  unsigned resolveDimension(unsigned Dim) const;
 
-  /// Compute a string indicating current loop level to later assing it to a
+  /// Find implicit GID alloca instructions and store initial GIDs to them.
+  void initializeImplicitGID(Function *F);
+
+  /// Compute a string indicating current loop level to later assign it to a
   /// label.
   void computeDimStr(unsigned Dim, bool IsVector);
 };

@@ -192,8 +192,7 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
       // Remove vector-variants attributes to prevent call vectorization of the
       // function that code extractor emits.
       if (NewFunc->hasFnAttribute("vector-variants"))
-        NewFunc->removeAttribute(AttributeList::FunctionIndex,
-                                 "vector-variants");
+        NewFunc->removeFnAttr("vector-variants");
     }
   }
   return true; // LLVM IR has been modified

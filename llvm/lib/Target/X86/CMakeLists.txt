@@ -32,7 +32,9 @@ set(sources
   Intel_X86GenerateLEA.cpp        # INTEL
   Intel_X86PRAExpandPseudo.cpp    # INTEL
   Intel_X86Gather2LoadPermute.cpp # INTEL
+  Intel_X86LowerMatrixIntrinsics.cpp # INTEL
   Intel_X86CFMA.cpp      # INTEL
+  Intel_X86VecSpill.cpp  # INTEL
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp
@@ -100,6 +102,7 @@ add_llvm_target(X86CodeGen ${sources}
   AsmPrinter
   CodeGen
   Core
+  Instrumentation
   MC
   SelectionDAG
   Support

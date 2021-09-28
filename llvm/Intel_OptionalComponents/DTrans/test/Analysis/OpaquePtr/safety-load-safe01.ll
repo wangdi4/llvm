@@ -7,7 +7,7 @@
 ; safety-load-mismatched-elem[01-13].ll
 
 %struct.test01 = type { i32, i32, i32 }
-define i32 @test01(%struct.test01* %pStruct) !dtrans_type !2 {
+define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !3 {
   %pField = getelementptr %struct.test01, %struct.test01* %pStruct, i64 0, i32 1
   %vField = load i32, i32* %pField
   ret i32 %vField
@@ -23,7 +23,7 @@ define i32 @test01(%struct.test01* %pStruct) !dtrans_type !2 {
 ; CHECK: Safety data: No issues found
 
 %struct.test02 = type { i32*, i32*, i32* }
-define void @test02(%struct.test02* %pStruct) !dtrans_type !7 {
+define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
   %pField = getelementptr %struct.test02, %struct.test02* %pStruct, i64 0, i32 1
   %vField = load i32*, i32** %pField
   %use = load i32, i32* %vField
@@ -43,7 +43,7 @@ define void @test02(%struct.test02* %pStruct) !dtrans_type !7 {
 
 %struct.test03a = type { %struct.test03b*, %struct.test03b*, %struct.test03b* }
 %struct.test03b = type { i32, i32, i32 }
-define i32 @test03(%struct.test03a* %pStruct) !dtrans_type !12 {
+define i32 @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !9 {
   %pField = getelementptr %struct.test03a, %struct.test03a* %pStruct, i64 0, i32 1
   %vField = load %struct.test03b*, %struct.test03b** %pField
   %pFieldB = getelementptr %struct.test03b, %struct.test03b* %vField, i64 0, i32 2
@@ -74,7 +74,7 @@ define i32 @test03(%struct.test03a* %pStruct) !dtrans_type !12 {
 
 ; Load element zero using a pointer to the structure
 %struct.test04 = type { i32, i32 }
-define void @test04(%struct.test04* %pStruct) !dtrans_type !15 {
+define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !11 {
   %pStruct.as.p32 = bitcast %struct.test04* %pStruct to i32*
   %vField = load i32, i32* %pStruct.as.p32
   ret void
@@ -90,7 +90,7 @@ define void @test04(%struct.test04* %pStruct) !dtrans_type !15 {
 ; Load element zero of a nested structure using a pointer to the structure
 %struct.test05a = type { %struct.test05b }
 %struct.test05b = type { i32, i32 }
-define i32 @test05(%struct.test05a* %pStruct) !dtrans_type !19 {
+define i32 @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !14 {
   %pField = getelementptr %struct.test05a, %struct.test05a* %pStruct, i64 0, i32 0
   %pField.as.p32 = bitcast %struct.test05b* %pField to i32*
   %vField = load i32, i32* %pField.as.p32
@@ -112,32 +112,25 @@ define i32 @test05(%struct.test05a* %pStruct) !dtrans_type !19 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (%struct.test01*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{i32 0, i32 1}  ; i32*
-!7 = !{!"F", i1 false, i32 1, !3, !8}  ; void (%struct.test02*)
-!8 = !{!9, i32 1}  ; %struct.test02*
-!9 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!10 = !{!11, i32 1}  ; %struct.test03b*
-!11 = !{!"R", %struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
-!12 = !{!"F", i1 false, i32 1, !1, !13}  ; i32 (%struct.test03a*)
-!13 = !{!14, i32 1}  ; %struct.test03a*
-!14 = !{!"R", %struct.test03a zeroinitializer, i32 0}  ; %struct.test03a
-!15 = !{!"F", i1 false, i32 1, !3, !16}  ; void (%struct.test04*)
-!16 = !{!17, i32 1}  ; %struct.test04*
-!17 = !{!"R", %struct.test04 zeroinitializer, i32 0}  ; %struct.test04
-!18 = !{!"R", %struct.test05b zeroinitializer, i32 0}  ; %struct.test05b
-!19 = !{!"F", i1 false, i32 1, !1, !20}  ; i32 (%struct.test05a*)
-!20 = !{!21, i32 1}  ; %struct.test05a*
-!21 = !{!"R", %struct.test05a zeroinitializer, i32 0}  ; %struct.test05a
-!22 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
-!23 = !{!"S", %struct.test02 zeroinitializer, i32 3, !6, !6, !6} ; { i32*, i32*, i32* }
-!24 = !{!"S", %struct.test03a zeroinitializer, i32 3, !10, !10, !10} ; { %struct.test03b*, %struct.test03b*, %struct.test03b* }
-!25 = !{!"S", %struct.test03b zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
-!26 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!27 = !{!"S", %struct.test05a zeroinitializer, i32 1, !18} ; { %struct.test05b }
-!28 = !{!"S", %struct.test05b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2}
+!4 = !{i32 0, i32 1}  ; i32*
+!5 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!6 = distinct !{!5}
+!7 = !{%struct.test03b zeroinitializer, i32 1}  ; %struct.test03b*
+!8 = !{%struct.test03a zeroinitializer, i32 1}  ; %struct.test03a*
+!9 = distinct !{!8}
+!10 = !{%struct.test04 zeroinitializer, i32 1}  ; %struct.test04*
+!11 = distinct !{!10}
+!12 = !{%struct.test05b zeroinitializer, i32 0}  ; %struct.test05b
+!13 = !{%struct.test05a zeroinitializer, i32 1}  ; %struct.test05a*
+!14 = distinct !{!13}
+!15 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
+!16 = !{!"S", %struct.test02 zeroinitializer, i32 3, !4, !4, !4} ; { i32*, i32*, i32* }
+!17 = !{!"S", %struct.test03a zeroinitializer, i32 3, !7, !7, !7} ; { %struct.test03b*, %struct.test03b*, %struct.test03b* }
+!18 = !{!"S", %struct.test03b zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
+!19 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!20 = !{!"S", %struct.test05a zeroinitializer, i32 1, !12} ; { %struct.test05b }
+!21 = !{!"S", %struct.test05b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!22, !23, !24, !25, !26, !27, !28}
+!intel.dtrans.types = !{!15, !16, !17, !18, !19, !20, !21}

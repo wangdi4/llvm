@@ -17,6 +17,7 @@
 
 ; Basic orientation checks.
 ; CHECK: Running pass: Annotation2MetadataPass
+; CHECK-NEXT: Running pass: CrossDSOCFIPass
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -47,6 +48,7 @@
 ; CHECK: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK: Running pass: dtrans::SOAToAOSPreparePass
 ; CHECK: Running pass: dtrans::SOAToAOSPass
+; CHECK: Running pass: dtrans::MemManageTransPass
 ; CHECK: Running pass: dtrans::CodeAlignPass
 ; The ordering of the analysis passes seems not to be deterministic so we
 ; don't check them all here. The check below guarantees that WeakAlignPass
@@ -68,6 +70,9 @@
 ; CHECK: Running pass: IntelArgumentAlignmentPass
 ; CHECK: Running pass: QsortRecognizerPass
 ; CHECK: Running pass: TileMVInlMarkerPass
+; CHECK: Running pass: IPArrayTranspose
+; CHECK: Running pass: IPPredOpt
+; CHECK: Running pass: DeadArrayOpsElimination
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {

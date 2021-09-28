@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloningAnalysis.h - IP CloningAnalysis -*------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,11 +22,12 @@ namespace llvm_cloning_analysis {
 
 extern bool IPCloningTrace;
 
-extern bool isPointerToCharArray(Type* PTy);
+extern bool isCharArray(Type* ATy);
 
 extern GetElementPtrInst* getAnyGEPAsIncomingValueForPhi(Value *Phi);
 
-extern bool isConstantArgWorthyForSpecializationClone(Value *Arg);
+extern bool isConstantArgWorthyForSpecializationClone(Argument *FormalV,
+                                                      Value *ActualV);
 
 extern bool collectPHIsForSpecialization(Function &F, CallBase &CB,
                                        SmallPtrSet<Value *, 8>& PhiValues);

@@ -13,7 +13,7 @@ struct ΩßPolicyßΩ {
 void use() {
   ΩßPolicyßΩ Functor;
 
-  cl::sycl::handler h; // INTEL
+  sycl::handler h;
   h.single_task(Functor);
 }
 

@@ -50,7 +50,7 @@ DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
 }
 
 define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
-; OPTREPORT-LABEL:  Global loop optimization report for : test_outer
+; OPTREPORT-LABEL:  Global optimization report for : test_outer
 ; OPTREPORT-EMPTY:
 ; OPTREPORT-NEXT:  LOOP BEGIN
 ; OPTREPORT-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -90,14 +90,14 @@ exit:
 
 ; Check metadata for remarks from vectorized IR
 ; CHECK: [[FOO_LOOP_MD:!.*]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:![^,]+]]{{.*}}}
-; CHECK: [[FOO_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[FOO_OPTRPT_INTEL:!.*]]}
-; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS:!.*]]}
+; CHECK: [[FOO_OPTRPT]] = distinct !{!"intel.optreport.rootnode", [[FOO_OPTRPT_INTEL:!.*]]}
+; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.optreport", [[REMARKS:!.*]]}
 ; CHECK-NEXT: [[REMARKS]] = !{!"intel.optreport.remarks", [[R1:!.*]], [[R2:!.*]]}
 ; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
 ; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
 ; CHECK: [[TEST_OUTER_LOOP_MD]] = distinct !{[[TEST_OUTER_LOOP_MD]], [[TEST_OUTER_OPTRPT:![^,]+]]{{.*}}}
-; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[TEST_OUTER_OPTRPT_INTEL:!.*]]}
-; CHECK-NEXT: [[TEST_OUTER_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS]]}
+; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"intel.optreport.rootnode", [[TEST_OUTER_OPTRPT_INTEL:!.*]]}
+; CHECK-NEXT: [[TEST_OUTER_OPTRPT_INTEL]] = distinct !{!"intel.optreport", [[REMARKS]]}
 
 
 ; Function Attrs: argmemonly nounwind

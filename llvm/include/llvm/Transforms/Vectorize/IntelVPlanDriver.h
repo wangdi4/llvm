@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.h ----------------------------------------------===//
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -26,6 +26,8 @@ namespace vpo {
 
 class WRegionInfo;
 class VPlanOptReportBuilder;
+class VPAnalysesFactoryBase;
+class LoopVectorizationPlanner;
 class WRNVecLoopNode;
 
 class VPlanDriverImpl {
@@ -40,7 +42,7 @@ private:
   ProfileSummaryInfo *PSI;
   std::function<const LoopAccessInfo &(Loop &)> *GetLAA;
   OptimizationRemarkEmitter *ORE;
-  LoopOptReportBuilder LORBuilder;
+  OptReportBuilder ORBuilder;
   FatalErrorHandlerTy FatalErrorHandler;
 
 #if INTEL_CUSTOMIZATION
@@ -109,8 +111,14 @@ protected:
 #else
   template <class VPOCodeGenType>
 #endif //INTEL_CUSTOMIZATION
-  void addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
+  void addOptReportRemarks(WRNVecLoopNode *WRLp,
+                           VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
+
+  // Helper utility to populate all needed analyses in VPlans using the provided
+  // factory object.
+  void populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
+                             VPAnalysesFactoryBase &VPAF);
 
 protected:
   AssumptionCache *getAC() const { return AC; }
@@ -150,6 +158,7 @@ public:
   VPlanDriver(FatalErrorHandlerTy FatalErrorHandler = nullptr); // INTEL
 
   bool runOnFunction(Function &Fn) override;
+  bool skipFunction(const Function &F) const override;
 };
 
 #if INTEL_CUSTOMIZATION
@@ -161,7 +170,8 @@ private:
   loopopt::HIRLoopStatistics *HIRLoopStats;
   loopopt::HIRDDAnalysis *DDA;
   loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis;
-  LoopOptReportBuilder LORBuilder;
+  OptReportBuilder ORBuilder;
+  bool LightWeightMode;
 
   bool processLoop(loopopt::HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
   bool isSupported(loopopt::HLLoop *Lp);
@@ -179,6 +189,9 @@ public:
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                AssumptionCache *AC, DominatorTree *DT,
                FatalErrorHandlerTy FatalErrorHandler);
+
+  VPlanDriverHIRImpl(bool LightWeightMode) :
+    VPlanDriverImpl(), LightWeightMode(LightWeightMode) {};
 };
 
 class VPlanDriverHIRPass
@@ -189,6 +202,7 @@ public:
   static constexpr auto PassName = "hir-vplan-vec";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             loopopt::HIRFramework &);
+  VPlanDriverHIRPass(bool LightWeightMode) : Impl(LightWeightMode) {};
 };
 
 class VPlanDriverHIR : public FunctionPass {
@@ -197,7 +211,7 @@ class VPlanDriverHIR : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  VPlanDriverHIR();
+  VPlanDriverHIR(bool LightWeightMode = false);
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 

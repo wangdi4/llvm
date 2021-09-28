@@ -16,14 +16,14 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L0:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %y = xor i32 %x, %x
   br label %L1
 L1:
   call void @_Z18work_group_barrierj(i32 1)
   ret void
 ; CHECK: L0:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: br label %L1
 ; CHECK: L1:
@@ -53,7 +53,7 @@ L1:
 ; CHECK: DONE
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 

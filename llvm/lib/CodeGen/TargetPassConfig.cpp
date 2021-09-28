@@ -192,6 +192,24 @@ static cl::opt<bool>
     FSNoFinalDiscrim("fs-no-final-discrim", cl::init(false), cl::Hidden,
                      cl::desc("Do not insert FS-AFDO discriminators before "
                               "emit."));
+// Disable MIRProfileLoader before RegAlloc. This is for for debugging and
+// tuning purpose.
+static cl::opt<bool> DisableRAFSProfileLoader(
+    "disable-ra-fsprofile-loader", cl::init(true), cl::Hidden,
+    cl::desc("Disable MIRProfileLoader before RegAlloc"));
+// Disable MIRProfileLoader before BloackPlacement. This is for for debugging
+// and tuning purpose.
+static cl::opt<bool> DisableLayoutFSProfileLoader(
+    "disable-layout-fsprofile-loader", cl::init(true), cl::Hidden,
+    cl::desc("Disable MIRProfileLoader before BlockPlacement"));
+// Specify FSProfile file name.
+static cl::opt<std::string>
+    FSProfileFile("fs-profile-file", cl::init(""), cl::value_desc("filename"),
+                  cl::desc("Flow Sensitive profile file name."), cl::Hidden);
+// Specify Remapping file for FSProfile.
+static cl::opt<std::string> FSRemappingFile(
+    "fs-remapping-file", cl::init(""), cl::value_desc("filename"),
+    cl::desc("Flow Sensitive profile remapping file name."), cl::Hidden);
 
 // Temporary option to allow experimenting with MachineScheduler as a post-RA
 // scheduler. Targets can "properly" enable this with
@@ -326,6 +344,28 @@ static IdentifyingPassPtr overridePass(AnalysisID StandardID,
     return applyDisable(TargetID, DisableCopyProp);
 
   return TargetID;
+}
+
+// Find the FSProfile file name. The internal option takes the precedence
+// before getting from TargetMachine.
+static const std::string getFSProfileFile(const TargetMachine *TM) {
+  if (!FSProfileFile.empty())
+    return FSProfileFile.getValue();
+  const Optional<PGOOptions> &PGOOpt = TM->getPGOOption();
+  if (PGOOpt == None || PGOOpt->Action != PGOOptions::SampleUse)
+    return std::string();
+  return PGOOpt->ProfileFile;
+}
+
+// Find the Profile remapping file name. The internal option takes the
+// precedence before getting from TargetMachine.
+static const std::string getFSRemappingFile(const TargetMachine *TM) {
+  if (!FSRemappingFile.empty())
+    return FSRemappingFile.getValue();
+  const Optional<PGOOptions> &PGOOpt = TM->getPGOOption();
+  if (PGOOpt == None || PGOOpt->Action != PGOOptions::SampleUse)
+    return std::string();
+  return PGOOpt->ProfileRemappingFile;
 }
 
 //===---------------------------------------------------------------------===//
@@ -919,6 +959,12 @@ void TargetPassConfig::addIRPasses() {
   // Allow disabling it for testing purposes.
   if (!DisableExpandReductions)
     addPass(createExpandReductionsPass());
+
+#if INTEL_CUSTOMIZATION
+  // If the target doesn't support complex intrinsics, or if they need to be
+  // expanded into more complex calls, generate the expansion to complex calls.
+  addPass(createExpandComplexPass());
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Turn exception handling constructs into something the code generators can
@@ -1145,6 +1191,18 @@ void TargetPassConfig::addMachinePasses() {
   // where it becomes safe again so stop debugifying here.
   DebugifyIsSafe = false;
 
+  // Add a FSDiscriminator pass right before RA, so that we could get
+  // more precise SampleFDO profile for RA.
+  if (EnableFSDiscriminator) {
+    addPass(createMIRAddFSDiscriminatorsPass(
+        sampleprof::FSDiscriminatorPass::Pass1));
+    const std::string ProfileFile = getFSProfileFile(TM);
+    if (!ProfileFile.empty() && !DisableRAFSProfileLoader)
+      addPass(
+          createMIRProfileLoaderPass(ProfileFile, getFSRemappingFile(TM),
+                                     sampleprof::FSDiscriminatorPass::Pass1));
+  }
+
   // Run register allocation and passes that are tightly coupled with it,
   // including phi elimination and scheduling.
   if (getOptimizeRegAlloc())
@@ -1154,6 +1212,8 @@ void TargetPassConfig::addMachinePasses() {
 
   // Run post-ra passes.
   addPostRegAlloc();
+
+  addPass(&RemoveRedundantDebugValuesID, false);
 
   addPass(&FixupStatepointCallerSavedID);
 
@@ -1239,7 +1299,7 @@ void TargetPassConfig::addMachinePasses() {
 
 #if INTEL_CUSTOMIZATION
   if (IntelOptReportEmitter == OptReportOptions::MIR)
-    addPass(&MachineLoopOptReportEmitterID, false);
+    addPass(&MachineOptReportEmitterID, false);
 #endif  // INTEL_CUSTOMIZATION
 
   if (TM->Options.EnableMachineOutliner && getOptLevel() != CodeGenOpt::None &&
@@ -1389,8 +1449,8 @@ FunctionPass *TargetPassConfig::createRegAllocPass(bool Optimized) {
 }
 
 bool TargetPassConfig::addRegAssignAndRewriteFast() {
-  if (RegAlloc != &useDefaultRegisterAllocator &&
-      RegAlloc != &createFastRegisterAllocator)
+  if (RegAlloc != (RegisterRegAlloc::FunctionPassCtor)&useDefaultRegisterAllocator &&
+      RegAlloc != (RegisterRegAlloc::FunctionPassCtor)&createFastRegisterAllocator)
     report_fatal_error("Must use fast (default) register allocator for unoptimized regalloc.");
 
   addPass(createRegAllocPass(false));
@@ -1470,6 +1530,7 @@ void TargetPassConfig::addOptimizedRegAlloc() {
   addPass(&MachineSchedulerID);
 
   if (addRegAssignAndRewriteOptimized()) {
+    addPreStackSlotColoring(); // INTEL
     // Perform stack slot coloring and post-ra machine LICM.
     //
     // FIXME: Re-enable coloring with register when it's capable of adding
@@ -1519,6 +1580,15 @@ bool TargetPassConfig::addGCPasses() {
 
 /// Add standard basic block placement passes.
 void TargetPassConfig::addBlockPlacement() {
+  if (EnableFSDiscriminator) {
+    addPass(createMIRAddFSDiscriminatorsPass(
+        sampleprof::FSDiscriminatorPass::Pass2));
+    const std::string ProfileFile = getFSProfileFile(TM);
+    if (!ProfileFile.empty() && !DisableLayoutFSProfileLoader)
+      addPass(
+          createMIRProfileLoaderPass(ProfileFile, getFSRemappingFile(TM),
+                                     sampleprof::FSDiscriminatorPass::Pass2));
+  }
   if (addPass(&MachineBlockPlacementID)) {
     // Run a separate pass to collect block placement statistics.
     if (EnableBlockPlacementStats)

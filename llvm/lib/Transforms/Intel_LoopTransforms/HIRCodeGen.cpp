@@ -33,7 +33,7 @@
 
 #include "llvm/Analysis/ScalarEvolution.h"
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #include "llvm/Analysis/Utils/Local.h"
@@ -129,10 +129,10 @@ public:
     llvm_unreachable("Unknown HIR type in CG");
   }
 
-  CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, LoopOptReportBuilder &LORB)
+  CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, OptReportBuilder &ORB)
       : F(HIRF.getFunction()), HIRF(HIRF), SE(SE), CurRegion(nullptr),
         CurLoopHasSignedIV(false), Builder(HIRF.getContext()),
-        Expander(SE, HIRF.getDataLayout(), "i", *this), LORBuilder(LORB) {}
+        Expander(SE, HIRF.getDataLayout(), "i", *this), ORBuilder(ORB) {}
 
 private:
   // Performs preprocessing for \p Reg before we start generating code for it.
@@ -337,7 +337,7 @@ private:
   bool CurLoopHasSignedIV;
   IRBuilder<> Builder;
   HIRSCEVExpander Expander;
-  const LoopOptReportBuilder &LORBuilder;
+  const OptReportBuilder &ORBuilder;
 
   // keep track of our mem allocs. Only IV and temps atm
   std::map<std::string, AllocaInst *> NamedValues;
@@ -349,7 +349,7 @@ private:
   // A stack of IV memory slots for current loop nest. Creating a load
   // of value at CurIVValues[1] will return the IV for loop level 1 of
   // current loop nest
-  SmallVector<Value *, MaxLoopNestLevel + 1> CurIVValues;
+  SmallVector<AllocaInst *, MaxLoopNestLevel + 1> CurIVValues;
 
   // Maps the old region exiting edges to a vector of new ones. We can have
   // multiple new exits for one original exit due to replication (unrolling,
@@ -367,7 +367,7 @@ class HIRCodeGen {
 private:
   HIRFramework &HIRF;
   ScalarEvolution &SE;
-  LoopOptReportBuilder &LORBuilder;
+  OptReportBuilder &ORBuilder;
 
   // Clears HIR related metadata from instructions. Returns true if any
   // instruction was cleared.
@@ -378,7 +378,7 @@ private:
 
 public:
   HIRCodeGen(HIRFramework &HIRF)
-      : HIRF(HIRF), SE(HIRF.getScopedSE()), LORBuilder(HIRF.getLORBuilder()) {}
+      : HIRF(HIRF), SE(HIRF.getScopedSE()), ORBuilder(HIRF.getORBuilder()) {}
 
   bool run();
 
@@ -440,7 +440,7 @@ bool HIRCodeGen::run() {
   LLVM_DEBUG(HIRF.getFunction().dump());
 
   // generate code
-  CGVisitor CG(HIRF, SE, LORBuilder);
+  CGVisitor CG(HIRF, SE, ORBuilder);
   bool Transformed = false;
   unsigned RegionIdx = 1;
 
@@ -575,7 +575,7 @@ void CGVisitor::preprocess(HLRegion *Reg) {
 
   // Gather all loops for processing.
   SmallVector<HLLoop *, 64> Loops;
-  Reg->getHLNodeUtils().gatherAllLoops(Reg, Loops);
+  HLNodeUtils::gatherAllLoops(Reg, Loops);
 
   // Extract ztt, preheader and postexit.
   for (auto &I : Loops) {
@@ -884,7 +884,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   bool AnyVector = false;
-  unsigned DimNum = Ref->getNumDimensions();
 
   auto BitCastDestTy = Ref->getBitCastDestType();
 
@@ -913,15 +912,15 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // Ref either looks like t[0] or &t[0]. In such cases we don't need a GEP, we
   // can simply use the base value. Also, for opaque (forward declared) struct
   // types, LLVM doesn't allow any indices even if it is just a zero.
-  if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
-      (*Ref->canon_begin())->isZero() && Ref->getDimensionLower(1)->isZero()) {
-    // GEP is not needed.
-  } else {
-    assert(DimNum && "No dimensions");
+  if (!Ref->isSelfGEPRef(true)) {
+    unsigned NumDims = Ref->getNumDimensions();
+    assert(NumDims && "No dimensions");
 
+    Type *BasePtrElementTy = Ref->getBasePtrElementType();
+    Value *PrevGEPVal = GEPVal;
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
-    for (; DimNum > 0; --DimNum) {
+    for (unsigned DimNum = NumDims; DimNum > 0; --DimNum) {
       auto *IndexVal = visitCanonExpr(Ref->getDimensionIndex(DimNum));
       auto *LowerVal = visitCanonExpr(Ref->getDimensionLower(DimNum));
       auto *StrideVal = visitCanonExpr(Ref->getDimensionStride(DimNum));
@@ -930,20 +929,26 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       // EmitSubsValue.
 
       // Create a GEP offset that corresponds to the current dimension.
-      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
-      GEPVal = EmitSubsValue(&Builder, DL, GEPElementTy, GEPVal, LowerVal,
-                             IndexVal, StrideVal, Ref->isInBounds(), true);
+      Type *DimElementTy = Ref->getDimensionElementType(DimNum);
+
+      GEPVal =
+          EmitSubsValue(&Builder, DL, DimElementTy, GEPVal, BasePtrElementTy,
+                        LowerVal, IndexVal, StrideVal, Ref->isInBounds(), true);
 
       // Emit gep for dimension struct access.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
       if (!Offsets.empty()) {
         // Add first zero index to dereference the pointer.
         auto *OffsetTy = DL.getIndexType(GEPVal->getType());
+        auto *GEPElemTy = DimElementTy;
         SmallVector<Value *, 8> IndexV{ConstantInt::get(OffsetTy, 0)};
 
         // Try to merge Struct Offset GEP into previous GEP.
         auto *GepBase = dyn_cast<GetElementPtrInst>(GEPVal);
         if (GepBase) {
+          // We are recreating a new GEP by merging the offsets with a previous
+          // GEP so the element type needs to be updated.
+          GEPElemTy = GepBase->getSourceElementType();
           IndexV.resize(GepBase->getNumOperands() - 1);
           for (int I = 1, E = GepBase->getNumOperands(); I < E; ++I) {
             IndexV[I - 1] = GepBase->getOperand(I);
@@ -963,7 +968,22 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
 
-        GEPVal = Builder.CreateInBoundsGEP(GEPVal, IndexV);
+        GEPVal = Builder.CreateInBoundsGEP(GEPElemTy, GEPVal, IndexV);
+      }
+
+      // Update BasePtrElementTy for processing of next dimension if we
+      // generated a new GEP for this dimension. EmitSubsValue() skips
+      // generating new GEP for zero offsets.
+      if ((DimNum != 1) && (PrevGEPVal != GEPVal)) {
+        if (auto *GEPOp = dyn_cast<GEPOperator>(GEPVal)) {
+          BasePtrElementTy = GEPOp->getResultElementType();
+        } else {
+          // In cases where the stride is non-constant, EmitSubsValue() emits
+          // bitcast to/from i8* to do the offset computation in bytes.
+          assert(Offsets.empty() && "Dimension offsets not expected!");
+          BasePtrElementTy = DimElementTy;
+        }
+        PrevGEPVal = GEPVal;
       }
     }
   }
@@ -1016,9 +1036,9 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
                                              Ref->getAlignment(), MaskVal);
     } else {
-      auto *GEPValTy = GEPVal->getType()->getPointerElementType();
+      auto *ElemTy = Ref->getDestType();
       LInst = Builder.CreateAlignedLoad(
-          GEPValTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
+          ElemTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
     }
 
     setMetadata(LInst, Ref);
@@ -1204,15 +1224,15 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   initializeLiveins();
 
-  LoopOptReport RegOptReport = Reg->getOptReport();
+  OptReport RegOptReport = Reg->getOptReport();
   if (RegOptReport) {
     // Optreports for outermost lost loop are stored as first child of the
     // region. So it looks like:
-    // !1 = distinct !{!"llvm.loop.optreport", !2}
-    // !2 = distinct !{!"intel.loop.optreport", !3}
+    // !1 = distinct !{!"intel.optreport.rootnode", !2}
+    // !2 = distinct !{!"intel.optreport", !3}
     // !3 = !{!"intel.optreport.first_child", !4}
-    // !4 = distinct !{!"llvm.loop.optreport", !5}
-    // !5 = distinct !{!"intel.loop.optreport", !6, !8}
+    // !4 = distinct !{!"intel.optreport.rootnode", !5}
+    // !5 = distinct !{!"intel.optreport", !6, !8}
     // !6 = !{!"intel.optreport.remarks", !7}
     // !7 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
     //
@@ -1220,25 +1240,25 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
     // for the region. Except for the function may have multiple outermost
     // loops. In this case all the following loops as stored as next siblings of
     // the first child. E.g.
-    // !1 = distinct !{!"llvm.loop.optreport", !2}
-    // !2 = distinct !{!"intel.loop.optreport", !3}
+    // !1 = distinct !{!"intel.optreport.rootnode", !2}
+    // !2 = distinct !{!"intel.optreport", !3}
     // !3 = !{!"intel.optreport.first_child", !4}
-    // !4 = distinct !{!"llvm.loop.optreport", !5}
-    // !5 = distinct !{!"intel.loop.optreport", !6, !8}
+    // !4 = distinct !{!"intel.optreport.rootnode", !5}
+    // !5 = distinct !{!"intel.optreport", !6, !8}
     // !6 = !{!"intel.optreport.remarks", !7}
     // !7 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
     // !8 = !{!"intel.optreport.next_sibling", !9}
-    // !9 = distinct !{!"llvm.loop.optreport", !10}
-    // !10 = distinct !{!"intel.loop.optreport", !6, !11}
+    // !9 = distinct !{!"intel.optreport.rootnode", !10}
+    // !10 = distinct !{!"intel.optreport", !6, !11}
     // !11 = !{!"intel.optreport.next_sibling", !12}
-    // !12 = distinct !{!"llvm.loop.optreport", !13}
-    // !13 = distinct !{!"intel.loop.optreport", !6}
+    // !12 = distinct !{!"intel.optreport.rootnode", !13}
+    // !13 = distinct !{!"intel.optreport", !6}
 
     // TODO: We reattach all region-attached loops to a function and
     // this is not always correct: the proper way would be to find
     // a previous sibling of the loop first, even if this sibling
     // is located in another region.
-    LORBuilder(F).addChild(RegOptReport.firstChild());
+    ORBuilder(F).addChild(RegOptReport.firstChild());
   }
 
   // Onto children cg
@@ -1512,12 +1532,11 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
   // Attach metadata to the resulting loop; Exclude opt report field
   // if there was any.
-  MDNode *LoopID = LoopOptReport::eraseOptReportFromLoopID(
-      Lp->getLoopMetadata(), F.getContext());
+  MDNode *LoopID = OptReport::eraseOptReportFromLoopID(Lp->getLoopMetadata(),
+                                                       F.getContext());
 
-  if (LoopOptReport OptReport = Lp->getOptReport()) {
-    LoopID =
-        LoopOptReport::addOptReportToLoopID(LoopID, OptReport, F.getContext());
+  if (OptReport OR = Lp->getOptReport()) {
+    LoopID = OptReport::addOptReportToLoopID(LoopID, OR, F.getContext());
   }
 
   if (IsUnknownLoop) {
@@ -1904,8 +1923,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (auto Cast = dyn_cast<CastInst>(Inst)) {
     assert(Ops.size() == 2 && "invalid cast");
 
-    StoreVal = Builder.CreateCast(Cast->getOpcode(), Ops[1],
-                                  Ops[0]->getType()->getPointerElementType());
+    StoreVal = Builder.CreateCast(Cast->getOpcode(), Ops[1], Cast->getType());
 
   } else if (isa<SelectInst>(Inst)) {
     Value *CmpLHS = Ops[1];
@@ -1934,10 +1952,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = Ops[1];
 
   } else if (auto *Alloca = dyn_cast<AllocaInst>(Inst)) {
-    // Lval type is a pointer to type returned by alloca inst. We need to
-    // dereference twice to get to element type
-    Type *ElementType =
-        Ops[0]->getType()->getPointerElementType()->getPointerElementType();
+    Type *ElementType = Alloca->getAllocatedType();
 
     auto *NewAlloca = Builder.CreateAlloca(
         ElementType, Ops[1],
@@ -2088,9 +2103,9 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
                            Type *Ty) {
 
   // Load IV at given level from this loop nest
-  Value *CurIVValue = CurIVValues[CE->getLevel(IVIt)];
-  auto *CurIVValueTy = CurIVValue->getType()->getPointerElementType();
-  Value *IV = Builder.CreateLoad(CurIVValueTy, CurIVValue);
+  AllocaInst *CurIVAlloca = CurIVValues[CE->getLevel(IVIt)];
+  auto *CurIVValueTy = CurIVAlloca->getAllocatedType();
+  Value *IV = Builder.CreateLoad(CurIVValueTy, CurIVAlloca);
 
   // If IV type and Ty(CE src type) do not match, convert as needed.
   if (IV->getType() != Ty) {

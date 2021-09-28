@@ -48,4 +48,4 @@ define internal void @test01() {
 !3 = !{i16 0, i32 0}  ; i16
 !4 = !{!"S", %struct.test01 zeroinitializer, i32 5, !1, !2, !1, !3, !3} ; { i32, i64*, i32, i16, i16 }
 
-!dtrans_types = !{!4}
+!intel.dtrans.types = !{!4}

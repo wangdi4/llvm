@@ -7,7 +7,7 @@
 ; merged with a type that did not alias a pointer type.
 
 %struct.test01 = type { i64, i64 }
-define void @test01(%struct.test01* %pStruct, i64 %n) !dtrans_type !2 {
+define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i64 %n) !intel.dtrans.func.type !3 {
   %tmp = ptrtoint %struct.test01* %pStruct to i64
   %sel = select i1 undef, i64 %tmp, i64 %n
   ret void
@@ -18,7 +18,7 @@ define void @test01(%struct.test01* %pStruct, i64 %n) !dtrans_type !2 {
 
 
 %struct.test02 = type { i64, i64 }
-define void @test02(%struct.test02* %pStruct) !dtrans_type !6 {
+define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !5 {
   %tmp = ptrtoint %struct.test02* %pStruct to i64
   %sel = select i1 undef, i64 %tmp, i64 0
   ret void
@@ -28,14 +28,11 @@ define void @test02(%struct.test02* %pStruct) !dtrans_type !6 {
 ; CHECK: Unsafe pointer merge{{ *$}}
 
 !1 = !{i64 0, i32 0}  ; i64
-!2 = !{!"F", i1 false, i32 2, !3, !4, !1}  ; void (%struct.test01*, i64)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{!"F", i1 false, i32 1, !3, !7}  ; void (%struct.test02*)
-!7 = !{!8, i32 1}  ; %struct.test02*
-!8 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!9 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
-!10 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = distinct !{!2}
+!4 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!5 = distinct !{!4}
+!6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
+!7 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
 
-!dtrans_types = !{!9, !10}
+!intel.dtrans.types = !{!6, !7}

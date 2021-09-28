@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 ; CHECK: entry:
 ; CHECK-NEXT: %AllocaWGResult = alloca i32
 ; CHECK-NEXT: store i32 -2147483648, i32* %AllocaWGResult
-; CHECK-NEXT: call void @barrier_dummy()
+; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK-NOT: %call1 = tail call i32 @_Z29work_group_scan_exclusive_maxi(i32 %0)
 ; CHECK: %CallWGForItem = call i32 @_Z29work_group_scan_exclusive_maxiPi(i32 %0, i32* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
@@ -45,7 +45,7 @@ declare i32 @_Z29work_group_scan_exclusive_maxi(i32)
 ; CHECK: entry:
 ; CHECK-NEXT: %AllocaWGResult = alloca <4 x i32>
 ; CHECK-NEXT: store <4 x i32> <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>, <4 x i32>* %AllocaWGResult
-; CHECK-NEXT: call void @barrier_dummy()
+; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK-NOT: call <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_i(<4 x i32> %1)
 ; CHECK: %CallWGForItem = call <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_iPS_(<4 x i32> %1, <4 x i32>* %AllocaWGResult)
 ; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
@@ -125,13 +125,13 @@ declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_i(<4 x i32>) nounwind re
 ;; These are inserted by GroupBuiltin pass, should not have debug info
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- %AllocaWGResult = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- store i32 -2147483648, i32* %AllocaWGResult, align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- store i32 -2147483648, i32* %AllocaWGResult, align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- %AllocaWGResult = alloca <4 x i32>, align 16
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- store <4 x i32> <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>, <4 x i32>* %AllocaWGResult, align 16
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- store <4 x i32> <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>, <4 x i32>* %AllocaWGResult, align 16
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- call void @dummy_barrier.()
 
 ; DEBUGIFY-NOT: WARNING

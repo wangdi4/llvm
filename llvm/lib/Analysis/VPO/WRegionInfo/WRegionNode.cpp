@@ -64,10 +64,12 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
     {WRegionNode::WRNMaster, "master"},
+    {WRegionNode::WRNMasked, "masked"},
     {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
-    {WRegionNode::WRNTaskyield, "taskyield"}};
+    {WRegionNode::WRNTaskyield, "taskyield"},
+    {WRegionNode::WRNScope, "scope"}};
 
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
@@ -769,6 +771,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
     getWRNLoopInfo().setKnownNDRange();
     break;
+  case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
+    setHasTeamsReduction();
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }
@@ -854,6 +859,9 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+  case QUAL_OMP_FILTER:
+    setFilter(V);
+    break;
   case QUAL_OMP_DESTROY: {
     InteropActionClause &InteropAction = getInteropAction();
     InteropAction.add(V);
@@ -885,7 +893,6 @@ template <typename ClauseTy>
 void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                       int ClauseID, ClauseTy &C) {
   C.setClauseID(ClauseID);
-
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
@@ -899,6 +906,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   bool IsUseDeviceAddr = false;
   int ClauseID = ClauseInfo.getId();
   bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
+  bool IsTyped = ClauseInfo.getIsTyped();
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
@@ -935,6 +943,19 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       // base pointer operand is relevant, rest is ignored.
         break;
     }
+
+    if (IsTyped) {
+      assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
+              ClauseID == QUAL_OMP_COPYPRIVATE) &&
+             "Unexpected TYPED modifier in a clause that doesn't support it");
+      assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
+      assert(I == 0 && "More than one variable in a TYPED clause");
+      C.setClauseID(ClauseID);
+      C.back()->setIsTyped(true);
+      C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+      C.back()->setNumElements(Args[2]);
+      break;
+    }
   }
 }
 
@@ -944,7 +965,23 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
                                             Clause<ClauseItemTy> &C) {
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
-
+  bool IsTyped = ClauseInfo.getIsTyped();
+  // Example of a non-Typed POD clause: "QUAL.OMP.PRIVATE"(var)
+  // Example of a Typed POD clause: "QUAL.OMP.PRIVATE:TYPED"(var, type, number
+  // of elements) Example of a non-Typed nonPOD clause: "QUAL.OMP.PRIVATE"(var,
+  // ctor, dtor) Example of a Typed nonPOD clause: "QUAL.OMP.PRIVATE:TYPED"(var,
+  // type, number of elements, ctor, dtor)
+  if (IsTyped) {
+    assert((ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE ||
+            ClauseID == QUAL_OMP_LASTPRIVATE) &&
+           "The TYPED keyword is for PRIVATE, FIRSTPRIVATE, LASTPRIVATE only");
+    // Typed clauses have 2 extra arguments, therefore minimal number of
+    // arguments is 3 (POD private or firstprivate), maximal number of
+    // arguments is 6 (nonPOD lastprivate)
+    assert((NumArgs == 3 || NumArgs == 5 || NumArgs == 6) &&
+           "Expected 3 or 5 (private, firstprivate) or 3 or 6 (lastprivate) "
+           "arguments for TYPED");
+  }
   bool IsByRef = ClauseInfo.getIsByRef();
   bool IsConditional = ClauseInfo.getIsConditional();
   if (IsConditional)
@@ -960,10 +997,13 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
     //  - LASTPRIVATE:  4 args : Var, Ctor, CopyAssign, Dtor
+    //  Note: if (IsTyped), 2 extra arguments are used
     if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
-      assert(NumArgs == 3 && "Expected 3 arguments for [FIRST]PRIVATE NONPOD");
+      assert((NumArgs == 3 || NumArgs == 5) &&
+             "Expected 3 or 5 arguments for [FIRST]PRIVATE NONPOD");
     else if (ClauseID == QUAL_OMP_LASTPRIVATE)
-      assert(NumArgs == 4 && "Expected 4 arguments for LASTPRIVATE NONPOD");
+      assert((NumArgs == 4 || NumArgs == 6) &&
+             "Expected 4 or 6 arguments for LASTPRIVATE NONPOD");
     else
       llvm_unreachable("NONPOD support for this clause type TBD");
 
@@ -971,7 +1011,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
       return;
     }
-    ClauseItemTy *Item = new ClauseItemTy(Args);
+    ClauseItemTy *Item = new ClauseItemTy(Args, IsTyped);
     Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
     assert(!IsConditional && "NonPod can't be conditional by OMP standard.");
@@ -986,7 +1026,18 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       Item->setIsF90NonPod(true);
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
-  } else
+  } else if (IsTyped) { // Typed PODs
+    assert(NumArgs == 3 && "Expected 3 arguments for a Typed POD");
+    Value *V = Args[0];
+    C.add(V);
+    C.back()->setIsTyped(true);
+    C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+    C.back()->setNumElements(Args[2]);
+    if (IsByRef)
+      C.back()->setIsByRef(true);
+    if (IsConditional)
+      C.back()->setIsConditional(true);
+  } else { // non-Typed PODs
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       if (!V || isa<ConstantPointerNull>(V)) {
@@ -1000,14 +1051,15 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       if (IsConditional)
         C.back()->setIsConditional(true);
 #if INTEL_CUSTOMIZATION
-    if (!CurrentBundleDDRefs.empty() &&
-        WRegionUtils::supportsRegDDRefs(ClauseID))
-      C.back()->setHOrig(CurrentBundleDDRefs[I]);
-    if (ClauseInfo.getIsF90DopeVector())
-      C.back()->setIsF90DopeVector(true);
-    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
+      if (!CurrentBundleDDRefs.empty() &&
+          WRegionUtils::supportsRegDDRefs(ClauseID))
+        C.back()->setHOrig(CurrentBundleDDRefs[I]);
+      if (ClauseInfo.getIsF90DopeVector())
+        C.back()->setIsF90DopeVector(true);
+      C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
+  }
 }
 
 void WRegionNode::extractInitOpndList(InteropActionClause &InteropAction,
@@ -1203,10 +1255,17 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
                                         LinearClause &C) {
   C.setClauseID(QUAL_OMP_LINEAR);
 
+  bool IsTyped = ClauseInfo.getIsTyped();
+
   // The 'step' is always present in the IR coming from Clang, and it is the
   // last argument in the operand list. Therefore, NumArgs >= 2, and the step
   // is the Value in Args[NumArgs-1].
-  assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
+  // If Clause is Typed, NumArgs == 4: the first one is linear item,
+  // the second and third one are type and size,
+  // the last one is the step
+  assert((!IsTyped || NumArgs == 4) &&
+         "Missing 'step' for a TYPED LINEAR clause");
+  assert((IsTyped || NumArgs >= 2) && "Missing 'step' for a LINEAR clause");
   Value *StepValue = Args[NumArgs-1];
   assert(StepValue != nullptr && "Null LINEAR 'step'");
 
@@ -1215,6 +1274,8 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     Value *V = Args[I];
     if (!V || isa<ConstantPointerNull>(V)) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      if (IsTyped)
+        break;
       continue;
     }
     C.add(V);
@@ -1229,6 +1290,15 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
       LI->setHStep(CurrentBundleDDRefs[NumArgs - 1]);
     }
 #endif // INTEL_CUSTOMIZATION
+
+    if (IsTyped) {
+      LI->setIsTyped(IsTyped);
+      Type *V1 = Args[I + 1]->getType();
+      Value *V2 = Args[I + 2];
+      LI->setOrigItemElementTypeFromIR(V1);
+      LI->setNumElements(V2);
+      break;
+    }
   }
 }
 
@@ -1261,6 +1331,9 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                   EntryDir->getDebugLoc()));
     return;
   }
+
+  bool IsTyped = ClauseInfo.getIsTyped();
+
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
     if (!V || isa<ConstantPointerNull>(V)) {
@@ -1280,22 +1353,51 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     //     RI->setIsTask(IsTask);
 
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
-    // The number of non array section tuple arguments is 2 by default (base
-    // pointer and dimension at the beginning). For UDR, it's 6, while there are
-    // 4 additional arguments for constructor, destructor, combiner and
-    // initializer at the end.
-    assert((NumArgs ==
-            3 * (cast<ConstantInt>(Args[1])->getZExtValue()) +
-                ((ReductionKind == ReductionItem::WRNReductionUdr) ? 6 : 2)) &&
-           "Unexpected number of args for array section operand.");
+    if (IsTyped) {
+      // The number of Typed arguments is 4 by default
+      // (base pointer, type, number of elements, offset). For UDR, it's 8,
+      // while there are 4 additional arguments for constructor, destructor,
+      // combiner and initializer at the end.
 
-    if (ReductionKind == ReductionItem::WRNReductionUdr) {
-      RI->setConstructor(
-          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
-      RI->setDestructor(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
-      RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
-      RI->setInitializer(
-          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+      RI->setIsTyped(true);
+      RI->setOrigItemElementTypeFromIR(Args[1]->getType());
+      RI->setNumElements(Args[2]);
+      RI->setArraySectionOffset(Args[3]);
+
+      if (ReductionKind == ReductionItem::WRNReductionUdr) {
+        assert(NumArgs == 8 &&
+               "Unexpected number of args for array section operand.");
+        RI->setConstructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
+        RI->setDestructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
+        RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
+        RI->setInitializer(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+      } else {
+        assert(NumArgs == 4 &&
+               "Unexpected number of args for array section operand.");
+      }
+    } else {
+      // The number of non array section tuple arguments is 2 by default (base
+      // pointer and dimension at the beginning). For UDR, it's 6, while there
+      // are 4 additional arguments for constructor, destructor, combiner and
+      // initializer at the end.
+      assert(
+          (NumArgs ==
+           3 * (cast<ConstantInt>(Args[1])->getZExtValue()) +
+               ((ReductionKind == ReductionItem::WRNReductionUdr) ? 6 : 2)) &&
+          "Unexpected number of args for array section operand.");
+
+      if (ReductionKind == ReductionItem::WRNReductionUdr) {
+        RI->setConstructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
+        RI->setDestructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
+        RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
+        RI->setInitializer(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+      }
     }
 
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
@@ -1314,6 +1416,17 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
+
+      if (IsTyped) {
+        LLVMContext &Ctxt = V->getContext();
+        RI->setIsTyped(true);
+        RI->setOrigItemElementTypeFromIR(Args[I + 1]->getType());
+        RI->setNumElements(Args[I + 2]);
+        RI->setArraySectionOffset(
+            Constant::getNullValue(Type::getInt32Ty(Ctxt)));
+        I += 2;
+      }
+
      // TODO: This code will be added once we start supporting task
      // reduction-modifier on a Reduction clause
      //   if (IsTask)
@@ -1755,9 +1868,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
-      Type *VTy = isa<PointerType>(V->getType())
-                      ? V->getType()->getPointerElementType()
-                      : V->getType();
+      Type *VTy = nullptr;
+      if (ClauseInfo.getIsTyped())
+        VTy = Args[++I]->getType();
+      else
+        VTy = isa<PointerType>(V->getType())
+                  ? V->getType()->getPointerElementType()
+                  : V->getType();
       getWRNLoopInfo().addNormIV(V, VTy);
     }
     break;
@@ -1770,9 +1887,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
-      Type *VTy = isa<PointerType>(V->getType())
-                      ? V->getType()->getPointerElementType()
-                      : V->getType();
+      Type *VTy = nullptr;
+      if (ClauseInfo.getIsTyped())
+        VTy = Args[++I]->getType();
+      else
+        VTy = isa<PointerType>(V->getType())
+                  ? V->getType()->getPointerElementType()
+                  : V->getType();
       getWRNLoopInfo().addNormUB(V, VTy);
     }
     break;
@@ -1914,6 +2035,7 @@ bool WRegionNode::canHavePrivate() const {
   case WRNDistribute:
   case WRNSingle:
   case WRNGenericLoop:
+  case WRNScope:
     return true;
   }
   return false;
@@ -1924,7 +2046,8 @@ bool WRegionNode::canHaveFirstprivate() const {
 
   // similar to canHavePrivate except for SIMD,
   // which has Private but not Firstprivate
-  if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop)
+  if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop ||
+      SubClassID == WRNScope)
     return false;
   return canHavePrivate();
 }
@@ -1971,6 +2094,7 @@ bool WRegionNode::canHaveReduction() const {
   case WRNWksLoop:
   case WRNSections:
   case WRNGenericLoop:
+  case WRNScope:
     return true;
   }
   return false;
@@ -1989,6 +2113,7 @@ bool WRegionNode::canHaveNowait() const {
   case WRNSections:
   case WRNWorkshare:
   case WRNSingle:
+  case WRNScope:
     return true;
   }
   return false;
@@ -2238,6 +2363,21 @@ bool WRegionNode::needsOutlining() const {
 StringRef WRegionNode::getName() const {
   // good return llvm::vpo::WRNName[getWRegionKindID()];
   return WRNName[getWRegionKindID()];
+}
+
+StringRef WRegionNode::getSourceName() const {
+  switch (getWRegionKindID()) {
+  case WRegionNode::WRNWksLoop:
+    return getEntryBBlock()->getParent()->isFortran() ? "do" : "for";
+  case WRegionNode::WRNParallelLoop:
+    return getEntryBBlock()->getParent()->isFortran() ? "parallel do"
+                                                      : "parallel for";
+  case WRegionNode::WRNDistributeParLoop:
+    return getEntryBBlock()->getParent()->isFortran()
+               ? "distribute parallel do"
+               : "distribute parallel for";
+  }
+  return getName();
 }
 
 void WRegionNode::errorClause(StringRef ClauseName) const {

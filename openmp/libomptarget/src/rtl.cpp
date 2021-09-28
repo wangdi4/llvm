@@ -17,6 +17,10 @@
 #include "omptarget-tools.h"
 #endif // INTEL_COLLAB
 
+#if OMPT_SUPPORT
+#include "ompt-target.h"
+#endif
+
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -330,9 +334,9 @@ void RTLsTy::LoadRTLs() {
       } while (0)
     #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
     SET_OPTIONAL_INTERFACE_FN(data_alloc_base);
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_user);
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_explicit);
     SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
+    SET_OPTIONAL_INTERFACE_FN(data_realloc);
+    SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
     SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
     SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
     SET_OPTIONAL_INTERFACE_FN(create_offload_queue);
@@ -359,6 +363,10 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
     SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
     SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
+    SET_OPTIONAL_INTERFACE_FN(notify_indirect_access);
+    SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
+    SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
+    SET_OPTIONAL_INTERFACE_FN(command_batch_end);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,
@@ -381,7 +389,30 @@ void RTLsTy::LoadRTLs() {
         dlsym(dynlib_handle, "__tgt_rtl_supports_empty_images");
     *((void **)&R.set_info_flag) =
         dlsym(dynlib_handle, "__tgt_rtl_set_info_flag");
+    *((void **)&R.print_device_info) =
+        dlsym(dynlib_handle, "__tgt_rtl_print_device_info");
+    *((void **)&R.create_event) =
+        dlsym(dynlib_handle, "__tgt_rtl_create_event");
+    *((void **)&R.record_event) =
+        dlsym(dynlib_handle, "__tgt_rtl_record_event");
+    *((void **)&R.wait_event) = dlsym(dynlib_handle, "__tgt_rtl_wait_event");
+    *((void **)&R.sync_event) = dlsym(dynlib_handle, "__tgt_rtl_sync_event");
+    *((void **)&R.destroy_event) =
+        dlsym(dynlib_handle, "__tgt_rtl_destroy_event");
   }
+
+#if OMPT_SUPPORT
+  DP("OMPT_SUPPORT is enabled in libomptarget\n");
+  DP("Init OMPT for libomptarget\n");
+  if (libomp_start_tool) {
+    DP("Retrieve libomp_start_tool successfully\n");
+    if (!libomp_start_tool(&ompt_target_enabled)) {
+      DP("Turn off OMPT in libomptarget because libomp_start_tool returns "
+         "false\n");
+      memset(&ompt_target_enabled, 0, sizeof(ompt_target_enabled));
+    }
+  }
+#endif
 
   DP("RTLs loaded!\n");
 
@@ -426,7 +457,7 @@ static void RegisterGlobalCtorsDtorsForImage(__tgt_bin_desc *desc,
                                              RTLInfoTy *RTL) {
 
   for (int32_t i = 0; i < RTL->NumberOfDevices; ++i) {
-    DeviceTy &Device = PM->Devices[RTL->Idx + i];
+    DeviceTy &Device = *PM->Devices[RTL->Idx + i];
     Device.PendingGlobalsMtx.lock();
     Device.HasPendingGlobals = true;
     for (__tgt_offload_entry *entry = img->EntriesBegin;
@@ -505,6 +536,38 @@ void RTLsTy::RegisterRequires(int64_t flags) {
      flags, RequiresFlags);
 }
 
+void RTLsTy::initRTLonce(RTLInfoTy &R) {
+  // If this RTL is not already in use, initialize it.
+  if (!R.isUsed && R.NumberOfDevices != 0) {
+    // Initialize the device information for the RTL we are about to use.
+    const size_t Start = PM->Devices.size();
+    PM->Devices.reserve(Start + R.NumberOfDevices);
+    for (int32_t device_id = 0; device_id < R.NumberOfDevices; device_id++) {
+      PM->Devices.push_back(std::make_unique<DeviceTy>(&R));
+      // global device ID
+      PM->Devices[Start + device_id]->DeviceID = Start + device_id;
+      // RTL local device ID
+      PM->Devices[Start + device_id]->RTLDeviceID = device_id;
+    }
+
+    // Initialize the index of this RTL and save it in the used RTLs.
+    R.Idx = (UsedRTLs.empty())
+                ? 0
+                : UsedRTLs.back()->Idx + UsedRTLs.back()->NumberOfDevices;
+    assert((size_t)R.Idx == Start &&
+           "RTL index should equal the number of devices used so far.");
+    R.isUsed = true;
+    UsedRTLs.push_back(&R);
+
+    DP("RTL " DPxMOD " has index %d!\n", DPxPTR(R.LibraryHandler), R.Idx);
+  }
+}
+
+void RTLsTy::initAllRTLs() {
+  for (auto &R : AllRTLs)
+    initRTLonce(R);
+}
+
 void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
   PM->RTLsMtx.lock();
   // Register the images with the RTLs that understand them, if any.
@@ -512,7 +575,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
     // Obtain the image.
     __tgt_device_image *img = &desc->DeviceImages[i];
 
-    RTLInfoTy *FoundRTL = NULL;
+    RTLInfoTy *FoundRTL = nullptr;
 
     // Scan the RTLs that have associated images until we find one that supports
     // the current image.
@@ -526,31 +589,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
       DP("Image " DPxMOD " is compatible with RTL %s!\n",
          DPxPTR(img->ImageStart), R.RTLName.c_str());
 
-      // If this RTL is not already in use, initialize it.
-      if (!R.isUsed) {
-        // Initialize the device information for the RTL we are about to use.
-        DeviceTy device(&R);
-        size_t Start = PM->Devices.size();
-        PM->Devices.resize(Start + R.NumberOfDevices, device);
-        for (int32_t device_id = 0; device_id < R.NumberOfDevices;
-             device_id++) {
-          // global device ID
-          PM->Devices[Start + device_id].DeviceID = Start + device_id;
-          // RTL local device ID
-          PM->Devices[Start + device_id].RTLDeviceID = device_id;
-        }
-
-        // Initialize the index of this RTL and save it in the used RTLs.
-        R.Idx = (UsedRTLs.empty())
-                    ? 0
-                    : UsedRTLs.back()->Idx + UsedRTLs.back()->NumberOfDevices;
-        assert((size_t)R.Idx == Start &&
-               "RTL index should equal the number of devices used so far.");
-        R.isUsed = true;
-        UsedRTLs.push_back(&R);
-
-        DP("RTL " DPxMOD " has index %d!\n", DPxPTR(R.LibraryHandler), R.Idx);
-      }
+      initRTLonce(R);
 
       // Initialize (if necessary) translation table for this library.
       PM->TrlTblMtx.lock();
@@ -619,7 +658,7 @@ void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
       // Execute dtors for static objects if the device has been used, i.e.
       // if its PendingCtors list has been emptied.
       for (int32_t i = 0; i < FoundRTL->NumberOfDevices; ++i) {
-        DeviceTy &Device = PM->Devices[FoundRTL->Idx + i];
+        DeviceTy &Device = *PM->Devices[FoundRTL->Idx + i];
         Device.PendingGlobalsMtx.lock();
         if (Device.PendingCtorsDtors[desc].PendingCtors.empty()) {
           AsyncInfoTy AsyncInfo(Device);

@@ -1249,7 +1249,28 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
         createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
       }
 
-      // TODO: include support for non-POD CopyAssign specialization here.
+      if (PrivateNonPOD->isLast()) {
+        assert(PrivateNonPOD->getCopyAssign() &&
+               "CopyAssign cannot be nullptr");
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(PostExit, PostExit->begin());
+        // Below instruction creates call for CopyAssign function. It requires pointer
+        // to CopyAssign function to be passed, hence new Instruction type had
+        // to be used. Example IR generrated with -vplan-print-after-vpentity-instrs:
+        // private-last-value-nonpod CopyAssign:
+        // _ZTS3str.omp.copy_assign %struct.str* %vp.alloca.priv %struct.str* %x.lpriv
+        // TODO: Consider using regular VPCall instead of adding new
+        // Instruction. Currently this approach has been skippped, because for
+        // this to work, we'd need to use DoNotWiden scenario, for which value from
+        // first lane is used by default. Such approach is not correct for last value
+        // calculation for non-POD as there one of the operand requires values
+        // from first lane while the other operand requires values from last
+        // lane.
+        Builder.create<VPPrivateLastValueNonPODInst>(
+            ".priv.lastval.nonpod", Type::getVoidTy(*Plan.getLLVMContext()),
+            ArrayRef<VPValue *>{PrivateMem, AI},
+            PrivateNonPOD->getCopyAssign());
+      }
 
     } else if (Private->isLast()) {
 

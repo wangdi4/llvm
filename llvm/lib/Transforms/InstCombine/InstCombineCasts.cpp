@@ -975,6 +975,20 @@ Instruction *InstCombinerImpl::visitTrunc(TruncInst &Trunc) {
       return BinaryOperator::CreateAdd(NarrowCtlz, WidthDiff);
     }
   }
+
+  if (match(Src, m_VScale(DL))) {
+    if (Trunc.getFunction()->hasFnAttribute(Attribute::VScaleRange)) {
+      unsigned MaxVScale = Trunc.getFunction()
+                               ->getFnAttribute(Attribute::VScaleRange)
+                               .getVScaleRangeArgs()
+                               .second;
+      if (MaxVScale > 0 && Log2_32(MaxVScale) < DestWidth) {
+        Value *VScale = Builder.CreateVScale(ConstantInt::get(DestTy, 1));
+        return replaceInstUsesWith(Trunc, VScale);
+      }
+    }
+  }
+
   return nullptr;
 }
 
@@ -1375,6 +1389,20 @@ Instruction *InstCombinerImpl::visitZExt(ZExtInst &CI) {
     return BinaryOperator::CreateXor(Builder.CreateAnd(X, ZC), ZC);
   }
 
+  if (match(Src, m_VScale(DL))) {
+    if (CI.getFunction()->hasFnAttribute(Attribute::VScaleRange)) {
+      unsigned MaxVScale = CI.getFunction()
+                               ->getFnAttribute(Attribute::VScaleRange)
+                               .getVScaleRangeArgs()
+                               .second;
+      unsigned TypeWidth = Src->getType()->getScalarSizeInBits();
+      if (MaxVScale > 0 && Log2_32(MaxVScale) < TypeWidth) {
+        Value *VScale = Builder.CreateVScale(ConstantInt::get(DestTy, 1));
+        return replaceInstUsesWith(CI, VScale);
+      }
+    }
+  }
+
   return nullptr;
 }
 
@@ -1537,9 +1565,13 @@ static bool hasOneLoadStoreUser(const GetElementPtrInst *CI) {
 }
 /// Check if the instruction CI has one GEP+Load/Store user.
 static bool hasOneGEPLoadStoreUser(const Instruction &CI) {
-  if (!CI.hasOneUse())
-    return false;
-  auto *GEP = dyn_cast<GetElementPtrInst>(CI.user_back());
+  const Instruction *I = &CI;
+  do {
+    if (!I->hasOneUse())
+      return false;
+    I = I->user_back();
+  } while (I->getOpcode() == Instruction::Add);
+  const auto *GEP = dyn_cast<GetElementPtrInst>(I);
   if (!GEP)
     return false;
   if (hasOneLoadStoreUser(GEP))
@@ -1580,10 +1612,11 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
     if (isSPIRFunction(CI.getFunction()))
       return true;
     auto *Src = dyn_cast<Instruction>(Op);
-    return Src && (Src->getOpcode() == Instruction::Add &&
-                   (isPhiOrTrunc(Src->getOperand(0)) ||
-                    isPhiOrTrunc(Src->getOperand(1))) &&
-                   hasOneGEPLoadStoreUser(CI));
+    return Src &&
+           (Src->getOpcode() == Instruction::Add &&
+            (isPhiOrTrunc(Src->getOperand(0)) ||
+             isPhiOrTrunc(Src->getOperand(1)))) &&
+           hasOneGEPLoadStoreUser(CI);
   };
 #endif // INTEL_CUSTOMIZATION
 
@@ -1712,6 +1745,19 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
         Constant::mergeUndefsWith(Constant::mergeUndefsWith(NewShAmt, BA), CA);
     A = Builder.CreateShl(A, NewShAmt, CI.getName());
     return BinaryOperator::CreateAShr(A, NewShAmt);
+  }
+
+  if (match(Src, m_VScale(DL))) {
+    if (CI.getFunction()->hasFnAttribute(Attribute::VScaleRange)) {
+      unsigned MaxVScale = CI.getFunction()
+                               ->getFnAttribute(Attribute::VScaleRange)
+                               .getVScaleRangeArgs()
+                               .second;
+      if (MaxVScale > 0 && Log2_32(MaxVScale) < (SrcBitSize - 1)) {
+        Value *VScale = Builder.CreateVScale(ConstantInt::get(DestTy, 1));
+        return replaceInstUsesWith(CI, VScale);
+      }
+    }
   }
 
   return nullptr;

@@ -4,8 +4,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG,PM2
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG,PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG,PM2
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -60,18 +60,18 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; VPVALUE-CG-NEXT:  Function: interp1
 ; VPVALUE-CG-EMPTY:
-; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
-; VPVALUE-CG-NEXT:  <50>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <51>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPVALUE-CG-NEXT:  <56>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2]
-; VPVALUE-CG-NEXT:  <57>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
-; VPVALUE-CG-NEXT:  <58>               |   |   |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
-; VPVALUE-CG-NEXT:  <59>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2] = [[DOTVEC40]]
-; VPVALUE-CG-NEXT:  <55>               |   |   + END LOOP
-; VPVALUE-CG-NEXT:  <51>               |   + END LOOP
-; VPVALUE-CG-NEXT:  <50>               + END LOOP
-; VPVALUE-CG-NEXT:  <0>          END REGION
+; VPVALUE-CG-NEXT:            BEGIN REGION { modified }
+; VPVALUE-CG-NEXT:                 + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
+; VPVALUE-CG-NEXT:                 |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2] = [[DOTVEC40]]
+; VPVALUE-CG-NEXT:                 |   |   + END LOOP
+; VPVALUE-CG-NEXT:                 |   + END LOOP
+; VPVALUE-CG-NEXT:                 + END LOOP
+; VPVALUE-CG-NEXT:            END REGION
 ;
 alloca:
   %"interp_$M5" = load i32, i32* %"interp_$M", align 4
@@ -98,8 +98,8 @@ bb12.preheader:                                   ; preds = %bb8.preheader, %bb3
   %0 = shl i32 %indvars.iv292.tr, 1
   %1 = add i32 %0, -1
   %int_sext75 = sext i32 %1 to i64
-  %2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul41, double* %"interp_$U", i64 %int_sext75)
-  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul54, double* %"interp_$Z", i64 %indvars.iv292)
+  %2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul41, double* elementtype(double) %"interp_$U", i64 %int_sext75)
+  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul54, double* elementtype(double) %"interp_$Z", i64 %indvars.iv292)
   br label %bb16.preheader
 
 bb16.preheader:                                   ; preds = %bb12.preheader, %bb44
@@ -108,8 +108,8 @@ bb16.preheader:                                   ; preds = %bb12.preheader, %bb
   %4 = shl i32 %indvars.iv284.tr, 1
   %5 = add i32 %4, -1
   %int_sext70 = sext i32 %5 to i64
-  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* %2, i64 %int_sext70)
-  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* %3, i64 %indvars.iv284)
+  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) %2, i64 %int_sext70)
+  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* elementtype(double) %3, i64 %indvars.iv284)
   br label %bb16
 
 bb16:                                             ; preds = %bb16, %bb16.preheader
@@ -118,9 +118,9 @@ bb16:                                             ; preds = %bb16, %bb16.prehead
   %8 = shl i32 %indvars.iv.tr, 1
   %9 = add i32 %8, -1
   %int_sext65 = sext i32 %9 to i64
-  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %6, i64 %int_sext65)
+  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %6, i64 %int_sext65)
   %11 = load double, double* %10, align 8
-  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %7, i64 %indvars.iv)
+  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %7, i64 %indvars.iv)
   %13 = load double, double* %12, align 8
   %add86 = fadd double %11, %13
   store double %add86, double* %10, align 8
@@ -198,21 +198,21 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; PM2:              IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; VPVALUE-CG-NEXT:  Function: interp2
 ; VPVALUE-CG-EMPTY:
-; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
-; VPVALUE-CG-NEXT:  <63>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <64>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPVALUE-CG-NEXT:  <69>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1]
-; VPVALUE-CG-NEXT:  <70>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
-; VPVALUE-CG-NEXT:  <71>               |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
-; VPVALUE-CG-NEXT:  <72>               |   |   |   [[DOTVEC50:%.*]] = [[DOTVEC30]]  +  [[DOTVEC40]]
-; VPVALUE-CG-NEXT:  <73>               |   |   |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  5.000000e-01
-; VPVALUE-CG-NEXT:  <74>               |   |   |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  +  [[DOTVEC60]]
-; VPVALUE-CG-NEXT:  <75>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1] = [[DOTVEC70]]
-; VPVALUE-CG-NEXT:  <68>               |   |   + END LOOP
-; VPVALUE-CG-NEXT:  <64>               |   + END LOOP
-; VPVALUE-CG-NEXT:  <63>               + END LOOP
-; VPVALUE-CG-NEXT:  <0>          END REGION
+; VPVALUE-CG-NEXT:            BEGIN REGION { modified }
+; VPVALUE-CG-NEXT:                 + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC50:%.*]] = [[DOTVEC30]]  +  [[DOTVEC40]]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  5.000000e-01
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  +  [[DOTVEC60]]
+; VPVALUE-CG-NEXT:                 |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1] = [[DOTVEC70]]
+; VPVALUE-CG-NEXT:                 |   |   + END LOOP
+; VPVALUE-CG-NEXT:                 |   + END LOOP
+; VPVALUE-CG-NEXT:                 + END LOOP
+; VPVALUE-CG-NEXT:            END REGION
 ;
 alloca:
   %"interp_$M5" = load i32, i32* %"interp_$M", align 4
@@ -239,8 +239,8 @@ bb12.preheader:                                   ; preds = %bb8.preheader, %bb3
   %0 = shl i32 %indvars.iv292.tr, 1
   %1 = add i32 %0, -1
   %int_sext75 = sext i32 %1 to i64
-  %2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul41, double* %"interp_$U", i64 %int_sext75)
-  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul54, double* %"interp_$Z", i64 %indvars.iv292)
+  %2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul41, double* elementtype(double) %"interp_$U", i64 %int_sext75)
+  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul54, double* elementtype(double) %"interp_$Z", i64 %indvars.iv292)
   br label %bb16.preheader
 
 bb16.preheader:                                   ; preds = %bb12.preheader, %bb44
@@ -249,8 +249,8 @@ bb16.preheader:                                   ; preds = %bb12.preheader, %bb
   %4 = shl i32 %indvars.iv284.tr, 1
   %5 = add i32 %4, -1
   %int_sext70 = sext i32 %5 to i64
-  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* %2, i64 %int_sext70)
-  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* %3, i64 %indvars.iv284)
+  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) %2, i64 %int_sext70)
+  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* elementtype(double) %3, i64 %indvars.iv284)
   br label %bb43.preheader
 
 bb43.preheader:                                   ; preds = %bb16.preheader
@@ -258,8 +258,8 @@ bb43.preheader:                                   ; preds = %bb16.preheader
   %8 = shl i32 %indvars.iv284.tr301, 1
   %9 = add i32 %8, -1
   %int_sext136 = sext i32 %9 to i64
-  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %2, i64 %int_sext136)
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* nonnull %3, i64 %indvars.iv284)
+  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %2, i64 %int_sext136)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* elementtype(double) nonnull %3, i64 %indvars.iv284)
   br label %bb43
 
 bb43:                                             ; preds = %bb43, %bb43.preheader
@@ -268,12 +268,12 @@ bb43:                                             ; preds = %bb43, %bb43.prehead
   %12 = shl i32 %indvars.iv277.tr, 1
   %13 = add i32 %12, -2
   %int_sext131 = sext i32 %13 to i64
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %10, i64 %int_sext131)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %10, i64 %int_sext131)
   %15 = load double, double* %14, align 8
   %16 = add nsw i64 %indvars.iv277, -1
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %11, i64 %16)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %11, i64 %16)
   %18 = load double, double* %17, align 8
-  %19 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %11, i64 %indvars.iv277)
+  %19 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %11, i64 %indvars.iv277)
   %20 = load double, double* %19, align 8
   %add162 = fadd double %18, %20
   %mul163 = fmul double %add162, 5.000000e-01

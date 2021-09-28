@@ -23,7 +23,7 @@ entry:
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32** %g.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{[0-9]+}}
 ; CHECK-NOT: %g = alloca i32
 
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %__ocl_dbg_gid0 = alloca i64
   call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !15, metadata !DIExpression()), !dbg !18
   %GlobalID_01 = call i64 @_Z13get_global_idj(i32 0)
@@ -65,7 +65,7 @@ entry:
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 ; Function Attrs: convergent
 declare void @_Z18work_group_barrierj(i32) #2

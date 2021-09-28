@@ -61,10 +61,11 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif  // INTEL_CUSTOMIZATION
 
+#include <map>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -130,9 +131,9 @@ public:
         KmpTaskDependInfoTy(nullptr) {
 
 #if INTEL_CUSTOMIZATION
-        // Set up Builder for generating remarks using Loop Opt Report
+        // Set up Builder for generating remarks using Opt Report
         // framework (under -qopt-report).
-        LORBuilder.setup(F->getContext(), ORVerbosity);
+        ORBuilder.setup(F->getContext(), ORVerbosity);
 #endif  // INTEL_CUSTOMIZATION
       }
 
@@ -221,11 +222,13 @@ private:
   Triple TargetTriple;
 
 #if INTEL_CUSTOMIZATION
-  /// Verbosity level for generating remarks using Loop Opt Report framework (under -qopt-report).
+  /// Verbosity level for generating remarks using Opt Report framework (under
+  /// -qopt-report).
   OptReportVerbosity::Level ORVerbosity;
 
-  /// Builder for generating remarks using Loop Opt Report framework (under -qopt-report).
-  LoopOptReportBuilder LORBuilder;
+  /// Builder for generating remarks using Opt Report framework (under
+  /// -qopt-report).
+  OptReportBuilder ORBuilder;
 #endif  // INTEL_CUSTOMIZATION
 
   /// Optimization remark emitter.
@@ -274,6 +277,9 @@ private:
   ///              char   depend_type;
   ///           };
   StructType *KmpTaskDependInfoTy;
+
+  /// BBs that perform local updates within the fast GPU reduction loop.
+  std::map<WRegionNode *, BasicBlock *> GPURedUpdateBBs;
 
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.
@@ -384,7 +390,8 @@ private:
                                   Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate code for private variables
-  bool genPrivatizationCode(WRegionNode *W);
+  bool genPrivatizationCode(WRegionNode *W,
+                            Instruction *CtorInsertPt = nullptr );
 
   /// Generate code for linear variables.
   ///
@@ -673,6 +680,10 @@ private:
   void genFastReduceBB(WRegionNode *W, FastReductionMode Mode,
                        StructType *FastRedStructTy, Value *FastRedVar,
                        BasicBlock *EntryBB, BasicBlock *EndBB);
+
+  /// Generate local update loop for fast GPU reduction
+  bool genFastGPUReductionScalarFini(WRegionNode *W, StoreInst *RedStore,
+                                     IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate code for the aligned clause.
   bool genAlignedCode(WRegionNode *W);
@@ -1098,6 +1109,33 @@ private:
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
 
+  /// Collect the data mapping information for the given region \p W
+  /// based on the \p Call instruction created during the region outlining.
+  /// The method populates \p ConstSizes, \p MapTypes, \p Names and \p Mappers
+  /// vectors with the mapping information for each argument of \p Call.
+  /// See genTgtInformationForPtrs() for more details about the meaning
+  /// of these vectors.
+#if INTEL_CUSTOMIZATION
+  /// \p IsWILocalFirstprivate holds 'true' for those pointers that
+  /// identify mapped objects that can be firstprivated using SPIR-V
+  /// __private storage class vs __global storage class.
+  /// \p IsWILocalFirstprivate is used only for SPIR-V targets.
+#endif // INTEL_CUSTOMIZATION
+  /// \p HasRuntimeEvaluationCaptureSize is set to true
+  /// iff any of the mappings requires dynamically computed size,
+  /// otherwise, it is set to false.
+  /// Return the number of entries in the output \p MapTypes.
+  unsigned getTargetDataInfo(
+      WRegionNode *W, const CallInst *Call,
+      SmallVectorImpl<Constant *> &ConstSizes,
+      SmallVectorImpl<uint64_t> &MapTypes,
+      SmallVectorImpl<GlobalVariable *> &Names,
+      SmallVectorImpl<Value *> &Mappers,
+#if INTEL_CUSTOMIZATION
+      SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+      bool &HasRuntimeEvaluationCaptureSize) const;
+
   /// Generate the initialization code for the directive omp target
   CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call, Value *RegionId,
                               Instruction *InsertPt);
@@ -1153,6 +1191,13 @@ private:
   /// \param [out]    MapTypes        array of map types.
   /// \param [out]    Names           array of names.
   /// \param [out]    Mappers         array of mappers.
+#if INTEL_CUSTOMIZATION
+  /// \param [out]    IsWILocalFirstprivate
+  ///                 'true' for pointers that identify mapped objects
+  ///                 that can be firstprivatized using SPIR-V __private
+  ///                 storage class vs __global storage class.
+  ///                 This result is used only for SPIR-V targets.
+#endif // INTEL_CUSTOMIZATION
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
   /// \param [in] VIsTargetKernelArg `true` iff \p V is a kernel
@@ -1162,15 +1207,18 @@ private:
                                 SmallVectorImpl<uint64_t> &MapTypes,
                                 SmallVectorImpl<GlobalVariable *> &Names,
                                 SmallVectorImpl<Value *> &Mappers,
+#if INTEL_CUSTOMIZATION
+                                SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
                                 bool &hasRuntimeEvaluationCaptureSize,
-                                bool VIsTargetKernelArg = false);
+                                bool VIsTargetKernelArg = false) const;
 
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 
-  /// Generate code for master/end master construct and update LLVM
+  /// Generate code for masked/end masked construct and update LLVM
   /// control-flow and dominator tree accordingly
-  bool genMasterThreadCode(WRegionNode *W, bool IsTargetSPIRV);
+  bool genMaskedThreadCode(WRegionNode *W, bool IsTargetSPIRV);
 
   /// Generate code for single/end single construct and update LLVM
   /// control-flow and dominator tree accordingly
@@ -1187,6 +1235,11 @@ private:
   /// Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
+
+  /// Generate code for OMP scope construct.
+  /// #pragma omp scope private(x) reduction(+:x) nowait
+  bool genBeginScopeCode(WRegionNode *W);
+  bool genEndScopeCode(WRegionNode *W);
 
   /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
@@ -1556,7 +1609,7 @@ private:
   uint64_t getMapTypeFlag(MapItem *MpI,
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag,
-                         bool IsTargetKernelArg);
+                         bool IsTargetKernelArg) const;
 
   /// Create a pointer, store address of \p V to the pointer, and replace uses
   /// of \p V with a load from that pointer.
@@ -1734,6 +1787,11 @@ private:
   /// OpenMP loop region \p W.
   bool genParallelAccessMetadata(WRegionNode *W);
 
+  /// Remove distribute loop back edge on SPIRV target at O2+ when ND-range is
+  /// known and distribute schedule is not specified. Such loops will have at
+  /// most only one iteration, so it is safe to remove loop's back edge.
+  bool removeDistributeLoopBackedge(WRegionNode *W);
+
   /// Transform the given OMP loop into the loop as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)
@@ -1886,7 +1944,13 @@ private:
   /// simplification cannot be performed by the compiler emit diagnostic message
   /// for the user. Return true if work region has been modified.
   bool simplifyRegionClauses(WRegionNode *W);
-#endif  // INTEL_CUSTOMIZATION
+
+  /// Analyse work region's lastprivate clauses and check if they can be
+  /// simplified. If simplification cannot be performed by the compiler emit
+  /// diagnostic message for the user. Return true if work region has been
+  /// modified.
+  bool simplifyLastprivateClauses(WRegionNode *W);
+#endif // INTEL_CUSTOMIZATION
 
   /// Guard each instruction that has a side effect with master thread id
   /// check, so that only the master thread (id == 0) in the team executes
@@ -1910,8 +1974,12 @@ private:
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.
-  Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
-                                   CallInst *&Call);
+  Function *finalizeKernelFunction(WRNTargetNode *WT, Function *Fn,
+      CallInst *&Call, const SmallVectorImpl<uint64_t> &MapTypes,
+#if INTEL_CUSTOMIZATION
+      const SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+      const SmallVectorImpl<Constant *> &ConstSizes);
 
   ///  Generate the iteration space partitioning code based on OpenCL.
   ///  Given a loop as follows.
@@ -2091,13 +2159,16 @@ private:
 
   /// Get substrings from the "openmp-variant" string attribute. Supports the
   /// adjust_args(need_device_ptr:...) and append_args(interop(...)) clauses.
-  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
+  StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
                            StringRef &MatchConstruct, uint64_t &DeviceArchs,
+                           llvm::Optional<uint64_t> &InteropPositionOut,
                            StringRef &NeedDevicePtrStr, StringRef &InteropStr);
 
-  /// Get substrings from the "openmp-variant" string attribute
-  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
-                           StringRef &MatchConstruct, uint64_t &DeviceArchs);
+  /// Get substrings from the "openmp-variant" string attribute to support
+  /// the TARGET VARIANT DISPATCH construct
+  StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
+                           StringRef &MatchConstruct, uint64_t &DeviceArchs,
+                           llvm::Optional<uint64_t> &InteropPositionOut);
 
   /// Emit code to get device pointers for variant dispatch
   void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall);
@@ -2173,10 +2244,90 @@ private:
   /// which result's range is known - omp_get_num_threads, omp_get_thread_num,
   /// omp_get_num_teams, omp_get_team_num.
   bool addRangeMetadataToOmpCalls() const;
+
+  // If the given teams region \p WT has reduction clauses, then
+  // set HasTeamsReduction attribute for the enclosing target region
+  // (if any).
+  void updateKernelHasTeamsReduction(const WRNTeamsNode *WT) const;
 };
 
 } /// namespace vpo
-} /// namespace llvm
+#if INTEL_CUSTOMIZATION
+
+// Traits of WRegionNode for OptReportBuilder.
+template <> struct OptReportTraits<vpo::WRegionNode> {
+  using ObjectHandleTy = std::pair<vpo::WRegionNode &, vpo::WRegionListTy &>;
+
+  static OptReport getOptReport(const ObjectHandleTy &Handle) {
+    return cast_or_null<MDTuple>(
+        Handle.first.getEntryDirective()->getMetadata(OptReportTag::Root));
+  }
+
+  static void setOptReport(const ObjectHandleTy &Handle, OptReport OR) {
+    assert(OR && "eraseOptReport method should be used to remove OptReport");
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, OR.get());
+  }
+
+  static void eraseOptReport(const ObjectHandleTy &Handle) {
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, nullptr);
+  }
+
+  static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {
+    return Handle.first.getEntryDirective()->getDebugLoc();
+  }
+
+  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+    return "OMP " + Handle.first.getSourceName().upper();
+  }
+
+  static OptReport getOrCreatePrevOptReport(const ObjectHandleTy &Handle,
+                                            const OptReportBuilder &Builder) {
+    auto &W = Handle.first;
+    vpo::WRegionNode *PrevSiblingW = nullptr;
+
+    if (auto *Parent = W.getParent())
+      for (auto *Child : reverse(Parent->getChildren())) {
+        if (Child == &W)
+          break;
+        PrevSiblingW = Child;
+      }
+    else
+      for (auto *Region : Handle.second) {
+        if (Region == &W)
+          break;
+        if (!Region->getParent())
+          PrevSiblingW = Region;
+      }
+
+    if (!PrevSiblingW || !PrevSiblingW->getEntryDirective())
+      return nullptr;
+
+    return Builder(*PrevSiblingW, Handle.second).getOrCreateOptReport();
+  }
+
+  static OptReport getOrCreateParentOptReport(const ObjectHandleTy &Handle,
+                                              const OptReportBuilder &Builder) {
+    auto &W = Handle.first;
+
+    // Attach to the parent region, if it exists.
+    if (auto *Dest = W.getParent())
+      return Builder(*Dest, Handle.second).getOrCreateOptReport();
+
+    // Attach to the Function, otherwise.
+    if (Function *Dest = W.getEntryBBlock()->getParent())
+      return Builder(*Dest).getOrCreateOptReport();
+
+    llvm_unreachable("Failed to find a parent.");
+  }
+
+  using ChildNodeTy = vpo::WRegionNode;
+  using ChildHandleTy = typename OptReportTraits<ChildNodeTy>::ObjectHandleTy;
+  using NodeVisitorTy = function_ref<void(ChildHandleTy)>;
+  static void traverseChildNodesBackward(const ObjectHandleTy &Handle,
+                                         NodeVisitorTy Func) {}
+};
+#endif // INTEL_CUSTOMIZATION
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VPO_PAROPT_TRANSFORM_H
 #endif // INTEL_COLLAB

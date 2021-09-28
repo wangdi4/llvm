@@ -7,9 +7,9 @@
 //===----------------------------------------------------------------------===//
 #include "SYCL.h"
 #include "CommonArgs.h"
-#include "InputInfo.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
+#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
 #include "llvm/Support/CommandLine.h"
@@ -100,8 +100,8 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
                                        std::unique_ptr<Command> InputCommand,
                                        const InputInfoList &InputFiles,
                                        const InputInfo &Output, const Tool *T,
-                                       StringRef Increment,
-                                       StringRef Ext = "out") {
+                                       StringRef Increment, StringRef Ext,
+                                       StringRef ParallelJobs) {
   // Construct llvm-foreach command.
   // The llvm-foreach command looks like this:
   // llvm-foreach --in-file-list=a.list --in-replace='{}' -- echo '{}'
@@ -123,6 +123,9 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
   if (!Increment.empty())
     ForeachArgs.push_back(
         C.getArgs().MakeArgString("--out-increment=" + Increment));
+  if (!ParallelJobs.empty())
+    ForeachArgs.push_back(C.getArgs().MakeArgString("--jobs=" + ParallelJobs));
+
   ForeachArgs.push_back(C.getArgs().MakeArgString("--"));
   ForeachArgs.push_back(
       C.getArgs().MakeArgString(InputCommand->getExecutable()));
@@ -170,6 +173,8 @@ static llvm::SmallVector<StringRef, 10> OMPDeviceLibList{
     "cmath-fp64",
     "complex",
     "complex-fp64",
+    "fallback-cassert",
+    "fallback-cstring",
     "fallback-cmath",
     "fallback-cmath-fp64",
     "fallback-complex",
@@ -227,8 +232,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     auto isOMPDeviceLib = [&C](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       StringRef LibPostfix = ".o";
-      if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
-          C.getDriver().IsCLMode())
+      bool IsMSVC = HostTC->getTriple().isWindowsMSVCEnvironment();
+      if (IsMSVC && C.getDriver().IsCLMode())
         LibPostfix = ".obj";
       StringRef InputFilename =
           llvm::sys::path::filename(StringRef(II.getFilename()));
@@ -242,6 +247,11 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         if (PureLibName.compare(L) == 0)
           return true;
       }
+      // Do a separate check for the CRT device lib, as it is a different name
+      // depending on the target OS.
+      StringRef LibCName = IsMSVC ? "msvc" : "glibc";
+      if (PureLibName.compare(LibCName) == 0)
+        return true;
       return false;
     };
 #endif // INTEL_CUSTOMIZATION
@@ -465,10 +475,12 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, "", ForeachExt);
-  else
+                                this, "", ForeachExt, ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 
@@ -613,12 +625,12 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
     CmdArgs.push_back(C.getArgs().MakeArgString(
         Twine("-output-report-folder=") + ReportOptArg));
 
+#if INTEL_CUSTOMIZATION
   // Add any implied arguments before user defined arguments.
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
 
   // Add -Xsycl-target* options.
-#if INTEL_CUSTOMIZATION
   TC.TranslateBackendTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(
@@ -637,10 +649,12 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
   addFPGATimingDiagnostic(Cmd, C);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, ReportOptArg, ForeachExt);
-  else
+                                this, ReportOptArg, ForeachExt, ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 
@@ -682,10 +696,12 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, "");
-  else
+                                this, "", "out", ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 
@@ -721,10 +737,12 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, "");
-  else
+                                this, "", "out", ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 
@@ -875,9 +893,11 @@ void SYCLToolChain::AddImpliedTargetArgs(
       BeArgs.push_back("-vc-codegen");
     if (Arg *A = Args.getLastArg(options::OPT_fopenmp_target_buffers_EQ)) {
       StringRef BufArg = A->getValue();
-      if (BufArg == "4GB")
-        BeArgs.push_back("-cl-intel-greater-than-4GB-buffer-required");
-      else if (BufArg != "default")
+      if (BufArg == "4GB") {
+        // spir64_x86_64 is 'accept and ignore'.
+        if (Triple.getSubArch() != llvm::Triple::SPIRSubArch_x86_64)
+          BeArgs.push_back("-cl-intel-greater-than-4GB-buffer-required");
+      } else if (BufArg != "default")
         getDriver().Diag(diag::err_drv_unsupported_option_argument)
             << A->getSpelling() << BufArg;
     }

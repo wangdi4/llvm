@@ -201,6 +201,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   ret void
 ; Look for lastprivate copyout instructions.
+; CHECK: call{{.*}}@__kmpc_for_static_fini
 ; CHECK: [[L7:%[a-zA-Z._0-9]+]] = load i32*, i32** %yref.addr
 ; CHECK: [[L8:%[a-zA-Z._0-9]+]] = load i32, i32* [[YREF_LOCAL]]
 ; CHECK: store i32 [[L8]], i32* [[L7]]

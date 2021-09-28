@@ -1311,19 +1311,19 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     for (Argument &I : F->args()) {
       if (UnusedArgPos != Pos) {
         Params.push_back(I.getType());
-        ArgAttrVec.push_back(ParamAL.getParamAttributes(Pos));
+        ArgAttrVec.push_back(ParamAL.getParamAttrs(Pos));
       }
       Pos++;
     }
     // Place the UnusedArg at the end of the list.
     Argument *UnusedArg = F->getArg(UnusedArgPos);
     Params.push_back(UnusedArg->getType());
-    ArgAttrVec.push_back(ParamAL.getParamAttributes(UnusedArgPos));
+    ArgAttrVec.push_back(ParamAL.getParamAttrs(UnusedArgPos));
 
     // Create New function with the new params/Atts.
     AttributeList NewParamAL =
-        AttributeList::get(F->getContext(), ParamAL.getFnAttributes(),
-                           ParamAL.getRetAttributes(), ArgAttrVec);
+        AttributeList::get(F->getContext(), ParamAL.getFnAttrs(),
+                           ParamAL.getRetAttrs(), ArgAttrVec);
     FunctionType *NFTy =
         FunctionType::get(FTy->getReturnType(), Params, FTy->isVarArg());
     Function *NF =
@@ -1353,17 +1353,17 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
       for (unsigned e = FTy->getNumParams(); Pos != e; ++I, ++Pos) {
         if (UnusedArgPos != Pos) {
           Args.push_back(*I);
-          AttributeSet Attrs = CallParamAL.getParamAttributes(Pos);
+          AttributeSet Attrs = CallParamAL.getParamAttrs(Pos);
           ArgAttrVec.push_back(Attrs);
         }
       }
       // Place the UnusedArg at the end of the list.
       Args.push_back(CB->getArgOperand(UnusedArgPos));
-      ArgAttrVec.push_back(CallParamAL.getParamAttributes(UnusedArgPos));
+      ArgAttrVec.push_back(CallParamAL.getParamAttrs(UnusedArgPos));
 
       AttributeList NewCallParamAL =
-          AttributeList::get(F->getContext(), CallParamAL.getFnAttributes(),
-                             CallParamAL.getRetAttributes(), ArgAttrVec);
+          AttributeList::get(F->getContext(), CallParamAL.getFnAttrs(),
+                             CallParamAL.getRetAttrs(), ArgAttrVec);
 
       CallBase *NewCB;
 
@@ -1946,15 +1946,15 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
         unsigned ArgIdx = 0;
         for (; I != E; I++) {
           NewArgs.push_back(*I);
-          NewArgAttrs.push_back(NFPAL.getParamAttributes(ArgIdx));
+          NewArgAttrs.push_back(NFPAL.getParamAttrs(ArgIdx));
           ArgIdx++;
         }
-        NewArgAttrs.push_back(NFPAL.getParamAttributes(ArgIdx));
+        NewArgAttrs.push_back(NFPAL.getParamAttrs(ArgIdx));
         NewArgs.push_back(LoopCounter);
         FunctionType *NFTy = SimpleSetElem->getFunctionType();
         AttributeList NewPAL =
-            AttributeList::get(NFTy->getContext(), Attrs.getFnAttributes(),
-                               Attrs.getRetAttributes(), NewArgAttrs);
+            AttributeList::get(NFTy->getContext(), Attrs.getFnAttrs(),
+                               Attrs.getRetAttrs(), NewArgAttrs);
 
         DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
           dbgs() << "  Replacing Append call with SetElemcall: \n";
@@ -2127,13 +2127,13 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     SmallVector<AttributeSet, 4> NewArgAttrs;
     auto *I = CtorCB->arg_begin();
     NewArgs.push_back(*I);
-    NewArgAttrs.push_back(NFPAL.getParamAttributes(0));
+    NewArgAttrs.push_back(NFPAL.getParamAttrs(0));
     NewArgs.push_back(NewLd);
-    NewArgAttrs.push_back(NFPAL.getParamAttributes(1));
+    NewArgAttrs.push_back(NFPAL.getParamAttrs(1));
     FunctionType *NFTy = NewCCtor->getFunctionType();
     AttributeList NewPAL =
-        AttributeList::get(NFTy->getContext(), Attrs.getFnAttributes(),
-                           Attrs.getRetAttributes(), NewArgAttrs);
+        AttributeList::get(NFTy->getContext(), Attrs.getFnAttrs(),
+                           Attrs.getRetAttrs(), NewArgAttrs);
     updateCallBase(CtorCB, NewPAL, NewCCtor, NewArgs);
   };
 
@@ -2347,7 +2347,7 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
   SmallVector<AttributeSet, 4> NewArgAttrs;
   auto *I = CB->arg_begin();
   NewArgs.push_back(*I);
-  NewArgAttrs.push_back(NFPAL.getParamAttributes(0));
+  NewArgAttrs.push_back(NFPAL.getParamAttrs(0));
   AllocaInst *Alloca =
       new AllocaInst(AppendFunc->getArg(1)->getType(), 0, nullptr, "",
                      &*(CallerF->getEntryBlock().getFirstInsertionPt()));
@@ -2358,11 +2358,11 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
     dbgs() << "  Created Store: " << *StoreI << "\n";
   });
   NewArgs.push_back(Alloca);
-  NewArgAttrs.push_back(NFPAL.getParamAttributes(1));
+  NewArgAttrs.push_back(NFPAL.getParamAttrs(1));
 
   AttributeList NewPAL =
-      AttributeList::get(AppendFunc->getContext(), Attrs.getFnAttributes(),
-                         Attrs.getRetAttributes(), NewArgAttrs);
+      AttributeList::get(AppendFunc->getContext(), Attrs.getFnAttrs(),
+                         Attrs.getRetAttrs(), NewArgAttrs);
 
   updateCallBase(CB, NewPAL, NF, NewArgs);
 

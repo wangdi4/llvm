@@ -49,10 +49,9 @@ using namespace llvm::vpo;
 // this function returns UINT_MAX.
 unsigned VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan) {
   if (Plan) {
-    VPlanCostModel CM(Plan, VF, TTI, TLI, DL, VLSA);
     // TODO: no peeling should be accounted here, update after interface
     // changes.
-    return CM.getCost();
+    return Planner.createCostModel(Plan, VF)->getCost();
   }
   return UINT_MAX;
 }
@@ -195,8 +194,11 @@ VPlanRemainderEvaluator::calculateBestVariant() {
                     << " masked cost=" << MaskedVectorCost
                     << " unmasked cost=" << UnMaskedVectorCost << "\n");
 
+  // Don't try vector version of remainder if it's disabled by pragma or
+  // (not enabled by switch and not enforced by pragma). I.e. pragma overrides
+  // the switch value always.
   if (Planner.isVecRemainderDisabled() ||
-      (!EnableMaskedVectorizedRemainder &&
+      (!Planner.isVecRemainderEnforced() && !EnableMaskedVectorizedRemainder &&
        !EnableNonMaskedVectorizedRemainder)) {
     LLVM_DEBUG(dbgs() << "No vector remainder enabled");
     LLVM_DEBUG(dbgs() << "Pragma: " << Planner.isVecRemainderDisabled()
@@ -209,11 +211,13 @@ VPlanRemainderEvaluator::calculateBestVariant() {
   if (Planner.isVecRemainderEnforced())
     LoopCost = std::numeric_limits<unsigned>::max();
 
-  if (LoopCost > MaskedVectorCost && EnableMaskedVectorizedRemainder) {
+  if (LoopCost > MaskedVectorCost &&
+      (Planner.isVecRemainderEnforced() || EnableMaskedVectorizedRemainder)) {
     RemainderKind = RemainderLoopKind::MaskedVector;
     LoopCost = MaskedVectorCost;
   }
-  if (LoopCost > UnMaskedVectorCost && EnableNonMaskedVectorizedRemainder) {
+  if (LoopCost > UnMaskedVectorCost && (Planner.isVecRemainderEnforced() ||
+                                        EnableNonMaskedVectorizedRemainder)) {
     RemainderKind = RemainderLoopKind::VectorScalar;
     LoopCost = UnMaskedVectorCost;
     RemainderTC = (MainLoopUF * MainLoopVF - 1) / RemainderVF;

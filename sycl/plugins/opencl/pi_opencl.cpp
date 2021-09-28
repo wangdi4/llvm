@@ -182,7 +182,9 @@ pi_result piDeviceGetInfo(pi_device device, pi_device_info paramName,
     // For details about Intel UUID extension, see
     // sycl/doc/extensions/IntelGPU/IntelGPUDeviceInfo.md
   case PI_DEVICE_INFO_UUID:
+  // TODO: Implement.
   case PI_DEVICE_INFO_ATOMIC_64:
+  case PI_DEVICE_INFO_ATOMIC_MEMORY_ORDER_CAPABILITIES:
     return PI_INVALID_VALUE;
   case PI_DEVICE_INFO_IMAGE_SRGB: {
     cl_bool result = true;
@@ -442,7 +444,7 @@ pi_result piProgramCreate(pi_context context, const void *il, size_t length,
 }
 
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                             pi_context,
+                                             pi_context, bool,
                                              pi_program *piProgram) {
   assert(piProgram != nullptr);
   *piProgram = reinterpret_cast<pi_program>(nativeHandle);
@@ -639,12 +641,13 @@ pi_result piclProgramCreateWithSource(pi_context context, pi_uint32 count,
   return ret_err;
 }
 
-pi_result piProgramCreateWithBinary(pi_context context, pi_uint32 num_devices,
-                                    const pi_device *device_list,
-                                    const size_t *lengths,
-                                    const unsigned char **binaries,
-                                    pi_int32 *binary_status,
-                                    pi_program *ret_program) {
+pi_result piProgramCreateWithBinary(
+    pi_context context, pi_uint32 num_devices, const pi_device *device_list,
+    const size_t *lengths, const unsigned char **binaries,
+    size_t num_metadata_entries, const pi_device_binary_property *metadata,
+    pi_int32 *binary_status, pi_program *ret_program) {
+  (void)metadata;
+  (void)num_metadata_entries;
 
   pi_result ret_err = PI_INVALID_OPERATION;
   *ret_program = cast<pi_program>(clCreateProgramWithBinary(
@@ -717,6 +720,7 @@ pi_result piextEventCreateWithNativeHandle(pi_native_handle nativeHandle,
                                            bool ownNativeHandle,
                                            pi_event *piEvent) {
   (void)context;
+  // TODO: ignore this, but eventually want to return error as unsupported
   (void)ownNativeHandle;
 
   assert(piEvent != nullptr);

@@ -93,6 +93,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
 #if INTEL_FEATURE_SW_ADVANCED
   initializeIntelPartialInlineLegacyPassPass(Registry);
   initializeIntelIPOPrefetchWrapperPassPass(Registry);
+  initializeIPPredOptLegacyPassPass(Registry);
   initializeDeadArrayOpsEliminationLegacyPassPass(Registry);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION

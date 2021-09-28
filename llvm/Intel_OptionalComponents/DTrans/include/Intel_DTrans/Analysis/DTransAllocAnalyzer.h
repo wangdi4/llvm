@@ -15,6 +15,7 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSALLOCANALYZER_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSALLOCANALYZER_H
 
+#include "Intel_DTrans/Analysis/MemoryBuiltinsExtras.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Instructions.h"
@@ -26,69 +27,6 @@ namespace llvm {
 class TargetLibraryInfo;
 
 namespace dtrans {
-
-/// Kind of allocation associated with a Function.
-/// The malloc, calloc, and realloc allocation kinds each correspond to a call
-/// to the standard library function of the same name.
-///
-/// See MemoryBuiltins.cpp:AllocType
-enum AllocKind : uint8_t {
-  AK_NotAlloc,
-  AK_Malloc,
-  AK_Calloc,
-  AK_Realloc,
-  AK_UserMalloc,
-  AK_UserMalloc0,
-  AK_New
-};
-
-/// Kind of free function call.
-/// - FK_Free represents a direct call to the standard library function 'free'
-/// - FK_UserFree represents a call to a user-wrapper function of 'free''
-/// - FK_Delete represents a call to C++ delete/deletep[] functions.
-enum FreeKind { FK_NotFree, FK_Free, FK_UserFree, FK_Delete };
-
-/// Get a printable string for the AllocKind
-StringRef AllocKindName(AllocKind Kind);
-
-/// Get a printable string for the FreeKind
-StringRef FreeKindName(FreeKind Kind);
-
-/// Determine whether the specified \p Call is a call to allocation function,
-/// and if so what kind of allocation function it is and the size of the
-/// allocation.
-AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI);
-
-/// Get the indices of size and count arguments for the allocation call.
-/// AllocCountInd is used for calloc allocations.  For all other allocation
-/// kinds it will be set to -1U
-void getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
-                      unsigned &AllocSizeInd, unsigned &AllocCountInd,
-                      const TargetLibraryInfo &TLI);
-
-/// Collects all special arguments for malloc-like call.
-/// Elements are added to OutputSet.
-/// Realloc-like functions have pointer argument returned in OutputSet.
-void collectSpecialAllocArgs(AllocKind Kind, const CallBase *Call,
-                             SmallPtrSet<const Value *, 3> &OutputSet,
-                             const TargetLibraryInfo &TLI);
-
-/// Determine whether or not the specified \p Call is a call to the free-like
-/// library function.
-bool isFreeFn(const CallBase *Call, const TargetLibraryInfo &TLI);
-
-/// Determine whether or not the specified \p Call is a call to the
-/// delete-like library function.
-bool isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI);
-
-/// Returns the index of pointer argument for \p Call.
-void getFreePtrArg(FreeKind Kind, const CallBase *Call, unsigned &PtrArgInd,
-                   const TargetLibraryInfo &TLI);
-
-/// Collects all special arguments for free-like call.
-void collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
-                            SmallPtrSetImpl<const Value *> &OutputSet,
-                            const TargetLibraryInfo &TLI);
 
 // Class to analyze and identify functions that are post-dominated by
 // a call to malloc() or free(). Those post-dominated by malloc() will
@@ -137,8 +75,15 @@ public:
   DTransAllocAnalyzer(
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       const Module &M);
-  bool isMallocPostDom(const CallBase *Call);
-  bool isFreePostDom(const CallBase *Call);
+  AllocKind getMallocPostDomKind(const CallBase *Call);
+  FreeKind getFreePostDomKind(const CallBase *Call);
+  bool isMallocPostDom(const CallBase *Call) {
+    return getMallocPostDomKind(Call) != AK_NotAlloc;
+  }
+  bool isFreePostDom(const CallBase *Call) {
+    return getFreePostDomKind(Call) != FK_NotFree;
+  }
+
   void populateAllocDeallocTable(const Module &M);
   bool isMallocWithStoredMMPtr(const Function *F);
   bool isFreeWithStoredMMPtr(const Function *F);
@@ -150,7 +95,23 @@ private:
 
   // An enum recording the status of a function. The status is
   // updated in populateAllocDeallocTable.
-  enum AllocStatus { AKS_Unknown, AKS_Malloc, AKS_Free };
+  // Note: The specific 'malloc'/'free' types in this enumeration have a 1-1
+  // correspondence to the DTrans AllocKind/FreeKind enumerations.
+  enum AllocStatus {
+    AKS_Unknown,
+    AKS_Malloc,
+    AKS_Malloc0,
+    AKS_MallocThis,
+    AKS_Free,
+    AKS_Free0,
+    AKS_FreeThis
+  };
+  bool isAllocation(AllocStatus Kind) {
+    return Kind >= AKS_Malloc && Kind <= AKS_MallocThis;
+  }
+  bool isFree(AllocStatus Kind) {
+    return Kind >= AKS_Free && Kind <= AKS_FreeThis;
+  }
 
   // Mapping for the AllocStatus of each Function we have queried.
   std::map<const Function *, AllocStatus> LocalMap;
@@ -182,17 +143,12 @@ private:
   void visitAndResetSkipTestSuccessors(BasicBlock *BB);
   void visitNullPtrBlocks(Function *F);
 
-  bool mallocBasedGEPChain(GetElementPtrInst *GV, GetElementPtrInst **GBV,
-                           CallBase **GCI) const;
-  bool mallocOffset(Value *V, int64_t *offset) const;
-  bool mallocLimit(GetElementPtrInst *GBV, GetElementPtrInst *GV,
-                   int64_t Offset, int64_t *Result) const;
   bool returnValueIsMallocAddress(Value *RV, BasicBlock *BB);
-  bool analyzeForMallocStatus(Function *F);
+  AllocStatus analyzeForMallocStatus(Function *F);
 
   bool hasFreeCall(BasicBlock *BB) const;
   bool isPostDominatedByFreeCall(BasicBlock *BB, bool &IsFreeSeen);
-  bool analyzeForFreeStatus(Function *F);
+  AllocStatus analyzeForFreeStatus(Function *F);
 
   bool analyzeForIndirectStatus(const CallBase *Call, bool Alloc);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

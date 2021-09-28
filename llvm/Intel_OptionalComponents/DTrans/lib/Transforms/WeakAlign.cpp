@@ -550,6 +550,33 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
 // being 8-byte aligned as long as the object size is a multiple of 8, we can
 // treat this as safe as long as the structure's size is a multiple of 8 bytes.
 bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
+
+  auto IsNonNullCheck = [](Value *V) {
+    using namespace llvm::PatternMatch;
+    // Check for the pattern:
+    //   %36 = icmp eq i8* %32, null
+    //   %37 = xor i1 %36, true
+    //   call void @llvm.assume(i1 %37)
+    // where V is set to %37
+    //
+    // This will be a safe use of the llvm.assume intrinsic call.
+    Value *Src = nullptr;
+    ICmpInst::Predicate Pred = CmpInst::Predicate::ICMP_NE;
+    if (!match(V, m_Xor(m_Value(Src), m_One())) &&
+        !match(V, m_Xor(m_One(), m_Value(Src))))
+      return false;
+
+    Value *CmpSrc = nullptr;
+    if (!match(Src, m_ICmp(Pred, m_Value(CmpSrc), m_Zero())) &&
+        !match(Src, m_ICmp(Pred, m_Zero(), m_Value(CmpSrc))))
+      return false;
+
+    if (Pred != ICmpInst::Predicate::ICMP_EQ)
+      return false;
+
+    return true;
+  };
+
   // Return 'true' if the IR matches the pattern of a pointer alignment check,
   // and save the pointer in 'AlignedValue' and the tested byte-alignment in
   // 'AlignAmount'
@@ -595,6 +622,11 @@ bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
   assert(II->getIntrinsicID() == Intrinsic::assume &&
          "Expected llvm.assume intrinsic");
   Value *Op = II->getOperand(0);
+
+  // If the assume is used to note that a value is not null, then it is safe.
+  if (IsNonNullCheck(Op))
+    return true;
+
   Value *AlignedPtr = nullptr;
   uint64_t AlignAmount = 0;
   if (!IsAlignmentCheck(Op, &AlignedPtr, &AlignAmount))

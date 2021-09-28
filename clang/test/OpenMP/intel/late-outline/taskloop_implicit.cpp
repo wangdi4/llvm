@@ -1,0 +1,110 @@
+// INTEL_COLLAB
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+//
+
+int res;
+void foo(int x, int y)
+{
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: "QUAL.OMP.IMPLICIT"
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.IF
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
+  #pragma omp taskloop if(x < y)
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK-NOT: DIR.OMP.TASKGROUP
+  // CHECK-NOT: "QUAL.OMP.IMPLICIT"
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.NOGROUP
+  // CHECK: DIR.OMP.END.TASKLOOP
+  #pragma omp taskloop nogroup
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: "QUAL.OMP.IMPLICIT"
+  // CHECK-SAME: QUAL.OMP.REDUCTION
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.INREDUCTION
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
+  #pragma omp taskloop reduction(+: res)
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: "QUAL.OMP.IMPLICIT"
+  // CHECK-SAME: QUAL.OMP.REDUCTION
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.INREDUCTION
+  // CHECK: DIR.OMP.SIMD
+  // CHECK-SAME: QUAL.OMP.REDUCTION
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
+  #pragma omp taskloop simd reduction(+: res)
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK-NOT: DIR.OMP.TASKGROUP
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK: DIR.OMP.SIMD
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  #pragma omp taskloop simd nogroup
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK: DIR.OMP.MASTER
+  // CHECK-NOT: DIR.OMP.TASKGROUP
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.NOGROUP
+  // CHECK: DIR.OMP.SIMD
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.MASTER
+  #pragma omp master taskloop simd nogroup
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK: DIR.OMP.MASTER
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: "QUAL.OMP.IMPLICIT"
+  // CHECK-SAME: QUAL.OMP.REDUCTION
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.INREDUCTION
+  // CHECK: DIR.OMP.SIMD
+  // CHECK-SAME: QUAL.OMP.REDUCTION
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
+  // CHECK: DIR.OMP.END.MASTER
+  #pragma omp master taskloop simd reduction(+: res)
+  for (int i = 0; i < 10; ++i);
+
+  // CHECK: DIR.OMP.PARALLEL
+  // CHECK: DIR.OMP.MASTER
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: "QUAL.OMP.IMPLICIT"
+  // CHECK-SAME: QUAL.OMP.REDUCTION
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK-SAME: QUAL.OMP.INREDUCTION
+  // CHECK: DIR.OMP.SIMD
+  // CHECK-SAME: QUAL.OMP.REDUCTION
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
+  // CHECK: DIR.OMP.END.MASTER
+  // CHECK: DIR.OMP.END.PARALLEL
+  #pragma omp parallel master taskloop simd reduction(+: res)
+  for (int i = 0; i < 10; ++i);
+  // CHECK: DIR.OMP.PARALLEL
+  // CHECK: DIR.OMP.MASTER
+  // CHECK: DIR.OMP.TASKLOOP
+  // CHECK: DIR.OMP.SIMD
+  // CHECK: DIR.OMP.END.SIMD
+  // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.MASTER
+  // CHECK: DIR.OMP.END.PARALLEL
+  #pragma omp parallel master taskloop simd  nogroup
+  for (int i = 0; i < 10; ++i);
+}
+// end INTEL_COLLAB

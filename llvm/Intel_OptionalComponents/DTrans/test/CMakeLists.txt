@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2018 Intel Corporation. All rights reserved.
+#    Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 #
 #    The information and source code contained herein is the exclusive
 #    property of Intel Corporation. and may not be disclosed, examined
@@ -27,7 +27,15 @@ set(DTRANS_TEST_PARAMS
   dtrans_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
   )
 
-set(DTRANS_TEST_DEPENDS opt)
+set(DTRANS_TEST_DEPENDS count
+                        FileCheck
+                        lli
+                        llvm-as
+                        llvm-config
+                        llvm-lto
+                        llvm-profdata
+                        not
+                        opt)
 
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in

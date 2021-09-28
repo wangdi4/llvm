@@ -426,8 +426,13 @@ public:
     return InductionBinOp ? InductionBinOp->getOpcode()
                           : Instruction::BinaryOpsEnd;
   }
-
 #endif
+
+  Type *getElementType() const {
+    assert(IK == IK_PtrInduction && "Only pointer induction has element type");
+    return ElementType;
+  }
+
   /// Returns a reference to the type cast instructions in the induction
   /// update chain, that are redundant when guarded with a runtime
   /// SCEV overflow check.
@@ -439,6 +444,7 @@ private:
   /// Private constructor - used by \c isInductionPHI.
   InductionDescriptor(Value *Start, InductionKind K, const SCEV *Step,
                       BinaryOperator *InductionBinOp = nullptr,
+                      Type *ElementType = nullptr,
                       SmallVectorImpl<Instruction *> *Casts = nullptr);
 
 #if !INTEL_CUSTOMIZATION
@@ -453,6 +459,9 @@ private:
   // Instruction that advances induction variable.
   BinaryOperator *InductionBinOp = nullptr;
 #endif
+  // Element type for pointer induction variables.
+  // TODO: This can be dropped once support for typed pointers is removed.
+  Type *ElementType = nullptr;
   // Instructions used for type-casts of the induction variable,
   // that are redundant when guarded with a runtime SCEV overflow check.
   SmallVector<Instruction *, 2> RedundantCasts;

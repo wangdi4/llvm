@@ -15,8 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_AsmOptReport.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/OptReport/LoopOptReportSupport.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/OptReport/OptReportSupport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionMachO.h"
@@ -69,11 +69,11 @@ void OptReportAsmPrinterHandler::beginInstruction(const MachineInstr *MI) {
       if (!LoopID)
         continue;
 
-      LoopOptReport OptReport = LoopOptReport::findOptReportInLoopID(LoopID);
-      if (!OptReport)
+      OptReport OR = OptReport::findOptReportInLoopID(LoopID);
+      if (!OR)
         continue;
 
-      if (!OptReport.nextSibling())
+      if (!OR.nextSibling())
         continue;
 
       // The loop's opt-report has sibling opt-reports attached,
@@ -136,20 +136,18 @@ void OptReportAsmPrinterHandler::endFunction(const MachineFunction *MF) {
 
   // This function anchors the given child/sibling opt-report
   // (and all its child/sibling opt-reports recursively) to the given symbol.
-  std::function<void(MCSymbol *, LoopOptReport)>
-      registerMissingOptReports =
-          [this, &registerMissingOptReports](
-              MCSymbol *HeaderSym, LoopOptReport OptReport) {
-            if (!HeaderSym || !OptReport)
-              return;
+  std::function<void(MCSymbol *, OptReport)> registerMissingOptReports =
+      [this, &registerMissingOptReports](MCSymbol *HeaderSym, OptReport OR) {
+        if (!HeaderSym || !OR)
+          return;
 
-            // First, anchor the child/sibling opt-report itself.
-            registerLoop(HeaderSym, OptReport);
-            // Recursively anchor child opt-reports.
-            registerMissingOptReports(HeaderSym, OptReport.firstChild());
-            // Recursively anchor sibling opt-reports.
-            registerMissingOptReports(HeaderSym, OptReport.nextSibling());
-          };
+        // First, anchor the child/sibling opt-report itself.
+        registerLoop(HeaderSym, OR);
+        // Recursively anchor child opt-reports.
+        registerMissingOptReports(HeaderSym, OR.firstChild());
+        // Recursively anchor sibling opt-reports.
+        registerMissingOptReports(HeaderSym, OR.nextSibling());
+      };
 
   // Register loops so that parents precede children.
   std::function<void(const MachineLoop *)> addLoop =
@@ -163,22 +161,22 @@ void OptReportAsmPrinterHandler::endFunction(const MachineFunction *MF) {
         auto *HeaderSym = BlockLabels[Header];
 
         auto *LoopID = ML->getLoopID();
-        LoopOptReport OptReport = LoopOptReport::findOptReportInLoopID(LoopID);
+        OptReport OR = OptReport::findOptReportInLoopID(LoopID);
 
-        // We register the loop, even if OptReport is null.
+        // We register the loop, even if OR is null.
         // The opt-report entry will be empty, but it will indicate
         // a loop in the generated code.
         if (HeaderSym)
-          registerLoop(HeaderSym, OptReport);
+          registerLoop(HeaderSym, OR);
 
-        if (!OptReport)
+        if (!OR)
           LLVM_DEBUG(dbgs() << "!!! Loop does not have OptReport. !!!\n");
         if (!HeaderSym)
           LLVM_DEBUG(dbgs() << "!!! Header does not have a label. !!!\n");
 
         // Process child opt-reports, if any.
-        if (OptReport)
-          registerMissingOptReports(HeaderSym, OptReport.firstChild());
+        if (OR)
+          registerMissingOptReports(HeaderSym, OR.firstChild());
 
         // Process child loops.
         auto EntryNode = GraphTraits<const MachineLoop *>::getEntryNode(ML);
@@ -191,11 +189,11 @@ void OptReportAsmPrinterHandler::endFunction(const MachineFunction *MF) {
         // we found that sibling opt-reports are attached to it.
         // Here we need to anchor these sibling opt-reports to the "exit"
         // block.
-        if (OptReport) {
+        if (OR) {
           auto EBI = LoopToExit.find(ML);
           if (EBI != LoopToExit.end())
-            registerMissingOptReports(
-                BlockLabels[EBI->second], OptReport.nextSibling());
+            registerMissingOptReports(BlockLabels[EBI->second],
+                                      OR.nextSibling());
         }
   };
 
@@ -204,8 +202,7 @@ void OptReportAsmPrinterHandler::endFunction(const MachineFunction *MF) {
   //
   // TODO (vzakhari 02/11/2019): we have to find better anchors
   //       for such opt-reports.
-  LoopOptReport FunOR =
-      LoopOptReportTraits<Function>::getOptReport(MF->getFunction());
+  OptReport FunOR = OptReportTraits<Function>::getOptReport(MF->getFunction());
   if (FunOR)
     registerMissingOptReports(BlockLabels[&*(MF->begin())], FunOR.firstChild());
 
@@ -305,7 +302,7 @@ void OptReportAsmPrinterHandler::combineFunctionDescs() {
 }
 
 bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
-  if (!llvm::LoopOptReportSupport::isProtobufBinOptReportEnabled())
+  if (!llvm::OptReportSupport::isProtobufBinOptReportEnabled())
     return false;
 
   unsigned PtrSize = getMAI().getCodePointerSize();
@@ -327,8 +324,8 @@ bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
     //   --------------- Beginning of notify table ---------------------
     //   Notify table header.
     //      char      ident[];        // ".itt_notify_tab\0"
-    //      uint16_t  version;        // Major version 1 in the upper byte,
-    //                                // minor version 2 in the lower byte
+    //      uint16_t  version;        // Major version 2 in the upper byte,
+    //                                // minor version 0 in the lower byte
     //      uint16_t  header_size;    // byte size of this header structure
     //      uint32_t  num_reports;    // number of opt-report entries
     //      uint32_t  ancid_length;   // length of anchor ID (1->32)
@@ -374,8 +371,8 @@ bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
     NullTerminatedIdentString.push_back('\0');
     getOS().emitBytes(NullTerminatedIdentString);
 
-    getOS().AddComment("Table Version 1.2");
-    getOS().emitIntValue(0x0102, 2);
+    getOS().AddComment("Table Version 2.0");
+    getOS().emitIntValue(0x0200, 2);
     getOS().AddComment("Header Size");
     getOS().emitAbsoluteSymbolDiff(HeaderEndLabel, HeaderStartLabel, 2);
     getOS().AddComment("Number Of Reports");
@@ -445,17 +442,17 @@ bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
     getOS().AddComment("Protobuf Message Begin");
     getOS().emitLabel(PBmsgStartLabel);
 
-    llvm::LoopOptReportSupport::OptRptAnchorMapTy OptRptAnchorMap;
+    llvm::OptReportSupport::OptRptAnchorMapTy OptRptAnchorMap;
     for (auto &&OR : OptReports) {
       assert(OptRptAnchorMap.count(OR->AnchorID) == 0 &&
              "Multiple opt-reports with same anchor ID.");
-      OptRptAnchorMap[OR->AnchorID] = OR->OptReport;
+      OptRptAnchorMap[OR->AnchorID] = OR->OR;
     }
     // TODO Replace the hard-coded opt-report version with a query of opt-report
     // library. Right now, we use version 1.5.
     // TODO: Version info can probably be omitted from this interface. It can be
-    // obtained inside LoopOptReportSupport interfaces directly.
-    std::string Msg = llvm::LoopOptReportSupport::generateProtobufBinOptReport(
+    // obtained inside OptReportSupport interfaces directly.
+    std::string Msg = llvm::OptReportSupport::generateProtobufBinOptReport(
         OptRptAnchorMap, 1 /*MajorVersion*/, 5 /*MinorVersion*/);
 
     // We emit the Protobuf msg as a simple byte stream.
@@ -652,8 +649,7 @@ void OptReportAsmPrinterHandler::endModule() {
     // Loop opt-report entries.
     for (auto &&OR : OptReports) {
       emitOptReportExpression(
-          OR->EntrySym,
-          llvm::LoopOptReportSupport::formatBinaryStream(OR->OptReport));
+          OR->EntrySym, llvm::OptReportSupport::formatBinaryStream(OR->OR));
     }
 
     getOS().emitLabel(ExprtabEndLabel);

@@ -362,6 +362,19 @@ template <int N, typename DstType, typename SrcType>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<DstType, N>
 __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src);
 
+template<int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<DstType, N>
+__esimd_srnd(__SEIEED::vector_type_t<SrcType, N> src1,
+             __SEIEED::vector_type_t<SrcType, N> src2)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+  return __SEIEED::vector_type_t<DstType, N>();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 

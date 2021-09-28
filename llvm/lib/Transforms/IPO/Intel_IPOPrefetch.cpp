@@ -1724,8 +1724,8 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
     if (I->getNumUses()) {
       Params.push_back(I->getType());
       ArgAlive[i] = true;
-      ArgAttrVec.push_back(PAL.getParamAttributes(i));
-      HasLiveReturnedArg |= PAL.hasParamAttribute(i, Attribute::Returned);
+      ArgAttrVec.push_back(PAL.getParamAttrs(i));
+      HasLiveReturnedArg |= PAL.hasParamAttr(i, Attribute::Returned);
     } else {
       ++NumArgumentsEliminated;
       LLVM_DEBUG(dbgs() << "Removing argument " << i << " (" << I->getName()
@@ -1742,7 +1742,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   std::vector<Type *> RetTypes;
 
   // The existing function's return attributes.
-  AttrBuilder RAttrs(PAL.getRetAttributes());
+  AttrBuilder RAttrs(PAL.getRetAttrs());
 
   // Remove any incompatible attributes, but only if we removed all return
   // values. Otherwise, ensure that we don't have any conflicting attributes
@@ -1753,8 +1753,8 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   AttributeSet RetAttrs = AttributeSet::get(F->getContext(), RAttrs);
 
   // Strip allocsize attributes. They might refer to the deleted arguments.
-  AttributeSet FnAttrs = PAL.getFnAttributes().removeAttribute(
-      F->getContext(), Attribute::AllocSize);
+  AttributeSet FnAttrs =
+      PAL.getFnAttrs().removeAttribute(F->getContext(), Attribute::AllocSize);
 
   // Reconstruct the AttributesList based on the vector we constructed.
   assert(ArgAttrVec.size() == Params.size());
@@ -1894,14 +1894,14 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     unsigned NumNewArgs = 0;
 
     for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
-      if (Attrs.hasAttributes(I))
-        NewAttrs = NewAttrs.addAttributes(Ctx, I, Attrs.getAttributes(I));
+      if (Attrs.hasAttributesAtIndex(I))
+        NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
 
     for (unsigned I = 0; I < NParams; ++I) {
       Tys.push_back(FTy->getParamType(I));
       if (Attrs.hasParamAttrs(I))
         NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs,
-                                               Attrs.getParamAttributes(I));
+                                               Attrs.getParamAttrs(I));
       ++NumNewArgs;
     }
 

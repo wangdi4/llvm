@@ -14,8 +14,8 @@
 
 #include "Intel_DTrans/Transforms/DynClone.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
+#include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
@@ -152,6 +152,47 @@ public:
   }
 };
 
+class DTransDynCloneOPWrapper : public ModulePass {
+private:
+  dtransOP::DynClonePass Impl;
+
+public:
+  static char ID;
+
+  DTransDynCloneOPWrapper() : ModulePass(ID) {
+    initializeDTransDynCloneOPWrapperPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnModule(Module &M) override {
+    if (skipModule(M))
+      return false;
+    auto &DTAnalysisWrapper =
+        getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
+    dtransOP::DTransSafetyInfo &DTInfo =
+        DTAnalysisWrapper.getDTransSafetyInfo(M);
+
+    dtrans::LoopInfoFuncType GetLI = [this](Function &F) -> LoopInfo & {
+      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    };
+    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+
+    bool Changed =
+        Impl.runImpl(M, DTInfo, GetTLI,
+                     getAnalysis<WholeProgramWrapperPass>().getResult(), GetLI);
+    return Changed;
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
+  }
+};
+
 } // end anonymous namespace
 
 char DTransDynCloneWrapper::ID = 0;
@@ -166,6 +207,23 @@ INITIALIZE_PASS_END(DTransDynCloneWrapper, "dtrans-dynclone",
 
 ModulePass *llvm::createDTransDynCloneWrapperPass() {
   return new DTransDynCloneWrapper();
+}
+
+using dtransOP::DTransSafetyAnalyzerWrapper;
+char DTransDynCloneOPWrapper::ID = 0;
+INITIALIZE_PASS_BEGIN(DTransDynCloneOPWrapper, "dtrans-dyncloneop",
+                      "DTrans dynamic cloning with opaque pointer support",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(DTransDynCloneOPWrapper, "dtrans-dyncloneop",
+                    "DTrans dynamic cloning with opaque pointer support", false,
+                    false)
+
+ModulePass *llvm::createDTransDynCloneOPWrapperPass() {
+  return new DTransDynCloneOPWrapper();
 }
 
 namespace llvm {
@@ -197,6 +255,7 @@ public:
   }
 };
 
+template<class InfoClass>
 class DynCloneImpl {
 
   // Functor that compares Function* using alphabetical ordering of the
@@ -223,7 +282,7 @@ class DynCloneImpl {
   using InstSet = SmallPtrSet<Instruction *, 32>;
 
 public:
-  DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
+  DynCloneImpl(Module &M, const DataLayout &DL, InfoClass &DTInfo,
                LoopInfoFuncType &GetLI, DynGetTLITy GetTLI)
       : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI), GetTLI(GetTLI),
         ShrunkenIntTy(
@@ -239,7 +298,7 @@ public:
 private:
   Module &M;
   const DataLayout &DL;
-  DTransAnalysisInfo &DTInfo;
+  InfoClass &DTInfo;
   LoopInfoFuncType &GetLI;
   DynGetTLITy GetTLI;
 
@@ -414,10 +473,11 @@ private:
 
 // Returns true if all possible values of field at "I" of struct "STy"
 // fits in "DTransDynCloneShrTyDelta" bits.
-bool DynCloneImpl::isBitFieldCandidate(StructType *STy, unsigned I) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isBitFieldCandidate(StructType *STy, unsigned I) {
   if (!DTransDynCloneUseBitFields)
     return false;
-  auto *StInfo = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(STy));
+  StructInfo *StInfo = DTInfo.getStructTypeInfo(STy);
   dtrans::FieldInfo &FI = StInfo->getField(I);
   llvm::Type *FieldTy = FI.getLLVMType();
 
@@ -456,8 +516,9 @@ bool DynCloneImpl::isBitFieldCandidate(StructType *STy, unsigned I) {
 //   %92 = load i16, i16* %91, align 2
 //   Handle Bit-field:   %93 = and i16 %92, 16383
 //
-Value *DynCloneImpl::generateBitFieldLoad(DynField &Elem, Value *Val,
-                                          IRBuilder<> &IRB) {
+template <class InfoClass>
+Value *DynCloneImpl<InfoClass>::generateBitFieldLoad(DynField &Elem, Value *Val,
+                                                     IRBuilder<> &IRB) {
   if (!isPackedField(Elem))
     return Val;
   int Offset = PackedFieldBitOffsetMap[Elem];
@@ -485,9 +546,12 @@ Value *DynCloneImpl::generateBitFieldLoad(DynField &Elem, Value *Val,
 //     Handle Bit-field:   %435 = or i16 %434, %433
 //     store i16 %435, i16* %431
 //
-Value *DynCloneImpl::generateBitFieldStore(DynField &Elem, Value *NewVal,
-                                           llvm::Type *NewSrcTy,
-                                           Value *NewSrcOp, IRBuilder<> &IRB) {
+template <class InfoClass>
+Value *DynCloneImpl<InfoClass>::generateBitFieldStore(DynField &Elem,
+                                                      Value *NewVal,
+                                                      llvm::Type *NewSrcTy,
+                                                      Value *NewSrcOp,
+                                                      IRBuilder<> &IRB) {
   if (!isPackedField(Elem))
     return NewVal;
   int Offset = PackedFieldBitOffsetMap[Elem];
@@ -508,19 +572,19 @@ Value *DynCloneImpl::generateBitFieldStore(DynField &Elem, Value *NewVal,
 }
 
 // Collects possible candidate fields for Dynamic cloning.
-bool DynCloneImpl::gatherPossibleCandidateFields(void) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::gatherPossibleCandidateFields(void) {
 
   // Allow only Int64 type fields as candidates for now.
   auto IsCandidateType = [&](Type *Ty) { return Ty->isIntegerTy(64); };
 
   LLVM_DEBUG(dbgs() << "  Looking for candidate structures.\n");
 
-  for (TypeInfo *TI : DTInfo.type_info_entries()) {
-    auto *StInfo = dyn_cast<StructInfo>(TI);
-    if (!StInfo)
-      continue;
+  for (auto *Ty : M.getIdentifiedStructTypes()) {
+    StructInfo *StInfo = DTInfo.getStructTypeInfo(Ty);
+    assert(StInfo && "Expected TypeInfo on all named structures");
 
-    if (DTInfo.testSafetyData(TI, dtrans::DT_DynClone)) {
+    if (DTInfo.testSafetyData(StInfo, dtrans::DT_DynClone)) {
       LLVM_DEBUG(dbgs() << "    Rejecting "
                         << getStructName(StInfo->getLLVMType())
                         << " based on safety data.\n");
@@ -551,14 +615,16 @@ bool DynCloneImpl::gatherPossibleCandidateFields(void) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void DynCloneImpl::printDynField(raw_ostream &OS,
-                                 const DynField &DField) const {
+template <class InfoClass>
+void DynCloneImpl<InfoClass>::printDynField(raw_ostream &OS,
+                                            const DynField &DField) const {
   OS << "struct: " << getStructName(DField.first) << " Index: " << DField.second
      << "\n";
 }
 
 // Print candidate fields
-void DynCloneImpl::printCandidateFields(raw_ostream &OS) const {
+template <class InfoClass>
+void DynCloneImpl<InfoClass>::printCandidateFields(raw_ostream &OS) const {
   for (auto &CandidatePair : CandidateFields) {
     OS << "    ";
     printDynField(OS, CandidatePair);
@@ -567,7 +633,8 @@ void DynCloneImpl::printCandidateFields(raw_ostream &OS) const {
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Returns true if \p DField is marked with AOSTOSOA index.
-bool DynCloneImpl::isAOSTOSOAIndexField(DynField &DField) const {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isAOSTOSOAIndexField(DynField &DField) const {
   for (auto &CandidatePair : AOSTOSOAIndexFields)
     if (CandidatePair == DField)
       return true;
@@ -575,7 +642,8 @@ bool DynCloneImpl::isAOSTOSOAIndexField(DynField &DField) const {
 }
 
 // Returns true if \p DField is in CandidateFields.
-bool DynCloneImpl::isCandidateField(DynField &DField) const {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isCandidateField(DynField &DField) const {
   for (auto &CandidatePair : CandidateFields)
     if (CandidatePair == DField)
       return true;
@@ -584,7 +652,8 @@ bool DynCloneImpl::isCandidateField(DynField &DField) const {
 
 // Returns true if \p DField is any packed field (either packed bit-field
 // field or packed shrunken field)
-bool DynCloneImpl::isPackedField(DynField &DField) const {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isPackedField(DynField &DField) const {
   for (auto &CandidatePair : PackedFields)
     if (CandidatePair == DField)
       return true;
@@ -592,7 +661,8 @@ bool DynCloneImpl::isPackedField(DynField &DField) const {
 }
 
 // Returns true if \p DField is packed bit-field field.
-bool DynCloneImpl::isPackedBitFieldField(DynField &DField) const {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isPackedBitFieldField(DynField &DField) const {
   for (auto &CandidatePair : PackedBitFieldFields)
     if (CandidatePair == DField)
       return true;
@@ -601,14 +671,16 @@ bool DynCloneImpl::isPackedBitFieldField(DynField &DField) const {
 
 // Return true if \p DField is either regular candidate
 // field or AOSTOSOA index field.
-bool DynCloneImpl::isShrunkenField(DynField &DField) const {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isShrunkenField(DynField &DField) const {
   return (isCandidateField(DField) || isPackedBitFieldField(DField) ||
           isAOSTOSOAIndexField(DField));
 }
 
 // Returns true if \p Ty is a struct that has candidate fields for
 // shrinking.
-bool DynCloneImpl::isCandidateStruct(Type *Ty) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::isCandidateStruct(Type *Ty) {
   if (!Ty->isStructTy())
     return false;
   for (auto &CPair : CandidateFields)
@@ -619,7 +691,8 @@ bool DynCloneImpl::isCandidateStruct(Type *Ty) {
 
 // Returns Type of struct accessed in GEP if the GEP is in allowed format
 // to enable DynClone for the struct. Otherwise, returns nullptr.
-Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
+template <class InfoClass>
+Type *DynCloneImpl<InfoClass>::getGEPStructType(GetElementPtrInst *GEP) const {
   int32_t NumIndices = GEP->getNumIndices();
   if (NumIndices > 2)
     return nullptr;
@@ -636,8 +709,9 @@ Type *DynCloneImpl::getGEPStructType(GetElementPtrInst *GEP) const {
 
 // If \p GEP is accessing struct field, it returns the field.
 // It doesn't handle if NumIndices > 2.
-DynCloneImpl::DynField
-DynCloneImpl::getAccessStructField(GEPOperator *GEP) const {
+template <class InfoClass>
+typename DynCloneImpl<InfoClass>::DynField
+DynCloneImpl<InfoClass>::getAccessStructField(GEPOperator *GEP) const {
   int32_t NumIndices = GEP->getNumIndices();
   if (NumIndices > 2)
     return std::make_pair(nullptr, 0);
@@ -651,7 +725,8 @@ DynCloneImpl::getAccessStructField(GEPOperator *GEP) const {
 }
 
 // Returns struct type associated with \p CInfo of either Alloc/Memfunc.
-Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
+template <class InfoClass>
+Type *DynCloneImpl<InfoClass>::getCallInfoElemTy(CallInfo *CInfo) const {
   if (!CInfo)
     return nullptr;
   if (CInfo->getCallInfoKind() != CallInfo::CIK_Alloc &&
@@ -668,7 +743,9 @@ Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
 
 // Returns Type related to \p I. This is used to get candidate
 // struct type if the type is referenced by \p I.
-Type *DynCloneImpl::getTypeRelatedToInstruction(Instruction *I) const {
+template <class InfoClass>
+Type *
+DynCloneImpl<InfoClass>::getTypeRelatedToInstruction(Instruction *I) const {
   Type *StTy = nullptr;
   // Treat a struct as accessed if the struct is referenced by
   // any of these instructions.
@@ -726,7 +803,8 @@ Type *DynCloneImpl::getTypeRelatedToInstruction(Instruction *I) const {
 //  Init routine detection: All qualified candidates should have unknown
 //  assignments in the same routine.
 //
-bool DynCloneImpl::prunePossibleCandidateFields(void) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
 
   DynFieldSet InvalidFields;
 
@@ -1030,11 +1108,15 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     if (!isa<PointerType>(CalledValueType))
       return false;
     PointerType *PTy = cast<PointerType>(CalledValueType);
-    if (PTy->getElementType() != CI->getFunctionType())
+    if (!PTy->isOpaqueOrPointeeTypeMatches(CI->getFunctionType()))
       return false;
     if (auto *BC = dyn_cast<BitCastOperator>(CalledValue))
       if (isa<Function>(BC->getOperand(0)))
         return true;
+
+    // No bitcast used for opaque pointers.
+    if (isa<Function>(CalledValue))
+      return true;
     return false;
   };
 
@@ -1288,7 +1370,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
 // 2. During analysis, issue with compile-time/runtime checks for
 //    MultiElem load/store instructions can be avoided.
 //
-bool DynCloneImpl::verifyMultiFieldLoadStores(void) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::verifyMultiFieldLoadStores(void) {
 
   //
   auto AnalyzeMultiElemLdSt = [&](Instruction *I) {
@@ -1341,7 +1424,8 @@ bool DynCloneImpl::verifyMultiFieldLoadStores(void) {
 //   3. No access to a struct with candidate fields before InitRoutine is
 //      called.
 //
-bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::verifyLegalityChecksForInitRoutine(void) {
 
   std::function<bool(BasicBlock * CurrentBB,
                      SmallPtrSetImpl<BasicBlock *> & Visited,
@@ -1519,7 +1603,8 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
 // Tracks uses of all allocated calls and collects all locations
 // where alloc pointers are saved if possible. Otherwise, returns
 // false. These locations will be used during transformation.
-bool DynCloneImpl::trackPointersOfAllocCalls(void) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::trackPointersOfAllocCalls(void) {
 
   std::function<bool(PHINode *, unsigned, bool &, StoreInstSet &,
                      StoreInstSet &, InstSet &)>
@@ -1587,7 +1672,7 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
     if (NumIndices == 2) {
       // Case 1:
       // This is basically address of a field if NumIndices == 2. We are not
-      // interested to collet uses of the GEP. Instead, we prove that the
+      // interested to collect uses of the GEP. Instead, we prove that the
       // address is not escaped by checking all uses of it are used in StoreInst
       // as PointerOperand. Set ModifiedMem flag to indicate allocated memory is
       // modified.
@@ -1757,17 +1842,22 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   // CI:  %57 = call noalias i8* @calloc(i64 %56, i64 96)
   // ...
   // U:   %59 = getelementptr i8, i8* %57, i64 0
-  // U1:  %60 = bitcast i8* %59 to i64*
-  // SI:  store i64* %60, i64** getelementptr (%__SOA_struct.n, %__SOA_struct.n*
-  // @__soa_.n, i64 0, i32 0)
+  // (optional) U1:  %60 = bitcast i8* %59 to i64*
+  // SI:  store i64* %60, i64** getelementptr
+  //          (%__SOA_struct.n, %__SOA_struct.n* @__soa_.n, i64 0, i32 0)
   //
   auto GetAOSSOAAllocType = [&](CallInst *CI) -> GlobalVariable * {
     for (User *U : CI->users()) {
       if (!isa<GetElementPtrInst>(U) || !U->hasOneUse())
         continue;
-      User *U1 = *U->user_begin();
-      if (!isa<BitCastInst>(U1) || !U1->hasOneUse())
+      User *U1 = U;
+      User *FirstUser = *U1->user_begin();
+      auto *BC = dyn_cast<BitCastInst>(FirstUser);
+      if (BC)
+        U1 = BC;
+      else if (!U1->hasOneUse())
         continue;
+
       StoreInst *SI = dyn_cast<StoreInst>(*U1->user_begin());
       if (!SI)
         continue;
@@ -2076,7 +2166,8 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
 //          }
 //          }
 //
-bool DynCloneImpl::verifyCallsInInitRoutine(void) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::verifyCallsInInitRoutine(void) {
   // Returns true if \p ID is safe intrinsic. This list is required
   // for now but not complete. We can add more intrinsics if it is needed.
   auto IsSafeIntrinsic = [&](Intrinsic::ID ID) {
@@ -2266,7 +2357,8 @@ bool DynCloneImpl::verifyCallsInInitRoutine(void) {
 //     entire new struct.
 //  3. Eliminate padding by applying "isPacked" attribute.
 //
-void DynCloneImpl::createShrunkenTypes(void) {
+template <class InfoClass>
+void DynCloneImpl<InfoClass>::createShrunkenTypes(void) {
 
   // Return shrunken type for AOSTOSOA index fields. For now, it
   // returns 16 bits always.
@@ -2529,7 +2621,8 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //              }
 //
 //
-void DynCloneImpl::transformInitRoutine(void) {
+template <class InfoClass>
+void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
 
   // Returns ConstantInt of max value that fits in shrunken type for
   // the given Ty.
@@ -3347,7 +3440,8 @@ void DynCloneImpl::transformInitRoutine(void) {
 // and controlled under __Shrink__Happened__, for all BasicBlocks that can
 // be reached from "InitRoutine()" call.
 //
-bool DynCloneImpl::createCallGraphClone(void) {
+template <class InfoClass>
+bool DynCloneImpl<InfoClass>::createCallGraphClone(void) {
 
   std::function<void(Function * F, Function * CallerMain,
                      CallInstSet & SpecializedCallsInMain)>
@@ -3710,7 +3804,7 @@ bool DynCloneImpl::createCallGraphClone(void) {
 // access fields of shrunken structs in routines related to new layout.
 // GEP/ByteGEP/Load/Store/SDiv/UDiv/MemFunc instructions related to
 // shrunken structs are transformed.
-void DynCloneImpl::transformIR(void) {
+template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
 
   auto IsMultiElemLdSt = [&](Instruction *I) {
     if (DTInfo.isMultiElemLoadStore(I))
@@ -3794,7 +3888,10 @@ void DynCloneImpl::transformIR(void) {
     assert(NewStTy && "Expected transformed type");
     Type *DstTy = NewStTy->getPointerTo();
     Value *Src = GEP->getPointerOperand();
-    CastInst *BC = CastInst::CreateBitOrPointerCast(Src, DstTy, "", GEP);
+    if (!Src->getType()->isOpaquePointerTy() || !DstTy->isOpaquePointerTy()) {
+      CastInst *BC = CastInst::CreateBitOrPointerCast(Src, DstTy, "", GEP);
+      Src = BC;
+    }
 
     SmallVector<Value *, 2> Indices;
     Indices.push_back(GEP->getOperand(1));
@@ -3806,7 +3903,7 @@ void DynCloneImpl::transformIR(void) {
       Indices.push_back(NewOp);
     }
     GetElementPtrInst *NGEP =
-        GetElementPtrInst::Create(NewStTy, BC, Indices, "", GEP);
+        GetElementPtrInst::Create(NewStTy, Src, Indices, "", GEP);
     NGEP->setIsInBounds(GEP->isInBounds());
     Instruction *Res = NGEP;
     if (NGEP->getType() != GEP->getType())
@@ -3815,7 +3912,7 @@ void DynCloneImpl::transformIR(void) {
     GEP->replaceAllUsesWith(Res);
     Res->takeName(GEP);
 
-    LLVM_DEBUG(dbgs() << "GEP After:" << *BC << "\n" << *NGEP << "\n");
+    LLVM_DEBUG(dbgs() << "GEP After:" << *Src << "\n" << *NGEP << "\n");
     if (Res != NGEP)
       LLVM_DEBUG(dbgs() << *Res << "\n");
   };
@@ -3894,16 +3991,20 @@ void DynCloneImpl::transformIR(void) {
     Value *SrcOp = LI->getPointerOperand();
     Type *NewTy = NewSt->getElementType(NewIdx);
     Type *PNewTy = NewTy->getPointerTo();
-    Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
+    if (!SrcOp->getType()->isOpaquePointerTy() ||
+        !PNewTy->isOpaquePointerTy()) {
+      Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
+      SrcOp = NewSrcOp;
+    }
     Instruction *NewLI = new LoadInst(
-        NewTy, NewSrcOp, "", LI->isVolatile(), DL.getABITypeAlign(NewTy),
+        NewTy, SrcOp, "", LI->isVolatile(), DL.getABITypeAlign(NewTy),
         LI->getOrdering(), LI->getSyncScopeID(), LI);
 
     if (AATags)
       NewLI->setAAMetadata(AATags);
 
     LLVM_DEBUG(dbgs() << "Load after convert: \n"
-                      << *NewSrcOp << "\n"
+                      << *SrcOp << "\n"
                       << *NewLI << "\n");
 
     Value *NewVal = NewLI;
@@ -3968,16 +4069,20 @@ void DynCloneImpl::transformIR(void) {
       NewVal = CastInst::CreateTruncOrBitCast(ValOp, NewTy, "", SI);
 
     Value *SrcOp = SI->getPointerOperand();
-    Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
+    if (!SrcOp->getType()->isOpaquePointerTy() ||
+        !PNewTy->isOpaquePointerTy()) {
+      Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
+      SrcOp = NewSrcOp;
+    }
     LLVM_DEBUG(dbgs() << "Store after convert: \n"
                       << *NewVal << "\n"
-                      << *NewSrcOp << "\n");
+                      << *SrcOp << "\n");
 
     IRBuilder<> IRB(SI);
-    NewVal = generateBitFieldStore(StElem, NewVal, NewTy, NewSrcOp, IRB);
+    NewVal = generateBitFieldStore(StElem, NewVal, NewTy, SrcOp, IRB);
 
     Instruction *NewSI = new StoreInst(
-        NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlign(NewTy),
+        NewVal, SrcOp, SI->isVolatile(), DL.getABITypeAlign(NewTy),
         SI->getOrdering(), SI->getSyncScopeID(), SI);
 
     if (AATags)
@@ -4265,7 +4370,8 @@ void DynCloneImpl::transformIR(void) {
 
 // Create encoder and decoder functions that will translate the original
 // 64bit value into/from a smaller ShrunkenIntTy value.
-void DynCloneImpl::createEncodeDecodeFunctions(void) {
+template <class InfoClass>
+void DynCloneImpl<InfoClass>::createEncodeDecodeFunctions(void) {
   if (AllDynFieldConstSet.size() == 0) {
     DynFieldEncodeFunc = nullptr;
     DynFieldDecodeFunc = nullptr;
@@ -4330,7 +4436,8 @@ void DynCloneImpl::createEncodeDecodeFunctions(void) {
 // variable, then truncate it, else handle some special cases. The decoder
 // function takes an i16 and if it isn't any of the special cases, then
 // sign extends it to a signed i64.
-void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
+template <class InfoClass>
+void DynCloneImpl<InfoClass>::fillupCoderRoutine(Function *F, bool IsEncoder) {
   // Indicate this function doesn't use vectors. This prevents the inliner from
   // deleting it from the caller when merging attributes.
   F->addFnAttr("min-legal-vector-width", "0");
@@ -4394,7 +4501,7 @@ void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
   IRBEntry.CreateCondBr(EntryCmpr, DefaultBB, BB);
 }
 
-bool DynCloneImpl::run(void) {
+template <class InfoClass> bool DynCloneImpl<InfoClass>::run(void) {
 
   LLVM_DEBUG(dbgs() << "DynCloning Transformation \n");
 
@@ -4469,8 +4576,8 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
     return false;
 
   auto &DL = M.getDataLayout();
-
-  DynCloneImpl DynCloneI(M, DL, DTInfo, GetLI, GetTLI);
+  DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
+  DynCloneImpl<DTransAnalysisInfoAdapter> DynCloneI(M, DL, AIAdaptor, GetLI, GetTLI);
   return DynCloneI.run();
 }
 
@@ -4497,5 +4604,53 @@ PreservedAnalyses DynClonePass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 } // namespace dtrans
+
+namespace dtransOP {
+bool DynClonePass::runImpl(Module &M, DTransSafetyInfo &DTInfo,
+                           DynGetTLITy GetTLI, WholeProgramInfo &WPInfo,
+                           LoopInfoFuncType &GetLI) {
+
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+    LLVM_DEBUG(dbgs() << "DTrans dynamic cloning inhibited: "
+                      << "Not whole-program-safe or not AVX2\ns");
+    return false;
+  }
+
+  if (!DTInfo.useDTransSafetyAnalysis()) {
+    LLVM_DEBUG(dbgs() << "DTrans dynamic cloning inhibited: "
+                      << "DTrans safety info is not available\n");
+    return false;
+  }
+
+  auto &DL = M.getDataLayout();
+  DTransSafetyInfoAdapter AIAdaptor(DTInfo);
+  dtrans::DynCloneImpl<DTransSafetyInfoAdapter> DynCloneI(M, DL, AIAdaptor,
+                                                          GetLI, GetTLI);
+  return DynCloneI.run();
+}
+
+PreservedAnalyses DynClonePass::run(Module &M, ModuleAnalysisManager &AM) {
+  DTransSafetyInfo *DTInfo = &AM.getResult<DTransSafetyAnalyzer>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+  if (!runImpl(M, *DTInfo, GetTLI, WPInfo, GetLI))
+    return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();
+  return PA;
+}
+
+} // namespace dtransOP
 
 } // namespace llvm

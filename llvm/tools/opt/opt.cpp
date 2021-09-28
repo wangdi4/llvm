@@ -636,6 +636,7 @@ int main(int argc, char **argv) {
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
   initializeFloat128ExpandPass(Registry);
+  initializeFoldLoadsToGatherPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
@@ -890,7 +891,7 @@ int main(int argc, char **argv) {
                            ThinLinkOut.get(), RemarksFile.get(), PassPipeline,
                            Passes, OK, VK, PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
-                           EmitModuleHash, EnableDebugify, Coroutines)
+                           EmitModuleHash, EnableDebugify)
                ? 0
                : 1;
   }

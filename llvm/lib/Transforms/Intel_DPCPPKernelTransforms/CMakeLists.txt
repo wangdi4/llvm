@@ -3,6 +3,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddImplicitArgs.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
+  CoerceWin64Types.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp
   DPCPPKernelVecClone.cpp
@@ -12,6 +13,8 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelLoopUtils.cpp
   DPCPPKernelWGLoopCreator.cpp
   DPCPPKernelAnalysis.cpp
+  DPCPPPreprocessSPIRVFriendlyIR.cpp
+  HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
   InternalizeNonKernelFunc.cpp
   LocalBufferAnalysis.cpp
@@ -22,31 +25,46 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   RedundantPhiNodePass.cpp
   GroupBuiltinPass.cpp
   SplitBBonBarrierPass.cpp
-  DPCPPKernelBarrierUtils.cpp
   KernelBarrierUtils.cpp
   WIRelatedValuePass.cpp
   DataPerBarrierPass.cpp
   DataPerValuePass.cpp
   BarrierPass.cpp
   BarrierInFunctionPass.cpp
+  ResolveSubGroupWICall.cpp
   ResolveWICall.cpp
   SplitBBonBarrierPass.cpp
   WIRelatedValuePass.cpp
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
+  SetVectorizationFactor.cpp
+  SubgroupEmulation/SGBarrierPropagate.cpp
+  SubgroupEmulation/SGBarrierSimplify.cpp
+  SubgroupEmulation/SGBuiltin.cpp
+  SubgroupEmulation/SGFunctionWiden.cpp
+  SubgroupEmulation/SGHelper.cpp
+  SubgroupEmulation/SGLoopConstruct.cpp
+  SubgroupEmulation/SGSizeAnalysis.cpp
+  SubgroupEmulation/SGValueWiden.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
+  VectorVariant/IndirectCallLowering.cpp
+  VectorVariant/SGSizeCollector.cpp
+  VectorVariant/SGSizeCollectorIndirect.cpp
   VectorVariant/UpdateCallAttrs.cpp
   VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/VectorVariantLowering.cpp
+  VFAnalysis.cpp
 
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
+  Utils/LoopPeeling.cpp
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
   Utils/RuntimeService.cpp
   Utils/TypeAlignment.cpp
   Utils/VectorizerUtils.cpp
+  Utils/WGBoundDecoder.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms

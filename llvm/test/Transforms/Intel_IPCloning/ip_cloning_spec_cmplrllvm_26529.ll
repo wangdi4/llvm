@@ -104,6 +104,7 @@ t43:                                               ; preds = %t41, %t39, %t35, %
 }
 
 define internal void @convolutionalEncode(i8* nocapture readonly %0, i16 signext %1, i16 signext %2, i16 signext %3, [2 x i8]* nocapture readonly %4, i8* nocapture %5) #5 {
+  %arrayidx44 = getelementptr inbounds [2 x i8], [2 x i8]* %4, i64 0, i64 0
   ret void
 }
 ; end INTEL_FEATURE_SW_ADVANCED

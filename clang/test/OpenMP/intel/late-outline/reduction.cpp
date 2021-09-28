@@ -1,6 +1,6 @@
 // INTEL_COLLAB
 //RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-//RUN:   -triple x86_64-unknown-linux-gnu -fopenmp-version=45 %s | FileCheck %s
+//RUN:   -triple x86_64-unknown-linux-gnu -fopenmp-version=50 %s | FileCheck %s
 
 int bar(int i);
 void cmplx(_Complex double x);
@@ -201,88 +201,88 @@ void foo2(int *d) {
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD"(i64* [[N1_ADDR]])
 //CHECK: call void @llvm.directive.region.exit(token [[TOK6]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(+:n1)
+  #pragma omp taskloop in_reduction(+:n1) nogroup
   for(int i=0;i<20;++i)
     n1 += bar(1);
 
-//CHECK: [[TOK7:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK71:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.SUB"(i64* [[N2_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK7]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK71]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(-:n2)
+  #pragma omp taskloop in_reduction(-:n2) nogroup
   for(int i=0;i<20;++i)
     n2 += bar(2);
 
-//CHECK: [[TOK8:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK81:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL"(i64* [[N3_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK8]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK81]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(*:n3)
+  #pragma omp taskloop in_reduction(*:n3) nogroup
   for(int i=0;i<20;++i)
     n3 += bar(3);
 
-//CHECK: [[TOK9:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK91:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.BAND"(i64* [[N4_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK9]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK91]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(&:n4)
+  #pragma omp taskloop in_reduction(&:n4) nogroup
   for(int i=0;i<20;++i)
     n4 += bar(4);
 
-//CHECK: [[TOK10:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK101:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.BOR"(i64* [[N5_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK10]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK101]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(|:n5)
+  #pragma omp taskloop in_reduction(|:n5) nogroup
   for(int i=0;i<20;++i)
     n5 += bar(5);
 
-//CHECK: [[TOK11:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK111:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.BXOR"(i64* [[N6_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK11]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK111]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(^:n6)
+  #pragma omp taskloop in_reduction(^:n6) nogroup
   for(int i=0;i<20;++i)
     n6 += bar(6);
 
-//CHECK: [[TOK12:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK121:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.AND"(i64* [[N7_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK12]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK121]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(&&:n7)
+  #pragma omp taskloop in_reduction(&&:n7) nogroup
   for(int i=0;i<20;++i)
     n7 += bar(7);
 
-//CHECK: [[TOK13:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK131:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.OR"(i64* [[N8_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK13]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK131]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(||:n8)
+  #pragma omp taskloop in_reduction(||:n8) nogroup
   for(int i=0;i<20;++i)
     n8 += bar(8);
 
-//CHECK: [[TOK14:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK141:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MAX"(i64* [[N9_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK14]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK141]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(max:n9)
+  #pragma omp taskloop in_reduction(max:n9) nogroup
   for(int i=0;i<20;++i)
     n9 += bar(9);
 
-//CHECK: [[TOK15:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK151:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MIN"(i64* [[N10_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK15]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK151]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(min:n10)
+  #pragma omp taskloop in_reduction(min:n10) nogroup
   for(int i=0;i<20;++i)
     n10 += bar(10);
   }
@@ -301,12 +301,12 @@ void foo2(int *d) {
 //CHECK: call void @llvm.directive.region.exit(token [[TOK16]])
 //CHECK-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 
-//CHECK: [[TOK17:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK171:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL:CMPLX"({ double, double }* [[X_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK17]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK171]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(*:x)
+  #pragma omp taskloop in_reduction(*:x) nogroup
   for(int i=0;i<20;++i)
     cmplx(x);
 }
@@ -521,28 +521,28 @@ void foo4() {
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B1* %bvar1,
 // CHECK-SAME: i8* null,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.omp_combiner..12,
-// CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.omp_initializer..13),
+// CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.omp_combiner..
+// CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.[[I1:omp_initializer..[0-9]*]]),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B2* %bvar2,
 // CHECK-SAME: i8* null,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.omp_combiner..14,
-// CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.omp_initializer..15),
+// CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.omp_combiner..
+// CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.[[I2:omp_initializer..[0-9]*]]),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B3* %bvar3,
 // CHECK-SAME: i8* null,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.omp_combiner..16,
-// CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.omp_initializer..17),
+// CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.omp_combiner..
+// CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.[[I3:omp_initializer..[0-9]*]]),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B4* %bvar4,
 // CHECK-SAME: i8* null,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.omp_combiner..18,
-// CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.omp_initializer..19),
+// CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.omp_combiner..
+// CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.[[I4:omp_initializer..[0-9]*]]),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.A4* %avar4a,
 // CHECK-SAME: i8* null,
 // CHECK-SAME: void (%struct.A4*)* @_ZTS2A4.omp.destr,
-// CHECK-SAME: void (%struct.A4*, %struct.A4*)* @.omp_combiner..20,
-// CHECK-SAME: void (%struct.A4*, %struct.A4*)* @.omp_initializer..21)
+// CHECK-SAME: void (%struct.A4*, %struct.A4*)* @.omp_combiner..
+// CHECK-SAME: void (%struct.A4*, %struct.A4*)* @.[[I5:omp_initializer..[0-9]*]])
   #pragma omp parallel \
                reduction(myred1:bvar1)   \
                reduction(myred2:bvar2)   \
@@ -554,27 +554,27 @@ void foo4() {
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 }
 
-// CHECK: define internal void @.omp_initializer..13(%struct.B1* noalias %0, %struct.B1* noalias %1)
+// CHECK: define internal void @.[[I1]](%struct.B1* noalias %0, %struct.B1* noalias %1)
 // CHECK: %call2 = call i32 @_ZN2A1cv2B1Ev(%struct.A1* {{[^,]*}} %ref.tmp
 // CHECK-NEXT: %coerce.dive = getelementptr inbounds %struct.B1, %struct.B1* %3, i32 0, i32 0
 // CHECK-NEXT: store i32 %call2, i32* %coerce.dive, align 4
 // CHECK-NEXT: ret void
 
-// CHECK: define internal void @.omp_initializer..15(%struct.B2* noalias %0, %struct.B2* noalias %1)
+// CHECK: define internal void @.[[I2]](%struct.B2* noalias %0, %struct.B2* noalias %1)
 // CHECK: call void @_ZN2B2C1E2A2(%struct.B2* {{[^,]*}} %3, i64 %9, i32 %11)
 // CHECK: ret void
 
-// CHECK: define internal void @.omp_initializer..17(%struct.B3* noalias %0, %struct.B3* noalias %1)
+// CHECK: define internal void @.[[I3]](%struct.B3* noalias %0, %struct.B3* noalias %1)
 // CHECK:call void @_ZN2A3D1Ev(%struct.A3* {{[^,]*}} %ref.tmp)
 // CHECK-NEXT ret void
 
 
-// CHECK: define internal void @.omp_initializer..19(%struct.B4* noalias %0, %struct.B4* noalias %1)
+// CHECK: define internal void @.[[I4]](%struct.B4* noalias %0, %struct.B4* noalias %1)
 // CHECK: call void @_ZN2B4C1E2A4(%struct.B4* {{[^,]*}} %3, %struct.A4* %agg.tmp)
 // CHECK-NEXT: call void @_ZN2A4D1Ev(%struct.A4* {{[^,]*}} %agg.tmp)
 // CHECK-NEXT: ret void
 
-// CHECK: define internal void @.omp_initializer..21(%struct.A4* noalias %0, %struct.A4* noalias %1)
+// CHECK: define internal void @.[[I5]](%struct.A4* noalias %0, %struct.A4* noalias %1)
 // CHECK: call void @_Z4boo4v(%struct.A4* sret(%struct.A4) {{(align 4 )?}}%3)
 // CHECK-NEXT: ret void
 
@@ -602,7 +602,7 @@ void foo5()
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 }
 
-// CHECK: define internal void @.omp_initializer..23(%struct.AA3* noalias %0, %struct.AA3* noalias %1)
+// CHECK: define internal void @.omp_initializer..{{[0-9]+}}(%struct.AA3* noalias %0, %struct.AA3* noalias %1)
 // CHECK: call void @_Z3booP3AA3(%struct.AA3* sret(%struct.AA3) {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* %3)
 // CHECK-NEXT: call void @_ZN3AA3D1Ev(%struct.AA3* {{[^,]*}} %agg.tmp.ensured)
 // CHECK-NEXT: ret void
@@ -741,7 +741,7 @@ template <class T> struct S {
   ~S() {}
 };
 
-
+// CHECK: define{{.*}}tmain
 template <typename T, int length>
 T tmain()
 {
@@ -761,10 +761,10 @@ T tmain()
   // CHECK-SAME:  void ([42 x %struct.S]*, [42 x %struct.S]*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: i8* null)
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF"(%struct.S** %var,
-  // CHECK-SAME: void (%struct.S**, %struct.S**)* [[COMB1:@.omp_combiner..[0-9]*]]
+  // CHECK-SAME: void (%struct.S**, %struct.S**)* [[COMB2:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: i8* null)
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.S* %var1,
-  // CHECK-SAME: void (%struct.S*, %struct.S*)* [[COMB1:@.omp_combiner..[0-9]*]]
+  // CHECK-SAME: void (%struct.S*, %struct.S*)* [[COMB3:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: i8* null)
 #pragma omp parallel
 #pragma omp for reduction(&:arr, var, var1)
@@ -775,6 +775,9 @@ T tmain()
   return T();
 }
 
+//CHECK: define {{.*}}[[COMB1]]
+//CHECK: define {{.*}}[[COMB2]]
+//CHECK: define {{.*}}[[COMB3]]
 
 int main()
 {
@@ -807,7 +810,5 @@ void test2(TYPE ypas[100], int N) {
   // CHECK-SAME: %struct.my_struct* (%struct.my_struct*)* @_ZTS9my_struct.omp.def_constr,
   for (int i = 0; i < 100; i++);
 }
-
-//CHECK: define {{.*}}[[COMB1]]
 
 // end INTEL_COLLAB

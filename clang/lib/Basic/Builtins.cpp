@@ -98,7 +98,7 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
 #if INTEL_CUSTOMIZATION
   bool OclC2PUnsupported =
       (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES) == OCLC2P_LANG &&
-      ((LangOpts.OpenCLVersion < 200 && !LangOpts.OpenCLCPlusPlus) ||
+      ((LangOpts.getOpenCLCompatibleVersion() != 200) ||
        !OclBuiltinIsSupported(BuiltinInfo, LangOpts));
 #endif // INTEL_CUSTOMIZATION
   bool OclCUnsupported = !LangOpts.OpenCL &&
@@ -235,7 +235,7 @@ bool Builtin::Context::OclBuiltinIsSupported(
       .Case("__opencl_c_device_enqueue", LangOpts.Blocks)
       .Case("__opencl_c_generic_address_space",
             LangOpts.OpenCLGenericAddressSpace)
-      .Case("__opencl_c_pipes", LangOpts.OpenCLPipe)
+      .Case("__opencl_c_pipes", LangOpts.OpenCLPipes)
       .Default(false);
 }
 
