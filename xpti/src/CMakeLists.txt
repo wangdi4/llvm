@@ -1,14 +1,33 @@
-cmake_minimum_required(VERSION 2.8.9)
-project (xpti)
-file(GLOB SOURCES *.cpp)
-include_directories(${XPTI_DIR}/include)
-add_definitions(-DXPTI_STATIC_LIBRARY)
-add_library(xpti STATIC ${SOURCES})
+include(GNUInstallDirs)
+
+macro(add_xpti_lib target_name)
+  add_library(${target_name} STATIC ${ARGN})
+  target_compile_definitions(${target_name} PRIVATE -DXPTI_STATIC_LIBRARY)
+  target_include_directories(${target_name} PRIVATE ${XPTI_DIR}/include)
+
+  if (MSVC)
+    target_compile_options(${target_name} PRIVATE /EHsc)
+  endif()
+
+  # Set the location of the library installation
+  install(TARGETS ${target_name}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT xpti
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT xpti
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT xpti
+  )
+endmacro()
+
+set(SOURCES
+  xpti_proxy.cpp
+)
+
+add_xpti_lib(xpti ${SOURCES})
 
 # Handle the debug version for the Microsoft compiler as a special case by
 # creating a debug version of the static library that uses the flags used by
 # the SYCL runtime
 if (MSVC)
+<<<<<<< HEAD
   add_library(xptid STATIC ${SOURCES})
 # INTEL_CUSTOMIZATION
   target_compile_options(xptid PRIVATE ${XPTI_CXX_FLAGS_DEBUG} /EHsc)
@@ -21,7 +40,10 @@ else()
   string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
 
 # end INTEL_CUSTOMIZATION
+=======
+  add_xpti_lib(xptid STATIC ${SOURCES})
+  target_compile_options(xptid PRIVATE ${XPTI_CXX_FLAGS_DEBUG})
+  target_compile_options(xpti PRIVATE ${XPTI_CXX_FLAGS_RELEASE})
+>>>>>>> 183caf354e603f8935163874374df716a25cf33d
 endif()
 
-# Set the location of the library installation
-install(TARGETS xpti DESTINATION ${CMAKE_BINARY_DIR})
