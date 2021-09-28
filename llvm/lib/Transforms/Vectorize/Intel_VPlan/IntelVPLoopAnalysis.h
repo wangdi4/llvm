@@ -672,14 +672,6 @@ public:
     return false;
   }
 
-  bool hasConditionalLastPrivate() const {
-    for (auto &It : MemoryDescriptors)
-      if (auto *Priv = dyn_cast<VPPrivate>(It.first))
-        if (Priv->isLast() && Priv->isConditional())
-          return true;
-    return false;
-  }
-
   // Find implicit last privates in the loop and add their descriptors.
   // Implicit last private is a live out value which is assigned in the
   // loop and is not known as reduction/induction.
