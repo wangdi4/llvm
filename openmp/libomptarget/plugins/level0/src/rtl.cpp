@@ -1540,7 +1540,7 @@ public:
   int32_t TargetAllocKind = TARGET_ALLOC_DEFAULT;
 
   uint32_t SubscriptionRate = 4;
-  uint32_t ReductionSubscriptionRate = 8;
+  uint32_t ReductionSubscriptionRate = 16;
   uint32_t ForcedKernelWidth = 0;
   int32_t DeviceMode = DEVICE_MODE_TOP;
 #if INTEL_INTERNAL_BUILD
