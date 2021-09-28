@@ -234,12 +234,9 @@ code exchange_explicit_scope_g_fp16 = [{
   while (true) {
     atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, $Arg2VarName, $Arg3VarName);
     $ReturnType oldValue = *$Arg0VarName;
-    float old_float = __ocl_HalfToFloat(*(short *) & oldValue);
-    float value_float = __ocl_HalfToFloat(*(short *) & $Arg1VarName);
-    int oldFloatInt = *((int *) & old_float);
-    int valueFloatInt = *((int *) & value_float);
-    int old = __sync_lock_test_and_set(&oldFloatInt, valueFloatInt);
-    if (old == oldFloatInt)
+    short old_short = *(short*)&oldValue;
+    short old = __sync_lock_test_and_set(&old_short, *((short*)&$Arg1VarName));
+    if (old == old_short)
       return oldValue;
   }
 }];
