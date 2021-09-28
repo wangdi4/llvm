@@ -9077,7 +9077,7 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
     Triples += '-';
     Triples += CurTC->getTriple().normalize();
     if ((CurKind == Action::OFK_HIP || CurKind == Action::OFK_OpenMP ||
-         CurKind == Action::OFK_Cuda) &&
+         CurKind == Action::OFK_Cuda || CurKind == Action::OFK_SYCL) &&
         CurDep->getOffloadingArch()) {
       Triples += '-';
       Triples += CurDep->getOffloadingArch();
@@ -9235,7 +9235,8 @@ void OffloadBundler::ConstructJobMultipleOutputs(
     Triples += Dep.DependentToolChain->getTriple().normalize();
     if ((Dep.DependentOffloadKind == Action::OFK_HIP ||
          Dep.DependentOffloadKind == Action::OFK_OpenMP ||
-         Dep.DependentOffloadKind == Action::OFK_Cuda) &&
+         Dep.DependentOffloadKind == Action::OFK_Cuda ||
+         Dep.DependentOffloadKind == Action::OFK_SYCL) &&
         !Dep.DependentBoundArch.empty()) {
       Triples += '-';
       Triples += Dep.DependentBoundArch;
@@ -9437,9 +9438,10 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     if (PICLevel > 0 || TCArgs.hasArg(options::OPT_shared)) {
       LlcArgs.push_back("-relocation-model=pic");
     }
-    if (IsPIE) {
-      LlcArgs.push_back("-enable-pie");
-    }
+    if (Arg *A = C.getArgs().getLastArg(options::OPT_mcmodel_EQ))
+      LlcArgs.push_back(
+          TCArgs.MakeArgString(Twine("--code-model=") + A->getValue()));
+
     SmallString<128> LlcPath(C.getDriver().Dir);
     llvm::sys::path::append(LlcPath, "llc");
     const char *Llc = C.getArgs().MakeArgString(LlcPath);
@@ -9545,13 +9547,7 @@ void OffloadDeps::constructJob(Compilation &C, const JobAction &JA,
     if ((Dep.DependentOffloadKind == Action::OFK_HIP ||
          Dep.DependentOffloadKind == Action::OFK_SYCL) &&
         !Dep.DependentBoundArch.empty()) {
-      // If OffloadArch is present it can only appear as the 6th hyphen
-      // separated field of Bundle Entry ID. So, pad required number of
-      // hyphens in Triple.
-      // e.g. if NormalizedTriple is nvptx64-nvidia-cuda, 2 more - to
-      // generate nvptx64-nvidia-cuda--
-      for (int i = 4 - StringRef(NormalizedTriple).count("-"); i > 0; i--)
-        Targets += '-';
+      Targets += '-';
       Targets += Dep.DependentBoundArch;
     }
   }
