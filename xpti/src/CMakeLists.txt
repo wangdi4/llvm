@@ -27,8 +27,6 @@ add_xpti_lib(xpti ${SOURCES})
 # creating a debug version of the static library that uses the flags used by
 # the SYCL runtime
 if (MSVC)
-<<<<<<< HEAD
-  add_library(xptid STATIC ${SOURCES})
 # INTEL_CUSTOMIZATION
   target_compile_options(xptid PRIVATE ${XPTI_CXX_FLAGS_DEBUG} /EHsc)
   target_compile_options(xpti PRIVATE ${XPTI_CXX_FLAGS_RELEASE} /EHsc)
@@ -40,10 +38,8 @@ else()
   string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
 
 # end INTEL_CUSTOMIZATION
-=======
   add_xpti_lib(xptid STATIC ${SOURCES})
   target_compile_options(xptid PRIVATE ${XPTI_CXX_FLAGS_DEBUG})
   target_compile_options(xpti PRIVATE ${XPTI_CXX_FLAGS_RELEASE})
->>>>>>> 183caf354e603f8935163874374df716a25cf33d
 endif()
 

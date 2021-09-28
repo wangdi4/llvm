@@ -40,14 +40,6 @@ if (NOT DEFINED LLVM_EXTERNAL_XPTIFW_SOURCE_DIR)
   endif()
 endif()
 
-<<<<<<< HEAD
-# Now simply link against gtest or gtest_main as needed. Eg
-add_executable(xpti_tests xpti_api_tests.cpp xpti_correctness_tests.cpp)
-target_link_libraries(xpti_tests gtest)
-target_link_libraries(xpti_tests LLVMSupport) # INTEL
-target_link_libraries(xpti_tests gtest_main xptifw)
-add_test(NAME example_test COMMAND xpti_tests)
-=======
 add_executable(XPTIFWUnitTests
   xpti_api_tests.cpp
   xpti_correctness_tests.cpp
@@ -65,6 +57,7 @@ endif()
 
 target_link_libraries(XPTIFWUnitTests PRIVATE
   gtest
+  LLVMSupport # INTEL
   gtest_main
   xptifw
   ${SUPPORT_LIB}
@@ -76,4 +69,3 @@ add_custom_target(check-xptifw-unittest COMMAND
   $<TARGET_PROPERTY:XPTIFWUnitTests,RUNTIME_OUTPUT_DIRECTORY>/XPTIFWUnitTests)
 add_dependencies(check-xptifw-unittest XPTIFWUnitTests)
 add_dependencies(check-xptifw check-xptifw-unittest)
->>>>>>> 183caf354e603f8935163874374df716a25cf33d

@@ -31,7 +31,6 @@ endif()
 if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
 endif()
-<<<<<<< HEAD
 
 ## INTEL Remove the Werror for external component xptifw
 if(MSVC)
@@ -40,8 +39,6 @@ else()
   add_compile_options("-Wno-error")
 endif()
 
-=======
->>>>>>> 183caf354e603f8935163874374df716a25cf33d
 if (SYCL_USE_LIBCXX)
   if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
     (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
@@ -58,11 +55,7 @@ endif()
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/lib/${CMAKE_BUILD_TYPE})
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-<<<<<<< HEAD
-include_directories(${CMAKE_SOURCE_DIR}/include ${XPTI_DIR}/include)
-=======
 
->>>>>>> 183caf354e603f8935163874374df716a25cf33d
 add_subdirectory(src)
 
 add_custom_target(check-xptifw)

@@ -6,7 +6,7 @@
 //
 //
 #include "xpti_timers.hpp"
-#include "xpti_trace_framework.h"
+#include "xpti/xpti_trace_framework.h"
 
 #include <chrono>
 #include <cstdio>
