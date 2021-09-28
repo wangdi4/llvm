@@ -1,4 +1,5 @@
 //=------------------------ SGSizeCollector.cpp -*- C++ -*-------------------=//
+
 //
 // Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
@@ -70,6 +71,10 @@ static bool hasVecLength(Function *F, int &VecLength) {
 //
 bool SGSizeCollectorPass::runImpl(Module &M) {
   if (!DPCPPEnableDirectFunctionCallVectorization)
+    return false;
+  // No need to vectorize function calls in OMP offload,
+  // we are not enforced by the execution model.
+  if (DPCPPKernelCompilationUtils::isGeneratedFromOMP(M))
     return false;
 
   bool Modified = false;

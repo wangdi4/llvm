@@ -5420,6 +5420,9 @@ VPOParoptTransform::getItemInfo(const Item *I) {
       return false;
     ElementType = I->getOrigItemElementTypeFromIR();
     NumElements = I->getNumElements();
+    if (auto *ConstNumElements = dyn_cast<ConstantInt>(NumElements))
+      if (ConstNumElements->isOneValue())
+        NumElements = nullptr;
     return true;
   };
 
