@@ -19,6 +19,7 @@
 #include "OCLPassSupport.h"
 
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 
 extern "C" {
@@ -45,13 +46,13 @@ char AddTLSGlobals::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(AddTLSGlobals, "add-tls-globals",
                           "Adds TLS global variables to the module", false,
                           false)
-OCL_INITIALIZE_PASS_DEPENDENCY(LocalBuffAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(LocalBufferAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(AddTLSGlobals, "add-tls-globals",
                         "Adds TLS global variables to the module", false, false)
 
 AddTLSGlobals::AddTLSGlobals()
-    : ModulePass(ID), m_pModule(nullptr), m_localBuffersAnalysis(nullptr),
+    : ModulePass(ID), m_pModule(nullptr), m_LBInfo(nullptr),
       m_IAA(nullptr), m_pLLVMContext(nullptr) {
   initializeAddTLSGlobalsPass(*llvm::PassRegistry::getPassRegistry());
 }
@@ -59,7 +60,8 @@ AddTLSGlobals::AddTLSGlobals()
 bool AddTLSGlobals::runOnModule(Module &M) {
   m_pModule = &M;
   m_pLLVMContext = &M.getContext();
-  m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
+  m_LBInfo =
+      &getAnalysis<LocalBufferAnalysisLegacy>().getResult();
   m_IAA = &getAnalysis<ImplicitArgsAnalysisLegacy>();
   ImplicitArgsInfo &IAInfo = m_IAA->getResult();
 
@@ -104,7 +106,7 @@ void AddTLSGlobals::runOnFunction(Function *pFunc) {
 
   // Calculate pointer to the local memory buffer
   unsigned int directLocalSize =
-      (unsigned int)m_localBuffersAnalysis->getDirectLocalsSize(pFunc);
+      (unsigned int)m_LBInfo->getDirectLocalsSize(pFunc);
 
   // Go through function instructions and search for calls
   for (BasicBlock &BB : *pFunc) {

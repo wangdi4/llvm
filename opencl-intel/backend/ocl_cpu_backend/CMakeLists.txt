@@ -236,8 +236,6 @@ set( BACKEND_PASSES
     InstToFuncCall
     ExternalizeGlobalVariables
     InternalizeGlobalVariables
-    LocalBuffers
-    LocalBuffAnalysis
     PreventDivCrashes
     PrintIRPass
     ProfilingInfoPass

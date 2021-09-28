@@ -66,8 +66,6 @@ void initializePrefetchPass(llvm::PassRegistry&);
 void initializeLoopWIAnalysisPass(llvm::PassRegistry&);
 void initializeSoaAllocaAnalysisPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
-void initializeLocalBuffersPass(llvm::PassRegistry &);
-void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeHandleVPlanMaskPass(llvm::PassRegistry&);
 void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializeRemovePrefetchPass(llvm::PassRegistry&);
