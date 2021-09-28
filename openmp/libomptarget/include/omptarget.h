@@ -430,7 +430,23 @@ EXTERN int omp_set_sub_device(int device_num, int level);
 
 /// Unset sub-device mode.
 EXTERN void omp_unset_sub_device(int device_num);
-#endif  // INTEL_COLLAB
+
+/// Target memory realloc extension
+EXTERN void *ompx_target_realloc(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc_device(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc_host(void *ptr, size_t size, int device_num);
+EXTERN void *ompx_target_realloc_shared(void *ptr, size_t size, int device_num);
+
+/// Target memory aligned alloc extension
+EXTERN void *ompx_target_aligned_alloc(
+    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc_device(
+    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc_host(
+    size_t align, size_t size, int device_num);
+EXTERN void *ompx_target_aligned_alloc_shared(
+    size_t align, size_t size, int device_num);
+#endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
 /// Using the llvm_ prefix until they become part of the OpenMP standard.
