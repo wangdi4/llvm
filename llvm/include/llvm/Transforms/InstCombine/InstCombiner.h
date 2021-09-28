@@ -25,10 +25,10 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
 #include <cassert>
 
 #define DEBUG_TYPE "instcombine"
+#include "llvm/Transforms/Utils/InstructionWorklist.h"
 
 namespace llvm {
 
@@ -67,7 +67,7 @@ public:
 
 protected:
   /// A worklist of the instructions that need to be simplified.
-  InstCombineWorklist &Worklist;
+  InstructionWorklist &Worklist;
 
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
@@ -112,11 +112,16 @@ protected:
   bool MadeIRChange = false;
 
 public:
+<<<<<<< HEAD
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
                bool MinimizeSize, bool PreserveForDTrans,
                bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
                bool EnableUpCasting, AAResults *AA, AssumptionCache &AC,
+=======
+  InstCombiner(InstructionWorklist &Worklist, BuilderTy &Builder,
+               bool MinimizeSize, AAResults *AA, AssumptionCache &AC,
+>>>>>>> e08a5dc86f1ff868a61e74bfea413889a3d5915f
                TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
                DominatorTree &DT, OptimizationRemarkEmitter &ORE,
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,

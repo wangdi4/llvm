@@ -18,14 +18,20 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
+
+#define DEBUG_TYPE "instcombine"
+#include "llvm/Transforms/Utils/InstructionWorklist.h"
 
 namespace llvm {
 
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
+<<<<<<< HEAD
   InstCombineWorklist Worklist;
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
+=======
+  InstructionWorklist Worklist;
+>>>>>>> e08a5dc86f1ff868a61e74bfea413889a3d5915f
   const unsigned MaxIterations;
   const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting;   // INTEL
@@ -50,11 +56,15 @@ public:
 /// This is a basic whole-function wrapper around the instcombine utility. It
 /// will try to combine all instructions in the function.
 class InstructionCombiningPass : public FunctionPass {
+<<<<<<< HEAD
   InstCombineWorklist Worklist;
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
   const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting; // INTEL
+=======
+  InstructionWorklist Worklist;
+>>>>>>> e08a5dc86f1ff868a61e74bfea413889a3d5915f
   const unsigned MaxIterations;
 
 public:
@@ -101,5 +111,7 @@ createInstructionCombiningPass(bool PreserveForDTrans,
                                bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 }
+
+#undef DEBUG_TYPE
 
 #endif
