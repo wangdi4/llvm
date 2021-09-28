@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // INTEL -- xmain inlining logic prefers cloning foo() to inlining, so this test
 //          fails.  To work around that, disable xmain-specific inlining logic.
 // INTEL -- loopopt significantly changes the pass pipeline and makes the test
@@ -7,12 +6,8 @@
 //          unrolling had been done, so we disable them also.
 // Checks if hot call is inlined by normal compile, but not inlined by
 // thinlto compile.
-// RUN: %clang_cc1 -mllvm -debug-pass=Structure -O2 -fno-experimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO-OLDPM
-// RUN: %clang_cc1 -mllvm -debug-pass=Structure -O2 -fno-experimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO-OLDPM
-=======
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
->>>>>>> 8a7a28075b7fa70d56b131c10a4d1add777d5830
 
 int baz(int);
 int g;
