@@ -15,12 +15,16 @@
 #include <sycl/ext/intel/experimental/esimd/common.hpp>
 #include <sycl/ext/intel/experimental/esimd/detail/host_util.hpp>
 #include <sycl/ext/intel/experimental/esimd/detail/types.hpp>
+#include <sycl/ext/intel/experimental/esimd/detail/util.hpp>
 
 #include <cstdint>
 
+<<<<<<< HEAD
 #define __SEIEE sycl::ext::intel::experimental::esimd
 #define __SEIEED sycl::ext::intel::experimental::esimd::detail
 
+=======
+>>>>>>> 01351f11854ae4ee86e940cd0249b5d5a7865d08
 // saturation intrinsics
 template <typename T0, typename T1, int SZ>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T0, SZ>
@@ -445,8 +449,6 @@ inline T extract(const uint32_t &width, const uint32_t &offset, uint32_t src,
 
   return ret;
 }
-
-#define __SEIEEED sycl::ext::intel::experimental::esimd::emu::detail
 
 template <typename T0, typename T1, int SZ>
 inline __SEIEED::vector_type_t<T0, SZ>
@@ -1697,9 +1699,4 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-#undef __SEIEEED
-
 #endif // #ifdef __SYCL_DEVICE_ONLY__
-
-#undef __SEIEED
-#undef __SEIEE
