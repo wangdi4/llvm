@@ -2510,7 +2510,6 @@ private:
   void GetRangeRoundingSettings(size_t &MinFactor, size_t &GoodFactor,
                                 size_t &MinRange);
 
-/* INTEL_CUSTOMIZATION */
   template <typename WrapperT, typename TransformedArgType, int Dims,
             typename KernelType,
             std::enable_if_t<detail::KernelLambdaHasKernelHandlerArgT<
@@ -2531,7 +2530,6 @@ private:
     return detail::RoundedRangeKernel<TransformedArgType, Dims, KernelType>(
         NumWorkItems, KernelFunc);
   }
-/* end INTEL_CUSTOMIZATION */
 };
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)
