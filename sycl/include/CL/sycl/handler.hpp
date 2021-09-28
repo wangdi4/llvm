@@ -2535,20 +2535,6 @@ private:
     return detail::RoundedRangeKernel<TransformedArgType, Dims, KernelType>(
         NumWorkItems, KernelFunc);
   }
-
-  template <typename WrapperT, typename TransformedArgType, int Dims,
-            typename KernelType,
-            detail::enable_if_t<!detail::KernelLambdaHasKernelHandlerArgT<
-                KernelType, TransformedArgType>::value> * = nullptr>
-  auto getRangeRoundedKernelLambda(KernelType KernelFunc,
-                                   range<Dims> NumWorkItems) {
-    return [=](TransformedArgType Arg) {
-      if (Arg[0] >= NumWorkItems[0])
-        return;
-      Arg.set_allowed_range(NumWorkItems);
-      KernelFunc(Arg);
-    };
-  }
 /* end INTEL_CUSTOMIZATION */
 };
 } // namespace sycl
