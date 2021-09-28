@@ -1367,6 +1367,20 @@ void Instruction::addAnnotationMetadata(StringRef Name) {
   setMetadata(LLVMContext::MD_annotation, MD);
 }
 
+AAMDNodes Instruction::getAAMetadata() const {
+  AAMDNodes Result;
+  Result.TBAA = getMetadata(LLVMContext::MD_tbaa);
+  Result.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
+  Result.Scope = getMetadata(LLVMContext::MD_alias_scope);
+  Result.NoAlias = getMetadata(LLVMContext::MD_noalias);
+#if INTEL_CUSTOMIZATION
+  Result.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
+
+  Result.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
+#endif // INTEL_CUSTOMIZATION
+  return Result;
+}
+
 void Instruction::setAAMetadata(const AAMDNodes &N) {
   setMetadata(LLVMContext::MD_tbaa, N.TBAA);
   setMetadata(LLVMContext::MD_tbaa_struct, N.TBAAStruct);
