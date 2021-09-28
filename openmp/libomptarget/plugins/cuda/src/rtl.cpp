@@ -27,8 +27,8 @@
 #define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 #include "MemoryManager.h"
+#include "llvm/Frontend/OpenMP/OMPConstants.h"
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This source below is clang-compatible and does not build with xmain's
 // very strict GCC options.
@@ -36,9 +36,6 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif // INTEL_CUSTOMIZATION
-=======
-#include "llvm/Frontend/OpenMP/OMPConstants.h"
->>>>>>> ca999f719117f916b333a794cc8c59984ae40dd2
 
 // Utility for retrieving and printing CUDA error string.
 #ifdef OMPTARGET_DEBUG
