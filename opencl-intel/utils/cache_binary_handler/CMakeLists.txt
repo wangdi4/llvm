@@ -11,7 +11,6 @@ add_opencl_library(${TARGET_NAME}
 
     INSTALL_PATH
     ${OUTPUT_ARCH_SUFF}
-    ${OUTPUT_EMU_SUFF}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})

@@ -52,7 +52,7 @@ add_opencl_library (${TARGET_NAME_EMU} ${LIB_TYPE}
     ${SYSTEM_LIBS}
 
     INSTALL_PATH
-    ${OUTPUT_EMU_SUFF}
+    ${OUTPUT_ARCH_SUFF}
     )
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_logger_linux_exports.txt )

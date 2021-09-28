@@ -38,11 +38,9 @@ add_opencl_library (${TARGET_NAME} STATIC
     ${CL_API_HEADERS}
     ${OCL_BINARY_DIR}
     ${OCL_SOURCE_DIR}/FrontendDriver
-    ${OCL_SOURCE_DIR}/tools/OCLProfiler/Inc
 
     INSTALL_PATH
     ${OUTPUT_ARCH_SUFF}
-    ${OUTPUT_EMU_SUFF}
   )
 
 if ( USE_NUMA AND NOT WIN32 )
