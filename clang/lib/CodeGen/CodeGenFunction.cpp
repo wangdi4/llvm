@@ -1192,6 +1192,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (D && D->hasAttr<NoProfileFunctionAttr>())
     Fn->addFnAttr(llvm::Attribute::NoProfile);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (D && (D->hasAttr<PreferDSPAttr>() || D->hasAttr<PreferSoftLogicAttr>())) {
     auto *MDValueWrapper = llvm::ConstantAsMetadata::get(
@@ -1221,6 +1222,8 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (getLangOpts().SYCLIsHost && D && D->hasAttr<SYCLKernelAttr>())
     Fn->addFnAttr("sycl_kernel");
 
+=======
+>>>>>>> 69f4b4c6bf16162d70740dcdf7dbe436c9f205e3
   if (getLangOpts().SYCLIsDevice && D) {
     if (const auto *A = D->getAttr<SYCLIntelLoopFuseAttr>()) {
       const auto *CE = cast<ConstantExpr>(A->getValue());
