@@ -162,7 +162,6 @@ llvm::ModulePass *createCoerceTypesPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
 llvm::ModulePass *createChooseVectorizationDimensionModulePass();
-llvm::ModulePass *createCoerceWin64TypesPass();
 llvm::FunctionPass *createAddFastMathPass();
 llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
@@ -915,7 +914,7 @@ void OptimizerOCL::Optimize() {
     if (TargetTriple.isOSLinux())
       materializerPM.add(createCoerceTypesPass());
     else if (TargetTriple.isOSWindows())
-      materializerPM.add(createCoerceWin64TypesPass());
+      materializerPM.add(createCoerceWin64TypesLegacyPass());
   }
   if (m_IsFpgaEmulator) {
     materializerPM.add(createRemoveAtExitPass());

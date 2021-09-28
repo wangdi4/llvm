@@ -784,7 +784,7 @@ bool MultithreadedPrintf()
 	bool bResult = true;
 	cl_int iRet  = CL_SUCCESS;
 
-	const size_t numThreads      = 100;
+	const size_t numThreads      = getMaxNumExternalThreads();
 
 	cl_platform_id platform     = 0;
 	cl_device_id   deviceId     = 0;
@@ -834,14 +834,14 @@ bool MultithreadedPrintf()
 		return false;
 	}
 
-	SynchronizedThread* threads[numThreads];
+	std::vector<SynchronizedThread*> threads(numThreads);
 	for (size_t i = 0; i < numThreads; ++i)
 	{
 		threads[i] = new PrintfThread(context, queue, program);
 	}
 	
 	SynchronizedThreadPool pool;
-	pool.Init(threads, numThreads);
+	pool.Init(&threads[0], numThreads);
 	pool.StartAll();
 	pool.WaitAll();
 

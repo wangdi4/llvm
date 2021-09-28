@@ -151,8 +151,7 @@ protected:
 
 /// This test checks that host threads will not hang.
 TEST_F(EnqueueNativeKernelTest, multiThreadEnqueueWait) {
-  int numThreads = tbb::global_control::active_value(
-      tbb::global_control::max_allowed_parallelism);
+  unsigned numThreads = getMaxNumExternalThreads();
   int N = 1200000;
   int blockSize = N / numThreads;
   std::vector<float> r(N);
@@ -179,8 +178,7 @@ TEST_F(EnqueueNativeKernelTest, multiThreadEnqueueWait) {
 
 /// This test checks that TBB worker threads will not hang.
 TEST_F(EnqueueNativeKernelTest, multiTBBThreadEnqueueWait) {
-  int numThreads = tbb::global_control::active_value(
-      tbb::global_control::max_allowed_parallelism);
+  unsigned numThreads = getMaxNumExternalThreads();
   int N = 1200000;
   int blockSize = N / numThreads;
   std::vector<float> r(N);

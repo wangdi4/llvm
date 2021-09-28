@@ -39,7 +39,8 @@ class DisableMasterJoinTest {
   void clDevicePrivateMemSizeTestBody();
   void cleanupPrivate();
   void setUp();
-  void loadBinaryAndBuild(size_t binarySize, const std::string &options);
+  void buildFromBinary(const std::vector<unsigned char> &binary,
+                       const std::string &options);
 
 public:
   void testWithSource();
@@ -109,19 +110,13 @@ void DisableMasterJoinTest::testWithSource() {
   clDevicePrivateMemSizeTestBody();
 }
 
-void DisableMasterJoinTest::loadBinaryAndBuild(size_t binarySize,
-                                               const std::string &options) {
-  // Read binary from file
-  std::ifstream ifs("jit.bin", std::ios::binary);
-  ASSERT_TRUE(ifs) << "Failed to open file to read";
-  std::vector<unsigned char> binary(std::istreambuf_iterator<char>(ifs), {});
-  ifs.close();
-  ASSERT_EQ(binary.size(), binarySize) << "Loaded binary size is wrong";
-
+void DisableMasterJoinTest::buildFromBinary(
+    const std::vector<unsigned char> &binary, const std::string &options) {
   // Create and build program
   cl_int binaryStatus[1];
   cl_int iRet = CL_SUCCESS;
   const unsigned char *binaries[1] = {&binary[0]};
+  size_t binarySize = binary.size();
   program_private =
       clCreateProgramWithBinary(context_private, 1, &device_private,
                                 &binarySize, binaries, binaryStatus, &iRet);
@@ -162,16 +157,11 @@ void DisableMasterJoinTest::testWithBinary() {
   iRet = clGetProgramInfo(program_private, CL_PROGRAM_BINARIES,
                           sizeof(binaries), &binaries, nullptr);
   ASSERT_OCL_SUCCESS(iRet, "clGetProgramInfo CL_PROGRAM_BINARIES");
-  // Save binary to file
-  std::ofstream ofs("jit.bin", std::ios::binary);
-  ASSERT_TRUE(ofs) << "Failed to open file to write";
-  ofs.write((const char *)&binary[0], binarySize);
-  ofs.close();
 
   // Release program
   iRet = clReleaseProgram(program_private);
   ASSERT_OCL_SUCCESS(iRet, "clReleaseProgram");
-  loadBinaryAndBuild(binarySize, options);
+  buildFromBinary(binary, options);
 
   clDevicePrivateMemSizeTestBody();
 }

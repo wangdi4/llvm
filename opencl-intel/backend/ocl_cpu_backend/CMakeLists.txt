@@ -224,7 +224,6 @@ set( BACKEND_PASSES
     PipeIOTransformation
     CleanupWrappedKernels
     CoerceTypes
-    CoerceWin64Types
     RemoveAtExit
     PipeOrdering
     PipeSupport
