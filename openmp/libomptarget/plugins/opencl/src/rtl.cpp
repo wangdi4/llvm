@@ -879,7 +879,7 @@ public:
       // It only matters for the default ND-range parallelization,
       // i.e. when the global size is unknown on the host.
       SubscriptionRate = 4;
-      ReductionSubscriptionRate = 8;
+      ReductionSubscriptionRate = 16;
     }
 #endif  // INTEL_CUSTOMIZATION
 
