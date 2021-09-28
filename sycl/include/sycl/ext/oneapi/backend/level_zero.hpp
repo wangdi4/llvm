@@ -254,7 +254,10 @@ event make_event<backend::level_zero>(
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> e3c9c92854e7f964561e85898f5e09166b49be13
 // Specialization of sycl::make_kernel_bundle for Level-Zero backend.
 template <>
 kernel_bundle<bundle_state::executable>
@@ -273,7 +276,10 @@ make_kernel_bundle<backend::ext_oneapi_level_zero, bundle_state::executable>(
       KBImpl);
 }
 
+<<<<<<< HEAD
 >>>>>>> 63a3d6ad66c92c2c66dc7727e265bef2f7746f1d
+=======
+>>>>>>> e3c9c92854e7f964561e85898f5e09166b49be13
 // TODO: remove this specialization when generic is changed to call
 // .GetNative() instead of .get_native() member of kernel_bundle.
 template <>
