@@ -14,11 +14,12 @@
 
 #ifndef __ADD_TLS_GLOBALS_H__
 #define __ADD_TLS_GLOBALS_H__
-#include "LocalBuffAnalysis/LocalBuffAnalysis.h"
+
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBufferAnalysis.h"
 
 namespace intel {
 
@@ -49,7 +50,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     // Depends on LocalBuffAnalysis for finding all local buffers each function
     // uses directly
-    AU.addRequired<LocalBuffAnalysis>();
+    AU.addRequired<LocalBufferAnalysisLegacy>();
     AU.addRequired<ImplicitArgsAnalysisLegacy>();
   }
 
@@ -62,7 +63,7 @@ private:
   /// @brief The llvm module this pass needs to update
   Module *m_pModule;
   /// @brief The LocalBuffAnalysis pass, on which the current pass depends
-  LocalBuffAnalysis *m_localBuffersAnalysis;
+  LocalBufferInfo *m_LBInfo;
   /// @brief The ImplicitArgsAnalysisLegacy pass, on which the current pass
   /// depends
   ImplicitArgsAnalysisLegacy *m_IAA;

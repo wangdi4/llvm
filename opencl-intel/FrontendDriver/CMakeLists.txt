@@ -161,7 +161,7 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
     RC_TEMPLATE DEFAULT
 
     INSTALL_PATH
-      ${OUTPUT_EMU_SUFF}
+      ${OUTPUT_ARCH_SUFF}
 )
 
 if (OPENCL_INTREE_BUILD)
@@ -203,4 +203,3 @@ elseif (WIN32)
 endif()
 
 install_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-common_clang)
-install_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_EMU_SUFF} COMPONENT ocl-common_clang_emu)

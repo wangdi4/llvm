@@ -116,7 +116,7 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
     RC_TEMPLATE DEFAULT
 
     INSTALL_PATH
-      ${OUTPUT_EMU_SUFF})
+      ${OUTPUT_ARCH_SUFF})
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cpu_device_linux_exports.txt )
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cpu_device_linux_exports.txt )

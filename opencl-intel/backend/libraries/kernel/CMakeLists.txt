@@ -49,8 +49,6 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
 
   install_to(${OUTPUT_FILE} DESTINATION lib/${OUTPUT_ARCH_SUFF}
              COMPONENT ocl-library-kernel)
-  install_to(${OUTPUT_FILE} DESTINATION lib/${OUTPUT_EMU_SUFF}
-             COMPONENT ocl-library-kernel)
 
   set(${OUTPUT_RTL} ${OUTPUT_OPT_FILE} PARENT_SCOPE)
 endfunction()

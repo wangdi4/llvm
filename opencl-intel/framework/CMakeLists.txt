@@ -109,39 +109,40 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
     RC_TEMPLATE DEFAULT
 
     INSTALL_PATH
-      ${OUTPUT_EMU_SUFF}
+      ${OUTPUT_ARCH_SUFF}
 )
 
 # Generate config file for FPGA emulator and cpu
+if (WIN32)
+  set (LINESTYLE WIN32)
+else (WIN32)
+  set (LINESTYLE UNIX)
+endif(WIN32)
+
+set (CL_CFG_OUTPUT_DIR ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
+set (CL_CFG_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
+
 # For cpu
 set(CL_CONFIG_DEVICES cpu)
-configure_file(${OCL_SOURCE_DIR}/cmake/cl_config.in ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF}/cl.cfg)
+configure_file(${OCL_SOURCE_DIR}/cmake/cl_config.in
+  ${CL_CFG_OUTPUT_DIR}/cl.cfg NEWLINE_STYLE ${LINESTYLE})
+
 # For fpga-emu
 set(CL_CONFIG_DEVICES fpga-emu)
-configure_file(${OCL_SOURCE_DIR}/cmake/cl_config.in ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg)
+configure_file(${OCL_SOURCE_DIR}/cmake/cl_config.in
+  ${CL_CFG_OUTPUT_DIR}/cl.fpga_emu.cfg NEWLINE_STYLE ${LINESTYLE})
 
 # For fpga-emu
 if (NOT (WIN32 AND "${OUTPUT_ARCH_SUFF}" STREQUAL "x86"))
-    install (CODE
-        "
-        file(COPY ${OCL_BINARY_DIR}/lib/${OUTPUT_EMU_SUFF}/cl.cfg
-             DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_EMU_SUFF})
-        " COMPONENT ocl-config)
+  install(FILES ${CL_CFG_OUTPUT_DIR}/cl.fpga_emu.cfg
+    DESTINATION ${CL_CFG_INSTALL_DIR}
+    COMPONENT ocl-config)
 endif()
-# For CPU
-install (CODE
-    "
-        file(COPY ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF}/cl.cfg
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF})
-    " COMPONENT ocl-config)
 
-install (CODE
-    "
-    if (NOT WIN32)
-    execute_process (COMMAND dos2unix ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF}/cl.cfg)
-    execute_process (COMMAND dos2unix ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_EMU_SUFF}/cl.cfg)
-    endif(NOT WIN32)
-    " COMPONENT ocl-config)
+# For CPU
+install(FILES ${CL_CFG_OUTPUT_DIR}/cl.cfg
+  DESTINATION ${CL_CFG_INSTALL_DIR}
+  COMPONENT ocl-config)
 
 if (WIN32)
     set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")

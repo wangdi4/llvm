@@ -26,8 +26,6 @@ set(OCL_BE_PASSES
     SGEmulation
     LLVMVectorizer
     SubGroupAdaptation
-    LocalBuffAnalysis
-    LocalBuffers
     OclFunctionAttrs
     PatchCallbackArgs
     PipeIOTransformation

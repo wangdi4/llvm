@@ -127,7 +127,6 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createCleanupWrappedKernelsPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
-llvm::ModulePass *createLocalBuffersPass(bool useTLSGlobals);
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
@@ -734,9 +733,9 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createAddImplicitArgsLegacyPass());
 
   PM.add(createResolveWICallPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
-  PM.add(createLocalBuffersPass(UseTLSGlobals));
+  PM.add(llvm::createLocalBuffersLegacyPass(UseTLSGlobals));
   // clang converts OCL's local to global.
-  // createLocalBuffersPass changes the local allocation from global to a
+  // createLocalBuffersLegacyPass changes the local allocation from global to a
   // kernel argument.
   // The next pass createGlobalOptimizerPass cleans the unused global
   // allocation in order to make sure we will not allocate redundant space on

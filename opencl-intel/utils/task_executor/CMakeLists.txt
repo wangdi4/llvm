@@ -72,7 +72,7 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
     RC_TEMPLATE DEFAULT
 
     INSTALL_PATH
-    ${OUTPUT_EMU_SUFF})
+    ${OUTPUT_ARCH_SUFF})
 
 if (WIN32)
     list (APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib)

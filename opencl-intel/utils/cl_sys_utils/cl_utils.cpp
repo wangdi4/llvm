@@ -687,10 +687,19 @@ void CopyPattern(const void* pPattern, size_t szPatternSize, void* pBuffer, size
     }
 }
 
-std::string GetConfigFilePath()
-{
-    std::string path("cl.cfg");
-    return path;
+std::string GetConfigFilePath() {
+  char ModuleName[MAX_PATH];
+  Intel::OpenCL::Utils::GetModulePathName((void *)GetConfigFilePath, ModuleName,
+                                          MAX_PATH);
+#ifdef WIN32
+#define DLL_EXT ".dll"
+#else
+#define DLL_EXT ".so"
+#endif
+  if (strstr(ModuleName, OUTPUT_EMU_SUFF DLL_EXT))
+    return "cl.fpga_emu.cfg";
+  return "cl.cfg";
+#undef DLL_EXT
 }
 
 #if defined(_MSC_VER) && !defined(_WIN64)
