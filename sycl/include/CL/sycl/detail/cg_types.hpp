@@ -169,7 +169,10 @@ constexpr bool isKernelLambdaCallableWithKernelHandlerImpl() {
                                         kernel_handler>();
 }
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
+=======
+>>>>>>> afc90df9d758315a622c30fd87de0acd25874453
 // Type trait to find out if kernal lambda has kernel_handler argument
 template <typename KernelType, typename LambdaArgType = void>
 struct KernelLambdaHasKernelHandlerArgT {
@@ -180,31 +183,49 @@ struct KernelLambdaHasKernelHandlerArgT {
 // Helpers for running kernel lambda on the host device
 
 template <typename KernelType>
+<<<<<<< HEAD
 typename detail::enable_if_t<
     KernelLambdaHasKernelHandlerArgT<KernelType>::value, void>
+=======
+typename std::enable_if_t<KernelLambdaHasKernelHandlerArgT<KernelType>::value>
+>>>>>>> afc90df9d758315a622c30fd87de0acd25874453
 runKernelWithoutArg(KernelType KernelName) {
   kernel_handler KH;
   KernelName(KH);
 }
 
 template <typename KernelType>
+<<<<<<< HEAD
 typename detail::enable_if_t<
     !KernelLambdaHasKernelHandlerArgT<KernelType>::value, void>
+=======
+typename std::enable_if_t<!KernelLambdaHasKernelHandlerArgT<KernelType>::value>
+>>>>>>> afc90df9d758315a622c30fd87de0acd25874453
 runKernelWithoutArg(KernelType KernelName) {
   KernelName();
 }
 
 template <typename ArgType, typename KernelType>
+<<<<<<< HEAD
 typename detail::enable_if_t<
     KernelLambdaHasKernelHandlerArgT<KernelType, ArgType>::value, void>
+=======
+typename std::enable_if_t<
+    KernelLambdaHasKernelHandlerArgT<KernelType, ArgType>::value>
+>>>>>>> afc90df9d758315a622c30fd87de0acd25874453
 runKernelWithArg(KernelType KernelName, ArgType Arg) {
   kernel_handler KH;
   KernelName(Arg, KH);
 }
 
 template <typename ArgType, typename KernelType>
+<<<<<<< HEAD
 typename detail::enable_if_t<
     !KernelLambdaHasKernelHandlerArgT<KernelType, ArgType>::value, void>
+=======
+typename std::enable_if_t<
+    !KernelLambdaHasKernelHandlerArgT<KernelType, ArgType>::value>
+>>>>>>> afc90df9d758315a622c30fd87de0acd25874453
 runKernelWithArg(KernelType KernelName, ArgType Arg) {
   KernelName(Arg);
 }
