@@ -1373,6 +1373,11 @@ AAMDNodes Instruction::getAAMetadata() const {
   Result.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
   Result.Scope = getMetadata(LLVMContext::MD_alias_scope);
   Result.NoAlias = getMetadata(LLVMContext::MD_noalias);
+#if INTEL_CUSTOMIZATION
+  Result.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
+
+  Result.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
+#endif // INTEL_CUSTOMIZATION
   return Result;
 }
 
