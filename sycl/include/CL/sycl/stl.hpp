@@ -47,6 +47,23 @@ namespace sycl {
 #endif
 #endif // defined(_WIN32) && !defined(_DLL) && !defined(__SYCL_DEVICE_ONLY__)
 
+<<<<<<< HEAD
+=======
+template <class T, class Alloc = std::allocator<T>>
+using vector_class = std::vector<T, Alloc>;
+
+template <class Sig> using function_class = std::function<Sig>;
+
+template <class T, class Deleter = std::default_delete<T>>
+using unique_ptr_class = std::unique_ptr<T, Deleter>;
+
+template <class T> using shared_ptr_class = std::shared_ptr<T>;
+
+template <class T> using weak_ptr_class = std::weak_ptr<T>;
+
+template <class T> using hash_class = std::hash<T>;
+
+>>>>>>> 2751b5b3fae44b31dbf238b0cae60978822f83f6
 template <typename T, typename... ArgsT>
 std::unique_ptr<T> make_unique_ptr(ArgsT &&... Args) {
   return std::unique_ptr<T>(new T(std::forward<ArgsT>(Args)...));
