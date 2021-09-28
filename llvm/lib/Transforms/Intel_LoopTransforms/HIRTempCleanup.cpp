@@ -613,16 +613,25 @@ void TempSubstituter::visit(HLDDNode *Node) {
         bool IsSelfPointer =
             Ref->isSelfAddressOf() && (Ref->getBasePtrBlobIndex() == TempIndex);
 
+        bool UseIsIndirectCallPtr = false;
+        if (auto *Inst = dyn_cast<HLInst>(Node)) {
+          if (Inst->isIndirectCallInst() &&
+              (Ref == Inst->getIndirectCallPtr())) {
+            UseIsIndirectCallPtr = true;
+          }
+        }
         // Cannot subtitute load if-
         // 1) There is more than one use, OR
         // 2) Temp is not substitutable, OR
         // 3) The use is not at the top level (embedded inside the canon expr
         // tree), OR
-        // 4) Node is a HLLoop.
-        // 5) The use is inside a different loop.
+        // 4) Node is a HLLoop, OR
+        // 5) The use is inside a different loop, OR
+        // 6) Use is the function pointer operand of indirect call.
         if (Temp.getUseRef() || !Temp.isSubstitutable() ||
             !(IsSelfBlob || IsSelfPointer) || isa<HLLoop>(Node) ||
-            (Node->getLexicalParentLoop() != Temp.getDefLoop())) {
+            (Node->getLexicalParentLoop() != Temp.getDefLoop()) ||
+            UseIsIndirectCallPtr) {
           Temp.markInvalid();
 
         } else {
@@ -738,14 +747,6 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
 
   if ((HInst->getLexicalParentLoop() && LvalRef->isLiveOutOfParentLoop()) ||
       LvalRef->isLiveOutOfRegion()) {
-    return false;
-  }
-
-  auto LvalTy = LvalRef->getDestType();
-
-  // Do not substitute function pointer temps.
-  if (LvalTy->isPointerTy() &&
-      LvalTy->getPointerElementType()->isFunctionTy()) {
     return false;
   }
 
