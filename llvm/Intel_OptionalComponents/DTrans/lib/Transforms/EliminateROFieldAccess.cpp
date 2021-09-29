@@ -258,9 +258,9 @@ bool EliminateROFieldAccessImpl<InfoClass>::visit(BasicBlock *FirstIfBB) {
   if (!BaseOp)
     return false;
 
-  auto Arg = dyn_cast<Argument>(BaseOp);
-  if (!Arg || !DTransInfo.isPtrToStruct(Arg))
-    return false;
+  if (isa<PointerType>(BaseOp->getType()))
+    if (!DTransInfo.isPtrToStruct(BaseOp))
+      return false;
 
   LLVM_DEBUG(dbgs() << "DTRANS-ELIM-RO-FIELD-ACCESS: First IF BB is proven\n");
 
@@ -322,7 +322,6 @@ bool EliminateROFieldAccessImpl<InfoClass>::visit(BasicBlock *FirstIfBB) {
   BranchInst *newBr = BranchInst::Create(MainBB);
   ReplaceInstWithInst(BaseBrInst, newBr);
   BaseCond->eraseFromParent();
-
   DeleteDeadBlock(SecondIfBB);
   DeleteDeadBlock(UnreachableBB);
   LLVM_DEBUG({

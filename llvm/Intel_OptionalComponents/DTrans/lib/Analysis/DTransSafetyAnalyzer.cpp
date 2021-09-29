@@ -5077,17 +5077,15 @@ DTransSafetyInfo::getStructInfo(llvm::StructType *STy) const {
   return StInfo;
 }
 
-bool DTransSafetyInfo::isPtrToStruct(Argument *A) {
-  Function *F = A->getParent();
-  DTransType *FormalType = MDReader->getDTransTypeFromMD(F);
-  auto FormalFType = dyn_cast_or_null<DTransFunctionType>(FormalType);
-  if (!FormalFType)
+bool DTransSafetyInfo::isPtrToStruct(Value *V) {
+  auto *Info = getPtrTypeAnalyzer().getValueTypeInfo(V);
+  if (!Info)
     return false;
-  DTransType *FormalArgType = FormalFType->getArgType(A->getArgNo());
-  if (!FormalArgType->isPointerTy())
+  PtrTypeAnalyzer &PTA = getPtrTypeAnalyzer();
+  DTransType* DTransTy = PTA.getDominantAggregateUsageType(*Info);
+  if (!DTransTy || !DTransTy->isPointerTy())
     return false;
-  DTransType *FormalArgElementType = FormalArgType->getPointerElementType();
-  return FormalArgElementType->isStructTy();
+  return DTransTy->getPointerElementType()->isStructTy();
 }
 
 bool DTransSafetyInfo::isFunctionPtr(StructType *STy, unsigned Idx) {
