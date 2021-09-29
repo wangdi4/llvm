@@ -2514,7 +2514,7 @@ simd<T, N> esimd_dp4(simd<T, N> v1, simd<T, N> v2) {
 template <int N>
 ESIMD_INLINE ESIMD_NODEBUG simd<bfloat16, N>
 convert_to_bf16(simd<float, N> src0) {
-  return __esimd_bf_cvt<N>(src0);
+  return __esimd_bf_cvt<N>(src0.data());
 }
 
 /// float32->bf16 conversion (scalar version).
@@ -2535,7 +2535,7 @@ ESIMD_INLINE ESIMD_NODEBUG bfloat16 convert_to_bf16(float src0) {
 template <int N>
 ESIMD_INLINE ESIMD_NODEBUG simd<float, N>
 convert_from_bf16(simd<bfloat16, N> src0) {
-  return __esimd_bf_cvt<N>(src0);
+  return __esimd_bf_cvt<N>(src0.data());
 }
 
 /// bf16->float32 conversion (scalar version).
@@ -2558,7 +2558,7 @@ ESIMD_INLINE ESIMD_NODEBUG simd<uint32_t, N>
 convert_to_tf32(simd<SrcType, N> src0) {
   static_assert(detail::is_fp_type<SrcType>::value,
                 "only fp32(float)->tf32 conversions are supported");
-  return __esimd_tf32_cvt<N>(src0);
+  return __esimd_tf32_cvt<N>(src0.data());
 }
 
 /// convert_from_tf32 - converts vector of "tf32" values to fp32 data format.
@@ -2585,7 +2585,7 @@ ESIMD_INLINE ESIMD_NODEBUG simd<uint8_t, N>
 convert_to_bf8(simd<SrcType, N> src0) {
   static_assert(detail::is_fp_type<SrcType>::value,
                 "only fp32(float)->bf8 conversions are supported");
-  return __esimd_qf_cvt<N, uint8_t, SrcType>(src0);
+  return __esimd_qf_cvt<N, uint8_t, SrcType>(src0.data());
 }
 
 /// convert_from_bf8 - converts vector of bf8 values to fp32 data format.
@@ -2599,7 +2599,7 @@ convert_from_bf8(simd<uint8_t, N> src0) {
   static_assert(detail::is_fp_type<DstType>::value,
                 "only bf8->fp32(float) conversions are supported");
   using SrcType = typename decltype(src0)::element_type;
-  return __esimd_qf_cvt<N, DstType, SrcType>(src0);
+  return __esimd_qf_cvt<N, DstType, SrcType>(src0.data());
 }
 
 // TODO: we need a more generic solution to derive storage types
@@ -2643,9 +2643,9 @@ ESIMD_NODEBUG ESIMD_INLINE
     // emulated sequence, uses convertion of fp32->hf
     simd<half_t, N> src0_hf = src0;
     simd<half_t, N> src1_hf = src1;
-    return __esimd_srnd<N, DstStorageT, half_t>(src0_hf, src1_hf);
+    return __esimd_srnd<N, DstStorageT, half_t>(src0_hf.data(), src1_hf.data());
   } else {
-    return __esimd_srnd<N, DstStorageT, SrcType>(src0, src1);
+    return __esimd_srnd<N, DstStorageT, SrcType>(src0.data(), src1.data());
   }
 }
 
@@ -2863,7 +2863,7 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   constexpr int dst_signed  = std::is_signed<T>::value;
   constexpr int src0_signed = std::is_signed<T0>::value;
   simd<T, N> result =
-      __esimd_dpas<T, T0, T1, T2, N, N1, N2>(src0, src1, src2,
+      __esimd_dpas<T, T0, T1, T2, N, N1, N2>(src0.data(), src1.data(), src2.data(),
                                              (int)src1_precision + 1,
                                              (int)src2_precision + 1,
                                              systolic_depth,
@@ -2958,11 +2958,11 @@ esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
   int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
                   (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
   simd<T, N> result =
-      __esimd_dpas2<T, T1, T2, N, N1, N2>(src1, src2, dpas_info);
+      __esimd_dpas2<T, T1, T2, N, N1, N2>(src1.data(), src2.data(), dpas_info);
 #else
   simd<T, N> result =
       __esimd_dpas2<src1_precision, src2_precision, systolic_depth,
-                    repeat_count, T, T1, T2, N, N1, N2>(src1, src2);
+                    repeat_count, T, T1, T2, N, N1, N2>(src1.data(), src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
@@ -3037,11 +3037,11 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
                   (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
   simd<T, N> result =
-      __esimd_dpasw<T, T1, T2, N, N1, N2>(src0, src1, src2, dpas_info);
+      __esimd_dpasw<T, T1, T2, N, N1, N2>(src0.data(), src1.data(), src2.data(), dpas_info);
 #else
   simd<T, N> result =
       __esimd_dpasw<src1_precision, src2_precision, systolic_depth,
-                    repeat_count, T, T1, T2, N, N1, N2>(src0, src1, src2);
+                    repeat_count, T, T1, T2, N, N1, N2>(src0.data(), src1.data(), src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
@@ -3113,11 +3113,11 @@ esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
   int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
                   (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
   simd<T, N> result =
-      __esimd_dpasw2<T, T1, T2, N, N1, N2>(src1, src2, dpas_info);
+      __esimd_dpasw2<T, T1, T2, N, N1, N2>(src1.data(), src2.data(), dpas_info);
 #else
   simd<T, N> result =
       __esimd_dpasw2<src1_precision, src2_precision, systolic_depth,
-                     repeat_count, T, T1, T2, N, N1, N2>(src1, src2);
+                     repeat_count, T, T1, T2, N, N1, N2>(src1.data(), src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)

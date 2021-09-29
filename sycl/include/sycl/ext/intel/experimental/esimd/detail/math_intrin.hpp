@@ -20,11 +20,14 @@
 #include <cstdint>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #define __SEIEE sycl::ext::intel::experimental::esimd
 #define __SEIEED sycl::ext::intel::experimental::esimd::detail
 
 =======
 >>>>>>> 01351f11854ae4ee86e940cd0249b5d5a7865d08
+=======
+>>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 // saturation intrinsics
 template <typename T0, typename T1, int SZ>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T0, SZ>
@@ -1700,3 +1703,7 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 /* end INTEL_CUSTOMIZATION */
 
 #endif // #ifdef __SYCL_DEVICE_ONLY__
+<<<<<<< HEAD
+=======
+
+>>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
