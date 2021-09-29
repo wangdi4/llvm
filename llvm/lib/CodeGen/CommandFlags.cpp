@@ -95,7 +95,6 @@ CGOPT(bool, DoFMAOpt)
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableMachineFunctionSplitter)
 CGOPT(bool, EnableDebugEntryValues)
-CGOPT(bool, PseudoProbeForProfiling)
 CGOPT(bool, ValueTrackingVariableLocations)
 CGOPT(bool, ForceDwarfFrameSection)
 CGOPT(bool, XRayOmitFunctionIndex)
@@ -461,11 +460,6 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(EnableDebugEntryValues);
 
-  static cl::opt<bool> PseudoProbeForProfiling(
-      "pseudo-probe-for-profiling", cl::desc("Emit pseudo probes for AutoFDO"),
-      cl::init(false));
-  CGBINDOPT(PseudoProbeForProfiling);
-
   static cl::opt<bool> ValueTrackingVariableLocations(
       "experimental-debug-variable-locations",
       cl::desc("Use experimental new value-tracking variable locations"),
@@ -572,7 +566,6 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
-  Options.PseudoProbeForProfiling = getPseudoProbeForProfiling();
   Options.ValueTrackingVariableLocations = getValueTrackingVariableLocations();
   Options.ForceDwarfFrameSection = getForceDwarfFrameSection();
   Options.XRayOmitFunctionIndex = getXRayOmitFunctionIndex();

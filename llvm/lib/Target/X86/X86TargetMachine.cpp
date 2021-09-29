@@ -657,6 +657,9 @@ void X86PassConfig::addPreEmitPass2() {
     addPass(createEHContGuardCatchretPass());
   }
   addPass(createX86LoadValueInjectionRetHardeningPass());
+
+  // Insert pseudo probe annotation for callsite profiling
+  addPass(createPseudoProbeInserter());
 }
 
 bool X86PassConfig::addPostFastRegAllocRewrite() {

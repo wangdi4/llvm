@@ -659,8 +659,7 @@ static void replaceExtractElements(InsertElementInst *InsElt,
   if (InsElt->hasOneUse() && isa<InsertElementInst>(InsElt->user_back()))
     return;
 
-  auto *WideVec =
-      new ShuffleVectorInst(ExtVecOp, PoisonValue::get(ExtVecType), ExtendMask);
+  auto *WideVec = new ShuffleVectorInst(ExtVecOp, ExtendMask);
 
   // Insert the new shuffle after the vector operand of the extract is defined
   // (as long as it's not a PHI) or at the start of the basic block of the
@@ -1204,7 +1203,7 @@ static Instruction *foldInsSequenceIntoSplat(InsertElementInst &InsElt) {
     if (!ElementPresent[i])
       Mask[i] = -1;
 
-  return new ShuffleVectorInst(FirstIE, PoisonVec, Mask);
+  return new ShuffleVectorInst(FirstIE, Mask);
 }
 
 /// Try to fold an insert element into an existing splat shuffle by changing
@@ -1241,7 +1240,7 @@ static Instruction *foldInsEltIntoSplat(InsertElementInst &InsElt) {
   for (unsigned i = 0; i != NumMaskElts; ++i)
     NewMask[i] = i == IdxC ? 0 : Shuf->getMaskValue(i);
 
-  return new ShuffleVectorInst(Op0, UndefValue::get(Op0->getType()), NewMask);
+  return new ShuffleVectorInst(Op0, NewMask);
 }
 
 /// Try to fold an extract+insert element into an existing identity shuffle by
@@ -2013,7 +2012,7 @@ static Instruction *canonicalizeInsertSplat(ShuffleVectorInst &Shuf,
     if (Mask[i] == UndefMaskElem)
       NewMask[i] = Mask[i];
 
-  return new ShuffleVectorInst(NewIns, UndefVec, NewMask);
+  return new ShuffleVectorInst(NewIns, NewMask);
 }
 
 /// Try to fold shuffles that are the equivalent of a vector select.
@@ -2502,7 +2501,7 @@ Instruction *InstCombinerImpl::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
       else
         Elts.push_back(Mask[i] % LHSWidth);
     }
-    return new ShuffleVectorInst(LHS, UndefValue::get(RHS->getType()), Elts);
+    return new ShuffleVectorInst(LHS, Elts);
   }
 
   // shuffle undef, x, mask --> shuffle x, undef, mask'

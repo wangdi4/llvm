@@ -11129,6 +11129,7 @@ private:
   InstructionCost getReductionCost(TargetTransformInfo *TTI,
                                    Value *FirstReducedVal, unsigned ReduxWidth,
                                    FastMathFlags FMF) {
+    TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
     Type *ScalarTy = FirstReducedVal->getType();
     FixedVectorType *VectorTy = FixedVectorType::get(ScalarTy, ReduxWidth);
     InstructionCost VectorCost, ScalarCost;
@@ -11141,15 +11142,16 @@ private:
     case RecurKind::FAdd:
     case RecurKind::FMul: {
       unsigned RdxOpcode = RecurrenceDescriptor::getOpcode(RdxKind);
-      VectorCost = TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF);
-      ScalarCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy);
+      VectorCost =
+          TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF, CostKind);
+      ScalarCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy, CostKind);
       break;
     }
     case RecurKind::FMax:
     case RecurKind::FMin: {
       auto *VecCondTy = cast<VectorType>(CmpInst::makeCmpResultType(VectorTy));
       VectorCost = TTI->getMinMaxReductionCost(VectorTy, VecCondTy,
-                                               /*unsigned=*/false);
+                                               /*unsigned=*/false, CostKind);
       ScalarCost =
           TTI->getCmpSelInstrCost(Instruction::FCmp, ScalarTy) +
           TTI->getCmpSelInstrCost(Instruction::Select, ScalarTy,
@@ -11163,7 +11165,8 @@ private:
       auto *VecCondTy = cast<VectorType>(CmpInst::makeCmpResultType(VectorTy));
       bool IsUnsigned =
           RdxKind == RecurKind::UMax || RdxKind == RecurKind::UMin;
-      VectorCost = TTI->getMinMaxReductionCost(VectorTy, VecCondTy, IsUnsigned);
+      VectorCost = TTI->getMinMaxReductionCost(VectorTy, VecCondTy, IsUnsigned,
+                                               CostKind);
       ScalarCost =
           TTI->getCmpSelInstrCost(Instruction::ICmp, ScalarTy) +
           TTI->getCmpSelInstrCost(Instruction::Select, ScalarTy,
