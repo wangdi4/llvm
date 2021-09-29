@@ -45,6 +45,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -946,8 +947,8 @@ Optimizer::Optimizer(llvm::Module *M,
                      llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                      const intel::OptimizerConfig *Config)
     : m_M(M), m_RtlModules(RtlModules), Config(Config),
-      m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*M)),
-      m_IsOMP(CompilationUtils::generatedFromOMP(*M)) {
+      m_IsSYCL(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(*M)),
+      m_IsOMP(DPCPPKernelCompilationUtils::isGeneratedFromOMP(*M)) {
   assert(Config && Config->GetCpuId() && "Invalid OptimizerConfig");
   CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
   m_debugType = getDebuggingServiceType(Config->GetDebugInfoFlag(), M,
