@@ -313,21 +313,18 @@ bool VPOVectorizationLegality::doesReductionUsePhiNodes(
 }
 
 /// Return true if the reduction variable \p RedVarPtr is stored inside the
-/// loop.
+/// loop and capture the store instruction in \p Store.
 bool VPOVectorizationLegality::isReductionVarStoredInsideTheLoop(
-    Value *RedVarPtr) {
+    Value *RedVarPtr, StoreInst *&Store) {
   SmallVector<Value *, 4> Users;
+  Store = nullptr;
   collectAllRelevantUsers(RedVarPtr, Users);
-  // I assume that one load or one store being found inside loop is enough
-  // to say that we have them both. Since the reduction is explicit, deep
-  // analysis for a possible inconsistency is not required.
   for (auto U : Users) {
-    if (auto LI = dyn_cast<LoadInst>(U))
-      if (!TheLoop->isLoopInvariant(LI))
-        return true;
     if (auto SI = dyn_cast<StoreInst>(U))
-      if (!TheLoop->isLoopInvariant(SI))
+      if (!TheLoop->isLoopInvariant(SI)) {
+        Store = SI;
         return true;
+      }
   }
   return false;
 }
@@ -518,6 +515,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
   PHINode *LoopHeaderPhiNode = nullptr;
   Instruction *MinMaxResultInst = nullptr;
   Value *StartV = nullptr;
+  StoreInst *ReductionStore = nullptr;
   if (doesReductionUsePhiNodes(RedVarPtr, LoopHeaderPhiNode, StartV)) {
     for (auto PnUser : LoopHeaderPhiNode->users()) {
       if (TheLoop->isLoopInvariant(PnUser))
@@ -539,8 +537,8 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
     RecurrenceDescriptor RD(StartV, MinMaxResultInst, Kind, FMF, nullptr,
                             StartV->getType(), true, false, CastInsts);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
-  }
-  InMemoryReductions[RedVarPtr] = Kind;
+  } else if (isReductionVarStoredInsideTheLoop(RedVarPtr, ReductionStore))
+    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionStore);
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
@@ -577,6 +575,7 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
   PHINode *ReductionPhi = nullptr;
   bool UsePhi = false;
   bool UseMemory = false;
+  StoreInst *ReductionStore = nullptr;
   if ((UsePhi = doesReductionUsePhiNodes(RedVarPtr, ReductionPhi, StartV))) {
     Value *CombinerV = (ReductionPhi->getIncomingValue(0) == StartV)
                            ? ReductionPhi->getIncomingValue(1)
@@ -591,8 +590,9 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF, nullptr,
                             ReductionPhi->getType(), true, false, CastInsts);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
-  } else if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
-    InMemoryReductions[RedVarPtr] = Kind;
+  } else if ((UseMemory =
+                  isReductionVarStoredInsideTheLoop(RedVarPtr, ReductionStore)))
+    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionStore);
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");

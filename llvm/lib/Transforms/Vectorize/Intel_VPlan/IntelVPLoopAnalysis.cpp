@@ -711,6 +711,15 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
   bool UseStart = StartValue != nullptr || Reduction->isMinMax();
 
+  // We need to emit an extra load for in-memory reductions with start value for
+  // initialization.
+  if (Reduction->getIsMemOnly() && StartValue &&
+      StartValue->getType() != Ty) { // Ty is recurrence type
+    assert(isa<PointerType>(StartValue->getType()) &&
+           "Expected pointer type here.");
+    StartValue = Builder.createLoad(Ty, StartValue);
+  }
+
   VPInstruction *Init =
       Builder.createReductionInit(Identity, StartValue, UseStart,
                                   Name + Reduction->getNameSuffix() + ".init");

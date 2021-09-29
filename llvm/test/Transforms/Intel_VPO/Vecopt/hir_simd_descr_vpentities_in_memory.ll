@@ -57,7 +57,8 @@
 ; CHECK: (+) Start: i64* [[V1_START:%.*]]
 ; CHECK: Memory: i64* [[V1_START]]
 ; CHECK: i64* [[PRIV:%vp.*]] = allocate-priv i64*
-; CHECK: i64 [[INIT:%vp.*]] = reduction-init i64 0 i64* [[V1_START]]
+; CHECK: i64 [[START_LD:%vp.*]] = load i64* [[V1_START]]
+; CHECK: i64 [[INIT:%vp.*]] = reduction-init i64 0 i64 [[START_LD]]
 ; CHECK: store i64 [[INIT]] i64* [[PRIV]]
 ; CHECK: store i64 {{%vp.*}} i64* [[PRIV]]
 ; CHECK: store i64 {{%vp.*}} i64* [[PRIV]]
