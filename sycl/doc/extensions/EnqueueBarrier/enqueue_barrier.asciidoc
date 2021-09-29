@@ -89,7 +89,6 @@ two new members to the `queue` class:
 |*handler::ext_oneapi_barrier*|*queue::ext_oneapi_submit_barrier*
 |`void ext_oneapi_barrier()` | `event ext_oneapi_submit_barrier()`
 |`void ext_oneapi_barrier( const std::vector<event> &waitList )` | `event ext_oneapi_submit_barrier( const std::vector<event> &waitList )`
-|========================================
 
 The first variant of the barrier takes no parameters, and waits for all previously submitted commands to the queue to enter the `info::event_command_status::complete` state before any command later submitted to the same queue is allowed to execute. A second variant of the barrier accepts a list of events, with the behavior that no commands submitted to the same queue after barrier submission may execute until all events in the `waitList` have entered the `info::event_command_status::complete` state.  Both variants are non-blocking from the host program perspective, in that they do not wait for the barrier conditions to have been met before returning.
 
