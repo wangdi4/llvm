@@ -1618,6 +1618,18 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
              isPhiOrTrunc(Src->getOperand(1)))) &&
            hasOneGEPLoadStoreUser(CI);
   };
+
+  auto AvoidShiftForIntelSubscript = [](const SExtInst &CI) -> bool {
+
+    // CI is the innermost index argument of intel.subscript
+    for (auto User : CI.users()) {
+      if (const SubscriptInst* SI = dyn_cast<SubscriptInst>(User))
+        if (SI->getRank() == 0 && SI->getIndex() == &CI)
+          return true;
+    }
+
+    return false;
+  };
 #endif // INTEL_CUSTOMIZATION
 
   // If we know that the value being extended is positive, we can use a zext
@@ -1664,6 +1676,7 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
 #if INTEL_CUSTOMIZATION
   if (shouldChangeType(SrcTy, DestTy) && canEvaluateSExtd(Src, DestTy) &&
       !AvoidSExtTransform(CI, Src) &&
+      !AvoidShiftForIntelSubscript(CI) &&
       !(preserveAddrCompute() && IsUsedInAddressCompute(&CI))) {
 #endif // INTEL_CUSTOMIZATION
     // Okay, we can transform this!  Insert the new expression now.
