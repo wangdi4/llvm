@@ -898,11 +898,11 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
                      X86ISD::CVTPS2PH, X86ISD::MCVTPS2PH),
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-  X86_INTRINSIC_DATA(avx512_mask_vdpphps_128, FMA_OP_MASK,
+  X86_INTRINSIC_DATA(avx512_mask_vdpphps_128, CFMA_OP_MASK,
                      X86ISD::VDPPHPS, 0),
-  X86_INTRINSIC_DATA(avx512_mask_vdpphps_256, FMA_OP_MASK,
+  X86_INTRINSIC_DATA(avx512_mask_vdpphps_256, CFMA_OP_MASK,
                      X86ISD::VDPPHPS, 0),
-  X86_INTRINSIC_DATA(avx512_mask_vdpphps_512, FMA_OP_MASK,
+  X86_INTRINSIC_DATA(avx512_mask_vdpphps_512, CFMA_OP_MASK,
                      X86ISD::VDPPHPS, X86ISD::VDPPHPS_RND),
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 #endif // INTEL_CUSTOMIZATION
@@ -932,11 +932,11 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
                      X86ISD::VCVTNE2PS2PH, 0),
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-  X86_INTRINSIC_DATA(avx512_maskz_vdpphps_128, FMA_OP_MASKZ,
+  X86_INTRINSIC_DATA(avx512_maskz_vdpphps_128, CFMA_OP_MASKZ,
                      X86ISD::VDPPHPS, 0),
-  X86_INTRINSIC_DATA(avx512_maskz_vdpphps_256, FMA_OP_MASKZ,
+  X86_INTRINSIC_DATA(avx512_maskz_vdpphps_256, CFMA_OP_MASKZ,
                      X86ISD::VDPPHPS, 0),
-  X86_INTRINSIC_DATA(avx512_maskz_vdpphps_512, FMA_OP_MASKZ,
+  X86_INTRINSIC_DATA(avx512_maskz_vdpphps_512, CFMA_OP_MASKZ,
                      X86ISD::VDPPHPS, X86ISD::VDPPHPS_RND),
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 #endif // INTEL_CUSTOMIZATION
