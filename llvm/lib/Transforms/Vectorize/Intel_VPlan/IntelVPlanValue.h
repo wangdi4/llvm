@@ -396,6 +396,14 @@ public:
   const_operand_range operands() const {
     return const_operand_range(op_begin(), op_end());
   }
+
+  using reverse_operand_iterator = SmallVectorImpl<VPValue *>::reverse_iterator;
+  using const_reverse_operand_iterator =
+      SmallVectorImpl<VPValue *>::const_reverse_iterator;
+  reverse_operand_iterator op_rbegin() { return Operands.rbegin(); }
+  reverse_operand_iterator op_rend() { return Operands.rend(); }
+  const_reverse_operand_iterator op_rbegin() const { return Operands.rbegin(); }
+  const_reverse_operand_iterator op_rend() const { return Operands.rend(); }
 };
 
 class VPRegionLiveOut : public VPUser {
