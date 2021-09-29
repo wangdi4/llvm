@@ -1256,12 +1256,8 @@ int main(int argc, char **argv) {
       !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic &&
 #else  // INTEL_COLLAB
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-      !DoProgMetadata && !DoSplitEsimd) {
-=======
       !DoProgMetadata && !DoSplitEsimd && !DoExportedSyms) {
->>>>>>> ac706afad08ab9efc764bf4549ebeb39193c6a0d
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
