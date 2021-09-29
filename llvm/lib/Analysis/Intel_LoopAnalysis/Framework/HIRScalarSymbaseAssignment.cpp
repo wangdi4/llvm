@@ -308,6 +308,7 @@ void HIRScalarSymbaseAssignment::handleLoopExitLiveoutPhi(
     }
   }
 }
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 
 void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
                                                       unsigned Symbase) const {
@@ -505,11 +506,13 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
                            getOrAssignScalarSymbase(&*InstIt, *RegIt));
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 inline unsigned HIRScalarSymbaseAssignment::getIndex(unsigned Symbase) const {
   return Symbase - GenericRvalSymbase - 1;
 }
 
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 void HIRScalarSymbaseAssignment::run() {
   Func = &HNU.getFunction();
 
@@ -519,6 +522,7 @@ void HIRScalarSymbaseAssignment::run() {
     populateRegionLiveouts(RegIt);
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 void HIRScalarSymbaseAssignment::print(raw_ostream &OS) const {
 

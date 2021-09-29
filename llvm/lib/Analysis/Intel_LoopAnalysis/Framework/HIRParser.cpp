@@ -2596,6 +2596,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
   return Ref;
 }
 
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
+
 void HIRParser::parse(HLRegion *Reg) {
   CurRegion = Reg;
   ScopedSE.setScope(Reg->getIRRegion().getOutermostLoops());
@@ -2920,6 +2922,7 @@ void HIRParser::parse(HLSwitch *Switch) {
     Switch->setCaseValueDDRef(CaseValRef, CaseNum);
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 static Type *getBasePtrElementType(const GEPOrSubsOperator *GEPOp) {
 
@@ -4335,6 +4338,8 @@ bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
                                  ScalarEvolution::HIRLiveKind::LiveOut);
 }
 
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
+
 unsigned HIRParser::getNumRvalOperands(const Instruction *Inst) {
   unsigned NumOp;
 
@@ -4810,6 +4815,7 @@ void HIRParser::run() {
 
   IsReady = true;
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) const {
   assert(Ref->hasGEPInfo() && "Ref is expected to be gep DDRef");
