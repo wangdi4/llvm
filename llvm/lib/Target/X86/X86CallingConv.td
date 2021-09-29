@@ -532,6 +532,9 @@ def RetCC_X86 : CallingConv<[
   CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<RetCC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<RetCC_SVML>>,
+  CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<RetCC_SVML>>,
+  CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<RetCC_SVML>>,
+  CCIfCC<"CallingConv::SVML_Unified_512", CCDelegateTo<RetCC_SVML>>,
 // endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<RetCC_X86_64>>,
   CCDelegateTo<RetCC_X86_32>
@@ -1210,6 +1213,9 @@ def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::SVML", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::SVML_Unified_512", CCDelegateTo<CC_SVML>>,
 // endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<CC_X86_64>>,
   CCDelegateTo<CC_X86_32>
@@ -1374,6 +1380,29 @@ def CSR_Lin64_SVML_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13,
                                              (sequence "YMM%u", 16, 31),
                                              (sequence "ZMM%u", 16, 31))>;
 
+def CSR_32_Unified_SVML_GPR : CalleeSavedRegs<(add EBX, EDI, ESI, EBP)>;
+def CSR_32_Unified_SVML_512 : CalleeSavedRegs<(add CSR_32_Unified_SVML_GPR,
+                                               K4, K5, K6, K7)>;
+def CSR_Win64_Unified_SVML_128 : CalleeSavedRegs<(add CSR_Win64)>;
+def CSR_Win64_Unified_SVML_256 : CalleeSavedRegs<(add CSR_Win64_Unified_SVML_128,
+                                                  (sequence "YMM%u", 6, 15))>;
+def CSR_Win64_Unified_SVML_512 : CalleeSavedRegs<(add CSR_Win64_Unified_SVML_128,
+                                                  (sequence "XMM%u", 6, 21),
+                                                  (sequence "YMM%u", 6, 21),
+                                                  (sequence "ZMM%u", 6, 21),
+                                                  K4, K5, K6, K7)>;
+
+def CSR_Lin64_Unified_SVML_GPR : CalleeSavedRegs<(add CSR_64, RDI, RSI)>;
+def CSR_Lin64_Unified_SVML_128 : CalleeSavedRegs<(add CSR_Lin64_Unified_SVML_GPR,
+                                                  (sequence "XMM%u", 8, 15))>;
+def CSR_Lin64_Unified_SVML_256 : CalleeSavedRegs<(add CSR_Lin64_Unified_SVML_GPR,
+                                                  (sequence "XMM%u", 8, 15),
+                                                  (sequence "YMM%u", 8, 15))>;
+def CSR_Lin64_Unified_SVML_512 : CalleeSavedRegs<(add CSR_Lin64_Unified_SVML_GPR,
+                                                  (sequence "XMM%u", 16, 31),
+                                                  (sequence "YMM%u", 16, 31),
+                                                  (sequence "ZMM%u", 16, 31),
+                                                  K4, K5, K6, K7)>;
 // endif INTEL_CUSTOMIZATION
 
 // Only R12 is preserved for PHP calls in HHVM.

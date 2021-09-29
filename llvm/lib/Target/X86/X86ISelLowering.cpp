@@ -107,7 +107,9 @@ static void errorUnsupported(SelectionDAG &DAG, const SDLoc &dl,
 #if INTEL_CUSTOMIZATION
 static bool isSVMLCallingConv(CallingConv::ID CC) {
   return CC == CallingConv::SVML || CC == CallingConv::SVML_AVX ||
-         CC == CallingConv::SVML_AVX512;
+         CC == CallingConv::SVML_AVX512 || CC == CallingConv::SVML_Unified ||
+         CC == CallingConv::SVML_Unified_256 ||
+         CC == CallingConv::SVML_Unified_512;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3024,6 +3026,9 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // For example, when they are used for argument passing.
   bool ShouldDisableCalleeSavedRegister =
       CallConv == CallingConv::X86_RegCall ||
+#if INTEL_CUSTOMIZATION
+      isSVMLCallingConv(CallConv) ||
+#endif // INTEL_CUSTOMIZATION
       MF.getFunction().hasFnAttribute("no_caller_saved_registers");
 
   if (CallConv == CallingConv::X86_INTR && !Outs.empty())
@@ -4166,6 +4171,9 @@ SDValue X86TargetLowering::LowerFormalArguments(
   }
 
   if (CallConv == CallingConv::X86_RegCall ||
+#if INTEL_CUSTOMIZATION
+      isSVMLCallingConv(CallConv) ||
+#endif // INTEL_CUSTOMIZATION
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
@@ -4723,7 +4731,10 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // In some calling conventions we need to remove the used physical registers
   // from the reg mask.
-  if (CallConv == CallingConv::X86_RegCall || HasNCSR) {
+#if INTEL_CUSTOMIZATION
+  if (CallConv == CallingConv::X86_RegCall || isSVMLCallingConv(CallConv) ||
+      HasNCSR) {
+#endif // INTEL_CUSTOMIZATION
     const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 
     // Allocate a new Reg Mask and copy Mask.

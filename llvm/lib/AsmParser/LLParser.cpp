@@ -1931,6 +1931,9 @@ bool LLParser::parseOptionalCallingConv(unsigned &CC) {
   case lltok::kw_svml_cc:        CC = CallingConv::SVML; break;
   case lltok::kw_svml_avx_cc:    CC = CallingConv::SVML_AVX; break;
   case lltok::kw_svml_avx512_cc: CC = CallingConv::SVML_AVX512; break;
+  case lltok::kw_svml_unified_cc:     CC = CallingConv::SVML_Unified; break;
+  case lltok::kw_svml_unified_cc_256: CC = CallingConv::SVML_Unified_256; break;
+  case lltok::kw_svml_unified_cc_512: CC = CallingConv::SVML_Unified_512; break;
 #endif // INTEL_CUSTOMIZATION
   case lltok::kw_x86_64_sysvcc:  CC = CallingConv::X86_64_SysV; break;
   case lltok::kw_win64cc:        CC = CallingConv::Win64; break;

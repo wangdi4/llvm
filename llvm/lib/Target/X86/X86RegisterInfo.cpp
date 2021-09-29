@@ -370,6 +370,24 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     if (IsWin64)
       return CSR_Win64_SVML_AVX512_SaveList;
     return CSR_Lin64_SVML_AVX512_SaveList;
+  case CallingConv::SVML_Unified:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_SaveList;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_128_SaveList;
+    return CSR_Lin64_Unified_SVML_128_SaveList;
+  case CallingConv::SVML_Unified_256:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_SaveList;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_256_SaveList;
+    return CSR_Lin64_Unified_SVML_256_SaveList;
+  case CallingConv::SVML_Unified_512:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_512_SaveList;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_512_SaveList;
+    return CSR_Lin64_Unified_SVML_512_SaveList;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::X86_RegCall:
     if (Is64Bit) {
@@ -517,6 +535,24 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     if (IsWin64)
       return CSR_Win64_SVML_AVX512_RegMask;
     return CSR_Lin64_SVML_AVX512_RegMask;
+  case CallingConv::SVML_Unified:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_RegMask;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_128_RegMask;
+    return CSR_Lin64_Unified_SVML_128_RegMask;
+  case CallingConv::SVML_Unified_256:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_GPR_RegMask;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_256_RegMask;
+    return CSR_Lin64_Unified_SVML_256_RegMask;
+  case CallingConv::SVML_Unified_512:
+    if (!Is64Bit)
+      return CSR_32_Unified_SVML_512_RegMask;
+    if (IsWin64)
+      return CSR_Win64_Unified_SVML_512_RegMask;
+    return CSR_Lin64_Unified_SVML_512_RegMask;
   case CallingConv::X86_AVX2_C:
     assert(Is64Bit);
     return CSR_64_AVX2_RegMask;
