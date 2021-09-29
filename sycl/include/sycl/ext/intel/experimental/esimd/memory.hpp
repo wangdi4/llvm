@@ -2451,7 +2451,7 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_fence(simd<uint16_t, N> pred = 1) {
   static_assert(Sfid != lsc_sfid::slm || (FenceOp == lsc_fence_op::none &&
                                           Scope == lsc_scope::group),
                 "SLM fence must have 'none' lsc_fence_op and 'group' scope");
-  __esimd_lsc_fence<Sfid, FenceOp, Scope, N>(pred);
+  __esimd_lsc_fence<Sfid, FenceOp, Scope, N>(pred.data());
 }
 
 /// @}

@@ -186,6 +186,8 @@ struct is_esimd_arithmetic_type<
     : std::conditional_t<std::is_arithmetic_v<Ty>, std::true_type,
                          std::false_type> {};
 
+template <> struct is_esimd_arithmetic_type<bfloat16> : std::true_type {};
+
 template <typename Ty>
 static inline constexpr bool is_esimd_arithmetic_type_v =
     is_esimd_arithmetic_type<Ty>::value;
