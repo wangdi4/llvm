@@ -369,8 +369,13 @@ bool JumpThreading::runOnFunction(Function &F) {
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
+<<<<<<< HEAD
   bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DTU, F.hasProfileData(),
                               std::move(BFI), std::move(BPI), PDT); // INTEL
+=======
+  bool Changed = Impl.runImpl(F, TLI, TTI, LVI, AA, &DTU, F.hasProfileData(),
+                              std::move(BFI), std::move(BPI));
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
     LVI->printLVI(F, DTU.getDomTree(), dbgs());
@@ -399,8 +404,13 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
+<<<<<<< HEAD
   bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, F.hasProfileData(),
                          std::move(BFI), std::move(BPI), &PDT); // INTEL
+=======
+  bool Changed = runImpl(F, &TLI, &TTI, &LVI, &AA, &DTU, F.hasProfileData(),
+                         std::move(BFI), std::move(BPI));
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
 
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
@@ -417,8 +427,9 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   return PA;
 }
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
-                                LazyValueInfo *LVI_, AliasAnalysis *AA_,
-                                DomTreeUpdater *DTU_, bool HasProfileData_,
+                                TargetTransformInfo *TTI_, LazyValueInfo *LVI_,
+                                AliasAnalysis *AA_, DomTreeUpdater *DTU_,
+                                bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
 #if INTEL_CUSTOMIZATION
                                 std::unique_ptr<BranchProbabilityInfo> BPI_,
@@ -426,6 +437,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
 #endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
+  TTI = TTI_;
   LVI = LVI_;
   AA = AA_;
   DTU = DTU_;
@@ -581,6 +593,7 @@ static void replaceFoldableUses(Instruction *Cond, Value *ToVal) {
     Cond->eraseFromParent();
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// getJumpThreadDuplicationCost - Return the cost of duplicating this region to
 /// thread across it. Stop scanning the region when passing the threshold.
@@ -589,6 +602,21 @@ static unsigned getJumpThreadDuplicationCost(
   const BasicBlock *RegionBottom,
   unsigned Threshold) {
   const Instruction *BBTerm = RegionBottom->getTerminator();
+=======
+/// Return the cost of duplicating a piece of this block from first non-phi
+/// and before StopAt instruction to thread across it. Stop scanning the block
+/// when exceeding the threshold. If duplication is impossible, returns ~0U.
+static unsigned getJumpThreadDuplicationCost(const TargetTransformInfo *TTI,
+                                             BasicBlock *BB,
+                                             Instruction *StopAt,
+                                             unsigned Threshold) {
+  assert(StopAt->getParent() == BB && "Not an instruction from proper BB?");
+  /// Ignore PHI nodes, these will be flattened when duplication happens.
+  BasicBlock::const_iterator I(BB->getFirstNonPHI());
+
+  // FIXME: THREADING will delete values that are just used to compute the
+  // branch, so they shouldn't count against the duplication cost.
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
 
   unsigned Bonus = 0;
   // Threading through a switch statement is particularly profitable.  If this
@@ -625,6 +653,7 @@ static unsigned getJumpThreadDuplicationCost(
       if (IntrinsicUtils::isDirective(const_cast<Instruction *>(&*I)))
         return Threshold + 1;
 
+<<<<<<< HEAD
       // Stop scanning the block if we've reached the threshold.
       if (Size > Threshold)
         return Size;
@@ -666,6 +695,35 @@ static unsigned getJumpThreadDuplicationCost(
         else if (!CI->getType()->isVectorTy())
           Size += 1;
       }
+=======
+    // Bail out if this instruction gives back a token type, it is not possible
+    // to duplicate it if it is used outside this BB.
+    if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
+      return ~0U;
+
+    // Blocks with NoDuplicate are modelled as having infinite cost, so they
+    // are never duplicated.
+    if (const CallInst *CI = dyn_cast<CallInst>(I))
+      if (CI->cannotDuplicate() || CI->isConvergent())
+        return ~0U;
+
+    if (TTI->getUserCost(&*I, TargetTransformInfo::TCK_SizeAndLatency)
+            == TargetTransformInfo::TCC_Free)
+      continue;
+
+    // All other instructions count for at least one unit.
+    ++Size;
+
+    // Calls are more expensive.  If they are non-intrinsic calls, we model them
+    // as having cost of 4.  If they are a non-vector intrinsic, we model them
+    // as having cost of 2 total, and if they are a vector intrinsic, we model
+    // them as having cost 1.
+    if (const CallInst *CI = dyn_cast<CallInst>(I)) {
+      if (!isa<IntrinsicInst>(CI))
+        Size += 3;
+      else if (!CI->getType()->isVectorTy())
+        Size += 1;
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
     }
   }
 
@@ -2959,6 +3017,7 @@ bool JumpThreadingPass::maybethreadThroughTwoBasicBlocks(BasicBlock *BB,
   }
 
   // Compute the cost of duplicating BB and PredBB.
+<<<<<<< HEAD
   SmallVector<BasicBlock*, 1> RegionBlocks;                            // INTEL
   RegionBlocks.push_back(BB);                                          // INTEL
   unsigned BBCost =
@@ -2966,6 +3025,12 @@ bool JumpThreadingPass::maybethreadThroughTwoBasicBlocks(BasicBlock *BB,
   RegionBlocks[0] = PredBB;                                            // INTEL
   unsigned PredBBCost = getJumpThreadDuplicationCost(
       RegionBlocks, PredBB, BBDupThreshold);                           // INTEL
+=======
+  unsigned BBCost = getJumpThreadDuplicationCost(
+      TTI, BB, BB->getTerminator(), BBDupThreshold);
+  unsigned PredBBCost = getJumpThreadDuplicationCost(
+      TTI, PredBB, PredBB->getTerminator(), BBDupThreshold);
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
 
   // Give up if costs are too high.  We need to check BBCost and PredBBCost
   // individually before checking their sum because getJumpThreadDuplicationCost
@@ -3145,9 +3210,14 @@ bool JumpThreadingPass::tryThreadEdge(
     }
   }
 
+<<<<<<< HEAD
   unsigned JumpThreadCost = getJumpThreadDuplicationCost(RegionBlocks,
                                                          RegionBottom,
                                                          BBDupThreshold);
+=======
+  unsigned JumpThreadCost = getJumpThreadDuplicationCost(
+      TTI, BB, BB->getTerminator(), BBDupThreshold);
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
   if (JumpThreadCost > BBDupThreshold) {
     LLVM_DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
                       << "' - Cost is too high: " << JumpThreadCost << "\n");
@@ -3741,6 +3811,7 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
     return false;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Initially, I enabled this transformation for loop headers under
   // JumpThreadLoopHeader, but that caused out-of-control jump threading,
@@ -3779,6 +3850,10 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
   RegionBlocks.push_back(BB);                                           // INTEL
   unsigned DuplicationCost =                                            // INTEL
     getJumpThreadDuplicationCost(RegionBlocks, BB, BBDupThreshold);     // INTEL
+=======
+  unsigned DuplicationCost = getJumpThreadDuplicationCost(
+      TTI, BB, BB->getTerminator(), BBDupThreshold);
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
   if (DuplicationCost > BBDupThreshold) {
     LLVM_DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
                       << "' - Cost is too high: " << DuplicationCost << "\n");
@@ -4201,10 +4276,15 @@ bool JumpThreadingPass::threadGuard(BasicBlock *BB, IntrinsicInst *Guard,
 
   ValueToValueMapTy UnguardedMapping, GuardedMapping;
   Instruction *AfterGuard = Guard->getNextNode();
+<<<<<<< HEAD
   SmallVector<BasicBlock*, 1> RegionBlocks;                             // INTEL
   RegionBlocks.push_back(BB);                                           // INTEL
   unsigned Cost =                                                       // INTEL
       getJumpThreadDuplicationCost(RegionBlocks, BB, BBDupThreshold);   // INTEL
+=======
+  unsigned Cost =
+      getJumpThreadDuplicationCost(TTI, BB, AfterGuard, BBDupThreshold);
+>>>>>>> 1e3c6fc7cb9d2ee6a5328881f95d6643afeadbff
   if (Cost > BBDupThreshold)
     return false;
   // Duplicate all instructions before the guard and the guard itself to the
