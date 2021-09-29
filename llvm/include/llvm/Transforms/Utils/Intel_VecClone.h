@@ -60,10 +60,6 @@ class VecCloneImpl {
     /// Set of allocas to mark private for the SIMD loop
     SetVector<Value*> PrivateAllocas;
 
-    /// \brief Return true if the function has a complex type for the return
-    /// or parameters.
-    bool hasComplexType(Function *F);
-
     /// \brief Make a copy of the function if it is marked as SIMD.
     Function *CloneFunction(Function &F, VectorVariant &V,
                             ValueToValueMapTy &Vmap);
@@ -76,13 +72,6 @@ class VecCloneImpl {
     /// \brief Take the loop entry basic block and split off a second basic
     /// block into a new return basic block.
     BasicBlock* splitLoopIntoReturn(Function *Clone, BasicBlock *LoopBlock);
-
-    /// \brief Generate a basic block to test the loop exit condition.
-    BasicBlock* createLoopExit(Function *Clone, BasicBlock *ReturnBlock);
-
-    /// \brief Update the predecessors of the return basic block.
-    void updateReturnPredecessors(Function *Clone, BasicBlock *LoopExitBlock,
-                                  BasicBlock *ReturnBlock);
 
     /// \brief Create the backedge from the loop exit basic block to the loop
     /// entry block.
@@ -99,7 +88,7 @@ class VecCloneImpl {
     /// corresponding to the expanded return and the instruction corresponding
     /// to the mask.
     Instruction *expandVectorParametersAndReturn(
-        Function *Clone, Function &F, VectorVariant &V, Instruction **Mask,
+        Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
         BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
         std::vector<ParmRef *> &ParmMap, ValueToValueMapTy &VMap);
 
@@ -125,14 +114,11 @@ class VecCloneImpl {
 
     /// \brief Update the old parameter references to with the new vector
     /// references.
-    void updateScalarMemRefsWithVector(
-        Function *Clone,
-        Function &F,
-        BasicBlock *EntryBlock,
-        BasicBlock *ReturnBlock,
-        PHINode *Phi,
-        std::vector<ParmRef*>& ParmMap);
-        
+    void updateScalarMemRefsWithVector(Function *Clone, Function &F,
+                                       BasicBlock *EntryBlock,
+                                       BasicBlock *ReturnBlock, PHINode *Phi,
+                                       ArrayRef<ParmRef *> ParmMap);
+
     /// \brief Update the values of linear parameters by adding the stride
     /// before the use.
     void updateLinearReferences(Function *Clone, Function &F,
@@ -169,10 +155,6 @@ class VecCloneImpl {
                                       Type *FuncReturnType,
                                       AllocaInst *&LastAlloca);
 
-    /// \brief Return the position of the parameter in the function's parameter
-    /// list.
-    int getParmIndexInFunction(Function *F, Value *Parm);
-
     /// \brief Check to see if the function is simple enough that a loop does
     /// not need to be inserted into the function.
     bool isSimpleFunction(Function *Func);
@@ -191,8 +173,7 @@ class VecCloneImpl {
 
     /// \brief Removes the original scalar alloca instructions that correspond
     /// to a vector parameter before widening.
-    void removeScalarAllocasForVectorParams(
-      std::vector<ParmRef*> &VectorParmMap);
+    void removeScalarAllocasForVectorParams(ArrayRef<ParmRef *> VectorParmMap);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.
