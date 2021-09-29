@@ -815,7 +815,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     // TODO Remove the block once OpenCL CPU BE compiler is able to handle
     // LLVM IR converted from SPIR-V correctly.
-    if(CompilationUtils::generatedFromOCLCPP(M))
+    if(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(M))
        return OclVersion::CL_VER_2_0;
 
     auto oclVersion =
@@ -871,34 +871,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           if (I.getOpcode() == Instruction::FDiv && I.isFast())
             return true;
 
-    return false;
-  }
-
-  bool CompilationUtils::generatedFromOCLCPP(const Module &M) {
-    /*
-    Example of the metadata
-    !spirv.Source = !{!0}
-    !0 = !{i32 4, i32 100000}
-    */
-
-    auto oclLanguage =
-        ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).SPIRVSourceList;
-
-    if (oclLanguage.hasValue())
-      return (oclLanguage.getItem(0) == OclLanguage::OpenCL_CPP);
-
-    return false;
-  }
-
-  // TODO: use product solution for checking IR generated from OpenMP
-  // offloading, instead of the hack (checking the global variable name).
-  bool CompilationUtils::generatedFromOMP(const Module &M) {
-    // If IR is generated from OpenMP offloading code, it has spirv source
-    // metadata (OpenCL CPP), and a global variable named as
-    // __omp_offloading_entries_table.
-    if (generatedFromOCLCPP(M) &&
-        M.getGlobalVariable("__omp_offloading_entries_table"))
-      return true;
     return false;
   }
 

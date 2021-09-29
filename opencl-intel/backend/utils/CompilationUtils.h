@@ -678,13 +678,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// hasFDivWithFastFlag - check FDiv with fast flag
     static bool hasFDivWithFastFlag(Module *M);
 
-    /// generatedFromOCLCPP - check that IR was generated from OCL C++
-    /// from "!spirv.Source" named metadata
-    static bool generatedFromOCLCPP(const Module &M);
-
-    /// generatedFromOMP - check that IR was generated from OpenMP
-    static bool generatedFromOMP(const Module &M);
-
     /// generatedFromSPIRV - check that IR was generated from SPIRV
     static bool generatedFromSPIRV(const Module &M);
 

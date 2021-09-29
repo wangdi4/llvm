@@ -35,9 +35,10 @@
 ; CHECK:          SGSizeCollectorLegacy
 ; CHECK:          SGSizeCollectorIndirectLegacy
 ; CHECK-NEXT:     DPCPPKernelVecCloneLegacy
-; CHECK-NOT:      VecClone
 ; CHECK-NEXT:     Fill-in addresses of vector variants
 ; CHECK-NEXT:     UpdateCallAttrs
+; CHECK:          FunctionPass Manager
+; CHECK-NOT:      VecClone
 ; CHECK:          FunctionPass Manager
 ; CHECK:            VPlan Vectorizer
 ; CHECK:          VPlan post vectorization pass for DPCPP kernels

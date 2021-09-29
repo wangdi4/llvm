@@ -33,6 +33,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #ifdef _WIN32
@@ -450,7 +451,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   // the OpenCL Spec).
   // Disabling Codegen's -do-x86-global-fma optimization in this situation
   // could improve the precision (Only apply this for OpenCL program).
-  if (!CompilationUtils::generatedFromOCLCPP(*pModule) &&
+  if (!DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
       CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
 
