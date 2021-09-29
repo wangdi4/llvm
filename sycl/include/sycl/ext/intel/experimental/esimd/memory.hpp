@@ -666,16 +666,9 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void slm_init(uint32_t size);
 ///
 /// Only allow simd-16 and simd-32.
 template <typename T, int n>
-<<<<<<< HEAD
 ESIMD_INLINE ESIMD_NODEBUG std::enable_if_t<(n == 16 || n == 32), simd<T, n>>
 slm_gather(simd<uint32_t, n> offsets, simd_mask<n> pred = 1) {
   return __esimd_slm_read<T, n>(offsets.data(), pred.data());
-=======
-ESIMD_INLINE ESIMD_NODEBUG
-    typename sycl::detail::enable_if_t<(n == 16 || n == 32), simd<T, n>>
-    slm_load(simd<uint32_t, n> offsets, simd_mask<n> Pred = 1) {
-  return __esimd_slm_read<T, n>(offsets.data(), Pred.data());
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 }
 
 /// SLM gather (deprecated version).
@@ -689,15 +682,8 @@ ESIMD_INLINE
 
 /// SLM scatter.
 template <typename T, int n>
-<<<<<<< HEAD
 ESIMD_INLINE ESIMD_NODEBUG std::enable_if_t<(n == 16 || n == 32)>
 slm_scatter(simd<T, n> vals, simd<uint32_t, n> offsets, simd_mask<n> pred = 1) {
-=======
-ESIMD_INLINE ESIMD_NODEBUG
-    typename sycl::detail::enable_if_t<(n == 16 || n == 32), void>
-    slm_store(simd<T, n> vals, simd<uint32_t, n> offsets,
-              simd_mask<n> pred = 1) {
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
   __esimd_slm_write<T, n>(offsets.data(), vals.data(), pred.data());
 }
 
@@ -733,7 +719,6 @@ template <typename T, int n, rgba_channel_mask Mask>
 __SYCL_DEPRECATED("use slm_gather_rgba.")
 ESIMD_INLINE ESIMD_NODEBUG std::enable_if_t<
     (n == 8 || n == 16 || n == 32) && (sizeof(T) == 4),
-<<<<<<< HEAD
     simd<T, n * get_num_channels_enabled(Mask)>> slm_load4(simd<uint32_t, n>
                                                                offsets,
                                                            simd_mask<n> pred =
@@ -757,29 +742,16 @@ ESIMD_INLINE ESIMD_NODEBUG
     slm_scatter_rgba(simd<T, N * get_num_channels_enabled(Mask)> vals,
                      simd<uint32_t, N> offsets, simd_mask<N> pred = 1) {
   __esimd_slm_write4<T, N, Mask>(offsets.data(), vals.data(), pred.data());
-=======
-    simd<T, n * get_num_channels_enabled(Mask)>>
-slm_load4(simd<uint32_t, n> offsets, simd_mask<n> pred = 1) {
-  return __esimd_slm_read4<T, n, Mask>(offsets.data(), pred.data());
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 }
 
 /// SLM scatter4.
 template <typename T, int n, rgba_channel_mask Mask>
-<<<<<<< HEAD
 __SYCL_DEPRECATED("use slm_scatter_rgba.")
 ESIMD_INLINE ESIMD_NODEBUG std::
     enable_if_t<(n == 8 || n == 16 || n == 32) && (sizeof(T) == 4)> slm_store4(
         simd<T, n * get_num_channels_enabled(Mask)> vals,
         simd<uint32_t, n> offsets, simd_mask<n> pred = 1) {
   slm_scatter_rgba<T, n, Mask>(vals, offsets, pred);
-=======
-ESIMD_INLINE ESIMD_NODEBUG typename sycl::detail::enable_if_t<
-    (n == 8 || n == 16 || n == 32) && (sizeof(T) == 4), void>
-slm_store4(simd<T, n * get_num_channels_enabled(Mask)> vals,
-           simd<uint32_t, n> offsets, simd_mask<n> pred = 1) {
-  __esimd_slm_write4<T, n, Mask>(offsets.data(), vals.data(), pred.data());
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 }
 
 /// SLM block-load.

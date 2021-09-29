@@ -185,11 +185,8 @@ struct is_esimd_arithmetic_type<
                        decltype(std::declval<Ty>() / std::declval<Ty>())>>
     : std::conditional_t<std::is_arithmetic_v<Ty>, std::true_type,
                          std::false_type> {};
-<<<<<<< HEAD
-=======
 
 template <> struct is_esimd_arithmetic_type<bfloat16> : std::true_type {};
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 
 template <typename Ty>
 static inline constexpr bool is_esimd_arithmetic_type_v =
@@ -347,7 +344,6 @@ struct is_simd_view_type : is_simd_view_type_impl<remove_cvref_t<Ty>> {};
 template <typename Ty>
 static inline constexpr bool is_simd_view_type_v = is_simd_view_type<Ty>::value;
 // @}
-<<<<<<< HEAD
 
 template <typename T>
 static inline constexpr bool is_simd_or_view_type_v =
@@ -358,18 +354,6 @@ static inline constexpr bool is_simd_or_view_type_v =
 
 struct cant_deduce_element_type;
 
-=======
-
-template <typename T>
-static inline constexpr bool is_simd_or_view_type_v =
-    is_simd_view_type_v<T> || is_simd_type_v<T>;
-
-// @{
-// Get the element type if it is a scalar, clang vector, simd or simd_view type.
-
-struct cant_deduce_element_type;
-
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 template <class T, class SFINAE = void> struct element_type {
   using type = cant_deduce_element_type;
 };
@@ -387,7 +371,6 @@ struct element_type<T, std::enable_if_t<is_simd_like_type_v<T>>> {
 template <typename T>
 struct element_type<T, std::enable_if_t<is_clang_vector_type_v<T>>> {
   using type = typename is_clang_vector_type<T>::element_type;
-<<<<<<< HEAD
 };
 
 // @}
@@ -414,34 +397,6 @@ struct computation_type<
   using type = decltype(std::declval<T1>() + std::declval<T2>());
 };
 
-=======
-};
-
-// @}
-
-// @{
-// Get computation type of a binary operator given its operand types:
-// - if both types are arithmetic - return CPP's "common real type" of the
-//   computation (matches C++)
-// - if both types are simd types, they must be of the same length N,
-//   and the returned type is simd<T, N>, where N is the "common real type" of
-//   the element type of the operands (diverges from clang)
-// - otherwise, one type is simd and another is arithmetic - the simd type is
-//   returned (matches clang)
-
-struct invalid_computation_type;
-
-template <class T1, class T2, class SFINAE = void> struct computation_type {
-  using type = invalid_computation_type;
-};
-
-template <class T1, class T2>
-struct computation_type<
-    T1, T2, std::enable_if_t<is_vectorizable_v<T1> && is_vectorizable_v<T2>>> {
-  using type = decltype(std::declval<T1>() + std::declval<T2>());
-};
-
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 template <class T1, class T2>
 struct computation_type<
     T1, T2,
@@ -461,15 +416,9 @@ public:
 template <class T1, class T2 = T1>
 using computation_type_t =
     typename computation_type<remove_cvref_t<T1>, remove_cvref_t<T2>>::type;
-<<<<<<< HEAD
 
 // @}
 
-=======
-
-// @}
-
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2
 template <typename To, typename From>
 std::enable_if_t<is_clang_vector_type_v<To> && is_clang_vector_type_v<From>, To>
 convert(From Val) {
