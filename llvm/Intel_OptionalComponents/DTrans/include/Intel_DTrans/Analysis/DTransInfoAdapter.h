@@ -89,13 +89,6 @@ public:
     return DTInfo.isReadOnlyFieldAccess(LI);
   } 
 
-  bool isPtrToStruct(Argument *A) const {
-    auto PTy = dyn_cast<PointerType>(A->getType());
-    if (!PTy)
-      return false;
-    return isa<StructType>(PTy->getElementType());
-  }
-
   bool isFunctionPtr(StructType *STy, unsigned Idx) {
     auto PTy = dyn_cast<PointerType>(STy->getElementType(Idx));
     if (!PTy)
@@ -103,8 +96,16 @@ public:
     return isa<FunctionType>(PTy->getElementType());
   } 
 
+  bool isPtrToStruct(Value *V) const {
+    auto PTy = dyn_cast<PointerType>(V->getType());
+    if (!PTy)
+      return false;
+    return isa<StructType>(PTy->getElementType());
+  }
+
 private:
   DTransAnalysisInfo &DTInfo;
+
 };
 } // end namespace dtrans
 
@@ -177,13 +178,13 @@ public:
     return DTInfo.isReadOnlyFieldAccess(LI);
   } 
 
-  bool isPtrToStruct(Argument *A) const {
-    return DTInfo.isPtrToStruct(A); 
+  bool isFunctionPtr(StructType *STy, unsigned Idx) {
+    return DTInfo.isFunctionPtr(STy, Idx); 
   }
 
-  bool isFunctionPtr(StructType *STy, unsigned Idx) {
-    return DTInfo.isFunctionPtr(STy, Idx);
-  } 
+  bool isPtrToStruct(Value *V) const {
+    return DTInfo.isPtrToStruct(V); 
+  }
 
 private:
   DTransSafetyInfo &DTInfo;

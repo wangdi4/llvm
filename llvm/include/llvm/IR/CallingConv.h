@@ -269,6 +269,11 @@ namespace CallingConv {
     /// Intel_OCL_BI_AVX512 - Calling conventions for Intel OpenCL AVX512
     /// built-ins
     Intel_OCL_BI_AVX512 = 107,
+
+    /// Unified SVML calling conventions.
+    SVML_Unified = 108,
+    SVML_Unified_256 = 109,
+    SVML_Unified_512 = 110,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

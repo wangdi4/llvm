@@ -258,7 +258,7 @@ public:
 
   bool isFunctionPtr(llvm::StructType *STy, unsigned Idx);
 
-  bool isPtrToStruct(Argument *A);
+  bool isPtrToStruct(Value *V);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
