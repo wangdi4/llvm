@@ -1738,6 +1738,46 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     vectorizePrivateFinalUncond(VPInst);
     return;
   }
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond: {
+    // Pseudo IR generated to finalize conditional last private entity -
+    // %priv.final = private-final-c %exit, %idx, %orig
+    //
+    // ; Find max index where condition was true
+    // %idx.reduce = llvm.vector.reduce.smax.v2i64(%idx.vec)
+    // ; Identify where max index is set in final vector
+    // %max.idx.cmp = %idx.reduce == %idx.vec
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%max.idx.cmp);
+    // %lane = @llvm.cttz.i2(%bsfintmask,  1);
+    // ; Extract final value and store back to original
+    // %orig = extractelement %exit.vec, %lane
+    //
+    Value *VecExit = getVectorValue(VPInst->getOperand(0));
+    Value *VecIndex = getVectorValue(VPInst->getOperand(1));
+
+    Value *IdxReduceCall = Builder.CreateIntMaxReduce(VecIndex, true);
+    Value *CmpInst = Builder.CreateICmp(
+        ICmpInst::ICMP_EQ, VecIndex,
+        Builder.CreateVectorSplat(VF, IdxReduceCall, "broadcast"),
+        "priv.idx.cmp");
+
+    Type *IntTy = IntegerType::get(CmpInst->getContext(), VF);
+    Value *CastedMask = Builder.CreateBitCast(CmpInst, IntTy);
+
+    Module *M = OrigLoop->getHeader()->getModule();
+    Function *CTTZ =
+        Intrinsic::getDeclaration(M, Intrinsic::cttz, CastedMask->getType());
+    Value *BsfCall =
+        Builder.CreateCall(CTTZ, {CastedMask, Builder.getTrue()}, "cttz");
+
+    // Scalar result of private finalization should be written back to original
+    // private descriptor variable.
+    Value *PrivExtract =
+        Builder.CreateExtractElement(VecExit, BsfCall, "priv.extract");
+    VPScalarMap[VPInst][0] = PrivExtract;
+    return;
+  }
   case VPInstruction::PrivateFinalArray: {
     // We need to copy array from last private allocated memory into the
     // original array location.

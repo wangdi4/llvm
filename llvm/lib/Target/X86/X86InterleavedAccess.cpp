@@ -402,7 +402,7 @@ public:
       }
     }
     return true;
-  }    // end of lowerIntoOptimizedSequenceByOptVLS.
+  } // end of lowerIntoOptimizedSequenceByOptVLS.
 
   ~X86InterleavedAccessGroup() {
     // Clear the intermediate StoreShuffles generated.

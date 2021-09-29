@@ -58,8 +58,10 @@ public:
   /// The list of explicit reduction variables.
   using ExplicitReductionList =
       MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
+  /// The list of in-memory reductions. Store instruction that updates the
+  /// reduction is also tracked.
   using InMemoryReductionList =
-      MapVector<Value *, RecurKind>;
+      MapVector<Value *, std::pair<RecurKind, StoreInst *>>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -357,7 +359,7 @@ private:
                                 Value *&StartV);
   /// Return true if the explicit reduction variable uses private memory on
   /// each iteration.
-  bool isReductionVarStoredInsideTheLoop(Value *RedVarPtr);
+  bool isReductionVarStoredInsideTheLoop(Value *RedVarPtr, StoreInst *&Store);
 
   /// Check whether \p I is liveout.
   bool isLiveOut(const Instruction *I) const;
