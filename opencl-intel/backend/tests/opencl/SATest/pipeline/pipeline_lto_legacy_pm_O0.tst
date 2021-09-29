@@ -1,4 +1,5 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-legacy -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
@@ -28,8 +29,8 @@
 ; CHECK-NOT:      SGSizeCollectorLegacy
 ; CHECK-NOT:      SGSizeCollectorIndirectLegacy
 ; CHECK-NOT:      DPCPPKernelVecCloneLegacy
-; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK-NOT:      VecClone
+; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK-NOT:      ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:       FunctionPass Manager
