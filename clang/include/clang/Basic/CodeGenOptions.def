@@ -344,7 +344,6 @@ CODEGENOPT(DebugFwdTemplateParams, 1, 0) ///< Whether to emit complete
                                          ///< template parameter descriptions in
                                          ///< forward declarations (versus just
                                          ///< including them in the name).
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 CODEGENOPT(DebugOpenCLBasicTypes, 1, 1) ///< Emit OpenCL builtin types as
@@ -352,14 +351,13 @@ CODEGENOPT(DebugOpenCLBasicTypes, 1, 1) ///< Emit OpenCL builtin types as
 CODEGENOPT(NoExprSourcePos, 1, 0) ///< Whether or not to emit debug source
                                   ///< positions for expressions.
 #endif // INTEL_CUSTOMIZATION
-=======
+
 ENUM_CODEGENOPT(DebugSimpleTemplateNames, codegenoptions::DebugTemplateNamesKind, 2, codegenoptions::DebugTemplateNamesKind::Full) ///< Whether to emit template parameters
                                            ///< in the textual names of template
 					   ///< specializations.
 					   ///< Implies DebugFwdTemplateNames to
 					   ///< allow decorated names to be
 					   ///< reconstructed when needed.
->>>>>>> 38c09ea2d279eddddabe3602e2002f8cdfcc5380
 CODEGENOPT(EmitLLVMUseLists, 1, 0) ///< Control whether to serialize use-lists.
 
 CODEGENOPT(WholeProgramVTables, 1, 0) ///< Whether to apply whole-program
