@@ -1103,16 +1103,17 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // Special processing for subscript instructions which could have struct
   // offsets in 0th dimension.
   if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
-    ArrayRef<unsigned> ZeroDimOffsets = Subscript->getStructOffsets(0);
+    ArrayRef<unsigned> ZeroDimOffsets = Subscript->dim(0).StructOffsets;
     if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
       // 0-th dimension index is divergent and we have struct offsets, do not
       // proceed.
       return getRandomVectorShape();
 
     // Refine IdxShape based on stride of 0-th dimension in subscript.
-    auto *ZeroDimStride = dyn_cast<VPConstant>(Subscript->getStride(0));
+    auto *ZeroDimStride =
+        dyn_cast<VPConstant>(Subscript->dim(0).StrideInBytes);
     VPVectorShape ZeroDimLowerShape =
-        getObservedShape(VPBB, *(Subscript->getLower(0)));
+        getObservedShape(VPBB, *(Subscript->dim(0).LowerBound));
     // Conservatively mark the pointer as Random shape when -
     // 1. stride is non-constant
     // 2. lower is loop variant

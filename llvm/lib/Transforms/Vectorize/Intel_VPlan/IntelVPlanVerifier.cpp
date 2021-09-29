@@ -596,10 +596,11 @@ void VPlanVerifier::verifySubscriptInst(
          "SubscriptInst has invalid number of operands.");
 
   for (int Dim = NumDims - 1; Dim >= 0; --Dim) {
-    unsigned Rank = Subscript->getRank(Dim);
-    VPValue *Lower = Subscript->getLower(Dim);
-    VPValue *Stride = Subscript->getStride(Dim);
-    VPValue *Index = Subscript->getIndex(Dim);
+    auto DimInfo = Subscript->dim(Dim);
+    unsigned Rank = DimInfo.Rank;
+    VPValue *Lower = DimInfo.LowerBound;
+    VPValue *Stride = DimInfo.StrideInBytes;
+    VPValue *Index = DimInfo.Index;
 
     assert(
         Rank <= 32 &&

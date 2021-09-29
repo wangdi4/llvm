@@ -3842,15 +3842,16 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
   };
 
   for (int Dim = VPSubscript->getNumDimensions() - 1; Dim >= 0; --Dim) {
+    auto DimInfo = VPSubscript->dim(Dim);
     RegDDRef *Lower =
-        generateLowerOrStride(VPSubscript->getLower(Dim), Widen, ScalarLaneID);
+        generateLowerOrStride(DimInfo.LowerBound, Widen, ScalarLaneID);
     RegDDRef *Stride =
-        generateLowerOrStride(VPSubscript->getStride(Dim), Widen, ScalarLaneID);
+        generateLowerOrStride(DimInfo.StrideInBytes, Widen, ScalarLaneID);
     RegDDRef *Idx =
-        getOrCreateRefForVPVal(VPSubscript->getIndex(Dim), Widen, ScalarLaneID);
+        getOrCreateRefForVPVal(DimInfo.Index, Widen, ScalarLaneID);
     AuxRefs.insert(AuxRefs.end(), {Idx, Lower, Stride});
-    ArrayRef<unsigned> StructOffsets = VPSubscript->getStructOffsets(Dim);
-    Type *DimTy = VPSubscript->getDimensionType(Dim);
+    ArrayRef<unsigned> StructOffsets = DimInfo.StructOffsets;
+    Type *DimTy = DimInfo.DimType;
     Type *DimElemTy = isa<ArrayType>(DimTy) ? DimTy->getArrayElementType()
                                             : DimTy->getPointerElementType();
     NewRef->addDimension(Idx->getSingleCanonExpr(), StructOffsets,

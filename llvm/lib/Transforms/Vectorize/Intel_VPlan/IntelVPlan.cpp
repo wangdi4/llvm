@@ -627,21 +627,22 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     };
     // Dump operands per dimension (with details if needed).
     for (int Dim = Subscript->getNumDimensions() - 1; Dim >= 0; --Dim) {
-      auto *Idx = Subscript->getIndex(Dim);
-      ArrayRef<unsigned> DimStructOffsets = Subscript->getStructOffsets(Dim);
+      auto DimInfo = Subscript->dim(Dim);
+      auto *Idx = DimInfo.Index;
+      ArrayRef<unsigned> DimStructOffsets = DimInfo.StructOffsets;
       if (!VPlanDumpSubscriptDetails) {
         O << " ";
         Idx->printAsOperand(O);
         PrintStructOffsets(DimStructOffsets);
       } else {
         O << " {";
-        Subscript->getLower(Dim)->printAsOperand(O);
+        DimInfo.LowerBound->printAsOperand(O);
         O << " : ";
         Idx->printAsOperand(O);
         O << " : ";
-        Subscript->getStride(Dim)->printAsOperand(O);
+        DimInfo.StrideInBytes->printAsOperand(O);
         O << " : ";
-        Subscript->getDimensionType(Dim)->print(O);
+        DimInfo.DimType->print(O);
         PrintStructOffsets(DimStructOffsets);
         O << "}";
       }

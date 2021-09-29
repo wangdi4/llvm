@@ -551,13 +551,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
       SubscriptResultType =
           PointerType::get(SubscriptResultType, Ref->getPointerAddressSpace());
 
-    // Process lowers, strides, indices and struct offsets for each dimension to
-    // create operands of VPSubscript.
-    SmallVector<VPValue *, 4> Lowers;
-    SmallVector<VPValue *, 4> Strides;
-    SmallVector<VPValue *, 4> Indices;
-    VPSubscriptInst::DimStructOffsetsMapTy StructOffsets;
-    VPSubscriptInst::DimTypeMapTy Types;
+    SmallVector<VPSubscriptInst::DimInfo, 4> Dimensions;
     for (unsigned I = NumDims; I > 0; --I) {
       VPValue *DecompLower = decomposeCanonExpr(Ref, Ref->getDimensionLower(I));
       VPValue *DecompStride =
@@ -577,37 +571,17 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
                  DecompStride->dump(); dbgs() << "\n");
       LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompIndex: "; DecompIndex->dump();
                  dbgs() << "\n");
-      Lowers.push_back(DecompLower);
-      Strides.push_back(DecompStride);
-      Indices.push_back(DecompIndex);
 
       // Get trailing struct offsets for dimension.
       auto HIRDimOffsets = Ref->getTrailingStructOffsets(I);
 
-      // Add the offsets for the corresponding dimension operand only if it is
-      // non-empty
-      if (!HIRDimOffsets.empty()) {
-        for (auto OffsetVal : HIRDimOffsets) {
-          LLVM_DEBUG(dbgs()
-                     << "VPDecomp: Struct Offset: " << OffsetVal << "\n");
-          // Dimensions in VPSubscriptInst are zero-indexed, hence attach the
-          // offset to I-1 dimension.
-          StructOffsets[I - 1].push_back(OffsetVal);
-        }
-      }
-
-      // Get type associated for dimension.
-      Types[I - 1] = Ref->getDimensionType(I);
+      Dimensions.emplace_back(I - 1, DecompLower, DecompStride, DecompIndex,
+                              Ref->getDimensionType(I), HIRDimOffsets);
     }
-
-    if (Ref->isInBounds())
-      MemOpVPI = Builder.createInBoundsSubscriptInst(
-          SubscriptResultType, NumDims, Lowers, Strides, DecompBaseCE, Indices,
-          StructOffsets, Types);
-    else
-      MemOpVPI = Builder.createSubscriptInst(SubscriptResultType, NumDims,
-                                             Lowers, Strides, DecompBaseCE,
-                                             Indices, StructOffsets, Types);
+    auto *Subscript = Builder.create<VPSubscriptInst>(
+        "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
+    Subscript->setIsInBounds(Ref->isInBounds());
+    MemOpVPI = Subscript;
   }
 
   // Create a bitcast instruction if needed

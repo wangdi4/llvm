@@ -187,7 +187,7 @@ unsigned VPlanTTICostModel::getLoadStoreIndexSize(
     const VPSubscriptInst *Subscript = cast<VPSubscriptInst>(VPAddrInst);
     // Add index operand for each dimension.
     for (unsigned Dim = 0; Dim < Subscript->getNumDimensions(); ++Dim)
-      IndicesOperands.push_back(Subscript->getIndex(Dim));
+      IndicesOperands.push_back(Subscript->dim(Dim).Index);
   }
 
   unsigned NumOfVarIndices = 0;

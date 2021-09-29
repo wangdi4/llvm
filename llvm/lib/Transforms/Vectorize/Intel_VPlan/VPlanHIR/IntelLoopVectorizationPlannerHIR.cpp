@@ -304,7 +304,7 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
         "Unexpected loop upper bound placement");
     Builder.setInsertPoint(Parent, std::next(Instr->getIterator(), 1));
   }
-  auto *VTC = Builder.create<VPVectorTripCountCalculation>(
+  auto *VTC = Builder.createHIR<VPVectorTripCountCalculation>(
       TheLoop, "vector.trip.count", OrigTC);
   Cond->replaceUsesOfWith(OrigTC, VTC);
 }
