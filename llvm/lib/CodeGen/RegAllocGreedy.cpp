@@ -865,7 +865,7 @@ MCRegister RAGreedy::tryAssign(LiveInterval &VirtReg,
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << printReg(PhysReg, TRI) << " is available at cost "
-                    << Cost << '\n');
+                    << (unsigned)Cost << '\n');
   MCRegister CheapReg = tryEvict(VirtReg, Order, NewVRegs, Cost, FixedRegisters);
   return CheapReg ? CheapReg : PhysReg;
 }
