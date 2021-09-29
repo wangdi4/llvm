@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 //===- HIRSymbaseAssignment.cpp - Assigns symbase to ddrefs ---------------===//
 //
 // Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
@@ -186,3 +187,4 @@ void HIRSymbaseAssignment::print(raw_ostream &OS) const {
     }
   }
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED

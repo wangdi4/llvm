@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 //===---- HIRCleanup.cpp - Clean up redundant HIR Nodes -------------------===//
 //
 // Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
@@ -180,3 +181,4 @@ void HIRCleanup::run() {
   HLNodeUtils::eliminateRedundantGotos(HIRC.Gotos, RequiredLabels);
   eliminateRedundantLabels();
 }
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED

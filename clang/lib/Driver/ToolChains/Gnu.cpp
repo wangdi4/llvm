@@ -552,7 +552,7 @@ static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
   for (std::string A : CmdArgs) {
     SmallVector<StringRef, 4> StaticOpts = {"-Bstatic", "-dn", "-non_shared",
                                             "-static"};
-    SmallVector<StringRef, 4> DynamicOpts = {"-Bdynamic", "-dy",
+    SmallVector<StringRef, 3> DynamicOpts = {"-Bdynamic", "-dy",
                                              "-call_shared"};
     if (std::find(StaticOpts.begin(), StaticOpts.end(), A) != StaticOpts.end())
       isCurrentStateStatic = true;

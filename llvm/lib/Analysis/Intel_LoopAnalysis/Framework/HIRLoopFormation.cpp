@@ -84,6 +84,7 @@ HLLoop *HIRLoopFormation::findHLLoop(const Loop *Lp) {
   return findOrInsertHLLoopImpl(Lp, nullptr, false);
 }
 
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
 APInt HIRLoopFormation::getAddRecRefinedSignedMax(
     const SCEVAddRecExpr *AddRec) const {
   // For a case like this-
@@ -662,6 +663,8 @@ void HIRLoopFormation::run() {
   this->Func = &HNU.getFunction();
   formLoops();
 }
+
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 
 bool HIRLoopFormation::reattachLoopLabelAndBottomTest(HLLoop *Loop) {
   auto It = LoopLabelAndBottomTestMap.find(Loop);
