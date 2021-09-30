@@ -179,13 +179,6 @@ class VecCloneImpl {
     /// prevent loop unrolling.
     void disableLoopUnrolling(BasicBlock *Latch);
 
-    /// \brief Check to see that the type of the gep used for a load instruction
-    /// is compatible with the type needed as the result of the load. Basically,
-    /// check the validity of the LLVM IR to make sure that proper pointer
-    /// dereferencing is done.
-    bool typesAreCompatibleForLoad(Type *GepType, Type *LoadType);
-
-
 #if INTEL_CUSTOMIZATION
     /// Languages like OpenCL override this method to perform some
     /// pre-processing for enabling VecClone pass.

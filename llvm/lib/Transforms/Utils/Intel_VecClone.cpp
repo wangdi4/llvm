@@ -830,72 +830,6 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
   return ExpandedReturn;
 }
 
-bool VecCloneImpl::typesAreCompatibleForLoad(Type *GepType, Type *LoadType) {
-  // GepType will always be a pointer since this refers to an alloca for a
-  // vector.
-  PointerType *GepPtrTy = cast<PointerType>(GepType);
-  Type *LoadFromTy = GepPtrTy->getElementType();
-  Type *LoadToTy = LoadType;
-
-  // Dereferencing pointers in LLVM IR means that we have to have a load for
-  // each level of indirection. This means that we load from a gep and the
-  // resulting load value type is reduced by one level of indirection. For
-  // example, we load from a gep of i32* to a temp that has an i32 type. We
-  // cannot do multiple levels of dereferencing in a single load. For example,
-  // we cannot load from a gep of i32** to an i32. This requires two loads.
-  //
-  // Legal Case: GepType = i32**, LoadFromTy = i32*,
-  //             LoadType = i32*, LoadToTy = i32*
-  // 
-  // %vec.b.elem.2 = load i32*, i32** %vec.b.cast.gep1
-  //
-  // In this case, since both are pointers, types will be considered equal by
-  // LLVM, so we must continue getting the element types of each pointer type
-  // until one is no longer a pointer type. Then do an equality check.
-  //
-  // Legal Case: GepType = i32*, LoadFromTy = i32,
-  //             LoadType = i32, LoadToTy = i32
-  //
-  // %vec.b.elem.2 = load i32, i32* %vec.b.cast.gep1
-  //
-  // Ready to compare as is
-  //
-  // Illegal Case: GepType = i32**, LoadFromTy = i32*
-  //               LoadType = i32, LoadToTy = i32
-  //
-  // %vec.b.elem.2 = load i32, i32** %vec.b.cast.gep1
-  //
-  // This case arises due to differences in the LLVM IR at -O0 and >= -O1.
-  // For >= -O1, Mem2Reg registerizes parameters and there are no alloca
-  // instructions created for function parameters. At -O0, vector parameters
-  // are expanded and we modify the existing alloca that was used for the scalar
-  // parameter. When there is no alloca for vector parameters, we must create
-  // one for them. Thus, we have introduced an additional level of indirection
-  // for users of parameters at >= -O1. This can become a problem for load
-  // instructions and results in this illegal case. This function helps to
-  // check that we are not attempting to do an extra level of indirection
-  // within the load instructions for elements of vector parameters in the
-  // simd loop. If an illegal case is encountered, an additional load is
-  // inserted to account for the extra level of indirection and any users are
-  // updated accordingly.
-
-  while (LoadFromTy->getTypeID() == Type::PointerTyID &&
-         LoadToTy->getTypeID()   == Type::PointerTyID) {
-
-    PointerType *FromPtrTy = cast<PointerType>(LoadFromTy);
-    PointerType *ToPtrTy = cast<PointerType>(LoadToTy);
-
-    LoadFromTy = FromPtrTy->getElementType();
-    LoadToTy = ToPtrTy->getElementType();
-  }
-
-  if (LoadFromTy->getTypeID() == LoadToTy->getTypeID()) {
-    return true;
-  }
-
-  return false;
-}
-
 void VecCloneImpl::updateScalarMemRefsWithVector(
     Function *Clone, Function &F, BasicBlock *EntryBlock,
     BasicBlock *ReturnBlock, PHINode *Phi,
@@ -934,16 +868,13 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
         if (User->getOperand(I) != Parm)
           continue;
 
-        if (isa<LoadInst>(User) || isa<StoreInst>(User)) {
+        if (isa<AllocaInst>(Parm) &&
+            (isa<LoadInst>(User) || isa<StoreInst>(User))) {
+          // We've transformed/repurposed original alloca, so the update is
+          // simple.
           assert(VecGep && "Expect VecGep to be a non-null value.");
-          Type *ValueType =
-              (isa<StoreInst>(User) ? User->getOperand(0) : User)->getType();
-          if (typesAreCompatibleForLoad(VecGep->getType(), ValueType)) {
-            // If the user is a load/store and the dereferencing is legal,
-            // then just modify the load/store operand to use the gep.
-            User->setOperand(I, VecGep);
-            continue;
-          }
+          User->setOperand(I, VecGep);
+          continue;
         }
 
         // Otherwise, we need to load the value from the gep first before
