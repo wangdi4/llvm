@@ -93,6 +93,7 @@ void DTransAllocCollector::populateAllocDeallocTable(const Module &M) {
   // some special cases.
   std::map<const Function *, AllocStatus> AdditionsMap;
   CheckedAsMalloc.clear();
+  CheckedAsFree.clear();
   for (auto &IT : AllocStatusMap) {
     bool IsMalloc = allocStatusIsMalloc(IT.second);
     for (auto &U : IT.first->uses()) {
