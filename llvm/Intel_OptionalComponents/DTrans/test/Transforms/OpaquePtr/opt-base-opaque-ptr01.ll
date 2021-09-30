@@ -1,7 +1,7 @@
-; RUN: opt -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
-; RUN: opt -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
-; RUN: opt -S -whole-program-assume -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
-; RUN: opt -S -whole-program-assume -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -whole-program-assume -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -S -opaque-pointers -whole-program-assume -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
 
 ; Test that DTrans can detect the opaque pointers are present in the IR without
 ; requiring the termporary -force-opaque-pointer flag.
