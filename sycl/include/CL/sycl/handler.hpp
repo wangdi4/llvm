@@ -586,6 +586,11 @@ private:
       MArgs = std::move(MAssociatedAccesors);
     }
 
+<<<<<<< HEAD
+=======
+    // If the kernel lambda is callable with a kernel_handler argument, manifest
+    // the associated kernel handler.
+>>>>>>> 581e295a63842518716f9728f51d8d1041270f14
     if (IsCallableWithKernelHandler) {
       getOrInsertHandlerKernelBundle(/*Insert=*/true);
     }
@@ -1021,7 +1026,6 @@ private:
 
   // Wrappers for kernel_single_task(...)
 
-/* INTEL_CUSTOMIZATION */
   template <typename KernelName, typename KernelType>
   std::enable_if_t<detail::KernelLambdaHasKernelHandlerArgT<KernelType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
@@ -1110,7 +1114,6 @@ private:
 #endif // __SYCL_DEVICE_ONLY__
     kernel_parallel_for_work_group<KernelName, ElementType>(KernelFunc);
   }
-/* end INTEL_CUSTOMIZATION */
 
   std::shared_ptr<detail::kernel_bundle_impl>
   getOrInsertHandlerKernelBundle(bool Insert) const;

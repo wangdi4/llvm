@@ -205,7 +205,6 @@ typename std::enable_if_t<
 runKernelWithArg(KernelType KernelName, ArgType Arg) {
   KernelName(Arg);
 }
-/* end INTEL_CUSTOMIZATION */
 
 // The pure virtual class aimed to store lambda/functors of any type.
 class HostKernelBase {
