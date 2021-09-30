@@ -50318,12 +50318,21 @@ static SDValue combineFaddCFmul(SDNode *N, SelectionDAG &DAG,
   auto AllowContract = [&DAG](const SDNodeFlags &Flags) {
     return DAG.getTarget().Options.AllowFPOpFusion == FPOpFusion::Fast ||
            Flags.hasAllowContract();
+<<<<<<< HEAD
   };
 
   auto HasNoSignedZero = [&DAG](const SDNodeFlags &Flags) {
     return DAG.getTarget().Options.NoSignedZerosFPMath ||
            Flags.hasNoSignedZeros();
   };
+=======
+  };
+
+  auto HasNoSignedZero = [&DAG](const SDNodeFlags &Flags) {
+    return DAG.getTarget().Options.NoSignedZerosFPMath ||
+           Flags.hasNoSignedZeros();
+  };
+>>>>>>> af5ab4e7e7f940a594d314593b20dab8e5cdbaaa
   auto IsVectorAllNegativeZero = [](const SDNode *N) {
     if (N->getOpcode() != X86ISD::VBROADCAST_LOAD)
       return false;
