@@ -586,11 +586,8 @@ private:
       MArgs = std::move(MAssociatedAccesors);
     }
 
-<<<<<<< HEAD
-=======
     // If the kernel lambda is callable with a kernel_handler argument, manifest
     // the associated kernel handler.
->>>>>>> 581e295a63842518716f9728f51d8d1041270f14
     if (IsCallableWithKernelHandler) {
       getOrInsertHandlerKernelBundle(/*Insert=*/true);
     }
