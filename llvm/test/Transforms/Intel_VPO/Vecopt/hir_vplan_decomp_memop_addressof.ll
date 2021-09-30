@@ -25,8 +25,8 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds i32* %b {i64 0 : i64 [[I1]] : i64 4 : i32*}
-; CHECK-NEXT: i32** [[ADDR2:%vp.*]] = subscript inbounds i32** %a {i64 0 : i64 [[I1]] : i64 8 : i32**}
+; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds i32* %b {i64 0 : i64 [[I1]] : i64 4 : i32*(i32)}
+; CHECK-NEXT: i32** [[ADDR2:%vp.*]] = subscript inbounds i32** %a {i64 0 : i64 [[I1]] : i64 8 : i32**(i32*)}
 ; CHECK-NEXT: store i32* [[ADDR1]] i32** [[ADDR2]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

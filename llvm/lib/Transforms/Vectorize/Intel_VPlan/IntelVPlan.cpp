@@ -643,6 +643,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
         DimInfo.StrideInBytes->printAsOperand(O);
         O << " : ";
         DimInfo.DimType->print(O);
+        O << "(";
+        DimInfo.DimElementType->print(O, true /*IsForDebug*/,
+                                      true /*NoDetails*/);
+        O << ")";
         PrintStructOffsets(DimStructOffsets);
         O << "}";
       }

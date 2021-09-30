@@ -1440,13 +1440,20 @@ public:
     // %1 = (@arr)[0:0:4096([1024 x i32]*:0)][0:i1:4([1024 x i32]:1024)]
     //
     // then the types will be the following:
-    // Dim  --->     Type
+    // Dim  --->     DimType
     //  1         [1024 x i32]*
     //  0         [1024 x i32]
     //
     // TODO: Not sure why loopopt really needs it or what will they do once
     // [1024 x i32]* would become simply opaque pointer type.
     Type *DimType;
+
+    // See loopopt::RegDDRef docs as well.
+    // For the case above the values would be:
+    //  Dim ---->    DimElementType
+    //  1         [1024 x i32]
+    //  0         i32
+    Type *DimElementType;
 
     // Struct offsets associated with each dimension of this array access. For
     // example, suppose incoming HIR contains:
@@ -1458,10 +1465,11 @@ public:
     ArrayRef<unsigned> StructOffsets;
 
     DimInfo(unsigned Rank, VPValue *LowerBound, VPValue *StrideInBytes,
-            VPValue *Index, Type *DimType,
+            VPValue *Index, Type *DimType, Type *DimElementType,
             ArrayRef<unsigned> StructOffsets = {})
         : Rank(Rank), LowerBound(LowerBound), StrideInBytes(StrideInBytes),
-          Index(Index), DimType(DimType), StructOffsets(StructOffsets) {}
+          Index(Index), DimType(DimType), DimElementType(DimElementType),
+          StructOffsets(StructOffsets) {}
     DimInfo(const DimInfo &) = default;
   };
 
@@ -1478,11 +1486,12 @@ private:
     unsigned short OffsetsBegin;
     unsigned short OffsetsEnd;
     Type *DimType;
+    Type *DimElementType;
 
     DimInfoWithoutOperands(const DimInfo &Dim, unsigned short OffsetsBegin,
                            unsigned short OffsetsEnd)
         : Rank(Dim.Rank), OffsetsBegin(OffsetsBegin), OffsetsEnd(OffsetsEnd),
-          DimType(Dim.DimType) {
+          DimType(Dim.DimType), DimElementType(Dim.DimElementType) {
       assert((size_t)(OffsetsEnd - OffsetsBegin) == Dim.StructOffsets.size() &&
              "Lost struct offset!");
     }
@@ -1549,6 +1558,7 @@ public:
             StrideInBytes,
             Index,
             D.DimType,
+            D.DimElementType,
             ArrayRef<unsigned>(StructOffsetsStorage)
                 .slice(D.OffsetsBegin, D.OffsetsEnd - D.OffsetsBegin)};
   }

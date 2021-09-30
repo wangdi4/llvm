@@ -32,7 +32,7 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPLAN-IR-NEXT:     i64 [[VP1:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ]
 ; VPLAN-IR-NEXT:     i32 [[VP3:%.*]] = trunc i64 [[VP1]] to i32
 ; VPLAN-IR-NEXT:     i32 [[VP4:%.*]] = mul i32 10 i32 [[VP3]]
-; VPLAN-IR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds %struct.A* [[ARR0:%.*]] {i64 0 : i64 0 : i64 16 : %struct.A*} {i64 0 : i64 [[VP1]] : i64 8 : %struct.A* (1 )}
+; VPLAN-IR-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds %struct.A* [[ARR0:%.*]] {i64 0 : i64 0 : i64 16 : %struct.A*(%struct.A)} {i64 0 : i64 [[VP1]] : i64 8 : %struct.A*(%struct.A) (1 )}
 ; VPLAN-IR-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT]]
 ; VPLAN-IR-NEXT:     i64 [[VP2]] = add i64 [[VP1]] i64 1
 ; VPLAN-IR-NEXT:     i1 [[VP5:%.*]] = icmp sle i64 [[VP2]] i64 1023

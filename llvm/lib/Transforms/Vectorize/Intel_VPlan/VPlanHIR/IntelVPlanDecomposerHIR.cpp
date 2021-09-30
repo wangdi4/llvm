@@ -576,7 +576,8 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
       auto HIRDimOffsets = Ref->getTrailingStructOffsets(I);
 
       Dimensions.emplace_back(I - 1, DecompLower, DecompStride, DecompIndex,
-                              Ref->getDimensionType(I), HIRDimOffsets);
+                              Ref->getDimensionType(I),
+                              Ref->getDimensionElementType(I), HIRDimOffsets);
     }
     auto *Subscript = Builder.create<VPSubscriptInst>(
         "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
