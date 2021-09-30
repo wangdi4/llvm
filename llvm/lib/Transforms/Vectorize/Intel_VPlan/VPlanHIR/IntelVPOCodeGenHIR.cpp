@@ -3852,8 +3852,7 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
     AuxRefs.insert(AuxRefs.end(), {Idx, Lower, Stride});
     ArrayRef<unsigned> StructOffsets = DimInfo.StructOffsets;
     Type *DimTy = DimInfo.DimType;
-    Type *DimElemTy = isa<ArrayType>(DimTy) ? DimTy->getArrayElementType()
-                                            : DimTy->getPointerElementType();
+    Type *DimElemTy = DimInfo.DimElementType;
     NewRef->addDimension(Idx->getSingleCanonExpr(), StructOffsets,
                          Lower->getSingleCanonExpr(),
                          Stride->getSingleCanonExpr(), DimTy, DimElemTy);
