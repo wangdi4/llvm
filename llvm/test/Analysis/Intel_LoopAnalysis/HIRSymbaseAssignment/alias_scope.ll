@@ -28,9 +28,9 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %q.addr.03 = phi i32* [ %q, %for.body.lr.ph ], [ %incdec.ptr, %for.inc ]
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
   %incdec.ptr = getelementptr inbounds i32, i32* %q.addr.03, i32 1
-  %0 = load i32, i32* %q.addr.03, align 4, !alias.scope !1, !noalias !2
+  %0 = load i32, i32* %q.addr.03, align 4, !alias.scope !901, !noalias !902
   %incdec.ptr1 = getelementptr inbounds i32, i32* %p.addr.04, i32 1
-  store i32 %0, i32* %p.addr.04, align 4, !alias.scope !2, !noalias !1
+  store i32 %0, i32* %p.addr.04, align 4, !alias.scope !902, !noalias !901
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
@@ -48,5 +48,7 @@ for.end:                                          ; preds = %for.cond.for.end_cr
 attributes #0 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !0 = !{!0}
+!901 = !{!1}
 !1 = !{!1, !0}
+!902 = !{!2}
 !2 = !{!2, !0}
