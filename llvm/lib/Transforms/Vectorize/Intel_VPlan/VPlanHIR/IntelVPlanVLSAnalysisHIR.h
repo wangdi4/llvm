@@ -54,8 +54,6 @@ public:
                       const DataLayout &DL, TargetTransformInfo *TTI)
       : VPlanVLSAnalysis(/*MainLoop=*/nullptr, Context, DL, TTI), DDA(DDA) {}
 
-  static bool isUnitStride(const RegDDRef *Ref, unsigned Level);
-
   ~VPlanVLSAnalysisHIR() {}
 };
 
