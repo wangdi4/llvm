@@ -48155,15 +48155,13 @@ static SDValue combineAnd(SDNode *N, SelectionDAG &DAG,
   if (SDValue R = combineBitOpWithMOVMSK(N, DAG))
     return R;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
     return R;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
->>>>>>> 74ba4b769ad9a5d7ba381ebc80fa8ced7d658451
 
   if (DCI.isBeforeLegalizeOps())
     return SDValue();
@@ -48531,15 +48529,13 @@ static SDValue combineOr(SDNode *N, SelectionDAG &DAG,
   if (SDValue R = combineBitOpWithMOVMSK(N, DAG))
     return R;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
     return R;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
->>>>>>> 74ba4b769ad9a5d7ba381ebc80fa8ced7d658451
 
   if (DCI.isBeforeLegalizeOps())
     return SDValue();
@@ -51329,15 +51325,13 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
   if (SDValue R = combineBitOpWithMOVMSK(N, DAG))
     return R;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
     return R;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
->>>>>>> 74ba4b769ad9a5d7ba381ebc80fa8ced7d658451
 
   if (DCI.isBeforeLegalizeOps())
     return SDValue();
@@ -51387,10 +51381,6 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
     }
   }
 
-<<<<<<< HEAD
-  if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, Subtarget))
-    return FPLogic;
-
 #if INTEL_CUSTOMIZATION
   if (SDValue V = combineBitSelectXor(N, DAG, Subtarget))
     return V;
@@ -51399,8 +51389,6 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
     return V;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 74ba4b769ad9a5d7ba381ebc80fa8ced7d658451
   return combineFneg(N, DAG, DCI, Subtarget);
 }
 
