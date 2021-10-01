@@ -2,14 +2,10 @@
 ; RUN: -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-array-methods>)' \
 ; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
 ; RUN:        -debug-only=dtrans-soatoaos,dtrans-soatoaos-arrays                                            \
-; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
-; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
 ; RUN:        2>&1 | FileCheck %s
 ; RUN: opt -S < %s -whole-program-assume                                                                    \
 ; RUN:        -passes=soatoaos-arrays-methods-transform                                                     \
 ; RUN:        -dtrans-soatoaos-base-ptr-off=3 -dtrans-soatoaos-mem-off=4                                    \
-; RUN:        -dtrans-malloc-functions=class.XMLMsgLoader,2                                                 \
-; RUN:        -dtrans-free-functions=class.XMLMsgLoader,3                                                   \
 ; RUN:        | FileCheck --check-prefix=CHECK-MOD %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

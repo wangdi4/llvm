@@ -1075,8 +1075,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       return STRUCT_ACCESS;
     }
 
+    // Allow fake ref if canUsePointeeSize is set.
     if (std::any_of(Groups[I].begin(), Groups[I].end(),
-                    [](const RegDDRef *Ref) { return Ref->isFake(); })) {
+                    [](const RegDDRef *Ref) {
+                      return (Ref->isFake() && !Ref->canUsePointeeSize());
+                    })) {
       return UNKNOWN_ADDR_RANGE;
     }
 

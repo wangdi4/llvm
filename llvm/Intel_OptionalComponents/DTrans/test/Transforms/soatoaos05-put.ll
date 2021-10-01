@@ -1,18 +1,12 @@
 ; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-deps          \
 ; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>)'            \
-; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
 ; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
-; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP %s
 ; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-deps          \
 ; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>)'            \
-; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
 ; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
-; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
 ; RUN: opt < %s -whole-program-assume -disable-output                                           \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
@@ -21,11 +15,8 @@
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
 ; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
-; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
 ; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
-; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:          -dtrans-soatoaos-method-call-site-comparison=ctor                               \
 ; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"           \
 ; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<DatatypeValidator*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"  \
@@ -40,11 +31,8 @@
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \
 ; RUN:          -dtrans-soatoaos-base-ptr-off=3                                                 \
-; RUN:          -dtrans-malloc-functions=class.XMLMsgLoader,2                                   \
 ; RUN:          -dtrans-malloc-functions="XMemory::operator new(unsigned long_ MemoryManager*)" \
-; RUN:          -dtrans-free-functions=class.XMLMsgLoader,3                                     \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*_ MemoryManager*)"        \
-; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:          -dtrans-soatoaos-method-call-site-comparison=ctor                               \
 ; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<IC_Field*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"           \
 ; RUN:          -dtrans-soatoaos-array-ctor="ValueVectorOf<DatatypeValidator*>::ValueVectorOf(unsigned int, MemoryManager*, bool)"  \

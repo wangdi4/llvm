@@ -4828,10 +4828,16 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   //  Number of dimemsion are different or different base: need to bail out,
   //  except for IVDEP
-  if (TestingMemRefs &&
-      (!EqualBaseAndShape || SrcRegDDRef->isFake() || DstRegDDRef->isFake())) {
-    adjustDV(Result, EqualBaseAndShape, SrcRegDDRef, DstRegDDRef);
-    return std::make_unique<Dependences>(Result);
+  if (TestingMemRefs) {
+    // Refine fake-to-real refs edge if canUsePointeeSize is set for fake ref.
+    bool SrcBadFakeRef =
+        SrcRegDDRef->isFake() && !SrcRegDDRef->canUsePointeeSize();
+    bool DstBadFakeRef =
+        DstRegDDRef->isFake() && !DstRegDDRef->canUsePointeeSize();
+    if (!EqualBaseAndShape || SrcBadFakeRef || DstBadFakeRef) {
+      adjustDV(Result, EqualBaseAndShape, SrcRegDDRef, DstRegDDRef);
+      return std::make_unique<Dependences>(Result);
+    }
   }
 
   if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
