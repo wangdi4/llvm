@@ -1349,6 +1349,8 @@ tryInstructionTransform(MachineBasicBlock::iterator &mi,
               if (MO.isReg())
                 OrigRegs.push_back(MO.getReg());
             }
+
+            LIS->RemoveMachineInstrFromMaps(MI);
           }
 
           MI.eraseFromParent();
@@ -1786,6 +1788,9 @@ eliminateRegSequence(MachineBasicBlock::iterator &MBBI) {
     for (int j = MI.getNumOperands() - 1, ee = 0; j > ee; --j)
       MI.RemoveOperand(j);
   } else {
+    if (LIS)
+      LIS->RemoveMachineInstrFromMaps(MI);
+
     LLVM_DEBUG(dbgs() << "Eliminated: " << MI);
     MI.eraseFromParent();
   }
