@@ -1,4 +1,13 @@
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence
 #
+<<<<<<< HEAD
 * @mlychkov @Chenyang-L
+=======
+* @intel-restricted/xmain-gatekeeper
+
+
+
+
+
+>>>>>>> b070b8d24abba8b472c0ac474f0fc5ab7d146ade
