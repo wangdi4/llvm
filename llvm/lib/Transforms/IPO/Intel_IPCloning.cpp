@@ -2388,18 +2388,18 @@ private:
   typedef std::pair<unsigned, Value *> AVTy;
   typedef std::vector<AVTy> AVVecTy;
   typedef std::pair<unsigned, Function *> AFTy;
-  typedef DenseMap<AFTy, AVVecTy> ACSFMapTy;
-  typedef DenseMap<unsigned, AVVecTy> CFAASTy;
-  typedef DenseMap<CallInst *, ACSFMapTy> CBMapTy;
+  typedef MapVector<AFTy, AVVecTy> ACSFMapTy;
+  typedef std::map<unsigned, AVVecTy> CFAASTy;
+  typedef MapVector<CallInst *, ACSFMapTy> CBMapTy;
   typedef std::vector<CBMapTy> CBVecTy;
-  typedef DenseMap<CallInst *, unsigned> CBIMapTy;
+  typedef MapVector<CallInst *, unsigned> CBIMapTy;
 
   // Local objects
   Function &F;     // Primary function being cloned
   CFAASTy CFAAS;   // Complete version of FunctionAllArgumentsSets
   CBVecTy CBVec;   // Vector of maps from primary clone arg sets to
                    //   arg sets of callback functions
-  SmallPtrSet<Function *, 2> CBCloneSet; // Callback functions eligible to
+  SmallSetVector<Function *, 2> CBCloneSet; // Callback functions eligible to
                                          // be cloned
 
   // Private functions
@@ -2626,7 +2626,7 @@ void CallbackCloner::createCBIMap(Function &F, CBIMapTy &CBIMap) {
 // Use the 'CBIMap' to create a clone of the callback function 'F'.
 //
 void CallbackCloner::cloneCallbackFunction(Function &F, CBIMapTy &CBIMap) {
-  DenseMap<unsigned, Function *> FCloneMap;
+  MapVector<unsigned, Function *> FCloneMap;
   for (auto I = CBIMap.begin(), IE = CBIMap.end(); I != IE; ++I) {
     CallInst *CB = I->first;
     unsigned Index = I->second;
@@ -2672,7 +2672,7 @@ void CallbackCloner::cloneCallbackFunction(Function &F, CBIMapTy &CBIMap) {
 void CallbackCloner::cloneCallbackFunctions() {
   for (auto I = CBCloneSet.begin(), E = CBCloneSet.end(); I != E; ++I) {
     Function *F = *I;
-    DenseMap<CallInst *, unsigned> CBIMap;
+    MapVector<CallInst *, unsigned> CBIMap;
     createCBIMap(*F, CBIMap);
     cloneCallbackFunction(*F, CBIMap);
   }
