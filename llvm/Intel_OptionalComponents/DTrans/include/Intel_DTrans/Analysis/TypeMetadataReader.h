@@ -83,7 +83,11 @@ public:
   // "dtrans_types", to identify all the original field types of the structure
   // types. This will return 'true' if metadata was available, and all the
   // structure types were able to be resolved.
-  bool initialize(Module &M);
+  //
+  // If StrictCheck is true, then the process for checking the metadata will
+  // assert if any metadata is lost. Else, it will only assert for a structure
+  // where has an opaque pointer type and the metadata is lost.
+  bool initialize(Module &M, bool StrictCheck = true);
 
   // If the Value has DTrans type metadata that can be decoded, return the
   // DTransType, otherwise nullptr.
