@@ -160,18 +160,11 @@ public:
                     int T = -1, bool AllowCFGSimps = true);       // INTEL
 
   // Glue for old PM.
-<<<<<<< HEAD
-  bool runImpl(Function &F, TargetLibraryInfo *TLI, LazyValueInfo *LVI,
-               AAResults *AA, DomTreeUpdater *DTU, bool HasProfileData,
-               std::unique_ptr<BlockFrequencyInfo> BFI_,
-               std::unique_ptr<BranchProbabilityInfo> BPI_,  // INTEL
-               PostDominatorTree *PDT_);                     // INTEL
-=======
   bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
-               bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI,
-               std::unique_ptr<BranchProbabilityInfo> BPI);
->>>>>>> 1e9afab875696ebf1a8abb5637f04735411ee0b7
+               bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI_,
+               std::unique_ptr<BranchProbabilityInfo> BPI_,  // INTEL
+               PostDominatorTree *PDT_);                     // INTEL
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
