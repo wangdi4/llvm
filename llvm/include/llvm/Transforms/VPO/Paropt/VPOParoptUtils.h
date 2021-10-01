@@ -1072,9 +1072,22 @@ public:
   static Value *cloneInstructions(Value *V, Instruction *InsertPt);
 
   /// Generate the pointer pointing to the head of the array.
-  static Value *genArrayLength(Value *AI, Value *BaseAddr,
-                               Instruction *InsertPt, IRBuilder<> &Builder,
-                               Type *&ElementTy, Value *&ArrayBegin);
+  /// \param [in] ObjTy Either the array's type or the element type.
+  /// \param [in] NumElements Number of elements of \p ObjTy type in the array.
+  /// \param [in] BaseAddr Base address of the array.
+  /// \param [in] Builder IRBuilder for any new Instructions.
+  /// \returns a \b tuple of <ElementType, NumElements, BaseAddress>,
+  /// where \p ElementType is the element type of the array,
+  /// \p NumElements is the number of elements in the array, and
+  /// \p BaseAddress is the base address of the array.
+  ///
+  /// \p ObjTy and \p NumElements represent the array configuration,
+  /// and there are only two supported configurations:
+  ///   1. \p ObjTy is an array type, and \p NumElements is either nullptr
+  ///      or ConstantInt value 1.
+  ///   2. \p ObjTy is a non-array type.
+  static std::tuple<Type *, Value *, Value *> genArrayLength(
+      Type *ObjTy, Value *NumElements, Value *BaseAddr, IRBuilder<> &Builder);
 
   static Value *genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                  unsigned AddrSpace);

@@ -361,25 +361,43 @@ private:
                      Function *Cctor = nullptr, bool IsByRef = false);
 
   /// For array constructor/destructor/copy assignment/copy constructor loop,
-  /// get the base address of the destination array, number of elements, and
-  /// destination element type.
-  /// \param [in] SrcVal Source value for copy assignment/copy constructor.
-  /// \param [in] DestVal Destination value for constructor/destructor/copy
-  /// assign/copy constructor.
-  /// \param [in] InsertPt Insert point for any Instructions to be inserted.
-  /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
-  /// \param [out] NumElements Number of elements in the array.
-  /// \param [out] SrcArrayBegin Base address of the source array.
-  /// \param [out] DestArrayBegin Base address of the destination array.
-  /// \param [out] DestElementTy Type of each element of the array.
-  void genPrivAggregateSrcDstInfo(Value *SrcVal, Value *DestVal,
-                                  Instruction *InsertPt, IRBuilder<> &Builder,
-                                  Value *&NumElements, Value *&SrcArrayBegin,
-                                  Value *&DestArrayBegin, Type *&DestElementTy);
+  /// get the base address of the array, number of elements, and element type.
+  /// \param [in] ObjTy Either the array's type or the element type.
+  /// \param [in] NumElements Number of elements of \p ObjTy type in the array.
+  /// \param [in] BaseAddr Base address of the array.
+  /// \param [in] Builder IRBuilder for any new Instructions.
+  /// \returns a \b tuple of <ElementType, NumElements, BaseAddress>,
+  /// where \p ElementType is the element type of the array,
+  /// \p NumElements is the number of elements in the array, and
+  /// \p BaseAddress is the base address of the array properly casted.
+  ///
+  /// \p ObjTy and \p NumElements represent the array configuration,
+  /// and there are only two supported configurations:
+  ///   1. \p ObjTy is an array type, and \p NumElements is either nullptr
+  ///      or ConstantInt value 1.
+  ///   2. \p ObjTy is a non-array type.
+  std::tuple<Type *, Value *, Value *> genPrivAggregatePtrInfo(
+      Type *ObjTy, Value *NumElements, Value *BaseAddr, IRBuilder<> &Builder);
 
-  /// Generate the constructor/destructor/copy assignment/copy constructor for
-  /// privatized arrays.
+  /// Generate the constructor/destructor/copy assignment/copy constructor call
+  /// for a privatized array.
+  /// \param [in] Fn Function that needs to be called.
+  /// \param [in] FuncKind Kind of the action performed by \p Fn, which
+  /// defines the call signature.
+  /// \param [in] ObjTy Either the array's type or the element type.
+  /// \param [in] NumElements Number of elements of \p ObjTy type in the array.
+  /// \param [in] DestVal Base address of the destination array.
+  /// \param [in] SrcVal Base address of the source array.
+  /// \param [in] InsertPt Insert point for any Instructions to be inserted.
+  /// \param [in] DT DominatorTree that needs to be updated, if not nullptr.
+  ///
+  /// \p ObjTy and \p NumElements represent the array configuration,
+  /// and there are only two supported configurations:
+  ///   1. \p ObjTy is an array type, and \p NumElements is either nullptr
+  ///      or ConstantInt value 1.
+  ///   2. \p ObjTy is a non-array type.
   void genPrivAggregateInitOrFini(Function *Fn, FunctionKind FuncKind,
+                                  Type *ObjTy, Value *NumElements,
                                   Value *DestVal, Value *SrcVal,
                                   Instruction *InsertPt, DominatorTree *DT);
 
@@ -454,27 +472,6 @@ private:
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
   static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
-
-  /// Generate an optionally addrspacecast'ed pointer Value for the local copy
-  /// of \p OrigValue with \p OrigElemTy Element Type, with \p NameSuffix
-  /// appended at the end of its name. If new instructions need to be generated,
-  /// they will be inserted before \p InsertPt. \p AllocaAddrSpace specifies
-  /// address space in which the memory for the privatized variable needs to be
-  /// allocated. If it is llvm::None, then the address space matches the default
-  /// alloca's address space, as specified by DataLayout. Note that some address
-  /// spaces may require allocating the private version of the variable
-  /// as a GlobalVariable, not as an AllocaInst.
-  /// If \p PreserveAddressSpace is true, then the generated Value
-  /// will be addrspacecast'ed to match the addrspace of the \p OrigValue,
-  /// otherwise, the generated Value will have the addrspace, as specified
-  /// by \p AllocaAddrSpace.
-  //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
-  //         supports AddrSpaceCastInst.
-  Value *
-  genPrivatizationAlloca(Value *OrigValue, Type *OrigElemTy,
-                         Instruction *InsertPt, const Twine &NameSuffix = "",
-                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-                         bool PreserveAddressSpace = true) const;
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
