@@ -20,7 +20,6 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 
-#include "llvm/ADT/SetVector.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -89,11 +88,6 @@ Function *getCalledFunction(const CallBase &Call);
 // Helper function to check whether \p Ty is a pointer type, or contains a
 // reference to a pointer type.
 bool hasPointerType(llvm::Type *Ty);
-
-// Helper function that checks if at least one field in the structure \p StTy
-// is an opaque pointer type, or if it contains a reference to an opaque
-// pointer.
-bool hasOpaquePointerFields(llvm::StructType *StTy);
 
 // Return 'true' if the value is only used as the destination pointer of memset
 // calls.

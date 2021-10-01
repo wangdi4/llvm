@@ -1490,53 +1490,6 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
   return false;
 }
 
-// Helper function that checks if at least one field in the structure StTy
-// is an opaque pointer type, or if it contains a reference to an opaque
-// pointer.
-bool dtrans::hasOpaquePointerFields(llvm::StructType *StTy) {
-  assert(StTy && "Trying to access the information in a null type");
-
-  // Return true if the input type is an opaque pointer
-  std::function<bool(llvm::Type *, llvm::SetVector<Type *>&)>
-      hasOpaquePointerType = [&hasOpaquePointerType](llvm::Type *Ty,
-      llvm::SetVector<Type *> &Visited) -> bool {
-
-    // If the type was visited then return false, there is nothing to check
-    if (!Visited.insert(Ty))
-      return false;
-
-    // If the input type is a pointer then return true if it is opaque, else
-    // return false.
-    if (Ty->isPointerTy())
-      return Ty->isOpaquePointerTy();
-
-    // If the input type is an array or a vector, then check the element
-    else if (Ty->isArrayTy())
-      return hasOpaquePointerType(cast<ArrayType>(Ty)->getElementType(),
-                                  Visited);
-
-    else if (Ty->isVectorTy())
-      return hasOpaquePointerType(cast<VectorType>(Ty)->getElementType(),
-                                  Visited);
-
-    // If the input type is a structure, then check the fields
-    else if (auto *StTy = dyn_cast<StructType>(Ty))
-      for (auto *ElemTy : StTy->elements())
-        if(hasOpaquePointerType(ElemTy, Visited))
-          return true;
-
-    // No need to check for function pointers because they are pointers
-    return false;
-  };
-
-  // No need to call the recursion when there are no elements
-  if (StTy->isOpaque() || StTy->getNumElements() == 0)
-    return false;
-
-  SetVector<Type *> Visited;
-  return hasOpaquePointerType(cast<Type>(StTy), Visited);
-}
-
 // If the loaded operand comes from a BitCast that points to a structure then
 // then there is a chance that is loading the Zero element. For example,
 // consider the following types:
