@@ -77,7 +77,7 @@
 // transformation only in specific cases using the heuristics.
 //===----------------------------------------------------------------------===//
 #include "Intel_DTrans/Transforms/CommuteCond.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/IR/InstVisitor.h"
@@ -137,33 +137,52 @@ public:
   }
 };
 
-} // end anonymous namespace
+// This pass is treated as ModulePass even though it is not necessary to
+// avoid running FunctionPass in the middle of all other DTrans ModulePasses.
+// Legacy pass manager wrapper for invoking the CommuteCond pass.
+class DTransCommuteCondOPWrapper : public ModulePass {
+private:
+  dtransOP::CommuteCondOPPass Impl;
 
-char DTransCommuteCondWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransCommuteCondWrapper, "dtrans-commutecond",
-                      "DTrans CommuteCond", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransCommuteCondWrapper, "dtrans-commutecond",
-                    "DTrans CommuteCond", false, false)
-
-ModulePass *llvm::createDTransCommuteCondWrapperPass() {
-  return new DTransCommuteCondWrapper();
-}
-
-namespace llvm {
-
-namespace dtrans {
-
-class CommuteCondImpl : public InstVisitor<CommuteCondImpl> {
 public:
-  CommuteCondImpl(DTransAnalysisInfo &DTInfo) : DTInfo(DTInfo){};
+  static char ID;
+  DTransCommuteCondOPWrapper() : ModulePass(ID) {
+    initializeDTransCommuteCondOPWrapperPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnModule(Module &M) override {
+    if (skipModule(M))
+      return false;
+
+    auto &DTAnalysisWrapper =
+        getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
+    dtransOP::DTransSafetyInfo &DTInfo =
+        DTAnalysisWrapper.getDTransSafetyInfo(M);
+
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
+
+    return Impl.runImpl(M, DTInfo, WPInfo);
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
+    AU.addRequired<WholeProgramWrapperPass>();
+    // Swapping operands of AND should not invalidate any analysis.
+    AU.setPreservesAll();
+  }
+};
+
+template <class InfoClass>
+class CommuteCondImpl : public InstVisitor<CommuteCondImpl<InfoClass>> {
+public:
+  CommuteCondImpl(InfoClass &DTInfo) : DTInfo(DTInfo){};
   void visitAnd(Instruction &I) { processAndInst(I); }
   void visitSelect(SelectInst &I) { processSelectInst(I); }
   bool transform(void);
 
 private:
-  DTransAnalysisInfo &DTInfo;
+  InfoClass &DTInfo;
 
   // Transformations will be applied for all instructions in this set. Only
   // "And" and "Select" instructions are added to this set currently.
@@ -181,7 +200,8 @@ private:
 //   2. Set of possible constant values for the field is complete
 //   3. Number of possible constant values doesn't exceed
 //   MaxPossibleConstantsAllowed
-bool CommuteCondImpl::checkHeuristics(Value *Val) {
+template <class InfoClass>
+bool CommuteCondImpl<InfoClass>::checkHeuristics(Value *Val) {
 
   // Ignore heuristic if DTransCommuteCondIgnoreHeuristic is true.
   if (DTransCommuteCondIgnoreHeuristic)
@@ -192,10 +212,10 @@ bool CommuteCondImpl::checkHeuristics(Value *Val) {
     return false;
 
   auto LdInfo = DTInfo.getLoadElement(Load);
-  Type *STy = dyn_cast_or_null<llvm::StructType>(LdInfo.first);
+  StructType *STy = dyn_cast_or_null<llvm::StructType>(LdInfo.first);
   if (!STy)
     return false;
-  auto *StInfo = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(STy));
+  dtrans::StructInfo *StInfo = DTInfo.getStructTypeInfo(STy);
   dtrans::FieldInfo &FI = StInfo->getField(LdInfo.second);
 
   // Don't allow non-integer types.
@@ -229,7 +249,8 @@ bool CommuteCondImpl::checkHeuristics(Value *Val) {
 //      %cmp3 = icmp eq i16 %ident, C2
 //      br i1 %cmp3, label %l.end.true, label %l.end.false
 //
-bool CommuteCondImpl::commuteOperandsOkay(Instruction &I, Value *Op0,
+template <class InfoClass>
+bool CommuteCondImpl<InfoClass>::commuteOperandsOkay(Instruction &I, Value *Op0,
                                           Value *Op1) {
   auto *AndOp0 = dyn_cast<ICmpInst>(Op0);
   auto *AndOp1 = dyn_cast<ICmpInst>(Op1);
@@ -302,7 +323,8 @@ bool CommuteCondImpl::commuteOperandsOkay(Instruction &I, Value *Op0,
 // operands can be swapped.
 // Ex:
 //    %and1 = and i1 %cmp1, %cmp2
-void CommuteCondImpl::processAndInst(Instruction &I) {
+template <class InfoClass>
+void CommuteCondImpl<InfoClass>::processAndInst(Instruction &I) {
   if (!commuteOperandsOkay(I, I.getOperand(0), I.getOperand(1)))
     return;
   InstructionsToCommute.insert(&I);
@@ -312,7 +334,8 @@ void CommuteCondImpl::processAndInst(Instruction &I) {
 // can be swapped.
 // Ex:
 //    %sel1 = select i1 %cmp1, %cmp2, false
-void CommuteCondImpl::processSelectInst(SelectInst &SI) {
+template <class InfoClass>
+void CommuteCondImpl<InfoClass>::processSelectInst(SelectInst &SI) {
   // Check FalseValue of SI is false.
   Value *FalseVal = SI.getFalseValue();
   Type *Ty = FalseVal->getType();
@@ -330,7 +353,7 @@ void CommuteCondImpl::processSelectInst(SelectInst &SI) {
 
 // Swap operands of all "And" and "Select" instructions in
 // "InstructionsToCommute".
-bool CommuteCondImpl::transform() {
+template <class InfoClass> bool CommuteCondImpl<InfoClass>::transform() {
   if (InstructionsToCommute.empty())
     return false;
 
@@ -359,6 +382,10 @@ bool CommuteCondImpl::transform() {
   return true;
 }
 
+} // end anonymous namespace
+
+namespace llvm {
+namespace dtrans {
 PreservedAnalyses CommuteCondPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
@@ -380,7 +407,8 @@ bool CommuteCondPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
     return false;
 
   LLVM_DEBUG(dbgs() << "DTRANS CommuteCond: Started\n");
-  CommuteCondImpl RCImpl(DTInfo);
+  DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
+  CommuteCondImpl<DTransAnalysisInfoAdapter> RCImpl(AIAdaptor);
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
@@ -394,4 +422,70 @@ bool CommuteCondPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 }
 
 } // end namespace dtrans
+
+namespace dtransOP {
+
+PreservedAnalyses CommuteCondOPPass::run(Module &M, ModuleAnalysisManager &AM) {
+  DTransSafetyInfo *DTransInfo = &AM.getResult<DTransSafetyAnalyzer>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
+  runImpl(M, *DTransInfo, WPInfo);
+
+  // Swapping operands of AND should not invalidate any analysis.
+  return PreservedAnalyses::all();
+}
+
+bool CommuteCondOPPass::runImpl(Module &M, DTransSafetyInfo &DTInfo,
+                                WholeProgramInfo &WPInfo) {
+
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
+    return false;
+
+  if (!DTInfo.useDTransSafetyAnalysis())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "DTRANS CommuteCondOP: Started\n");
+  DTransSafetyInfoAdapter SIAdaptor(DTInfo);
+  CommuteCondImpl<DTransSafetyInfoAdapter> RCImpl(SIAdaptor);
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
+    RCImpl.visit(F);
+  }
+  bool Changed = RCImpl.transform();
+  if (!Changed)
+    LLVM_DEBUG(dbgs() << "DTRANS CommuteCondOP: No transformations\n");
+
+  return Changed;
+}
+
+} // end namespace dtransOP
+
 } // end namespace llvm
+
+char DTransCommuteCondWrapper::ID = 0;
+INITIALIZE_PASS_BEGIN(DTransCommuteCondWrapper, "dtrans-commutecond",
+                      "DTrans CommuteCond", false, false)
+INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(DTransCommuteCondWrapper, "dtrans-commutecond",
+                    "DTrans CommuteCond", false, false)
+
+ModulePass *llvm::createDTransCommuteCondWrapperPass() {
+  return new DTransCommuteCondWrapper();
+}
+
+char DTransCommuteCondOPWrapper::ID = 0;
+INITIALIZE_PASS_BEGIN(DTransCommuteCondOPWrapper, "dtrans-commutecondop",
+                      "DTrans CommuteCond with opaque pointer support",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(DTransCommuteCondOPWrapper, "dtrans-commutecondop",
+                    "DTrans CommuteCond with opaque pointer support",
+                    false, false)
+
+ModulePass *llvm::createDTransCommuteCondOPWrapperPass() {
+  return new DTransCommuteCondOPWrapper();
+}
