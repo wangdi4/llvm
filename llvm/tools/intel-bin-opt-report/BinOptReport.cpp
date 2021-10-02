@@ -97,7 +97,8 @@ struct AnchorTabEntry {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const {
-    OS << "Anchor ID:\t" << AnchorID << "\t---->\t" << AnchorAddr << "\n";
+    OS << "Anchor ID:\t" << StringRef(AnchorID, sizeof(AnchorID)) << "\t---->\t"
+       << AnchorAddr << "\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
@@ -213,7 +214,7 @@ static void parseSection(const SectionRef *Scn) {
       auto EntryAnchorIDBegin = CurrSubScn + EntryOffset;
       auto EntryAnchorIDEnd = EntryAnchorIDBegin + Header.AnchorIDLen;
       std::string AnchorID(EntryAnchorIDBegin, EntryAnchorIDEnd);
-      std::strcpy(Entry.AnchorID, AnchorID.c_str());
+      std::strncpy(Entry.AnchorID, AnchorID.c_str(), sizeof(Entry.AnchorID));
       // Compute anchor address offset for current entry.
       unsigned EntryAnchorAddrOffset = EntryOffset + Header.AnchorIDLen;
       std::memcpy(&Entry.AnchorAddr, &*CurrSubScn + EntryAnchorAddrOffset,
@@ -353,7 +354,7 @@ int main(int argc, const char **argv) {
   if (ParsedSubScns.empty())
     error("Unable to parse .debug_opt_report section");
 
-  for (auto ParsedScn : ParsedSubScns) {
+  for (auto &ParsedScn : ParsedSubScns) {
     opt_report_proto::BinOptReport BOR = deserializeMsg(ParsedScn.PBMsgStream);
 
     writeReport(BOR);

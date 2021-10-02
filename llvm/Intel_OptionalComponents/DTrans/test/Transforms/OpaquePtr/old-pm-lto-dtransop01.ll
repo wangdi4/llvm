@@ -10,6 +10,7 @@
 ; RUN:     -dtrans-opaque-pointer-pipeline 2>&1 \
 ; RUN:     | FileCheck %s
 
+; CHECK: Executing Pass 'DTrans CommuteCond with opaque pointer support'
 ; CHECK: Executing Pass 'DTrans delete field with opaque pointer support'
 ; CHECK: Executing Pass 'DTrans array of structures to structure of arrays with opaque pointer support'
 ; CHECK: Executing Pass 'DTrans eliminate read only field access'

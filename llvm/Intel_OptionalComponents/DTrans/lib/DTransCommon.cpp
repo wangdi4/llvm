@@ -220,6 +220,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransCodeAlignWrapperPass(PR);
   initializeDTransTransposeWrapperPass(PR);
   initializeDTransCommuteCondWrapperPass(PR);
+  initializeDTransCommuteCondOPWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOPOptBaseTestWrapperPass(PR);
@@ -277,6 +278,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
     addPass(MPM, dynclone, dtrans::DynClonePass());
   } else {
+    addPass(MPM, commutecond, dtransOP::CommuteCondOPPass());
     addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
     addPass(MPM, aostosoa, dtransOP::AOSToSOAOPPass());
     addPass(MPM, elimrofieldaccess, dtransOP::EliminateROFieldAccessPass());
@@ -336,6 +338,7 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
             createDTransEliminateROFieldAccessWrapperPass());
     addPass(PM, dynclone, createDTransDynCloneWrapperPass());
   } else {
+    addPass(PM, commutecond, createDTransCommuteCondOPWrapperPass());
     addPass(PM, deletefield, createDTransDeleteFieldOPWrapperPass());
     addPass(PM, aostosoa, createDTransAOSToSOAOPWrapperPass());
     addPass(PM, elimrofieldaccess,
@@ -405,6 +408,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransCodeAlignWrapperPass();
   (void)llvm::createDTransTransposeWrapperPass();
   (void)llvm::createDTransCommuteCondWrapperPass();
+  (void)llvm::createDTransCommuteCondOPWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();

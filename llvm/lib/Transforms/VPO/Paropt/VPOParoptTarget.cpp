@@ -2684,7 +2684,6 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
 
     Value *OrigV = UDPI->getOrig();
-    Type *OrigElemTy = UDPI->getOrigElemType();
 
     Value *GepCast = Builder.CreateBitOrPointerCast(
         BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
@@ -2695,22 +2694,23 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
                            OrigV->getName() + ".updated.val"); //           (4)
     Value *NewV = UpdatedUDPVal;
     if (UDPI->getIsPointerToPointer()) {
-      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+      NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
                                     ".new");                        //      (2)
       Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
     }
 # if INTEL_CUSTOMIZATION
     else if (UDPI->getIsF90DopeVector()) {
-      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+      NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
                                     ".new"); //                             (2)
       genCopyByAddr(UDPI, NewV, OrigV, &*Builder.GetInsertPoint()); //      (7)
       auto *Zero = Builder.getInt32(0);
+      Type *OrigElemTy = UDPI->getOrigElemType();
       auto *Addr0GEP =
           Builder.CreateInBoundsGEP(OrigElemTy, NewV, {Zero, Zero}, //      (8)
                                     NewV->getName() + ".addr0");
       Builder.CreateStore(UpdatedUDPVal, Addr0GEP); //                      (5)
     } else if (UDPI->getIsCptr()) {
-      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+      NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
                                     ".new"); //                             (2)
       PointerType *Int8PtrPtrTy = Builder.getInt8PtrTy()->getPointerTo();
       auto *NewVCast = Builder.CreateBitOrPointerCast(

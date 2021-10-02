@@ -322,9 +322,16 @@ void DTransStructType::print(raw_ostream &OS, bool Detailed) const {
   if (getReconstructError())
     OS << "Metadata mismatch: ";
 
-  // For compatibility with the way struct names are printed for
-  // llvm::StructType, some names will be quoted.
-  auto ShouldQuoteName = [](StringRef S) { return S.contains(':'); };
+  // For compatibility with the way llvm::StructType names are printed, names
+  // with certain non-alpha numeric characters will be quoted.
+  auto ShouldQuoteName = [](StringRef S) {
+    for (auto C : S)
+      if (!isalnum(static_cast<unsigned char>(C)) && C != '-' && C != '.' &&
+          C != '_')
+        return true;
+    return false;
+  };
+
   bool IsLiteral = isLiteralStruct();
   if (!IsLiteral) {
     assert(hasName() && "Non-literal structs should have names");

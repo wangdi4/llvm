@@ -2021,8 +2021,8 @@ bool VPOParoptTransform::paroptTransforms() {
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
           Changed |= genDestructorCode(W);
+          Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -4409,11 +4409,7 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
          "genFastRedCopy: Expect isOMPItemLocalVAR().");
   Type *AllocaTy;
   Value *NumElements;
-  // TODO: OPAQUEPOINTER: Replace the use of getElemenType() with the
-  // approproiate logic.
-  std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
-          Src, Src->getType()->getPointerElementType());
+  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(RedI);
   assert(AllocaTy && "genFastRedCopy: item type cannot be deduced.");
 
   IRBuilder<> Builder(InsertPt);
@@ -4438,7 +4434,8 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
 #endif // INTEL_CUSTOMIZATION
   // TODO: Is this possible to be true? AllocaTy as per the previous code was
   // always PointerTy.
-  if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
+  if (RedI->getIsArraySection() ||
+      (AllocaTy->isArrayTy() || NumElements)) {
     genFastRedAggregateCopy(RedI, Src, Dst, InsertPt, DT,
                             NoNeedToOffsetOrDerefOldV);
     return;
@@ -4996,15 +4993,22 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
     NumElements = ArrSecInfo.getSize();
     DestElementTy = ArrSecInfo.getElementType();
     DestArrayBegin = AI;
-  } else
+  } else {
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
     VPOParoptUtils::genF90DVReductionInitDstInfo(
         &RedI, AI, DestArrayBegin, DestElementTy, NumElements, InsertPt);
-  } else
+  } else {
 #endif // INTEL_CUSTOMIZATION
-    NumElements = VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder,
-                                                 DestElementTy, DestArrayBegin);
+    Type *ObjTy = nullptr;
+    std::tie(ObjTy, NumElements, std::ignore) = getItemInfo(&RedI);
+    std::tie(DestElementTy, NumElements, DestArrayBegin) =
+      genPrivAggregatePtrInfo(ObjTy, NumElements, AI, Builder);
+    return;
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
+  }
 
   auto *DestPointerTy = DestArrayBegin->getType();
   assert(isa<PointerType>(DestPointerTy) &&
@@ -5038,26 +5042,20 @@ void VPOParoptTransform::genAggrReductionSrcDstInfo(
   Type *SrcElementTy = nullptr;
 
   if (!IsArraySection) {
-    NumElements =
-        VPOParoptUtils::genArrayLength(RedI.getNew(), DestVal, InsertPt,
-                                       Builder, DestElementTy, DestArrayBegin);
-    auto *DestPointerTy = DestArrayBegin->getType();
-    assert(isa<PointerType>(DestPointerTy) &&
-           "Reduction destination must have pointer type.");
-    DestArrayBegin = Builder.CreateBitCast(
-        DestArrayBegin,
-        PointerType::get(DestElementTy,
-                         cast<PointerType>(DestPointerTy)->getAddressSpace()));
+    Type *ObjTy = nullptr;
+    Value *DestNumElements = nullptr;
+    std::tie(ObjTy, NumElements, std::ignore) = getItemInfo(&RedI);
+    std::tie(DestElementTy, DestNumElements, DestArrayBegin) =
+      genPrivAggregatePtrInfo(ObjTy, NumElements, DestVal, Builder);
 
-    VPOParoptUtils::genArrayLength(RedI.getNew(), SrcVal, InsertPt, Builder,
-                                   SrcElementTy, SrcArrayBegin);
-    auto *SrcPointerTy = SrcArrayBegin->getType();
-    assert(isa<PointerType>(SrcPointerTy) &&
-           "Reduction source must have pointer type.");
-    SrcArrayBegin = Builder.CreateBitCast(
-        SrcArrayBegin,
-        PointerType::get(SrcElementTy,
-                         cast<PointerType>(SrcPointerTy)->getAddressSpace()));
+    Type *SrcElementTy = nullptr;
+    Value *SrcNumElements = nullptr;
+    std::tie(SrcElementTy, SrcNumElements, SrcArrayBegin) =
+        genPrivAggregatePtrInfo(ObjTy, NumElements, SrcVal, Builder);
+    assert(SrcElementTy == DestElementTy && "Types mismatch.");
+    assert(SrcNumElements == DestNumElements &&
+           "Number of elements mismatch.");
+    NumElements = DestNumElements;
     return;
   }
 
@@ -5356,6 +5354,8 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
 
 // Extract the type and size of local Alloca to be created to privatize
 // OrigValue.
+// OPAQUEPOINTER: this whole function must be removed, when
+//                we switch to TYPED clauses.
 void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
                                               Type *OrigValueElemType,
                                               Type *&ElementType,    // out
@@ -5396,7 +5396,6 @@ VPOParoptTransform::getItemInfo(const Item *I) {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
-  Type *OrigElemTy = I->getOrigElemType();
   assert(Orig && "Null original Value in clause item.");
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
@@ -5427,6 +5426,9 @@ VPOParoptTransform::getItemInfo(const Item *I) {
   };
 
   if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
+    // OPAQUEPOINTER: this code must be removed, when we switch
+    //                to TYPED clauses.
+    Type *OrigElemTy = I->getOrigElemType();
     getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 
@@ -5447,34 +5449,6 @@ VPOParoptTransform::getItemInfo(const Item *I) {
                NumElements->printAsOperand(dbgs());
              } dbgs() << "\n");
   return std::make_tuple(ElementType, NumElements, AddrSpace);
-}
-
-// Generate a private variable version for the local copy of OrigValue.
-Value *VPOParoptTransform::genPrivatizationAlloca(
-    Value *OrigValue, Type *OrigElemTy, Instruction *InsertPt,
-    const Twine &NameSuffix, llvm::Optional<unsigned> AllocaAddrSpace,
-    bool PreserveAddressSpace) const {
-
-  assert(OrigValue && "genPrivatizationAlloca: Null input value.");
-
-  Type *ElementType = nullptr;
-  Value *NumElements = nullptr;
-  unsigned AddrSpace = 0;
-  MaybeAlign OrigAlignment =
-      OrigValue->getPointerAlignment(InsertPt->getModule()->getDataLayout());
-
-  getItemInfoFromValue(OrigValue, OrigElemTy, ElementType, NumElements,
-                       AddrSpace);
-  auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
-      ElementType, NumElements, OrigAlignment, InsertPt,
-      isTargetSPIRV(), OrigValue->getName() + NameSuffix, AllocaAddrSpace,
-      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace));
-  assert(NewVal && "Failed to create local copy.");
-
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
-             OrigValue->printAsOperand(dbgs()); dbgs() << "':: ";
-             NewVal->printAsOperand(dbgs()); dbgs() << "\n");
-  return NewVal;
 }
 
 // Generate a private variable version for a ClauseItem I for various
@@ -6570,18 +6544,18 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       assert((IfLastIterBB || IsConditionalLP) &&
              "genLastPrivatizationCode: Null BB for last iteration check.");
 
-      Value *NewPrivInst;
       Instruction *InsertPt = &EntryBB->front();
       if (!ForTask) {
         Instruction *AllocaInsertPt =
             IsVecLoop ? VPOParoptUtils::getInsertionPtForAllocas(W, F)
                       : InsertPt;
-        NewPrivInst = genPrivatizationAlloca(LprivI, AllocaInsertPt, ".lpriv");
+        Value *NewPrivInst =
+            genPrivatizationAlloca(LprivI, AllocaInsertPt, ".lpriv");
+        LprivI->setNew(NewPrivInst);
       } else {
-        NewPrivInst = LprivI->getNew();
+        Value *NewPrivInst = LprivI->getNew();
         InsertPt = cast<Instruction>(NewPrivInst)->getParent()->getTerminator();
       }
-      LprivI->setNew(NewPrivInst);
 
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal);
@@ -6595,19 +6569,19 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       // firstprivate (in which case the firstprivate init emits a cctor).
       if ((LprivI->getInFirstprivate() == nullptr) &&
           (LprivI->getConstructor() != nullptr)) {
-        Instruction *CtorInsertPt = cast<Instruction>(NewPrivInst);
+        Instruction *CtorInsertPt = cast<Instruction>(LprivI->getNew());
 #if INTEL_CUSTOMIZATION
         if (LprivI->getIsF90NonPod()) {
           CtorInsertPt = CtorInsertPt->getNextNonDebugInstruction();
           // genPrivatizationInitOrFini inserts copy-constructors before the
           // insert point, whereas constructors after it.
           genPrivatizationInitOrFini(LprivI, LprivI->getConstructor(),
-                                     FK_CopyCtor, NewPrivInst, Orig,
+                                     FK_CopyCtor, LprivI->getNew(), Orig,
                                      CtorInsertPt, DT);
         } else
 #endif // INTEL_CUSTOMIZATION
         genPrivatizationInitOrFini(LprivI, LprivI->getConstructor(), FK_Ctor,
-                                   NewPrivInst, nullptr, CtorInsertPt, DT);
+                                   LprivI->getNew(), nullptr, CtorInsertPt, DT);
       }
 
       // Generate the if-last-then-copy-out code.
@@ -6654,7 +6628,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(
         // The code below produces 'x.lpriv = x' assignment just reusing
         // the firstprivatization code.
         FirstprivateItem FprivI(Orig);
-        FprivI.setNew(NewPrivInst);
+        FprivI.setNew(LprivI->getNew());
         FprivI.setIsByRef(LprivI->getIsByRef());
         // We do not care about CopyConstructor of the fake firstprivate
         // item, because conditional lastprivate may only reference
@@ -7793,34 +7767,23 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
 }
 
 // For array privatization constructor/destructor/copy assignment/copy
-// constructor loop, compute the base address of the source and destination
-// array, number of elements, and destination element type.
-void VPOParoptTransform::genPrivAggregateSrcDstInfo(
-    Value *SrcVal, Value *DestVal, Instruction *InsertPt, IRBuilder<> &Builder,
-    Value *&NumElements, Value *&SrcArrayBegin, Value *&DestArrayBegin,
-    Type *&DestElementTy) {
-  NumElements = VPOParoptUtils::genArrayLength(
-      DestVal, DestVal, InsertPt, Builder, DestElementTy, DestArrayBegin);
+// constructor loop, compute the base address of item array,
+// number of elements, and the element type.
+std::tuple<Type *, Value *, Value *>
+    VPOParoptTransform::genPrivAggregatePtrInfo(Type *ObjTy, Value *NumElements,
+                                                Value *BaseAddr,
+                                                IRBuilder<> &Builder) {
+  Type *ElemTy = nullptr;
+  Value *ArrayBegin = nullptr;
+  std::tie(ElemTy, NumElements, ArrayBegin) =
+      VPOParoptUtils::genArrayLength(ObjTy, NumElements, BaseAddr, Builder);
+  auto *PtrTy = dyn_cast<PointerType>(ArrayBegin->getType());
+  assert(PtrTy && "Privatization pointer must have pointer type.");
+  ArrayBegin = Builder.CreateBitCast(ArrayBegin,
+      PointerType::get(ElemTy,
+                       cast<PointerType>(PtrTy)->getAddressSpace()));
 
-  auto *DestPointerTy = DestArrayBegin->getType();
-  assert(isa<PointerType>(DestPointerTy) &&
-         "Privatization destination must have pointer type.");
-  DestArrayBegin = Builder.CreateBitCast(
-      DestArrayBegin,
-      PointerType::get(DestElementTy,
-                       cast<PointerType>(DestPointerTy)->getAddressSpace()));
-  if (SrcVal != nullptr) {
-    Type *SrcElementTy = nullptr;
-    VPOParoptUtils::genArrayLength(DestVal, SrcVal, InsertPt, Builder,
-                                   SrcElementTy, SrcArrayBegin);
-    auto *SrcPointerTy = SrcArrayBegin->getType();
-    assert(isa<PointerType>(SrcPointerTy) &&
-           "Privatization source must have pointer type.");
-    SrcArrayBegin = Builder.CreateBitCast(
-        SrcArrayBegin,
-        PointerType::get(SrcElementTy,
-                         cast<PointerType>(SrcPointerTy)->getAddressSpace()));
-  }
+  return std::make_tuple(ElemTy, NumElements, ArrayBegin);
 }
 
 // Generate the constructor/destructor/copy assignment/copy constructor for
@@ -7883,7 +7846,9 @@ void VPOParoptTransform::genPrivAggregateSrcDstInfo(
 //   %priv.constr.body                                                    (10)
 //
 void VPOParoptTransform::genPrivAggregateInitOrFini(
-    Function *Fn, FunctionKind FuncKind, Value *DestVal, Value *SrcVal,
+    Function *Fn, FunctionKind FuncKind,
+    Type *ObjTy, Value *NumElements,
+    Value *DestVal, Value *SrcVal,
     Instruction *InsertPt, DominatorTree *DT) {
   LLVM_DEBUG(dbgs() << "Enter " << __FUNCTION__ << "\n");
 
@@ -7896,16 +7861,25 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
   Type *DestElementTy = nullptr;
   Value *DestBegin = nullptr;
   Value *SrcBegin = nullptr;
-  Value *NumElements = nullptr;
+  Value *ArrayNumElements = nullptr;
 
-  genPrivAggregateSrcDstInfo(SrcVal, DestVal, InsertPt, Builder, NumElements,
-                             SrcBegin, DestBegin, DestElementTy); // (1)
+  std::tie(DestElementTy, ArrayNumElements, DestBegin) =
+    genPrivAggregatePtrInfo(ObjTy, NumElements, DestVal, Builder);
+  if (SrcVal) {
+    Type *SrcElementTy = nullptr;
+    Value *SrcNumElements = nullptr;
+    std::tie(SrcElementTy, SrcNumElements, SrcBegin) =
+        genPrivAggregatePtrInfo(ObjTy, NumElements, SrcVal, Builder);
+    assert(SrcElementTy == DestElementTy && "Types mismatch.");
+    assert(SrcNumElements == ArrayNumElements &&
+           "Number of elements mismatch.");
+  }
 
   assert(DestBegin &&
          "Null destination address for privatization constructor/destructor.");
   assert(DestElementTy &&
          "Null element type for privatization constructor/destructor.");
-  assert(NumElements &&
+  assert(ArrayNumElements &&
          "Null number of elements for privatization constructor/destructor.");
   assert((((FuncKind != FK_CopyAssign) && (FuncKind != FK_CopyCtor)) ||
           SrcBegin) &&
@@ -7922,7 +7896,7 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
     Prefix = "priv.cpyctor";
 
   auto DestEnd =
-      Builder.CreateGEP(DestElementTy, DestBegin, NumElements); //      (2)
+      Builder.CreateGEP(DestElementTy, DestBegin, ArrayNumElements); // (2)
   auto IsEmpty =
       Builder.CreateICmpEQ(DestBegin, DestEnd, Prefix + ".isempty"); // (3)
 
@@ -7989,37 +7963,38 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
 void VPOParoptTransform::genPrivatizationInitOrFini(
     Item *I, Function *Fn, FunctionKind FuncKind, Value *DestVal, Value *SrcVal,
     Instruction *InsertPt, DominatorTree *DT) {
-  // TODO: Remove checking per-element function (constructor/destructor/copy
-  // assignment/copy constructor) for privatized arrays when the frontend only
-  // emit per-element function. Now frontend has the option to switch between
-  // per-element and array functions.
-  FunctionType *FnTy = Fn->getFunctionType();
-  Type *ElementTy = FnTy->getParamType(0)->getPointerElementType();
+  // The constructor/destructor/copy assignment/copy constructor function
+  // is expected to be a per-element function.
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(I);
 
-  // If it's array (fixed size or variable length array), but the
-  // argument is scalar type, loop for calling constructor will be
-  // emitted.
-  if ((AllocaTy->isArrayTy() || (NumElements != nullptr)) &&
-      (ElementTy->isArrayTy() == false)) {
+  // If it's array (fixed size or variable length array),
+  // loop for calling constructor will be emitted.
+#if INTEL_CUSTOMIZATION
+  // F90_NONPODs always use array functions, so we do not need
+  // to generate a loop for them.
+  if (!I->getIsF90NonPod())
+#endif // INTEL_CUSTOMIZATION
+  if (AllocaTy->isArrayTy() || NumElements) {
     if (!InsertPt->isTerminator()) {
       BasicBlock *BB = InsertPt->getParent();
       BasicBlock *EmptyBB = SplitBlock(BB, BB->getTerminator(), DT, LI);
       InsertPt = EmptyBB->getTerminator();
     }
-    genPrivAggregateInitOrFini(Fn, FuncKind, DestVal, SrcVal, InsertPt, DT);
-  } else {
-    if (FuncKind == FK_Ctor)
-      VPOParoptUtils::genConstructorCall(Fn, DestVal, InsertPt);
-    else if (FuncKind == FK_Dtor)
-      VPOParoptUtils::genDestructorCall(Fn, DestVal, InsertPt);
-    else if (FuncKind == FK_CopyAssign)
-      VPOParoptUtils::genCopyAssignCall(Fn, DestVal, SrcVal, InsertPt);
-    else
-      VPOParoptUtils::genCopyConstructorCall(Fn, DestVal, SrcVal, InsertPt);
+    genPrivAggregateInitOrFini(Fn, FuncKind, AllocaTy, NumElements,
+                               DestVal, SrcVal, InsertPt, DT);
+    return;
   }
+
+  if (FuncKind == FK_Ctor)
+    VPOParoptUtils::genConstructorCall(Fn, DestVal, InsertPt);
+  else if (FuncKind == FK_Dtor)
+    VPOParoptUtils::genDestructorCall(Fn, DestVal, InsertPt);
+  else if (FuncKind == FK_CopyAssign)
+    VPOParoptUtils::genCopyAssignCall(Fn, DestVal, SrcVal, InsertPt);
+  else
+    VPOParoptUtils::genCopyConstructorCall(Fn, DestVal, SrcVal, InsertPt);
 }
 
 bool VPOParoptTransform::genPrivatizationCode(

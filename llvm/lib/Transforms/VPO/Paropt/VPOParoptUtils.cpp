@@ -5306,55 +5306,43 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
 }
 
 // Generate the pointer pointing to the head of the array.
-Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
-                                      Instruction *InsertPt,
-                                      IRBuilder<> &Builder, Type *&ElementTy,
-                                      Value *&ArrayBegin) {
-  // FIXME: we can probably gather the type information from
-  //        BaseAddr, and do not pass AI at all.
-  assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genArrayLength: Expect isOMPItemLocalVAR().");
+std::tuple<Type *, Value *, Value *>
+    VPOParoptUtils::genArrayLength(Type *ObjTy, Value *NumElements,
+                                   Value *BaseAddr, IRBuilder<> &Builder) {
+  assert(ObjTy && "ArrayTy is nullptr.");
+  assert(BaseAddr && "BaseAddr is nullptr.");
 
-  Type *AllocaTy = nullptr;
-  Value *NumElements = nullptr;
-  Type *AIElemType = AI->getType()->getPointerElementType();
-  std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI, AIElemType);
-  assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
-
-  // TODO: NumElements??
-  Type *ScalarTy = AllocaTy->getScalarType();
-  SmallVector<llvm::Value *, 8> GepIndices;
-  ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
+  SmallVector<Value *, 8> GepIndices;
   uint64_t CountFromCLAs = 1;
   ConstantInt *Zero = Builder.getInt32(0);
 
-  if (ArrTy != nullptr) {
+  Type *ElemTy = ObjTy;
+
+  if (auto *ArrayTy = dyn_cast<ArrayType>(ObjTy)) {
+    assert((!NumElements ||
+            (dyn_cast<ConstantInt>(NumElements) &&
+             cast<ConstantInt>(NumElements)->isOneValue())) &&
+           "Unexpected NumElements for an array type.");
     GepIndices.push_back(Zero);
 
-    ArrayType *ArrayT = ArrTy;
-    while (ArrayT) {
+    while (ArrayTy) {
       GepIndices.push_back(Zero);
-      CountFromCLAs *= ArrayT->getNumElements();
-      ElementTy = ArrayT->getElementType();
-      ArrayT = dyn_cast<ArrayType>(ElementTy);
+      CountFromCLAs *= ArrayTy->getNumElements();
+      ElemTy = ArrayTy->getElementType();
+      ArrayTy = dyn_cast<ArrayType>(ElemTy);
     }
+
+    // TODO: should we use int64 here?
     NumElements = Builder.getInt32(CountFromCLAs);
   } else {
-    // For VLA, NumElements is computation result of array length, so we don't
-    // need to compute it here.
-    assert(!(NumElements == nullptr || isa<ConstantInt>(NumElements)) &&
-           "Expect variable length array.");
-    ElementTy = ScalarTy;
+    assert(NumElements && "Expected variable length array.");
     GepIndices.push_back(Zero);
   }
 
-  // TODO: OPAQUEPOINTER: element type needs to be passed in
-  ArrayBegin = Builder.CreateInBoundsGEP(
-      BaseAddr->getType()->getScalarType()->getPointerElementType(), BaseAddr,
-      GepIndices, "array.begin");
+  Value *ArrayBegin =
+      Builder.CreateInBoundsGEP(ObjTy, BaseAddr, GepIndices, "array.begin");
 
-  return NumElements;
+  return std::make_tuple(ElemTy, NumElements, ArrayBegin);
 }
 
 Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,

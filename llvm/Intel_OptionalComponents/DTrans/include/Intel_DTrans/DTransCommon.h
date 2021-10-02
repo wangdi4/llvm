@@ -60,6 +60,7 @@ void initializeDTransMemManageTransWrapperPass(PassRegistry&);
 void initializeDTransCodeAlignWrapperPass(PassRegistry&);
 void initializeDTransTransposeWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondWrapperPass(PassRegistry&);
+void initializeDTransCommuteCondOPWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOPOptBaseTestWrapperPass(PassRegistry&);
