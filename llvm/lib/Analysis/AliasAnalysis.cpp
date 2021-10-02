@@ -198,7 +198,7 @@ bool AAResults::escapes(const Value *V) {
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB) {
-  AAQueryInfo AAQIP(/*NeedLoopCarried*/ true);
+  SimpleAAQueryInfo AAQIP(/*NeedLoopCarried*/ true);
   return loopCarriedAlias(LocA, LocB, AAQIP);
 }
 

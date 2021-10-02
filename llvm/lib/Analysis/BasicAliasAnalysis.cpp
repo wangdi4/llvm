@@ -319,11 +319,16 @@ static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
 CaptureInfo::~CaptureInfo() = default;
 
 bool SimpleCaptureInfo::isNotCapturedBeforeOrAt(const Value *Object,
+                                                unsigned MaxUses,     // INTEL
+                                                const DataLayout &DL, // INTEL
                                                 const Instruction *I) {
-  return isNonEscapingLocalObject(Object, &IsCapturedCache);
+  return isNonEscapingLocalObject(Object, MaxUses, DL, // INTEL
+                                  &IsCapturedCache);   // INTEL
 }
 
 bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
+                                                 unsigned MaxUses,     // INTEL
+                                                 const DataLayout &DL, // INTEL
                                                  const Instruction *I) {
   if (!isIdentifiedFunctionLocal(Object))
     return false;
@@ -332,7 +337,8 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
   if (Iter.second) {
     Instruction *EarliestCapture = FindEarliestCapture(
         Object, *const_cast<Function *>(I->getFunction()),
-        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, DT);
+        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, DT,
+        MaxUses); // INTEL
     if (EarliestCapture) {
       auto Ins = Inst2Obj.insert({EarliestCapture, {}});
       Ins.first->second.push_back(Object);
@@ -1074,12 +1080,8 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
   if (!isa<Constant>(Object) && Call != Object &&
-<<<<<<< HEAD
-      isNonEscapingLocalObject(Object, PtrCaptureMaxUses,     // INTEL
-                               DL, &AAQI.IsCapturedCache)) {  // INTEL
-=======
-      AAQI.CI->isNotCapturedBeforeOrAt(Object, Call)) {
->>>>>>> ba664d906644e62ac30e9a92edf48391c923992c
+      AAQI.CI->isNotCapturedBeforeOrAt(Object, PtrCaptureMaxUses, DL, // INTEL
+                                       Call)) {                       // INTEL
 
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
@@ -1997,19 +1999,12 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-<<<<<<< HEAD
-        isNonEscapingLocalObject(O2, PtrCaptureMaxUses,      // INTEL
-                                 DL, &AAQI.IsCapturedCache)) // INTEL
+        AAQI.CI->isNotCapturedBeforeOrAt(O2, PtrCaptureMaxUses, DL, // INTEL
+                                         cast<Instruction>(O1)))    // INTEL
       return AliasResult::NoAlias;
     if (isEscapeSource(O2) &&
-        isNonEscapingLocalObject(O1, PtrCaptureMaxUses,      // INTEL
-                                 DL, &AAQI.IsCapturedCache)) // INTEL
-=======
-        AAQI.CI->isNotCapturedBeforeOrAt(O2, cast<Instruction>(O1)))
-      return AliasResult::NoAlias;
-    if (isEscapeSource(O2) &&
-        AAQI.CI->isNotCapturedBeforeOrAt(O1, cast<Instruction>(O2)))
->>>>>>> ba664d906644e62ac30e9a92edf48391c923992c
+        AAQI.CI->isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, // INTEL
+                                         cast<Instruction>(O2)))    // INTEL
       return AliasResult::NoAlias;
 
 #if INTEL_CUSTOMIZATION

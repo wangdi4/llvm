@@ -384,6 +384,8 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
 struct CaptureInfo {
   virtual ~CaptureInfo() = 0;
   virtual bool isNotCapturedBeforeOrAt(const Value *Object,
+                                       unsigned PtrCaptureMaxUses, // INTEL
+                                       const DataLayout &DL,       // INTEL
                                        const Instruction *I) = 0;
 };
 
@@ -395,6 +397,8 @@ class SimpleCaptureInfo final : public CaptureInfo {
 
 public:
   bool isNotCapturedBeforeOrAt(const Value *Object,
+                               unsigned PtrCaptureMaxUses, // INTEL
+                               const DataLayout &DL,       // INTEL
                                const Instruction *I) override;
 };
 
@@ -419,6 +423,8 @@ public:
   EarliestEscapeInfo(DominatorTree &DT, const LoopInfo &LI) : DT(DT), LI(LI) {}
 
   bool isNotCapturedBeforeOrAt(const Value *Object,
+                               unsigned PtrCaptureMaxUses, // INTEL
+                               const DataLayout &DL,       // INTEL
                                const Instruction *I) override;
 
   void removeInstruction(Instruction *I);
@@ -484,8 +490,8 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   // Remember if this is a "loopCarriedAlias" query.
   const bool NeedLoopCarried = false;
-  AAQueryInfo(bool LoopCarried)
-      : AliasCache(), IsCapturedCache(), NeedLoopCarried(LoopCarried) {}
+  AAQueryInfo(CaptureInfo *CI, bool LoopCarried)
+      : CI(CI), NeedLoopCarried(LoopCarried) {}
 #endif // INTEL_CUSTOMIZATION
 
   /// Query depth used to distinguish recursive queries.
@@ -505,7 +511,7 @@ public:
   /// This is used for recursive queries across phis, where cache results may
   /// not be valid.
   AAQueryInfo withEmptyCache() {
-    AAQueryInfo NewAAQI(CI);
+    AAQueryInfo NewAAQI(CI, NeedLoopCarried); // INTEL
     NewAAQI.Depth = Depth;
     return NewAAQI;
   }
@@ -517,6 +523,8 @@ class SimpleAAQueryInfo : public AAQueryInfo {
 
 public:
   SimpleAAQueryInfo() : AAQueryInfo(&CI) {}
+  SimpleAAQueryInfo(bool LoopCarried)    // INTEL
+      : AAQueryInfo(&CI, LoopCarried) {} // INTEL
 };
 
 class BatchAAResults;
@@ -936,7 +944,7 @@ public:
   /// passed in here.
   ModRefInfo getSizedModRefInfo(const Instruction *I, LocationSize Size,
                                 const MemoryLocation &Loc) {
-    AAQueryInfo AAQIP;
+    SimpleAAQueryInfo AAQIP;
     return getModRefInfo(I, Loc, AAQIP, Size);
   }
 #endif // INTEL_CUSTOMIZATION
