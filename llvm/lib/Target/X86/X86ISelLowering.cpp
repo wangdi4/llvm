@@ -31927,11 +31927,8 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::STORE:              return LowerStore(Op, Subtarget, DAG);
   case ISD::FADD:
   case ISD::FSUB:               return lowerFaddFsub(Op, DAG);
-<<<<<<< HEAD
   case ISD::LDEXP:              return lowerLdexp(Op, DAG); // INTEL
-=======
   case ISD::STRICT_FROUND:
->>>>>>> 902ec6142a6f662f9e5c11710f489063eb2aa1d8
   case ISD::FROUND:             return LowerFROUND(Op, DAG);
   case ISD::FABS:
   case ISD::FNEG:               return LowerFABSorFNEG(Op, DAG);
