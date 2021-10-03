@@ -54090,7 +54090,6 @@ static SDValue matchPMADDWD_2(SelectionDAG &DAG, SDValue N0, SDValue N1,
                           PMADDBuilder);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Look for (vXi32 (add (sub A, B), (shl (sub C, D), 16))). See if we can
 // determine a relationship between A, C, B, and D that would allow us to
@@ -54228,7 +54227,7 @@ static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
   return DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // ADD(VPMADDWD(X,Y),VPMADDWD(Z,W)) -> VPMADDWD(SHUFFLE(X,Z), SHUFFLE(Y,W))
 // If upper element in each pair of both VPMADDWD are zero then we can merge
 // the operand elements and use the implicit add of VPMADDWD.
@@ -54272,7 +54271,6 @@ static SDValue combineAddOfPMADDWD(SelectionDAG &DAG, SDValue N0, SDValue N1,
       DAG.getVectorShuffle(OpVT, DL, N0.getOperand(1), N1.getOperand(1), Mask);
   return DAG.getNode(X86ISD::VPMADDWD, DL, VT, LHS, RHS);
 }
->>>>>>> 3fe97672047bcdedbd5d34a26498b10f9dba369d
 
 /// CMOV of constants requires materializing constant operands in registers.
 /// Try to fold those constants into an 'add' instruction to reduce instruction
