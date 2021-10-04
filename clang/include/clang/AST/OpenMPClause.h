@@ -927,6 +927,98 @@ public:
   }
 };
 
+/// This represents the 'ompx_places' clause in '#pragma omp ...' directives.
+///
+/// \code
+/// #pragma omp target ompx_places(numa_domain, start)
+/// \endcode
+/// In this example directive '#pragma omp target' has clause 'ompx_places'
+/// with domain "numa_domain" and variable argument 'start'.
+class OMPOmpxPlacesClause : public OMPClause, public OMPClauseWithPreInit {
+  friend class OMPClauseReader;
+
+  /// enumeration of ompx_places arguments
+  enum { START, LENGTH, STRIDE, NUMARGS };
+
+  /// OmpxPlaces clause modifier.
+  OpenMPOmpxPlacesClauseModifier Modifier = OMPC_OMPX_PLACES_unknown;
+
+  /// ompx_places argument expressions.
+  Expr *OmpxPlacesArgs[NUMARGS];
+
+  /// Set ompx_places start value
+  ///
+  /// \param E start value.
+  void setStart(Expr *E) { OmpxPlacesArgs[START] = E; }
+
+  /// Set ompx_placese length value.
+  ///
+  /// \param E length value.
+  void setLength(Expr *E) { OmpxPlacesArgs[LENGTH] = E; }
+
+  /// Set ompx_places stride value.
+  ///
+  /// \param E stride value.
+  void setStride(Expr *E) { OmpxPlacesArgs[STRIDE] = E; }
+
+  /// Sets modifier.
+  void setModifier(OpenMPOmpxPlacesClauseModifier M) { Modifier = M; }
+
+public:
+  /// Build 'ompx_places' clause.
+  ///
+  /// \param Modifier value
+  /// \param Start value
+  /// \param Length value
+  /// \param Stride value
+  /// \param StartLoc Starting location of the clause.
+  /// \param EndLoc Ending location of the clause.
+  OMPOmpxPlacesClause(OpenMPOmpxPlacesClauseModifier Modifier, Expr *Start,
+                      Expr *Length, Expr *Stride, Stmt *HelperS,
+                      OpenMPDirectiveKind CaptureRegion,
+                      SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_ompx_places, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), Modifier(Modifier) {
+    OmpxPlacesArgs[START] = Start;
+    OmpxPlacesArgs[LENGTH] = Length;
+    OmpxPlacesArgs[STRIDE] = Stride;
+    setPreInitStmt(HelperS, CaptureRegion);
+  }
+
+  /// Build an empty clause.
+  explicit OMPOmpxPlacesClause()
+      : OMPClause(llvm::omp::OMPC_ompx_places, SourceLocation(),
+        SourceLocation()), OMPClauseWithPreInit(this) {}
+
+  /// Get ompx_places start.
+  Expr *getStart() const { return OmpxPlacesArgs[START]; }
+
+  /// Get ompx_places length.
+  Expr *getLength() const { return OmpxPlacesArgs[LENGTH]; }
+
+  /// Get ompx_places stride.
+  Expr *getStride() const { return OmpxPlacesArgs[STRIDE]; }
+
+  /// Gets modifier.
+  OpenMPOmpxPlacesClauseModifier getModifier() const { return Modifier; }
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(OmpxPlacesArgs),
+        reinterpret_cast<Stmt **>(&OmpxPlacesArgs[NUMARGS]));
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_places;
+  }
+};
+
 /// This represents a 'data' clause for the '#pragma omp prefetch'
 /// directive.
 ///

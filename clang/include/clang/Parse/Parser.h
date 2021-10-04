@@ -3507,6 +3507,14 @@ private:
   ///
   OMPClause *ParseOpenMPSubdeviceClause(bool ParseOnly);
 
+  /// Parses ompx_places clause with up to four arguments, one of which is
+  /// required (start).
+  ///
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPOmpxPlacesClause(bool ParseOnly);
+
   /// Parses data clause with list of values describing what and how much
   /// to prefetch.
   ///

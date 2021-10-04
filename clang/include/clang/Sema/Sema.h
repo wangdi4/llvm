@@ -11559,6 +11559,14 @@ public:
                                         Expr *Stride,
                                         SourceLocation StartLoc,
                                         SourceLocation EndLoc);
+  /// Called on well-formed 'ompx_places' clause.
+  OMPClause *ActOnOpenMPOmpxPlacesClause(
+      OpenMPOmpxPlacesClauseModifier Modifier,
+      Expr *Start,
+      Expr *Length,
+      Expr *Stride,
+      SourceLocation StartLoc,
+      SourceLocation EndLoc);
   /// Called on well-formed 'data' clause.
   OMPClause *ActOnOpenMPDataClause(ArrayRef<Expr *> Vars,
                                    ArrayRef<Expr *> Hints,

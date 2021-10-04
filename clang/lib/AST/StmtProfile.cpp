@@ -467,6 +467,16 @@ void OMPClauseProfiler::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
     Profiler->VisitStmt(C->getStride());
 }
 
+void OMPClauseProfiler::VisitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *C) {
+  VistOMPClauseWithPreInit(C);
+  if (C->getStart())
+    Profiler->VisitStmt(C->getStart());
+  if (C->getLength())
+    Profiler->VisitStmt(C->getLength());
+  if (C->getStride())
+    Profiler->VisitStmt(C->getStride());
+}
+
 void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
   for (auto *E : C->val_exprs())
     Profiler->VisitStmt(E);

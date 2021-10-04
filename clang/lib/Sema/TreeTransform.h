@@ -1645,6 +1645,20 @@ public:
                                                 StartLoc, EndLoc);
   }
 
+  /// Build a new OpenMP 'ompx_places' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPOmpxPlacesClause(OpenMPOmpxPlacesClauseModifier Modifier,
+                                        Expr *Start,
+                                        Expr *Length,
+                                        Expr *Stride,
+                                        SourceLocation StartLoc,
+                                        SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPOmpxPlacesClause(Modifier, Start, Length,
+                                                 Stride, StartLoc, EndLoc);
+  }
+
   /// Build a new OpenMP 'align' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -9471,6 +9485,20 @@ TreeTransform<Derived>::TransformOMPSubdeviceClause(OMPSubdeviceClause *C) {
   return getDerived().RebuildOMPSubdeviceClause(
       Level.get(), Start.get(), Length.get(), Stride.get(), C->getBeginLoc(),
       C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
+  assert(C->getStart() && "unexpected invalid start expr in tree transoform");
+  ExprResult Start = getDerived().TransformExpr(C->getStart());
+  ExprResult Length = getDerived().TransformExpr(C->getLength());
+  ExprResult Stride = getDerived().TransformExpr(C->getStride());
+  if (Start.isInvalid() || Length.isInvalid() || Stride.isInvalid())
+    return nullptr;
+  return getDerived().RebuildOMPOmpxPlacesClause(
+      C->getModifier(), Start.get(), Length.get(), Stride.get(),
+      C->getBeginLoc(), C->getEndLoc());
 }
 
 template <typename Derived>

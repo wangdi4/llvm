@@ -1360,6 +1360,9 @@ def warn_omp_expected_nonneg_const_int : Warning<
   InGroup<IgnoredPragmas>;
 def err_omp_more_one_modifier : Error<
   "'%0' clause cannot contain more than one '%1' modifier">;
+def err_omp_unknown_ompx_places_domain_modifier : Error<
+  "unknown domain modifier in 'ompx_places' clause; must be one of "
+  "'numa_domain' or 'subnuma_domain'">;
 // end INTEL_COLLAB
 def err_omp_map_type_missing : Error<
   "missing map type">;

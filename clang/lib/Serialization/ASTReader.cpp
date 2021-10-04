@@ -11740,6 +11740,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_subdevice:
     C = new (Context) OMPSubdeviceClause();
     break;
+  case llvm::omp::OMPC_ompx_places:
+    C = new (Context) OMPOmpxPlacesClause();
+    break;
   case llvm::omp::OMPC_data:
     C = OMPDataClause::CreateEmpty(Context, Record.readInt());
     break;
@@ -12085,6 +12088,14 @@ void OMPClauseReader::VisitOMPBindClause(OMPBindClause *C) {
 void OMPClauseReader::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   C->setLevel(Record.readSubExpr());
+  C->setStart(Record.readSubExpr());
+  C->setLength(Record.readSubExpr());
+  C->setStride(Record.readSubExpr());
+}
+
+void OMPClauseReader::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  C->setModifier(static_cast<OpenMPOmpxPlacesClauseModifier>(Record.readInt()));
   C->setStart(Record.readSubExpr());
   C->setLength(Record.readSubExpr());
   C->setStride(Record.readSubExpr());

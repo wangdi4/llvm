@@ -16180,6 +16180,91 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
       llvm_unreachable("Unknown OpenMP directive");
     }
     break;
+  case OMPC_ompx_places:
+    switch (DKind) {
+    case OMPD_target_update:
+    case OMPD_target_enter_data:
+    case OMPD_target_exit_data:
+    case OMPD_target:
+    case OMPD_target_simd:
+    case OMPD_target_teams:
+    case OMPD_target_parallel:
+    case OMPD_target_teams_distribute:
+    case OMPD_target_teams_distribute_simd:
+    case OMPD_target_teams_loop:
+    case OMPD_target_parallel_loop:
+    case OMPD_target_parallel_for:
+    case OMPD_target_parallel_for_simd:
+    case OMPD_target_teams_distribute_parallel_for:
+    case OMPD_target_teams_distribute_parallel_for_simd:
+    case OMPD_dispatch:
+      CaptureRegion = OMPD_task;
+      break;
+    case OMPD_target_data:
+    case OMPD_target_variant_dispatch:
+      // Do not capture ompx_places-clause expressions.
+      break;
+    case OMPD_teams_distribute_parallel_for:
+    case OMPD_teams_distribute_parallel_for_simd:
+    case OMPD_teams:
+    case OMPD_teams_distribute:
+    case OMPD_teams_distribute_simd:
+    case OMPD_distribute_parallel_for:
+    case OMPD_distribute_parallel_for_simd:
+    case OMPD_task:
+    case OMPD_taskloop:
+    case OMPD_taskloop_simd:
+    case OMPD_master_taskloop:
+    case OMPD_master_taskloop_simd:
+    case OMPD_parallel_master_taskloop:
+    case OMPD_parallel_master_taskloop_simd:
+    case OMPD_cancel:
+    case OMPD_parallel:
+    case OMPD_parallel_master:
+    case OMPD_parallel_sections:
+    case OMPD_parallel_for:
+    case OMPD_parallel_for_simd:
+    case OMPD_loop:
+    case OMPD_teams_loop:
+    case OMPD_parallel_loop:
+    case OMPD_threadprivate:
+    case OMPD_allocate:
+    case OMPD_taskyield:
+    case OMPD_barrier:
+    case OMPD_taskwait:
+    case OMPD_cancellation_point:
+    case OMPD_flush:
+    case OMPD_depobj:
+    case OMPD_scan:
+    case OMPD_declare_reduction:
+    case OMPD_declare_mapper:
+    case OMPD_declare_simd:
+    case OMPD_declare_variant:
+    case OMPD_begin_declare_variant:
+    case OMPD_end_declare_variant:
+    case OMPD_declare_target:
+    case OMPD_end_declare_target:
+    case OMPD_simd:
+    case OMPD_unroll:
+    case OMPD_for:
+    case OMPD_for_simd:
+    case OMPD_sections:
+    case OMPD_section:
+    case OMPD_single:
+    case OMPD_master:
+    case OMPD_critical:
+    case OMPD_taskgroup:
+    case OMPD_distribute:
+    case OMPD_ordered:
+    case OMPD_atomic:
+    case OMPD_distribute_simd:
+    case OMPD_requires:
+      llvm_unreachable("Unexpected OpenMP directive with ompx_places clause");
+    case OMPD_unknown:
+    default:
+      llvm_unreachable("Unknown OpenMP directive");
+    }
+    break;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -23688,6 +23773,61 @@ OMPClause *Sema::ActOnOpenMPSubdeviceClause(Expr *Level,
   return new (Context)
       OMPSubdeviceClause(LevelExpr, StartExpr, LengthExpr, StrideExpr,
                          HelperValStmt, CaptureRegion, StartLoc, EndLoc);
+}
+
+OMPClause *Sema::ActOnOpenMPOmpxPlacesClause(
+    OpenMPOmpxPlacesClauseModifier Modifier,
+    Expr *Start,
+    Expr *Length,
+    Expr *Stride,
+    SourceLocation StartLoc,
+    SourceLocation EndLoc) {
+  Expr *StartExpr = Start;
+  Expr *LengthExpr = Length;
+  Expr *StrideExpr = Stride;
+  Stmt *HelperValStmt = nullptr;
+
+  // Start value is only required argument to ompx_places clause.
+  if (!StartExpr)
+    return nullptr;
+
+  //  The start expression must evaluate to a non-negative integer value.
+  if (!isNonNegativeIntegerValue(StartExpr, *this, OMPC_ompx_places,
+                                 /*StrictlyPositive=*/false))
+    return nullptr;
+
+  //  The length expression must evaluate to a positive integer value.
+  if (LengthExpr && !isNonNegativeIntegerValue(LengthExpr, *this,
+                                               OMPC_ompx_places,
+                                               /*StrictlyPositive=*/true))
+    return nullptr;
+
+  //  The stride expression must evaluate to a positive integer value.
+  if (StrideExpr && !isNonNegativeIntegerValue(StrideExpr, *this,
+                                               OMPC_ompx_places,
+                                               /*StrictlyPositive=*/true))
+    return nullptr;
+
+  OpenMPDirectiveKind DKind = DSAStack->getCurrentDirective();
+  OpenMPDirectiveKind CaptureRegion =
+      getOpenMPCaptureRegionForClause(DKind, OMPC_ompx_places, LangOpts.OpenMP);
+  if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
+    llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
+    StartExpr = MakeFullExpr(StartExpr).get();
+    StartExpr = tryBuildCapture(*this, StartExpr, Captures).get();
+    if (LengthExpr) {
+      LengthExpr = MakeFullExpr(LengthExpr).get();
+      LengthExpr = tryBuildCapture(*this, LengthExpr, Captures).get();
+    }
+    if (StrideExpr) {
+      StrideExpr = MakeFullExpr(StrideExpr).get();
+      StrideExpr = tryBuildCapture(*this, StrideExpr, Captures).get();
+    }
+    HelperValStmt = buildPreInits(Context, Captures);
+  }
+  return new (Context)
+      OMPOmpxPlacesClause(Modifier, StartExpr, LengthExpr, StrideExpr,
+                          HelperValStmt, CaptureRegion, StartLoc, EndLoc);
 }
 
 /// Verify data clause address expression.

@@ -199,6 +199,13 @@ enum OpenMPAllocateClauseModifier {
 #include "clang/Basic/OpenMPKinds.def"
   OMPC_ALLOCATE_unknown,
 };
+
+/// OpenMP modifiers for 'ompx_places' clause.
+enum OpenMPOmpxPlacesClauseModifier {
+#define OPENMP_OMPX_PLACES_MODIFIER(Name) OMPC_OMPX_PLACES_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_OMPX_PLACES_unknown,
+};
 #endif // INTEL_COLLAB
 
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,
