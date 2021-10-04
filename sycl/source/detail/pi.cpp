@@ -278,6 +278,7 @@ std::vector<std::pair<std::string, backend>> findPlugins() {
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
+<<<<<<< HEAD
   const char *OpenCLPluginName =
       SYCLConfig<SYCL_OVERRIDE_PI_OPENCL>::get()
           ? SYCLConfig<SYCL_OVERRIDE_PI_OPENCL>::get()
@@ -298,6 +299,15 @@ std::vector<std::pair<std::string, backend>> findPlugins() {
     PluginNames.emplace_back(L0PluginName, backend::level_zero);
     PluginNames.emplace_back(CUDAPluginName, backend::cuda);
     PluginNames.emplace_back(HIPPluginName, backend::hip);
+=======
+  device_filter_list *FilterList = SYCLConfig<SYCL_DEVICE_FILTER>::get();
+  if (!FilterList) {
+    PluginNames.emplace_back(__SYCL_OPENCL_PLUGIN_NAME, backend::opencl);
+    PluginNames.emplace_back(__SYCL_LEVEL_ZERO_PLUGIN_NAME,
+                             backend::level_zero);
+    PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
+    PluginNames.emplace_back(__SYCL_ROCM_PLUGIN_NAME, backend::rocm);
+>>>>>>> 6dc4d1e5d0bd0c3d6ae026ec7d99dba45b8b5e92
   } else {
     std::vector<device_filter> Filters = FilterList->get();
     bool OpenCLFound = false;
@@ -308,21 +318,28 @@ std::vector<std::pair<std::string, backend>> findPlugins() {
       backend Backend = Filter.Backend;
       if (!OpenCLFound &&
           (Backend == backend::opencl || Backend == backend::all)) {
-        PluginNames.emplace_back(OpenCLPluginName, backend::opencl);
+        PluginNames.emplace_back(__SYCL_OPENCL_PLUGIN_NAME, backend::opencl);
         OpenCLFound = true;
       }
       if (!LevelZeroFound &&
           (Backend == backend::level_zero || Backend == backend::all)) {
-        PluginNames.emplace_back(L0PluginName, backend::level_zero);
+        PluginNames.emplace_back(__SYCL_LEVEL_ZERO_PLUGIN_NAME,
+                                 backend::level_zero);
         LevelZeroFound = true;
       }
       if (!CudaFound && (Backend == backend::cuda || Backend == backend::all)) {
-        PluginNames.emplace_back(CUDAPluginName, backend::cuda);
+        PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
         CudaFound = true;
       }
+<<<<<<< HEAD
       if (!HIPFound && (Backend == backend::hip || Backend == backend::all)) {
         PluginNames.emplace_back(HIPPluginName, backend::hip);
         HIPFound = true;
+=======
+      if (!RocmFound && (Backend == backend::rocm || Backend == backend::all)) {
+        PluginNames.emplace_back(__SYCL_ROCM_PLUGIN_NAME, backend::rocm);
+        RocmFound = true;
+>>>>>>> 6dc4d1e5d0bd0c3d6ae026ec7d99dba45b8b5e92
       }
     }
   }
