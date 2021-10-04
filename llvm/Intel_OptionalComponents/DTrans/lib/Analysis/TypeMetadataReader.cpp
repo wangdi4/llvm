@@ -13,11 +13,18 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "dtrans-typemetadatareader"
+
+static llvm::cl::opt<bool> EnableStrictCheck(
+    "dtrans-typemetadatareader-strict-check", llvm::cl::Hidden,
+    llvm::cl::init(true), llvm::cl::desc("verify that DTrans "
+    "metadata was collected for all structures"));
 
 namespace llvm {
 namespace dtransOP {
@@ -125,7 +132,7 @@ void TypeMetadataReader::setDTransFuncMetadata(Function *F,
   }
 }
 
-bool TypeMetadataReader::initialize(Module &M) {
+bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
   NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)
     return false;
@@ -206,7 +213,15 @@ bool TypeMetadataReader::initialize(Module &M) {
     }
 
     DTransStructType *DTStTy = TM.getStructType(P.first->getName());
-    assert(DTStTy && "Expected recovered type to have been created");
+    if (!DTStTy) {
+      if ((!StrictCheck || !EnableStrictCheck) &&
+          !dtrans::hasOpaquePointerFields(P.first))
+        continue;
+      // NOTE: This assertion may be removed later once we can check if types
+      // marked as 'MS_RecoveryNotNeeded' were created properly.
+      llvm_unreachable("Expected recovered type to have been created");
+    }
+
     if (DTStTy->getReconstructError()) {
       LLVM_DEBUG(dbgs() << "Errors with type info for struct: " << *P.first
                         << "\n");
