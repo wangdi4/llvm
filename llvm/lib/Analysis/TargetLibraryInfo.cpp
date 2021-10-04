@@ -6016,16 +6016,10 @@ bool TargetLibraryInfoImpl::getLibFunc(const Function &FDecl,
   // intrinsics, this ends up being an interesting compile time win since we
   // avoid string normalization and comparison. 
   if (FDecl.isIntrinsic()) return false;
-<<<<<<< HEAD
-  
-  const DataLayout *DL =
-      FDecl.getParent() ? &FDecl.getParent()->getDataLayout() : nullptr;
-=======
 
   const Module *M = FDecl.getParent();
   assert(M && "Expecting FDecl to be connected to a Module.");
 
->>>>>>> 460efc1fb8354295ce1320b5dae62f06cdeda278
   return getLibFunc(FDecl.getName(), F) &&
          isValidProtoForLibFunc(*FDecl.getFunctionType(), F, M->getDataLayout());
 }
