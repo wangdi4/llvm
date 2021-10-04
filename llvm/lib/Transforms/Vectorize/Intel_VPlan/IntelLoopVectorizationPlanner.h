@@ -303,10 +303,10 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(LLVMContext *Context,
-                              const DataLayout *DL, std::string VPlanName,
-                              ScalarEvolution *SE = nullptr);
-
+  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
+                              std::string VPlanName,
+                              ScalarEvolution *SE = nullptr,
+                              bool IsLegalToVec = true);
 
   /// On VPlan construction, each instruction marked for predication by Legal
   /// gets its own basic block guarded by an if-then. This initial planning
