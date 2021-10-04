@@ -178,6 +178,8 @@ set (SUPPORT_SOURCES
   MemoryBuffer.cpp
   MemoryBufferRef.cpp
   MD5.cpp
+  MSP430Attributes.cpp
+  MSP430AttributeParser.cpp
   NativeFormatting.cpp
   OptimizedStructLayout.cpp
   Optional.cpp
