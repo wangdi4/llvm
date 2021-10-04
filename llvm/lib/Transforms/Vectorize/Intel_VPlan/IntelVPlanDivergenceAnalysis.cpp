@@ -1001,16 +1001,6 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
   }
 }
 
-static Type *getResultElementTypeForMemAddrInst(const VPInstruction *I) {
-  assert(isa<VPGEPInstruction>(I) ||
-         isa<VPSubscriptInst>(I) && "Not a MemAddrInst!");
-  if (auto *GEP = dyn_cast<VPGEPInstruction>(I))
-    return GEP->getResultElementType();
-
-  // FIXME: Store ResultElementType inside VPSubscriptInst itself.
-  return cast<PointerType>(I->getType())->getElementType();
-}
-
 VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I) {
   const auto &VPBB = *I->getParent();
@@ -1044,7 +1034,11 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
   // If shape is not random, then a new stride (in bytes) can be calculated for
   // the gep. Gep stride is always in bytes.
   if (NewDesc != VPVectorShape::SOARnd) {
-    Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
+    auto *Gep = dyn_cast<VPGEPInstruction>(I);
+    Type *PointedToTy =
+        Gep ? Gep->getResultElementType()
+            : cast<PointerType>(cast<VPSubscriptInst>(I)->getType())
+                  ->getElementType();
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep on an array-private should result in strided-access with
@@ -1141,10 +1135,16 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
       // NewIdxStride     = (32/8) * 1 = 4 (elements)
       int64_t CurrIdxStride = IdxShape.getStrideVal();
       unsigned ZeroDimStrideVal = ZeroDimStride->getZExtValue();
-      Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
+
+      assert(Subscript->dim(0).StructOffsets.empty() &&
+             "Can't handle struct ofssets!");
+      Type *PointedToTy = Subscript->dim(0).DimElementType;
+
       uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
       // Index could have a multiplicative co-efficient, so multiply the
       // dimension's stride with current stride value.
+      assert(ZeroDimStrideVal % PointedToTySize == 0 &&
+             "Broken stride assumption!");
       int64_t NewIdxStride =
           (ZeroDimStrideVal / PointedToTySize) * CurrIdxStride;
       assert(NewIdxStride != 0 && "Idx has no stride.");
@@ -1169,14 +1169,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // If shape is not random, then a new stride (in bytes) can be calculated for
   // the gep. Gep stride is always in bytes.
   if (NewDesc != VPVectorShape::Rnd) {
-    // BaseType of Gep should be a pointer type referring to a non-aggregate
-    // type (i.e., scalar or vector type). For example, this should hold true
-    // for multi-dim arrays.
-    // Examples: float* -> float,
-    //           [3000 x [3000 x i32]]* -> i32,
-    //           <4 x i32>* -> <4 x i32>
-    Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
-    uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
+
     // For known strides:
     // 1) Uniform gep should result in 0 stride (i.e., pointer and idx are
     //    uniform).
@@ -1196,15 +1189,25 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
       assert((PtrStrideVal == 0 || IdxStrideVal == 0) &&
              "Expect one of PtrStrideVal or IdxStrideVal to be 0.");
 
-      NewStride = getConstantInt(PtrStrideVal + PointedToTySize * IdxStrideVal);
-
-      // See if we can refine a strided pointer to a unit-strided pointer by
-      // checking if new stride value is the same as size of pointedto type.
-      const APInt &NewStrideVal =
-          cast<ConstantInt>(NewStride->getUnderlyingValue())->getValue();
-      uint64_t NewStrideValAbs = NewStrideVal.abs().getZExtValue();
-      if (NewDesc == VPVectorShape::Str && PointedToTySize == NewStrideValAbs)
-        NewDesc = VPVectorShape::Str;
+      if (IdxStrideVal == 0)
+        NewStride = getConstantInt(PtrStrideVal);
+      else {
+        // BaseType of Gep should be a pointer type referring to a non-aggregate
+        // type (i.e., scalar or vector type). For example, this should hold
+        // true for multi-dim arrays. Examples: float* -> float,
+        //           [3000 x [3000 x i32]]* -> i32,
+        //           <4 x i32>* -> <4 x i32>
+        Type *PointedToTy;
+        if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
+          assert(Subscript->dim(0).StructOffsets.empty() &&
+                 "Should have bailed-out earlier!");
+          PointedToTy = Subscript->dim(0).DimElementType;
+        } else {
+          PointedToTy = cast<VPGEPInstruction>(I)->getResultElementType();
+        }
+        uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
+        NewStride = getConstantInt(PointedToTySize * IdxStrideVal);
+      }
     }
   }
   return {NewDesc, NewStride};
