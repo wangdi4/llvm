@@ -3,11 +3,8 @@
 #
 * @intel-restricted/xmain-gatekeeper
 
-<<<<<<< HEAD
-=======
 # Front-end compiler
 clang/ @premanandrao @elizabethandrews
->>>>>>> 22dde9df9cc15cb5f56e1255185c8f7339496426
 
 
 
