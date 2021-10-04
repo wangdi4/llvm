@@ -512,19 +512,6 @@ bool HIRRegionIdentification::collectIntermediateBBs(
   return true;
 }
 
-Type *HIRRegionIdentification::getPrimaryElementType(Type *PtrTy) const {
-  assert(isa<PointerType>(PtrTy) && "Unexpected type!");
-
-  Type *ElTy = cast<PointerType>(PtrTy)->getElementType();
-
-  // Recurse into array types, if any.
-  for (; ArrayType *ArrTy = dyn_cast<ArrayType>(ElTy);
-       ElTy = ArrTy->getElementType()) {
-  }
-
-  return ElTy;
-}
-
 bool HIRRegionIdentification::isHeaderPhi(const PHINode *Phi) const {
   auto ParentBB = Phi->getParent();
 
