@@ -2522,7 +2522,7 @@ In order to produce the unique name, the current implementation of the bultin
 uses Itanium mangling even if the host compilation uses a different name
 mangling scheme at runtime. The mangler marks all the lambdas required to name
 the SYCL kernel and emits a stable local ordering of the respective lambdas.
-The resulting pattern is demanglable. When non-lambda types are passed to the
+The resulting pattern is demanglable.  When non-lambda types are passed to the
 builtin, the mangler emits their usual pattern without any special treatment.
 
 **Syntax**:
