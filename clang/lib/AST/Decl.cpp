@@ -3187,7 +3187,8 @@ bool FunctionDecl::isInlineBuiltinDeclaration() const {
     return false;
 
   const FunctionDecl *Definition;
-  return hasBody(Definition) && Definition->isInlineSpecified();
+  return hasBody(Definition) && Definition->isInlineSpecified() &&
+         Definition->hasAttr<AlwaysInlineAttr>();
 }
 
 bool FunctionDecl::isDestroyingOperatorDelete() const {
