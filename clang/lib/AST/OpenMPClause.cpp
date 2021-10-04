@@ -91,6 +91,8 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
 #if INTEL_COLLAB
   case OMPC_subdevice:
     return static_cast<const OMPSubdeviceClause *>(C);
+  case OMPC_ompx_places:
+    return static_cast<const OMPOmpxPlacesClause *>(C);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1732,6 +1734,26 @@ void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   if (auto *E = Node->getLevel()) {
     E->printPretty(OS, nullptr, Policy);
     OS << ",";
+  }
+  auto *E = Node->getStart();
+  E->printPretty(OS, nullptr, Policy);
+  if (auto *E = Node->getLength()) {
+    OS << ":";
+    E->printPretty(OS, nullptr, Policy);
+  }
+  if (auto *E = Node->getStride()) {
+    OS << ":";
+    E->printPretty(OS, nullptr, Policy);
+  }
+  OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *Node) {
+  OS << "ompx_places(";
+  OpenMPOmpxPlacesClauseModifier Modifier = Node->getModifier();
+  if (Modifier != OMPC_OMPX_PLACES_unknown) {
+    OS << getOpenMPSimpleClauseTypeName(Node->getClauseKind(), Modifier)
+       << ",";
   }
   auto *E = Node->getStart();
   E->printPretty(OS, nullptr, Policy);

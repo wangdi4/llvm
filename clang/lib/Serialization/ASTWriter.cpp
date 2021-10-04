@@ -6068,6 +6068,14 @@ void OMPClauseWriter::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   Record.AddStmt(C->getStride());
 }
 
+void OMPClauseWriter::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.push_back(unsigned(C->getModifier()));
+  Record.AddStmt(C->getStart());
+  Record.AddStmt(C->getLength());
+  Record.AddStmt(C->getStride());
+}
+
 void OMPClauseWriter::VisitOMPDataClause(OMPDataClause *C) {
   Record.push_back(C->getNumDataClauseVals());
   for (auto *E : C->val_exprs())

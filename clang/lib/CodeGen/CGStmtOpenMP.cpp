@@ -6140,6 +6140,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
 #if INTEL_COLLAB
   case OMPC_bind:
   case OMPC_subdevice:
+  case OMPC_ompx_places:
   case OMPC_adjust_args:
   case OMPC_append_args:
   case OMPC_data:

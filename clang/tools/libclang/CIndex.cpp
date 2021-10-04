@@ -2234,6 +2234,13 @@ void OMPClauseEnqueue::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   Visitor->AddStmt(C->getStride());
 }
 
+void OMPClauseEnqueue::VisitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Visitor->AddStmt(C->getStart());
+  Visitor->AddStmt(C->getLength());
+  Visitor->AddStmt(C->getStride());
+}
+
 void OMPClauseEnqueue::VisitOMPDataClause(const OMPDataClause *C) {
   for (auto *E : C->val_exprs())
     Visitor->AddStmt(E);

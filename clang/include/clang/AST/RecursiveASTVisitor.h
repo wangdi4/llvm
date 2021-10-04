@@ -3156,6 +3156,16 @@ RecursiveASTVisitor<Derived>::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
 
 template <typename Derived>
 bool
+RecursiveASTVisitor<Derived>::VisitOMPOmpxPlacesClause(OMPOmpxPlacesClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(TraverseStmt(C->getStart()));
+  TRY_TO(TraverseStmt(C->getLength()));
+  TRY_TO(TraverseStmt(C->getStride()));
+  return true;
+}
+
+template <typename Derived>
+bool
 RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
   for (auto *E : C->val_exprs()) {
     TRY_TO(TraverseStmt(E));
