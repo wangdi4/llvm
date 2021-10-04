@@ -1996,7 +1996,7 @@ static IdentifierInfo *HandleMacroAnnotationPragma(Preprocessor &PP, Token &Tok,
   IdentifierInfo *II = Tok.getIdentifierInfo();
 
   if (!II->hasMacroDefinition()) {
-    PP.Diag(Tok, diag::err_pp_visibility_non_macro) << II->getName();
+    PP.Diag(Tok, diag::err_pp_visibility_non_macro) << II;
     return nullptr;
   }
 
@@ -2031,8 +2031,8 @@ struct PragmaDeprecatedHandler : public PragmaHandler {
     if (IdentifierInfo *II = HandleMacroAnnotationPragma(
             PP, Tok, "#pragma clang deprecated", MessageString)) {
       II->setIsDeprecatedMacro(true);
-      if (!MessageString.empty())
-        PP.addMacroDeprecationMsg(II, std::move(MessageString));
+      PP.addMacroDeprecationMsg(II, std::move(MessageString),
+                                Tok.getLocation());
     }
   }
 };
@@ -2056,6 +2056,47 @@ struct PragmaRestrictExpansionHandler : public PragmaHandler {
       PP.addRestrictExpansionMsg(II, std::move(MessageString),
                                  Tok.getLocation());
     }
+  }
+};
+
+/// "\#pragma clang final(...)"
+///
+/// The syntax is
+/// \code
+///   #pragma clang final(MACRO_NAME)
+/// \endcode
+struct PragmaFinalHandler : public PragmaHandler {
+  PragmaFinalHandler() : PragmaHandler("final") {}
+
+  void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                    Token &Tok) override {
+    std::string Macro;
+
+    PP.Lex(Tok);
+    if (Tok.isNot(tok::l_paren)) {
+      PP.Diag(Tok, diag::err_expected) << "(";
+      return;
+    }
+
+    PP.LexUnexpandedToken(Tok);
+    if (!Tok.is(tok::identifier)) {
+      PP.Diag(Tok, diag::err_expected) << tok::identifier;
+      return;
+    }
+    IdentifierInfo *II = Tok.getIdentifierInfo();
+
+    if (!II->hasMacroDefinition()) {
+      PP.Diag(Tok, diag::err_pp_visibility_non_macro) << II;
+      return;
+    }
+
+    PP.Lex(Tok);
+    if (Tok.isNot(tok::r_paren)) {
+      PP.Diag(Tok, diag::err_expected) << ")";
+      return;
+    }
+    II->setIsFinal(true);
+    PP.addFinalLoc(II, Tok.getLocation());
   }
 };
 
@@ -2090,6 +2131,7 @@ void Preprocessor::RegisterBuiltinPragmas() {
   AddPragmaHandler("clang", new PragmaAssumeNonNullHandler());
   AddPragmaHandler("clang", new PragmaDeprecatedHandler());
   AddPragmaHandler("clang", new PragmaRestrictExpansionHandler());
+  AddPragmaHandler("clang", new PragmaFinalHandler());
 
   // #pragma clang module ...
   auto *ModuleHandler = new PragmaNamespace("module");
