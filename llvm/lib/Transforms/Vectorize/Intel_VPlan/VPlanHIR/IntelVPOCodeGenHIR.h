@@ -791,6 +791,20 @@ private:
   // VPInstruction.
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask);
 
+  // Helper to create select instruction. CmpPred, PredOp0, and PredOp1
+  // correspond to the select HLInst predicate related arguments. If PredOp1 is
+  // null, we use the equivalent of PredOp0 == True for the select HLInst
+  // predicate. The values PredOp0 and PredOp1 are replicated ReplicateFactor
+  // times when ReplicateFactor > 1. A new RegDDRef is generated as the LVal if
+  // the LVal passed in is null.
+  HLInst *createSelectHelper(const CmpInst::Predicate &CmpPred,
+                             RegDDRef *PredOp0, RegDDRef *PredOp1,
+                             RegDDRef *Val0, RegDDRef *Val1,
+                             unsigned ReplicateFactor = 0,
+                             const Twine &Name = "select",
+                             RegDDRef *LVal = nullptr,
+                             FastMathFlags FMF = FastMathFlags());
+
   // Implementation of blend widening.
   void widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask);
 

@@ -147,13 +147,6 @@ bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
     return !hasUnconventionalAccess(Phi, AddRecSCEV);
   }
 
-  // Check if there is a type mismatch in the primary element type for pointer
-  // types.
-  if (RI.getPrimaryElementType(Phi->getType()) !=
-      RI.getPrimaryElementType(SC->getType())) {
-    return false;
-  }
-
   return true;
 }
 

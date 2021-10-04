@@ -3032,6 +3032,48 @@ RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
   return MemRef;
 }
 
+HLInst *VPOCodeGenHIR::createSelectHelper(const CmpInst::Predicate &CmpPred,
+                                          RegDDRef *PredOp0, RegDDRef *PredOp1,
+                                          RegDDRef *Val0, RegDDRef *Val1,
+                                          unsigned ReplicateFactor,
+                                          const Twine &Name, RegDDRef *LVal,
+                                          FastMathFlags FMF) {
+  assert(PredOp0 && "Expected non-null PredOp0");
+
+  // PredOp0/PredOp1 vector elements need to be replicated by ReplicateFactor
+  // times.
+  if (ReplicateFactor > 1) {
+    HLInst *ReplInst = replicateVectorElts(PredOp0, ReplicateFactor);
+    addInstUnmasked(ReplInst);
+    PredOp0 = ReplInst->getLvalDDRef()->clone();
+
+    // Replicate PredOp1 vector elements if non-null
+    if (PredOp1) {
+      ReplInst = replicateVectorElts(PredOp1, ReplicateFactor);
+      addInstUnmasked(ReplInst);
+      PredOp1 = ReplInst->getLvalDDRef()->clone();
+    }
+  }
+
+  // If PredOp1 is null we need to generate the equivalent of PredOp0 CmpPred
+  // True
+  if (!PredOp1) {
+    assert(CmpPred == CmpInst::ICMP_EQ &&
+           "Expected ICMP_EQ for compare predicate");
+    auto *Op0VecTy = cast<VectorType>(PredOp0->getDestType());
+    Constant *OneVal = Constant::getAllOnesValue(Op0VecTy->getScalarType());
+
+    // Broadcast OneVal to a vector with same number of elements as in PredOp0
+    // whose vector elements have been replicated already if needed.
+    PredOp1 = getConstantSplatDDRef(DDRefUtilities, OneVal,
+                                    Op0VecTy->getNumElements());
+  }
+
+  HLInst *SelectInst = HLNodeUtilities.createSelect(
+      CmpPred, PredOp0, PredOp1, Val0, Val1, Name, LVal, FMF);
+  return SelectInst;
+}
+
 // Widen blend instruction. The implementation here generates a sequence
 // of selects. Consider the following scalar blend in bb0:
 //      vp1 = blend [vp2, bp2] [vp3, bp3] [vp4, bp4].
@@ -3060,14 +3102,13 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
     VPValue *BlockPred = Blend->getIncomingPredicate(Idx);
     assert(BlockPred && "block-predicate should not be null for select");
     RegDDRef *Cond = widenRef(BlockPred, getVF());
-    Type *CondTy = Cond->getDestType();
-    Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
-    RegDDRef *OneValRef =
-        getConstantSplatDDRef(DDRefUtilities, OneVal, getVF());
-    HLInst *BlendInst = HLNodeUtilities.createSelect(
-        CmpInst::ICMP_EQ, Cond, OneValRef, IncomingVecVal, BlendVal);
-    // TODO: Do we really need the Mask here?
-    addInst(BlendInst, Mask);
+
+    auto *VecTy = dyn_cast<VectorType>(Blend->getType());
+    unsigned ReplicateFactor = VecTy ? VecTy->getNumElements() : 0;
+    HLInst *BlendInst = createSelectHelper(CmpInst::ICMP_EQ /* CmpPred */, Cond,
+                                           nullptr /* Pred1 */, IncomingVecVal,
+                                           BlendVal, ReplicateFactor);
+    addInstUnmasked(BlendInst);
     BlendVal = BlendInst->getLvalDDRef()->clone();
   }
 
@@ -4515,11 +4556,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       Pred = PredInst->getPredicate();
     } else {
       Pred0 = widenRef(VPInst->getOperand(0), getVF());
-      Type *CondTy = Pred0->getDestType();
-      Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
-      Pred1 = getConstantSplatDDRef(
-          DDRefUtilities, OneVal,
-          cast<FixedVectorType>(CondTy)->getNumElements());
+      Pred1 = nullptr;
       Pred = CmpInst::ICMP_EQ;
     }
 
@@ -4530,9 +4567,17 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       RedRef = ReductionRefs[VPInst];
     FastMathFlags FMF = VPInst->hasFastMathFlags() ? VPInst->getFastMathFlags()
                                                    : FastMathFlags();
-    NewInst = HLNodeUtilities.createSelect(
-        Pred, Pred0, Pred1, RefOp0, RefOp1, InstName,
-        RedRef ? RedRef->clone() : nullptr, FMF);
+
+    // Replicate Pred0/Pred1 if the mask is Scalar and instruction type is
+    // vector
+    auto *VecTy = dyn_cast<VectorType>(VPInst->getType());
+    unsigned ReplicateFactor =
+        VecTy && !VPInst->getOperand(0)->getType()->isVectorTy()
+            ? VecTy->getNumElements()
+            : 0;
+    NewInst =
+        createSelectHelper(Pred, Pred0, Pred1, RefOp0, RefOp1, ReplicateFactor,
+                           InstName, RedRef ? RedRef->clone() : nullptr, FMF);
     break;
   }
 
