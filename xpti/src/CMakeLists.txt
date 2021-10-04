@@ -39,7 +39,5 @@ else()
   string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
 
 # end INTEL_CUSTOMIZATION
-  target_compile_options(xptid PRIVATE ${XPTI_CXX_FLAGS_DEBUG})
-  target_compile_options(xpti PRIVATE ${XPTI_CXX_FLAGS_RELEASE})
 endif()
 
