@@ -9,12 +9,8 @@
 ; INTEL_CUSTOMIZATION
 ; This customization is for turning off the multiversioning
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
-<<<<<<< HEAD
 
-; RUN: llvm-lto2 run -thinlto-distributed-indexes -wholeprogramdevirt-multiversion=false %t.o \
-=======
-; RUN: llvm-lto2 run -thinlto-distributed-indexes -disable-thinlto-funcattrs=0 %t.o \
->>>>>>> 20faf789199d31a40c7f1a359361980c65067aab
+; RUN: llvm-lto2 run -thinlto-distributed-indexes -disable-thinlto-funcattrs=0 -wholeprogramdevirt-multiversion=false %t.o \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -verify-machineinstrs=0 \
 ; RUN:   -o %t2.index \
