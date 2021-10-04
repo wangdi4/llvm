@@ -3,6 +3,8 @@
 #
 * @intel-restricted/xmain-gatekeeper
 
+# Front-end compiler
+clang/ @premanandrao @elizabethandrews
 
 
 
