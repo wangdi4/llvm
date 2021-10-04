@@ -902,66 +902,35 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
   LLVM_DEBUG(Clone->dump());
 }
 
-Instruction *VecCloneImpl::generateStrideForParameter(Function *Clone,
-                                                      Argument *Arg,
-                                                      Instruction *ParmUser,
-                                                      int Stride,
-                                                      PHINode *Phi) {
-  // For linear values, a mul/add sequence is needed to generate the correct
-  // value. i.e., val = linear_var * stride + loop_index;
-  Instruction *Mul = nullptr;
-  Instruction *PhiCast = nullptr;
-  if (Arg->getType()->isPointerTy())
-    Mul = BinaryOperator::CreateMul(
-        ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride), Phi,
-        "stride.mul");
-  else {
-    // The instruction might involve redefinition of the parameter. For
-    // example, a load from the parameter's associated alloca or a cast. In this
-    // case, we emit the stride based on the type of ParmUser. In any other
-    // case, we use the type of the arguments.
-    Value *Val =
-        isa<LoadInst>(ParmUser) ? cast<Value>(ParmUser) : cast<Value>(Arg);
-    if (Val->getType() != Phi->getType()) {
-      PhiCast = CastInst::Create(
-          CastInst::getCastOpcode(Phi, false, Val->getType(), false), Phi,
-          Val->getType(), "phi.cast");
-
-      if (isa<LoadInst>(ParmUser))
-        PhiCast->insertAfter(ParmUser);
-      else
-        PhiCast->insertBefore(ParmUser);
-    }
-
-    Mul = BinaryOperator::CreateMul(
-        GeneralUtils::getConstantValue(Val->getType(), Clone->getContext(),
-                                       Stride),
-        PhiCast ? PhiCast : Phi, "stride.mul");
-  }
+Value *VecCloneImpl::generateStrideForParameter(Function *Clone, Argument *Arg,
+                                                Instruction *ParmUser,
+                                                int Stride, PHINode *Phi) {
+  // For linear values, a mul + add/gep sequence is needed to generate the
+  // correct value. i.e., val = linear_var + stride * loop_index;
 
   // Insert the stride related instructions after the user if the
   // instruction involves a redefinition of the parameter. For these
   // situations, we want to apply the stride to this SSA temp. For other
   // instructions, e.g., add, the instruction computing the stride must be
   // inserted before the user.
-  if (isa<LoadInst>(ParmUser))
-    Mul->insertAfter(PhiCast ? PhiCast : ParmUser);
-  else
-    Mul->insertBefore(ParmUser);
+  IRBuilder<> Builder(isa<LoadInst>(ParmUser) ? ParmUser->getNextNode()
+                                              : ParmUser);
 
   if (Arg->getType()->isPointerTy()) {
+    auto *Mul = Builder.CreateMul(ConstantInt::get(Phi->getType(), Stride), Phi,
+                                  "stride.mul");
 
     // Linear updates to pointer parameters involves an address calculation, so
     // use gep. To properly update linear pointers we only need to multiply the
     // loop index and stride since gep is indexed starting at 0 from the base
     // address passed to the vector function.
-    PointerType *ParmPtrType = cast<PointerType>(Arg->getType());
+    auto *ParmPtrType = cast<PointerType>(Arg->getType());
 
     // The base address used for linear gep computations.
     Value *BaseAddr = nullptr;
     StringRef RefName;
 
-    if (LoadInst *ParmLoad = dyn_cast<LoadInst>(ParmUser)) {
+    if (auto *ParmLoad = dyn_cast<LoadInst>(ParmUser)) {
       // We are loading from the alloca of the pointer parameter (no Mem2Reg)
       // i.e., loading a pointer to an SSA temp.
       BaseAddr = ParmUser;
@@ -975,13 +944,31 @@ Instruction *VecCloneImpl::generateStrideForParameter(Function *Clone,
     // Mul is always generated as i32 since it is calculated using the i32 loop
     // phi that is inserted by this pass. No cast on Mul is necessary because
     // gep can use a base address of one type with an index of another type.
-    GetElementPtrInst *LinearParmGep = GetElementPtrInst::Create(
-        ParmPtrType->getElementType(), BaseAddr, Mul, RefName + ".gep");
+    Value *LinearParmGep = Builder.CreateGEP(ParmPtrType->getElementType(),
+                                             BaseAddr, Mul, RefName + ".gep");
 
-    LinearParmGep->insertAfter(Mul);
     return LinearParmGep;
   }
-  BinaryOperator *Add = nullptr;
+
+  Value *PhiCast = Phi;
+  // The instruction might involve redefinition of the parameter. For
+  // example, a load from the parameter's associated alloca or a cast. In this
+  // case, we emit the stride based on the type of ParmUser. In any other
+  // case, we use the type of the arguments.
+  Value *Val =
+      isa<LoadInst>(ParmUser) ? cast<Value>(ParmUser) : cast<Value>(Arg);
+  if (Val->getType() != Phi->getType()) {
+    PhiCast = Builder.CreateCast(
+        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */, Val->getType(),
+                                false /* DestIsSigned */),
+        Phi, Val->getType(), "phi.cast");
+  }
+
+  Value *Mul =
+      Builder.CreateMul(GeneralUtils::getConstantValue(
+                            Val->getType(), Clone->getContext(), Stride),
+                        PhiCast, "stride.mul");
+
   // The user of the parameter is an instruction that results in a
   // redefinition of it. e.g., a load from an alloca (no Mem2Reg) or a cast
   // instruction. In either case, the stride needs to be applied to this
@@ -989,12 +976,9 @@ Instruction *VecCloneImpl::generateStrideForParameter(Function *Clone,
   // temp, such as an add instruction. For these cases, the stride must be
   // computed before the user and the reference to the parameter must be
   // replaced with this instruction.
-  Value *Val =
-      isa<LoadInst>(ParmUser) ? cast<Value>(ParmUser) : cast<Value>(Arg);
   assert(!Val->getType()->isFloatingPointTy() &&
          "The value should not be floating point!");
-  Add = BinaryOperator::CreateAdd(Val, Mul, "stride.add");
-  Add->insertAfter(Mul);
+  auto Add = Builder.CreateAdd(Val, Mul, "stride.add");
   return Add;
 }
 
@@ -1126,7 +1110,7 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
       // The stride calculation is inserted before the use. In some cases this
       // can lead to redundant instructions, but they will be optimized away
       // later. Inserting them this way makes the algorithm simpler.
-      Instruction *StrideInst =
+      Value *StrideInst =
           generateStrideForParameter(Clone, &Arg, User, Stride, Phi);
 
       SmallVector<Instruction*, 4> InstsToUpdate;

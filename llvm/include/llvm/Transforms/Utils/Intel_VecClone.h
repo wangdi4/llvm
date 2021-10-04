@@ -167,9 +167,9 @@ class VecCloneImpl {
 
     /// \brief Utility function that generates instructions that calculate the
     /// stride for a linear parameter.
-    Instruction* generateStrideForParameter(Function *Clone, Argument *Arg,
-                                            Instruction *ParmUser, int Stride,
-                                            PHINode *Phi);
+    Value *generateStrideForParameter(Function *Clone, Argument *Arg,
+                                      Instruction *ParmUser, int Stride,
+                                      PHINode *Phi);
 
     /// \brief Removes the original scalar alloca instructions that correspond
     /// to a vector parameter before widening.
