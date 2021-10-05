@@ -536,25 +536,25 @@ Instruction *VecCloneImpl::expandVectorParameters(
     StoreInst *StoreUser = nullptr;
     AllocaInst *Alloca = nullptr;
 
-    ParmRef *PRef = nullptr;
-    if (!Mask)
-      PRef = new ParmRef();
+    if (Mask)
+      return Mask;
+
+    Value *VectorParm = nullptr;
 
     for (User *U : Arg->users()) {
-
       StoreUser = dyn_cast<StoreInst>(U);
 
-      if (StoreUser && !Mask) {
+      if (StoreUser) {
         // For non-mask parameters, find the initial store of the parameter
         // to an alloca instruction. Map this alloca to the vector bitcast
         // created above so that we can update the old scalar references.
         Alloca = dyn_cast<AllocaInst>(StoreUser->getPointerOperand());
-        PRef->VectorParm = Alloca;
+        VectorParm = Alloca;
         break;
       }
     }
 
-    if (!Alloca && !Mask) {
+    if (!Alloca) {
       // Since Mem2Reg has run, there is no existing scalar store for
       // the parameter, but we must still pack (store) the expanded vector
       // parameter to a new vector alloca. This store is created here and
@@ -574,19 +574,16 @@ Instruction *VecCloneImpl::expandVectorParameters(
       // registerized parameters. The stores are inserted after the allocas in
       // the entry block.
       Store->insertBefore(EntryBlock->getTerminator());
-      PRef->VectorParm = ArgValue;
+      VectorParm = ArgValue;
     }
 
-    if (!Mask) {
       // Mapping not needed for the mask parameter because there will
       // be no users of it to replace. This parameter will only be used to
       // introduce if conditions on each mask bit.
-      PRef->VectorParmCast = VecParmCast;
-      VectorParmMap.push_back(PRef);
-    }
+      VectorParmMap.push_back(new ParmRef(VectorParm, VecParmCast));
   }
 
-  return Mask;
+  return nullptr;
 }
 
 Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
@@ -766,9 +763,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
       // from an alloca.
       VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
                                        F.getReturnType(), LastAlloca);
-      ParmRef *PRef = new ParmRef();
-      PRef->VectorParm = Alloca;
-      PRef->VectorParmCast = VecReturn;
+      ParmRef *PRef = new ParmRef(Alloca, VecReturn);
       VectorParmMap.push_back(PRef);
       return VecReturn;
     }

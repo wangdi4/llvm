@@ -37,10 +37,10 @@ namespace llvm {
 
 class ModulePass;
 
-/// \brief Represents the mapping of a vector parameter to its corresponding
-/// vector to scalar type cast instruction. This done so that the scalar loop
-/// inserted by this pass contains instructions that are in scalar form so that
-/// the loop can later be vectorized.
+/// Represents the mapping of a vector parameter to its corresponding vector to
+/// scalar type cast instruction. This done so that the scalar loop inserted by
+/// this pass contains instructions that are in scalar form so that the loop can
+/// later be vectorized.
 struct ParmRef {
   // Represents the parameter in one of two forms:
   // 1) A vector alloca instruction if the parameter has not been registerized.
@@ -49,6 +49,9 @@ struct ParmRef {
 
   // Represents the vector parameter cast from a vector type to scalar type.
   Instruction *VectorParmCast;
+
+  ParmRef(Value *VectorParm, Instruction *VectorParmCast)
+      : VectorParm(VectorParm), VectorParmCast(VectorParmCast) {}
 };
 
 class VecCloneImpl {
