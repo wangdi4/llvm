@@ -1199,9 +1199,8 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // TODO: this can actually be simplified further by just returning Alloca
   // from above. There doesn't seem to be a good reason to do this extra
   // casting. Leaving for now because this change is NFC.
-  PointerType *VecPtr = cast<PointerType>(BitCast->getDestTy());
-  Type *ReturnTy = VecPtr->getElementType();
-  LoadInst *VecReturn = new LoadInst(ReturnTy, BitCast, "vec.ret", ReturnBlock);
+  LoadInst *VecReturn =
+      new LoadInst(Clone->getReturnType(), BitCast, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
   LLVM_DEBUG(dbgs() << "After Return Block Update\n");
