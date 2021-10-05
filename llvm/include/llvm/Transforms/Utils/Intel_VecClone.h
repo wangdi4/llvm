@@ -93,7 +93,7 @@ class VecCloneImpl {
     Instruction *expandVectorParametersAndReturn(
         Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
         BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
-        std::vector<ParmRef *> &ParmMap, ValueToValueMapTy &VMap);
+        std::vector<ParmRef> &ParmMap, ValueToValueMapTy &VMap);
 
     /// \brief Expand the function parameters to vector types. This function
     /// returns the instruction corresponding to the mask. LastAlloca indicates
@@ -102,7 +102,7 @@ class VecCloneImpl {
     /// alloca of the most left argument is places at the top of the EntryBlock.
     Instruction *expandVectorParameters(Function *Clone, VectorVariant &V,
                                         BasicBlock *EntryBlock,
-                                        std::vector<ParmRef *> &ParmMap,
+                                        std::vector<ParmRef> &ParmMap,
                                         ValueToValueMapTy &VMap,
                                         AllocaInst *&LastAlloca);
 
@@ -112,7 +112,7 @@ class VecCloneImpl {
     Instruction *expandReturn(Function *Clone, Function &F,
                               BasicBlock *EntryBlock, BasicBlock *LoopBlock,
                               BasicBlock *ReturnBlock,
-                              std::vector<ParmRef *> &ParmMap,
+                              std::vector<ParmRef> &ParmMap,
                               AllocaInst *&LastAlloca);
 
     /// \brief Update the old parameter references to with the new vector
@@ -120,7 +120,7 @@ class VecCloneImpl {
     void updateScalarMemRefsWithVector(Function *Clone, Function &F,
                                        BasicBlock *EntryBlock,
                                        BasicBlock *ReturnBlock, PHINode *Phi,
-                                       ArrayRef<ParmRef *> ParmMap);
+                                       ArrayRef<ParmRef> ParmMap);
 
     /// \brief Update the values of linear parameters by adding the stride
     /// before the use.
@@ -176,7 +176,7 @@ class VecCloneImpl {
 
     /// \brief Removes the original scalar alloca instructions that correspond
     /// to a vector parameter before widening.
-    void removeScalarAllocasForVectorParams(ArrayRef<ParmRef *> VectorParmMap);
+    void removeScalarAllocasForVectorParams(ArrayRef<ParmRef> VectorParmMap);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.

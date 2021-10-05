@@ -449,7 +449,7 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
 
 Instruction *VecCloneImpl::expandVectorParameters(
     Function *Clone, VectorVariant &V, BasicBlock *EntryBlock,
-    std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap,
+    std::vector<ParmRef> &VectorParmMap, ValueToValueMapTy &VMap,
     AllocaInst *&LastAlloca) {
   // For vector parameters, expand the existing alloca to a vector. Then,
   // bitcast the vector and store this instruction in a map. The map is later
@@ -580,7 +580,7 @@ Instruction *VecCloneImpl::expandVectorParameters(
       // Mapping not needed for the mask parameter because there will
       // be no users of it to replace. This parameter will only be used to
       // introduce if conditions on each mask bit.
-      VectorParmMap.push_back(new ParmRef(VectorParm, VecParmCast));
+      VectorParmMap.emplace_back(VectorParm, VecParmCast);
   }
 
   return nullptr;
@@ -618,7 +618,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
                                         BasicBlock *EntryBlock,
                                         BasicBlock *LoopBlock,
                                         BasicBlock *ReturnBlock,
-                                        std::vector<ParmRef *> &VectorParmMap,
+                                        std::vector<ParmRef> &VectorParmMap,
                                         AllocaInst *&LastAlloca) {
   // Determine how the return is currently handled, since this will determine
   // if a new vector alloca is required for it. For simple functions, an alloca
@@ -704,9 +704,9 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
   VectorType *ReturnType = cast<VectorType>(Clone->getReturnType());
 
   if (isa<Argument>(FuncReturn->getReturnValue()))
-    for (auto *Param : VectorParmMap)
-      if (Param->VectorParm == FuncReturn->getReturnValue())
-        return Param->VectorParmCast;
+    for (auto &Param : VectorParmMap)
+      if (Param.VectorParm == FuncReturn->getReturnValue())
+        return Param.VectorParmCast;
 
   if (!Alloca) {
 
@@ -750,21 +750,20 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
   } else {
 
     // Case 2
-    auto AllocaIt = llvm::find_if(VectorParmMap, [Alloca](ParmRef *Entry) {
-      return Entry->VectorParm == Alloca;
+    auto AllocaIt = llvm::find_if(VectorParmMap, [Alloca](const ParmRef &Entry) {
+      return Entry.VectorParm == Alloca;
     });
     if (AllocaIt != VectorParmMap.end()) {
       // There's already a vector alloca created for the return, which is the
       // same one used for the parameter. E.g., we're returning the updated
       // parameter.
-      return (*AllocaIt)->VectorParmCast;
+      return AllocaIt->VectorParmCast;
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
       VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
                                        F.getReturnType(), LastAlloca);
-      ParmRef *PRef = new ParmRef(Alloca, VecReturn);
-      VectorParmMap.push_back(PRef);
+      VectorParmMap.emplace_back(Alloca, VecReturn);
       return VecReturn;
     }
   }
@@ -774,7 +773,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
 Instruction *VecCloneImpl::expandVectorParametersAndReturn(
     Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
     BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
-    std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap) {
+    std::vector<ParmRef> &VectorParmMap, ValueToValueMapTy &VMap) {
 
   // The function arguments are processed from left to right. The corresponding
   // allocas should be emitted in a specific order: the alloca that corresponds
@@ -828,16 +827,16 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
 void VecCloneImpl::updateScalarMemRefsWithVector(
     Function *Clone, Function &F, BasicBlock *EntryBlock,
     BasicBlock *ReturnBlock, PHINode *Phi,
-    ArrayRef<ParmRef *> VectorParmMap) {
+    ArrayRef<ParmRef> VectorParmMap) {
   // This function replaces the old scalar uses of a parameter with a reference
   // to the new vector one. A gep is inserted using the vector bitcast created
   // in the entry block and any uses of the parameter are replaced with this
   // gep. The only users that will not be updated are those in the entry block
   // that do the initial store to the vector alloca of the parameter.
 
-  for (auto VectorParmMapIt : VectorParmMap) {
-    Value *Parm = VectorParmMapIt->VectorParm;
-    Instruction *Cast = VectorParmMapIt->VectorParmCast;
+  for (auto &VectorParmMapIt : VectorParmMap) {
+    Value *Parm = VectorParmMapIt.VectorParm;
+    Instruction *Cast = VectorParmMapIt.VectorParmCast;
 
     for (auto *U : make_early_inc_range(Parm->users())) {
       auto *User = cast<Instruction>(U);
@@ -1412,9 +1411,11 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
 
   BranchInst::Create(LoopExitBlock, LoopElseBlock);
 
-  BitCastInst *BitCast = cast<BitCastInst>(Mask);
-  PointerType *BitCastType = cast<PointerType>(BitCast->getType());
-  Type *PointeeType = BitCastType->getElementType();
+  auto *BitCast = cast<BitCastInst>(Mask);
+  auto *Alloca = cast<AllocaInst>(BitCast->getOperand(0));
+
+  Type *PointeeType =
+      cast<VectorType>(Alloca->getAllocatedType())->getElementType();
 
   GetElementPtrInst *MaskGep =
       GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
@@ -1454,9 +1455,9 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
 }
 
 void VecCloneImpl::removeScalarAllocasForVectorParams(
-    ArrayRef<ParmRef *> VectorParmMap) {
-  for (auto VectorParmMapIt : VectorParmMap) {
-    Value *Parm = VectorParmMapIt->VectorParm;
+    ArrayRef<ParmRef> VectorParmMap) {
+  for (auto &VectorParmMapIt : VectorParmMap) {
+    Value *Parm = VectorParmMapIt.VectorParm;
     if (AllocaInst *ScalarAlloca = dyn_cast<AllocaInst>(Parm)) {
       ScalarAlloca->eraseFromParent();
 
@@ -1553,7 +1554,7 @@ bool VecCloneImpl::runImpl(Module &M) {
   // instructions using the members of ParmRef, and these instructions should be
   // ordered consistently for easier testability.
 
-  std::vector<ParmRef*> VectorParmMap;
+  std::vector<ParmRef> VectorParmMap;
 
   for (auto VarIt : FunctionsToVectorize) {
     Function& F = *(VarIt.first);
@@ -1638,9 +1639,6 @@ bool VecCloneImpl::runImpl(Module &M) {
       // these have now been replaced with vector ones.
       removeScalarAllocasForVectorParams(VectorParmMap);
 
-      for (auto *Parm : VectorParmMap) {
-        delete Parm;
-      }
       VectorParmMap.clear();
 
       // If this is the masked vector variant, insert the mask condition and
