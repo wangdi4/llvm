@@ -3,13 +3,8 @@
 #
 * @intel-restricted/xmain-gatekeeper
 
-<<<<<<< HEAD
-# Front-end compiler
-clang/ @premanandrao @elizabethandrews
-=======
 # JIRA: CMPLRLLVM->LLVM Driver
 /clang/**/Driver @mdtoguchi @hchilama @qichaogu
->>>>>>> fb47afdab53bcef0285ccca310f0769b5b3f93cf
 
 # JIRA: CMPLRLLVM->LLVM Code Generator
 /clang/include/clang/Basic/X86Target.def @LuoYuanke @phoebewang @williamweixiao
