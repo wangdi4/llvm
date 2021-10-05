@@ -1966,7 +1966,7 @@ private:
     // tracking %y as if it were declared as %struct.foo*. This is necessary to
     // help identify the original type to know whether a use of the pointer is
     // going to be safe for that type.
-    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BC->getOperand(0));
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BC, 0);
     propagate(SrcInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
               DerefType::DT_SameType);
     if (!SrcInfo->isCompletelyAnalyzed())
@@ -2705,8 +2705,7 @@ private:
     // GEP or an 'i8' array:
     // - The type alias list saw the type as a pointer-to-pointer.
     // - The type alias list does not contain any aggregate types
-    Value *BasePtr = GEP.getPointerOperand();
-    ValueTypeInfo *BasePtrInfo = PTA.getOrCreateValueTypeInfo(BasePtr);
+    ValueTypeInfo *BasePtrInfo = PTA.getOrCreateValueTypeInfo(&GEP, 0);
     bool HasStructType = false;
     bool HasArrayType = false;
     for (auto *AliasTy :
@@ -3018,17 +3017,23 @@ private:
   }
 
   void analyzeIntToPtrInst(IntToPtrInst *ITP, ValueTypeInfo *ResultInfo) {
-    // Propagate any pointer type information that has been identified for the
-    // source operand to the result info.
+    // Compiler constants can be ignored because the only way an integer
+    // value can have pointer type information is if the Value object
+    // originated from a ptrtoint instruction.
     Value *Src = ITP->getOperand(0);
-    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
-    propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
+    if (!isa<Constant>(Src)) {
+      // Propagate pointer type information that has been identified for the
+      // source operand to the result info, if there is any.
+      ValueTypeInfo *SrcInfo = PTA.getValueTypeInfo(Src);
+      if (SrcInfo) {
+        propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
+        if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+          ResultInfo->setDependsOnUnhandled();
 
-    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
-      ResultInfo->setDependsOnUnhandled();
-
-    if (!SrcInfo->isCompletelyAnalyzed())
-      ResultInfo->setPartiallyAnalyzed();
+        if (!SrcInfo->isCompletelyAnalyzed())
+          ResultInfo->setPartiallyAnalyzed();
+      }
+    }
 
     // If the source operand was evaluated as having been converted from a
     // pointer type, that type will have been propagated as the result type of

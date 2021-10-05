@@ -805,8 +805,8 @@ void HIRPrefetching::processIndirectPrefetching(
     PrefetchRef->setAddressOf(true);
 
     // Set destination address (i8*)
-    PrefetchRef->setBitCastDestType(Type::getInt8PtrTy(
-        HIRF.getContext(), PrefetchRef->getPointerAddressSpace()));
+    PrefetchRef->setBitCastDestVecOrElemType(
+        Type::getInt8Ty(HIRF.getContext()));
 
     HLInst *PrefetchInst =
         generatePrefetchingInst(Lp, PrefetchRef, Hint, IsWrite);
@@ -883,8 +883,8 @@ bool HIRPrefetching::doPrefetching(
     PrefetchRef->setAddressOf(true);
 
     // Set destination address (i8*)
-    PrefetchRef->setBitCastDestType(Type::getInt8PtrTy(
-        HIRF.getContext(), PrefetchRef->getPointerAddressSpace()));
+    PrefetchRef->setBitCastDestVecOrElemType(
+        Type::getInt8Ty(HIRF.getContext()));
 
     unsigned Level = Lp->getNestingLevel();
     PrefetchRef->shift(Level, PrefetchDist);

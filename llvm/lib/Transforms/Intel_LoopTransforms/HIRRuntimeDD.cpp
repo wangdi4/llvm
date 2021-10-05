@@ -1166,11 +1166,11 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
   }
 
   if (LowerType != PtrType) {
-    Lower->setBitCastDestType(PtrType);
+    Lower->setBitCastDestVecOrElemType(PtrElementType);
   }
 
   if (UpperType != PtrType) {
-    Upper->setBitCastDestType(PtrType);
+    Upper->setBitCastDestVecOrElemType(PtrElementType);
 
     auto UpperTypeSize = DL.getTypeSizeInBits(UpperElementType);
     auto PtrTypeSize = DL.getTypeSizeInBits(PtrElementType);
@@ -1334,7 +1334,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   RegDDRef *ArrayRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
   ArrayRef->setAddressOf(true);
   ArrayRef->addDimension(CEU.createCanonExpr(IVType));
-  ArrayRef->setBitCastDestType(I8PtrType);
+  ArrayRef->setBitCastDestVecOrElemType(Type::getInt8Ty(LLVMContext));
 
   RegDDRef *SegementSizeRef =
       DRU.createConstDDRef(IntPtrType, Context.SegmentList.size());

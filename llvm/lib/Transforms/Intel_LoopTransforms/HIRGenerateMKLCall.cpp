@@ -542,7 +542,6 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
   Type *IntType =
       Type::getIntNTy(Context, CEU.getTypeSizeInBits(MatrixRef->getBaseType()));
 
-  Type *AddrType = Type::getInt8PtrTy(Context);
   unsigned Level = Loop->getNestingLevel() - 1;
 
   unsigned AllocaBlobIdx =
@@ -557,7 +556,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   auto *BasePtrRef = MatrixRef->clone();
   BasePtrRef->setAddressOf(true);
-  BasePtrRef->setBitCastDestType(AddrType);
+  BasePtrRef->setBitCastDestVecOrElemType(Type::getInt8Ty(Context));
   BasePtrRef->getDimensionIndex(1)->clear();
   BasePtrRef->getDimensionIndex(1)->setConstant(
       MatrixRef->getDimensionIndex(1)->getConstant());

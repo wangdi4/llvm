@@ -1500,12 +1500,10 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   // type of VF-wide vector of Ref's DestType. For addressof DDRef, desttype
   // is set to vector of pointers(scalar desttype).
   if (WideRef->hasGEPInfo()) {
-    auto AddressSpace = Ref->getPointerAddressSpace();
     propagateMetadata(WideRef, Ref);
-    if (WideRef->isAddressOf()) {
-      WideRef->setBitCastDestType(VecRefDestTy);
-    } else {
-      WideRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
+    WideRef->setBitCastDestVecOrElemType(VecRefDestTy);
+
+    if (!WideRef->isAddressOf()) {
       setRefAlignment(RefDestTy, WideRef);
     }
   }
@@ -2910,7 +2908,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   //                <VF x Ty addrspace(x)*>
   Type *FlattenedTy = getWidenedType(
       VecType->getElementType()->getPointerTo(AddrSpace), getVF());
-  WidePtr->setBitCastDestType(FlattenedTy);
+  WidePtr->setBitCastDestVecOrElemType(FlattenedTy);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr after flattening : ";
              WidePtr->dump(1); dbgs() << "\n");
 
@@ -2996,8 +2994,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
     Type *VecValTy = getWidenedType(ValTy, VF);
 
     // MemRef's bitcast type needs to be set to a pointer to <VF x ValType>.
-    MemRef->setBitCastDestType(
-        PointerType::get(VecValTy, PtrTy->getAddressSpace()));
+    MemRef->setBitCastDestVecOrElemType(VecValTy);
   }
   MemRef->setSymbase(ScalSymbase);
   propagateMetadata(MemRef, VPLdSt);
@@ -3019,10 +3016,7 @@ RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
     MemRef->setAddressOf(false);
   else
     MemRef = createMemrefFromBlob(MemRef, 0, 1);
-  MemRef->setBitCastDestType(
-      PointerType::get(LoadStore->getValueType(),
-                       cast<PointerType>(LoadStore->getPointerOperand()->getType())
-                           ->getAddressSpace()));
+  MemRef->setBitCastDestVecOrElemType(LoadStore->getValueType());
   MemRef->setAlignment(LoadStore->getAlignment().value());
   MemRef->setSymbase(LoadStore->HIR().getSymbase());
 
@@ -3305,7 +3299,7 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
       AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
       AllocaMemRefSym);
-  BaseRef->setBitCastDestType(PvtTy);
+  BaseRef->setBitCastDestVecOrElemType(PvtTy->getPointerElementType());
   // Need to create a copy inst to capture base-address since HIR does not allow
   // GEP Refs to be embedded into each other.
   HLInst *BaseRefCopy = HLNodeUtilities.createCopyInst(BaseRef, "priv.mem.bc");
@@ -3335,7 +3329,7 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
       BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
       OrigLoop->getNestingLevel() - 1, AllocaMemRefSym);
   VecPvtPtrs->addDimension(IndexCE);
-  VecPvtPtrs->setBitCastDestType(getWidenedType(PvtTy, getVF()));
+  VecPvtPtrs->setBitCastDestVecOrElemType(getWidenedType(PvtTy, getVF()));
   return VecPvtPtrs;
 }
 
@@ -3565,7 +3559,8 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
         AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
         AllocaMemRefSym);
-    ScalPvtPtr->setBitCastDestType(VPAllocaPriv->getType());
+    ScalPvtPtr->setBitCastDestVecOrElemType(
+        VPAllocaPriv->getType()->getPointerElementType());
 
     LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
                dbgs() << " got the vector of private pointers: ";
@@ -3870,7 +3865,10 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
   auto *NewRef = DDRefUtilities.createAddressOfRef(PointerRef->getDestType()->getScalarType()->getPointerElementType(),
       PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
   NewRef->setInBounds(VPSubscript->isInBounds());
-  NewRef->setBitCastDestType(ResultRefTy);
+  auto *BitCastDestTy = isa<PointerType>(ResultRefTy)
+                            ? ResultRefTy->getPointerElementType()
+                            : ResultRefTy;
+  NewRef->setBitCastDestVecOrElemType(BitCastDestTy);
   SmallVector<const RegDDRef *, 4> AuxRefs;
 
   // Utility to specially handle lower/stride fields of a subscript. We ensure
@@ -4655,7 +4653,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // destination type.
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
-      RefOp0->setBitCastDestType(ResultRefTy);
+      auto *BitCastDestTy = isa<PointerType>(ResultRefTy)
+                                ? ResultRefTy->getPointerElementType()
+                                : ResultRefTy;
+      RefOp0->setBitCastDestVecOrElemType(BitCastDestTy);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
       return;
     }

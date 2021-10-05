@@ -856,10 +856,9 @@ bool HIRArrayTranspose::MallocAnalyzer::isValidStridedUseRef(RegDDRef *Ref) {
   int64_t Stride;
   unsigned SingleBlobIndex;
 
-  auto DestTy = Ref->getBitCastDestType();
+  auto DestElemTy = Ref->getBitCastDestVecOrElemType();
 
-  if (DestTy) {
-    auto DestElemTy = DestTy->getPointerElementType();
+  if (DestElemTy) {
     // We have to give up if we are accessing number of bytes greater than
     // element size because consecutive elements before transpose are not
     // consecutive after transpose.
