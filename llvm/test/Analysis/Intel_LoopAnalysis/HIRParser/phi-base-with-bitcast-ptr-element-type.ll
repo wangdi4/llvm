@@ -11,8 +11,10 @@
 ; CHECK: |   (%bc1)[3 * i1] = &((%ptr.init)[24 * i1 + 24]);
 ; CHECK: + END LOOP
 
+; Element type found for the store using GEP (%gep) is i8 but we are storing a
+; pointer to the location hence it gets a bitcasted type.
 ; CHECK-OPAQUE: + DO i1 = 0, 168, 1   <DO_LOOP>
-; CHECK-OPAQUE: |   (%bc1)[24 * i1] = &((%ptr.init)[24 * i1 + 24]);
+; CHECK-OPAQUE: |   (ptr)(%bc1)[24 * i1] = &((%ptr.init)[24 * i1 + 24]);
 ; CHECK-OPAQUE: + END LOOP
 
 

@@ -1,11 +1,15 @@
 ; RUN: opt < %s -hir-cost-model-throttling=0 -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 ; RUN: opt < %s -convert-to-subscript -hir-cost-model-throttling=0 -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-cost-model-throttling=0 | FileCheck %s
 
+; RUN: opt < %s -force-opaque-pointers -hir-cost-model-throttling=0 -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s --check-prefix=CHECK-OPAQUE
+
 ; Check parsing output for the loop verifying that we create a GEP DDRef for @bar's argument which is a bitcast of a gep instruction.
 ; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
 ; CHECK-NEXT: @bar(&((i8*)(%A)[i1]))
 ; CHECK-NEXT: END LOOP
 
+; Verify that bitcast is eliminated for addressOf refs with opaque pointers.
+; CHECK-OPAQUE: @bar(&((%A)[i1]))
 
 ; ModuleID = 'bitcast-gep.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -587,12 +587,16 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   }
 
   // Create a bitcast instruction if needed
-  auto BitCastDestTy = Ref->getBitCastDestType();
-  if (BitCastDestTy) {
-    LLVM_DEBUG(dbgs() << "VPDecomp: BitCastDestTy: "; BitCastDestTy->dump();
-               dbgs() << "\n");
-    MemOpVPI =
-        Builder.createNaryOp(Instruction::BitCast, {MemOpVPI}, BitCastDestTy);
+  auto BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();
+  if (BitCastDestElemTy) {
+    LLVM_DEBUG(dbgs() << "VPDecomp: BitCastDestElemTy: ";
+               BitCastDestElemTy->dump(); dbgs() << "\n");
+    MemOpVPI = Builder.createNaryOp(
+        Instruction::BitCast, {MemOpVPI},
+        PointerType::get(BitCastDestElemTy, Ref->getBaseCE()
+                                                ->getDestType()
+                                                ->getScalarType()
+                                                ->getPointerAddressSpace()));
   }
 
   // If memory reference is AddressOf type, return the last generated
