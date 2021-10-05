@@ -448,7 +448,7 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
 }
 
 Instruction *VecCloneImpl::expandVectorParameters(
-    Function *Clone, VectorVariant &V, BasicBlock *EntryBlock,
+    Function *Clone, Function &OrigFn, VectorVariant &V, BasicBlock *EntryBlock,
     std::vector<ParmRef> &VectorParmMap, ValueToValueMapTy &VMap,
     AllocaInst *&LastAlloca) {
   // For vector parameters, expand the existing alloca to a vector. Then,
@@ -577,10 +577,13 @@ Instruction *VecCloneImpl::expandVectorParameters(
       VectorParm = ArgValue;
     }
 
-      // Mapping not needed for the mask parameter because there will
-      // be no users of it to replace. This parameter will only be used to
-      // introduce if conditions on each mask bit.
-      VectorParmMap.emplace_back(VectorParm, VecParmCast);
+    // Mapping not needed for the mask parameter because there will
+    // be no users of it to replace. This parameter will only be used to
+    // introduce if conditions on each mask bit.
+
+    // FIXME: handling of byval/byref parameters.
+    VectorParmMap.emplace_back(VectorParm, VecParmCast,
+                               OrigFn.getArg(Arg->getArgNo())->getType());
   }
 
   return nullptr;
@@ -763,7 +766,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
       // from an alloca.
       VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
                                        F.getReturnType(), LastAlloca);
-      VectorParmMap.emplace_back(Alloca, VecReturn);
+      VectorParmMap.emplace_back(Alloca, VecReturn, F.getReturnType());
       return VecReturn;
     }
   }
@@ -782,7 +785,7 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
 
   // If there are no parameters, then this function will do nothing and this
   // is the expected behavior.
-  Mask = expandVectorParameters(Clone, V, EntryBlock, VectorParmMap, VMap,
+  Mask = expandVectorParameters(Clone, F, V, EntryBlock, VectorParmMap, VMap,
                                 LastAlloca);
 
   // If the function returns void, then don't attempt to expand to vector.
@@ -849,13 +852,11 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
       }
 
       BitCastInst *BitCast = cast<BitCastInst>(Cast);
-      PointerType *BitCastType = cast<PointerType>(BitCast->getType());
-      Type *PointeeType = BitCastType->getElementType();
-
       GetElementPtrInst *VecGep = nullptr;
       if (!isa<PHINode>(User))
-        VecGep = GetElementPtrInst::Create(PointeeType, BitCast, Phi,
-                                           BitCast->getName() + ".gep", User);
+        VecGep =
+            GetElementPtrInst::Create(VectorParmMapIt.OrigElemType, BitCast,
+                                      Phi, BitCast->getName() + ".gep", User);
 
       unsigned NumOps = User->getNumOperands();
       for (unsigned I = 0; I < NumOps; ++I) {
@@ -876,9 +877,9 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
         // the vector parameter.
         if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
           BasicBlock *IncommingBB = PHIUser->getIncomingBlock(I);
-          VecGep = GetElementPtrInst::Create(PointeeType, BitCast, Phi,
-                                             BitCast->getName() + ".gep",
-                                             IncommingBB->getTerminator());
+          VecGep = GetElementPtrInst::Create(
+              VectorParmMapIt.OrigElemType, BitCast, Phi,
+              BitCast->getName() + ".gep", IncommingBB->getTerminator());
         }
         assert(VecGep && "Expect VecGep to be a non-null value.");
         Type *LoadTy = VecGep->getResultElementType();
