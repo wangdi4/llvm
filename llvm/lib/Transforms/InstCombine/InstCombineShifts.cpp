@@ -931,38 +931,6 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
           return BinaryOperator::Create(Op0BO->getOpcode(), YS, XM);
         }
 
-#if INTEL_CUSTOMIZATION
-        // Turn ((X << C) + Y) >> C  ->  (X + (Y >> C)) & (~0 >> C) for lshr
-        // This transformation reduces 1 instruction when Y is a ConstantInt,
-        // and creates potential for other simplifications.
-        //
-        // For example, the following code
-        //     %1 = shl i32 %0, 24
-        //     %2 = add i32 %1, 16777216
-        //     %3 = lshr exact i32 %2, 24
-        // will be simplified to:
-        //     %1 = add i32 %0, 1
-        //     %2 = and %1, 0xFF
-        if (I.getOpcode() == Instruction::LShr &&
-            Op0BO->getOperand(0)->hasOneUse() &&
-            match(Op0BO->getOperand(0), m_Shl(m_Value(V1), m_Specific(Op1)))) {
-          Value *YS = // (Y >> C)
-              Builder.CreateLShr(Op0BO->getOperand(1), Op1, Op0BO->getName());
-          // (X + (Y >> C))
-          Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), V1, YS,
-                                         Op0BO->getOperand(0)->getName());
-
-          unsigned Op1Val = C->getLimitedValue(BitWidth);
-          APInt Bits = APInt::getLowBitsSet(BitWidth, BitWidth - Op1Val);
-          Constant *Mask = ConstantInt::get(I.getContext(), Bits);
-
-          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
-            Mask = ConstantVector::getSplat(
-                ElementCount::getFixed(VT->getNumElements()), Mask);
-          return BinaryOperator::CreateAnd(X, Mask);
-        }
-#endif // INTEL_CUSTOMIZATION
-
         LLVM_FALLTHROUGH;
       }
 
@@ -994,27 +962,6 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
           return BinaryOperator::Create(Op0BO->getOpcode(), XM, YS);
         }
 
-#if INTEL_CUSTOMIZATION
-        // Turn (Y + (X << C)) >> C  ->  ((Y >> C) + X) & (~0 >> C) for lshr
-        if (I.getOpcode() == Instruction::LShr &&
-            Op0BO->getOperand(1)->hasOneUse() &&
-            match(Op0BO->getOperand(1), m_Shl(m_Value(V1), m_Specific(Op1)))) {
-          Value *YS = // (Y >> C)
-              Builder.CreateLShr(Op0BO->getOperand(0), Op1, Op0BO->getName());
-          // ((Y >> C) + X)
-          Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), YS, V1,
-                                         Op0BO->getOperand(0)->getName());
-
-          unsigned Op1Val = C->getLimitedValue(BitWidth);
-          APInt Bits = APInt::getLowBitsSet(BitWidth, BitWidth - Op1Val);
-          Constant *Mask = ConstantInt::get(I.getContext(), Bits);
-
-          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
-            Mask = ConstantVector::getSplat(
-                ElementCount::getFixed(VT->getNumElements()), Mask);
-          return BinaryOperator::CreateAnd(X, Mask);
-        }
-#endif // INTEL_CUSTOMIZATION
         break;
       }
       }
@@ -1246,6 +1193,77 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
       I.setIsExact();
       return &I;
     }
+
+#if INTEL_CUSTOMIZATION
+    BinaryOperator *Op0BO;
+    if (match(Op0, m_OneUse(m_BinOp(Op0BO)))) {
+      Value *V1 = nullptr;
+      Type *Ty = I.getType();
+      unsigned TypeBits = Ty->getScalarSizeInBits();
+
+      switch (Op0BO->getOpcode()) {
+      default:
+        break;
+      case Instruction::Add:
+      case Instruction::And:
+      case Instruction::Or:
+      case Instruction::Xor: {
+        // Turn ((X << C) + Y) >> C  ->  (X + (Y >> C)) & (~0 >> C) for lshr
+        // This transformation reduces 1 instruction when Y is a ConstantInt,
+        // and creates potential for other simplifications.
+        //
+        // For example, the following code
+        //     %1 = shl i32 %0, 24
+        //     %2 = add i32 %1, 16777216
+        //     %3 = lshr exact i32 %2, 24
+        // will be simplified to:
+        //     %1 = add i32 %0, 1
+        //     %2 = and %1, 0xFF
+        if (I.getOpcode() == Instruction::LShr &&
+            Op0BO->getOperand(0)->hasOneUse() &&
+            match(Op0BO->getOperand(0), m_Shl(m_Value(V1), m_Specific(Op1)))) {
+          Value *YS = // (Y >> C)
+              Builder.CreateLShr(Op0BO->getOperand(1), Op1, Op0BO->getName());
+          // (X + (Y >> C))
+          Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), V1, YS,
+                                         Op0BO->getOperand(0)->getName());
+
+          unsigned Op1Val = C->getLimitedValue(TypeBits);
+          APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
+          Constant *Mask = ConstantInt::get(I.getContext(), Bits);
+
+          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+            Mask = ConstantVector::getSplat(
+                ElementCount::getFixed(VT->getNumElements()), Mask);
+          return BinaryOperator::CreateAnd(X, Mask);
+        }
+        break;
+      }
+      case Instruction::Sub: {
+        // Turn (Y + (X << C)) >> C  ->  ((Y >> C) + X) & (~0 >> C) for lshr
+        if (I.getOpcode() == Instruction::LShr &&
+            Op0BO->getOperand(1)->hasOneUse() &&
+            match(Op0BO->getOperand(1), m_Shl(m_Value(V1), m_Specific(Op1)))) {
+          Value *YS = // (Y >> C)
+              Builder.CreateLShr(Op0BO->getOperand(0), Op1, Op0BO->getName());
+          // ((Y >> C) + X)
+          Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), YS, V1,
+                                         Op0BO->getOperand(0)->getName());
+
+          unsigned Op1Val = C->getLimitedValue(TypeBits);
+          APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
+          Constant *Mask = ConstantInt::get(I.getContext(), Bits);
+
+          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+            Mask = ConstantVector::getSplat(
+                ElementCount::getFixed(VT->getNumElements()), Mask);
+          return BinaryOperator::CreateAnd(X, Mask);
+        }
+        break;
+      } // case
+      } // switch
+    }   // if
+#endif  // INTEL_CUSTOMIZATION
   }
 
   // Transform  (x << y) >> y  to  x & (-1 >> y)
