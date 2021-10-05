@@ -61,7 +61,7 @@ static cl::opt<bool> EnableDataSharingOptForPrivate(
 // Boolean control for optimizing REDUCTION clauses.
 // Ignored for non-SPIR-V targets.
 static cl::opt<bool> EnableDataSharingOptForReduction(
-    "vpo-paropt-opt-data-sharing-for-reduction", cl::Hidden, cl::init(true),
+    "vpo-paropt-opt-data-sharing-for-reduction", cl::Hidden, cl::init(false),
     cl::desc("Optimize REDUCTION OpenMP clauses."));
 
 // FIXME: remove

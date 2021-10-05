@@ -55,6 +55,9 @@
 ;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
+; Line number repetition ("at lines 10 and 10" in the remark) is not a bug.
+; It results from multiple transformations applied to the same line number.
+;
 ;OPTREPORT: Global optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN at foo.c (5, 3)
@@ -69,7 +72,7 @@
 ;
 ;OPTREPORT: LOOP BEGIN at foo.c (5, 3)
 ;OPTREPORT: <Predicate Optimized v3>
-;OPTREPORT:     remark #25422: Invariant Condition at line 10 hoisted out of this loop
+;OPTREPORT:     remark #25423: Invariant If condition at lines 10 and 10 hoisted out of this loop
 ;
 ;OPTREPORT:     LOOP BEGIN at foo.c (6, 5)
 ;OPTREPORT:     <Predicate Optimized v2>
@@ -77,7 +80,7 @@
 ;
 ;OPTREPORT:     LOOP BEGIN at foo.c (6, 5)
 ;OPTREPORT:     <Predicate Optimized v1>
-;OPTREPORT:         remark #25422: Invariant Condition at line 7 hoisted out of this loop
+;OPTREPORT:         remark #25423: Invariant If condition at line 7 hoisted out of this loop
 ;OPTREPORT:     LOOP END
 ;OPTREPORT: LOOP END
 

@@ -332,7 +332,6 @@ private:
 
   // Sets including visited TargetLoop, visited NewElseLoop and If line nums
   SmallPtrSet<HLLoop *, 8> OptReportVisitedSet;
-  SmallPtrSet<HLNode *, 8> IfVisitedSet;
 
   /// Returns true if the non-linear rval Ref of the If condition may be
   /// unswitched together with its definition.
@@ -397,7 +396,12 @@ private:
                        HLIf *FirstIf, HLIf *If, HLIf *&PivotIf);
   void hoistIf(HLIf *&If, HLLoop *OrigLoop);
 
-  void addPredicateOptReport(HLLoop *TargetLoop, HLNode *IfOrSwitch);
+  void addPredicateOptReportOrigin(HLLoop *TargetLoop);
+
+  void addPredicateOptReportRemark(
+      HLLoop *TargetLoop,
+      const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
+      unsigned RemarkID);
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD
@@ -1109,7 +1113,6 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLSwitch *Switch,
 void HIROptPredicate::clearOptReportState() {
   VNum = 1;
   OptReportVisitedSet.clear();
-  IfVisitedSet.clear();
 }
 
 /// processOptPredicate - Main routine to perform opt predicate
@@ -1228,6 +1231,8 @@ void HIROptPredicate::transformSwitch(
   HLSwitch *OuterSwitch =
       HNU.createHLSwitch(OriginalSwitch->getConditionDDRef()->clone());
 
+  bool IsRemarkAdded = false;
+
   // Populate cases of the outer Switch with loop clones.
   for (auto &Case : CaseContainers) {
     auto CaseDDRef = DRU.createConstDDRef(
@@ -1237,7 +1242,12 @@ void HIROptPredicate::transformSwitch(
     LoopUnswitchNodeMapper CloneMapper(TrackClonedNodes, Candidates);
     HLLoop *NewLoop = TargetLoop->clone(&CloneMapper);
 
-    addPredicateOptReport(NewLoop, OriginalSwitch);
+    addPredicateOptReportOrigin(NewLoop);
+    if (!IsRemarkAdded) {
+      // Invariant Switch condition%s hoisted out of this loop
+      addPredicateOptReportRemark(NewLoop, SwitchCandidates, 25424u);
+      IsRemarkAdded = true;
+    }
 
     HLNodeUtils::insertAsFirstChild(OuterSwitch, NewLoop,
                                     OuterSwitch->getNumCases());
@@ -1294,6 +1304,8 @@ void HIROptPredicate::transformSwitch(
       HLNodeUtils::insertAfter(SwitchOrig, &CaseContainer);
       HLNodeUtils::remove(SwitchOrig);
     }
+
+    addPredicateOptReportOrigin(TargetLoop);
   }
 
   HLNodeUtils::replace(Marker, OuterSwitch);
@@ -1333,6 +1345,9 @@ void HIROptPredicate::transformIf(
   //     if(...)
   //   END DO
   // }
+
+  // Invariant If condition%s hoisted out of this loop
+  addPredicateOptReportRemark(TargetLoop, IfCandidates, 25423u);
 
   // Unswitch every equivalent candidate - a pair of HLIfs. First we handle
   // original If and then its clone. removeOrHoistIf() will move HLIf before
@@ -1375,7 +1390,7 @@ void HIROptPredicate::transformIf(
       }
     }
 
-    addPredicateOptReport(TargetLoop, If);
+    addPredicateOptReportOrigin(TargetLoop);
 
     // Handle second loop - NewElseLoop
 
@@ -1421,7 +1436,7 @@ void HIROptPredicate::transformIf(
       }
     }
 
-    addPredicateOptReport(NewElseLoop, If);
+    addPredicateOptReportOrigin(NewElseLoop);
   }
 
   assert(PivotIf && "should be defined");
@@ -1607,9 +1622,30 @@ void HIROptPredicate::hoistIf(HLIf *&If, HLLoop *OrigLoop) {
   HLNodeUtils::moveBefore(OrigLoop, If);
 }
 
-void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,
-                                            HLNode *IfOrSwitch) {
+static SmallString<32>
+constructLineNumberString(SmallVector<unsigned, 8> LineNumbers) {
+  SmallString<32> LoopNum;
+  raw_svector_ostream VOS(LoopNum);
+  auto It = LineNumbers.begin();
 
+  if (LineNumbers.size() == 1) {
+    VOS << " at line " << *It;
+  } else if (LineNumbers.size() == 2) {
+    VOS << " at lines ";
+    VOS << *It << " and " << *std::next(It);
+  } else {
+    VOS << " at lines ";
+    while (std::next(It) != LineNumbers.end()) {
+      VOS << *It << ", ";
+      ++It;
+    }
+    VOS << "and " << *It;
+  }
+
+  return LoopNum;
+}
+
+void HIROptPredicate::addPredicateOptReportOrigin(HLLoop *TargetLoop) {
   OptReportBuilder &ORBuilder =
       TargetLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
@@ -1620,22 +1656,36 @@ void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,
   }
 
   if (!OptReportVisitedSet.count(TargetLoop)) {
-    ORBuilder(*TargetLoop).addOrigin("Predicate Optimized v%d", VNum);
+    // Predicate Optimized v%d
+    ORBuilder(*TargetLoop).addOrigin(25476u, VNum);
     VNum++;
     OptReportVisitedSet.insert(TargetLoop);
   }
+}
 
-  if (IfVisitedSet.count(IfOrSwitch)) {
+void HIROptPredicate::addPredicateOptReportRemark(
+    HLLoop *TargetLoop,
+    const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
+    unsigned RemarkID) {
+  OptReportBuilder &ORBuilder =
+      TargetLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
+
+  bool IsReportOn = ORBuilder.isOptReportOn();
+
+  if (!IsReportOn) {
     return;
   }
 
-  auto IfLoc = IfOrSwitch->getDebugLoc();
+  SmallVector<unsigned, 8> LineNumbers;
+  for (auto &Cand : IfOrSwitchCandidates) {
+    auto &DebugLoc = Cand.isIf() ? Cand.getIf()->getDebugLoc()
+                                 : Cand.getSwitch()->getDebugLoc();
+    LineNumbers.push_back(DebugLoc ? DebugLoc.getLine() : 0);
+  }
 
-  ORBuilder(*TargetLoop)
-      .addRemark(OptReportVerbosity::Low, 25422u,
-                 AtLine(IfLoc ? IfLoc->getLine() : 0));
+  auto LoopNum = constructLineNumberString(LineNumbers);
 
-  IfVisitedSet.insert(IfOrSwitch);
+  ORBuilder(*TargetLoop).addRemark(OptReportVerbosity::Low, RemarkID, LoopNum);
 }
 
 PreservedAnalyses HIROptPredicatePass::runImpl(

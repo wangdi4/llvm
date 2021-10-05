@@ -53,10 +53,13 @@
 ;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
+; Incorrect line number ("at line 0" in the remark) only occurs during some
+; lit-tests (real-world test cases would have correct line numbers).
+;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT:     LOOP BEGIN
 ;OPTREPORT:     <Predicate Optimized v1>
-;OPTREPORT:         remark #25422: Invariant Condition hoisted out of this loop
+;OPTREPORT:         remark #25423: Invariant If condition at line 0 hoisted out of this loop
 ;OPTREPORT:     LOOP END
 ;OPTREPORT:     LOOP BEGIN
 ;OPTREPORT:     <Predicate Optimized v2>
