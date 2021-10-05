@@ -444,6 +444,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25399, "memcopy generated"},
     {25408, "memset generated"},
     {25422, "Invariant Condition%s hoisted out of this loop"},
+    {25423, "Invariant If condition%s hoisted out of this loop"},
+    {25424, "Invariant Switch condition%s hoisted out of this loop"},
     {25426, "Loop distributed (%d way)"},
     {25436, "Loop completely unrolled by %d"},
     {25438, "Loop unrolled without remainder by %d"},

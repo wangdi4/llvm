@@ -106,6 +106,32 @@
 ; CHECK:       }
 ; CHECK: END REGION
 
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -disable-output %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low -disable-output %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+;
+; Incorrect line numbers ("at lines 0, 0, ..." in the remark) only occur during
+; some lit-tests (real-world test cases would have correct line numbers).
+;
+; OPTREPORT: Global optimization report for : foo
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v2>
+; OPTREPORT:     remark #25423: Invariant If condition at lines 0, 0, 0, 0, 0, 0, 0, 0, 0, and 0 hoisted out of this loop
+; OPTREPORT: LOOP END
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v4>
+; OPTREPORT: LOOP END
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v3>
+; OPTREPORT: LOOP END
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Predicate Optimized v1>
+; OPTREPORT:     remark #25423: Invariant If condition at lines 0, 0, 0, 0, 0, 0, 0, 0, 0, and 0 hoisted out of this loop
+; OPTREPORT:     remark #25423: Invariant If condition at lines 0, 0, 0, 0, 0, 0, 0, 0, 0, and 0 hoisted out of this loop
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:         remark #25436: Loop completely unrolled by 10
+; OPTREPORT:     LOOP END
+; OPTREPORT: LOOP END
+
 ;Module Before HIR; ModuleID = '2.c'
 source_filename = "2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

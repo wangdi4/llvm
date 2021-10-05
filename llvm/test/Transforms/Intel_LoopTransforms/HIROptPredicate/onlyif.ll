@@ -27,9 +27,12 @@
 ; CHECK-NOT: (@B)[0][i1 + 2][i2 + 2] =
 ; CHECK: END LOOP
 
-;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+;
+; Incorrect line number ("at line 0" in the remark) only occurs during some
+; lit-tests (real-world test cases would have correct line numbers).
+;
 ; OPTREPORT: Global optimization report for : sub3
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT: <Predicate Optimized v2>
@@ -38,7 +41,7 @@
 ; OPTREPORT: LOOP END
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT: <Predicate Optimized v1>
-; OPTREPORT:     remark #25422: Invariant Condition hoisted out of this loop
+; OPTREPORT:     remark #25423: Invariant If condition at line 0 hoisted out of this loop
 ; OPTREPORT:     LOOP BEGIN
 ; OPTREPORT:     LOOP END
 ; OPTREPORT: LOOP END
