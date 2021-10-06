@@ -55,10 +55,7 @@ inner.exit:
 ; CHECK-NEXT:    [[TMP4:%.*]] = and <2 x i1> [[TMP1]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i1> [[TMP4]] to i2
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i2 [[TMP5]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT7:%.*]] = insertelement <2 x i1> poison, i1 [[TMP6]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT8:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT7]], <2 x i1> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[BROADCAST_SPLAT8_EXTRACT_0_:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT8]], i32 0
-; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[BROADCAST_SPLAT8_EXTRACT_0_]], [[DOTEXTRACT_0_]]
+; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP6]], [[DOTEXTRACT_0_]]
 ; CHECK-NEXT:    br i1 [[TMP7]], label %[[VPLANNEDBB9:.*]], label %[[VPLANNEDBB5]]
 ; CHECK:       [[VPLANNEDBB9]]:
 ; CHECK-NEXT:    br label %[[VPLANNEDBB10]]
