@@ -124,6 +124,8 @@ cl::opt<std::string> LTOStatsFile(
     "lto-stats-file",
     cl::desc("Save statistics to the specified file"),
     cl::Hidden);
+
+extern cl::opt<bool> DebugPassManager;
 }
 
 LTOCodeGenerator::LTOCodeGenerator(LLVMContext &Context)
@@ -137,6 +139,7 @@ LTOCodeGenerator::LTOCodeGenerator(LLVMContext &Context)
   Config.PreCodeGenPassesHook = [](legacy::PassManager &PM) {
     PM.add(createObjCARCContractPass());
   };
+  Config.DebugPassManager = DebugPassManager;
 }
 
 LTOCodeGenerator::~LTOCodeGenerator() {}
