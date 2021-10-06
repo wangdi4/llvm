@@ -7,7 +7,6 @@
 /clang/**/Driver @mdtoguchi @hchilama @qichaogu
 
 # JIRA: CMPLRLLVM->LLVM Code Generator
-/clang/include/clang/Basic/X86Target.def @LuoYuanke @phoebewang @williamweixiao
 /clang/lib/Headers/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
@@ -45,7 +44,7 @@
 /llvm/include/llvm/Analysis/GlobalsModRef.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/IndirectCallPromotionAnalysis.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/InlineAdvisor.h @robertcox-github @pvbattin
-/llvm/include/llvm/Analysis/InlineCost,h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/InlineCost.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/InlineModelFeatureMaps.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/InlineSizeEstimatorAnalysis.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Intel_Andersens.h @robertcox-github @pvbattin
@@ -59,8 +58,8 @@
 /llvm/include/llvm/Analysis/ModuleSummaryAnalysis.h  @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/TargetLibraryInfo.def  @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/TargetLibraryInfo.h @robertcox-github @pvbattin
+/llvm/include/llvm/Support/Intel_WP_utils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Support/intel-plugin-api.h @robertcox-github @pvbattin
-/llvm/include/llvm/Support/Intel_WP.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/ @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @robertcox-github @pvbattin
@@ -75,7 +74,7 @@
 /llvm/include/llvm/Transforms/Utils/FunctionComparator.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/FunctionImportUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/GlobalStatus.h @robertcox-github @pvbattin
-/llvm/include/llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/Intel_CloneUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/LibCallsShrinkWrap.h  @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/ModuleUtils.h @robertcox-github @pvbattin
@@ -96,11 +95,9 @@
 /llvm/lib/Analysis/Intel_Andersens.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_ArrayUseAnalysis.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_DopeVectorAnalysis.cpp @robertcox-github @pvbattin
-/llvm/lib/Analysis/Intel_IndirectCallConv.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_InlineCost.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_InlineReport @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_IPCloningAnalysis.cpp @robertcox-github @pvbattin
-/llvm/lib/Analysis/Intel_MultiVersioning.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_PartialInlineAnalysis.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_WP.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/LazyCallGraph.cpp @robertcox-github @pvbattin
@@ -109,7 +106,6 @@
 /llvm/lib/Analysis/TargetLibraryInfo.cpp @robertcox-github @pvbattin
 /llvm/lib/Linker/ @robertcox-github @pvbattin
 /llvm/lib/LTO/ @robertcox-github @pvbattin
-/llvm/lib/Support/Intel_WP_utils.h @robertcox-github @pvbattin
 /llvm/lib/Transforms/IPO/ @robertcox-github @pvbattin
 /llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Scalar/Intel_IndirectCallConv.cpp @robertcox-github @pvbattin
@@ -125,7 +121,7 @@
 /llvm/lib/Transforms/Utils/FunctionComparator.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/FunctionImportUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/GlobalStatus.cpp @robertcox-github @pvbattin
-/llvm/lib/Transforms/Utils/ImportedFunctionsInliningStatistics.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/ImportedFunctionsInliningStatistics.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/InlineFunction.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_CloneUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_RegionSplitter.cpp @robertcox-github @pvbattin
@@ -133,12 +129,12 @@
 /llvm/lib/Transforms/Utils/ModuleUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/SplitModule.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/ValueMapper.cpp @robertcox-github @pvbattin
-/llvm/lld/COFF/ @robertcox-github @pvbattin
-/llvm/lld/ELF/ @robertcox-github @pvbattin
-/llvm/lld/test/COFF/ @robertcox-github @pvbattin
-/llvm/lld/test/ELF/ @robertcox-github @pvbattin
+/lld/COFF/ @robertcox-github @pvbattin
+/lld/ELF/ @robertcox-github @pvbattin
+/lld/test/COFF/ @robertcox-github @pvbattin
+/lld/test/ELF/ @robertcox-github @pvbattin
 /llvm/test/Analysis/CallGraph/ @robertcox-github @pvbattin
-/lvm/test/Analysis/GlobalsModRef/ @robertcox-github @pvbattin
+/llvm/test/Analysis/GlobalsModRef/ @robertcox-github @pvbattin
 /llvm/test/Analysis/Intel_AndersenAA/ @robertcox-github @pvbattin
 /llvm/test/Analysis/Intel_WP/ @robertcox-github @pvbattin
 /llvm/test/Analysis/LazyCallGraph/ @robertcox-github @pvbattin
@@ -149,11 +145,11 @@
 /llvm/test/Transforms/Attributor/ @robertcox-github @pvbattin
 /llvm/test/Transforms/DeadArgElim/ @robertcox-github @pvbattin
 /llvm/test/Transforms/GlobalOpt/ @robertcox-github @pvbattin
-/test/Transforms/Inline/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Inline/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_ArgumentAlignment/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorConstProp/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_FoldWPIntrinsic/ @robertcox-github @pvbattin
-/llvm/test/Transforms/Intel_IntelInlineReport/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_InlineReport/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_IPArrayTranspose/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_IPCloning/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_IPO/ @robertcox-github @pvbattin
@@ -163,7 +159,7 @@
 /llvm/test/Transforms/PartialInlining/ @robertcox-github @pvbattin
 /llvm/test/Transforms/WholeProgramDevirt/ @robertcox-github @pvbattin
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
-/llvm/unitttests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
+/llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
 
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
 /compiler-rt/lib/profile/ @robertcox-github @pvbattin
@@ -183,7 +179,6 @@
 /llvm/include/llvm/Transforms/IPO/SampleProfileProbe.h @robertcox-github @pvbattin
 /llvm/lib/Analysis/BlockFrequencyInfo.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/BlockFrequencyInfoImpl.cpp @robertcox-github @pvbattin
-/llvm/lib/Analysis/BlockProbabilityInfo.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/ProfileSummaryInfo.cpp @robertcox-github @pvbattin
 /llvm/lib/ProfileData/ @robertcox-github @pvbattin
 /llvm/lib/Transforms/Instrumentation/IndirectCallPromotion.cpp @robertcox-github @pvbattin
@@ -228,5 +223,5 @@
 /llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @hidekisaito
 
 # JIRA: CMPLRLLVM->Cmake
-CMakeLists.txt @tcreech-intel @vzakhari
-cmake/ @tcreech-intel @vzakhari
+**/CMakeLists.txt* @tcreech-intel @vzakhari
+**/cmake/ @tcreech-intel @vzakhari
