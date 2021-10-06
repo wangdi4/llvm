@@ -84,7 +84,6 @@ extern cl::opt<bool> RemarksWithHotness;
 extern cl::opt<Optional<uint64_t>, false, remarks::HotnessThresholdParser>
     RemarksHotnessThreshold;
 extern cl::opt<std::string> RemarksFormat;
-extern cl::opt<bool> DebugPassManager;
 }
 
 namespace {
@@ -276,6 +275,7 @@ static void optimizeModule(Module &TheModule, TargetMachine &TM,
 
 static void optimizeModuleNewPM(Module &TheModule, TargetMachine &TM,
                                 unsigned OptLevel, bool Freestanding,
+                                bool DebugPassManager,
                                 ModuleSummaryIndex *Index) {
   Optional<PGOOptions> PGOOpt;
   LoopAnalysisManager LAM;
@@ -495,7 +495,7 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
                      const ThinLTOCodeGenerator::CachingOptions &CacheOptions,
                      bool DisableCodeGen, StringRef SaveTempsDir,
                      bool Freestanding, unsigned OptLevel, unsigned count,
-                     bool UseNewPM) {
+                     bool UseNewPM, bool DebugPassManager) {
 
   // "Benchmark"-like optimization: single-source case
   bool SingleModule = (ModuleMap.size() == 1);
@@ -536,7 +536,8 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
   }
 
   if (UseNewPM)
-    optimizeModuleNewPM(TheModule, TM, OptLevel, Freestanding, &Index);
+    optimizeModuleNewPM(TheModule, TM, OptLevel, Freestanding, DebugPassManager,
+                        &Index);
   else
     optimizeModule(TheModule, TM, OptLevel, Freestanding, &Index);
 
@@ -1224,7 +1225,7 @@ void ThinLTOCodeGenerator::run() {
             ExportList, GUIDPreservedSymbols,
             ModuleToDefinedGVSummaries[ModuleIdentifier], CacheOptions,
             DisableCodeGen, SaveTempsDir, Freestanding, OptLevel, count,
-            UseNewPM);
+            UseNewPM, DebugPassManager);
 
         // Commit to the cache (if enabled)
         CacheEntry.write(*OutputBuffer);
