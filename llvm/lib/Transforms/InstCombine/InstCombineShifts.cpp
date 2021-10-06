@@ -900,44 +900,11 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
       case Instruction::Add:
       case Instruction::And:
       case Instruction::Or:
-<<<<<<< HEAD
-      case Instruction::Xor: {
-        // These operators commute.
-        // Turn (Y + (X >> C)) << C  ->  (X + (Y << C)) & (~0 << C)
-        if (Op0BO->getOperand(1)->hasOneUse() &&
-            match(Op0BO->getOperand(1), m_Shr(m_Value(V1), m_Specific(Op1)))) {
-          Value *YS = // (Y << C)
-              Builder.CreateShl(Op0BO->getOperand(0), Op1, Op0BO->getName());
-          // (X + (Y << C))
-          Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), YS, V1,
-                                         Op0BO->getOperand(1)->getName());
-          unsigned Op1Val = C->getLimitedValue(BitWidth);
-          APInt Bits = APInt::getHighBitsSet(BitWidth, BitWidth - Op1Val);
-          Constant *Mask = ConstantInt::get(Ty, Bits);
-          return BinaryOperator::CreateAnd(X, Mask);
-        }
-
-        // Turn (Y + ((X >> C) & CC)) << C  ->  ((X & (CC << C)) + (Y << C))
-        Value *Op0BOOp1 = Op0BO->getOperand(1);
-        if (Op0BOOp1->hasOneUse() &&
-            match(Op0BOOp1, m_And(m_OneUse(m_Shr(m_Value(V1), m_Specific(Op1))),
-                                  m_APInt(CC)))) {
-          Value *YS = // (Y << C)
-              Builder.CreateShl(Op0BO->getOperand(0), Op1, Op0BO->getName());
-          // X & (CC << C)
-          Value *XM = Builder.CreateAnd(V1, ConstantInt::get(Ty, CC->shl(*C)),
-                                        V1->getName() + ".mask");
-          return BinaryOperator::Create(Op0BO->getOpcode(), YS, XM);
-        }
-
-        LLVM_FALLTHROUGH;
-=======
       case Instruction::Xor:
       case Instruction::Sub:
         // NOTE: Sub is not commutable and the tranforms below may not be valid
         //       when the shift-right is operand 1 (RHS) of the sub.
         return true;
->>>>>>> 98fde3489a6d9ed3fa409623036e5ba5b99f1404
       }
     };
     BinaryOperator *Op0BO;
@@ -1252,7 +1219,9 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
                 ElementCount::getFixed(VT->getNumElements()), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
         }
-        break;
+        // We want to check the next rule also (which applies to add as well
+        // as sub)
+        LLVM_FALLTHROUGH;
       }
       case Instruction::Sub: {
         // Turn (Y + (X << C)) >> C  ->  ((Y >> C) + X) & (~0 >> C) for lshr
@@ -1491,3 +1460,4 @@ Instruction *InstCombinerImpl::visitAShr(BinaryOperator &I) {
 
   return nullptr;
 }
+

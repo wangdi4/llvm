@@ -51,8 +51,11 @@ define i8 @lshr_sub(i8 %a, i8 %y) {
 define <2 x i8> @lshr_sub_commute_splat(<2 x i8> %a, <2 x i8> %y) {
 ; CHECK-LABEL: @lshr_sub_commute_splat(
 ; CHECK-NEXT:    [[X:%.*]] = srem <2 x i8> [[A:%.*]], <i8 42, i8 42>
-; CHECK-NEXT:    [[B1_NEG:%.*]] = mul <2 x i8> [[X]], <i8 -8, i8 -8>
-; CHECK-NEXT:    [[R2:%.*]] = add <2 x i8> [[B1_NEG]], [[Y:%.*]]
+; INTEL_CUSTOMIZATION
+; InstCombineShift lshr optimization
+; CHECK-NEXT:    [[B1:%.*]] = shl <2 x i8> [[X]], <i8 3, i8 3>
+; CHECK-NEXT:    [[R2:%.*]] = sub <2 x i8> [[Y:%.*]], [[B1]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[L:%.*]] = and <2 x i8> [[R2]], <i8 -8, i8 -8>
 ; CHECK-NEXT:    ret <2 x i8> [[L]]
 ;
@@ -233,9 +236,11 @@ define i8 @lshr_and_sub(i8 %a, i8 %y)  {
 define <2 x i8> @lshr_and_sub_commute_splat(<2 x i8> %a, <2 x i8> %y)  {
 ; CHECK-LABEL: @lshr_and_sub_commute_splat(
 ; CHECK-NEXT:    [[X:%.*]] = srem <2 x i8> [[A:%.*]], <i8 42, i8 42>
-; CHECK-NEXT:    [[B1_NEG:%.*]] = mul <2 x i8> [[X]], <i8 -4, i8 -4>
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[B1:%.*]] = shl <2 x i8> [[X]], <i8 2, i8 2>
 ; CHECK-NEXT:    [[Y_MASK:%.*]] = and <2 x i8> [[Y:%.*]], <i8 52, i8 52>
-; CHECK-NEXT:    [[L:%.*]] = add <2 x i8> [[B1_NEG]], [[Y_MASK]]
+; CHECK-NEXT:    [[L:%.*]] = sub <2 x i8> [[Y_MASK]], [[B1]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret <2 x i8> [[L]]
 ;
   %x = srem <2 x i8> %a, <i8 42, i8 42> ; thwart complexity-based canonicalization
@@ -623,3 +628,4 @@ define <16 x i8> @test_FoldShiftByConstant_CreateAnd(<16 x i8> %in0) {
   %vshl_n = shl <16 x i8> %tmp, <i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5, i8 5>
   ret <16 x i8> %vshl_n
 }
+
