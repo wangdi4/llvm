@@ -28,7 +28,7 @@
 ; CHECK-NEXT: br label %simd.loop
 
 ; CHECK: simd.loop:
-; CHECK-NEXT: %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
+; CHECK-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
 ; CHECK-NEXT: %mask.gep = getelementptr i32, i32* %mask.cast, i32 %index
 ; CHECK-NEXT: %mask.parm = load i32, i32* %mask.gep
 ; CHECK-NEXT: %mask.cond = icmp ne i32 %mask.parm, 0

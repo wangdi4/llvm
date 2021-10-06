@@ -17,10 +17,13 @@ define dso_local void @_Z6mandelCfj(<2 x float> %c.coerce, i32 %max_iter) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
 ; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.PRIVATE"({ float, float }* [[C0]]), "QUAL.OMP.PRIVATE"(i32* [[MAX_ITER_ADDR0]]) ]
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast { float, float }* [[C0]] to <2 x float>*
 ; CHECK-NEXT:    [[VEC_C_COERCE_CAST_GEP0:%.*]] = getelementptr <2 x float>, <2 x float>* [[VEC_C_COERCE_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_C_COERCE_ELEM0:%.*]] = load <2 x float>, <2 x float>* [[VEC_C_COERCE_CAST_GEP0]], align 8

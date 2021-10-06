@@ -4,14 +4,7 @@
 ; Check VecClone widens vector parameters/returns
 
 define <4 x i32> @foo(<4 x i32> %a, <4 x i32> %b) #0 {
-; CHECK:       target triple = "x86_64-unknown-linux-gnu"
-;
-; CHECK:  define <4 x i32> @foo(<4 x i32> [[A0:%.*]], <4 x i32> [[B0:%.*]]) #0 {
-; CHECK-NEXT:    [[ADD0:%.*]] = add nsw <4 x i32> [[A0]], [[B0]]
-; CHECK-NEXT:    ret <4 x i32> [[ADD0]]
-; CHECK-NEXT:  }
-;
-; CHECK:  define <16 x i32> @_ZGVbN4vv_foo(<16 x i32> [[A0]], <16 x i32> [[B0]]) #1 {
+; CHECK:  define <16 x i32> @_ZGVbN4vv_foo(<16 x i32> [[A0:%.*]], <16 x i32> [[B0:%.*]]) #1 {
 ; CHECK-NEXT:    [[VEC_A0:%.*]] = alloca <16 x i32>, align 64
 ; CHECK-NEXT:    [[VEC_B0:%.*]] = alloca <16 x i32>, align 64
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <16 x i32>, align 64
@@ -24,15 +17,18 @@ define <4 x i32> @foo(<4 x i32> %a, <4 x i32> %b) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
 ; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_A_CAST_GEP0:%.*]] = getelementptr <4 x i32>, <4 x i32>* [[VEC_A_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_A_ELEM0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_A_CAST_GEP0]], align 16
 ; CHECK-NEXT:    [[VEC_B_CAST_GEP0:%.*]] = getelementptr <4 x i32>, <4 x i32>* [[VEC_B_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_B_ELEM0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_B_CAST_GEP0]], align 16
-; CHECK-NEXT:    [[ADD0]] = add nsw <4 x i32> [[VEC_A_ELEM0]], [[VEC_B_ELEM0]]
+; CHECK-NEXT:    [[ADD0:%.*]] = add nsw <4 x i32> [[VEC_A_ELEM0]], [[VEC_B_ELEM0]]
 ; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr <4 x i32>, <4 x i32>* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store <4 x i32> [[ADD0]], <4 x i32>* [[RET_CAST_GEP0]], align 16
 ; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]

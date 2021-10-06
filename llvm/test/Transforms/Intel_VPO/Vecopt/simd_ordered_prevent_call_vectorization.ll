@@ -26,6 +26,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -102,6 +105,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -178,6 +184,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -254,6 +263,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -333,6 +345,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -476,6 +491,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -619,6 +637,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -762,6 +783,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:

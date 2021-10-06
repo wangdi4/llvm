@@ -989,12 +989,12 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
   std::vector<VectorKind> ParmKinds = V.getParameters();
 
   for (Argument &Arg : Clone->args()) {
-    unsigned ParmIdx = Arg.getArgNo();
+    VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
     SmallDenseMap<Instruction*, int> LinearParmUsers;
 
-    if (ParmKinds[ParmIdx].isLinear()) {
+    if (ParmKind.isLinear()) {
 
-      int Stride = ParmKinds[ParmIdx].getStride();
+      int Stride = ParmKind.getStride();
 
       for (User *ArgUser : Arg.users()) {
 
@@ -1207,25 +1207,6 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-// Allocates space for each linear/uniform parameter.
-static void emitAllocaForParameter(
-    SmallVectorImpl<Value *> &ParamVars, Argument *Arg,
-    SmallVectorImpl<std::pair<AllocaInst *, Value *>> &AllocaArgValueVector,
-    IRBuilder<> &IRB) {
-  // No need to allocate another stack slot for an argument if there is already
-  // a dedicated storage for it on the stack.
-  if (Arg->hasByValAttr()) {
-    ParamVars.push_back(Arg);
-    AllocaArgValueVector.emplace_back(nullptr, Arg);
-    return;
-  }
-
-  AllocaInst *Alloca =
-      IRB.CreateAlloca(Arg->getType(), nullptr, "alloca." + Arg->getName());
-  ParamVars.push_back(Alloca);
-  AllocaArgValueVector.push_back(std::make_pair(Alloca, Arg));
-}
-
 // Stores the parameter in the stack and loads it.
 static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
                                       BasicBlock *LoopPreHeader) {
@@ -1269,12 +1250,14 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   SmallVector<Value *, 4> PrivateVars;
   SmallVector<Value *, 4> UniformVars;
   std::vector<VectorKind> ParmKinds = V.getParameters();
-  // Keep the generated alloca for each function parameter.
-  SmallVector<std::pair<AllocaInst *, Value *>, 4> AllocaArgValueVector;
+
+  BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
+      EntryBlock->getTerminator(), "simd.loop.preheader");
+
   IRBuilder<> Builder(&*EntryBlock->begin());
 
   for (Argument &Arg : Clone->args()) {
-    unsigned ParmIdx = Arg.getArgNo();
+    VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
 
     // In O0, the parameters are also stored in the stack. mem2reg which would
     // have cleaned up the redundant memory operations does not run in O0. In
@@ -1292,32 +1275,27 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
         continue;
     }
 
-    if (ParmKinds[ParmIdx].isLinear()) {
-      // Allocate space for storing the linear parameters in the stack.
-      emitAllocaForParameter(LinearVars, &Arg, AllocaArgValueVector, Builder);
+    if (!ParmKind.isLinear() && !ParmKind.isUniform())
+      continue;
+
+  // No need to allocate another stack slot for an argument if there is already
+  // a dedicated storage for it on the stack.
+    Value *Memory = &Arg;
+    if (!Arg.hasByValAttr()) {
+      Memory = Builder.CreateAlloca(Arg.getType(), nullptr,
+                                    "alloca." + Arg.getName());
+      emitLoadStoreForParameter(cast<AllocaInst>(Memory), &Arg, LoopPreHeader);
+    }
+
+    if (ParmKind.isLinear()) {
+      LinearVars.push_back(Memory);
       Constant *Stride = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
-                                          ParmKinds[ParmIdx].getStride());
+                                          ParmKind.getStride());
       LinearVars.push_back(Stride);
     }
 
-    if (ParmKinds[ParmIdx].isUniform()) {
-      // Allocate space for storing the uniform parameters in the stack.
-      emitAllocaForParameter(UniformVars, &Arg, AllocaArgValueVector, Builder);
-    }
-  }
-
-  // Create a new basic block before the loop header where the parameters will
-  // be loaded from the stack.
-  if (!LinearVars.empty() || !UniformVars.empty()) {
-    // At this point, the EntryBlock is followed by the loop header (simd.loop
-    // block).
-    BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
-        EntryBlock->getTerminator(), "simd.loop.preheader");
-    for (const auto &Pair : AllocaArgValueVector) {
-      AllocaInst *Alloca = Pair.first;
-      Value *ArgValue = Pair.second;
-      if (Alloca)
-        emitLoadStoreForParameter(Alloca, ArgValue, LoopPreHeader);
+    if (ParmKind.isUniform()) {
+      UniformVars.push_back(Memory);
     }
   }
 
