@@ -1656,6 +1656,10 @@ void LiveIntervals::repairOldRegInRange(const MachineBasicBlock::iterator Begin,
       }
     }
   }
+
+  bool isStartValid = getInstructionFromIndex(LII->start);
+  if (!isStartValid && LII->end.isDead())
+    LR.removeSegment(*LII, true);
 }
 
 void
@@ -1717,6 +1721,7 @@ LiveIntervals::repairIntervalsInRange(MachineBasicBlock *MBB,
 
     for (LiveInterval::SubRange &S : LI.subranges())
       repairOldRegInRange(Begin, End, EndIdx, S, Reg, S.LaneMask);
+    LI.removeEmptySubRanges();
 
     repairOldRegInRange(Begin, End, EndIdx, LI, Reg);
   }

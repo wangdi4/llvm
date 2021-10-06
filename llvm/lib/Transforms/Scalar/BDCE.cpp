@@ -107,9 +107,7 @@ static bool bitTrackingDCE(Function &F, DemandedBits &DB) {
         (I.getType()->isIntOrIntVectorTy() &&
          DB.getDemandedBits(&I).isNullValue() &&
          wouldInstructionBeTriviallyDead(&I))) {
-      salvageDebugInfo(I);
       Worklist.push_back(&I);
-      I.dropAllReferences();
       Changed = true;
       continue;
     }
@@ -154,6 +152,11 @@ static bool bitTrackingDCE(Function &F, DemandedBits &DB) {
       ++NumSimplified;
       Changed = true;
     }
+  }
+
+  for (Instruction *&I : llvm::reverse(Worklist)) {
+    salvageDebugInfo(*I);
+    I->dropAllReferences();
   }
 
   for (Instruction *&I : Worklist) {
