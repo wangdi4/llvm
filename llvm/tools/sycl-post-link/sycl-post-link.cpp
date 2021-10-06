@@ -225,15 +225,12 @@ static cl::opt<bool> EmitExportedSymbols{"emit-exported-symbols",
                                          cl::desc("emit exported symbols"),
                                          cl::cat(PostLinkCat)};
 
-<<<<<<< HEAD
-=======
 static cl::opt<bool> EmitOnlyKernelsAsEntryPoints{
     "emit-only-kernels-as-entry-points",
     cl::desc("Consider only sycl_kernel functions as entry points for "
              "device code split"),
     cl::cat(PostLinkCat), cl::init(false)};
 
->>>>>>> 5b5819ededd371bb4fbd25831c5f2aa619504cd7
 struct ImagePropSaveInfo {
   bool NeedDeviceLibReqMask;
   bool DoSpecConst;
@@ -344,34 +341,6 @@ static void collectKernelModuleMap(
 
   // Only process module entry points:
   for (auto &F : M.functions()) {
-<<<<<<< HEAD
-    if (F.hasFnAttribute(ATTR_SYCL_MODULE_ID) &&
-        !funcIsSpirvSyclBuiltin(F.getName())) {
-      switch (EntryScope) {
-      case Scope_PerKernel:
-        ResKernelModuleMap[F.getName()].push_back(&F);
-        break;
-      case Scope_PerModule: {
-        Attribute Id = F.getFnAttribute(ATTR_SYCL_MODULE_ID);
-        StringRef Val = Id.getValueAsString();
-        ResKernelModuleMap[Val].push_back(&F);
-        break;
-      }
-      case Scope_Global:
-        // the map key is not significant here
-        ResKernelModuleMap[GLOBAL_SCOPE_NAME].push_back(&F);
-        break;
-      }
-    } else if (EntryScope == Scope_PerModule &&
-               F.getCallingConv() == CallingConv::SPIR_KERNEL) {
-      // TODO It may make sense to group all kernels w/o the attribute into
-      // a separate module rather than issuing an error. Should probably be
-      // controlled by an option.
-      // Functions with spir_func calling convention are allowed to not have
-      // a sycl-module-id attribute.
-      error("no '" + Twine(ATTR_SYCL_MODULE_ID) + "' attribute in kernel '" +
-            F.getName() + "', per-module split not possible");
-=======
     if (!isEntryPoint(F))
       continue;
 
@@ -398,7 +367,6 @@ static void collectKernelModuleMap(
       // the map key is not significant here
       ResKernelModuleMap["<GLOBAL>"].push_back(&F);
       break;
->>>>>>> 5b5819ededd371bb4fbd25831c5f2aa619504cd7
     }
   }
 }
