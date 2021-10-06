@@ -5429,7 +5429,9 @@ VPOParoptTransform::getItemInfo(const Item *I) {
   if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
     // OPAQUEPOINTER: this code must be removed, when we switch
     //                to TYPED clauses.
-    Type *OrigElemTy = I->getOrigElemType();
+    Type *OrigElemTy = I->getOrig()->getType();
+    assert(isa<PointerType>(OrigElemTy) && "Item must have a pointer type.");
+    OrigElemTy = OrigElemTy->getPointerElementType();
     getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 

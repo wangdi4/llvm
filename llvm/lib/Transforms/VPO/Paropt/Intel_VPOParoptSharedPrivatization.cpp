@@ -604,8 +604,15 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       if (!Size)
         return false;
 
-      TypeSize ElemSize = F->getParent()->getDataLayout().getTypeAllocSize(
-          MI->getOrigElemType());
+      Type *ItemTy = nullptr;
+      Value *NumElements = nullptr;
+      // TODO: this will stop working with opaque pointers, because
+      //       we do not plan to have type information for MAP clauses yet.
+      std::tie(ItemTy, NumElements, std::ignore) = getItemInfo(MI);
+      if (NumElements)
+        return false;
+      TypeSize ElemSize =
+          F->getParent()->getDataLayout().getTypeAllocSize(ItemTy);
       if (Size->getValue() != ElemSize)
         return false;
 
