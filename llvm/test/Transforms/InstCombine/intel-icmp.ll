@@ -254,13 +254,12 @@ define i32 @test_u32_to_u8_shift_binop(i32 %a, i32 %b, i32 %c) {
 ; Same as above with add operands commuted
 define i32 @test_u32_to_u8_shift_binop2(i32 %a, i32 %b, i32 %c) {
 ; CHECK-LABEL: @test_u32_to_u8_shift_binop2(
-; CHECK-NEXT:    [[E:%.*]] = shl i32 [[B:%.*]], 24
 ; CHECK-NEXT:    [[Q:%.*]] = mul i32 [[C:%.*]], 57
-; CHECK-NEXT:    [[F:%.*]] = add i32 [[Q]], [[E]]
-; CHECK-NEXT:    [[G:%.*]] = lshr i32 [[F]], 24
+; CHECK-NEXT:    [[F1:%.*]] = lshr i32 [[Q]], 24
+; CHECK-NEXT:    [[Q2:%.*]] = add i32 [[F1]], [[B:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[A:%.*]] to i8
 ; CHECK-NEXT:    [[TMP2:%.*]] = and i8 [[TMP1]], -84
-; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[G]] to i8
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[Q2]] to i8
 ; CHECK-NEXT:    [[H:%.*]] = icmp uge i8 [[TMP2]], [[TMP3]]
 ; CHECK-NEXT:    [[H1:%.*]] = sext i1 [[H]] to i32
 ; CHECK-NEXT:    ret i32 [[H1]]
@@ -356,14 +355,13 @@ define i32 @test_s32_to_s8_ashift_binop(i32 %a, i32 %b, i32 %c) {
 ; Same as above with add operands commuted
 define i32 @test_s32_to_s8_ashift_binop2(i32 %a, i32 %b, i32 %c) {
 ; CHECK-LABEL: @test_s32_to_s8_ashift_binop2(
-; CHECK-NEXT:    [[E:%.*]] = shl i32 [[B:%.*]], 24
 ; CHECK-NEXT:    [[Q:%.*]] = mul i32 [[C:%.*]], 57
-; CHECK-NEXT:    [[F:%.*]] = add i32 [[Q]], [[E]]
-; CHECK-NEXT:    [[TMP1:%.*]] = lshr i32 [[F]], 24
-; CHECK-NEXT:    [[TMP2:%.*]] = trunc i32 [[A:%.*]] to i8
-; CHECK-NEXT:    [[TMP3:%.*]] = and i8 [[TMP2]], 62
-; CHECK-NEXT:    [[TMP4:%.*]] = trunc i32 [[TMP1]] to i8
-; CHECK-NEXT:    [[H:%.*]] = icmp sge i8 [[TMP3]], [[TMP4]]
+; CHECK-NEXT:    [[F1:%.*]] = lshr i32 [[Q]], 24
+; CHECK-NEXT:    [[Q2:%.*]] = add i32 [[F1]], [[B:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[A:%.*]] to i8
+; CHECK-NEXT:    [[TMP2:%.*]] = and i8 [[TMP1]], 62
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[Q2]] to i8
+; CHECK-NEXT:    [[H:%.*]] = icmp sge i8 [[TMP2]], [[TMP3]]
 ; CHECK-NEXT:    [[H1:%.*]] = sext i1 [[H]] to i32
 ; CHECK-NEXT:    ret i32 [[H1]]
 ;
@@ -417,3 +415,4 @@ define i32 @test_s32_to_s8_ashift_sub2(i32 %a, i32 %b, i32 %c) {
   %h1 = sext i1 %h to i32
   ret i32 %h1
 }
+
