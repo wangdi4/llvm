@@ -23,7 +23,6 @@
 #include "MSP430.h"
 #include "PS4CPU.h"
 #include "SYCL.h"
-#include "clang/Basic/CLWarnings.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/LangOptions.h"
@@ -6336,6 +6335,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddAllArgs(CmdArgs, options::OPT_R_Group);
 
+<<<<<<< HEAD
   for (const Arg *A :
        Args.filtered(options::OPT_W_Group, options::OPT__SLASH_wd)) {
     A->claim();
@@ -6360,6 +6360,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
       || Args.hasArg(options::OPT_strict_ansi))
 #else //INTEL_CUSTOMIZATION
+=======
+  Args.AddAllArgs(CmdArgs, options::OPT_W_Group);
+>>>>>>> ed3e52f5fc48c2266c6b3260a95d68ce7374b245
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false))
 #endif //INTEL_CUSTOMIZATION
     CmdArgs.push_back("-pedantic");
