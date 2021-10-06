@@ -1,10 +1,7 @@
 ; REQUIRES: asserts
 ; RUN: llc -enable-fs-discriminator < %s | FileCheck %s
-;; INTEL_CUSTOMIZATION
-;; CMPLRLLVM-30698: disable the test temporarily since we can't fix it in short time.
-; RUN_x: llvm-profdata merge --sample -profile-isfs -o %t.afdo %S/Inputs/fsloader.afdo
-; RUN_x: llc -enable-fs-discriminator -fs-profile-file=%t.afdo -show-fs-branchprob -disable-ra-fsprofile-loader=false -disable-layout-fsprofile-loader=false < %s 2>&1 | FileCheck %s --check-prefix=LOADER
-;; end INTEL_CUSTOMIZATION
+; RUN: llvm-profdata merge --sample -profile-isfs -o %t.afdo %S/Inputs/fsloader.afdo
+; RUN: llc -enable-fs-discriminator -fs-profile-file=%t.afdo -show-fs-branchprob -disable-ra-fsprofile-loader=false -disable-layout-fsprofile-loader=false < %s 2>&1 | FileCheck %s --check-prefix=LOADER
 ;
 ;;
 ;; C source code for the test (compiler at -O3):
