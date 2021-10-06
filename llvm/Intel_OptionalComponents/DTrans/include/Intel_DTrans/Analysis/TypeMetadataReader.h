@@ -123,6 +123,8 @@ private:
   DTransStructType *constructDTransStructType(MDNode *MD);
   llvm::StructType *populateDTransStructType(Module &M, MDNode *MD,
                                              DTransStructType *DTStTy);
+  void populateDTransStructTypeFromLLVMType(llvm::StructType *Sty,
+                                            DTransStructType *DSTy);
 
   DTransTypeManager &TM;
 
