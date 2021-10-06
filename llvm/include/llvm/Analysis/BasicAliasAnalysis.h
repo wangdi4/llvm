@@ -246,15 +246,14 @@ private:
   /// However, we know that, for all %x, zext(%x) != zext(%x + 1), even if
   /// the addition overflows.
   bool
-  constantOffsetHeuristic(const SmallVectorImpl<VariableGEPIndex> &VarIndices,
-                          LocationSize V1Size, LocationSize V2Size,
-                          const APInt &BaseOffset, AssumptionCache *AC,
+  constantOffsetHeuristic(const DecomposedGEP &GEP, LocationSize V1Size,
+                          LocationSize V2Size, AssumptionCache *AC,
                           DominatorTree *DT);
 
   bool isValueEqualInPotentialCycles(const Value *V1, const Value *V2);
 
-  void GetIndexDifference(SmallVectorImpl<VariableGEPIndex> &Dest,
-                          const SmallVectorImpl<VariableGEPIndex> &Src);
+  void subtractDecomposedGEPs(DecomposedGEP &DestGEP,
+                              const DecomposedGEP &SrcGEP);
 
   AliasResult aliasGEP(const AddressOperator *V1,   // INTEL
                        LocationSize V1Size,         // INTEL
