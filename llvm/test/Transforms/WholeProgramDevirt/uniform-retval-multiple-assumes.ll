@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
 ; The customization is for turning off the multiversioning.
-; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s | FileCheck %s
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s | FileCheck %s
 ; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-p:64:64"
