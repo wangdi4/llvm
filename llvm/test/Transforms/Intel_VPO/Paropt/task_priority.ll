@@ -25,7 +25,7 @@
 
 ; Paropt emits code like this to set up the Priority field in the task thunk:
 ;
-; %.task.alloc = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @.kmpc_loc.0.0, i32 %1, i32 33, i64 72, i64 0, i32 (i32, i8*)* bitcast (void (i32, %__struct.kmp_task_t_with_privates*)* @main.DIR.OMP.TASK.214 to i32 (i32, i8*)*))
+; %.task.alloc = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @.kmpc_loc.0.0, i32 %1, i32 161, i64 72, i64 0, i32 (i32, i8*)* bitcast (void (i32, %__struct.kmp_task_t_with_privates*)* @main.DIR.OMP.TASK.214 to i32 (i32, i8*)*))
 ; %.taskt.with.privates = bitcast i8* %.task.alloc to %__struct.kmp_task_t_with_privates*
 ; %.taskt = getelementptr inbounds %__struct.kmp_task_t_with_privates, %__struct.kmp_task_t_with_privates* %.taskt.with.privates, i32 0, i32 0
 ; %.priority.gep = getelementptr inbounds %__struct.kmp_task_t, %__struct.kmp_task_t* %.taskt, i32 0, i32 4
