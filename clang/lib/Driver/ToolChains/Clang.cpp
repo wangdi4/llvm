@@ -6335,34 +6335,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddAllArgs(CmdArgs, options::OPT_R_Group);
 
-<<<<<<< HEAD
-  for (const Arg *A :
-       Args.filtered(options::OPT_W_Group, options::OPT__SLASH_wd)) {
-    A->claim();
-    if (A->getOption().getID() == options::OPT__SLASH_wd) {
-      unsigned WarningNumber;
-      if (StringRef(A->getValue()).getAsInteger(10, WarningNumber)) {
-        D.Diag(diag::err_drv_invalid_int_value)
-            << A->getAsString(Args) << A->getValue();
-        continue;
-      }
-
-      if (auto Group = diagGroupFromCLWarningID(WarningNumber)) {
-        CmdArgs.push_back(Args.MakeArgString(
-            "-Wno-" + DiagnosticIDs::getWarningOptionForGroup(*Group)));
-        continue;
-      }
-    }
-    A->render(Args, CmdArgs);
-  }
-
+  Args.AddAllArgs(CmdArgs, options::OPT_W_Group);
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
       || Args.hasArg(options::OPT_strict_ansi))
 #else //INTEL_CUSTOMIZATION
-=======
-  Args.AddAllArgs(CmdArgs, options::OPT_W_Group);
->>>>>>> ed3e52f5fc48c2266c6b3260a95d68ce7374b245
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false))
 #endif //INTEL_CUSTOMIZATION
     CmdArgs.push_back("-pedantic");
