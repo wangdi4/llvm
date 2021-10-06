@@ -32,6 +32,7 @@
 ; 21: }
 ;
 
+<<<<<<< HEAD
 ; CHECK-BAR: Method load [{{[123]}}]: bar, Size = {{[0-9]+}}
 ; CHECK-BAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
 ; CHECK-BAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
@@ -48,6 +49,24 @@
 ; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
 ; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
 ; CHECK-FUBAR-NEXT:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+=======
+; CHECK: Method load [1]: foo, Size = {{[0-9]+}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[1,2]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[1,2]}}
+
+; CHECK: Method load [2]: bar, Size = {{[0-9]+}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[5,6,7,9]}}
+
+; CHECK: Method load [3]: fubar, Size = {{[0-9]+}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+; CHECK:   Line info @ {{[0-9]+}}: multiple.c, line {{[12,13,15,17,19]}}
+>>>>>>> e49c0c5100b992e1a18c7225bc147431089f560f
 
 ; CHECK-ALL: Method unload [1]
 ; CHECK-ALL: Method unload [2]
