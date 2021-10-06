@@ -6336,13 +6336,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddAllArgs(CmdArgs, options::OPT_R_Group);
 
-<<<<<<< HEAD
-  Args.AddAllArgs(CmdArgs, options::OPT_W_Group);
-#if INTEL_CUSTOMIZATION
-  if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
-      || Args.hasArg(options::OPT_strict_ansi))
-#endif //INTEL_CUSTOMIZATION
-=======
   for (const Arg *A :
        Args.filtered(options::OPT_W_Group, options::OPT__SLASH_wd)) {
     A->claim();
@@ -6363,8 +6356,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     A->render(Args, CmdArgs);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
+      || Args.hasArg(options::OPT_strict_ansi))
+#else //INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false))
->>>>>>> 7a7dcba36f950fb88b1ea47d88f5ea7f989f3965
+#endif //INTEL_CUSTOMIZATION
     CmdArgs.push_back("-pedantic");
 
   Args.AddLastArg(CmdArgs, options::OPT_pedantic_errors);
