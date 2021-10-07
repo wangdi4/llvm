@@ -1187,10 +1187,10 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
   // - fake ddref
   // - masked ddref
   //
-  auto *BitCastTy = FirstRef->getBitCastDestType();
+  auto *BitCastTy = FirstRef->getBitCastDestVecOrElemType();
   for (auto *Ref : Group) {
     if (Ref->isFake() || Ref->isMasked() ||
-        (BitCastTy != Ref->getBitCastDestType())) {
+        (BitCastTy != Ref->getBitCastDestVecOrElemType())) {
       return false;
     }
   }

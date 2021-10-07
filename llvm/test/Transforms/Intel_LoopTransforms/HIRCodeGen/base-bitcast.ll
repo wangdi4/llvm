@@ -1,7 +1,15 @@
 ; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -force-opaque-pointers -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; Check that GEP DDRefs with bitcast in the base are CG'd properly.
+
+; HIR-
+; + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; |   %1 = (i32*)(@B)[0][i1];
+; |   (i32*)(@A)[0][i1] = %1;
+; + END LOOP
+
 
 ; CHECK: region.0:
 ; CHECK: [[B_ADDR:%.*]] = getelementptr inbounds [100 x float], [100 x float]* @B
@@ -12,6 +20,13 @@
 ; CHECK-NEXT: [[A_CAST:%.*]] = bitcast float* [[A_ADDR]] to i32*
 ; CHECK: store i32 {{.*}} i32* [[A_CAST]]
 
+; Verify that bitcast is ommitted with opaque pointers.
+; CHECK-OPAQUE: region.0:
+; CHECK-OPAQUE: [[B_ADDR:%.*]] = getelementptr inbounds [100 x float], ptr @B
+; CHECK-OPAQUE: load i32, ptr [[B_ADDR]]
+
+; CHECK-OPAQUE: [[A_ADDR:%.*]] = getelementptr inbounds [100 x float], ptr @A
+; CHECK-OPAQUE: store i32 {{.*}}, ptr [[A_ADDR]]
 
 
 ; ModuleID = 'float2.ll'

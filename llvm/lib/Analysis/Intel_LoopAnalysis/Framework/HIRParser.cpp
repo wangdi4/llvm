@@ -4030,13 +4030,12 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
   // base ptr type (i64*) otherwise some of the existing utilities will assert
   // on mismatched type. Hence, we extract the element type from the base ptr
   // itself.
-  //
-  // TODO: Figure out a better fix when investigating BitCastDestType.
-  if (auto *BitCastTy = Ref->getBitCastDestType()) {
-    if (auto *PtrBitCastTy = dyn_cast<PointerType>(BitCastTy)) {
-      if (!PtrBitCastTy->isOpaque()) {
-        ElementTy = Ref->getBaseCE()->getDestType()->getPointerElementType();
-      }
+  if (Ref->getBitCastDestVecOrElemType()) {
+    auto *BaseCETy = Ref->getBaseCE()->getDestType()->getScalarType();
+    auto *PtrBaseCETy = cast<PointerType>(BaseCETy);
+
+    if (!PtrBaseCETy->isOpaque()) {
+      ElementTy = BaseCETy->getPointerElementType();
     }
   }
 
@@ -4084,8 +4083,6 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   return Ref;
 }
 
-// NOTE: AddRec->delinearize() doesn't work with constant bound arrays.
-// TODO: handle struct GEPs.
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
                                     bool IsUse) {
   const PHINode *BasePhi = nullptr;
@@ -4094,7 +4091,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   // Incoming IR may be bitcasting the GEP before loading/storing into it. If so
   // we store the type of the GEP in BaseCE src type and the eventual load/store
-  // type in BaseCE dest type.
+  // type is stored in BitCastDestVecOrElemTy.
   Type *DestTy = GEPVal->getType();
   bool HasDestTy = false;
 
@@ -4144,8 +4141,8 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     Ref = createSingleElementGEPDDRef(GEPVal, Level);
   }
 
-  if (HasDestTy) {
-    Ref->setBitCastDestType(DestTy);
+  if (HasDestTy && !cast<PointerType>(DestTy)->isOpaque()) {
+    Ref->setBitCastDestVecOrElemType(DestTy->getPointerElementType());
   }
 
   populateBlobDDRefs(Ref, Level);
@@ -4272,9 +4269,17 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
+    auto *LoadTy = LInst->getType();
+
     if (!Ref->getBasePtrElementType()) {
       // We can assign the load type to self-refs: (%p)[0]
-      setSelfRefElementTypeAndStride(Ref, LInst->getType());
+      setSelfRefElementTypeAndStride(Ref, LoadTy);
+
+    } else if (Ref->getDestType() != LoadTy) {
+      // This is opaque ptr path. BitCast dest type for non-opaque pointers is
+      // assigned inside createGEPDDRef(). Self refs cannot have bitcast dest
+      // type with opaque ptrs.
+      Ref->setBitCastDestVecOrElemType(LoadTy);
     }
 
     Ref->setAlignment(LInst->getAlignment());
@@ -4293,6 +4298,12 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
 
+    // This condition is comparing two pointer types so it can only be true for
+    // non-opaque pointers.
+    if (Ref->getDestType() != OpTy) {
+      Ref->setBitCastDestVecOrElemType(OpTy->getPointerElementType());
+    }
+
     assert((Ref->isSelfGEPRef(true) || Ref->getBasePtrElementType()) &&
            "Base element type not assigned to ref!");
 
@@ -4310,9 +4321,17 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
 
+    auto *StoreValTy = SInst->getValueOperand()->getType();
+
     if (!Ref->getBasePtrElementType()) {
       // We can assign the store type to self-refs: (%p)[0]
-      setSelfRefElementTypeAndStride(Ref, SInst->getValueOperand()->getType());
+      setSelfRefElementTypeAndStride(Ref, StoreValTy);
+
+    } else if (Ref->getDestType() != StoreValTy) {
+      // This is opaque ptr path. BitCast dest type for non-opaque pointers is
+      // assigned inside createGEPDDRef(). Self refs cannot have bitcast dest
+      // type with opaque ptrs.
+      Ref->setBitCastDestVecOrElemType(StoreValTy);
     }
 
     Ref->setAlignment(SInst->getAlignment());

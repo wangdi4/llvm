@@ -1687,6 +1687,39 @@ void OpenMPLateOutliner::emitOMPSubdeviceClause(const OMPSubdeviceClause *Cl) {
   addArg(CGF.EmitScalarExpr(Cl->getStride()));
 }
 
+void OpenMPLateOutliner::emitOMPOmpxPlacesClause(
+    const OMPOmpxPlacesClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_ompx_places);
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  CSB.add("QUAL.OMP.SUBDEVICE");
+  addArg(CSB.getString());
+
+  // Determine domain-modifier value and default values for any missing
+  // arguments.
+  switch (Cl->getModifier()) {
+  case OMPC_OMPX_PLACES_numa_domain:
+  // Default domain-modifier value is same as explicit numa_domain.
+  case OMPC_OMPX_PLACES_unknown:
+    addArg(CGF.Builder.getInt32(0));
+    break;
+  case OMPC_OMPX_PLACES_subnuma_domain:
+    addArg(CGF.Builder.getInt32(1));
+    break;
+  }
+  assert(Cl->getStart());
+  addArg(CGF.EmitScalarExpr(Cl->getStart()));
+
+  // length and stride default to 1 if not specified in ompx_places.
+  if (Cl->getLength())
+    addArg(CGF.EmitScalarExpr(Cl->getLength()));
+  else
+    addArg(CGF.Builder.getInt32(1));
+  if (Cl->getStride())
+    addArg(CGF.EmitScalarExpr(Cl->getStride()));
+  else
+    addArg(CGF.Builder.getInt32(1));
+}
+
 void OpenMPLateOutliner::emitOMPDefaultmapClause(
     const OMPDefaultmapClause *Cl) {
 
@@ -2349,8 +2382,6 @@ void OpenMPLateOutliner::emitOMPFilterClause(const OMPFilterClause *C) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
-void OpenMPLateOutliner::emitOMPOmpxPlacesClause(
-    const OMPOmpxPlacesClause *Cl) {}
 
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)

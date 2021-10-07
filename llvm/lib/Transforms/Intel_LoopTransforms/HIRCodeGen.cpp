@@ -884,8 +884,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   bool AnyVector = false;
-
-  auto BitCastDestTy = Ref->getBitCastDestType();
+  bool IsAddressOf = Ref->isAddressOf();
+  auto BitCastDestVecOrElemTy = Ref->getBitCastDestVecOrElemType();
 
   for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
        ++CEI) {
@@ -900,7 +900,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // such cases. To workaround, the base pointer value needs to be broadcast.
   // If Ref's dest type is a vector, we need to do a broadcast.
   if (!BaseV->getType()->isVectorTy()) {
-    if (AnyVector || (BitCastDestTy && BitCastDestTy->isVectorTy())) {
+    if (AnyVector || (BitCastDestVecOrElemTy && IsAddressOf &&
+                      BitCastDestVecOrElemTy->isVectorTy())) {
       auto VL = cast<VectorType>(Ref->getDestType())->getNumElements();
       BaseV = Builder.CreateVectorSplat(VL, BaseV);
     }
@@ -988,18 +989,19 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     }
   }
 
-  if (GEPVal->getType()->isVectorTy() && isa<PointerType>(BitCastDestTy)) {
+  if (GEPVal->getType()->isVectorTy() && !IsAddressOf &&
+      isa<VectorType>(BitCastDestVecOrElemTy)) {
     // When we have a vector of pointers and base src and dest types do not
     // match, we need to bitcast from vector of pointers of src type to vector
     // of pointers of dest type. Example case, Src type is int * and Dest type
     // is <4 x float>*, we will have pointer vector <4 x int*>. This vector
     // needs to be bitcast to <4 x float*> so that the gather/scatter
     // loads/stores <4 x float>.
-    auto PtrDestTy = cast<PointerType>(BitCastDestTy); // <4 x float>*
-    auto DestElTy = PtrDestTy->getElementType();       // <4 x float>
+    auto DestElTy = BitCastDestVecOrElemTy;            // <4 x float>
     auto DestScTy = DestElTy->getScalarType();         // float
-    auto DestScPtrTy = PointerType::get(DestScTy,      // float *
-                                        PtrDestTy->getAddressSpace());
+    auto DestScPtrTy = PointerType::get(
+        DestScTy, // float *
+        GEPVal->getType()->getScalarType()->getPointerAddressSpace());
 
     if (GEPVal->getType()->getScalarType() != DestScPtrTy) {
       auto VL = cast<VectorType>(DestElTy)->getNumElements();
@@ -1009,15 +1011,22 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       GEPVal =
           Builder.CreateBitCast(GEPVal, FixedVectorType::get(DestScPtrTy, VL));
     }
-  } else if (BitCastDestTy) {
+  } else if (BitCastDestVecOrElemTy) {
     // Base CE could have different src and dest types in which case we need a
     // bitcast. Can occur from llvm's canonicalization of store/load of float
     // to int by bitcast. Note that bitcast of  something like int * to
     // <4 x int>* is also handled here.
-    GEPVal = Builder.CreateBitCast(GEPVal, BitCastDestTy);
+    auto *BitCastTy =
+        (IsAddressOf && isa<VectorType>(BitCastDestVecOrElemTy))
+            ? BitCastDestVecOrElemTy
+            : PointerType::get(
+                  BitCastDestVecOrElemTy,
+                  GEPVal->getType()->getScalarType()->getPointerAddressSpace());
+
+    GEPVal = Builder.CreateBitCast(GEPVal, BitCastTy);
   }
 
-  if (Ref->isAddressOf()) {
+  if (IsAddressOf) {
     return GEPVal;
   }
 

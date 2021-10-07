@@ -276,7 +276,6 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   auto BaseCE1 = Ref1->getBaseCE();
   auto BaseCE2 = Ref2->getBaseCE();
 
-  // TODO: check getBitCastDestType.
   if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode) ||
       Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
@@ -352,8 +351,8 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
       return false;
     }
 
-    if (!RelaxedMode &&
-        Ref1->getBitCastDestType() != Ref2->getBitCastDestType()) {
+    if (!RelaxedMode && Ref1->getBitCastDestVecOrElemType() !=
+                            Ref2->getBitCastDestVecOrElemType()) {
       return false;
     }
 
@@ -767,7 +766,7 @@ RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref,
 #else  // INTEL_FEATURE_SW_DTRANS
 RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref) {
 #endif // INTEL_FEATURE_SW_DTRANS
-  if (!Ref->isMemRef() || Ref->isFake() || Ref->getBitCastDestType()) {
+  if (!Ref->isMemRef() || Ref->isFake() || Ref->getBitCastDestVecOrElemType()) {
     return nullptr;
   }
 

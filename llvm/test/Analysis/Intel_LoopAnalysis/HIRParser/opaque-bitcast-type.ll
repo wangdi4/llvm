@@ -1,5 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-details-dims | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-details-dims 2>&1 -disable-output | FileCheck %s
+; RUN: opt < %s -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" -hir-details-dims 2>&1 -disable-output | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; Check that we can successfully form a bitcasted load with an
 ; opaque structure element type (%struct.A).
@@ -8,6 +9,14 @@
 ; CHECK: |   %ld = (i32*)(%opaq)[0:0:0(%struct.A*:0)];
 ; CHECK: |   (%b)[0:i1:4(i32*:0)] = %ld;
 ; CHECK: + END LOOP
+
+; Verify that bitcast destination type goes away for opaque ptr self refs like
+; (%opaq)[0] and the stride of 4 is set bassed on load type of i32.
+
+; CHECK-OPAQUE: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
+; CHECK-OPAQUE: |   %ld = (%opaq)[0:0:4(ptr:0)];
+; CHECK-OPAQUE: |   (%b)[0:i1:4(ptr:0)] = %ld;
+; CHECK-OPAQUE: + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

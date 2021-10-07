@@ -64,15 +64,17 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 }
 
 RegDDRef::GEPInfo::GEPInfo()
-    : BaseCE(nullptr), BasePtrElementTy(nullptr), BitCastDestTy(nullptr),
-      InBounds(false), AddressOf(false), IsCollapsed(false), Alignment(0),
-      CanUsePointeeSize(false), DummyGepLoc(nullptr) {}
+    : BaseCE(nullptr), BasePtrElementTy(nullptr),
+      BitCastDestVecOrElemTy(nullptr), InBounds(false), AddressOf(false),
+      IsCollapsed(false), Alignment(0), CanUsePointeeSize(false),
+      DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
-      BitCastDestTy(Info.BitCastDestTy), InBounds(Info.InBounds),
-      AddressOf(Info.AddressOf), IsCollapsed(Info.IsCollapsed),
-      Alignment(Info.Alignment), CanUsePointeeSize(Info.CanUsePointeeSize),
+      BitCastDestVecOrElemTy(Info.BitCastDestVecOrElemTy),
+      InBounds(Info.InBounds), AddressOf(Info.AddressOf),
+      IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
+      CanUsePointeeSize(Info.CanUsePointeeSize),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
       DimElementTypes(Info.DimElementTypes), MDNodes(Info.MDNodes),
       GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc),
@@ -294,7 +296,8 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
     getBlobUtils().printScalar(OS, getSymbase());
   } else {
     if (HasGEP) {
-      if (isAddressOf()) {
+      bool IsAddressOf = isAddressOf();
+      if (IsAddressOf) {
         OS << "&(";
       } else {
 
@@ -306,8 +309,19 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
         }
       }
 
-      if (getBitCastDestType()) {
-        OS << "(" << *getBitCastDestType() << ")";
+      if (auto *BitCastTy = getBitCastDestVecOrElemType()) {
+        OS << "(";
+        BitCastTy->print(OS, false, true);
+
+        if (!IsAddressOf || !isa<VectorType>(BitCastTy)) {
+          auto *PtrTy = dyn_cast<PointerType>(BitCastTy);
+          // Printing '*' adjacent to 'ptr' doesn't make sense.
+          if (!PtrTy || !PtrTy->isOpaque()) {
+            OS << "*";
+          }
+        }
+
+        OS << ")";
       }
 
       OS << "(";
@@ -446,19 +460,22 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 
   if (hasGEPInfo()) {
     CE = getBaseCE();
+    auto *BasePtrTy = CE->getDestType();
 
-    auto *DestTy = getBitCastDestType();
+    auto *DestTy = getBitCastDestVecOrElemType();
 
-    // Derive ref's destination type using BitCastDestType, if available.
+    // Derive ref's destination type using BitCastDestVecOrElemType, if
+    // available.
     if (!IsSrc && DestTy) {
-      return isAddressOf() ? DestTy : DestTy->getPointerElementType();
+      return (isAddressOf() && !isa<VectorType>(DestTy))
+                 ? PointerType::get(DestTy, BasePtrTy->getPointerAddressSpace())
+                 : DestTy;
     }
 
     // Extract the type from the first dimension/offsets.
     auto RefTy = getDimensionElementType(1);
 
     if (!RefTy) {
-      auto *BasePtrTy = CE->getDestType();
 
       if (getHLDDNode() && isFake()) {
         assert(isSelfMemRef(true) && "Self memref expected!");
@@ -480,8 +497,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // For DDRefs representing addresses, we need to return a pointer to
     // RefTy.
     if (isAddressOf()) {
-      return PointerType::get(RefTy,
-                              CE->getSrcType()->getPointerAddressSpace());
+      return PointerType::get(RefTy, BasePtrTy->getPointerAddressSpace());
     } else {
       return RefTy;
     }

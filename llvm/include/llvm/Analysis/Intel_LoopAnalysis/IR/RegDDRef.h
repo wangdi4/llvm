@@ -186,22 +186,25 @@ private:
     // ptr @p, i64 0, i64 1 This will let us recreate the GEP during CodeGen.
     Type *BasePtrElementTy;
     // If there is a bitcast on the GEP before its use (in load/store
-    // instruction etc), we store the destination type of the bitcast here.
-    // Otherwise it is set to null. For example-
+    // instruction etc), we store the destination element type of the bitcast
+    // here. The only exception is when the bitcast dest type is a vector of
+    // pointers (like <4 x i32*>) instead of a pointer type. This is set on
+    // AddressOf refs by vectorizer. In this case we store the vector type. If
+    // no bitcast type is present, it is set to null. For example, we will store
+    // i64 as the BitCastDestVecOrElemTy in the following case-
+    //
     //   %gep = getelementptr i8, i8* %indvars.iv2526, i64 4
     //   %bc = bitcast i8* %gep to i64*
     //   store i64 %add, i64* %bc
     //
-    // Note that in some cases this type can be the same as the BaseCE type
-    // therefore we cannot store it in the BaseCE dest type as in this case we
-    // cannot tell whether the bitcast is needed. It is also not a good
-    // representation as the bitcast is on the resulting GEP, not the base ptr.
-    // This was the previous implementation. An example where it didn't work-
-    //   %gep = getelementptr [20 x i32], [20 x i32]* @t, i64 0, i64 1
-    //   %bc = bitcast i32* %gep to [20 x i32]*
+    // This field is necessary even in the presence of opaque ptrs to catch
+    // mismatch between the type indexed in GEP and the load/store type.
+    // For example, we parse the load as (double*)(%p)[0][10] with double stored
+    // in BitCastDestVecOrElemTy for the following opaque ptr IR-
     //
-    // TODO: Investigate how this field should change with opaque ptrs.
-    Type *BitCastDestTy;
+    //   %gep = getelementptr [100 x i32], ptr %p, i64 0, i64 10
+    //   %ld = double, ptr %gep
+    Type *BitCastDestVecOrElemTy;
     bool InBounds;
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
@@ -492,7 +495,7 @@ public:
     return hasGEPInfo() && isSingleDimension() &&
            getSingleCanonExpr()->isZero() && getDimensionLower(1)->isZero() &&
            getTrailingStructOffsets(1).empty() &&
-           (IgnoreBitCast || !getBitCastDestType());
+           (IgnoreBitCast || !getBitCastDestVecOrElemType());
   }
 
   /// Returns true if the reference represents a pointer value equal to the
@@ -507,21 +510,28 @@ public:
     return isMemRef() && isSelfGEPRef(IgnoreBitCast);
   }
 
-  /// Returns the dest type of the bitcast applied to GEP DDRefs, asserts
-  /// for non-GEP DDRefs. For example-
+  /// Returns the destination element type of the bitcast applied to GEP DDRefs.
+  /// The only exception is vector AddressOf refs for which vector of pointers
+  /// is stored as the type. It asserts for non-GEP DDRefs. For example-
   ///
   /// %arrayidx = getelementptr [10 x float], [10 x float]* %p, i64 0, i64 %k
   /// %190 = bitcast float* %arrayidx to i32*
   /// store i32 %189, i32* %190
   ///
-  /// The DDRef looks like this in HIR-
-  /// *(i32*)(%ex1)[0][i1]
+  /// i32 is the BitCastDestVecOrElemTy.
+  /// Element type is stored because opaque pointers will not contain this
+  /// information.
   ///
-  Type *getBitCastDestType() const { return getGEPInfo()->BitCastDestTy; }
+  /// The DDRef looks like this in HIR-
+  /// (i32*)(%p)[0][i1]
+  ///
+  Type *getBitCastDestVecOrElemType() const {
+    return getGEPInfo()->BitCastDestVecOrElemTy;
+  }
 
-  /// Sets the dest type of the bitcast of GEP DDRefs.
-  void setBitCastDestType(Type *DestTy) {
-    getGEPInfo()->BitCastDestTy = DestTy;
+  /// Sets the dest vec or pointer element type of the bitcast of GEP DDRefs.
+  void setBitCastDestVecOrElemType(Type *DestTy) {
+    getGEPInfo()->BitCastDestVecOrElemTy = DestTy;
   }
 
   /// Returns the type associated with \p DimensionNum. For example, consider

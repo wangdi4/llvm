@@ -4621,7 +4621,8 @@ static bool mayIntersectDueToTypeCast(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() && "Memref expected");
 
-  if (!Ref1->getBitCastDestType() && !Ref2->getBitCastDestType())
+  if (!Ref1->getBitCastDestVecOrElemType() &&
+      !Ref2->getBitCastDestVecOrElemType())
     return false;
 
   uint64_t Size1Dst = Ref1->getDestTypeSizeInBytes();
