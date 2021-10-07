@@ -471,6 +471,82 @@ llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
 
   return llvm::MDNode::get(Ctx, MD);
 }
+
+static bool IsPaddingCandidate(CodeGenModule &CGM, llvm::Type *Ty) {
+  return Ty->isArrayTy() &&
+         Ty->getArrayElementType()->isIntegerTy(
+             CGM.getContext().getTypeSize(CGM.getContext().CharTy));
+}
+
+static bool IsPaddingCandidate(CodeGenModule &CGM, llvm::Type *Ty,
+                               uint64_t Size) {
+  return IsPaddingCandidate(CGM, Ty) && Ty->getArrayNumElements() == Size;
+}
+
+static bool IsPaddingCandidate(CodeGenModule &CGM, QualType FieldTy,
+                               uint64_t Size) {
+  const ConstantArrayType *FieldArrayTy =
+      CGM.getContext().getAsConstantArrayType(FieldTy);
+
+  return FieldArrayTy &&
+         CGM.getContext().getTypeSize(FieldArrayTy->getElementType()) ==
+             CGM.getContext().getTypeSize(CGM.getContext().CharTy) &&
+         FieldArrayTy->getSize() == Size;
+}
+
+// Try to figure out if this is padding after a bitfield. We know it is only
+// padding if it is an i8 array after the bitfield. This is currently imperfect
+// (in a way that seemingly doesn't appear in any reproducers) for complicated
+// cases with arrays of char that match the padding size. The actual way this
+// padding is generated, particularly on Windows, seems to be based on the size,
+// and underlying type of the bitfield, plus the size of the next field.
+static bool IsPaddingAfterBitfield(CodeGenModule &CGM, llvm::StructType *ST,
+                                   llvm::Type *LLVMPadding,
+                                   unsigned LLVMIdx,
+                                   const RecordDecl *RD,
+                                   unsigned NextFieldClangIdx) {
+  // Only padding if the llvm type is an array of i8.
+  if (!IsPaddingCandidate(CGM, LLVMPadding))
+    return false;
+
+  uint64_t PaddingArraySize = LLVMPadding->getArrayNumElements();
+
+  // Only this category of padding if the bitfield is not the last field in the
+  // struct. It might still be padding, but it would be struct-level padding at
+  // that point.
+  if (NextFieldClangIdx >= std::distance(RD->field_begin(), RD->field_end()))
+    return false;
+
+  RecordDecl::field_iterator Itr = RD->field_begin();
+  std::advance(Itr, NextFieldClangIdx);
+
+  // If the next field is not a constant array, or the sizes don't match, we know this is padding.
+  if (!IsPaddingCandidate(CGM, (*Itr)->getType(), PaddingArraySize))
+    return true;
+
+  // Count the number of potential-padding llvm arrays, and the number of clang
+  // array-types that might be padding.  If there are the same number, it
+  // probably isn't padding.  If they AREN'T the same, assume this is padding
+  // here. The assumption doesn't really matter, since the metadata ends up
+  // being the same anyway.
+  unsigned LLVMCandidates = 0;
+  unsigned ClangCandidates = 0;
+
+  for (; LLVMIdx < ST->getNumElements() &&
+         IsPaddingCandidate(CGM, ST->getElementType(LLVMIdx), PaddingArraySize);
+       ++LLVMIdx) {
+    ++LLVMCandidates;
+  }
+
+  for (; Itr != RD->field_end() &&
+         IsPaddingCandidate(CGM, (*Itr)->getType(), PaddingArraySize);
+       ++Itr) {
+    ++ClangCandidates;
+  }
+
+  return LLVMCandidates > ClangCandidates;
+}
+
 // A generalized function to correctly generate a metadata chain for an
 // individual type element.  By the time it gets HERE, it should have been
 // stripped of pointers.
@@ -554,18 +630,49 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
           // so I suspect we'll have to deal with this again.
           unsigned Width = FD->getBitWidthValue(CGM.getContext());
 
+          // Bitfields can require padding when stored in a global array before
+          // them to get the alignment right, particularly on windows. We know
+          // at this point it is an i8 array, so just encode that if we've run
+          // across it.
+          if (ST->getElementType(Idx)->isArrayTy()) {
+            llvm::Type *LLVMPadding = ST->getElementType(Idx);
+            assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
+                   "Not bitfield leading padding?");
+            QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
+            LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
+            ++Idx;
+          }
+
           for (unsigned Cur = 0; Cur < Width; Cur += 8) {
             LitMD.push_back(CreateTypeMD(CGM.getContext().CharTy,
                                             ST->getElementType(Idx), CurInit));
             ++Idx;
           }
           ++ClangIdx;
+
+          llvm::Type *LLVMPadding = ST->getElementType(Idx);
+          if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, Idx, RD, ClangIdx)) {
+            QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
+            LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
+            ++Idx;
+          }
         } else {
           LitMD.push_back(
               CreateTypeMD(FD->getType(), ST->getElementType(Idx), CurInit));
           ++ClangIdx;
           ++Idx;
         }
+      }
+
+      // Handle tail padding. No clang field to do it with, so just emit it.
+      if (ST->getNumElements() > Idx) {
+        assert(Idx + 1 == ST->getNumElements() && "More than 1 padding field?");
+        llvm::Type *LLVMPadding = ST->getElementType(Idx);
+        assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
+               "Not bitfield leading padding?");
+        QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
+        LitMD.push_back(
+            CreateTypeMD(ClangPadding, ST->getElementType(Idx), nullptr));
       }
     }
   } else if (const auto *Cplx = ClangType->getAs<ComplexType>()) {
