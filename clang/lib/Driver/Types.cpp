@@ -388,6 +388,7 @@ types::getCompilationPhases(ID Id, phases::ID LastPhase) {
 llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases>
 types::getCompilationPhases(const clang::driver::Driver &Driver,
                             llvm::opt::DerivedArgList &DAL, ID Id) {
+<<<<<<< HEAD
   phases::ID LastPhase;
 
   // Filter to compiler mode. When the compiler is run as a preprocessor then
@@ -430,6 +431,9 @@ types::getCompilationPhases(const clang::driver::Driver &Driver,
     LastPhase = phases::LastPhase;
 
   return types::getCompilationPhases(Id, LastPhase);
+=======
+  return types::getCompilationPhases(Id, Driver.getFinalPhase(DAL));
+>>>>>>> 5f9360b95888324795161545ee77a99bfa4113fb
 }
 
 ID types::lookupCXXTypeForCType(ID Id) {
