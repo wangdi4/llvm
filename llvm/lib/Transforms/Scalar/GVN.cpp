@@ -301,7 +301,12 @@ GVN::Expression GVN::ValueTable::createExpr(Instruction *I) {
     e.varargs.push_back(lookupOrAdd(GCR->getDerivedPtr()));
   } else {
     for (Use &Op : I->operands())
+#if INTEL_COLLAB
+      if (Op)
+        e.varargs.push_back(lookupOrAdd(Op));
+#else  // INTEL_COLLAB
       e.varargs.push_back(lookupOrAdd(Op));
+#endif // INTEL_COLLAB
   }
   if (I->isCommutative()) {
     // Ensure that commutative instructions that only differ by a permutation
