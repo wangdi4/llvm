@@ -666,9 +666,8 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     //   A[x][x] -> x*16 + x*4 -> x*20
     // This also ensures that 'x' only appears in the index list once.
     for (unsigned i = 0, e = Decomposed.VarIndices.size(); i != e; ++i) {
-      if (Decomposed.VarIndices[i].V == LE.Val.V &&
-          Decomposed.VarIndices[i].ZExtBits == LE.Val.ZExtBits &&
-          Decomposed.VarIndices[i].SExtBits == LE.Val.SExtBits) {
+      if (Decomposed.VarIndices[i].Val.V == LE.Val.V &&
+          Decomposed.VarIndices[i].Val.hasSameExtensionsAs(LE.Val)) {
         Scale += Decomposed.VarIndices[i].Scale;
         Decomposed.VarIndices.erase(Decomposed.VarIndices.begin() + i);
         break;
@@ -676,8 +675,7 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     }
 
     if (!!Scale) {
-      VariableGEPIndex Entry = {LE.Val.V, LE.Val.ZExtBits, LE.Val.SExtBits,
-                                Scale, {}, LE.IsNSW};
+      VariableGEPIndex Entry = {LE.Val, Scale, {}, LE.IsNSW};
       Entry.CxtI = Subs;
       Decomposed.VarIndices.push_back(Entry);
     }
