@@ -17,13 +17,10 @@ set(LLVM_LINK_COMPONENTS
 add_llvm_unittest(MCTests
   Disassembler.cpp
   DwarfLineTables.cpp
-<<<<<<< HEAD
+  DwarfLineTableHeaders.cpp
 # INTEL_CUSTOMIZATION
   Intel_MCTraceTest.cpp
 # end INTEL_CUSTOMIZATION
-=======
-  DwarfLineTableHeaders.cpp
->>>>>>> 050edef8538e82264928ddf1840e785f1544ca7f
   MCInstPrinter.cpp
   StringTableBuilderTest.cpp
   TargetRegistry.cpp
