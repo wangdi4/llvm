@@ -14,6 +14,7 @@
 
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #include "llvm/IR/Dominators.h"
@@ -432,7 +433,8 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   auto reserveFieldsForItemInPrivateThunk = [&](Item *I) {
     Type *ElementTy = nullptr;
     Value *NumElements = nullptr;
-    std::tie(ElementTy, NumElements, std::ignore) = getItemInfo(I);
+    std::tie(ElementTy, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
     if (!NumElements) {
       PrivateThunkTypes.push_back(ElementTy);
       I->setPrivateThunkIdx(PrivateCount++);
@@ -828,7 +830,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         RedRes->setName(OrigName + ".red");
 
         Type *ElementType = nullptr;
-        std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+        std::tie(ElementType, std::ignore, std::ignore) =
+            VPOParoptUtils::getItemInfo(RedI);
 
         Type *RedNewTy = PointerType::getUnqual(ElementType);
         Value *RedResCast =
@@ -1261,7 +1264,8 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
   Module *M = F->getParent();
 
   Type *ElementType = nullptr;
-  std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+  std::tie(ElementType, std::ignore, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
   Type *ElementPtrType = PointerType::getUnqual(ElementType);
 
   SmallVector<Type *, 2> TaskLoopRedInitParams{ElementPtrType};
@@ -1307,7 +1311,8 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
   Module *M = F->getParent();
 
   Type *ElementType = nullptr;
-  std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+  std::tie(ElementType, std::ignore, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
 
   Type *TaskLoopRedInitParams[] = {PointerType::getUnqual(ElementType),
                                    PointerType::getUnqual(ElementType)};
@@ -1643,7 +1648,8 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
     Type *ElementType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(ElementType, NumElements, std::ignore) = getItemInfo(RedI);
+    std::tie(ElementType, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(RedI);
 
     Value *ElementSize = Builder.getInt64(DL.getTypeAllocSize(ElementType));
 

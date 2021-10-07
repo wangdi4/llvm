@@ -453,26 +453,6 @@ private:
   /// Generate destructor calls for [first|last]private variables
   bool genDestructorCode(WRegionNode *W);
 
-  /// Extract the type and size of local Alloca to be created to privatize
-  /// \p OrigValue.
-  /// \param [in] OrigValue Input Value
-  /// \param [in] OrigValueElemType Input Value's Element Type
-  /// \param [out] ElementType Type of one element
-  /// \param [out] NumElements Number of elements, in case \p OrigValue is
-  /// an array, \b nullptr otherwise.
-  /// \param [out] AddrSpace Address space of the input value object.
-  static void getItemInfoFromValue(Value *OrigValue, Type *OrigValueElemType,
-                                   Type *&ElementType, Value *&NumElements,
-                                   unsigned &AddrSpace);
-
-  /// Extract the type and size of local Alloca to be created to privatize
-  /// \p I.
-  /// \returns a \b tuple of <ElementType, NumElements, AddrSpace>. where
-  /// NumElements is the number of elements, in case I's Orig is an array, \b
-  /// nullptr otherwise. AddrSpace is the address space of the input item
-  /// object.
-  static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
-
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
   /// firstprivate, lastprivate, reduction, linear.

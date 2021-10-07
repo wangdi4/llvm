@@ -289,6 +289,14 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   if (isOmpSIMDLoop)
     setLoopMD(Lp, "llvm.loop.vectorize.enable");
 
+  // Loop entities framework does not support array reductions idiom. Bailout to
+  // prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
+  if (WRLp && LoopVectorizationPlanner::hasArrayReduction(WRLp)) {
+    LLVM_DEBUG(
+        dbgs() << "VD: Not vectorizing: Cannot handle array reductions.\n");
+    return false;
+  }
+
   // Send explicit data from WRLoop to the Legality.
   // The decision about possible loop vectorization is based
   // on this data.
