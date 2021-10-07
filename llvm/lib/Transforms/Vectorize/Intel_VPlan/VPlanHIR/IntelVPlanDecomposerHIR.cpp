@@ -206,17 +206,18 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
     DecompIV = combineDecompDefs(DecompIVCoeff, DecompIV, Ty, Instruction::Mul);
   }
 
-  VPValue *VPIndVar = HLLp2IVPhi[getHLLoopForLevel(RDDR, IVLevel)];
+  HLLoop *IVLevelLoop = getHLLoopForLevel(RDDR, IVLevel);
+  auto IVTy = IVLevelLoop->getIVType();
+  VPValue *VPIndVar = HLLp2IVPhi[IVLevelLoop];
   if (!VPIndVar)
     // If there is no PHI in the map, it means that the IV is an external
-    // definition.
+    // definition. When getting the external definition for the IV use the
+    // IVLevelLoop's IV type.
     // TODO: We could be creating redundant external definitions here because
     // this external definition cannot be mapped to an HLInst. Add check at the
     // beginning of this function to return an existing external definition in
     // the VPlan pool.
-    VPIndVar = Plan->getVPExternalDefForIV(IVLevel, Ty);
-
-  auto IVTy = VPIndVar->getType();
+    VPIndVar = Plan->getVPExternalDefForIV(IVLevel, IVTy);
 
   // Add a conversion for VPIndVar if its type does not match canon expr
   // type specified in Ty. We mimic the code from HIR CG here.
