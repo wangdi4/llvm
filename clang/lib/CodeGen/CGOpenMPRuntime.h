@@ -566,8 +566,14 @@ private:
       llvm::Constant *getAddress() const {
         return cast_or_null<llvm::Constant>(Addr);
       }
+#if INTEL_COLLAB
+      void setAddress(llvm::Constant *V, bool Force = false) {
+        assert(Force ||
+               !Addr.pointsToAliveValue() && "Address has been set before!");
+#else // INTEL_COLLAB
       void setAddress(llvm::Constant *V) {
         assert(!Addr.pointsToAliveValue() && "Address has been set before!");
+#endif // INTEL_COLLAB
         Addr = V;
       }
       static bool classof(const OffloadEntryInfo *Info) { return true; }
@@ -714,6 +720,16 @@ private:
     bool hasDeviceGlobalVarEntryInfo(StringRef VarName) const {
       return OffloadEntriesDeviceGlobalVar.count(VarName) > 0;
     }
+
+#if INTEL_COLLAB
+    /// If \a Addr is in the offload table return the name, otherwise return the
+    /// empty string.
+    StringRef getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr);
+    /// Update the \a Addr for the variable named \a Name.
+    void updateDeviceGlobalVarEntryInfoAddr(StringRef Name,
+                                            llvm::Constant *Addr);
+#endif // INTEL_COLLAB
+
     /// Applies action \a Action on all registered entries.
     typedef llvm::function_ref<void(StringRef,
                                     const OffloadEntryInfoDeviceGlobalVar &)>
@@ -953,6 +969,14 @@ public:
   static void getLOMapInfo(const OMPExecutableDirective &Dir,
                            CodeGenFunction &CGF,
                            SmallVectorImpl<LOMapInfo> *Info);
+
+  StringRef getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
+    return OffloadEntriesInfoManager.getNameOfOffloadEntryDeviceGlobalVar(Addr);
+  }
+  void updateDeviceGlobalVarEntryInfoAddr(StringRef Name,
+                                          llvm::Constant *Addr) {
+    OffloadEntriesInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name, Addr);
+  }
 #endif // INTEL_COLLAB
 
   /// Emits code for OpenMP 'if' clause using specified \a CodeGen
