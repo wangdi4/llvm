@@ -50,8 +50,15 @@ struct ParmRef {
   // Represents the vector parameter cast from a vector type to scalar type.
   Instruction *VectorParmCast;
 
-  ParmRef(Value *VectorParm, Instruction *VectorParmCast)
-      : VectorParm(VectorParm), VectorParmCast(VectorParmCast) {}
+  // For ordinary vector parameters - just the type of the parameter. For linear
+  // byref - type of the element accessed by the pointer passed. Similarly for
+  // vector byval/byref parameters - instead of storing the pointer type we'd
+  // have the actual elementtype from the byval/byref attribute here.
+  Type *OrigElemType;
+
+  ParmRef(Value *VectorParm, Instruction *VectorParmCast, Type *OrigElemType)
+      : VectorParm(VectorParm), VectorParmCast(VectorParmCast),
+        OrigElemType(OrigElemType) {}
 };
 
 class VecCloneImpl {
@@ -100,7 +107,8 @@ class VecCloneImpl {
     /// where the alloca of the function argument should be placed in
     /// EntryBlock. We process the function arguments from left to right. The
     /// alloca of the most left argument is places at the top of the EntryBlock.
-    Instruction *expandVectorParameters(Function *Clone, VectorVariant &V,
+    Instruction *expandVectorParameters(Function *Clone, Function &OrigFn,
+                                        VectorVariant &V,
                                         BasicBlock *EntryBlock,
                                         std::vector<ParmRef> &ParmMap,
                                         ValueToValueMapTy &VMap,
