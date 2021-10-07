@@ -3217,6 +3217,23 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
   }
 }
 
+#if INTEL_COLLAB
+StringRef CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+    getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
+  for (auto &E : OffloadEntriesDeviceGlobalVar) {
+    if (Addr == E.getValue().getAddress())
+      return E.getKey();
+  }
+  return "";
+}
+
+void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+    updateDeviceGlobalVarEntryInfoAddr(StringRef Name, llvm::Constant *Addr) {
+  auto &Entry = OffloadEntriesDeviceGlobalVar[Name];
+  Entry.setAddress(Addr, /*Force=*/true);
+}
+#endif // INTEL_COLLAB
+
 void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
     actOnDeviceGlobalVarEntriesInfo(
         const OffloadDeviceGlobalVarEntryInfoActTy &Action) {

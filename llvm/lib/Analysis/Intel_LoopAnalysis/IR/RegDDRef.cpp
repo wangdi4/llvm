@@ -2162,6 +2162,31 @@ unsigned RegDDRef::getBasePtrSymbase() const {
 
 Type *RegDDRef::getDereferencedType() const {
   assert(isAddressOf() && "Address of Ref is expected");
+
+  // The trick to reset addressOf flag below does not work in the following
+  // cases-
+  //
+  // 1) Vector AddressOf refs.
+  // 2) Self AddressOf refs with null dimension element type. getDestType()
+  // asserts in this case.
+  //
+  // This section of the code is trying to handle these two cases.
+  if (auto *BitCastTy = getBitCastDestVecOrElemType()) {
+    // We don't have element type information for vector addressOf refs.
+    return !isa<VectorType>(BitCastTy) ? BitCastTy : nullptr;
+
+  } else if (isSelfAddressOf()) {
+    auto *DestTy = getDestType();
+
+    // This is an attempt to keep original behavior for non-opaque pointer path.
+    if (!DestTy->isOpaquePointerTy()) {
+      DestTy->getPointerElementType();
+    }
+
+    // This can return null.
+    return getDimensionElementType(1);
+  }
+
   auto *NonConst = const_cast<RegDDRef *>(this);
   NonConst->setAddressOf(false);
   Type *ElemTy = NonConst->getDestType();

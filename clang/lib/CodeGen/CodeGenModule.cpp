@@ -4629,6 +4629,16 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
   // If we already created a global with the same mangled name (but different
   // type) before, take its name and remove it from its parent.
   if (Entry) {
+#if INTEL_COLLAB
+    StringRef OffloadVarName;
+    if (getLangOpts().OpenMPLateOutline) {
+      // If the Entry is an offloaded Entry it will need to be updated.
+      // Get the name that matches so it can be replaced.
+      OffloadVarName =
+          getOpenMPRuntime().getNameOfOffloadEntryDeviceGlobalVar(Entry);
+    }
+#endif // INTEL_COLLAB
+
     GV->takeName(Entry);
 
     if (!Entry->use_empty()) {
@@ -4638,6 +4648,10 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
     }
 
     Entry->eraseFromParent();
+#if INTEL_COLLAB
+    if (getLangOpts().OpenMPLateOutline && !OffloadVarName.empty())
+      getOpenMPRuntime().updateDeviceGlobalVarEntryInfoAddr(OffloadVarName, GV);
+#endif // INTEL_COLLAB
   }
 
   // This is the first use or definition of a mangled name.  If there is a
@@ -5424,6 +5438,16 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       GV->getType()->getAddressSpace() !=
           getContext().getTargetAddressSpace(GetGlobalVarAddressSpace(D))) {
 
+#if INTEL_COLLAB
+    StringRef OffloadVarName;
+    if (getLangOpts().OpenMPLateOutline) {
+      // If the Entry is an offloaded Entry it will need to be updated.
+      // Get the name that matches so it can be replaced.
+      OffloadVarName =
+          getOpenMPRuntime().getNameOfOffloadEntryDeviceGlobalVar(Entry);
+    }
+#endif // INTEL_COLLAB
+
     // Move the old entry aside so that we'll create a new one.
     Entry->setName(StringRef());
 
@@ -5440,6 +5464,11 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
 
     // Erase the old global, since it is no longer used.
     cast<llvm::GlobalValue>(Entry)->eraseFromParent();
+
+#if INTEL_COLLAB
+    if (getLangOpts().OpenMPLateOutline && !OffloadVarName.empty())
+      getOpenMPRuntime().updateDeviceGlobalVarEntryInfoAddr(OffloadVarName, GV);
+#endif // INTEL_COLLAB
   }
 
   MaybeHandleStaticInExternC(D, GV);

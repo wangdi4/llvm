@@ -102,10 +102,14 @@ void HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor::addToAST(
     // The entire pointer (base and indexing) is region invariant. A normal AST
     // will correctly disambiguate, even with precise size.
     LocationSize LocSize = MemoryLocation::UnknownSize;
+    // Note: isAddressOfSizedType() can return different answers for opaque and
+    // non-opaque pointer paths.
+    // TODO: Investigate the performance impact of removing this check.
     if (!Ref->isFake() &&
         (!Ref->isAddressOf() || Ref->isAddressOfSizedType())) {
-      uint64_t RefSize = Ref->isAddressOf() ? Ref->getElementTypeSizeInBytes()
-                                            : Ref->getDestTypeSizeInBytes();
+      uint64_t RefSize = Ref->isAddressOf()
+                             ? Ref->getDereferencedTypeSizeInBytes()
+                             : Ref->getDestTypeSizeInBytes();
       LocSize = LocationSize::precise(RefSize);
     }
     LLVM_DEBUG(
