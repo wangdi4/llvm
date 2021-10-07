@@ -67,6 +67,8 @@ bool RecurrenceDescriptor::isIntegerRecurrenceKind(RecurKind Kind) {
   case RecurKind::SMin:
   case RecurKind::UMax:
   case RecurKind::UMin:
+  case RecurKind::SelectICmp:
+  case RecurKind::SelectFCmp:
     return true;
   }
   return false;
@@ -340,7 +342,7 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurKind Kind,
     // the starting value (the Phi or an AND instruction if the Phi has been
     // type-promoted).
     if (Cur != Start) {
-      ReduxDesc = isRecurrenceInstr(Cur, Kind, ReduxDesc, FuncFMF);
+      ReduxDesc = isRecurrenceInstr(TheLoop, Cur, Kind, ReduxDesc, FuncFMF);
       if (!ReduxDesc.isRecurrence())
         return false;
       // FIXME: FMF is allowed on phi, but propagation is not handled correctly.
@@ -373,6 +375,7 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurKind Kind,
 
     // A reduction operation must only have one use of the reduction value.
     if (!IsAPhi && !IsASelect && !isMinMaxRecurrenceKind(Kind) &&
+        !isSelectCmpRecurrenceKind(Kind) &&
         hasMultipleUsesOf(Cur, VisitedInsts, 1))
       return false;
 
@@ -380,10 +383,10 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurKind Kind,
     if (IsAPhi && Cur != Phi && !areAllUsesIn(Cur, VisitedInsts))
       return false;
 
-    if (isIntMinMaxRecurrenceKind(Kind) &&
+    if ((isIntMinMaxRecurrenceKind(Kind) || Kind == RecurKind::SelectICmp) &&
         (isa<ICmpInst>(Cur) || isa<SelectInst>(Cur)))
       ++NumCmpSelectPatternInst;
-    if (isFPMinMaxRecurrenceKind(Kind) &&
+    if ((isFPMinMaxRecurrenceKind(Kind) || Kind == RecurKind::SelectFCmp) &&
         (isa<FCmpInst>(Cur) || isa<SelectInst>(Cur)))
       ++NumCmpSelectPatternInst;
 
@@ -436,7 +439,8 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurKind Kind,
                  ((!isa<FCmpInst>(UI) && !isa<ICmpInst>(UI) &&
                    !isa<SelectInst>(UI)) ||
                   (!isConditionalRdxPattern(Kind, UI).isRecurrence() &&
-                   !isMinMaxPattern(UI, Kind, IgnoredVal)
+                   !isMinMaxPattern(UI, Kind, IgnoredVal).isRecurrence() &&
+                   !isSelectCmpPattern(TheLoop, UI, IgnoredVal)
                         .isRecurrence())))
         return false;
 
@@ -453,6 +457,9 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurKind Kind,
   // llvm.min/max instrinsic, which is always OK.
   if (isMinMaxRecurrenceKind(Kind) && NumCmpSelectPatternInst != 2 &&
       NumCmpSelectPatternInst != 0)
+    return false;
+
+  if (isSelectCmpRecurrenceKind(Kind) && NumCmpSelectPatternInst != 1)
     return false;
 
   if (!FoundStartPHI || !FoundReduxOp || !ExitInstruction)
@@ -519,6 +526,63 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurKind Kind,
   RedDes = RD;
 
   return true;
+}
+
+// We are looking for loops that do something like this:
+//   int r = 0;
+//   for (int i = 0; i < n; i++) {
+//     if (src[i] > 3)
+//       r = 3;
+//   }
+// where the reduction value (r) only has two states, in this example 0 or 3.
+// The generated LLVM IR for this type of loop will be like this:
+//   for.body:
+//     %r = phi i32 [ %spec.select, %for.body ], [ 0, %entry ]
+//     ...
+//     %cmp = icmp sgt i32 %5, 3
+//     %spec.select = select i1 %cmp, i32 3, i32 %r
+//     ...
+// In general we can support vectorization of loops where 'r' flips between
+// any two non-constants, provided they are loop invariant. The only thing
+// we actually care about at the end of the loop is whether or not any lane
+// in the selected vector is different from the start value. The final
+// across-vector reduction after the loop simply involves choosing the start
+// value if nothing changed (0 in the example above) or the other selected
+// value (3 in the example above).
+RecurrenceDescriptor::InstDesc
+RecurrenceDescriptor::isSelectCmpPattern(Loop *Loop, Instruction *I,
+                                         InstDesc &Prev) {
+  // We must handle the select(cmp(),x,y) as a single instruction. Advance to
+  // the select.
+  CmpInst::Predicate Pred;
+  if (match(I, m_OneUse(m_Cmp(Pred, m_Value(), m_Value())))) {
+    if (auto *Select = dyn_cast<SelectInst>(*I->user_begin()))
+      return InstDesc(Select, Prev.getRecKind());
+  }
+
+  // Only match select with single use cmp condition.
+  if (!match(I, m_Select(m_OneUse(m_Cmp(Pred, m_Value(), m_Value())), m_Value(),
+                         m_Value())))
+    return InstDesc(false, I);
+
+  SelectInst *SI = cast<SelectInst>(I);
+  Value *NonPhi = nullptr;
+
+  if (isa<PHINode>(SI->getTrueValue()))
+    NonPhi = SI->getFalseValue();
+  else if (isa<PHINode>(SI->getFalseValue()))
+    NonPhi = SI->getTrueValue();
+  else
+    return InstDesc(false, I);
+
+  // We are looking for selects of the form:
+  //   select(cmp(), phi, loop_invariant) or
+  //   select(cmp(), loop_invariant, phi)
+  if (!Loop->isLoopInvariant(NonPhi))
+    return InstDesc(false, I);
+
+  return InstDesc(I, isa<ICmpInst>(I->getOperand(0)) ? RecurKind::SelectICmp
+                                                     : RecurKind::SelectFCmp);
 }
 
 RecurrenceDescriptor::InstDesc
@@ -615,7 +679,7 @@ RecurrenceDescriptor::isConditionalRdxPattern(RecurKind Kind, Instruction *I) {
 }
 
 RecurrenceDescriptor::InstDesc
-RecurrenceDescriptor::isRecurrenceInstr(Instruction *I, RecurKind Kind,
+RecurrenceDescriptor::isRecurrenceInstr(Loop *L, Instruction *I, RecurKind Kind,
                                         InstDesc &Prev, FastMathFlags FuncFMF) {
   assert(Prev.getRecKind() == RecurKind::None || Prev.getRecKind() == Kind);
   switch (I->getOpcode()) {
@@ -649,6 +713,8 @@ RecurrenceDescriptor::isRecurrenceInstr(Instruction *I, RecurKind Kind,
   case Instruction::FCmp:
   case Instruction::ICmp:
   case Instruction::Call:
+    if (isSelectCmpRecurrenceKind(Kind))
+      return isSelectCmpPattern(L, I, Prev);
     if (isIntMinMaxRecurrenceKind(Kind) ||
         (((FuncFMF.noNaNs() && FuncFMF.noSignedZeros()) ||
           (isa<FPMathOperator>(I) && I->hasNoNaNs() &&
@@ -677,7 +743,6 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
                                           RecurrenceDescriptor &RedDes,
                                           DemandedBits *DB, AssumptionCache *AC,
                                           DominatorTree *DT) {
-
   BasicBlock *Header = TheLoop->getHeader();
   Function &F = *Header->getParent();
   FastMathFlags FMF;
@@ -722,6 +787,12 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
     LLVM_DEBUG(dbgs() << "Found a UMIN reduction PHI." << *Phi << "\n");
     return true;
   }
+  if (AddReductionVar(Phi, RecurKind::SelectICmp, TheLoop, FMF, RedDes, DB, AC,
+                      DT)) {
+    LLVM_DEBUG(dbgs() << "Found an integer conditional select reduction PHI."
+                      << *Phi << "\n");
+    return true;
+  }
   if (AddReductionVar(Phi, RecurKind::FMul, TheLoop, FMF, RedDes, DB, AC, DT)) {
     LLVM_DEBUG(dbgs() << "Found an FMult reduction PHI." << *Phi << "\n");
     return true;
@@ -736,6 +807,12 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
   }
   if (AddReductionVar(Phi, RecurKind::FMin, TheLoop, FMF, RedDes, DB, AC, DT)) {
     LLVM_DEBUG(dbgs() << "Found a float MIN reduction PHI." << *Phi << "\n");
+    return true;
+  }
+  if (AddReductionVar(Phi, RecurKind::SelectFCmp, TheLoop, FMF, RedDes, DB, AC,
+                      DT)) {
+    LLVM_DEBUG(dbgs() << "Found a float conditional select reduction PHI."
+                      << " PHI." << *Phi << "\n");
     return true;
   }
   // Not a reduction of known type.
@@ -844,6 +921,7 @@ bool RecurrenceDescriptor::isFirstOrderRecurrence(
 
 /// This function returns the identity element (or neutral element) for
 /// the operation K.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 Constant *RecurrenceDescriptorData::getRecurrenceIdentity(RecurKind K, Type *Tp,
                                                           FastMathFlags FMF) {
@@ -851,6 +929,10 @@ Constant *RecurrenceDescriptorData::getRecurrenceIdentity(RecurKind K, Type *Tp,
 Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
                                                       FastMathFlags FMF) {
 #endif
+=======
+Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
+                                                   FastMathFlags FMF) {
+>>>>>>> 1fb37334bdb3cdb028977382fbd84cebde64ebb2
   switch (K) {
   case RecurKind::Xor:
   case RecurKind::Add:
@@ -890,6 +972,9 @@ Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
     return ConstantFP::getInfinity(Tp, true);
   case RecurKind::FMax:
     return ConstantFP::getInfinity(Tp, false);
+  case RecurKind::SelectICmp:
+  case RecurKind::SelectFCmp:
+    return getRecurrenceStartValue();
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
@@ -920,9 +1005,11 @@ unsigned RecurrenceDescriptor::getOpcode(RecurKind Kind) {
   case RecurKind::SMin:
   case RecurKind::UMax:
   case RecurKind::UMin:
+  case RecurKind::SelectICmp:
     return Instruction::ICmp;
   case RecurKind::FMax:
   case RecurKind::FMin:
+  case RecurKind::SelectFCmp:
     return Instruction::FCmp;
   default:
     llvm_unreachable("Unknown recurrence operation");
