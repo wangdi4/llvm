@@ -11,6 +11,7 @@ set(LLVM_LINK_COMPONENTS
 # end INTEL_CUSTOMIZATION
   MC
   MCDisassembler
+  Object
   Support
   )
 
