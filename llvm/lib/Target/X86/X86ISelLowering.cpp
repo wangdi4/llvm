@@ -51523,6 +51523,9 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
     }
   }
 
+  if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
+    return FPLogic;
+
 #if INTEL_CUSTOMIZATION
   if (SDValue V = combineBitSelectXor(N, DAG, Subtarget))
     return V;
