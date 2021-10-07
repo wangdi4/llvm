@@ -455,25 +455,17 @@ public:
       return false;
     }
 
-    return getDestType()->getPointerElementType()->isSized();
-  }
-
-  // Returns size of element type. This is only applicable for AddressOf refs.
-  // For example it will return 8 bits for &(i8*)A[i1].
-  uint64_t getElementTypeSizeInBits() const {
-    assert(isAddressOfSizedType() && "Dereferenceable AddressOf ref expected!");
-
-    auto *ElementTy = getDestType()->getPointerElementType();
-    return getCanonExprUtils().getTypeSizeInBits(ElementTy);
+    auto *DerefTy = getDereferencedType();
+    return (DerefTy && DerefTy->isSized());
   }
 
   // Returns size of element type. This is only applicable for AddressOf refs.
   // For example it will return 1 byte for &(i8*)A[i1].
-  uint64_t getElementTypeSizeInBytes() const {
+  uint64_t getDereferencedTypeSizeInBytes() const {
     assert(isAddressOfSizedType() && "Dereferenceable AddressOf ref expected!");
 
-    auto *ElementTy = getDestType()->getPointerElementType();
-    return getCanonExprUtils().getTypeSizeInBytes(ElementTy);
+    auto *DerefTy = getDereferencedType();
+    return getCanonExprUtils().getTypeSizeInBytes(DerefTy);
   }
 
   /// Returns a pointer val which can act as the location pointer for the GEP
@@ -629,8 +621,9 @@ public:
   /// ConstantSymbase is returned if base pointer is undef or null.
   unsigned getBasePtrSymbase() const;
 
-  /// Returns the dereferenced type of the address of Ref.
-  /// For example, it will return i32 for a ref like &(p)[5] where p is i32*.
+  /// Returns the dereferenced type of the address of Ref. Returns null if the
+  /// info is not available. For example, it will return i32 for a ref like
+  /// &(p)[5] where p is i32*.
   Type *getDereferencedType() const;
 
   /// Sets the canonical form of the subscript base.
