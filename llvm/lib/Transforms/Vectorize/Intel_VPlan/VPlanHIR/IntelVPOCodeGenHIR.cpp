@@ -327,7 +327,7 @@ RegDDRef *NestedBlobCG::codegenConversion(RegDDRef *Src, unsigned ConvOpCode,
           ConvOpCode == Instruction::PtrToInt) &&
          "Unexpected conversion OpCode");
 
-  Type *VecTy = FixedVectorType::get(DestType, ACG->getVF());
+  Type *VecTy = getWidenedType(DestType, ACG->getVF());
   HLInst *WideInst =
       HNU.createCastHLInst(VecTy, ConvOpCode, Src->clone(), "NBConv");
   addInst(WideInst);
@@ -1298,7 +1298,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       RegDDRef *Ref = *It;
 
       // The resulting type of the widened ref/broadcast.
-      auto VecDestTy = FixedVectorType::get(Ref->getDestType(), VF);
+      auto VecDestTy = getWidenedType(Ref->getDestType(), VF);
 
       RegDDRef *WideRef = nullptr;
       HLInst *LoadInst = nullptr;
@@ -2615,7 +2615,7 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     assert(WideOps.size() == 2 && "invalid cast");
 
     WideInst = HLNodeUtilities.createCastHLInst(
-        FixedVectorType::get(CurInst->getType(), VF), CurInst->getOpcode(),
+        getWidenedType(CurInst->getType(), VF), CurInst->getOpcode(),
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
   } else if (isa<SelectInst>(CurInst)) {
     WideInst = HLNodeUtilities.createSelect(
@@ -2879,7 +2879,7 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
   IndexCE->addConstant(Index, true /* IsMathAdd */);
   if (NumElements > 1)
     IndexCE->setSrcAndDestType(
-        FixedVectorType::get(IndexCE->getSrcType(), NumElements));
+        getWidenedType(IndexCE->getSrcType(), NumElements));
   MemRef->addDimension(IndexCE);
   return MemRef;
 }
@@ -2908,7 +2908,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   //                          |
   //                          V
   //                <VF x Ty addrspace(x)*>
-  Type *FlattenedTy = FixedVectorType::get(
+  Type *FlattenedTy = getWidenedType(
       VecType->getElementType()->getPointerTo(AddrSpace), getVF());
   WidePtr->setBitCastDestType(FlattenedTy);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr after flattening : ";
@@ -3122,7 +3122,7 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
 }
 
 RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
-  auto VecRefDestTy = FixedVectorType::get(RefDestTy, VF);
+  auto VecRefDestTy = getWidenedType(RefDestTy, VF);
 
   auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
   CE->setSrcType(VecRefDestTy);
@@ -3489,7 +3489,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     else {
       assert(!isa<VectorType>(OrigTy) &&
              "VectorType for AllocatePrivate not supported.");
-      VecTyForAlloca = FixedVectorType::get(OrigTy, getVF());
+      VecTyForAlloca = getWidenedType(OrigTy, getVF());
     }
 
     // Create a new vector blob to represent the widened private memory and map
@@ -4918,7 +4918,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         // Lval for all copies. TODO: Use SVA in future to decide between
         // vector/scalar type here.
         LValTmp = HLNodeUtilities.createTemp(
-            FixedVectorType::get(VPInst->getType(), getVF()), "phi.temp");
+            getWidenedType(VPInst->getType(), getVF()), "phi.temp");
         PhiIdLValTempsMap[OriginPhiId] = LValTmp;
       }
     }
@@ -5165,7 +5165,7 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
   for (VPInstruction &Inst : *OuterMostLpPreheader) {
     if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
       RegDDRef *RednRef = HLNodeUtilities.createTemp(
-          FixedVectorType::get(RedInit->getType(), VF), "red.var");
+          getWidenedType(RedInit->getType(), VF), "red.var");
       mapRednToRednRef(RedInit, RednRef);
       collectRednVPInsts(RedInit);
     }
