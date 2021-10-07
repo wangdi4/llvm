@@ -229,6 +229,9 @@ void VPLiveInOutCreator::createInOutsReductions(
   auto &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Red : VPLEntityList->vpreductions()) {
+    // Ignore in-memory reductions, they are neither live-in/live-out.
+    if (Red->getIsMemOnly())
+      continue;
     VPReductionInit *RedInit = nullptr;
     VPReductionFinal *RedFinal = nullptr;
     VPExternalUse *RedFinalExternalUse = nullptr;

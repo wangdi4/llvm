@@ -297,13 +297,16 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const InMemoryReductionList::value_type &CurValue) {
     Descriptor.clear();
+    auto *RednStore = cast<VPLoadStoreInst>(
+        Builder.getOrCreateVPOperand(CurValue.second.second));
     assertIsSingleElementAlloca(CurValue.first);
     VPValue *AllocaInst = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(AllocaInst);
+    Descriptor.addUpdateVPInst(RednStore);
     Descriptor.setExit(nullptr);
-    Descriptor.setKind(CurValue.second);
-    Descriptor.setRecType(nullptr);
+    Descriptor.setKind(CurValue.second.first);
+    Descriptor.setRecType(RednStore->getValueType());
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(AllocaInst);
     Descriptor.setLinkPhi(nullptr);
