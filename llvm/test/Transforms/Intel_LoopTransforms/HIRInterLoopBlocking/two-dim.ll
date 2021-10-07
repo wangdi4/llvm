@@ -1,7 +1,10 @@
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -disable-hir-inter-loop-blocking=false -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking   < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-hir-inter-loop-blocking=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
-
+;
+; RUN: opt -force-opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -disable-hir-inter-loop-blocking=false -hir-inter-loop-blocking -debug-only=hir-inter-loop-blocking-profit -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking   < %s 2>&1 | FileCheck %s
+; RUN: opt -force-opaque-pointers -disable-hir-inter-loop-blocking=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
+;
 ; Verify that the input is a profitable candidate of spatial inter loop blocking.
 ; Array B is used in the first i2-i3 loopnest, while is written in the second loop nest.
 ; Array A is written in the first i2-i3 loopnest, while is read in the second loop nest.

@@ -113,7 +113,7 @@ static cl::opt<bool> EnableDeviceSimdCodeGen(
 
 // Enables Hidden Helper Threads for Async (nowait) offloading.
 static cl::opt<bool> EnableAsyncHelperThread(
-    "vpo-paropt-enable-async-helper-thread", cl::Hidden, cl::init(false),
+    "vpo-paropt-enable-async-helper-thread", cl::Hidden, cl::init(true),
     cl::desc("Enable hidden helper threads for async offloading execution"));
 
 static cl::opt<bool> KeepBlocksOrder(
@@ -1888,7 +1888,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
     }
   }
 
-  if (VPOParoptUtils::enableAsyncHelperThread()) {
+  if (VPOParoptUtils::enableAsyncHelperThread() && W->getIsTargetTask()) {
     W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::HiddenHelper);
     TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
   }

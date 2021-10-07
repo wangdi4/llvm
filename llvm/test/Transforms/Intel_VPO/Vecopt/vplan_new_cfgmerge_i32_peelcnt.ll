@@ -88,18 +88,15 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult <2 x i32> [[TMP9]], <i32 4096, i32 4096>
 ; CHECK-NEXT:    [[TMP12:%.*]] = bitcast <2 x i1> [[TMP11]] to i2
 ; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i2 [[TMP12]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT22:%.*]] = insertelement <2 x i1> poison, i1 [[TMP13]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT23:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT22]], <2 x i1> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[BROADCAST_SPLAT23_EXTRACT_0_:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT23]], i32 0
-; CHECK-NEXT:    br i1 [[BROADCAST_SPLAT23_EXTRACT_0_]], label [[VPLANNEDBB24:%.*]], label [[VPLANNEDBB15]]
-; CHECK:       VPlannedBB24:
+; CHECK-NEXT:    br i1 [[TMP13]], label [[VPLANNEDBB22:%.*]], label [[VPLANNEDBB15]]
+; CHECK:       VPlannedBB22:
 ; CHECK-NEXT:    [[TMP14:%.*]] = call float @llvm.vector.reduce.fadd.v2f32(float [[UNI_PHI11]], <2 x float> [[PREDBLEND]])
-; CHECK-NEXT:    br label [[VPLANNEDBB25:%.*]]
-; CHECK:       VPlannedBB25:
+; CHECK-NEXT:    br label [[VPLANNEDBB23:%.*]]
+; CHECK:       VPlannedBB23:
 ; CHECK-NEXT:    br label [[FINAL_MERGE]]
 ; CHECK:       final.merge:
-; CHECK-NEXT:    [[UNI_PHI26:%.*]] = phi float [ [[TMP14]], [[VPLANNEDBB25]] ], [ [[TMP5]], [[VPLANNEDBB10]] ]
-; CHECK-NEXT:    [[UNI_PHI27:%.*]] = phi i32 [ 4096, [[VPLANNEDBB25]] ], [ 4095, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI24:%.*]] = phi float [ [[TMP14]], [[VPLANNEDBB23]] ], [ [[TMP5]], [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI25:%.*]] = phi i32 [ 4096, [[VPLANNEDBB23]] ], [ 4095, [[VPLANNEDBB10]] ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_4:%.*]]
 ; CHECK:       omp.inner.for.body:
 ; CHECK-NEXT:    [[DOTOMP_IV_LOCAL_0:%.*]] = phi i32 [ 0, [[PEELBLK13]] ], [ [[ADD3]], [[OMP_INNER_FOR_BODY]] ]
@@ -109,7 +106,7 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i32 [[ADD3]], 1
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[VPLANNEDBB]], label [[OMP_INNER_FOR_BODY]], !llvm.loop [[LOOP2:![0-9]+]]
 ; CHECK:       DIR.OMP.END.SIMD.4:
-; CHECK-NEXT:    [[ADD2_LCSSA:%.*]] = phi float [ [[UNI_PHI26]], [[FINAL_MERGE]] ]
+; CHECK-NEXT:    [[ADD2_LCSSA:%.*]] = phi float [ [[UNI_PHI24]], [[FINAL_MERGE]] ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_3:%.*]]
 ; CHECK:       DIR.OMP.END.SIMD.3:
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_419:%.*]]

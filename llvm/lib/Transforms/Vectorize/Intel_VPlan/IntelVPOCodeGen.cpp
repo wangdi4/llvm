@@ -526,6 +526,7 @@ void VPOCodeGen::finalizeLoop() {
     VPBasicBlock *VHeader = (*VPLI->begin())->getHeader();
     LoopVectorBody = cast<BasicBlock>(getScalarValue(VHeader, 0));
     LoopVectorBody->setName("vector.body");
+    LoopVectorBody->getTerminator()->setDebugLoc(OrigLoop->getStartLoc());
   } else {
     fixOutgoingValues();
     fixNonInductionVPPhis();
@@ -1545,9 +1546,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     auto *CmpInst =
         Builder.CreateICmpEQ(BitCastInst, Constant::getNullValue(IntTy));
 
-    // Broadcast the compare and set as the widened value.
-    auto *V = Builder.CreateVectorSplat(VF, CmpInst, "broadcast");
-    VPWidenMap[VPInst] = V;
+    VPScalarMap[VPInst][0] = CmpInst;
+    if (SVA->instNeedsBroadcast(VPInst)) {
+      // Broadcast the compare and set as the widened value.
+      auto *V = Builder.CreateVectorSplat(VF, CmpInst, "broadcast");
+      VPWidenMap[VPInst] = V;
+    }
     return;
   }
   case VPInstruction::Not: {

@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: not --crash opt -dtrans-typemetadatareader -dtrans-typemetadatareader-strict-check=true -disable-output < %s 2>&1 | FileCheck %s --allow-empty
-; RUN: not --crash opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-strict-check=true -disable-output < %s 2>&1 | FileCheck %s --allow-empty
+; RUN: opt -dtrans-typemetadatareader -dtrans-typemetadatareader-strict-check=true -disable-output < %s 2>&1 | FileCheck %s --allow-empty
+; RUN: opt -passes=dtrans-typemetadatareader -dtrans-typemetadatareader-strict-check=true -disable-output < %s 2>&1 | FileCheck %s --allow-empty
 
-; This test checks that the DTrans type metadata reader didn't pass since
-; the check is strict. Test case should crash.
+; This test checks that the DTrans type metadata reader detects missing
+; metadata an errors when the strict check is enabled.
 
 %struct.test01 = type { i32, i32 }
 %struct.test02 = type { i32 }
@@ -28,8 +28,8 @@ define internal i8* @bas(%struct.test03* %ptr) {
   ret i8* %ld
 }
 
-; CHECK-NOT: StructType: %struct.test01 = type { i32, i32 }
-
+; CHECK: dtrans-typemetadatareader: All structures types  NOT populated
+; CHECK: dtrans-typemetadatareader: Errors while checking IR annotations
 
 !intel.dtrans.types = !{ !10 }
 

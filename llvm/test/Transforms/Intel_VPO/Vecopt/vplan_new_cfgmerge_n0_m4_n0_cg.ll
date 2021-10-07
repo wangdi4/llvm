@@ -47,19 +47,16 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult <4 x i64> [[TMP4]], <i64 1024, i64 1024, i64 1024, i64 1024>
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <4 x i1> [[TMP6]] to i4
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i4 [[TMP7]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT40:%.*]] = insertelement <4 x i1> poison, i1 [[TMP8]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT50:%.*]] = shufflevector <4 x i1> [[BROADCAST_SPLATINSERT40]], <4 x i1> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[BROADCAST_SPLAT5_EXTRACT_0_0:%.*]] = extractelement <4 x i1> [[BROADCAST_SPLAT50]], i32 0
-; CHECK-NEXT:    br i1 [[BROADCAST_SPLAT5_EXTRACT_0_0]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:  VPlannedBB5:
 ; CHECK-NEXT:    br label [[FINAL_MERGE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  final.merge:
-; CHECK-NEXT:    [[UNI_PHI80:%.*]] = phi i64 [ 1024, [[VPLANNEDBB70]] ]
+; CHECK-NEXT:    [[UNI_PHI60:%.*]] = phi i64 [ 1024, [[VPLANNEDBB50]] ]
 ; CHECK-NEXT:    br label [[FOR_END0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  for.body:

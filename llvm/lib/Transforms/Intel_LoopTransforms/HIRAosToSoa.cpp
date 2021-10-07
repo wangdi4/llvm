@@ -636,14 +636,13 @@ HLInst *HIRAosToSoa::TransformAosToSoa::insertCallToStacksave() {
 void HIRAosToSoa::TransformAosToSoa::insertCallToStackrestore(
     RegDDRef *StackAddrRef) {
   auto Int8Ty = Type::getInt8Ty(HNU.getContext());
-  Type *Ty = StackAddrRef->getDestType();
 
   StackAddrRef = DDRU.createAddressOfRef(Int8Ty, StackAddrRef->getSelfBlobIndex(),
                                          StackAddrRef->getDefinedAtLevel(),
                                          StackAddrRef->getSymbase(), true);
 
   StackAddrRef->addDimension(CEU.createCanonExpr(
-      cast<PointerType>(Ty)->getElementType(), APInt(8, 0)));
+      Int8Ty, APInt(8, 0)));
 
   HLInst *StackrestoreCall = HNU.createStackrestore(StackAddrRef);
   HLNodeUtils::insertAfter(Anchor, StackrestoreCall);

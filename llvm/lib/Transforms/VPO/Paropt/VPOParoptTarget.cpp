@@ -2302,8 +2302,12 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
     } else if (UDPI->getIsF90DopeVector()) {
       // For F90_DVs, the map needs to be added for the data pointer, i.e.
       // load i32*, i32** (getelementptr (%dv, 0, 0)).
+      Type *DVType = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(DVType, NumElements, std::ignore) = getItemInfo(UDPI);
+      assert(!NumElements && "use_device_ptr item cannot be an array.");
+
       auto *Zero = LoadBuilder.getInt32(0);
-      auto *DVType = UDPI->getOrigElemType();
       auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(DVType, UDP, {Zero, Zero},
                                                      UDP->getName() + ".addr0");
       MappedVal = LoadBuilder.CreateLoad(
@@ -2700,13 +2704,17 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     }
 # if INTEL_CUSTOMIZATION
     else if (UDPI->getIsF90DopeVector()) {
+      Type *DVType = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(DVType, NumElements, std::ignore) = getItemInfo(UDPI);
+      assert(!NumElements && "use_device_ptr item cannot be an array.");
+
       NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
                                     ".new"); //                             (2)
       genCopyByAddr(UDPI, NewV, OrigV, &*Builder.GetInsertPoint()); //      (7)
       auto *Zero = Builder.getInt32(0);
-      Type *OrigElemTy = UDPI->getOrigElemType();
       auto *Addr0GEP =
-          Builder.CreateInBoundsGEP(OrigElemTy, NewV, {Zero, Zero}, //      (8)
+          Builder.CreateInBoundsGEP(DVType, NewV, {Zero, Zero}, //          (8)
                                     NewV->getName() + ".addr0");
       Builder.CreateStore(UpdatedUDPVal, Addr0GEP); //                      (5)
     } else if (UDPI->getIsCptr()) {
