@@ -417,13 +417,12 @@ Function *VPOParoptTransform::finalizeKernelFunction(
           ConstantStruct::get(KernelInfoInitTy, KernelInfoInitBuffer);
 
         GlobalVariable *KernelInfoVar =
-          new GlobalVariable(*Fn->getParent(), KernelInfoInitTy,
-                             /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
-                             KernelInfoInit,
-                             Fn->getName() + "_kernel_info",
-                             /*InsertBefore=*/nullptr,
-                             GlobalValue::ThreadLocalMode::NotThreadLocal,
-                             vpo::ADDRESS_SPACE_CONSTANT);
+            new GlobalVariable(*Fn->getParent(), KernelInfoInitTy,
+                               /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
+                               KernelInfoInit, Fn->getName() + "_kernel_info",
+                               /*InsertBefore=*/nullptr,
+                               GlobalValue::ThreadLocalMode::NotThreadLocal,
+                               SpirvOffloadEntryAddSpace);
         KernelInfoVar->setTargetDeclare(true);
       };
 
