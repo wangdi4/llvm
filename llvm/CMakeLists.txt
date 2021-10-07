@@ -1257,8 +1257,8 @@ list(APPEND features_enabled_by_default
 
   # Add knob to enable/disable Protobuf-based binary opt-report feature during
   # compiler's build. Feature is currently enabled by default only for
-  # Linux/Unix environment.
-  if (WIN32 AND NOT UNIX)
+  # Linux/Unix environment. It is also disabled for sanitizer builds.
+  if (WIN32 OR APPLE OR LLVM_USE_SANITIZER)
     option(INTEL_ENABLE_PROTO_BIN_OPTRPT
            "Enable Protobuf-based binary opt-report feature" OFF)
   else()
