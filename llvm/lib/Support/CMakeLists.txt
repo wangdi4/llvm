@@ -140,6 +140,7 @@ set (SUPPORT_SOURCES
   Debug.cpp
   DebugCounter.cpp
   DeltaAlgorithm.cpp
+  DivisionByConstantInfo.cpp
   DAGDeltaAlgorithm.cpp
   DJB.cpp
   ELFAttributeParser.cpp
