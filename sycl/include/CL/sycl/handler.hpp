@@ -198,6 +198,42 @@ checkValueRange(const T &V) {
 #endif
 }
 
+template <typename TransformedArgType, int Dims, typename KernelType>
+class RoundedRangeKernel {
+public:
+  RoundedRangeKernel(range<Dims> NumWorkItems, KernelType KernelFunc)
+      : NumWorkItems(NumWorkItems), KernelFunc(KernelFunc) {}
+
+  void operator()(TransformedArgType Arg) const {
+    if (Arg[0] >= NumWorkItems[0])
+      return;
+    Arg.set_allowed_range(NumWorkItems);
+    KernelFunc(Arg);
+  }
+
+private:
+  range<Dims> NumWorkItems;
+  KernelType KernelFunc;
+};
+
+template <typename TransformedArgType, int Dims, typename KernelType>
+class RoundedRangeKernelWithKH {
+public:
+  RoundedRangeKernelWithKH(range<Dims> NumWorkItems, KernelType KernelFunc)
+      : NumWorkItems(NumWorkItems), KernelFunc(KernelFunc) {}
+
+  void operator()(TransformedArgType Arg, kernel_handler KH) const {
+    if (Arg[0] >= NumWorkItems[0])
+      return;
+    Arg.set_allowed_range(NumWorkItems);
+    KernelFunc(Arg, KH);
+  }
+
+private:
+  range<Dims> NumWorkItems;
+  KernelType KernelFunc;
+};
+
 } // namespace detail
 
 namespace ext {
@@ -524,11 +560,11 @@ private:
   template <typename KernelName, typename KernelType, int Dims,
             typename LambdaArgType>
   void StoreLambda(KernelType KernelFunc) {
-/* INTEL_CUSTOMIZATION */
-    if (detail::KernelLambdaHasKernelHandlerArgT<KernelType,
-                                                 LambdaArgType>::value &&
-/* end INTEL_CUSTOMIZATION */
-        MIsHost) {
+    constexpr bool IsCallableWithKernelHandler =
+        detail::KernelLambdaHasKernelHandlerArgT<KernelType,
+                                                 LambdaArgType>::value;
+
+    if (IsCallableWithKernelHandler && MIsHost) {
       throw cl::sycl::feature_not_supported(
           "kernel_handler is not yet supported by host device.",
           PI_INVALID_OPERATION);
@@ -554,12 +590,9 @@ private:
       MArgs = std::move(MAssociatedAccesors);
     }
 
-/* INTEL_CUSTOMIZATION */
     // If the kernel lambda is callable with a kernel_handler argument, manifest
     // the associated kernel handler.
-    if (detail::KernelLambdaHasKernelHandlerArgT<KernelType,
-                                                        LambdaArgType>::value) {
-/* end INTEL_CUSTOMIZATION */
+    if (IsCallableWithKernelHandler) {
       getOrInsertHandlerKernelBundle(/*Insert=*/true);
     }
   }
@@ -846,8 +879,8 @@ private:
       setType(detail::CG::Kernel);
 #endif
     } else
-#endif // !__SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__ &&                     \
-       // !DPCPP_HOST_DEVICE_OPENMP && !DPCPP_HOST_DEVICE_PERF_NATIVE &&       \
+#endif // !__SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__ &&
+       // !DPCPP_HOST_DEVICE_OPENMP && !DPCPP_HOST_DEVICE_PERF_NATIVE &&
        // SYCL_LANGUAGE_VERSION >= 202001
     {
       (void)NumWorkItems;
@@ -994,10 +1027,8 @@ private:
 
   // Wrappers for kernel_single_task(...)
 
-/* INTEL_CUSTOMIZATION */
   template <typename KernelName, typename KernelType>
-  detail::enable_if_t<
-      detail::KernelLambdaHasKernelHandlerArgT<KernelType>::value>
+  std::enable_if_t<detail::KernelLambdaHasKernelHandlerArgT<KernelType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_single_task_wrapper(KernelType KernelFunc) {
 #else
@@ -1011,8 +1042,7 @@ private:
   }
 
   template <typename KernelName, typename KernelType>
-  detail::enable_if_t<
-      !detail::KernelLambdaHasKernelHandlerArgT<KernelType>::value>
+  std::enable_if_t<!detail::KernelLambdaHasKernelHandlerArgT<KernelType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_single_task_wrapper(KernelType KernelFunc) {
 #else
@@ -1027,7 +1057,7 @@ private:
   // Wrappers for kernel_parallel_for(...)
 
   template <typename KernelName, typename ElementType, typename KernelType>
-  detail::enable_if_t<
+  std::enable_if_t<
       detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_parallel_for_wrapper(KernelType KernelFunc) {
@@ -1042,7 +1072,7 @@ private:
   }
 
   template <typename KernelName, typename ElementType, typename KernelType>
-  detail::enable_if_t<
+  std::enable_if_t<
       !detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_parallel_for_wrapper(KernelType KernelFunc) {
@@ -1058,7 +1088,7 @@ private:
   // Wrappers for kernel_parallel_for_work_group(...)
 
   template <typename KernelName, typename ElementType, typename KernelType>
-  detail::enable_if_t<
+  std::enable_if_t<
       detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_parallel_for_work_group_wrapper(KernelType KernelFunc) {
@@ -1073,7 +1103,7 @@ private:
   }
 
   template <typename KernelName, typename ElementType, typename KernelType>
-  detail::enable_if_t<
+  std::enable_if_t<
       !detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_parallel_for_work_group_wrapper(KernelType KernelFunc) {
@@ -1085,7 +1115,6 @@ private:
 #endif // __SYCL_DEVICE_ONLY__
     kernel_parallel_for_work_group<KernelName, ElementType>(KernelFunc);
   }
-/* end INTEL_CUSTOMIZATION */
 
   std::shared_ptr<detail::kernel_bundle_impl>
   getOrInsertHandlerKernelBundle(bool Insert) const;
@@ -2485,35 +2514,26 @@ private:
   void GetRangeRoundingSettings(size_t &MinFactor, size_t &GoodFactor,
                                 size_t &MinRange);
 
-/* INTEL_CUSTOMIZATION */
   template <typename WrapperT, typename TransformedArgType, int Dims,
             typename KernelType,
-            detail::enable_if_t<detail::KernelLambdaHasKernelHandlerArgT<
+            std::enable_if_t<detail::KernelLambdaHasKernelHandlerArgT<
                 KernelType, TransformedArgType>::value> * = nullptr>
   auto getRangeRoundedKernelLambda(KernelType KernelFunc,
                                    range<Dims> NumWorkItems) {
-    return [=](TransformedArgType Arg, kernel_handler KH) {
-      if (Arg[0] >= NumWorkItems[0])
-        return;
-      Arg.set_allowed_range(NumWorkItems);
-      KernelFunc(Arg, KH);
-    };
+    return detail::RoundedRangeKernelWithKH<TransformedArgType, Dims,
+                                            KernelType>(NumWorkItems,
+                                                        KernelFunc);
   }
 
   template <typename WrapperT, typename TransformedArgType, int Dims,
             typename KernelType,
-            detail::enable_if_t<!detail::KernelLambdaHasKernelHandlerArgT<
+            std::enable_if_t<!detail::KernelLambdaHasKernelHandlerArgT<
                 KernelType, TransformedArgType>::value> * = nullptr>
   auto getRangeRoundedKernelLambda(KernelType KernelFunc,
                                    range<Dims> NumWorkItems) {
-    return [=](TransformedArgType Arg) {
-      if (Arg[0] >= NumWorkItems[0])
-        return;
-      Arg.set_allowed_range(NumWorkItems);
-      KernelFunc(Arg);
-    };
+    return detail::RoundedRangeKernel<TransformedArgType, Dims, KernelType>(
+        NumWorkItems, KernelFunc);
   }
-/* end INTEL_CUSTOMIZATION */
 };
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)
