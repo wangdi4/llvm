@@ -712,7 +712,7 @@ inline size_t get_device_info_host<info::device::image2d_max_width>() {
   // query, thus it becomes user's responsibility to choose proper image
   // parameters depending on similar query to (non-host device) and amount
   // of available/allocatable memory.
-  return INT_MAX;
+  return std::numeric_limits<std::size_t>::max();
 }
 
 template <>
@@ -728,7 +728,7 @@ inline size_t get_device_info_host<info::device::image2d_max_height>() {
   // query, thus it becomes user's responsibility to choose proper image
   // parameters depending on similar query to (non-host device) and amount
   // of available/allocatable memory.
-  return INT_MAX;
+  return std::numeric_limits<std::size_t>::max();
 }
 
 template <>
@@ -744,7 +744,7 @@ inline size_t get_device_info_host<info::device::image3d_max_width>() {
   // in this query, thus it becomes user's responsibility to choose proper image
   // parameters depending on similar query to (non-host device) and amount
   // of available/allocatable memory.
-  return INT_MAX;
+  return std::numeric_limits<std::size_t>::max();
 }
 
 template <>
@@ -760,7 +760,7 @@ inline size_t get_device_info_host<info::device::image3d_max_height>() {
   // in this query, thus it becomes user's responsibility to choose proper image
   // parameters depending on similar query to (non-host device) and amount
   // of available/allocatable memory.
-  return INT_MAX;
+  return std::numeric_limits<std::size_t>::max();
 }
 
 template <>
@@ -776,7 +776,7 @@ inline size_t get_device_info_host<info::device::image3d_max_depth>() {
   // in this query, thus it becomes user's responsibility to choose proper image
   // parameters depending on similar query to (non-host device) and amount
   // of available/allocatable memory.
-  return INT_MAX;
+  return std::numeric_limits<std::size_t>::max();
 }
 
 template <>
