@@ -30,6 +30,21 @@
 #include <windows.h>
 #pragma warning( pop )
 
+#define RTLD_NOW 0
+
+#ifndef OMPTARGET_VERIFY_DLL_SIGNATURE
+// We don't know if digital signing will follow after build, so we cannot
+// use WinVerifyTrust blindly.
+#define OMPTARGET_VERIFY_DLL_SIGNATURE 0
+#endif
+
+#if OMPTARGET_VERIFY_DLL_SIGNATURE
+#include <Softpub.h>
+#include <wincrypt.h>
+#include <wintrust.h>
+#pragma comment(lib, "Wintrust.lib")
+#endif // OMPTARGET_VERIFY_DLL_SIGNATURE
+
 static std::string LastErrorMessage;
 
 static wchar_t * utf8_to_wchar(const char *in) {
@@ -57,29 +72,166 @@ static wchar_t * utf8_to_wchar(const char *in) {
 extern "C" {
 #endif
 
-#define RTLD_NOW 0
+#if OMPTARGET_VERIFY_DLL_SIGNATURE
+/// Safe LoadLibrary wrapper adopted from oneDAAL and from MS document.
+/// FileName is supposed to be a full path.
+static HMODULE WINAPI loadLibraryWVT(const wchar_t *FileName) {
+  // Initialize the WINTRUST_FILE_INFO structure.
 
-void *dlopen(const char *file, int mode) {
-  wchar_t *w_path = utf8_to_wchar(file);
+  WINTRUST_FILE_INFO FileData;
+  memset(&FileData, 0, sizeof(FileData));
+  FileData.cbStruct = sizeof(WINTRUST_FILE_INFO);
+  FileData.pcwszFilePath = FileName;
+  FileData.hFile = NULL;
+  FileData.pgKnownSubject = NULL;
+
+  GUID WVTPolicyGUID = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+  WINTRUST_DATA WinTrustData;
+
+  // Initialize the WinVerifyTrust input data structure.
+
+  // Default all fields to 0.
+  memset(&WinTrustData, 0, sizeof(WinTrustData));
+
+  WinTrustData.cbStruct = sizeof(WinTrustData);
+
+  // Use default code signing EKU.
+  WinTrustData.pPolicyCallbackData = NULL;
+
+  // No data to pass to SIP.
+  WinTrustData.pSIPClientData = NULL;
+
+  // Disable WVT UI.
+  WinTrustData.dwUIChoice = WTD_UI_NONE;
+
+  // No revocation checking.
+  WinTrustData.fdwRevocationChecks = WTD_REVOKE_NONE;
+
+  // Verify an embedded signature on a file.
+  WinTrustData.dwUnionChoice = WTD_CHOICE_FILE;
+
+  // Verify action.
+  WinTrustData.dwStateAction = WTD_STATEACTION_VERIFY;
+
+  // Verification sets this value.
+  WinTrustData.hWVTStateData = NULL;
+
+  // Not used.
+  WinTrustData.pwszURLReference = NULL;
+
+  // This is not applicable if there is no UI because it changes
+  // the UI to accommodate running applications instead of
+  // installing applications.
+  WinTrustData.dwUIContext = 0;
+
+  // Set pFile.
+  WinTrustData.pFile = &FileData;
+
+  DWORD LastError;
+  LONG WVTResult = WinVerifyTrust(NULL, &WVTPolicyGUID, &WinTrustData);
+
+  switch (WVTResult) {
+  case TRUST_E_NOSIGNATURE:
+    LastError = GetLastError();
+    if (TRUST_E_NOSIGNATURE == LastError ||
+        TRUST_E_SUBJECT_FORM_UNKNOWN == LastError ||
+        TRUST_E_PROVIDER_UNKNOWN == LastError) {
+      DP("Error: %ls is not signed.\n", FileName);
+    } else {
+      DP("Error: Unknown error occurred when verifying the signature of %ls.\n",
+         FileName);
+    }
+    return NULL;
+  case TRUST_E_EXPLICIT_DISTRUST:
+    DP("Error: The signature/publisher of %ls is disallowed.\n", FileName);
+    return NULL;
+  case ERROR_SUCCESS:
+    break;
+  case TRUST_E_SUBJECT_NOT_TRUSTED:
+    DP("Error: The signature of %ls in not trusted.\n", FileName);
+    return NULL;
+  case CRYPT_E_SECURITY_SETTINGS:
+    DP("Error: The subject hash or publisher of %ls was not explicitly trusted "
+       "and user trust was not allowed (CRYPT_E_SECURITY_SETTINGS).\n",
+       FileName);
+    return NULL;
+  default:
+    DP("Error: Unknown error (%" PRId64 ") occurred when verifying the "
+       "signature of %ls.\n", WVTResult, FileName);
+    return NULL;
+  }
+
+  // Release hWVTStateData
+  WinTrustData.dwStateAction = WTD_STATEACTION_CLOSE;
+  WVTResult = WinVerifyTrust(NULL, &WVTPolicyGUID, &WinTrustData);
+  if (WVTResult != ERROR_SUCCESS) {
+    DP("Error: Failed to release verification result.\n");
+    return NULL;
+  }
+
+  HMODULE Ret = LoadLibraryW(FileName);
+  if (Ret) {
+    DP("Successfully verified and loaded %ls\n", FileName);
+  }
+
+  return Ret;
+}
+#endif // OMPTARGET_VERIFY_DLL_SIGNATURE
+
+void *dlopen(const char *File, int Mode) {
+  // By default, provide minimum safety as follows.
+  // -- Resolve absolute path
+  // -- Exclude users' CWD when loading dll.
+  wchar_t CurrModulePath[MAX_PATH];
+  HMODULE CurrModule = NULL;
+  if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          (LPCWSTR) &LastErrorMessage, &CurrModule)) {
+    DP("Cannot find omptarget module\n");
+    return NULL;
+  }
+  if (!GetModuleFileNameW(CurrModule, CurrModulePath, sizeof(CurrModulePath))) {
+    DP("Cannot resolve absolute path of omptarget module\n");
+    return NULL;
+  }
+  wchar_t *FilePath = utf8_to_wchar(File);
+  std::wstring FullPath(CurrModulePath);
+  size_t Loc = FullPath.find_last_of('\\');
+  FullPath.replace(Loc + 1, std::wstring::npos, FilePath);
+  free(FilePath);
+
+  // Exclude users' current directory from the search path
+  if (!SetDllDirectoryA("")) {
+    DP("Error: Cannot exclude current directory from serch path.\n");
+    return NULL;
+  }
 
   // Do not display message box with error if the call below fails to load the
   // dynamic library.
-  int error_mode = SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX |
-                              SEM_NOOPENFILEERRORBOX);
+  int ErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX |
+                               SEM_NOOPENFILEERRORBOX);
 
-  // Load dynamic library
-  HMODULE handle = LoadLibraryW(w_path);
+  HMODULE Ret = NULL;
+
+#if OMPTARGET_VERIFY_DLL_SIGNATURE
+  Ret = loadLibraryWVT(FullPath.c_str());
+#else // OMPTARGET_VERIFY_DLL_SIGNATURE
+  Ret = LoadLibraryW(FullPath.c_str());
 #ifdef OMPTARGET_DEBUG
-  if (!static_cast<void*>(handle))
-    DP("Call to LoadLibray() was unsuccessful with code 0x%lx\n", GetLastError());
+  if (!static_cast<void*>(Ret)) {
+    DP("Call to LoadLibray() was unsuccessful with code 0x%lx\n",
+       GetLastError());
+  }
 #endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_VERIFY_DLL_SIGNATURE
 
   // Restore error mode
-  SetErrorMode(error_mode);
+  SetErrorMode(ErrorMode);
 
-  free(w_path);
+  // Restore current directory from the search path
+  SetDllDirectory(NULL);
 
-  return static_cast<void*>(handle);
+  return static_cast<void*>(Ret);
 }
 
 int dlclose(void *handle) {
