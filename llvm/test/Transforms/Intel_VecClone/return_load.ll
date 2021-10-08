@@ -20,7 +20,7 @@ define dso_local i32 @_Z11shift_rows4ji(i32 %v, i32 %n) #0 {
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM"(i32* [[ALLOCA_N0]]), "QUAL.OMP.PRIVATE"(i32* [[N_ADDR0]]), "QUAL.OMP.PRIVATE"(i32* [[I0]]), "QUAL.OMP.SIMDLEN"(i32 8) ]
+; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(i32* [[ALLOCA_N0]]), "QUAL.OMP.PRIVATE"(i32* [[N_ADDR0]]), "QUAL.OMP.PRIVATE"(i32* [[I0]]) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:
@@ -54,7 +54,7 @@ define dso_local i32 @_Z11shift_rows4ji(i32 %v, i32 %n) #0 {
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[I0]], align 4
 ; CHECK-NEXT:    [[INC0:%.*]] = add nsw i32 [[TMP4]], 1
 ; CHECK-NEXT:    store i32 [[INC0]], i32* [[I0]], align 4
-; CHECK-NEXT:    br label [[FOR_COND0:%.*]]
+; CHECK-NEXT:    br label [[FOR_COND0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  for.end:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]

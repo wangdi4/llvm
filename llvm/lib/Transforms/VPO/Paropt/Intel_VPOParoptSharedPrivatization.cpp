@@ -608,7 +608,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       Value *NumElements = nullptr;
       // TODO: this will stop working with opaque pointers, because
       //       we do not plan to have type information for MAP clauses yet.
-      std::tie(ItemTy, NumElements, std::ignore) = getItemInfo(MI);
+      std::tie(ItemTy, NumElements, std::ignore) =
+          VPOParoptUtils::getItemInfo(MI);
       if (NumElements)
         return false;
       TypeSize ElemSize =

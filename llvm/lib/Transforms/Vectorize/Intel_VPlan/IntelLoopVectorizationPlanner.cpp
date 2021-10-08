@@ -38,6 +38,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -1405,6 +1406,27 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
   }
 
   VPLAN_DUMP(InitialTransformsDumpControl, Plan);
+}
+
+bool LoopVectorizationPlanner::hasArrayReduction(WRNVecLoopNode *WRLp) {
+  // Visit each reduction clause in the WRegion loop and identify if any of them
+  // represents array reduction idiom.
+  ReductionClause &RedClause = WRLp->getRed();
+  for (ReductionItem *RedItem : RedClause.items()) {
+
+    if (RedItem->getIsArraySection())
+      return true;
+
+    Type *ElemType = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElemType, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(RedItem);
+    if (isa<ArrayType>(ElemType) || NumElements != nullptr)
+      return true;
+  }
+
+  // All checks failed, loop does not have array reductions.
+  return false;
 }
 
 // Feed explicit data, saved in WRNVecLoopNode to the CodeGen.

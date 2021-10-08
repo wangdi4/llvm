@@ -161,7 +161,7 @@ bool NonLTOGlobalOptImpl::processInternalGlobal(GlobalVariable *GV,
   SmallPtrSet<Instruction *, 8> Stores;
   SmallPtrSet<Instruction *, 8> GVUsers;
 
-  if (GV->getType()->getElementType()->isSingleValueType() &&
+  if (GV->getValueType()->isSingleValueType() &&
       GV->getType()->getAddressSpace() == 0) {
 
     if (!isGVLegalToBePromoted(GV, Stores, GVUsers))
@@ -171,7 +171,7 @@ bool NonLTOGlobalOptImpl::processInternalGlobal(GlobalVariable *GV,
 
     Instruction &FirstI = const_cast<Instruction &>(
         *GS.AccessingFunction->getEntryBlock().begin());
-    Type *ElemTy = GV->getType()->getElementType();
+    Type *ElemTy = GV->getValueType();
     const DataLayout &DL = GS.AccessingFunction->getParent()->getDataLayout();
     AllocaInst *Alloca =
         new AllocaInst(ElemTy,

@@ -1236,19 +1236,6 @@ static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
 CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
                                           Function &F, VectorVariant &V,
                                           BasicBlock *EntryBlock) {
-  SmallDenseMap<StringRef, SmallVector<Value *, 4>> DirectiveStrMap;
-
-  // Insert vectorlength directive
-  Constant *VL =
-      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), V.getVlen());
-  DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_SIMDLEN)].push_back(
-      VL);
-
-  // Add directives for linear and vector parameters. Vector parameters can be
-  // marked as private.
-  SmallVector<Value *, 4> LinearVars;
-  SmallVector<Value *, 4> PrivateVars;
-  SmallVector<Value *, 4> UniformVars;
   std::vector<VectorKind> ParmKinds = V.getParameters();
 
   BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
@@ -1256,6 +1243,21 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
   IRBuilder<> Builder(&*EntryBlock->begin());
 
+  SmallVector<llvm::OperandBundleDef, 4> OpndBundles;
+  OpndBundles.emplace_back(
+      std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)), None);
+
+  auto AddClause = [&OpndBundles](OMP_CLAUSES Clause, auto &&... Ops) {
+    std::vector<Value *> Arr = {{Ops...}};
+    OpndBundles.emplace_back(
+        std::string(IntrinsicUtils::getClauseString(Clause)), std::move(Arr));
+  };
+
+  // Insert vectorlength directive
+  AddClause(QUAL_OMP_SIMDLEN, Builder.getInt32(V.getVlen()));
+
+  // Add directives for linear and vector parameters. Vector parameters can be
+  // marked as private.
   for (Argument &Arg : Clone->args()) {
     VectorKind ParmKind = ParmKinds[Arg.getArgNo()];
 
@@ -1268,12 +1270,10 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
     // TODO: CMPLRLLVM-9851: The linear and uniform parameters which are
     // currently marked as privates will be marked as linear and uniform
     // respectively.
-    if (Arg.hasOneUse()) {
-      auto *U = Arg.user_back();
-      if (isa<StoreInst>(U) &&
-          isa<AllocaInst>(cast<StoreInst>(U)->getPointerOperand()))
-        continue;
-    }
+    if (Arg.hasOneUse())
+      if (auto *Store = dyn_cast<StoreInst>(Arg.user_back()))
+        if (isa<AllocaInst>(Store->getPointerOperand()))
+          continue;
 
     if (!ParmKind.isLinear() && !ParmKind.isUniform())
       continue;
@@ -1287,41 +1287,24 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
       emitLoadStoreForParameter(cast<AllocaInst>(Memory), &Arg, LoopPreHeader);
     }
 
-    if (ParmKind.isLinear()) {
-      LinearVars.push_back(Memory);
-      Constant *Stride = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
-                                          ParmKind.getStride());
-      LinearVars.push_back(Stride);
-    }
+    if (ParmKind.isLinear())
+      AddClause(QUAL_OMP_LINEAR, Memory,
+                Builder.getInt32(ParmKind.getStride()));
 
-    if (ParmKind.isUniform()) {
-      UniformVars.push_back(Memory);
-    }
+    if (ParmKind.isUniform())
+      AddClause(QUAL_OMP_UNIFORM, Memory);
   }
 
-  if (!LinearVars.empty()) {
-    DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_LINEAR)] =
-        LinearVars;
-  }
+  // Add PrivateAllocas to privates.
+  for (Value *AllocaVal : PrivateAllocas)
+    AddClause(QUAL_OMP_PRIVATE, AllocaVal);
 
-  // Add PrivateAllocas to PrivateVars
-  for (auto AllocaVal : PrivateAllocas)
-    PrivateVars.push_back(AllocaVal);
-
-  if (!PrivateVars.empty()) {
-    DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE)] =
-        PrivateVars;
-  }
-
-  if (!UniformVars.empty()) {
-    DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_UNIFORM)] =
-        UniformVars;
-  }
 
   // Create simd.begin.region block which indicates the begining of the WRN
   // region.
-  CallInst *SIMDBeginCall =
-      IntrinsicUtils::createSimdDirectiveBegin(M, DirectiveStrMap);
+  CallInst *SIMDBeginCall = CallInst::Create(
+      Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry), None,
+      OpndBundles, "entry.region");
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
   EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
   return SIMDBeginCall;

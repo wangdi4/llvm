@@ -32,13 +32,14 @@
 /// the reduction updates.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
 
 #if INTEL_CUSTOMIZATION
@@ -778,7 +779,8 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
 
         Type *AllocaTy;
         Value *NumElements;
-        std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(Item);
+        std::tie(AllocaTy, NumElements, std::ignore) =
+            VPOParoptUtils::getItemInfo(Item);
 
         Type *ScalarTy = AllocaTy->getScalarType();
 

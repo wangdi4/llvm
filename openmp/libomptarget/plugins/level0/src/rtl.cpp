@@ -5580,20 +5580,23 @@ void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
   DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
      Name, Size, DeviceId);
 
-  std::vector<DeviceOffloadEntryTy> &OffloadTable =
-      OffloadTables[DeviceId].back();
-  if (!OffloadTable.empty()) {
+  const std::vector<DeviceOffloadEntryTy> *OffloadTable = nullptr;
+
+  if (!OffloadTables[DeviceId].empty())
+    OffloadTable = &OffloadTables[DeviceId].back();
+
+  if (OffloadTable && !OffloadTable->empty()) {
     size_t NameSize = strlen(Name) + 1;
     auto I = std::lower_bound(
-        OffloadTable.begin(), OffloadTable.end(), Name,
+        OffloadTable->begin(), OffloadTable->end(), Name,
         [NameSize](const DeviceOffloadEntryTy &E, const char *Name) {
           return strncmp(E.Base.name, Name, NameSize) < 0;
         });
 
-    if (I != OffloadTable.end() &&
+    if (I != OffloadTable->end() &&
         strncmp(I->Base.name, Name, NameSize) == 0) {
       DP("Global variable '%s' found in the offload table at position %zu.\n",
-         Name, std::distance(OffloadTable.begin(), I));
+         Name, std::distance(OffloadTable->begin(), I));
       return I->Base.addr;
     }
 

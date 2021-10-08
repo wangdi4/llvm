@@ -15,14 +15,14 @@
 ; CHECK-LABEL: simd.begin.region
 ; CHECK: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: DIR.OMP.SIMD
+; CHECK-SAME: QUAL.OMP.SIMDLEN
+; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.UNIFORM
 ; CHECK-SAME: i32** %alloca.a
 ; CHECK-SAME: QUAL.OMP.LINEAR
 ; CHECK-SAME: i32* %alloca.k
 ; CHECK-SAME: i32 1
-; CHECK-SAME: QUAL.OMP.SIMDLEN
-; CHECK-SAME: i32 4
-; CHECK-NEXT: br label %simd.loop.preheader
+; CHECK:      br label %simd.loop.preheader
 ; CHECK-LABEL: simd.loop.preheader:
 
 ; Load the parameters in simd.loop.preheader which is in the WRN region.

@@ -59,6 +59,13 @@ static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
   cl::desc("Use offload metadata created by clang in paropt lowering."));
 
+unsigned llvm::vpo::SpirvOffloadEntryAddSpace;
+static cl::opt<unsigned, true> SpirvOffloadEntryAddSpaceOpt(
+    "vpo-paropt-spirv-offload-entry-addrspace",
+    cl::desc("Address space for offload entries on SPIR-V target"), cl::Hidden,
+    cl::location(SpirvOffloadEntryAddSpace),
+    cl::init(vpo::ADDRESS_SPACE_GLOBAL));
+
 // This table is used to change math function names (left column) to the
 // OCL builtin format (right column).
 //
@@ -1083,13 +1090,11 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
 
     Constant *EntryInit = ConstantStruct::get(EntryTy, EntryInitBuffer);
 
-    GlobalVariable *Entry =
-        new GlobalVariable(M, EntryInit->getType(), /*isConstant=*/true,
-                           GlobalValue::WeakAnyLinkage, EntryInit,
-                           ".omp_offloading.entry." + Name,
-                           /*InsertBefore=*/nullptr,
-                           GlobalValue::ThreadLocalMode::NotThreadLocal,
-                           IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0);
+    GlobalVariable *Entry = new GlobalVariable(
+        M, EntryInit->getType(), /*isConstant=*/true,
+        GlobalValue::WeakAnyLinkage, EntryInit, ".omp_offloading.entry." + Name,
+        /*InsertBefore=*/nullptr, GlobalValue::ThreadLocalMode::NotThreadLocal,
+        IsTargetSPIRV ? SpirvOffloadEntryAddSpace : 0);
 
     Entry->setTargetDeclare(true);
     Triple TT(M.getTargetTriple());

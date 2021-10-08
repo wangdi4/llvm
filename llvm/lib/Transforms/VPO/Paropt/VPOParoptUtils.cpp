@@ -6272,4 +6272,105 @@ VPOParoptUtils::storeIntToThreadLocalGlobal(Value *V, Instruction *InsertBefore,
   Builder.CreateStore(V, GV);
   return GV;
 }
+
+// Extract the type and size of local Alloca to be created to privatize
+// OrigValue.
+// OPAQUEPOINTER: this whole function must be removed, when
+//                we switch to TYPED clauses.
+void VPOParoptUtils::getItemInfoFromValue(Value *OrigValue,
+                                          Type *OrigValueElemType,
+                                          Type *&ElementType,    // out
+                                          Value *&NumElements,   // out
+                                          unsigned &AddrSpace) { // out
+  assert(OrigValue && "Null input value.");
+
+  ElementType = nullptr;
+  NumElements = nullptr;
+
+  if (GeneralUtils::isOMPItemGlobalVAR(OrigValue)) {
+    ElementType = OrigValueElemType;
+    AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
+    return;
+  }
+
+  assert(GeneralUtils::isOMPItemLocalVAR(OrigValue) &&
+         "getItemInfoFromValue: Expect isOMPItemLocalVAR().");
+  std::tie(ElementType, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue,
+                                                            OrigValueElemType);
+  assert(ElementType && "getItemInfoFromValue: item type cannot be deduced.");
+
+  if (auto *ConstNumElements = dyn_cast<Constant>(NumElements))
+    if (ConstNumElements->isOneValue())
+      NumElements = nullptr;
+
+  // The final addresspace is inherited from the clause's item.
+  AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
+}
+
+// Extract the type and size of local Alloca to be created to privatize I.
+std::tuple<Type *, Value *, unsigned>
+VPOParoptUtils::getItemInfo(const Item *I) {
+  Type *ElementType = nullptr;
+  Value *NumElements = nullptr;
+  unsigned AddrSpace = 0;
+  assert(I && "Null Clause Item.");
+
+  Value *Orig = I->getOrig();
+  assert(Orig && "Null original Value in clause item.");
+
+  auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
+                                    &AddrSpace]() -> bool {
+    if (const ReductionItem *RedI = dyn_cast<ReductionItem>(I))
+      if (RedI->getIsArraySection()) {
+        const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+        ElementType = ArrSecInfo.getElementType();
+        NumElements = ArrSecInfo.getSize();
+        auto *ItemTy = RedI->getOrig()->getType();
+        assert(isa<PointerType>(ItemTy) &&
+               "Array section item has to have pointer type.");
+        AddrSpace = cast<PointerType>(ItemTy)->getAddressSpace();
+        return true;
+      }
+    return false;
+  };
+
+  auto getItemInfoIfTyped = [I, &ElementType, &NumElements]() -> bool {
+    if (!I->getIsTyped())
+      return false;
+    ElementType = I->getOrigItemElementTypeFromIR();
+    NumElements = I->getNumElements();
+    if (auto *ConstNumElements = dyn_cast<ConstantInt>(NumElements))
+      if (ConstNumElements->isOneValue())
+        NumElements = nullptr;
+    return true;
+  };
+
+  if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
+    // OPAQUEPOINTER: this code must be removed, when we switch
+    //                to TYPED clauses.
+    Type *OrigElemTy = I->getOrig()->getType();
+    assert(isa<PointerType>(OrigElemTy) && "Item must have a pointer type.");
+    OrigElemTy = OrigElemTy->getPointerElementType();
+    getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
+    assert(ElementType && "Failed to find element type for reduction operand.");
+
+    if (I->getIsByRef()) {
+      assert(isa<PointerType>(ElementType) &&
+             "Expected a pointer type for byref operand.");
+      assert(!NumElements &&
+             "Unexpected number of elements for byref pointer.");
+
+      ElementType = ElementType->getPointerElementType();
+    }
+  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
+             Orig->printAsOperand(dbgs()); dbgs() << "' ";
+             if (I->getIsTyped()) dbgs() << "(Typed)"; dbgs() << ":: Type: ";
+             ElementType->print(dbgs()); if (NumElements) {
+               dbgs() << ", NumElements: ";
+               NumElements->printAsOperand(dbgs());
+             } dbgs() << "\n");
+  return std::make_tuple(ElementType, NumElements, AddrSpace);
+}
 #endif // INTEL_COLLAB

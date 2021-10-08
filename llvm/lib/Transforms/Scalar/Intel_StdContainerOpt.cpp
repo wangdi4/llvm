@@ -403,11 +403,11 @@ void StdContainerOpt::initAliasMatrix(std::vector<Instruction *> &Insns,
           BM.bitSet(J, I);
       } else {
         uint64_t I1Size = MemoryLocation::UnknownSize;
-        Type *I1ElTy = cast<PointerType>(V1->getType())->getElementType();
+        Type *I1ElTy = LIA->getType();
         if (I1ElTy->isSized())
           I1Size = DL->getTypeStoreSize(I1ElTy);
         uint64_t I2Size = MemoryLocation::UnknownSize;
-        Type *I2ElTy = cast<PointerType>(V2->getType())->getElementType();
+        Type *I2ElTy = LIB->getType();
         if (I2ElTy->isSized())
           I2Size = DL->getTypeStoreSize(I2ElTy);
         if (!AA->isNoAlias(V1, I1Size, V2, I2Size))

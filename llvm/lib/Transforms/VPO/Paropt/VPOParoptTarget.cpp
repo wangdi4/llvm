@@ -417,13 +417,12 @@ Function *VPOParoptTransform::finalizeKernelFunction(
           ConstantStruct::get(KernelInfoInitTy, KernelInfoInitBuffer);
 
         GlobalVariable *KernelInfoVar =
-          new GlobalVariable(*Fn->getParent(), KernelInfoInitTy,
-                             /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
-                             KernelInfoInit,
-                             Fn->getName() + "_kernel_info",
-                             /*InsertBefore=*/nullptr,
-                             GlobalValue::ThreadLocalMode::NotThreadLocal,
-                             vpo::ADDRESS_SPACE_CONSTANT);
+            new GlobalVariable(*Fn->getParent(), KernelInfoInitTy,
+                               /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
+                               KernelInfoInit, Fn->getName() + "_kernel_info",
+                               /*InsertBefore=*/nullptr,
+                               GlobalValue::ThreadLocalMode::NotThreadLocal,
+                               SpirvOffloadEntryAddSpace);
         KernelInfoVar->setTargetDeclare(true);
       };
 
@@ -2304,7 +2303,8 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
       // load i32*, i32** (getelementptr (%dv, 0, 0)).
       Type *DVType = nullptr;
       Value *NumElements = nullptr;
-      std::tie(DVType, NumElements, std::ignore) = getItemInfo(UDPI);
+      std::tie(DVType, NumElements, std::ignore) =
+          VPOParoptUtils::getItemInfo(UDPI);
       assert(!NumElements && "use_device_ptr item cannot be an array.");
 
       auto *Zero = LoadBuilder.getInt32(0);
@@ -2706,7 +2706,8 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     else if (UDPI->getIsF90DopeVector()) {
       Type *DVType = nullptr;
       Value *NumElements = nullptr;
-      std::tie(DVType, NumElements, std::ignore) = getItemInfo(UDPI);
+      std::tie(DVType, NumElements, std::ignore) =
+          VPOParoptUtils::getItemInfo(UDPI);
       assert(!NumElements && "use_device_ptr item cannot be an array.");
 
       NewV = genPrivatizationAlloca(UDPI, AllocaInsertPt,
