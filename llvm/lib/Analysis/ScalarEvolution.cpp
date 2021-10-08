@@ -7179,7 +7179,6 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   if (!Latch || !Predecessor)
     return ConstantRange::getFull(BitWidth);
 
-<<<<<<< HEAD
   // Get the range implied by the value before the loop starts, as well as the
   // number of times the loop could be executed. If we can't get any clues about
   // those values, bail out of this process.
@@ -7227,19 +7226,6 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
 
   // Finally, intersect signed and unsigned ranges.
   return SR.intersectWith(UR, ConstantRange::Smallest);
-=======
-const Instruction *ScalarEvolution::getDefinedScopeRoot(const SCEV *S) {
-  if (auto *AddRec = dyn_cast<SCEVAddRecExpr>(S))
-    return &*AddRec->getLoop()->getHeader()->begin();
-  if (isa<SCEVConstant>(S))
-    return &*F.getEntryBlock().begin();
-  if (auto *U = dyn_cast<SCEVUnknown>(S)) {
-    if (auto *I = dyn_cast<Instruction>(U->getValue()))
-      return I;
-    return &*F.getEntryBlock().begin();
-  }
-  return nullptr;
->>>>>>> f39978b84f1d3a1da6c32db48f64c8daae64b3ad
 }
 
 static const Loop *getOutermostLoop(const Loop *Lp) {
@@ -7253,7 +7239,6 @@ static const Loop *getOutermostLoop(const Loop *Lp) {
   return Lp;
 }
 
-<<<<<<< HEAD
 static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
                             SCEV::NoWrapFlags &Flags) {
   if (!UserBinOp->hasNoUnsignedWrap())
@@ -7263,24 +7248,6 @@ static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
     Flags = ScalarEvolution::clearFlags(Flags, SCEV::FlagNSW);
 
   return Flags != SCEV::FlagAnyWrap;
-=======
-bool ScalarEvolution::isGuaranteedToTransferExecutionTo(const Instruction *A,
-                                                        const Instruction *B) {
-  if (A->getParent() == B->getParent() &&
-      ::isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
-                                                   B->getIterator()))
-    return true;
-
-  auto *BLoop = LI.getLoopFor(B->getParent());
-  if (BLoop && BLoop->getHeader() == B->getParent() &&
-      BLoop->getLoopPreheader() == A->getParent() &&
-      ::isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
-                                                   A->getParent()->end()) &&
-      ::isGuaranteedToTransferExecutionToSuccessor(B->getParent()->begin(),
-                                                   B->getIterator()))
-    return true;
-  return false;
->>>>>>> f39978b84f1d3a1da6c32db48f64c8daae64b3ad
 }
 
 static bool getRefinedFlagsUsingConstantFoldingRec(
@@ -7538,7 +7505,13 @@ SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
 const Instruction *ScalarEvolution::getDefinedScopeRoot(const SCEV *S) {
   if (auto *AddRec = dyn_cast<SCEVAddRecExpr>(S))
     return &*AddRec->getLoop()->getHeader()->begin();
-  // TODO: add SCEVConstant and SCEVUnknown caxes here
+  if (isa<SCEVConstant>(S))
+    return &*F.getEntryBlock().begin();
+  if (auto *U = dyn_cast<SCEVUnknown>(S)) {
+    if (auto *I = dyn_cast<Instruction>(U->getValue()))
+      return I;
+    return &*F.getEntryBlock().begin();
+  }
   return nullptr;
 }
 
@@ -7554,6 +7527,15 @@ bool ScalarEvolution::isGuaranteedToTransferExecutionTo(const Instruction *A,
                                                         const Instruction *B) {
   if (A->getParent() == B->getParent() &&
       ::isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
+                                                   B->getIterator()))
+    return true;
+
+  auto *BLoop = LI.getLoopFor(B->getParent());
+  if (BLoop && BLoop->getHeader() == B->getParent() &&
+      BLoop->getLoopPreheader() == A->getParent() &&
+      ::isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
+                                                   A->getParent()->end()) &&
+      ::isGuaranteedToTransferExecutionToSuccessor(B->getParent()->begin(),
                                                    B->getIterator()))
     return true;
   return false;
