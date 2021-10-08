@@ -192,11 +192,6 @@ static cl::opt<bool>
                                 cl::init(true), cl::Hidden,
                                 cl::desc("Enable canonicalization of groups."));
 
-static cl::opt<bool> EnableMemCanonicalization(
-    "addsub-reassoc-canonicalize-mem", cl::init(true), cl::Hidden,
-    cl::desc(
-        "Enable canonicalization of groups based on the memory accesses."));
-
 static cl::opt<unsigned> MemCanonicalizationMaxGroupSize(
     "addsub-reassoc-memcan-max-group-size", cl::init(64), cl::Hidden,
     cl::desc(
@@ -206,6 +201,43 @@ static cl::opt<int> MemCanonicalizationMaxLookupDepth(
     "addsub-reassoc-memcan-max-lookup-depth", cl::init(32), cl::Hidden,
     cl::desc("The maximum distance we are going to search for matching groups "
              "within BestGroups."));
+
+// TODO: Get rid of "unary associations" term from the pass source code.
+// The term itself doesn't even sound like having any sense and
+// it took me a while to realize what was really meant.
+// What was actually "thought" to mean is applying what is known in math as
+// distributivity property. If for example we have an expression
+// like (a + b + c) * n, then when using distributivity property we can think
+// of it as being same as a * n + b * n + c * n.
+// In context of this pass this is supported thus far for left shift by
+// a constant value only. So that when we see an expression like here
+// x + y + z + (a + b + c) << C (assuming all x, y, z, a, b, c are not another
+// "+/-"-kind subexpressions) then without enabling this thing
+// "x", "y", "z" and "S", where S is the shift instruction itself, i.e.
+// whole "(a + b + c) << C" thing,  will form the expression tree leaves.
+// When this stuff is enabled then the same expression will be represented with
+// leaves: "x", "y", "z", "a<<C", "b<<C", and "c<<C". This in theory may enable
+// finding more common subexpressions. Information about "<<C" is written as
+// sidecar vector in OpcodeData class.
+// It is still not clear what "memcan" part of the option name here refers to.
+// My guess is that it is related to a specific pattern:
+//   %i0 = load i8, i8* %gep
+//   %i2 = zext i8 %i0 to i32
+//   %i3 = shl i32 %i2, 16
+// which is quite common in x264_pixel_satd_16x16 function (x264 test case) and
+// support for "<<C" was implemented in conjunction with another feature for
+// reason to reduce cost of "looking through" such leaves for loads (for more
+// details see findLoadDistance()). That stuff was added to generate optimized
+// expressions ordered way (see also EnableGroupCanonicalization and other
+// "memcan" options).
+//
+// MaxUnaryAssociations actually relates to how many shift ops can be allowed
+// to be subsumed. i.e. if we have initial expression:
+//    x + y + z + (...) << C1 + (...) << C2,
+// where "..." inside the parens are some other subexpressions of "+/-" kind.
+// Having value of 1 here means that either "<< C1" or "<<C2" will be subsumed
+// into leaves (of a corresponding subexpression) but not both of them.
+
 
 static cl::opt<bool> EnableUnaryAssociations(
     "addsub-reassoc-memcan-enable-unary-associations", cl::init(true),
@@ -316,11 +348,32 @@ static inline bool isAllowedAssocInstr(const Instruction *I) {
     return false;
   }
 }
-
-// Returns positive counterpart of \p Opcode.
-static unsigned getPositiveOpcode(unsigned Opcode) {
-  switch (Opcode) {
+static unsigned ReverseOpcode(unsigned Opc) {
+  switch (Opc) {
   case Instruction::Add:
+    return Instruction::Sub;
+  case Instruction::FAdd:
+    return Instruction::FSub;
+  case Instruction::Sub:
+    return Instruction::Add;
+  case Instruction::FSub:
+    return Instruction::FAdd;
+  case Instruction::FMul:
+    return Instruction::FDiv;
+  case Instruction::FDiv:
+    return Instruction::FMul;
+  default:
+    llvm_unreachable("Unimplemented opcode");
+  }
+}
+
+// Return direct opcode form, i.e. "+" for arithmetic operations.
+static unsigned getDirectFormOpcode(unsigned Opc) {
+  switch (Opc) {
+  case Instruction::Add:
+    // Here and in other opcode manipulating routines Or is treated as Add.
+    // TODO: eliminate Or handling altogether from utilities.
+    // Instead, replace it with Add once proved it is legal to do.
   case Instruction::Or:
   case Instruction::Sub:
     return Instruction::Add;
@@ -334,24 +387,9 @@ static unsigned getPositiveOpcode(unsigned Opcode) {
     llvm_unreachable("Unimplemented opcode");
   }
 }
-
-// Binary operation represented by \p Opcode is anticommutative if the following
-// holds: A Opcode B == -(B Opcode A)
-static unsigned getNegativeOpcode(unsigned Opcode) {
-  switch (Opcode) {
-  case Instruction::Add:
-  case Instruction::Or:
-  case Instruction::Sub:
-    return Instruction::Sub;
-  case Instruction::FAdd:
-  case Instruction::FSub:
-    return Instruction::FSub;
-  case Instruction::FMul:
-  case Instruction::FDiv:
-    return Instruction::FDiv;
-  default:
-    llvm_unreachable("Unimplemented opcode");
-  }
+// Return reversed opcode form, i.e. "-" for arithmetic operations.
+static unsigned getReversedFormOpcode(unsigned Opc) {
+  return ReverseOpcode(getDirectFormOpcode(Opc));
 }
 
 static Constant *getIdentityValue(Type *Ty, unsigned Opcode) {
@@ -415,41 +453,7 @@ LLVM_DUMP_METHOD void AssocOpcodeData::dump() const {
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Begin of AddSubReassociatePass::OpcodeData
-
-OpcodeData OpcodeData::getFlipped() const {
-  OpcodeData NewOpcode = *this;
-
-  switch (Opcode) {
-  case Instruction::Add:
-    NewOpcode.Opcode = Instruction::Sub;
-    break;
-  case Instruction::FAdd:
-    NewOpcode.Opcode = Instruction::FSub;
-    break;
-  case Instruction::Sub:
-    NewOpcode.Opcode = Instruction::Add;
-    break;
-  case Instruction::FSub:
-    NewOpcode.Opcode = Instruction::FAdd;
-    break;
-  case Instruction::Mul:
-    NewOpcode.Opcode = Instruction::SDiv;
-    break;
-  case Instruction::FMul:
-    NewOpcode.Opcode = Instruction::FDiv;
-    break;
-  case Instruction::SDiv:
-  case Instruction::UDiv:
-    NewOpcode.Opcode = Instruction::Mul;
-    break;
-  case Instruction::FDiv:
-    NewOpcode.Opcode = Instruction::FMul;
-    break;
-  default:
-    llvm_unreachable("Bad opcode");
-  };
-  return NewOpcode;
-}
+void OpcodeData::reverse() { Opcode = ReverseOpcode(Opcode); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void OpcodeData::dump() const {
@@ -458,24 +462,13 @@ LLVM_DUMP_METHOD void OpcodeData::dump() const {
     AssocOpcode.dump();
 }
 
-LLVM_DUMP_METHOD void CanonNode::dump(const unsigned Padding) const {
+LLVM_DUMP_METHOD void CanonNode::dump(unsigned Padding) const {
   dbgs().indent(Padding) << "Leaf ";
   Opcode.dump();
-  dbgs() << *Leaf << "\n";
+  getLeaf()->printAsOperand(dbgs());
+  dbgs() << "\n";
 }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-CanonForm::NodeItTy CanonForm::findLeaf(const NodeItTy It, const Value *Leaf,
-                                        const OpcodeData &Opcode) const {
-
-  for (auto CurIt = It; CurIt != end(); CurIt++) {
-    if (CurIt->getLeaf() == Leaf) {
-      if (Opcode.isUndef() || CurIt->getOpcodeData() == Opcode)
-        return CurIt;
-    }
-  }
-  return end();
-}
 
 /// Tries to ensure that the last node has commutative op (in many places
 /// referenced here as "positive") by reordering nodes if required.
@@ -493,10 +486,8 @@ bool CanonForm::simplify() {
   // reverse order).
   for (auto It = rbegin(); It != rend(); ++It) {
     if (isCommutativeOp(It->getOpcodeData().getOpcode())) {
-      if (It != rbegin()) {
+      if (It != rbegin())
         swapLeaves(It.base() - 1, rbegin().base() - 1);
-        return true;
-      }
       return true;
     }
   }
@@ -614,19 +605,12 @@ Value *CanonForm::generateCode(Instruction *IP, bool GenTopZero) const {
   return Res;
 }
 
-void CanonForm::flipOpcodes() {
-  // Flip opcode of each canonical node.
-  for (const CanonNode &Leaf : *this) {
-    const_cast<CanonNode &>(Leaf).Opcode = Leaf.Opcode.getFlipped();
-  }
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void CanonForm::dump() const {
-  const unsigned Padding = 2;
-  dbgs().indent(Padding) << "Linear form for " << getName()
-                         << ". Size=" << size() << "\n";
-  for (auto &Leaf : llvm::reverse(Leaves))
+  constexpr unsigned Padding = 2;
+  dbgs() << getName() << ":\n";
+  dbgs().indent(Padding) << "Linear form (size:" << size() << "):\n";
+  for (const CanonNode &Leaf : llvm::reverse(Leaves))
     Leaf.dump(Padding);
   dbgs() << "\n";
 }
@@ -643,7 +627,7 @@ bool isLegalTrunkInstr(const Instruction *I, const Instruction *Root,
     return I->getOpcode() == Instruction::FMul ||
            I->getOpcode() == Instruction::FDiv;
   };
-  auto isAddSubKind = [DL](const Instruction *I) {
+  auto isAddSubKind = [&DL](const Instruction *I) {
     switch (I->getOpcode()) {
     case Instruction::Add:
     case Instruction::Sub:
@@ -724,7 +708,7 @@ void Tree::removeTreeFromIR() {
   // This serves as an insertion point during code generation.
   Value *Identity = getIdentityValue(RootI->getType(), RootI->getOpcode());
   Instruction *NewRootI = generateInstruction(
-      getPositiveOpcode(RootI->getOpcode()), Identity, RootI);
+      getDirectFormOpcode(RootI->getOpcode()), Identity, RootI);
   NewRootI->setOperand(0, Identity);
   RootI->replaceAllUsesWith(NewRootI);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -766,20 +750,19 @@ LLVM_DUMP_METHOD void Tree::dump() const {
   dbgs().indent(Padding) << "LLVM IR for " << getName() << "\n";
 
   // Then dump IR repesentation.
-  std::function<void(Value *)> dumpTreeRec = [&](Value *V) {
+  std::function<void(Value *)> dumpTreeRec = [this, &dumpTreeRec](Value *V) {
     auto *I = dyn_cast<Instruction>(V);
     if (I && !hasLeaf(I) && !isa<PHINode>(I))
       for (Value *Op : I->operands())
         if (isa<Instruction>(Op))
           dumpTreeRec(Op);
     // Post-order
-    const char *Prefix = nullptr;
+    const char *Prefix = "      ";
     if (hasLeaf(V))
       Prefix = "(Leaf)";
     else if (V == Root)
       Prefix = "(Root)";
-    else
-      Prefix = "      ";
+
     dbgs().indent(Padding) << Prefix << " " << *V << "\n";
   };
 
@@ -797,9 +780,9 @@ bool Group::simplify(TreeSignVecTy &GroupTrees) {
   if (CanonForm::simplify())
     return true;
 
-  // No positive opcode was found.
-  // Flip all opcodes in the group.
-  flipOpcodes();
+  // No direct opcode was found.
+  // Reverse all the group.
+  reverseOpcodes();
 
   // And adjust "sign" used to link the group to a tree.
   for (auto &TreeAndSign : GroupTrees)
@@ -825,28 +808,17 @@ bool Group::isSimilar(const Group &G2) {
 }
 
 void Group::sort() {
-  auto valuesCmp = [](const CanonNode &VO1, const CanonNode &VO2) -> bool {
-    Value *V1 = VO1.getLeaf();
-    const OpcodeData &OD1 = VO1.getOpcodeData();
-    Value *V2 = VO2.getLeaf();
-    const OpcodeData &OD2 = VO2.getOpcodeData();
-
-    Instruction *I1 = dyn_cast<Instruction>(V1);
-    Instruction *I2 = dyn_cast<Instruction>(V2);
+  llvm::sort(*this, [](const CanonNode &VO1, const CanonNode &VO2) {
+    const auto *I1 = dyn_cast<Instruction>(VO1.getLeaf());
+    const auto *I2 = dyn_cast<Instruction>(VO2.getLeaf());
     if (I1 && I2) {
       // If instr opcodes differ, sort by their opcode.
       if (I1->getOpcode() != I2->getOpcode())
         return I1->getOpcode() < I2->getOpcode();
-      // If the trunk opcodes differ, sort by them.
-      if (OD1 != OD2)
-        return OD1 < OD2;
-      return false;
+      return VO1.getOpcodeData() < VO2.getOpcodeData();
     }
-    if ((I1 && !I2) || (I1 && !I2))
-      return (bool)I1 < (bool)I2;
-    return false;
-  };
-  llvm::sort(*this, valuesCmp);
+    return I2 != nullptr;
+  });
 }
 
 // Begin of AddSubReassociatePass
@@ -1018,7 +990,7 @@ bool AddSubReassociate::memCanonicalizeGroup(Group &G,
   if (MainGroup == nullptr || !memCanonicalizeGroupBasedOn(G, *MainGroup, SE))
     return false;
 
-  // If more than half of the opcodes don't match, flip entire group.
+  // If more than half of the opcodes don't match, reverse the entire group.
   unsigned CntOpcodeMatches = 0;
   Group &G1 = G;
   Group &G2 = *MainGroup;
@@ -1030,19 +1002,29 @@ bool AddSubReassociate::memCanonicalizeGroup(Group &G,
             : 0;
 
   if (CntOpcodeMatches < G1.size() / 2) {
-    G1.flipOpcodes();
+    G1.reverseOpcodes();
     // Change sign of a "bridge" for all trees.
-    for (auto &TreeAndSignPair : GroupTreeVec) {
+    for (auto &TreeAndSignPair : GroupTreeVec)
       TreeAndSignPair.second = !TreeAndSignPair.second;
-    }
   }
   return true;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// TODO: This looks ugly. Probably the reason these dump routines were
+// implemented via templates is use of somewhat overcomplicated data structures
+// defined via stack of aliases. Need to find some way to untie this knot,
+// likely via redesigning data structures for intermediate representation.
 template <typename T>
 LLVM_DUMP_METHOD void dumpHistTableElem(const T TableElem) {
-  dbgs().indent(2) << *TableElem.first << "-> {";
+  // Fisrt print a value (leaf) of interest.
+  auto *V = cast<Value>(TableElem.first);
+  dbgs().indent(2);
+  V->printAsOperand(dbgs());
+  dbgs() << "-> {";
+  // Then print out name of each tree where the value is used followed by a
+  // list of opcodes (symbols) associated with each use of the value in the
+  // tree.
   for (const auto &TreeAndOpcodes : TableElem.second) {
     dbgs() << TreeAndOpcodes.first->getName() << ":(";
     for (auto &Opcode : TreeAndOpcodes.second)
@@ -1052,8 +1034,10 @@ LLVM_DUMP_METHOD void dumpHistTableElem(const T TableElem) {
   dbgs() << "}\n";
 }
 
-template <typename T> LLVM_DUMP_METHOD void dumpHistTable(const T &Table) {
-  dbgs() << "HistTable {\n";
+template <typename T>
+LLVM_DUMP_METHOD void dumpHistTable(const T &Table,
+                                    const char *Banner = nullptr) {
+  dbgs() << (Banner ? Banner : "HistTable") << " {\n";
   for (const auto &ValueAndTreesPair : Table) {
     dumpHistTableElem(ValueAndTreesPair);
   }
@@ -1063,37 +1047,53 @@ template <typename T> LLVM_DUMP_METHOD void dumpHistTable(const T &Table) {
 LLVM_DUMP_METHOD void dumpGroupAndTrees(const Group &G,
                                         const TreeSignVecTy &GroupTrees) {
   G.dump();
-
-  dbgs() << "Group linking:\n";
-  for (auto &TreeAndSign : GroupTrees) {
+  dbgs() << "Group to trees linking:\n";
+  for (const std::pair<Tree *, bool> &TreeAndSign : GroupTrees) {
     Tree *T = TreeAndSign.first;
-    bool IsPositive = TreeAndSign.second;
-    dbgs() << T->getName() << " ";
-    dbgs() << getOpcodeSymbol(
-        IsPositive ? getPositiveOpcode(T->getRoot()->getOpcode())
-                   : getNegativeOpcode(T->getRoot()->getOpcode()));
-    dbgs() << " " << G.getName() << "\n";
+    dbgs() << T->getName() << " "
+           << getOpcodeSymbol(
+                  TreeAndSign.second
+                      ? getDirectFormOpcode(T->getRoot()->getOpcode())
+                      : getReversedFormOpcode(T->getRoot()->getOpcode()))
+           << " " << G.getName() << "\n";
   }
   dbgs() << "\n";
 }
 #endif
 
-// Scans all trees in \p Cluster and tries to find common leaves used across
-// trees (referred as a Group later on). Group G can be applied to tree T if
-// for any leaf G and T have the same operation or opposite one. For example,
-// consider two trees T1=A1+B+C and T2=A2-B-C. For these trees we can build a
-// group G=B+C. G and T1 have all the same operations while G & T2 have all
-// opposite operations. As a result we can rewrite the code as T1=A1+G and
-// T2=A2-G.
-//
-// Algorithm details:
-//   We try to iteratively build a group which spawns across a maximal number of
-// trees. Number of trees a group can be applied to called group's width. Number
-// of leaves in the group is called group's size. It is easy to see that it is
-// always more profitable to build a wider groups rather than bigger in size.
+static auto findCompatibleOpcode(const OpcodeData &Opc,
+                                 ArrayRef<const OpcodeData *> Opcodes) {
+  return find_if(
+      Opcodes, [&Opc](const OpcodeData *OD) { return OD->isAssocEqual(Opc); });
+}
+
+static auto findMatchingOpcode(const OpcodeData &Opc,
+                               ArrayRef<const OpcodeData *> Opcodes) {
+  return find_if(Opcodes, [&Opc](const OpcodeData *OD) { return *OD == Opc; });
+}
+
+// Scan all trees in \p Cluster and try to find common leaves used across the
+// trees (referred as a "group" later on). Group G can be applied to tree T if
+// each leaf in G has either same or the opposite operation as same leaf in T
+// consistently across all leaves in G. [Using more conventional terms: the
+// group G is basically a common subexpression in a tree T, so that each tree
+// in the cluster can be rewritten as T' + G or T'-G].
+// For example, consider these two trees:
+//   T1: +X +B +C
+//   T2: +Y -B -C.
+// For these trees we can build group G:  +B, +C
+// The group contributes to both trees with opposite operations thus both
+// trees can be rewritten as:
+//   T1: +X+G
+//   T2: +Y-G.
+// We iteratively try to build a group which spans across maximal number of
+// trees.
+// Number of trees a group can be applied to is referred as group width.
+// Number of leaves in a group is referred as group size.
+// The goal is to build wider groups rather than bigger in size.
 // Thus if addition of a leaf to a group will result in decrease of group's
-// width then we prefer to build another group which is narrow than the current
-// one.
+// width then we prefer to build a group which is smaller in size than
+// the current one.
 void AddSubReassociate::buildMaxReuseGroups(
     const MutableArrayRef<TreePtr> &Cluster) {
   constexpr int MaxNumTrees = 16;
@@ -1101,61 +1101,34 @@ void AddSubReassociate::buildMaxReuseGroups(
   if (Cluster.empty())
     return;
 
-  LLVM_DEBUG(dbgs() << "==== Start building groups ===\n");
+  LLVM_DEBUG(dbgs() << "==== Start building groups for cluster ===\n");
+
+  LLVM_DEBUG(dumpCluster(Cluster));
 
   // Since one leaf can appear in a tree (and as a result in a group) more than
   // once we need to be able to keep list of opcodes it appears with.
   using OpcodesTy = SmallVector<const OpcodeData *, 4>;
   using TreeAndOpcodesTy = std::pair<Tree *, OpcodesTy>;
   using TreeCollectionTy = SmallVector<TreeAndOpcodesTy, MaxNumTrees>;
+
   // For each leaf we keep list of tree and opcodes pair. Thus for each leaf
   // we know in which trees it appears and what opcodes are.
-  using HistogramTableT = MapVector<Value *, TreeCollectionTy>;
-
-  // Scans through \p Opcodes and tries to either find exact or compatible
-  // opcode to \p OpcodeToMatch depending on \p FindExactMatch flag.
-  // Please note that trees in a cluster are guaranteed to have compatible
-  // opcodes only. So there is no need for additional check.
-  auto FindCompatibleOpcode = [&](const OpcodeData &OpcodeToMatch,
-                                  OpcodesTy &Opcodes, bool FindExactMatch) {
-    auto isAssocEqual = [](const OpcodeData &OD1, const OpcodeData &OD2) {
-      auto It1 = OD1.begin(), It2 = OD2.begin();
-      for (; It1 != OD1.end() && It2 != OD2.end(); ++It1, ++It2)
-        if (*It1 != *It2)
-          return false;
-
-      if (It1 == OD1.end() && It2 == OD2.end())
-        return true;
-
-      return false;
-    };
-    for (OpcodesTy::iterator It = Opcodes.begin(); It != Opcodes.end(); ++It) {
-      const OpcodeData *OD = *It;
-      if (isAssocEqual(OpcodeToMatch, *OD)) {
-        // Check if we have exact match.
-        if (!FindExactMatch || OpcodeToMatch.getOpcode() == OD->getOpcode()) {
-          return It;
-        }
-      }
-    }
-    return Opcodes.end();
-  };
+  MapVector<Value *, TreeCollectionTy> LeafHistTable;
   // Build initial map.
-  HistogramTableT LeafHistTable;
-  for (const auto &T : Cluster) {
+  for (const TreePtr &T : Cluster) {
+    Tree *Tree = T.get();
     // Traverse in reverse order just to match legacy behavior.
-    for (auto &LUPair : llvm::reverse(*T)) {
+    for (const CanonNode &LUPair : llvm::reverse(*T)) {
       TreeCollectionTy &Trees = LeafHistTable[LUPair.getLeaf()];
-
       // Find current tree.
       auto TreeAndOpcodesIt =
-          find_if(Trees, [&](const TreeAndOpcodesTy &elem) -> bool {
-            return elem.first == T.get();
+          find_if(Trees, [&Tree](const TreeAndOpcodesTy &Elem) {
+            return Elem.first == Tree;
           });
 
       // Add current tree to the list if doesn't exist.
       if (TreeAndOpcodesIt == Trees.end()) {
-        Trees.push_back({T.get(), OpcodesTy()});
+        Trees.emplace_back(Tree, OpcodesTy());
         TreeAndOpcodesIt = Trees.end() - 1;
       }
 
@@ -1168,25 +1141,29 @@ void AddSubReassociate::buildMaxReuseGroups(
   if (LeafHistTable.empty())
     return;
 
-  // Now we need to sort by number of trees each leaf appears in. For that we
-  // "convert" map to a vector.
+  // Now we need to sort by number of trees each leaf appears in (also known
+  // as a group width). So here map representation is "converted" into a vector
+  // for sorting. Elements of the vector are pairs: {Value*, TreeCollectionTy}.
   auto LeafHistVec = LeafHistTable.takeVector();
 
   // Sorting predicate.
-  auto SortPred = [&](const decltype(LeafHistVec)::value_type &lhs,
-                      const decltype(LeafHistVec)::value_type &rhs) -> bool {
-    return lhs.second.size() > rhs.second.size();
+  auto SortPred = [](const decltype(LeafHistVec)::value_type &LHS,
+                     const decltype(LeafHistVec)::value_type &RHS) {
+    return LHS.second.size() > RHS.second.size();
   };
 
   // Perform sorting. Use stable sort to generate same code from run to run.
   std::stable_sort(LeafHistVec.begin(), LeafHistVec.end(), SortPred);
 
-  LLVM_DEBUG(dumpHistTable(LeafHistVec));
+  LLVM_DEBUG(dumpHistTable(LeafHistVec, "Initial histogram for the cluster:"));
 
   // Start with maximum possible width.
   size_t GroupWidth = LeafHistVec.front().second.size();
   // ... and iterate while we have leaves shared across two or more trees.
   while (GroupWidth > 1) {
+    LLVM_DEBUG(dbgs() << "=== Search for next group of width " << GroupWidth
+                      << " ===\n");
+
     // This is more convenient representation of a group used in the algorithm.
     // It not only gives us a group itself but also list of tries the group
     // is applicable to. The later is needed to delete information about found
@@ -1194,18 +1171,20 @@ void AddSubReassociate::buildMaxReuseGroups(
     SmallVector<std::pair<decltype(LeafHistVec)::iterator, const OpcodeData>,
                 16>
         LocalGroup;
-    // Set of trees where current leaf appears.
+    // FoundTrees keeps set of trees where current leaf appears.
+    // The boolean part of the pair records whether opcode was the exact
+    // match (if not the exact match then the opcode is reversed).
     SmallDenseMap<Tree *, bool, MaxNumTrees> FoundTrees;
 
     // Iterate through all leaves in sorted table.
     for (auto TableIt = LeafHistVec.begin(); TableIt != LeafHistVec.end();
          ++TableIt) {
-      // TODO: what?
-      auto &TableElem = *TableIt;
-      TreeCollectionTy &CandidateTrees = TableElem.second;
+      std::pair<Value *, TreeCollectionTy> &CurElem = *TableIt;
+      TreeCollectionTy &CandidateTrees = CurElem.second;
       const size_t CandidateTreesNum = CandidateTrees.size();
 
-      // Check if current leaf is common across at least N trees.
+      // Bail out if current leaf is not common across at least GroupWidth
+      // trees. No need to go over remaining elements because data is sorted.
       if (CandidateTreesNum < GroupWidth)
         // No need to go other remaining elements since the table is sorted.
         break;
@@ -1215,65 +1194,66 @@ void AddSubReassociate::buildMaxReuseGroups(
       // be fine since current cluster size is limited to 16).
       for (size_t I = 0; I < CandidateTreesNum - GroupWidth + 1; ++I) {
         size_t FoundTreeNum = 0;
-        OpcodeData GroupOpcode;
+        Optional<OpcodeData> GroupOpcode = None;
         for (size_t J = I; J < CandidateTreesNum && FoundTreeNum < GroupWidth;
              ++J) {
           Tree *CandidateTree = CandidateTrees[J].first;
-          OpcodesTy &CantidateOpcodes = CandidateTrees[J].second;
+          OpcodesTy &CandidateOpcodes = CandidateTrees[J].second;
 
           // Check if this is going to be the first leaf in the group.
           if (LocalGroup.empty()) {
-            // We use the same opcode for the group as in first tree.
-            if (FoundTreeNum == 0)
-              GroupOpcode = *CantidateOpcodes.front();
-
-            // Check if current tree has compatible opcode.
-            OpcodesTy::iterator It;
-            if ((It = FindCompatibleOpcode(GroupOpcode, CantidateOpcodes,
-                                           false)) != CantidateOpcodes.end()) {
-              FoundTrees.insert({CandidateTree, (*It)->getOpcode() ==
-                                                    GroupOpcode.getOpcode()});
+            // We use the same opcode for the group as in the first tree.
+            if (FoundTreeNum == 0) {
+              GroupOpcode = *CandidateOpcodes.front();
+              // The first one is always the exact opcode match.
+              FoundTrees.try_emplace(CandidateTree, true);
               ++FoundTreeNum;
+              continue;
             }
-          } else {
-            // Ok, there is at least one leaf in the group which spawns across
-            // trees in 'FoundTrees'. Find out if current leaf appears in the
-            // same trees with compatible opcodes.
-            auto FoundTreeIt = FoundTrees.find(CandidateTree);
-            if (FoundTreeIt != FoundTrees.end()) {
-              // We use the same opcode for the group as in first tree.
-              if (FoundTreeNum == 0) {
-                GroupOpcode = FoundTreeIt->second
-                                  ? *CantidateOpcodes.front()
-                                  : (*CantidateOpcodes.front()).getFlipped();
-                ++FoundTreeNum;
-              } else {
-                const OpcodeData OpcodeToMatch = FoundTreeIt->second
-                                                     ? GroupOpcode
-                                                     : GroupOpcode.getFlipped();
-                if (FindCompatibleOpcode(OpcodeToMatch, CantidateOpcodes,
-                                         true) != CantidateOpcodes.end()) {
-                  ++FoundTreeNum;
-                }
-              }
-            }
+
+            auto OpcIt = findCompatibleOpcode(*GroupOpcode, CandidateOpcodes);
+            if (OpcIt == CandidateOpcodes.end())
+              continue;
+
+            FoundTrees.try_emplace(CandidateTree, (*OpcIt)->getOpcode() ==
+                                                      GroupOpcode->getOpcode());
+            ++FoundTreeNum;
+            continue;
           }
+          // Ok, there is at least one leaf in the group which spans across
+          // trees in 'FoundTrees'. Find out if current leaf appears in the
+          // same trees with compatible opcodes.
+          auto FoundTreeIt = FoundTrees.find(CandidateTree);
+          if (FoundTreeIt == FoundTrees.end())
+            continue;
+          bool IsDirect = FoundTreeIt->second;
+          // We use the same opcode for the group as in first tree.
+          if (FoundTreeNum == 0) {
+            GroupOpcode = IsDirect ? *CandidateOpcodes.front()
+                                   : (*CandidateOpcodes.front()).getReversed();
+            ++FoundTreeNum;
+            continue;
+          }
+          // Count only the exact match.
+          if (findMatchingOpcode(IsDirect ? *GroupOpcode
+                                          : GroupOpcode->getReversed(),
+                                 CandidateOpcodes) != CandidateOpcodes.end())
+            ++FoundTreeNum;
         }
 
         // Check if were able to find 'GroupWidth' trees for the current leaf.
         if (FoundTreeNum == GroupWidth) {
           // Add current leaf (pointed by 'TableIt') and Opcode to the group.
-          LocalGroup.push_back({TableIt, GroupOpcode});
+          LocalGroup.emplace_back(TableIt, *GroupOpcode);
           // Stop search trees for current leaf.
           break;
         }
 
         // If we were not able to find 'GroupWidth' for the very first leaf
         // candidate we need to clear 'FoundTrees' to start building it from
-        // the beginning for next slice of tress.
-        if (LocalGroup.empty()) {
+        // the beginning for next slice of trees.
+        if (LocalGroup.empty())
           FoundTrees.clear();
-        }
       }
     }
 
@@ -1286,19 +1266,18 @@ void AddSubReassociate::buildMaxReuseGroups(
 
     // "Transform" local group to an external format.
     Group G;
-    for (const auto &Elem : LocalGroup) {
+    for (const auto &Elem : LocalGroup)
       G.appendLeaf(Elem.first->first, Elem.second);
-    };
 
     // Populate list of trees current group is applicable to. Please note that
     // we have to preserve incoming order (order in Cluster) since code
     // generation assumes that later tree in Cluster appears earlier in
     // program order.
     TreeSignVecTy GroupTreeVec;
-    for (const auto &T : Cluster) {
+    for (const TreePtr &T : Cluster) {
       auto It = FoundTrees.find(T.get());
       if (It != FoundTrees.end())
-        GroupTreeVec.push_back({It->first, It->second});
+        GroupTreeVec.emplace_back(It->first, It->second);
     }
 
     // Remove current group from the 'LeafHistVec'.
@@ -1308,18 +1287,17 @@ void AddSubReassociate::buildMaxReuseGroups(
 
       TreeVec.erase(
           remove_if(TreeVec,
-                    [&](TreeCollectionTy::value_type &TreeAndOpcodes) {
+                    [&FoundTrees, &GroupOpcode](
+                        TreeCollectionTy::value_type &TreeAndOpcodes) {
                       Tree *Tree = TreeAndOpcodes.first;
                       OpcodesTy &Opcodes = TreeAndOpcodes.second;
-                      if (FoundTrees.count(Tree) > 0) {
-                        auto It =
-                            FindCompatibleOpcode(GroupOpcode, Opcodes, false);
-                        assert(It != Opcodes.end() &&
-                               "Can't find requested opcode for the group");
-                        Opcodes.erase(It);
-                        return Opcodes.empty();
-                      }
-                      return false;
+                      if (FoundTrees.count(Tree) == 0)
+                        return false;
+                      auto It = findCompatibleOpcode(GroupOpcode, Opcodes);
+                      assert(It != Opcodes.end() &&
+                             "Can't find requested opcode for the group");
+                      Opcodes.erase(It);
+                      return Opcodes.empty();
                     }),
           TreeVec.end());
     }
@@ -1329,18 +1307,16 @@ void AddSubReassociate::buildMaxReuseGroups(
     std::stable_sort(LeafHistVec.begin(), LeafHistVec.end(), SortPred);
 
     // Canonicalize found group based on memory accesses if enabled.
-    if (EnableGroupCanonicalization) {
-      if (!EnableMemCanonicalization || !memCanonicalizeGroup(G, GroupTreeVec))
-        G.sort();
-    }
+    if (EnableGroupCanonicalization && !memCanonicalizeGroup(G, GroupTreeVec))
+      G.sort();
 
     LLVM_DEBUG(dbgs() << "Found Group:\n");
     LLVM_DEBUG(dumpGroupAndTrees(G, GroupTreeVec));
 
-    LLVM_DEBUG(dumpHistTable(LeafHistVec));
+    LLVM_DEBUG(dumpHistTable(LeafHistVec, "Histogram after removal of the group:"));
 
     // Finally push constructed group to a list.
-    BestGroups.push_back({std::move(G), std::move(GroupTreeVec)});
+    BestGroups.emplace_back(std::move(G), std::move(GroupTreeVec));
 
     // Make sure group width doesn't exceed current maximal number of candidate
     // trees.
@@ -1351,22 +1327,21 @@ void AddSubReassociate::buildMaxReuseGroups(
 
 void AddSubReassociate::removeCommonNodes() {
   // Loop over all groups.
-  for (auto &GroupAndTrees : BestGroups) {
+  for (std::pair<Group, TreeSignVecTy> &GroupAndTrees : BestGroups) {
     Group &G = GroupAndTrees.first;
     // Loop over all trees the group should be removed from.
-    for (auto &TreeAndSign : GroupAndTrees.second) {
+    for (std::pair<Tree *, bool> &TreeAndSign : GroupAndTrees.second) {
       Tree *T = TreeAndSign.first;
-      bool IsGroupFlipped = !TreeAndSign.second;
-      CanonForm::NodeItTy It = T->begin();
+      bool IsDirect = TreeAndSign.second;
       // Loop over all nodes in the Group.
-      for (const auto &Node : G) {
+      for (const CanonNode &Node : G) {
         // Match corresponding node in the tree.
-        It = T->findLeaf(T->begin(), Node.getLeaf(),
-                         IsGroupFlipped ? Node.getOpcodeData().getFlipped()
-                                        : Node.getOpcodeData());
+        auto It = T->findLeaf(Node.getLeaf(),
+                              IsDirect ? Node.getOpcodeData()
+                                       : Node.getOpcodeData().getReversed());
         assert(It != T->end() && "Can't find group leaf in a tree");
         // Go ahead and remove matched node form the tree.
-        It = T->removeLeaf(It);
+        T->removeLeaf(It);
       }
     }
   }
@@ -1379,8 +1354,8 @@ void AddSubReassociate::linkGroup(Value *GroupChain,
   Tree *T = TreeAndSign.first;
   // Figure out the 'Bridge' opcode.
   unsigned BridgeOpcode = TreeAndSign.second
-                              ? getPositiveOpcode(T->getRoot()->getOpcode())
-                              : getNegativeOpcode(T->getRoot()->getOpcode());
+                              ? getDirectFormOpcode(T->getRoot()->getOpcode())
+                              : getReversedFormOpcode(T->getRoot()->getOpcode());
   // Append bridge to the tree.
   T->appendLeaf(GroupChain, BridgeOpcode);
 }
@@ -1388,9 +1363,9 @@ void AddSubReassociate::linkGroup(Value *GroupChain,
 void AddSubReassociate::generateCode(const ArrayRef<Tree *> AffectedTrees) {
 
   // 1. Generate the code for each group.
-  for (auto &GroupAndTreesPair : BestGroups) {
-    Group &G = GroupAndTreesPair.first;
-    TreeSignVecTy &Cluster = GroupAndTreesPair.second;
+  for (std::pair<Group, TreeSignVecTy> &GroupAndTrees : BestGroups) {
+    Group &G = GroupAndTrees.first;
+    TreeSignVecTy &Cluster = GroupAndTrees.second;
 
     if (G.empty())
       continue;
@@ -1426,9 +1401,9 @@ void AddSubReassociate::generateCode(const ArrayRef<Tree *> AffectedTrees) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void AddSubReassociate::dumpGroups() const {
   int Cnt = 0;
-  for (const auto &GroupAndTreesPair : BestGroups) {
+  for (const std::pair<Group, TreeSignVecTy> &GroupAndTrees : BestGroups) {
     dbgs() << "Group " << Cnt++ << "\n";
-    GroupAndTreesPair.first.dump();
+    GroupAndTrees.first.dump();
   }
 }
 
@@ -1442,6 +1417,7 @@ LLVM_DUMP_METHOD void AddSubReassociate::dumpTrees() const {
 
 LLVM_DUMP_METHOD void
 AddSubReassociate::dumpCluster(const MutableArrayRef<TreePtr> &Cluster) const {
+  dbgs() << "Cluster:\n";
   int Cnt = 0;
   for (const TreePtr &T : Cluster) {
     dbgs().indent(2) << "--- Tree " << Cnt++ << "/" << Cluster.size()
@@ -1520,7 +1496,7 @@ void AddSubReassociate::clusterTrees() {
   }
 }
 
-unsigned AddSubReassociate::growTree(Tree *T, unsigned GrowthLimit,
+unsigned AddSubReassociate::growTree(Tree *Tree, unsigned GrowthLimit,
                                      SmallVectorImpl<CanonNode> &&WorkList) {
   unsigned NumAssociations = 0;
   // Keep trying to grow tree until the WorkList is empty
@@ -1530,19 +1506,21 @@ unsigned AddSubReassociate::growTree(Tree *T, unsigned GrowthLimit,
     CanonNode LastOp = WorkList.pop_back_val();
     auto *I = cast<Instruction>(LastOp.getLeaf());
 
-    assert(isLegalTrunkInstr(I, T->getRoot(), DL) &&
+    assert(isLegalTrunkInstr(I, Tree->getRoot(), DL) &&
            "Work list item can't be trunk instruction.");
 
     // If current instruction starts another tree then just clear that tree
     // since it will become part of the growing tree.
-    if (auto *Tree = findTreeWithRoot(I, T))
-      Tree->clear();
+    auto It = find_if(Trees, [&I, &Tree](const TreePtr &T) {
+      return T.get() != Tree && T->getRoot() == I;
+    });
+    if (It != Trees.end())
+      It->get()->clear();
 
     bool IsAllowedAssocInstrI = isAllowedAssocInstr(I);
-    if (IsAllowedAssocInstrI) {
-      // Collect the unary associative instructions that apply for 'I'.
+    // Collect the unary associative instructions that apply for 'I'.
+    if (IsAllowedAssocInstrI)
       LastOp.appendAssocInstruction(I);
-    }
 
     for (int OpIdx : {0, 1}) {
       Value *Op = I->getOperand(OpIdx);
@@ -1568,20 +1546,20 @@ unsigned AddSubReassociate::growTree(Tree *T, unsigned GrowthLimit,
       //   |
       //  Root
       // The canonicalized opcodes are: L1:'+', L2:'-', L3:'+'.
-      OpcodeData OpCanonOpcode;
-      if (!I->isCommutative() && OpIdx != 0) {
-        // We flip the opcode when we cross the RHS of a SUB.
-        OpCanonOpcode = LastOp.getOpcodeData().getFlipped();
-      } else {
-        // Reuse the opcode of the user.
-        OpCanonOpcode = LastOp.getOpcodeData();
-      }
+      OpcodeData OpCanonOpcode =
+          !I->isCommutative() && OpIdx != 0
+              ?
+              // We reverse the opcode when we cross the RHS of a SUB.
+              LastOp.getOpcodeData().getReversed()
+              :
+              // Reuse the opcode of the user.
+              LastOp.getOpcodeData();
 
       auto *OpI = dyn_cast<Instruction>(Op);
       if (OpI && Op->hasOneUse() &&
           // Check against growth limit
           (LeavesAdded + 2 * WorkList.size()) < GrowthLimit &&
-          areInSameBB(OpI, I) && isLegalTrunkInstr(OpI, T->getRoot(), DL) &&
+          areInSameBB(OpI, I) && isLegalTrunkInstr(OpI, Tree->getRoot(), DL) &&
           (!isAllowedAssocInstr(OpI) ||
            // Check number of allowed assoc instruction.
            (++NumAssociations <= MaxUnaryAssociations))) {
@@ -1589,20 +1567,21 @@ unsigned AddSubReassociate::growTree(Tree *T, unsigned GrowthLimit,
         WorkList.push_back(CanonNode(Op, OpCanonOpcode));
       } else {
         ++LeavesAdded;
-        // Op is a leaf node, so stop growing and add it into T's leaves.
-        T->appendLeaf(Op, OpCanonOpcode);
+        // Op is a leaf node, so stop growing and add it into Tree's leaves.
+        Tree->appendLeaf(Op, OpCanonOpcode);
         // If Op has multiple uses and is legal for trunk then this tree is
         // a candidate for trying to grow towards the shared leaves.
         // Those leaves shared across trees are candidates while those
         // having multiple uses within same tree are not. It is determined later
         // in findSharedleaves() routine and further tree growth is performed by
         // extendTrees().
-        if (Op->hasNUsesOrMore(2) && isLegalTrunkInstr(OpI, T->getRoot(), DL))
-          T->setSharedLeafCandidate(true);
+        if (Op->hasNUsesOrMore(2) &&
+            isLegalTrunkInstr(OpI, Tree->getRoot(), DL))
+          Tree->setSharedLeafCandidate(true);
       }
     }
   }
-  return T->size();
+  return Tree->size();
 }
 
 /// Returns true if we were able to find a leaf with multiple uses from
@@ -1613,11 +1592,12 @@ static bool findSharedLeaves(
     SmallVectorImpl<std::pair<Tree *, CanonForm::NodeItTy>> &FoundLeaves,
     const DataLayout &DL) {
 
-  auto AllUsesInsideCluster = [&](const Value *Leaf) -> bool {
+  auto AllUsesInsideCluster = [&Cluster,
+                               &FoundLeaves](const Value *Leaf) -> bool {
     unsigned UseCount = 0;
     for (auto &T : Cluster) {
       auto *Tree = T.get();
-      auto It = Tree->findLeaf(Tree->begin(), Leaf);
+      auto It = Tree->findLeaf(Leaf);
       // It is important that for each tree we only take into account one use
       // that belongs to the tree. If a leaf is shared within the same tree we
       // cannot put it in trunk as all trunk instructions only allowed to have
@@ -1649,7 +1629,7 @@ static bool findSharedLeaves(
       FoundLeaves.clear();
 
       // Only legal for trunk leaves can become parts of trees once replicated.
-      if (I->getNumUses() > 1 && isLegalTrunkInstr(I, Tree->getRoot(), DL) &&
+      if (I->hasNUsesOrMore(2) && isLegalTrunkInstr(I, Tree->getRoot(), DL) &&
           areInSameBB(I, Tree->getRoot()) && AllUsesInsideCluster(I))
         return true;
     }
@@ -1711,8 +1691,11 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB) {
         Trees.size() >= (unsigned)MaxTreeCount)
       break;
 
-    // A tree is rooted at a legal instruction not belonging to other tree.
-    if (!isLegalTrunkInstr(&I, nullptr, DL) || findEnclosingTree(&I))
+    // A tree is rooted at a legal instruction and the instruction does not
+    // belong to any other tree.
+    if (!isLegalTrunkInstr(&I, nullptr, DL) ||
+        any_of(Trees,
+               [&I](const TreePtr &T) { return T->hasTrunkInstruction(&I); }))
       continue;
 
     TreePtr UTree = std::make_unique<Tree>(DL);
@@ -1721,7 +1704,7 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB) {
     unsigned Size =
         growTree(T, MaxTreeSize,
                  SmallVector<CanonNode, 8>(
-                     {CanonNode(&I, getPositiveOpcode(I.getOpcode()))}));
+                     {CanonNode(&I, getDirectFormOpcode(I.getOpcode()))}));
 
     assert(1 <= Size && Size <= MaxTreeSize + 2 &&
            "Tree size should be capped");
@@ -1812,21 +1795,22 @@ bool AddSubReassociate::run() {
         // First take total number of cloned instructions into account.
         // But first we need to find out all affected trees.
         SmallSetVector<Tree *, 16> AffectedTrees;
-        for (auto &GroupAndTrees : BestGroups)
-          for (auto &TreeAndSign : GroupAndTrees.second)
+        for (std::pair<Group, TreeSignVecTy> &GroupAndTrees : BestGroups)
+          for (std::pair<Tree *, bool> &TreeAndSign : GroupAndTrees.second)
             AffectedTrees.insert(TreeAndSign.first);
 
         int Score = 0;
-        for (auto *T : AffectedTrees)
+        for (Tree *T : AffectedTrees)
           Score -= T->getSharedLeavesCount();
 
         // Compute difference in instruction count for each group.
-        for (auto &GroupAndTreesPair : BestGroups) {
-          Group &G = GroupAndTreesPair.first;
-          auto AssocInstCnt = G.getAssocInstrCnt();
-          const size_t TreeNum = GroupAndTreesPair.second.size();
-          int OrigCost = (G.size() + AssocInstCnt.first) * TreeNum;
-          int NewCost = (G.size() - 1 + AssocInstCnt.second + TreeNum);
+        for (std::pair<Group, TreeSignVecTy> &GroupAndTrees : BestGroups) {
+          Group &G = GroupAndTrees.first;
+          int UniqAssocInsrs, TotalAssocInsrs;
+          std::tie(UniqAssocInsrs, TotalAssocInsrs) = G.getAssocInstrCnt();
+          int TreeNum = GroupAndTrees.second.size();
+          int OrigCost = (G.size() + UniqAssocInsrs) * TreeNum;
+          int NewCost = (G.size() - 1 + TotalAssocInsrs + TreeNum);
           Score += OrigCost - NewCost;
         }
 
