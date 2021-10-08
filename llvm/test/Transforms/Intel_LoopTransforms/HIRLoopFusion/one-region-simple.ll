@@ -1,6 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 
+; RUN: opt -force-opaque-pointers -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion -hir-create-function-level-region < %s 2>&1 | FileCheck %s
+; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region < %s 2>&1 | FileCheck %s
+
 ; INPUT:
 ; BEGIN REGION { }
 ;    + DO i1 = 0, 99, 1   <DO_LOOP>
