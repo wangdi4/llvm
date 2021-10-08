@@ -1,5 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup -hir-cg -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
 
 
 ; Verify that we are able to parse indirect call using %25 as the function pointer.
