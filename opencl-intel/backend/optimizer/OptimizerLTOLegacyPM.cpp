@@ -162,6 +162,8 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createResolveSubGroupWICallLegacyPass(
             m_RtlModules, /*ResolveSGBarrier*/ false));
         MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+        // Resolve __intel_indirect_call for scalar kernels.
+        MPM.add(createIndirectCallLoweringLegacyPass());
         // Barrier passes begin.
         // TODO: insert ReplaceScalarWithMask pass here
 
@@ -202,6 +204,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
     MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
                                                   /*ResolveSGBarrier*/ false));
     MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+    MPM.add(createIndirectCallLoweringLegacyPass());
     // Barrier passes begin.
     MPM.add(createPhiCanonicalizationLegacyPass());
     MPM.add(createRedundantPhiNodeLegacyPass());

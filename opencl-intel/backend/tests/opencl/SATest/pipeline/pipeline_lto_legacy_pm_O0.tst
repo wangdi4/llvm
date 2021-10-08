@@ -32,6 +32,7 @@
 ; CHECK-NOT:      VecClone
 ; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK:          WGLoopCreatorLegacy
+; CHECK:          Lowering __intel_indirect_call scalar calls
 ; CHECK-NOT:      ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK:              PhiCanonicalization

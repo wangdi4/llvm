@@ -44,6 +44,7 @@
 ; CHECK:          VPlan post vectorization pass for DPCPP kernels
 ; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK:          WGLoopCreatorLegacy
+; CHECK:          Lowering __intel_indirect_call scalar calls
 ; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK:              PhiCanonicalization
