@@ -557,7 +557,6 @@ public:
     using PassModelT =
         detail::PassModel<IRUnitT, PassT, PreservedAnalyses, AnalysisManagerT,
                           ExtraArgTs...>;
-
     // Do not use make_unique or emplace_back, they cause too many template
     // instantiations, causing terrible compile times.
     Passes.push_back(std::unique_ptr<PassConceptT>(
@@ -1242,7 +1241,6 @@ createModuleToFunctionPassAdaptor(FunctionPassT &&Pass) {
   using PassModelT =
       detail::PassModel<Function, FunctionPassT, PreservedAnalyses,
                         FunctionAnalysisManager>;
-
   // Do not use make_unique, it causes too many template instantiations,
   // causing terrible compile times.
   return ModuleToFunctionPassAdaptor(
