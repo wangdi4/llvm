@@ -648,7 +648,7 @@ static bool InTreeUserNeedToExtract(Value *Scalar, Instruction *UserInst,
   case Instruction::Call: {
     CallInst *CI = cast<CallInst>(UserInst);
     Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
-    for (unsigned i = 0, e = CI->getNumArgOperands(); i != e; ++i) {
+    for (unsigned i = 0, e = CI->arg_size(); i != e; ++i) {
       if (hasVectorInstrinsicScalarOpd(ID, i))
         return (CI->getArgOperand(i) == Scalar);
     }
@@ -6063,7 +6063,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         return;
       }
       Function *F = CI->getCalledFunction();
-      unsigned NumArgs = CI->getNumArgOperands();
+      unsigned NumArgs = CI->arg_size();
       SmallVector<Value*, 4> ScalarArgs(NumArgs, nullptr);
       for (unsigned j = 0; j != NumArgs; ++j)
         if (hasVectorInstrinsicScalarOpd(ID, j))
@@ -6115,7 +6115,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       TE->setOperandsInOrder();
-      for (unsigned i = 0, e = CI->getNumArgOperands(); i != e; ++i) {
+      for (unsigned i = 0, e = CI->arg_size(); i != e; ++i) {
         SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
@@ -8602,7 +8602,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       std::vector<Value *> OpVecs;
       SmallVector<Type *, 2> TysForDecl =
           {FixedVectorType::get(CI->getType(), E->Scalars.size())};
-      for (int j = 0, e = CI->getNumArgOperands(); j < e; ++j) {
+      for (int j = 0, e = CI->arg_size(); j < e; ++j) {
         ValueList OpVL;
         // Some intrinsics have scalar arguments. This argument should not be
         // vectorized.
