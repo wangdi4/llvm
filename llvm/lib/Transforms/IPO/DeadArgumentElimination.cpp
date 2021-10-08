@@ -1180,12 +1180,9 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
 PreservedAnalyses DeadArgumentEliminationPass::run(Module &M,
                                                    ModuleAnalysisManager &) {
   bool Changed = false;
-<<<<<<< HEAD
-=======
 
   BuildNVPTXKernelSet(M);
 
->>>>>>> 6b3c20f22dab3f41d3b4daa2ba98cc294c18f21f
   // First pass: Do a simple check to see if any functions can have their "..."
   // removed.  We can do this if they never call va_start.  This loop cannot be
   // fused with the next loop, because deleting a function invalidates
