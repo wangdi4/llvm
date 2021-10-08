@@ -4,8 +4,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -force-opaque-pointers -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
-; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %0 = (%B)[0]
