@@ -2746,7 +2746,6 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     if (MCI->getSourceAddressSpace() > 255 || MCI->getDestAddressSpace() > 255)
       return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
     // Determine the function name to use based upon whether or not
@@ -2761,14 +2760,11 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMCPY;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(II, libFn, II->arg_size() - 1);
 #else // INTEL_FEATURE_SW_ADVANCED
-    return lowerCallTo(II, "memcpy", II->getNumArgOperands() - 1);
+    return lowerCallTo(II, "memcpy", II->arg_size() - 1);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-=======
-    return lowerCallTo(II, "memcpy", II->arg_size() - 1);
->>>>>>> c1e32b3fc0210120d1c1c4513d798ae9ebef4fb8
   }
   case Intrinsic::memset: {
     const MemSetInst *MSI = cast<MemSetInst>(II);
@@ -2783,7 +2779,6 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     if (MSI->getDestAddressSpace() > 255)
       return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
     // Determine the function name to use based upon whether or not
@@ -2798,14 +2793,11 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMSET;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(II, libFn, II->arg_size() - 1);
 #else // INTEL_FEATURE_SW_ADVANCED
-    return lowerCallTo(II, "memset", II->getNumArgOperands() - 1);
+    return lowerCallTo(II, "memset", II->arg_size() - 1);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-=======
-    return lowerCallTo(II, "memset", II->arg_size() - 1);
->>>>>>> c1e32b3fc0210120d1c1c4513d798ae9ebef4fb8
   }
   case Intrinsic::stackprotector: {
     // Emit code to store the stack guard onto the stack.
