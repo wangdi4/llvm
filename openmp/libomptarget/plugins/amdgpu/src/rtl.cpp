@@ -323,51 +323,7 @@ hsa_status_t addMemoryPool(hsa_amd_memory_pool_t MemoryPool, void *Data) {
     return err;
   }
 
-<<<<<<< HEAD
-  uint32_t GlobalFlags = 0;
-  err = hsa_amd_memory_pool_get_info(
-      MemoryPool, HSA_AMD_MEMORY_POOL_INFO_GLOBAL_FLAGS, &GlobalFlags);
-  if (err != HSA_STATUS_SUCCESS) {
-    DP("Get memory pool info failed: %s\n", get_error_string(err));
-    return err;
-  }
-
-  if ((GlobalFlags & HSA_AMD_MEMORY_POOL_GLOBAL_FLAG_FINE_GRAINED) &&
-      (GlobalFlags & HSA_AMD_MEMORY_POOL_GLOBAL_FLAG_KERNARG_INIT)) {
-    Result->push_back(MemoryPool);
-  }
-
-  return HSA_STATUS_SUCCESS;
-}
-
-template <typename AccumulatorFunc>
-hsa_status_t collectMemoryPools(const std::vector<hsa_agent_t> &Agents,
-                                AccumulatorFunc Func) {
-#if INTEL_COLLAB
-  for (int DeviceId = 0; (size_t)DeviceId < Agents.size(); DeviceId++) {
-#else // INTEL_COLLAB
-  for (int DeviceId = 0; DeviceId < Agents.size(); DeviceId++) {
-#endif // INTEL_COLLAB
-    hsa_status_t Err = hsa::amd_agent_iterate_memory_pools(
-        Agents[DeviceId], [&](hsa_amd_memory_pool_t MemoryPool) {
-          hsa_status_t Err;
-          if ((Err = isValidMemoryPool(MemoryPool)) != HSA_STATUS_SUCCESS) {
-            DP("Skipping memory pool: %s\n", get_error_string(Err));
-          } else
-            Func(MemoryPool, DeviceId);
-          return HSA_STATUS_SUCCESS;
-        });
-
-    if (Err != HSA_STATUS_SUCCESS) {
-      DP("[%s:%d] %s failed: %s\n", __FILE__, __LINE__,
-         "Iterate all memory pools", get_error_string(Err));
-      return Err;
-    }
-  }
-
-=======
   Result->push_back(MemoryPool);
->>>>>>> 05ba9ff6a6d243a07bd8adbe70c066c9f6ddc591
   return HSA_STATUS_SUCCESS;
 }
 
