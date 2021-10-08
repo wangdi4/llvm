@@ -8,6 +8,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
 ;
+; RUN: opt -force-opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-create-function-level-region -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
+; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
+;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
 ;
@@ -100,7 +103,7 @@
 ; CHECK:              (%addressof)[0][2] = 1;
 ; CHECK:              (%addressof)[0][3] = 0;
 ; CHECK:              (%ARGBLOCK_0)[0].0 = %"jacobian_$M.0";
-; CHECK:              %func_result280 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
+; CHECK:              %func_result280 = @for_write_seq_lis(&({{.*}}(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &({{.*}}(%ARGBLOCK_0)[0]));
 ;
 ; CHECK:            @llvm.stackrestore(&((%call)[0]));
 ; CHECK:           ret ;

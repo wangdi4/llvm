@@ -1,6 +1,9 @@
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
 
+; RUN: opt -force-opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -force-opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
+
 ; This test checks if loops at add_neighbour() and remove_neighbour() functions inside cpu2017/541.leela/FastBoard.cpp get unrolled.
 
 ; *** IR Dump Before HIR Symbolic TripCount CompleteUnroll Pattern Match Pass ***
@@ -122,7 +125,7 @@
 ; CHECK:       |   t481:
 ; CHECK:       |   (%0)[0].5.0[%t484] = 2;
 ; CHECK:       |   (%0)[0].7.0[%t484] = 441;
-; CHECK:       |   @llvm.lifetime.start.p0i8(16,  &((%t474)[0]));
+; CHECK:       |   @llvm.lifetime.start.p0{{.*}}(16,  &((%t474)[0]));
 ; CHECK:       |   %t490 = 0;
 ; CHECK:       |   %t492 = (%0)[0].12.0[0];
 ; CHECK:       |   %t496 = (%0)[0].10.0[%t492 + %t484];
@@ -149,7 +152,7 @@
 ; CHECK:       |   (%0)[0].8.0[%mv21] = %mv22 + 1;
 ; CHECK:       |   (%0)[0].8.0[%mv25] = %mv26 + 1;
 ; CHECK:       |   %t526 = -1 * i1 + %t480  +  -1;
-; CHECK:       |   @llvm.lifetime.end.p0i8(16,  &((%t474)[0]));
+; CHECK:       |   @llvm.lifetime.end.p0{{.*}}(16,  &((%t474)[0]));
 ; CHECK:       |   (%0)[0].1.0[%t484] = i1 + trunc.i64.i16(%t260);
 ; CHECK:       |   (%0)[0].0.0[i1 + %t260] = %t484;
 ; CHECK:       |   %t531 = i1 + %t260  +  1;
