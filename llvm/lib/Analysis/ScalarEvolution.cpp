@@ -7177,7 +7177,6 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   if (!Latch || !Predecessor)
     return ConstantRange::getFull(BitWidth);
 
-<<<<<<< HEAD
   // Get the range implied by the value before the loop starts, as well as the
   // number of times the loop could be executed. If we can't get any clues about
   // those values, bail out of this process.
@@ -7225,16 +7224,6 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
 
   // Finally, intersect signed and unsigned ranges.
   return SR.intersectWith(UR, ConstantRange::Smallest);
-=======
-const Instruction *ScalarEvolution::getDefiningScopeBound(const SCEV *S) {
-  if (auto *AddRec = dyn_cast<SCEVAddRecExpr>(S))
-    return &*AddRec->getLoop()->getHeader()->begin();
-  if (auto *U = dyn_cast<SCEVUnknown>(S))
-    if (auto *I = dyn_cast<Instruction>(U->getValue()))
-      return I;
-  // All SCEVs are bound by the entry to F
-  return &*F.getEntryBlock().begin();
->>>>>>> 35ab211c37534fda0288acda510ee5bc6b85f96a
 }
 
 static const Loop *getOutermostLoop(const Loop *Lp) {
@@ -7511,17 +7500,14 @@ SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-const Instruction *ScalarEvolution::getDefinedScopeRoot(const SCEV *S) {
+const Instruction *ScalarEvolution::getDefiningScopeBound(const SCEV *S) {
   if (auto *AddRec = dyn_cast<SCEVAddRecExpr>(S))
     return &*AddRec->getLoop()->getHeader()->begin();
-  if (isa<SCEVConstant>(S))
-    return &*F.getEntryBlock().begin();
-  if (auto *U = dyn_cast<SCEVUnknown>(S)) {
+  if (auto *U = dyn_cast<SCEVUnknown>(S))
     if (auto *I = dyn_cast<Instruction>(U->getValue()))
       return I;
-    return &*F.getEntryBlock().begin();
-  }
-  return nullptr;
+  // All SCEVs are bound by the entry to F
+  return &*F.getEntryBlock().begin();
 }
 
 static bool
