@@ -84,7 +84,7 @@ public:
   static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp,
                                          FastMathFlags FMF);
 
-  /// Returns the opcode of binary operation corresponding to the RecurKind.
+  /// Returns the opcode corresponding to the RecurrenceKind.
   static unsigned getOpcode(RecurKind Kind);
 
   unsigned getOpcode() const {
