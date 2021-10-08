@@ -5872,19 +5872,19 @@ InstructionCost X86TTIImpl::getInterleavedMemoryOpCostAVX2(
       {2, MVT::v8i64, 8}, // (load 16i64 and) deinterleave into 2 x 8i64
       {2, MVT::v16i64, 16}, // (load 32i64 and) deinterleave into 2 x 16i64
 
-      {3, MVT::v2i8, 10},  // (load 6i8 and) deinterleave into 3 x 2i8
-      {3, MVT::v4i8, 4},   // (load 12i8 and) deinterleave into 3 x 4i8
-      {3, MVT::v8i8, 9},   // (load 24i8 and) deinterleave into 3 x 8i8
+      {3, MVT::v2i8, 3},  // (load 6i8 and) deinterleave into 3 x 2i8
+      {3, MVT::v4i8, 3},   // (load 12i8 and) deinterleave into 3 x 4i8
+      {3, MVT::v8i8, 6},   // (load 24i8 and) deinterleave into 3 x 8i8
       {3, MVT::v16i8, 11}, // (load 48i8 and) deinterleave into 3 x 16i8
-      {3, MVT::v32i8, 13}, // (load 96i8 and) deinterleave into 3 x 32i8
+      {3, MVT::v32i8, 14}, // (load 96i8 and) deinterleave into 3 x 32i8
 
       {3, MVT::v8i32, 17}, // (load 24i32 and) deinterleave into 3 x 8i32
 
-      {4, MVT::v2i8, 12},  // (load 8i8 and) deinterleave into 4 x 2i8
+      {4, MVT::v2i8, 4},  // (load 8i8 and) deinterleave into 4 x 2i8
       {4, MVT::v4i8, 4},   // (load 16i8 and) deinterleave into 4 x 4i8
-      {4, MVT::v8i8, 20},  // (load 32i8 and) deinterleave into 4 x 8i8
-      {4, MVT::v16i8, 39}, // (load 64i8 and) deinterleave into 4 x 16i8
-      {4, MVT::v32i8, 80}, // (load 128i8 and) deinterleave into 4 x 32i8
+      {4, MVT::v8i8, 12},  // (load 32i8 and) deinterleave into 4 x 8i8
+      {4, MVT::v16i8, 24}, // (load 64i8 and) deinterleave into 4 x 16i8
+      {4, MVT::v32i8, 56}, // (load 128i8 and) deinterleave into 4 x 32i8
 
       {4, MVT::v2i16, 6}, // (load 8i16 and) deinterleave into 4 x 2i16
       {4, MVT::v4i16, 17}, // (load 16i16 and) deinterleave into 4 x 4i16
@@ -5924,16 +5924,16 @@ InstructionCost X86TTIImpl::getInterleavedMemoryOpCostAVX2(
       {2, MVT::v8i64, 8}, // interleave 2 x 8i64 into 16i64 (and store)
       {2, MVT::v16i64, 16}, // interleave 2 x 16i64 into 32i64 (and store)
 
-      {3, MVT::v2i8, 7},   // interleave 3 x 2i8 into 6i8 (and store)
-      {3, MVT::v4i8, 8},   // interleave 3 x 4i8 into 12i8 (and store)
-      {3, MVT::v8i8, 11},  // interleave 3 x 8i8 into 24i8 (and store)
+      {3, MVT::v2i8, 4},   // interleave 3 x 2i8 into 6i8 (and store)
+      {3, MVT::v4i8, 4},   // interleave 3 x 4i8 into 12i8 (and store)
+      {3, MVT::v8i8, 6},  // interleave 3 x 8i8 into 24i8 (and store)
       {3, MVT::v16i8, 11}, // interleave 3 x 16i8 into 48i8 (and store)
       {3, MVT::v32i8, 13}, // interleave 3 x 32i8 into 96i8 (and store)
 
-      {4, MVT::v2i8, 12},  // interleave 4 x 2i8 into 8i8 (and store)
-      {4, MVT::v4i8, 9},   // interleave 4 x 4i8 into 16i8 (and store)
-      {4, MVT::v8i8, 10},  // interleave 4 x 8i8 into 32i8 (and store)
-      {4, MVT::v16i8, 10}, // interleave 4 x 16i8 into 64i8 (and store)
+      {4, MVT::v2i8, 4},  // interleave 4 x 2i8 into 8i8 (and store)
+      {4, MVT::v4i8, 4},   // interleave 4 x 4i8 into 16i8 (and store)
+      {4, MVT::v8i8, 4},  // interleave 4 x 8i8 into 32i8 (and store)
+      {4, MVT::v16i8, 8}, // interleave 4 x 16i8 into 64i8 (and store)
       {4, MVT::v32i8, 12}, // interleave 4 x 32i8 into 128i8 (and store)
 
       {4, MVT::v2i16, 2},  // interleave 4 x 2i16 into 8i16 (and store)
