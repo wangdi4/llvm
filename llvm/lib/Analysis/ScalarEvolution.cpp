@@ -7172,6 +7172,7 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   if (!LatchValue || !PhiLoop->contains(LatchValue))
     return ConstantRange::getFull(BitWidth);
 
+<<<<<<< HEAD
   // Get a bound on the amount that this value could change over the course of a
   // loop iteration.
   ConstantRange IncSRange = ConstantRange::getEmpty(BitWidth);
@@ -7180,6 +7181,29 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
     const SCEV *Inc = getMinusSCEV(getSCEV(Op), SCEVPhi);
     IncSRange = IncSRange.unionWith(getRangeRef(Inc, HINT_RANGE_SIGNED));
     IncURange = IncURange.unionWith(getRangeRef(Inc, HINT_RANGE_UNSIGNED));
+=======
+  // At this point we know that if I is executed, then it does not wrap
+  // according to at least one of NSW or NUW. If I is not executed, then we do
+  // not know if the calculation that I represents would wrap. Multiple
+  // instructions can map to the same SCEV. If we apply NSW or NUW from I to
+  // the SCEV, we must guarantee no wrapping for that SCEV also when it is
+  // derived from other instructions that map to the same SCEV. We cannot make
+  // that guarantee for cases where I is not executed. So we need to find a
+  // upper bound on the defining scope for the SCEV, and prove that I is
+  // executed every time we enter that scope.  When the bounding scope is a
+  // loop (the common case), this is equivalent to proving I executes on every
+  // iteration of that loop.
+  for (const Use &Op : I->operands()) {
+    // I could be an extractvalue from a call to an overflow intrinsic.
+    // TODO: We can do better here in some cases.
+    if (!isSCEVable(Op->getType()))
+      return false;
+    const SCEV *OpS = getSCEV(Op);
+    if (auto *AddRecS = dyn_cast<SCEVAddRecExpr>(OpS)) {
+      if (isGuaranteedToExecuteForEveryIteration(I, AddRecS->getLoop()))
+        return true;
+    }
+>>>>>>> 24cde2f6023a765b66923f4a4ac033a91878b856
   }
 
   // Now we know the starting values, and bounds on the increment. Akin to the
