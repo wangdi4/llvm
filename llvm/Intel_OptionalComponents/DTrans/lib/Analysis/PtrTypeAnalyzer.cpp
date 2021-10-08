@@ -1104,6 +1104,12 @@ public:
     return;
   }
 
+  void visitResumeInst(ResumeInst &I) {
+    // No type information needs to be collected for ResumeInst. Included here
+    // so that visitInstruction does not mark operands as unhandled.
+    return;
+  }
+
   void visitCmpInst(CmpInst &I) {
     // No type information needs to be collected for CmpInst. Included here so
     // that visitInstruction does not mark operands as unhandled.

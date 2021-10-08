@@ -1,10 +1,9 @@
 ; REQUIRES: asserts
-; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -debug-only=dtransanalysis -disable-output %s 2>&1 | FileCheck %s
 
-; Test pointer type recovery on landing pad instructions
+; Test that the DTrans safety analyzer does not trigger safety settings on
+; landingpad, extractvalue, or resume instructions.
 
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i32, i32 }
@@ -25,19 +24,15 @@ good:
 bad:
   %lp = landingpad { i8*, i32 }
         cleanup
+  %v = extractvalue { i8*, i32 } %lp, 0
   resume { i8*, i32 } %lp
 }
-; CHECK-LABEL: void @test01
-; CHECK-NONOPAQUE: %lp = landingpad { i8*, i32 }
-; CHECK-NONOPAQUE-NEXT: cleanup
-; CHECK-OPAQUE: %lp = landingpad { ptr, i32 }
-; CHECK-OPAQUE-NEXT: cleanup
-; CHECK-NEXT: LocalPointerInfo:
-; CHECK-NOT: UNHANDLED
-; CHECK-NEXT: Aliased types:
-; CHECK-NEXT:   { i8*, i32 } = type { i8*, i32 }
-; CHECK-NEXT: No element pointees
 
+; CHECK: dtrans-safety-detail: %struct.test01a = type { i32, i32 } :: Has C++ handling
+; CHECK: dtrans-safety-detail: %struct.test01b = type { i32, i32 } :: Has C++ handling
+
+; There should not be any "Unhandled use"" messages.
+; CHECK-NOT: Unhandled use
 
 declare i32 @__gxx_personality_v0(...)
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
