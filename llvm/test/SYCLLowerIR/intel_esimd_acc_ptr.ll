@@ -1,4 +1,3 @@
-; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_ESIMD_EMBARGO
 ; REQUIRES: intel_feature_esimd_embargo
 ;
@@ -40,4 +39,3 @@ define weak_odr dso_local spir_kernel void @ESIMDKernel(i32 %_arg_, float addrsp
 ; CHECK: ![[ARG_DESCS]] = !{!"", !"buffer_t", !"buffer_t", !"", !"svmptr_t"}
 
 ; end INTEL_FEATURE_ESIMD_EMBARGO
-; end INTEL_CUSTOMIZATION
