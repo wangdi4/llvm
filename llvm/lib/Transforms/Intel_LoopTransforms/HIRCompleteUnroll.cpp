@@ -1031,6 +1031,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   auto HInst = dyn_cast<HLInst>(Node);
   auto Inst = HInst ? HInst->getLLVMInstruction() : nullptr;
   bool IsSelect = (Inst && isa<SelectInst>(Inst));
+  bool IsIdiomaticSelect =
+      (IsSelect && (HInst->isAbs() || HInst->isMinOrMax()));
 
   auto RefIt = HInst ? HInst->rval_op_ddref_begin() : Node->op_ddref_begin();
   auto End = HInst ? HInst->rval_op_ddref_end() : Node->op_ddref_end();
@@ -1051,7 +1053,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     // simplification. t = (t1 < t2) ? t3 : t4
     bool IsSelectOperand = IsSelect && (NumRvalOp > 1);
 
-    if (IsSelectOperand && (HInst->isAbs() || HInst->isMinOrMax())) {
+    if (IsSelectOperand && IsIdiomaticSelect) {
       // Do not analyze last two operands of 'idiomatic' select.
       break;
     }
@@ -1075,8 +1077,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     // perform constant propagation/DCE after complete unroll we may mistakenly
     // identify it as savings in post vec complete unroll.
     if (HasNonConstRval) {
-      // Add extra savings for ifs/switches.
-      Savings += HInst ? 1 : 2;
+      // Add extra savings for ifs/switches/selects.
+      Savings += (!HInst || IsSelect) ? 2 : 1;
     }
 
     if (!HInst) {
@@ -1115,14 +1117,14 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
 
   if (!CanSimplifyRvals || !CanSimplifyLval) {
 
-    if (HInst) {
+    if (HInst && !IsSelect) {
       // Add extra cost if instruction is a non-simplifiable reduction and we
       // are executing before vectorizer. We should prefer vectorizing
       // reductions rather than unrolling them.
       Cost +=
           (HCU.IsPreVec && LvalRef && HCU.HSRA.isSafeReduction(HInst)) ? 2 : 1;
     } else {
-      // Add extra cost for ifs/switches.
+      // Add extra cost for ifs/switches/selects.
       Cost += 2;
     }
   }
