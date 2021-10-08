@@ -173,6 +173,11 @@
 
 using namespace llvm;
 
+// Support for future opaque pointers. Will become the only option in future.
+static cl::opt<bool>
+    EmitTypedOMP("vec-clone-typed-omp", cl::init(false), cl::Hidden,
+                 cl::desc("Emit 'TYPED' version of OMP clauses."));
+
 VecClone::VecClone() : ModulePass(ID) {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
@@ -1253,6 +1258,23 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
         std::string(IntrinsicUtils::getClauseString(Clause)), std::move(Arr));
   };
 
+  auto AddTypedClause = [&OpndBundles, AddClause](OMP_CLAUSES Clause,
+                                                  Value *Ptr, Type *Ty,
+                                                  auto &&... Ops) {
+    if (!EmitTypedOMP) {
+      AddClause(Clause, Ptr, Ops...);
+      return;
+    }
+
+    std::vector<Value *> Arr = {
+        {Ptr, Constant::getNullValue(Ty),
+         ConstantInt::get(Type::getInt32Ty(Ty->getContext()), 1), // #Elts
+         Ops...}};
+    OpndBundles.emplace_back(
+        (IntrinsicUtils::getClauseString(Clause) + Twine(":TYPED")).str(),
+        std::move(Arr));
+  };
+
   // Insert vectorlength directive
   AddClause(QUAL_OMP_SIMDLEN, Builder.getInt32(V.getVlen()));
 
@@ -1281,24 +1303,27 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   // No need to allocate another stack slot for an argument if there is already
   // a dedicated storage for it on the stack.
     Value *Memory = &Arg;
+    Type *ValueType = Arg.getPointeeInMemoryValueType();
+    // TODO:  Should it be !hasPointeeInMemoryValueAttr() instead?
     if (!Arg.hasByValAttr()) {
+      ValueType = Arg.getType();
       Memory = Builder.CreateAlloca(Arg.getType(), nullptr,
                                     "alloca." + Arg.getName());
       emitLoadStoreForParameter(cast<AllocaInst>(Memory), &Arg, LoopPreHeader);
     }
 
     if (ParmKind.isLinear())
-      AddClause(QUAL_OMP_LINEAR, Memory,
-                Builder.getInt32(ParmKind.getStride()));
+      AddTypedClause(QUAL_OMP_LINEAR, Memory, ValueType,
+                     Builder.getInt32(ParmKind.getStride()));
 
     if (ParmKind.isUniform())
-      AddClause(QUAL_OMP_UNIFORM, Memory);
+      AddTypedClause(QUAL_OMP_UNIFORM, Memory, ValueType);
   }
 
   // Add PrivateAllocas to privates.
   for (Value *AllocaVal : PrivateAllocas)
-    AddClause(QUAL_OMP_PRIVATE, AllocaVal);
-
+    AddTypedClause(QUAL_OMP_PRIVATE, AllocaVal,
+                   cast<AllocaInst>(AllocaVal)->getAllocatedType());
 
   // Create simd.begin.region block which indicates the begining of the WRN
   // region.
