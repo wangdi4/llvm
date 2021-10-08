@@ -2760,9 +2760,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMCPY;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(II, libFn, II->arg_size() - 1);
 #else // INTEL_FEATURE_SW_ADVANCED
-    return lowerCallTo(II, "memcpy", II->getNumArgOperands() - 1);
+    return lowerCallTo(II, "memcpy", II->arg_size() - 1);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   }
@@ -2793,9 +2793,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMSET;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(II, libFn, II->arg_size() - 1);
 #else // INTEL_FEATURE_SW_ADVANCED
-    return lowerCallTo(II, "memset", II->getNumArgOperands() - 1);
+    return lowerCallTo(II, "memset", II->arg_size() - 1);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   }
