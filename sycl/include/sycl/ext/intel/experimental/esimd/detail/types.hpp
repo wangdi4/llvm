@@ -186,7 +186,11 @@ struct is_esimd_arithmetic_type<
     : std::conditional_t<std::is_arithmetic_v<Ty>, std::true_type,
                          std::false_type> {};
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
 template <> struct is_esimd_arithmetic_type<bfloat16> : std::true_type {};
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 template <typename Ty>
 static inline constexpr bool is_esimd_arithmetic_type_v =
