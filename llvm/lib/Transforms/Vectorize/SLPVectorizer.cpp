@@ -6115,12 +6115,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       TE->setOperandsInOrder();
-<<<<<<< HEAD
-      for (unsigned i = 0, e = CI->getNumArgOperands(); i != e; ++i) {
-        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
-=======
       for (unsigned i = 0, e = CI->arg_size(); i != e; ++i) {
->>>>>>> 4f0225f6d21b601d62b73dce913bf59d8fb93d87
+        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
         for (Value *V : VL) {
