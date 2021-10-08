@@ -342,9 +342,6 @@ namespace clang {
       if (LinkInModules())
         return;
 
-<<<<<<< HEAD
-#if !INTEL_PRODUCT_RELEASE
-=======
       for (auto &F : getModule()->functions()) {
         if (const Decl *FD = Gen->GetDeclForMangledName(F.getName())) {
           auto Loc = FD->getASTContext().getFullLoc(FD->getLocation());
@@ -354,7 +351,7 @@ namespace clang {
         }
       }
 
->>>>>>> 2568286892310877f24313c8e1626e415f9ae406
+#if !INTEL_PRODUCT_RELEASE
       EmbedBitcode(getModule(), CodeGenOpts, llvm::MemoryBufferRef());
 #endif // !INTEL_PRODUCT_RELEASE
 
