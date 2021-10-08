@@ -1216,10 +1216,25 @@ def ProcessorFeatures {
                                                   FeatureGFNI,
                                                   FeatureRDPID,
                                                   FeatureFSRM];
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ICLAdditionalTuning = [Tuning2KDSB];
   list<SubtargetFeature> ICLTuning = !listconcat(CNLTuning, ICLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
+=======
+  list<SubtargetFeature> ICLTuning = [TuningFastGather,
+                                      TuningMacroFusion,
+                                      TuningSlow3OpsLEA,
+                                      TuningSlowDivide64,
+                                      TuningFastScalarFSQRT,
+                                      TuningFastVectorFSQRT,
+                                      TuningFastSHLDRotate,
+                                      TuningFast15ByteNOP,
+                                      TuningFastVariableCrossLaneShuffle,
+                                      TuningFastVariablePerLaneShuffle,
+                                      TuningPrefer256Bit,
+                                      TuningInsertVZEROUPPER];
+>>>>>>> 164cc2781fb1b732ce88fc1c05a667b7d3d558f7
   list<SubtargetFeature> ICLFeatures =
     !listconcat(CNLFeatures, ICLAdditionalFeatures);
 
@@ -1227,10 +1242,14 @@ def ProcessorFeatures {
   list<SubtargetFeature> ICXAdditionalFeatures = [FeaturePCONFIG,
                                                   FeatureCLWB,
                                                   FeatureWBNOINVD];
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ICXAdditionalTuning = [Tuning2KDSB];
   list<SubtargetFeature> ICXTuning = !listconcat(CNLTuning, ICXAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
+=======
+  list<SubtargetFeature> ICXTuning = ICLTuning;
+>>>>>>> 164cc2781fb1b732ce88fc1c05a667b7d3d558f7
   list<SubtargetFeature> ICXFeatures =
     !listconcat(ICLFeatures, ICXAdditionalFeatures);
 
@@ -1241,9 +1260,13 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> TGLTuning = ICLTuning;
 #endif // INTEL_CUSTOMIZATION
+=======
+  list<SubtargetFeature> TGLTuning = ICLTuning;
+>>>>>>> 164cc2781fb1b732ce88fc1c05a667b7d3d558f7
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
