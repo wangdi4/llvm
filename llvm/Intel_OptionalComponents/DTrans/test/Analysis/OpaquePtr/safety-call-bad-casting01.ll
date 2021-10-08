@@ -15,14 +15,9 @@ define void @test01() {
   store i32 (...)** bitcast (i8** getelementptr inbounds ({ [5 x i8*] }, { [5 x i8*] }* @_ZTVSt9exception, i64 0, i32 0, i64 2) to i32 (...)**), i32 (...)*** %addr
   ret void
 }
- ; TODO: "Mismatched element access" is triggered on this case because "addr" is
- ; detected as being type: "i32 (...)***", but it is stored to a location that
- ; is of type "i8**". The analysis for "store" instructions may need to be
- ; relaxed for "vtable" types.
-
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: class._ZTSSt9exception.std::exception
-; CHECK: Safety data: Bad casting | Mismatched element access | System object | Has vtable{{ *$}}
+; CHECK: Safety data: Bad casting | System object | Has vtable{{ *$}}
 
 
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @__cxa_allocate_exception(i64)
