@@ -100,7 +100,7 @@ public:
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
   /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there
-  /// is no such metadata, returns true.
+  /// is no such metadata returns corresponding switches value.
   bool readDynAlignEnabledHIR() {
     if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.dynamic_align")) {
       DEBUG_WITH_TYPE("VPlan_pragma_metadata",
@@ -114,7 +114,7 @@ public:
                                   "#pragma vector nodynamic_align\n");
       return false;
     }
-    return true;
+    return VPlanEnableGeneralPeeling && VPlanEnablePeeling;
   }
 
   /// Reads all metadata specified by pragmas

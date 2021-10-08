@@ -61,6 +61,11 @@ extern bool EnableSOAAnalysisHIR;
 extern bool EnableNewCFGMerge;
 extern bool EnableNewCFGMergeHIR;
 extern unsigned DefaultTripCount;
+// Flag to indicate if dynamic peeling is enabled. Flag is set based on
+// appropriate value of command line option for the IR kind being processed.
+extern bool VPlanEnablePeeling;
+// Flag to indicate if peeling is enabled in general, including static peeling.
+extern bool VPlanEnableGeneralPeeling;
 
 /// Auxiliary class to keep vectorization scenario for a single loop
 /// vectorization. It describes which variants of the loops are selected for

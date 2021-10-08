@@ -110,13 +110,21 @@ static cl::opt<bool> VPlanEnablePeelingHIROpt(
     cl::desc("Enable generation of peel loops to improve "
              "alignment of memory accesses in HIR path"));
 
-namespace llvm {
-namespace vpo {
-// Flag to indicate if peeling is enabled. Flag is set based on appropriate
-// value of command line option for the IR kind being processed.
-extern bool VPlanEnablePeeling;
-} // namespace vpo
-} // namespace llvm
+static cl::opt<bool> VPlanEnableGeneralPeelingOpt(
+    "vplan-enable-general-peeling", cl::init(true), cl::Hidden,
+    cl::desc(
+        "Enable peeling in general. When true this effectively enables static "
+        "peeling, dynamic peeling needs an additional switch "
+        "(-vplan-enable-peeling) to be enabled. When false disables any "
+        "peeling. Pragma [no]dynamic_align always overrides both switches."));
+
+static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
+    "vplan-enable-general-peeling-hir", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Enable peeling in general for HIR path. When true this effectively "
+        "enables static peeling, dynamic peeling needs an additional switch "
+        "(-vplan-enable-peeling-hir) to be enabled. When false disables any "
+        "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
@@ -268,6 +276,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 #endif // INTEL_CUSTOMIZATION
   // Enable peeling for LLVM-IR path from command line switch
   VPlanEnablePeeling = VPlanEnablePeelingOpt;
+  VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingOpt;
 
   // TODO: Not sure if that's the correct long-term solution. If ScalarEvolution
   // can consume on-the-fly updates to the LoopInfo analysis, then we might be
@@ -1221,6 +1230,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                                      WRNVecLoopNode *WRLp) {
   // Enable peeling for HIR path from command line switch
   VPlanEnablePeeling = VPlanEnablePeelingHIROpt;
+  VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingHIROpt;
 
   // TODO: How do we allow stress-testing for HIR path?
   assert(WRLp && "WRLp should be non-null!");
@@ -1280,6 +1290,14 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPlanName = std::string(Fn.getName()) + ":HIR";
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
+  if (isOmpSIMDLoop && ((LVP.isDynAlignEnabled() && !VPlanEnablePeeling) ||
+                        LVP.isVecRemainderEnforced())) {
+    // Temporary. If peeling and/or remainder vectorization are enforced,
+    // bailout relying on the vplan-vec after loop opt.
+    LLVM_DEBUG(dbgs() << "Delegating peel and remainder vectorization to post "
+                         "loopopt vplan-vec\n");
+    return false;
+  }
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
