@@ -20413,11 +20413,13 @@ RValue CodeGenFunction::EmitBuiltinIndirectCall(
     const SmallVectorImpl<llvm::Value *> &IRArgs, llvm::Value *FnPtr) {
   SmallVector<llvm::Type *, 8> Types;
   SmallVector<Value*, 16> Args;
-  if (auto *CV = dyn_cast<llvm::LoadInst>(FnPtr)) {
+  if (auto *CV = dyn_cast<llvm::LoadInst>(FnPtr->stripPointerCasts())) {
     Types.push_back(CV->getPointerOperand()->getType());
     Args.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
         FnPtr, CV->getPointerOperand()->getType()));
-  } else if (isa<llvm::CallInst>(FnPtr) || CGM.isSIMDTable(FnPtr)) {
+  } else if (isa<llvm::CallInst>(FnPtr->stripPointerCasts()) ||
+             CGM.isSIMDTable(FnPtr->stripPointerCasts()) ||
+             isa<llvm::PHINode>(FnPtr->stripPointerCasts())) {
     if (getASTAllocaAddressSpace() != LangAS::Default) {
       auto DestAddrSpace = getContext().getTargetAddressSpace(LangAS::Default);
       FnPtr = getTargetHooks().performAddrSpaceCast(
