@@ -241,6 +241,23 @@ static void setHLLoopMD(HLLoop *const Lp, const char *const SzAddMD,
   Lp->addLoopMetadata({AddMD});
 }
 
+static bool canProcessMaskedVariant(const VPlan &P) {
+  for (const VPInstruction &I : vpinstructions(&P))
+    switch (I.getOpcode()) {
+    default:
+      break;
+    // We need special processing for those instructions in masked mode,
+    // as we need to extract last value not from (VF-1)th lane but from
+    // the lane defined by the execution mask.
+    case VPInstruction::PrivateFinalUncond:
+    case VPInstruction::PrivateFinalUncondMem:
+    case VPInstruction::PrivateFinalArray:
+    case VPInstruction::PrivateLastValueNonPOD:
+      return false;
+    }
+  return true;
+}
+
 #if INTEL_CUSTOMIZATION
 template <>
 bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
@@ -318,37 +335,47 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
       std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
       VPLoop *VLoop = Plan->getMainLoop(true);
       // Masked variant is not generated for loops without normalized induction.
-      if (VLoop->hasNormalizedInduction())
-        if (!Pair.second.MaskedModeLoop) {
-          auto It = OrigClonedVPlans.find(Plan.get());
-          if (It != OrigClonedVPlans.end()) {
-            LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
-                                                Plan, It->second});
-            continue;
-          }
-          // Check whether we have a known TC and it's a power of two and is
-          // less than maximum VF. In such cases the masked mode loop will be
-          // most likely not used. (Peeling will be unprofitable and remainder
-          // can be created unmasked.) This will allow us saving compile time
-          // e.g. during function vectorization.
-          // TODO: implement target check, i.e. whether target has instructions
-          // to implement masked operations. If there are no such insructions we
-          // don't enable masked variants. Though, that probably better to leave
-          // for cost modeling.
-          uint64_t TripCount = VLoop->getTripCountInfo().TripCount;
-          if (!VLoop->getTripCountInfo().IsEstimated) {
-            auto Max = *(std::max_element(LVP.getVectorFactors().begin(),
-                                          LVP.getVectorFactors().end()));
-            if (isPowerOf2_64(TripCount) && TripCount <= Max)
-              continue;
-          }
+      if (!VLoop->hasNormalizedInduction())
+        continue;
+      if (Pair.second.MaskedModeLoop)
+        // Already have it.
+        continue;
 
-          MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
-          std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
-          OrigClonedVPlans[Plan.get()] = MaskedPlan;
-          LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
-                                              Plan, MaskedPlan});
-        }
+      auto It = OrigClonedVPlans.find(Plan.get());
+      if (It != OrigClonedVPlans.end()) {
+        // We have already cloned that main loop, add the same clone for
+        // this VF.
+        LVP.appendVPlanPair(
+            Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, It->second});
+        continue;
+      }
+      // Check if we can process VPlan in masked mode. E.g. the code for some
+      // entities processing is not implemented yet.
+      if (!canProcessMaskedVariant(*Plan))
+        continue;
+
+      // Check whether we have a known TC and it's a power of two and is
+      // less than maximum VF. In such cases the masked mode loop will be
+      // most likely not used. (Peeling will be unprofitable and remainder
+      // can be created unmasked.) This will allow us saving compile time
+      // e.g. during function vectorization.
+      // TODO: implement target check, i.e. whether target has instructions
+      // to implement masked operations. If there are no such insructions we
+      // don't enable masked variants. Though, that probably better to leave
+      // for cost modeling.
+      uint64_t TripCount = VLoop->getTripCountInfo().TripCount;
+      if (!VLoop->getTripCountInfo().IsEstimated) {
+        auto Max = *(std::max_element(LVP.getVectorFactors().begin(),
+                                      LVP.getVectorFactors().end()));
+        if (isPowerOf2_64(TripCount) && TripCount <= Max)
+          continue;
+      }
+
+      MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
+      std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
+      OrigClonedVPlans[Plan.get()] = MaskedPlan;
+      LVP.appendVPlanPair(
+          Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, MaskedPlan});
     }
   }
 
