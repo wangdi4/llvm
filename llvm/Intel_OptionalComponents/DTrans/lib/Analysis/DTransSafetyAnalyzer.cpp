@@ -4089,6 +4089,24 @@ public:
                                           "Integer type cast to pointer", &I);
   }
 
+  void visitLandingPad(LandingPadInst& I) {
+    // This instruction results in a type containing a pointer, but there are no
+    // safety flags affected.
+    return;
+  }
+
+  void visitExtractValueInst(ExtractValueInst& I) {
+    // This instruction may result in a type containing a pointer, but there are no
+    // safety flags affected.
+    return;
+  }
+
+  void visitResume(ResumeInst& I) {
+    // This instruction has an operand containing a pointer type, but there are
+    // no safety flags affected.
+    return;
+  }
+
   // Process any instruction not handled by other visit functions.
   void visitInstruction(Instruction &I) {
     ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
