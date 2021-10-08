@@ -90,14 +90,14 @@ namespace {
       if (skipModule(M))
         return false;
       DeadArgumentEliminationPass DAEP(ShouldHackArguments(),
-                                       CheckSpirKernels());
+                                       CheckSYCLKernels());
       ModuleAnalysisManager DummyMAM;
       PreservedAnalyses PA = DAEP.run(M, DummyMAM);
       return !PA.areAllPreserved();
     }
 
     virtual bool ShouldHackArguments() const { return false; }
-    virtual bool CheckSpirKernels() const { return false; }
+    virtual bool CheckSYCLKernels() const { return false; }
   };
 
 } // end anonymous namespace
@@ -117,7 +117,7 @@ namespace {
     DAH() : DAE(ID) {}
 
     bool ShouldHackArguments() const override { return true; }
-    bool CheckSpirKernels() const override { return false; }
+    bool CheckSYCLKernels() const override { return false; }
   };
 
 } // end anonymous namespace
@@ -130,7 +130,7 @@ INITIALIZE_PASS(DAH, "deadarghaX0r",
 
 namespace {
 
-/// DAESYCL - DeadArgumentElimination pass for SPIR kernel functions even
+/// DAESYCL - DeadArgumentElimination pass for SYCL kernel functions even
 ///           if they are external.
 struct DAESYCL : public DAE {
   static char ID;
@@ -140,21 +140,19 @@ struct DAESYCL : public DAE {
   }
 
   StringRef getPassName() const override {
-    return "Dead Argument Elimination for SPIR kernels in SYCL environment";
+    return "Dead Argument Elimination for SYCL kernels";
   }
 
   bool ShouldHackArguments() const override { return false; }
-  bool CheckSpirKernels() const override { return true; }
+  bool CheckSYCLKernels() const override { return true; }
 };
 
 } // end anonymous namespace
 
 char DAESYCL::ID = 0;
 
-INITIALIZE_PASS(
-    DAESYCL, "deadargelim-sycl",
-    "Dead Argument Elimination for SPIR kernels in SYCL environment", false,
-    false)
+INITIALIZE_PASS(DAESYCL, "deadargelim-sycl",
+                "Dead Argument Elimination for SYCL kernels", false, false)
 
 /// createDeadArgEliminationPass - This pass removes arguments from functions
 /// which are not used by the body of the function.
@@ -606,12 +604,13 @@ void DeadArgumentEliminationPass::SurveyFunction(const Function &F) {
   }
 
   // We can't modify arguments if the function is not local
-  // but we can do so for SPIR kernel function in SYCL environment.
+  // but we can do so for SYCL kernel functions.
   // DAE is not currently supported for ESIMD kernels.
-  bool FuncIsSpirNonEsimdKernel =
-      CheckSpirKernels && F.getCallingConv() == CallingConv::SPIR_KERNEL &&
+  bool FuncIsSyclNonEsimdKernel =
+      CheckSYCLKernels &&
+      (F.getCallingConv() == CallingConv::SPIR_KERNEL || IsNVPTXKernel(&F)) &&
       !F.getMetadata("sycl_explicit_simd");
-  bool FuncIsLive = !F.hasLocalLinkage() && !FuncIsSpirNonEsimdKernel;
+  bool FuncIsLive = !F.hasLocalLinkage() && !FuncIsSyclNonEsimdKernel;
   if (FuncIsLive && (!ShouldHackArguments || F.isIntrinsic())) {
     MarkLive(F);
     return;
@@ -845,7 +844,7 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
     }
   }
 
-  if (CheckSpirKernels) {
+  if (CheckSYCLKernels) {
     SmallVector<Metadata *, 10> MDOmitArgs;
     auto MDOmitArgTrue = llvm::ConstantAsMetadata::get(
         ConstantInt::get(Type::getInt1Ty(F->getContext()), 1));
@@ -853,7 +852,7 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
         ConstantInt::get(Type::getInt1Ty(F->getContext()), 0));
     for (auto &AliveArg : ArgAlive)
       MDOmitArgs.push_back(AliveArg ? MDOmitArgFalse : MDOmitArgTrue);
-    F->setMetadata("spir_kernel_omit_args",
+    F->setMetadata("sycl_kernel_omit_args",
                    llvm::MDNode::get(F->getContext(), MDOmitArgs));
   }
 
@@ -1169,6 +1168,9 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
   for (auto MD : MDs)
     NF->addMetadata(MD.first, *MD.second);
 
+  if (IsNVPTXKernel(F))
+    UpdateNVPTXMetadata(*(F->getParent()), F, NF);
+
   // Now that the old function is dead, delete it.
   F->eraseFromParent();
 
@@ -1178,6 +1180,12 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
 PreservedAnalyses DeadArgumentEliminationPass::run(Module &M,
                                                    ModuleAnalysisManager &) {
   bool Changed = false;
+<<<<<<< HEAD
+=======
+
+  BuildNVPTXKernelSet(M);
+
+>>>>>>> 6b3c20f22dab3f41d3b4daa2ba98cc294c18f21f
   // First pass: Do a simple check to see if any functions can have their "..."
   // removed.  We can do this if they never call va_start.  This loop cannot be
   // fused with the next loop, because deleting a function invalidates
@@ -1213,4 +1221,26 @@ PreservedAnalyses DeadArgumentEliminationPass::run(Module &M,
   PA.preserve<WholeProgramAnalysis>();  // INTEL
 
   return PA;                            // INTEL
+}
+
+void DeadArgumentEliminationPass::UpdateNVPTXMetadata(Module &M, Function *F,
+                                                      Function *NF) {
+
+  auto *NvvmMetadata = M.getNamedMetadata("nvvm.annotations");
+  if (!NvvmMetadata)
+    return;
+
+  for (auto *MetadataNode : NvvmMetadata->operands()) {
+    const auto &FuncOperand = MetadataNode->getOperand(0);
+    if (!FuncOperand)
+      continue;
+    auto FuncConstant = dyn_cast<ConstantAsMetadata>(FuncOperand);
+    if (!FuncConstant)
+      continue;
+    auto *Func = dyn_cast<Function>(FuncConstant->getValue());
+    if (Func != F)
+      continue;
+    // Update the metadata with the new function
+    MetadataNode->replaceOperandWith(0, llvm::ConstantAsMetadata::get(NF));
+  }
 }
