@@ -1629,8 +1629,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_vec_realloc:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0) == FTy.getReturnType() &&
-<<<<<<< HEAD
-            IsSizeTTy(FTy.getParamType(1)));
+            FTy.getParamType(1)->isIntegerTy(SizeTBits));
 #if INTEL_CUSTOMIZATION
   case LibFunc_re_compile_fastmap:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
@@ -1647,9 +1646,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(7)->isPointerTy() &&
             FTy.getParamType(8)->isIntegerTy());
 #ifndef _WIN32
-=======
-            FTy.getParamType(1)->isIntegerTy(SizeTBits));
->>>>>>> 7f84fa4ad41aafc8a20b2ea792c98bf991ed3d53
   case LibFunc_read:
     return (NumParams == 3 && FTy.getParamType(1)->isPointerTy());
 #else
@@ -3156,12 +3152,13 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
   case LibFunc_strnlen:
     return (NumParams == 2 && FTy.getReturnType() == FTy.getParamType(1) &&
             FTy.getParamType(0)->isPointerTy() &&
-            IsSizeTTy(FTy.getParamType(1)));
+            FTy.getParamType(1)->isIntegerTy(SizeTBits));
 
   case LibFunc_posix_memalign:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy(32) &&
             FTy.getParamType(0)->isPointerTy() &&
-            IsSizeTTy(FTy.getParamType(1)) && IsSizeTTy(FTy.getParamType(2)));
+            FTy.getParamType(1)->isIntegerTy(SizeTBits) &&
+            FTy.getParamType(2)->isIntegerTy(SizeTBits));
 
   case LibFunc_wcslen:
     return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
@@ -5901,11 +5898,7 @@ case LibFunc_under_commit:
   case LibFunc_siglongjmp:
     return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
-<<<<<<< HEAD
             FTy.getParamType(1)->isIntegerTy());
-=======
-            FTy.getParamType(1)->isIntegerTy(SizeTBits));
->>>>>>> 7f84fa4ad41aafc8a20b2ea792c98bf991ed3d53
 
   case LibFunc_signal:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
@@ -5974,14 +5967,9 @@ case LibFunc_under_commit:
   case LibFunc_strftime:
     return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
-<<<<<<< HEAD
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy());
-=======
-            FTy.getParamType(1)->isIntegerTy(SizeTBits) &&
-            FTy.getParamType(2)->isIntegerTy(SizeTBits));
->>>>>>> 7f84fa4ad41aafc8a20b2ea792c98bf991ed3d53
 
   case LibFunc_strsignal:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
