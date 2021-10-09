@@ -120,13 +120,9 @@ function(add_sycl_rt_library LIB_NAME)
 endfunction(add_sycl_rt_library)
 
 set(SYCL_SOURCES
-<<<<<<< HEAD
-    "${sycl_inc_dir}/CL/sycl.hpp"
 # INTEL_CUSTOMIZATION
     "backend/level_zero.cpp"
 # end INTEL_CUSTOMIZATION
-=======
->>>>>>> 88f8e385d709ef1876d5f109747cefa97c6d9da3
     "backend/opencl.cpp"
     "backend/level_zero.cpp"
     "backend.cpp"
