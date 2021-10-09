@@ -204,8 +204,6 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     return true;
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Clang->getLangOpts().ShowIntelCompatHelp) {
     llvm::outs() << Clang->getLangOpts().helpIntelCompat();
@@ -218,32 +216,8 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     return true;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 3e9d04f7e422c3e62d9adac506df8e7d42acc206
-  // Load any requested plugins.
-  for (const std::string &Path : Clang->getFrontendOpts().Plugins) {
-    std::string Error;
-    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(Path.c_str(), &Error))
-      Clang->getDiagnostics().Report(diag::err_fe_unable_to_load_plugin)
-        << Path << Error;
-  }
 
-  // Check if any of the loaded plugins replaces the main AST action
-  for (const FrontendPluginRegistry::entry &Plugin :
-       FrontendPluginRegistry::entries()) {
-    std::unique_ptr<PluginASTAction> P(Plugin.instantiate());
-    if (P->getActionType() == PluginASTAction::ReplaceAction) {
-      Clang->getFrontendOpts().ProgramAction = clang::frontend::PluginAction;
-      Clang->getFrontendOpts().ActionName = Plugin.getName().str();
-      break;
-    }
-  }
-<<<<<<< HEAD
-=======
   Clang->LoadRequestedPlugins();
->>>>>>> 81fb640f83b6a5d099f9124739ab3049be79ea56
-=======
->>>>>>> 3e9d04f7e422c3e62d9adac506df8e7d42acc206
 
   // Honor -mllvm.
   //
