@@ -2726,6 +2726,11 @@ InstructionCost X86TTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
           ExtraCost = 3;
         }
         break;
+      case CmpInst::Predicate::BAD_ICMP_PREDICATE:
+      case CmpInst::Predicate::BAD_FCMP_PREDICATE:
+        // Assume worst case scenario and add the maximum extra cost.
+        ExtraCost = 3;
+        break;
       default:
         break;
       }
