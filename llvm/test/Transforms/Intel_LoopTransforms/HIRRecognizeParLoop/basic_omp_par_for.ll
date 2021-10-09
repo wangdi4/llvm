@@ -1,6 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-recognize-par-loop -print-before=hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
+; RUN: opt < %s -force-opaque-pointers -hir-ssa-deconstruction -hir-recognize-par-loop -print-before=hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
+; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
+
 ; The test checks if
 ;   '%1 = @llvm.directive.region.entry()' / '@llvm.directive.region.exit(%1)'
 ; pair of intrinsics originating from OpenMP's 'parallel for' is recognized and
@@ -44,9 +47,9 @@
 ; CHECK:         %4 = (%ip.addr)[0];
 
 ; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP>
-; CHECK:         |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.start.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
-; CHECK:         |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.end.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         + END LOOP
 ; CHECK:       }
 ; CHECK:      @llvm.directive.region.exit(%1); [ DIR.OMP.END.PARALLEL.LOOP() ]
@@ -62,9 +65,9 @@
 ; CHECK:         %4 = (%ip.addr)[0];
 
 ; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP> <parallel>
-; CHECK:         |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.start.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
-; CHECK:         |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%i)[0]));
+; CHECK:         |   @llvm.lifetime.end.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         + END LOOP
 ; CHECK:       }
 ; CHECK: END REGION

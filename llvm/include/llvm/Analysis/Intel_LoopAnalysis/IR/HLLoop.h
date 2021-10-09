@@ -1261,6 +1261,12 @@ public:
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
 
+  /// The flag is set by SinkingForPerfectLoopnest pass to indicate to later
+  /// UndoSinking pass that sinking was performed and needs to be undone.
+  /// The flag is reset by intermediate interchange or blocking passes if they
+  /// trigger on the loopnest. If loop interchange or loop blocking is not triggered
+  /// with sinked insts, we need to set the loop as an undo sinking candidate
+  /// and undo sinking later.
   bool isUndoSinkingCandidate() const { return IsUndoSinkingCandidate; }
   void setIsUndoSinkingCandidate(bool Flag) { IsUndoSinkingCandidate = Flag; }
 

@@ -5726,13 +5726,18 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   if (!InvokeDest) {
 #if INTEL_CUSTOMIZATION
     if (getContext().getLangOpts().SYCLIsDevice &&
-        getContext().getLangOpts().EnableVariantFunctionPointers)
-      if (IRFuncTy && Callee.isOrdinary() && Callee.getFunctionPointer() &&
-          (isa<llvm::CallInst>(Callee.getFunctionPointer()) ||
-           CGM.isSIMDTable(Callee.getFunctionPointer()) ||
-           isa<llvm::LoadInst>(Callee.getFunctionPointer())))
-        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs,
-                                       Callee.getFunctionPointer());
+        getContext().getLangOpts().EnableVariantFunctionPointers) {
+      assert(CalleePtr && "No function to call");
+      if (auto *PHI = dyn_cast<llvm::PHINode>(CalleePtr->stripPointerCasts())) {
+        for (unsigned I = 0, E = PHI->getNumIncomingValues(); I < E; ++I)
+          if (isa<llvm::LoadInst>(
+                  PHI->getIncomingValue(I)->stripPointerCasts()))
+            return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
+      } else if (isa<llvm::LoadInst>(CalleePtr->stripPointerCasts()) ||
+                 isa<llvm::CallInst>(CalleePtr->stripPointerCasts()) ||
+                 CGM.isSIMDTable(CalleePtr->stripPointerCasts()))
+        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
+    }
 #endif  // INTEL_CUSTOMIZATION
     CI = Builder.CreateCall(IRFuncTy, CalleePtr, IRCallArgs, BundleList);
   } else {

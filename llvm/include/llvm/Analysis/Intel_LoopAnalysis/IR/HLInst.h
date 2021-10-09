@@ -389,7 +389,9 @@ public:
   /// Return true if OpCode is a valid reduction opcode.
   static bool isValidReductionOpCode(unsigned OpCode);
 
-  /// Return true if the instruction was sinked.
+  /// The flag is set by SinkingForPerfectLoopnest pass on instructions sinked
+  /// inside innermost loop to form perfect loopnest for interchange and blocking.
+  /// It is reset by UndoSinking pass later and it is used by DDTest.
   bool isSinked() const { return IsSinked; }
 
   void setIsSinked(bool Flag) { IsSinked = Flag; }

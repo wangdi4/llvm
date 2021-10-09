@@ -342,22 +342,17 @@ public:
                           dbgs() << "dtrans-safety: Has function ptr: "
                                  << *StructInfo->getDTransType() << "\n");
           StructInfo->setSafetyData(dtrans::HasFnPtr);
-        } else if (auto *PtrTy = dyn_cast<DTransPointerType>(
-                       FieldType->getPointerElementType())) {
-          if (auto *FnTy =
-                  dyn_cast<DTransFunctionType>(PtrTy->getPointerElementType()))
-            if (FnTy->getNumArgs() == 0 && FnTy->isVarArg()) {
-              // Fields matching this check might not actually be vtable
-              // pointers, but we will treat them as though they are since the
-              // false positives do not affect any cases we are currently
-              // interested in.
-              DEBUG_WITH_TYPE(SAFETY_VERBOSE,
-                              dbgs()
-                                  << "dtrans-safety: Has vtable-like element: "
-                                  << *StructInfo->getDTransType() << "\n"
-                                  << "  field: " << *FieldType << "\n");
-              StructInfo->setSafetyData(dtrans::HasVTable);
-            }
+        } else if (isa<DTransPointerType>(FieldType->getPointerElementType()) &&
+                   isVTableType(FieldType)) {
+          // Fields matching this check might not actually be vtable
+          // pointers, but we will treat them as though they are since the
+          // false positives do not affect any cases we are currently
+          // interested in.
+          DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                          dbgs() << "dtrans-safety: Has vtable-like element: "
+                                 << *StructInfo->getDTransType() << "\n"
+                                 << "  field: " << *FieldType << "\n");
+          StructInfo->setSafetyData(dtrans::HasVTable);
         }
       }
     }
@@ -1550,6 +1545,15 @@ public:
         TypesCompatible = false;
         BadCasting = true;
       }
+      // If the pointer location represents a vtable, then we only need to
+      // check that the value operand is not a structure type, which should
+      // not happen. However, if it does, set a safety bit.
+      else if (isVTableType(IndexedType)) {
+        if (ValInfo->canAliasToAggregatePointer()) {
+          TypesCompatible = false;
+          BadCasting = true;
+        }
+      }
       // Check whether the value being loaded or stored is compatible with
       // expected type for the indexed element.
       else if (!isElementLoadStoreTypeCompatible(IndexedType, ValTy)) {
@@ -1787,6 +1791,24 @@ public:
       return false;
 
     if (!isElementLoadStoreTypeCompatible(ExpectedType, DomTy))
+      return false;
+
+    return true;
+  }
+
+  // Return 'true' if 'DTy' is 'i32 (...)**'
+  bool isVTableType(DTransType *DTy) {
+    if (!DTy->isPointerTy())
+      return false;
+    auto *DTy2 = DTy->getPointerElementType();
+    if (!DTy2->isPointerTy())
+      return false;
+    auto *DFnTy = dyn_cast<DTransFunctionType>(DTy2->getPointerElementType());
+    if (!DFnTy)
+      return false;
+    if (DFnTy->getNumArgs() != 0 || !DFnTy->isVarArg())
+      return false;
+    if (!DFnTy->getReturnType() || !DFnTy->getReturnType()->isIntegerTy())
       return false;
 
     return true;
