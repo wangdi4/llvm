@@ -56,9 +56,10 @@ using namespace llvm::ore;
 class MandatoryInlineAdvice : public InlineAdvice {
 public:
   MandatoryInlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
+                        InlineCost IC,    // INTEL
                         OptimizationRemarkEmitter &ORE,
                         bool IsInliningMandatory)
-      : InlineAdvice(Advisor, CB, ORE, IsInliningMandatory) {}
+      : InlineAdvice(Advisor, CB, IC, ORE, IsInliningMandatory) {}
 
 private:
   void recordInliningWithCalleeDeletedImpl() override { recordInliningImpl(); }
@@ -102,20 +103,12 @@ void DefaultInlineAdvice::recordUnsuccessfulInliningImpl(
 
 void DefaultInlineAdvice::recordInliningWithCalleeDeletedImpl() {
   if (EmitRemarks)
-<<<<<<< HEAD
-    emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
-=======
-    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, *OIC);
->>>>>>> 7d541eb4d49aaaab6a51a3568b9214fd8691e2d3
+    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
 }
 
 void DefaultInlineAdvice::recordInliningImpl() {
   if (EmitRemarks)
-<<<<<<< HEAD
-    emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
-=======
-    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, *OIC);
->>>>>>> 7d541eb4d49aaaab6a51a3568b9214fd8691e2d3
+    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
@@ -569,7 +562,6 @@ InlineAdvisor::~InlineAdvisor() {
   freeDeletedFunctions();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
@@ -591,15 +583,9 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   if (IsAlways)
     MIC.setIsRecommended(true);
   auto UP =
-      std::make_unique<InlineAdvice>(this, CB, MIC, ORE, Advice);
+      std::make_unique<MandatoryInlineAdvice>(this, CB, MIC, ORE, Advice);
   *IC = UP->getInlineCost();
   return UP;
-=======
-std::unique_ptr<InlineAdvice> InlineAdvisor::getMandatoryAdvice(CallBase &CB,
-                                                                bool Advice) {
-  return std::make_unique<MandatoryInlineAdvice>(this, CB, getCallerORE(CB),
-                                                 Advice);
->>>>>>> 7d541eb4d49aaaab6a51a3568b9214fd8691e2d3
 }
 #endif // INTEL_CUSTOMIZATION
 

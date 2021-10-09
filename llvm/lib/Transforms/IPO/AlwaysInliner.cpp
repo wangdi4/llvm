@@ -84,15 +84,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
               return InlineCost::getAlways("always inline attribute");
             },
             ORE);
-<<<<<<< HEAD
         assert(IC.getIsRecommended()); // INTEL
-        emitInlinedInto(ORE, CB->getDebugLoc(), CB->getParent(), F, *Caller,
-                        IC, false, DEBUG_TYPE); // INTEL
-=======
-        assert(OIC);
         emitInlinedIntoBasedOnCost(ORE, CB->getDebugLoc(), CB->getParent(), F,
-                                   *Caller, *OIC, false, DEBUG_TYPE);
->>>>>>> 7d541eb4d49aaaab6a51a3568b9214fd8691e2d3
+                        *Caller, IC, false, DEBUG_TYPE); // INTEL
 
         InlineFunctionInfo IFI(
             /*cg=*/nullptr, GetAssumptionCache, &PSI,
