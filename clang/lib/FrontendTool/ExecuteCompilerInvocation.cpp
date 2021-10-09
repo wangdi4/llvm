@@ -204,7 +204,6 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     return true;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Clang->getLangOpts().ShowIntelCompatHelp) {
     llvm::outs() << Clang->getLangOpts().helpIntelCompat();
@@ -235,9 +234,6 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
       break;
     }
   }
-=======
-  Clang->LoadRequestedPlugins();
->>>>>>> 81fb640f83b6a5d099f9124739ab3049be79ea56
 
   // Honor -mllvm.
   //
