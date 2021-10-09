@@ -711,6 +711,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           continue;
         }
         ++NumInlined;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         //
         // If this is a recursive call, see if the number of recursive calls
@@ -736,6 +737,11 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         MDIR->updateInliningReport();
         MDIR->endUpdate();
 #endif // INTEL_CUSTOMIZATION
+=======
+
+        emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, *OIC);
+
+>>>>>>> 7d541eb4d49aaaab6a51a3568b9214fd8691e2d3
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
         if (!InlineInfo.InlinedCalls.empty()) {
