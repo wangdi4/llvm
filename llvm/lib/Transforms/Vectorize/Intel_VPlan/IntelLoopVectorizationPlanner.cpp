@@ -359,7 +359,8 @@ int LoopVectorizationPlanner::setDefaultVectorFactors() {
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL,
                                                       std::string VPlanName,
-                                                      ScalarEvolution *SE) {
+                                                      ScalarEvolution *SE,
+                                                      bool IsLegalToVec) {
   ++VPlanOrderNumber;
   // Concatenate VPlan order number into VPlanName which allows to align
   // VPlans in all different VPlan internal dumps.
@@ -377,6 +378,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, SE);
   if (!Plan) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan was not created.\n");
+    return 0;
+  }
+
+  if (!IsLegalToVec) {
+    LLVM_DEBUG(dbgs() << "LVP: VPlan is not legal to vectorize.\n");
     return 0;
   }
 

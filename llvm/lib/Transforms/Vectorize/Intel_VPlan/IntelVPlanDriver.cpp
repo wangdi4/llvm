@@ -299,7 +299,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // is fully supported.
   CallInst *RegionEntry =
       (WRLp == nullptr) ? nullptr : cast<CallInst>(WRLp->getEntryDirective());
-  if (!LVL.canVectorize(*DT, RegionEntry)) {
+  bool CanVectorize = LVL.canVectorize(*DT, RegionEntry);
+  if (!CanVectorize) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
 
     // Only bail out if we are generating code, we want to continue if
@@ -317,7 +318,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, &SE)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, &SE,
+                              CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
