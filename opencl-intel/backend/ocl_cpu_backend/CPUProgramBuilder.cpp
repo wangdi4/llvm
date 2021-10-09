@@ -235,9 +235,9 @@ Kernel *CPUProgramBuilder::CreateKernel(llvm::Function *pFunc,
     std::vector<unsigned int>       memoryArguments;
 
     // TODO : consider separating into a different analisys pass
-    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,
-                                           pFunc, useTLSGlobals, arguments,
-                                           memoryArguments);
+    DPCPPKernelCompilationUtils::parseKernelArguments(
+        pFunc->getParent() /* = pModule */, pFunc, useTLSGlobals, arguments,
+        memoryArguments);
 
     return m_pBackendFactory->CreateKernel(funcName, arguments, memoryArguments, pProps);
 }
