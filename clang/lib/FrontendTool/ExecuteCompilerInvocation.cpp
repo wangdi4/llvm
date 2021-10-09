@@ -216,6 +216,7 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     return true;
   }
 #endif // INTEL_CUSTOMIZATION
+
   // Load any requested plugins.
   for (const std::string &Path : Clang->getFrontendOpts().Plugins) {
     std::string Error;
