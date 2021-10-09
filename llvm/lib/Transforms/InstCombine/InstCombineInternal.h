@@ -347,6 +347,7 @@ private:
   Instruction *narrowFunnelShift(TruncInst &Trunc);
   Instruction *optimizeBitCastFromPhi(CastInst &CI, PHINode *PN);
   Instruction *matchSAddSubSat(Instruction &MinMax1);
+  Instruction *foldNot(BinaryOperator &I);
 
   void freelyInvertAllUsersOf(Value *V);
 

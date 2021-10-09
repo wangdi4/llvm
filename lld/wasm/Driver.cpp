@@ -956,8 +956,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     }
   }
 
-  createOptionalSymbols();
-
   if (errorCount())
     return;
 
@@ -984,6 +982,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   symtab->addCombinedLTOObject();
   if (errorCount())
     return;
+
+  createOptionalSymbols();
 
   // Resolve any variant symbols that were created due to signature
   // mismatchs.
