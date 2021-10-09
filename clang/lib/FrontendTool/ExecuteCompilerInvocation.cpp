@@ -205,6 +205,7 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Clang->getLangOpts().ShowIntelCompatHelp) {
     llvm::outs() << Clang->getLangOpts().helpIntelCompat();
@@ -217,6 +218,8 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     return true;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 3e9d04f7e422c3e62d9adac506df8e7d42acc206
   // Load any requested plugins.
   for (const std::string &Path : Clang->getFrontendOpts().Plugins) {
     std::string Error;
@@ -235,9 +238,12 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
       break;
     }
   }
+<<<<<<< HEAD
 =======
   Clang->LoadRequestedPlugins();
 >>>>>>> 81fb640f83b6a5d099f9124739ab3049be79ea56
+=======
+>>>>>>> 3e9d04f7e422c3e62d9adac506df8e7d42acc206
 
   // Honor -mllvm.
   //
