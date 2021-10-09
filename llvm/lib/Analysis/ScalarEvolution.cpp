@@ -7225,34 +7225,8 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   return SR.intersectWith(UR, ConstantRange::Smallest);
 }
 
-<<<<<<< HEAD
 static const Loop *getOutermostLoop(const Loop *Lp) {
   auto *OuterLp = Lp;
-=======
-const Instruction *
-ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
-  const Instruction *Bound = &*F.getEntryBlock().begin();
-  for (auto *S : Ops) {
-    auto *DefI = getDefiningScopeBound(S);
-    if (DT.dominates(Bound, DefI))
-      Bound = DefI;
-  }
-  return Bound;
-}
-
-
-static bool
-isGuaranteedToTransferExecutionToSuccessor(BasicBlock::const_iterator Begin,
-                                           BasicBlock::const_iterator End) {
-  // Limit number of instructions we look at, to avoid scanning through large
-  // blocks. The current limit is chosen arbitrarily.
-  unsigned ScanLimit = 32;
-  for (const Instruction &I : make_range(Begin, End)) {
-    if (isa<DbgInfoIntrinsic>(I))
-        continue;
-    if (--ScanLimit == 0)
-      return false;
->>>>>>> c608b49d67e0c22cc3537569f76af500097cd3b4
 
   while (OuterLp) {
     Lp = OuterLp;
@@ -7534,6 +7508,18 @@ const Instruction *ScalarEvolution::getDefiningScopeBound(const SCEV *S) {
   // All SCEVs are bound by the entry to F
   return &*F.getEntryBlock().begin();
 }
+
+const Instruction *
+ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
+  const Instruction *Bound = &*F.getEntryBlock().begin();
+  for (auto *S : Ops) {
+    auto *DefI = getDefiningScopeBound(S);
+    if (DT.dominates(Bound, DefI))
+      Bound = DefI;
+  }
+  return Bound;
+}
+
 
 static bool
 isGuaranteedToTransferExecutionToSuccessor(BasicBlock::const_iterator Begin,
