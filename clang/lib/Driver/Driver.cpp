@@ -4566,12 +4566,11 @@ class OffloadingActionBuilder final {
     /// Flag to signal if the user requested device code split.
     bool DeviceCodeSplit = false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     /// Flag to signal if the user intended for the non-spirv CPU target.
     bool NonSpirvCPU = false;
 #endif // INTEL_CUSTOMIZATION
-=======
+
     /// List of offload device toolchain, bound arch needed to track for
     /// different binary constructions.
     /// POD to hold information about a SYCL device action.
@@ -4585,7 +4584,6 @@ class OffloadingActionBuilder final {
       const char *BoundArch;
     };
     SmallVector<DeviceTargetInfo, 4> SYCLTargetInfoList;
->>>>>>> f54029d78ab072fb515a50d4d6b1b282bc4c0a9a
 
     /// The SYCL actions for the current input.
     /// One action per triple/boundarch.
@@ -5222,7 +5220,7 @@ class OffloadingActionBuilder final {
         }
 #if INTEL_CUSTOMIZATION
         SYCLDeviceLibLinked |= addPerformanceDeviceLibs(
-            *TC, FullLinkObjects,
+            TC, FullLinkObjects,
             C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
 #endif // INTEL_CUSTOMIZATION
         Action *FullDeviceLinkAction = nullptr;
