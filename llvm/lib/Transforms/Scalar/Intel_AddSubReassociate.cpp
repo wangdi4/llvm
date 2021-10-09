@@ -742,12 +742,10 @@ Value *Tree::generateCode() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void Tree::dump() const {
-  const unsigned Padding = 2;
-
   // First dump canonical representation.
   CanonForm::dump();
 
-  dbgs().indent(Padding) << "LLVM IR for " << getName() << "\n";
+  dbgs().indent(2) << "LLVM IR for " << getName() << "\n";
 
   // Then dump IR repesentation.
   std::function<void(Value *)> dumpTreeRec = [this, &dumpTreeRec](Value *V) {
@@ -763,7 +761,7 @@ LLVM_DUMP_METHOD void Tree::dump() const {
     else if (V == Root)
       Prefix = "(Root)";
 
-    dbgs().indent(Padding) << Prefix << " " << *V << "\n";
+    dbgs().indent(2) << Prefix << " " << *V << "\n";
   };
 
   if (Root && size())
