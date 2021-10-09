@@ -5112,20 +5112,69 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                             const EdgeInfo &UserTreeIdxC) {
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
-  SmallVector<Value *, 4> VL(
+  SmallVector<Value *> VL(
       iterator_range<ArrayRef<Value *>::iterator>(VL_.begin(), VL_.end()));
+  EdgeInfo UserTreeIdx = UserTreeIdxC;
 #endif // INTEL_CUSTOMIZATION
   assert((allConstant(VL) || allSameType(VL)) && "Invalid types!");
 
-  InstructionsState S = getSameOpcode(VL);
-
+  SmallVector<int> ReuseShuffleIndicies;
+  SmallVector<Value *> UniqueValues;
+  auto &&TryToFindDuplicates = [&VL, &ReuseShuffleIndicies, &UniqueValues,
+                                &UserTreeIdx,
+                                this](const InstructionsState &S) {
+    // Check that every instruction appears once in this bundle.
+    DenseMap<Value *, unsigned> UniquePositions;
 #if INTEL_CUSTOMIZATION
-  EdgeInfo UserTreeIdx = UserTreeIdxC;
+    SmallVector<int, 4> UniqueOpDirection;
+    unsigned CurrLane = 0;
 #endif // INTEL_CUSTOMIZATION
+    for (Value *V : VL) {
+      auto Res = UniquePositions.try_emplace(V, UniqueValues.size());
+      ReuseShuffleIndicies.emplace_back(isa<UndefValue>(V) ? -1
+                                                           : Res.first->second);
+#if INTEL_CUSTOMIZATION
+      if (Res.second) {
+        UniqueValues.emplace_back(V);
+        // If we shorten the VL, we should also shorten the OpDirection.
+        if (UserTreeIdx.UserTE)
+          UniqueOpDirection.push_back(UserTreeIdx.OpDirection[CurrLane]);
+      }
+      ++CurrLane;
+#endif // INTEL_CUSTOMIZATION
+    }
+    size_t NumUniqueScalarValues = UniqueValues.size();
+    if (NumUniqueScalarValues == VL.size()) {
+      ReuseShuffleIndicies.clear();
+    } else {
+      LLVM_DEBUG(dbgs() << "SLP: Shuffle for reused scalars.\n");
+#if INTEL_CUSTOMIZATION
+      // When we are building MultiNode it is important to not compress
+      // initial scalars even if there are duplicates because MN leaf
+      // operands must have same width as trunk nodes.
+      // MultiNode reordering may change original set of scalars so that
+      // all scalar operands may even become unique.
+      if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
+          !llvm::isPowerOf2_32(NumUniqueScalarValues)) {
+        LLVM_DEBUG(dbgs() << "SLP: Scalar used twice in bundle.\n");
+        newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+        return false;
+      }
+      VL = UniqueValues;
+      // Fix the OpDirection since we are modifying the VL.
+      UserTreeIdx.OpDirection = UniqueOpDirection;
+#endif // INTEL_CUSTOMIZATION
+    }
+    return true;
+  };
+
+  InstructionsState S = getSameOpcode(VL);
 
   if (Depth == RecursionMaxDepth) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to max recursion depth.\n");
-    newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+    if (TryToFindDuplicates(S))
+      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                   ReuseShuffleIndicies);
     return;
   }
 
@@ -5134,7 +5183,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       isa<ScalableVectorType>(
           cast<ExtractElementInst>(S.OpValue)->getVectorOperandType())) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to scalable vector type.\n");
-    newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+    if (TryToFindDuplicates(S))
+      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                   ReuseShuffleIndicies);
     return;
   }
 
@@ -5156,7 +5207,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   // If all of the operands are identical or constant we have a simple solution.
   if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL)) { // INTEL
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O. \n");
-    newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+    if (TryToFindDuplicates(S))
+      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                   ReuseShuffleIndicies);
     return;
   }
 
@@ -5186,7 +5239,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     LLVM_DEBUG(dbgs() << "SLP: \tChecking bundle: " << *S.OpValue << ".\n");
     if (!E->isSame(VL)) {
       LLVM_DEBUG(dbgs() << "SLP: Gathering due to partial overlap.\n");
-      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+      if (TryToFindDuplicates(S))
+        newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                     ReuseShuffleIndicies);
       return;
     }
     // Record the reuse of the tree node.  FIXME, currently this is only used to
@@ -5205,7 +5260,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     if (getTreeEntry(I)) {
       LLVM_DEBUG(dbgs() << "SLP: The instruction (" << *V
                         << ") is already in tree.\n");
-      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+      if (TryToFindDuplicates(S))
+        newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                     ReuseShuffleIndicies);
       return;
     }
   }
@@ -5216,7 +5273,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   for (Value *V : VL) {
     if (MustGather.count(V) || is_contained(UserIgnoreList, V)) {
       LLVM_DEBUG(dbgs() << "SLP: Gathering due to gathered scalar.\n");
-      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+      if (TryToFindDuplicates(S))
+        newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                     ReuseShuffleIndicies);
       return;
     }
   }
@@ -5235,6 +5294,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   }
 
   // Check that every instruction appears once in this bundle.
+#if 0
+<<<<<<< HEAD
   SmallVector<int> ReuseShuffleIndicies;
   SmallVector<Value *, 4> UniqueValues;
   DenseMap<Value *, unsigned> UniquePositions;
@@ -5277,6 +5338,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     UserTreeIdx.OpDirection = UniqueOpDirection;
 #endif // INTEL_CUSTOMIZATION
   }
+=======
+#endif
+  if (!TryToFindDuplicates(S))
+    return;
+// >>>>>>> bebe702dbe8c883fd534d718288ed18319dea1a1
 
   auto &BSRef = BlocksSchedules[BB];
   if (!BSRef)
