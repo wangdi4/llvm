@@ -49802,7 +49802,7 @@ static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
 
   switch (Opcode) {
   case ISD::FADD:
-  case ISD::FSUB: { // INTEL
+  case ISD::FSUB:
     if ((Subtarget.hasSSE3() && (VT == MVT::v4f32 || VT == MVT::v2f64)) ||
         (Subtarget.hasAVX() && (VT == MVT::v8f32 || VT == MVT::v4f64))) {
       SDValue LHS = N->getOperand(0);
@@ -49817,56 +49817,7 @@ static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
         return HorizBinOp;
       }
     }
-#if INTEL_CUSTOMIZATION
-    //  Try to combine the following nodes
-    //  t21: v16f32 = X86ISD::VFMULC/VFCMULC t7, t8
-    //  t15: v32f16 = bitcast t21
-    //  t16: v32f16 = fadd nnan ninf nsz arcp contract afn reassoc t15, t2
-    //  into X86ISD::VFMADDC/VFCMADDC if possible:
-    //  t22: v16f32 = bitcast t2
-    //  t23: v16f32 = nnan ninf nsz arcp contract afn reassoc
-    //                X86ISD::VFMADDC/VFCMADDC t7, t8, t22
-    //  t24: v32f16 = bitcast t23
-    SDValue LHS = N->getOperand(0);
-    SDValue RHS = N->getOperand(1);
-    auto getMulId = [&]() {
-      if (LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse() &&
-          (LHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
-           LHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
-           LHS->getOperand(0).hasOneUse())
-        return 0;
-      if (RHS->getOpcode() == ISD::BITCAST && RHS.hasOneUse() &&
-         (RHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
-          RHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
-          RHS->getOperand(0).hasOneUse())
-        return 1;
-      return 2;
-    };
-    int MulId = getMulId();
-    const TargetOptions &Options = DAG.getTarget().Options;
-    if ((Options.AllowFPOpFusion == FPOpFusion::Fast || Options.UnsafeFPMath) &&
-        MulId < 2 && Subtarget.hasFP16() && IsAdd &&
-        (VT == MVT::v32f16 || VT == MVT::v16f16 || VT == MVT::v8f16)) {
-      SDValue FAddOp1 = N->getOperand(1-MulId);
-      SDValue MULC = N->getOperand(MulId)->getOperand(0);
-      MVT ComplexType = MVT::getVectorVT(MVT::f32, VT.getVectorNumElements() / 2);
-      if ((MULC->getOpcode() == X86ISD::VFMULC ||
-           MULC->getOpcode() == X86ISD::VFCMULC) &&
-           MULC.hasOneUse() && MULC->getValueType(0) == ComplexType) {
-        SelectionDAG::FlagInserter FlagsInserter(DAG, N);
-        FAddOp1 = DAG.getBitcast(ComplexType, FAddOp1);
-        SDValue FMAddC =
-            DAG.getNode(MULC->getOpcode() == X86ISD::VFMULC ? X86ISD::VFMADDC
-                                                            : X86ISD::VFCMADDC,
-                        SDLoc(N), ComplexType, FAddOp1, MULC.getOperand(0),
-                        MULC.getOperand(1));
-        SDValue Res = DAG.getBitcast(VT, FMAddC);
-        return Res;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
     break;
-  } // INTEL
   case ISD::ADD:
   case ISD::SUB:
     if (Subtarget.hasSSSE3() && (VT == MVT::v8i16 || VT == MVT::v4i32 ||
