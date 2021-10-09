@@ -85,8 +85,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
             },
             ORE);
         assert(IC.getIsRecommended()); // INTEL
-        emitInlinedInto(ORE, CB->getDebugLoc(), CB->getParent(), F, *Caller,
-                        IC, false, DEBUG_TYPE); // INTEL
+        emitInlinedIntoBasedOnCost(ORE, CB->getDebugLoc(), CB->getParent(), F,
+                        *Caller, IC, false, DEBUG_TYPE); // INTEL
 
         InlineFunctionInfo IFI(
             /*cg=*/nullptr, GetAssumptionCache, &PSI,

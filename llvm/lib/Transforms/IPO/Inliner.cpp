@@ -730,7 +730,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             Caller->addFnAttr("no-more-recursive-inlining");
         }
         ILIC->invalidateFunction(Caller);
-        emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, IC);
+        emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC);
         IR->inlineCallSite();
         IR->endUpdate();
         MDIR->updateInliningReport();
