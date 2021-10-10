@@ -1511,10 +1511,10 @@ public:
         Type *CondTy = RetTy->getWithNewBitWidth(1);
         Cost +=
             thisT()->getCmpSelInstrCost(BinaryOperator::ICmp, RetTy, CondTy,
-                                        CmpInst::BAD_ICMP_PREDICATE, CostKind);
+                                        CmpInst::ICMP_EQ, CostKind);
         Cost +=
             thisT()->getCmpSelInstrCost(BinaryOperator::Select, RetTy, CondTy,
-                                        CmpInst::BAD_ICMP_PREDICATE, CostKind);
+                                        CmpInst::ICMP_EQ, CostKind);
       }
       return Cost;
     }

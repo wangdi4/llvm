@@ -930,22 +930,23 @@ public:
 
   /// Calls the specified callback function for all the loops in \p CurStmt,
   /// from the outermost to the innermost.
-  static bool doForAllLoops(Stmt *CurStmt, bool TryImperfectlyNestedLoops,
-                            unsigned NumLoops,
-                            llvm::function_ref<bool(unsigned, Stmt *)> Callback,
-                            llvm::function_ref<void(OMPLoopBasedDirective *)>
-                                OnTransformationCallback);
+  static bool
+  doForAllLoops(Stmt *CurStmt, bool TryImperfectlyNestedLoops,
+                unsigned NumLoops,
+                llvm::function_ref<bool(unsigned, Stmt *)> Callback,
+                llvm::function_ref<void(OMPLoopTransformationDirective *)>
+                    OnTransformationCallback);
   static bool
   doForAllLoops(const Stmt *CurStmt, bool TryImperfectlyNestedLoops,
                 unsigned NumLoops,
                 llvm::function_ref<bool(unsigned, const Stmt *)> Callback,
-                llvm::function_ref<void(const OMPLoopBasedDirective *)>
+                llvm::function_ref<void(const OMPLoopTransformationDirective *)>
                     OnTransformationCallback) {
     auto &&NewCallback = [Callback](unsigned Cnt, Stmt *CurStmt) {
       return Callback(Cnt, CurStmt);
     };
     auto &&NewTransformCb =
-        [OnTransformationCallback](OMPLoopBasedDirective *A) {
+        [OnTransformationCallback](OMPLoopTransformationDirective *A) {
           OnTransformationCallback(A);
         };
     return doForAllLoops(const_cast<Stmt *>(CurStmt), TryImperfectlyNestedLoops,
@@ -958,7 +959,7 @@ public:
   doForAllLoops(Stmt *CurStmt, bool TryImperfectlyNestedLoops,
                 unsigned NumLoops,
                 llvm::function_ref<bool(unsigned, Stmt *)> Callback) {
-    auto &&TransformCb = [](OMPLoopBasedDirective *) {};
+    auto &&TransformCb = [](OMPLoopTransformationDirective *) {};
     return doForAllLoops(CurStmt, TryImperfectlyNestedLoops, NumLoops, Callback,
                          TransformCb);
   }
@@ -992,6 +993,38 @@ public:
     if (auto *D = dyn_cast<OMPExecutableDirective>(T))
       return isOpenMPLoopDirective(D->getDirectiveKind());
     return false;
+  }
+};
+
+/// The base class for all loop transformation directives.
+class OMPLoopTransformationDirective : public OMPLoopBasedDirective {
+  friend class ASTStmtReader;
+
+protected:
+  explicit OMPLoopTransformationDirective(StmtClass SC,
+                                          OpenMPDirectiveKind Kind,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc,
+                                          unsigned NumAssociatedLoops)
+      : OMPLoopBasedDirective(SC, Kind, StartLoc, EndLoc, NumAssociatedLoops) {}
+
+public:
+  /// Return the number of associated (consumed) loops.
+  unsigned getNumAssociatedLoops() const { return getLoopsNumber(); }
+
+  /// Get the de-sugared statements after after the loop transformation.
+  ///
+  /// Might be nullptr if either the directive generates no loops and is handled
+  /// directly in CodeGen, or resolving a template-dependence context is
+  /// required.
+  Stmt *getTransformedStmt() const;
+
+  /// Return preinits statement.
+  Stmt *getPreInits() const;
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPTileDirectiveClass ||
+           T->getStmtClass() == OMPUnrollDirectiveClass;
   }
 };
 
@@ -5856,7 +5889,7 @@ public:
 };
 
 /// This represents the '#pragma omp tile' loop transformation directive.
-class OMPTileDirective final : public OMPLoopBasedDirective {
+class OMPTileDirective final : public OMPLoopTransformationDirective {
   friend class ASTStmtReader;
   friend class OMPExecutableDirective;
 
@@ -5868,8 +5901,9 @@ class OMPTileDirective final : public OMPLoopBasedDirective {
 
   explicit OMPTileDirective(SourceLocation StartLoc, SourceLocation EndLoc,
                             unsigned NumLoops)
-      : OMPLoopBasedDirective(OMPTileDirectiveClass, llvm::omp::OMPD_tile,
-                              StartLoc, EndLoc, NumLoops) {}
+      : OMPLoopTransformationDirective(OMPTileDirectiveClass,
+                                       llvm::omp::OMPD_tile, StartLoc, EndLoc,
+                                       NumLoops) {}
 
   void setPreInits(Stmt *PreInits) {
     Data->getChildren()[PreInitsOffset] = PreInits;
@@ -5906,8 +5940,6 @@ public:
   static OMPTileDirective *CreateEmpty(const ASTContext &C, unsigned NumClauses,
                                        unsigned NumLoops);
 
-  unsigned getNumAssociatedLoops() const { return getLoopsNumber(); }
-
   /// Gets/sets the associated loops after tiling.
   ///
   /// This is in de-sugared format stored as a CompoundStmt.
@@ -5937,7 +5969,7 @@ public:
 /// #pragma omp unroll
 /// for (int i = 0; i < 64; ++i)
 /// \endcode
-class OMPUnrollDirective final : public OMPLoopBasedDirective {
+class OMPUnrollDirective final : public OMPLoopTransformationDirective {
   friend class ASTStmtReader;
   friend class OMPExecutableDirective;
 
@@ -5948,8 +5980,9 @@ class OMPUnrollDirective final : public OMPLoopBasedDirective {
   };
 
   explicit OMPUnrollDirective(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPLoopBasedDirective(OMPUnrollDirectiveClass, llvm::omp::OMPD_unroll,
-                              StartLoc, EndLoc, 1) {}
+      : OMPLoopTransformationDirective(OMPUnrollDirectiveClass,
+                                       llvm::omp::OMPD_unroll, StartLoc, EndLoc,
+                                       1) {}
 
   /// Set the pre-init statements.
   void setPreInits(Stmt *PreInits) {
