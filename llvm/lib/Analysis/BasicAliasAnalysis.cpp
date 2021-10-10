@@ -67,6 +67,7 @@ using namespace llvm;
 static cl::opt<bool> EnableRecPhiAnalysis("basic-aa-recphi", cl::Hidden,
                                           cl::init(true));
 
+<<<<<<< HEAD
 /// By default, even on 32-bit architectures we use 64-bit integers for
 /// calculations. This will allow us to more-aggressively decompose indexing
 /// expressions calculated using i64 values (e.g., long long in C) which is
@@ -83,6 +84,8 @@ cl::opt<unsigned> BasicAAResult::OptPtrMaxUsesToExplore(
         "Maximum number of pointer uses to explore when checking for capture"));
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 1301a8b473c614f99171728d928b424b56e7ed27
 /// SearchLimitReached / SearchTimes shows how often the limit of
 /// to decompose GEPs is reached. It will affect the precision
 /// of basic alias analysis.
@@ -554,14 +557,6 @@ static APInt adjustToPointerSize(const APInt &Offset, unsigned PointerSize) {
   return (Offset << ShiftBits).ashr(ShiftBits);
 }
 
-static unsigned getMaxPointerSize(const DataLayout &DL) {
-  unsigned MaxPointerSize = DL.getMaxPointerSizeInBits();
-  if (MaxPointerSize < 64 && ForceAtLeast64Bits) MaxPointerSize = 64;
-  if (DoubleCalcBits) MaxPointerSize *= 2;
-
-  return MaxPointerSize;
-}
-
 namespace {
 // A linear transformation of a Value; this class represents
 // ZExt(SExt(V, SExtBits), ZExtBits) * Scale.
@@ -713,7 +708,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
   SearchTimes++;
   const Instruction *CxtI = dyn_cast<Instruction>(V);
 
-  unsigned MaxPointerSize = getMaxPointerSize(DL);
+  unsigned MaxPointerSize = DL.getMaxPointerSizeInBits();
   DecomposedGEP Decomposed;
   Decomposed.Offset = APInt(MaxPointerSize, 0);
   Decomposed.HasCompileTimeConstantScale = true;
