@@ -1605,7 +1605,7 @@ OclBuiltinDB::getOclType(const std::string& name) const
 {
   if (m_TypeMap.find(name) != m_TypeMap.end())
     return m_TypeMap.find(name)->second;
-  report_fatal_error("GenType " + name + " is not defined");
+  report_fatal_error(Twine("GenType " + name + " is not defined"));
   return 0;
 }
 
