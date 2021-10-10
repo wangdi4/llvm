@@ -351,7 +351,15 @@ namespace clang {
         }
       }
 
+<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
+=======
+      // FIXME: Fix cleanup issues with clearing the AST when we properly free
+      // things.
+      if (CodeGenOpts.DisableFree && CodeGenOpts.ClearASTBeforeBackend)
+        C.getAllocator().Reset();
+
+>>>>>>> 6522b7cc3240626952ebc271d8714043a805911d
       EmbedBitcode(getModule(), CodeGenOpts, llvm::MemoryBufferRef());
 #endif // !INTEL_PRODUCT_RELEASE
 
