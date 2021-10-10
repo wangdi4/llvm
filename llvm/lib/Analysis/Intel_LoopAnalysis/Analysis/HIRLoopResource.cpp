@@ -267,7 +267,8 @@ private:
   void visitMinMaxExpr(const SCEVMinMaxExpr *Expr) {
     unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCmpSelInstrCost(
         Instruction::ICmp, Expr->getType(),
-        CmpInst::makeCmpResultType(Expr->getType())));
+        CmpInst::makeCmpResultType(Expr->getType()),
+        CmpInst::BAD_ICMP_PREDICATE));
     LRV.SelfLRI->addIntOps(Cost, Expr->getNumOperands() - 1);
 
     visitNAryExpr(cast<SCEVNAryExpr>(Expr));
@@ -642,7 +643,7 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
     PredicateTy Pred = HInst->getPredicate();
     Cost = TTI.getCmpSelInstrCost(
         CmpInst::isIntPredicate(Pred) ? Instruction::ICmp : Instruction::FCmp,
-        CmpTy, CmpInst::makeCmpResultType(CmpTy));
+        CmpTy, CmpInst::makeCmpResultType(CmpTy), CmpInst::BAD_ICMP_PREDICATE);
 
   } else if (Inst->mayReadOrWriteMemory()) {
     return LoopResourceInfo::OperationCost::MemOp;
@@ -687,7 +688,8 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
 
     if (IsSelect) {
       InstructionCost SelectCost = TTI.getCmpSelInstrCost(
-          Instruction::Select, OpTy, CmpInst::makeCmpResultType(OpTy));
+          Instruction::Select, OpTy, CmpInst::makeCmpResultType(OpTy),
+          CmpInst::BAD_ICMP_PREDICATE);
       SelfLRI->addIntOps(getNormalizedCost(SelectCost));
     }
 
@@ -711,12 +713,14 @@ void LoopResourceInfo::LoopResourceVisitor::addPredicateOps(Type *Ty,
   // Add number of compares.
   if (Ty->isFPOrFPVectorTy()) {
     Cost = getNormalizedCost(TTI.getCmpSelInstrCost(
-        Instruction::FCmp, Ty, CmpInst::makeCmpResultType(Ty)));
+        Instruction::FCmp, Ty, CmpInst::makeCmpResultType(Ty),
+        CmpInst::BAD_ICMP_PREDICATE));
     SelfLRI->addFPOps(Cost, Num);
 
   } else {
     Cost = getNormalizedCost(TTI.getCmpSelInstrCost(
-        Instruction::ICmp, Ty, CmpInst::makeCmpResultType(Ty)));
+        Instruction::ICmp, Ty, CmpInst::makeCmpResultType(Ty),
+        CmpInst::BAD_ICMP_PREDICATE));
     SelfLRI->addIntOps(Cost, Num);
   }
 }
