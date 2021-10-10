@@ -221,7 +221,10 @@ public:
   bool run();
 };
 
-constexpr uint64_t SafeStack::StackAlignment;
+// INTEL_CUSTOMIZATION
+// TODO: Uncomment once constexpr uint64_6 reappears in LLVM.org
+// constexpr uint64_t SafeStack::StackAlignment;
+// end INTEL_CUSTOMIZATION
 
 uint64_t SafeStack::getStaticAllocaAllocationSize(const AllocaInst* AI) {
   uint64_t Size = DL.getTypeAllocSize(AI->getAllocatedType());
