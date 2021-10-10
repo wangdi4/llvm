@@ -3947,7 +3947,7 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
       Function *F = InsertPt->getFunction();
       F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
     } else
-      report_fatal_error(Msg);
+      report_fatal_error(Twine(Msg));
   }
 
   llvm_unreachable(Msg.c_str());
