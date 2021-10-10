@@ -7178,6 +7178,7 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   if (!Latch || !Predecessor)
     return ConstantRange::getFull(BitWidth);
 
+<<<<<<< HEAD
   // Get the range implied by the value before the loop starts, as well as the
   // number of times the loop could be executed. If we can't get any clues about
   // those values, bail out of this process.
@@ -7205,6 +7206,27 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
     IncSRange = IncSRange.unionWith(getRangeRef(Inc, HINT_RANGE_SIGNED));
     IncURange = IncURange.unionWith(getRangeRef(Inc, HINT_RANGE_UNSIGNED));
   }
+=======
+const Instruction *
+ScalarEvolution::getNonTrivialDefiningScopeBound(const SCEV *S) {
+  if (auto *AddRec = dyn_cast<SCEVAddRecExpr>(S))
+    return &*AddRec->getLoop()->getHeader()->begin();
+  if (auto *U = dyn_cast<SCEVUnknown>(S))
+    if (auto *I = dyn_cast<Instruction>(U->getValue()))
+      return I;
+  return nullptr;
+}
+
+const Instruction *
+ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
+  const Instruction *Bound = nullptr;
+  for (auto *S : Ops)
+    if (auto *DefI = getNonTrivialDefiningScopeBound(S))
+      if (!Bound || DT.dominates(Bound, DefI))
+        Bound = DefI;
+  return Bound ? Bound : &*F.getEntryBlock().begin();
+}
+>>>>>>> 17c20a6dfb7c89ac4eb13990308b731263345918
 
   // Now we know the starting values, and bounds on the increment. Akin to the
   // method for getRangeForAffineAR above, use the helper method to compute the
