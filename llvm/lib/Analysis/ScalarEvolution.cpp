@@ -7256,6 +7256,7 @@ static bool getRefinedFlagsUsingConstantFoldingRec(
   if (!UserBinOp || UserBinOp->getOpcode() != OrigOpcode)
     return false;
 
+<<<<<<< HEAD
   if (!getRefinedFlags(UserBinOp, Flags))
     return false;
 
@@ -7571,6 +7572,9 @@ bool ScalarEvolution::isSCEVExprNeverPoison(const Instruction *I) {
       InnermostContainingLoop->getHeader() != I->getParent())
     return false;
 
+=======
+bool ScalarEvolution::isSCEVExprNeverPoison(const Instruction *I) {
+>>>>>>> 0658bab870c89d81678f1f37aac0396ddd0913b3
   // Only proceed if we can prove that I does not yield poison.
   if (!programUndefinedIfPoison(I))
     return false;
