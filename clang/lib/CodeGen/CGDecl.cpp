@@ -1203,7 +1203,7 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
     GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
     GV = addDTransInfoToGlobal(&D, GV, Ty); // INTEL
     CacheEntry = GV;
-  } else if (CacheEntry->getAlignment() < Align.getQuantity()) {
+  } else if (CacheEntry->getAlignment() < uint64_t(Align.getQuantity())) {
     CacheEntry->setAlignment(Align.getAsAlign());
   }
 
