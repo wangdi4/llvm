@@ -1,10 +1,6 @@
 ; RUN: opt -S -basic-aa -gvn < %s | FileCheck %s
-<<<<<<< HEAD
-; RUN: opt -S -basic-aa -gvn -basic-aa-force-at-least-64b=0 < %s | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -S -basic-aa -gvn | FileCheck %s
-=======
->>>>>>> 1301a8b473c614f99171728d928b424b56e7ed27
 
 target datalayout = "e-m:o-p:32:32-f64:32:64-f80:128-n8:16:32-S128"
 target triple = "i386-apple-macosx10.6.0"
