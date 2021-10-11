@@ -12,7 +12,7 @@
 ; CHECK: |      (%q)[i1 + 1] = %index.4184.out + -1 * %1;
 ; CHECK: |      %2 = (%p)[i1 + 1];
 ; CHECK: |      %index.4184 = %2  +  %index.4184;
-; CHECK: |      %3 = (%huffcode)[0][%index.4184 + -1];
+; CHECK: |      %3 = (%huffcode)[0][sext.i32.i64(%index.4184) + -1];
 ; CHECK: |      %.sink = %3;
 ; CHECK: |   }
 ; CHECK: |   (%r)[i1 + 1] = %.sink;
