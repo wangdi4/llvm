@@ -39,11 +39,14 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
+<<<<<<< HEAD
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif // INTEL_COLLAB
+=======
+>>>>>>> 48a5a2d1af2515b1658f3130675ad0c209250077
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -59,11 +62,6 @@ using namespace vpo;
 #endif // INTEL_COLLAB
 
 #define DEBUG_TYPE "basicblock-utils"
-
-static cl::opt<unsigned> MaxDeoptimizingCheckDepth(
-    "max-deopt-check-depth", cl::init(8), cl::Hidden,
-    cl::desc("Set the maximum path length when checking whether a basic block "
-             "is deoptimizing"));
 
 void llvm::DetatchDeadBlocks(
     ArrayRef<BasicBlock *> BBs,
@@ -501,20 +499,6 @@ void llvm::ReplaceInstWithInst(BasicBlock::InstListType &BIL,
 
   // Move BI back to point to the newly inserted instruction
   BI = New;
-}
-
-bool llvm::IsBlockFollowedByDeoptOrUnreachable(const BasicBlock *BB) {
-  // Remember visited blocks to avoid infinite loop
-  SmallPtrSet<const BasicBlock *, 8> VisitedBlocks;
-  unsigned Depth = 0;
-  while (BB && Depth++ < MaxDeoptimizingCheckDepth &&
-         VisitedBlocks.insert(BB).second) {
-    if (BB->getTerminatingDeoptimizeCall() ||
-        isa<UnreachableInst>(BB->getTerminator()))
-      return true;
-    BB = BB->getSingleSuccessor();
-  }
-  return false;
 }
 
 void llvm::ReplaceInstWithInst(Instruction *From, Instruction *To) {
