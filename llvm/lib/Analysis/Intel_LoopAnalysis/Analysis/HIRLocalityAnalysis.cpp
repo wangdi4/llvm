@@ -599,7 +599,7 @@ void HIRLoopLocality::initTripCountByLevel(
 
   for (auto Loop : Loops) {
     uint64_t TripCnt = 0;
-    unsigned PragmaTripCnt;
+    unsigned PragmaTripCnt = 0;
     unsigned Level = Loop->getNestingLevel();
     int64_t LoopStrideVal = 1;
     Loop->getStrideDDRef()->isIntConstant(&LoopStrideVal);
@@ -618,7 +618,10 @@ void HIRLoopLocality::initTripCountByLevel(
                Loop->getPragmaBasedMaximumTripCount(PragmaTripCnt)) {
       // Prioritize a pragma-based average or max estimate, in that order. Note
       // that PragmaTripCnt is uint32_t, so we effectively have the same
-      // headroom for avoiding overflow.
+      // headroom for avoiding overflow. If after transformations pragma value
+      // became 0, use 1 for trip count estimation instead.
+      if (!PragmaTripCnt)
+        PragmaTripCnt = 1;
       TripCountByLevel[Level - 1] = PragmaTripCnt;
     } else if ((TripCnt = Loop->getMaxTripCountEstimate())) {
       // Clamp max trip count to SymbolicTC if based on estimate.

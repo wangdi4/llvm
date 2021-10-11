@@ -47,8 +47,11 @@ attributes #0 = { "vector-variants"="_ZGVeM16_bar" }
 ; CHECK-NO-FLAG: attributes #0 = { "vector-variants"="_ZGVeM16_bar" }
 ; CHECK-NO-FLAG-NOT: vector-variants
 
+!sycl.kernels = !{!3}
+
 !0 = !{i32 8}
 !1 = !{i32 16}
 !2 = !{i32 32}
+!3 = !{void ()* @kernel, void ()* @kernel2, void ()* @kernel3}
 
 ; DEBUGIFY-NOT: WARNING
