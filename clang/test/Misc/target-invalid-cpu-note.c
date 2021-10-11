@@ -1,13 +1,10 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // INTEL_FEATURE_ISA_AVX256
 // UNSUPPORTED: intel_feature_isa_avx256
 // end INTEL_FEATURE_ISA_AVX256
 // end INTEL_CUSTOMIZATION
 
-=======
 // Use CHECK-NEXT instead of multiple CHECK-SAME to ensure we will fail if there is anything extra in the output.
->>>>>>> 6d276595d1ce734a2269f6d3828dc457d7da99c4
 // RUN: not %clang_cc1 -triple armv5--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix ARM
 // ARM: error: unknown target CPU 'not-a-cpu'
 // ARM-NEXT: note: valid target CPU values are: arm8, arm810, strongarm, strongarm110, strongarm1100, strongarm1110, arm7tdmi, arm7tdmi-s, arm710t, arm720t, arm9, arm9tdmi, arm920, arm920t, arm922t, arm940t, ep9312, arm10tdmi, arm1020t, arm9e, arm946e-s, arm966e-s, arm968e-s, arm10e, arm1020e, arm1022e, arm926ej-s, arm1136j-s, arm1136jf-s, mpcore, mpcorenovfp, arm1176jz-s, arm1176jzf-s, arm1156t2-s, arm1156t2f-s, cortex-m0, cortex-m0plus, cortex-m1, sc000, cortex-a5, cortex-a7, cortex-a8, cortex-a9, cortex-a12, cortex-a15, cortex-a17, krait, cortex-r4, cortex-r4f, cortex-r5, cortex-r7, cortex-r8, cortex-r52, sc300, cortex-m3, cortex-m4, cortex-m7, cortex-m23, cortex-m33, cortex-m35p, cortex-m55, cortex-a32, cortex-a35, cortex-a53, cortex-a55, cortex-a57, cortex-a72, cortex-a73, cortex-a75, cortex-a76, cortex-a76ae, cortex-a77, cortex-a78, cortex-a78c, cortex-x1, neoverse-n1, neoverse-n2, neoverse-v1, cyclone, exynos-m3, exynos-m4, exynos-m5, kryo, iwmmxt, xscale, swift{{$}}
@@ -22,72 +19,19 @@
 
 // RUN: not %clang_cc1 -triple i386--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix X86
 // X86: error: unknown target CPU 'not-a-cpu'
-<<<<<<< HEAD
-// X86: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3,
-// X86-SAME: i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3,
-// X86-SAME: pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott,
-// X86-SAME: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont,
-// X86-SAME: nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge,
-// X86-SAME: core-avx-i, haswell, core-avx2, broadwell, common-avx512, skylake, skylake-avx512,
-// X86-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3,
-// X86-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
-// X86-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
-// X86-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3,
-// X86-SAME: x86-64, x86-64-v2, x86-64-v3, x86-64-v4, geode{{$}}
+// X86-NEXT: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3, i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3, pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott, nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, common-avx512, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3, athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, x86-64-v2, x86-64-v3, x86-64-v4, geode{{$}} ;INTEL
 
 // RUN: not %clang_cc1 -triple x86_64--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix X86_64
 // X86_64: error: unknown target CPU 'not-a-cpu'
-// X86_64: note: valid target CPU values are: nocona, core2, penryn, bonnell,
-// X86_64-SAME: atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere,
-// X86_64-SAME: sandybridge, corei7-avx, ivybridge, core-avx-i, haswell,
-// X86_64-SAME: core-avx2, broadwell, common-avx512, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake,
-// X86_64-SAME: icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, k8, athlon64, athlon-fx, opteron, k8-sse3,
-// X86_64-SAME: athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1,
-// X86_64-SAME: btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3,
-// X86_64-SAME: x86-64, x86-64-v2, x86-64-v3, x86-64-v4{{$}}
+// X86_64-NEXT: note: valid target CPU values are: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, common-avx512, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, x86-64-v2, x86-64-v3, x86-64-v4{{$}} ;INTEL
 
 // RUN: not %clang_cc1 -triple i386--- -tune-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix TUNE_X86
 // TUNE_X86: error: unknown target CPU 'not-a-cpu'
-// TUNE_X86: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3,
-// TUNE_X86-SAME: i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3,
-// TUNE_X86-SAME: pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott,
-// TUNE_X86-SAME: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont,
-// TUNE_X86-SAME: nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge,
-// TUNE_X86-SAME: core-avx-i, haswell, core-avx2, broadwell, {{.*}}skylake, skylake-avx512, ;INTEL
-// TUNE_X86-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3,
-// TUNE_X86-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
-// TUNE_X86-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
-// TUNE_X86-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3,
-// TUNE_X86-SAME: x86-64, geode{{$}}
+// TUNE_X86-NEXT: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3, i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3, pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott, nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, {{.*}}skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3, athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, geode{{$}} ;INTEL
 
 // RUN: not %clang_cc1 -triple x86_64--- -tune-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix TUNE_X86_64
 // TUNE_X86_64: error: unknown target CPU 'not-a-cpu'
-// TUNE_X86_64: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3,
-// TUNE_X86_64-SAME: i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3,
-// TUNE_X86_64-SAME: pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott,
-// TUNE_X86_64-SAME: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont,
-// TUNE_X86_64-SAME: nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge,
-// TUNE_X86_64-SAME: core-avx-i, haswell, core-avx2, broadwell, {{.*}}skylake, skylake-avx512, ;INTEL
-// TUNE_X86_64-SAME: skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3,
-// TUNE_X86_64-SAME: athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64,
-// TUNE_X86_64-SAME: athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10,
-// TUNE_X86_64-SAME: barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3,
-// TUNE_X86_64-SAME: x86-64, geode{{$}}
-=======
-// X86-NEXT: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3, i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3, pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott, nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3, athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, x86-64-v2, x86-64-v3, x86-64-v4, geode{{$}}
-
-// RUN: not %clang_cc1 -triple x86_64--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix X86_64
-// X86_64: error: unknown target CPU 'not-a-cpu'
-// X86_64-NEXT: note: valid target CPU values are: nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, x86-64-v2, x86-64-v3, x86-64-v4{{$}}
-
-// RUN: not %clang_cc1 -triple i386--- -tune-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix TUNE_X86
-// TUNE_X86: error: unknown target CPU 'not-a-cpu'
-// TUNE_X86-NEXT: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3, i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3, pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott, nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3, athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, geode{{$}}
-
-// RUN: not %clang_cc1 -triple x86_64--- -tune-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix TUNE_X86_64
-// TUNE_X86_64: error: unknown target CPU 'not-a-cpu'
-// TUNE_X86_64-NEXT: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3, i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3, pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott, nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3, athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, geode{{$}}
->>>>>>> 6d276595d1ce734a2269f6d3828dc457d7da99c4
+// TUNE_X86_64-NEXT: note: valid target CPU values are: i386, i486, winchip-c6, winchip2, c3, i586, pentium, pentium-mmx, pentiumpro, i686, pentium2, pentium3, pentium3m, pentium-m, c3-2, yonah, pentium4, pentium4m, prescott, nocona, core2, penryn, bonnell, atom, silvermont, slm, goldmont, goldmont-plus, tremont, nehalem, corei7, westmere, sandybridge, corei7-avx, ivybridge, core-avx-i, haswell, core-avx2, broadwell, {{.*}}skylake, skylake-avx512, skx, cascadelake, cooperlake, cannonlake, icelake-client, rocketlake, icelake-server, tigerlake, sapphirerapids, alderlake, knl, knm, lakemont, k6, k6-2, k6-3, athlon, athlon-tbird, athlon-xp, athlon-mp, athlon-4, k8, athlon64, athlon-fx, opteron, k8-sse3, athlon64-sse3, opteron-sse3, amdfam10, barcelona, btver1, btver2, bdver1, bdver2, bdver3, bdver4, znver1, znver2, znver3, x86-64, geode{{$}} ;INTEL
 
 // RUN: not %clang_cc1 -triple nvptx--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix NVPTX
 // NVPTX: error: unknown target CPU 'not-a-cpu'
