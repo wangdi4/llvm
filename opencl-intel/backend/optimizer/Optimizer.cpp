@@ -110,7 +110,6 @@ llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
-llvm::ModulePass* createIndirectCallLoweringPass();
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
@@ -692,7 +691,7 @@ static void populatePassesPostFailCheck(
       PM.add(createImplicitGIDPass(/*HandleBarrier*/ false));
     PM.add(llvm::createDPCPPKernelWGLoopCreatorLegacyPass());
   }
-  PM.add(createIndirectCallLoweringPass());
+  PM.add(createIndirectCallLoweringLegacyPass());
 
   // Clean up scalar kernel after WGLoop for native subgroups.
   if (OptLevel > 0) {
