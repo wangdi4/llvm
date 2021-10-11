@@ -22,7 +22,7 @@
 ; CHECK-DAG: call{{.*}}foo.omp.destr{{.*}}[[YADDR]]
 ; CHECK: ret i32
 
-; The kmp_task_t thunk is allocated with the "9" flag which indicates that
+; The kmp_task_t thunk is allocated with the "0x9" flags which indicates that
 ; the destructor thunk should be called.
 
 ; CHECK: omp_task_alloc{{.*}}i32 9
