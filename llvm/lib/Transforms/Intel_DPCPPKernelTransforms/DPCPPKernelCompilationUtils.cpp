@@ -1322,7 +1322,7 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // Detect pointer qualifier
       // Test for opaque types: images, queue_t, pipe_t
       StructType *ST = dyn_cast<StructType>(PTy->getElementType());
-      if (ST) {
+      if (ST && ST->hasName()) {
         char const oclOpaquePref[] = "opencl.";
         const size_t oclOpaquePrefLen =
             sizeof(oclOpaquePref) - 1; // sizeof also counts the terminating 0
