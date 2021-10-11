@@ -23574,6 +23574,7 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
                                            int &RefinementSteps,
                                            bool &UseOneConstNR,
                                            bool Reciprocal) const {
+  SDLoc DL(Op);
   EVT VT = Op.getValueType();
 
   // SSE1 has rsqrtss and rsqrtps. AVX adds a 256-bit variant for rsqrtps.
@@ -23595,7 +23596,23 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
     UseOneConstNR = false;
     // There is no FSQRT for 512-bits, but there is RSQRT14.
     unsigned Opcode = VT == MVT::v16f32 ? X86ISD::RSQRT14 : X86ISD::FRSQRT;
-    return DAG.getNode(Opcode, SDLoc(Op), VT, Op);
+    return DAG.getNode(Opcode, DL, VT, Op);
+  }
+
+  if (VT.getScalarType() == MVT::f16 && isTypeLegal(VT) &&
+      Subtarget.hasFP16()) {
+    if (RefinementSteps == ReciprocalEstimate::Unspecified)
+      RefinementSteps = 0;
+
+    if (VT == MVT::f16) {
+      SDValue Zero = DAG.getIntPtrConstant(0, DL);
+      SDValue Undef = DAG.getUNDEF(MVT::v8f16);
+      Op = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, MVT::v8f16, Op);
+      Op = DAG.getNode(X86ISD::RSQRT14S, DL, MVT::v8f16, Undef, Op);
+      return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, MVT::f16, Op, Zero);
+    }
+
+    return DAG.getNode(X86ISD::RSQRT14, DL, VT, Op);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -23642,6 +23659,7 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
 SDValue X86TargetLowering::getRecipEstimate(SDValue Op, SelectionDAG &DAG,
                                             int Enabled,
                                             int &RefinementSteps) const {
+  SDLoc DL(Op);
   EVT VT = Op.getValueType();
 
   // SSE1 has rcpss and rcpps. AVX adds a 256-bit variant for rcpps.
@@ -23666,6 +23684,7 @@ SDValue X86TargetLowering::getRecipEstimate(SDValue Op, SelectionDAG &DAG,
 
     // There is no FSQRT for 512-bits, but there is RCP14.
     unsigned Opcode = VT == MVT::v16f32 ? X86ISD::RCP14 : X86ISD::FRCP;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Prefer VRCP14PS over VRCPPS for following reasons:
     //   1. Higher accuracy: 2^-14 v.s 2^-12
@@ -23676,6 +23695,25 @@ SDValue X86TargetLowering::getRecipEstimate(SDValue Op, SelectionDAG &DAG,
       Opcode = X86ISD::RCP14;
 #endif // INTEL_CUSTOMIZATION
     return DAG.getNode(Opcode, SDLoc(Op), VT, Op);
+=======
+    return DAG.getNode(Opcode, DL, VT, Op);
+  }
+
+  if (VT.getScalarType() == MVT::f16 && isTypeLegal(VT) &&
+      Subtarget.hasFP16()) {
+    if (RefinementSteps == ReciprocalEstimate::Unspecified)
+      RefinementSteps = 0;
+
+    if (VT == MVT::f16) {
+      SDValue Zero = DAG.getIntPtrConstant(0, DL);
+      SDValue Undef = DAG.getUNDEF(MVT::v8f16);
+      Op = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, MVT::v8f16, Op);
+      Op = DAG.getNode(X86ISD::RCP14S, DL, MVT::v8f16, Undef, Op);
+      return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, MVT::f16, Op, Zero);
+    }
+
+    return DAG.getNode(X86ISD::RCP14, DL, VT, Op);
+>>>>>>> c236883b6ba791881256b31cfdb8a8520a821a67
   }
   return SDValue();
 }
