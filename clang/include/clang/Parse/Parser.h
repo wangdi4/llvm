@@ -2029,6 +2029,9 @@ private:
                                           Sema::ConditionKind CK,
                                           ForRangeInfo *FRI = nullptr,
                                           bool EnterForConditionScope = false);
+  DeclGroupPtrTy
+  ParseAliasDeclarationInInitStatement(DeclaratorContext Context,
+                                       ParsedAttributesWithRange &Attrs);
 
   //===--------------------------------------------------------------------===//
   // C++ Coroutines
@@ -2516,7 +2519,12 @@ private:
     if (getLangOpts().OpenMP)
       Actions.startOpenMPLoop();
     if (getLangOpts().CPlusPlus)
+<<<<<<< HEAD
       return isCXXSimpleDeclaration(AllowForRangeDecl);         //***INTEL
+=======
+      return Tok.is(tok::kw_using) ||
+             isCXXSimpleDeclaration(/*AllowForRangeDecl=*/true);
+>>>>>>> ff013b61004b01043bdbebb6416c30ecb3d3d48c
     return isDeclarationSpecifier(true);
   }
 
