@@ -1371,7 +1371,6 @@ AliasResult BasicAAResult::aliasGEP(
 
   // For GEPs with identical offsets, we can preserve the size and AAInfo
   // when performing the alias check on the underlying objects.
-<<<<<<< HEAD
   if (DecompGEP1.Offset == 0 &&
       DecompGEP1.Base == UnderlyingV1 && // INTEL
       DecompGEP2.Base == UnderlyingV2 && // INTEL
@@ -1380,12 +1379,12 @@ AliasResult BasicAAResult::aliasGEP(
     AliasResult PreciseBaseAlias = AliasResult::MayAlias;
     if (AAQI.NeedLoopCarried)
       PreciseBaseAlias = getBestAAResults().loopCarriedAlias(
-          MemoryLocation(UnderlyingV1, V1Size),
-          MemoryLocation(UnderlyingV2, V2Size), AAQI);
+          MemoryLocation(DecompGEP1.Base, V1Size),
+          MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     else
       PreciseBaseAlias = getBestAAResults().alias(
-          MemoryLocation(UnderlyingV1, V1Size),
-          MemoryLocation(UnderlyingV2, V2Size), AAQI);
+          MemoryLocation(DecompGEP1.Base, V1Size),
+          MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     return PreciseBaseAlias;
 #endif // INTEL_CUSTOMIZATION
   }
@@ -1395,24 +1394,13 @@ AliasResult BasicAAResult::aliasGEP(
   AliasResult BaseAlias = AliasResult::MayAlias;
   if (AAQI.NeedLoopCarried)
     BaseAlias = getBestAAResults().loopCarriedAlias(
-        MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-        MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+        MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
+        MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
   else
     BaseAlias = getBestAAResults().alias(
-        MemoryLocation::getBeforeOrAfter(UnderlyingV1),
-        MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
+        MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
+        MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (DecompGEP1.Offset == 0 && DecompGEP1.VarIndices.empty())
-    return getBestAAResults().alias(MemoryLocation(DecompGEP1.Base, V1Size),
-                                    MemoryLocation(DecompGEP2.Base, V2Size),
-                                    AAQI);
-
-  // Do the base pointers alias?
-  AliasResult BaseAlias = getBestAAResults().alias(
-      MemoryLocation::getBeforeOrAfter(DecompGEP1.Base),
-      MemoryLocation::getBeforeOrAfter(DecompGEP2.Base), AAQI);
->>>>>>> c77a5c21bbf061bdfdfa90a62aa60679c5810306
 
   // If we get a No or May, then return it immediately, no amount of analysis
   // will improve this situation.
