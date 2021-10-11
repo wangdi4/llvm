@@ -2078,6 +2078,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
   SingleBBBonus = Threshold * SingleBBBonusPercent / 100;
   VectorBonus = Threshold * VectorBonusPercent / 100;
 
+<<<<<<< HEAD
   bool OnlyOneCallAndLocalLinkage =
 #if INTEL_CUSTOMIZATION
        (F.hasLocalLinkage()
@@ -2089,6 +2090,10 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #endif // INTEL_FEATURE_SW_ADVANCED
        ;
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool OnlyOneCallAndLocalLinkage = F.hasLocalLinkage() && F.hasOneLiveUse() &&
+                                    &F == Call.getCalledFunction();
+>>>>>>> 11c8efd4db0fe58a2858459353cc5c0c41565ee5
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
   // Cost in updateThreshold, but the bonus depends on the logic in this method.
@@ -2924,11 +2929,16 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
     YesReasonVector.push_back(InlrSingleBasicBlockWithTest);
 #endif // INTEL_FEATURE_SW_ADVANCED
 
+<<<<<<< HEAD
   bool OnlyOneCallAndLocalLinkage =
       (F.hasLocalLinkage()
        || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
       F.hasOneUse() && &F == CandidateCall.getCalledFunction();
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool OnlyOneCallAndLocalLinkage = F.hasLocalLinkage() && F.hasOneLiveUse() &&
+                                    &F == CandidateCall.getCalledFunction();
+>>>>>>> 11c8efd4db0fe58a2858459353cc5c0c41565ee5
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
