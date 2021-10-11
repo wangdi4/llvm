@@ -51,8 +51,6 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   SmallString<256> TypeName;
   llvm::raw_svector_ostream OS(TypeName);
   OS << RD->getKindName() << '.';
-
-<<<<<<< HEAD
   // NOTE: The following block of code is copied from CLANG-3.6 with
   // support of OpenCLCPlusPlus. It is rather the temporary solution
   // that is going to be used until the general solution is ported/developed
@@ -63,17 +61,13 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
 #if INTEL_CUSTOMIZATION
   // For DTrans info emission, these mangling names are useful for merging
   // struct types, so do it for DTrans Info emission as well.
-  if (getContext().getLangOpts().SYCLIsDevice ||
-      getCodeGenOpts().EmitDTransInfo) {
+  if (getCodeGenOpts().EmitDTransInfo) {
 #endif // INTEL_CUSTOMIZATION
     std::unique_ptr<MangleContext> MC(getContext().createMangleContext());
     auto RDT = getContext().getRecordType(RD);
     MC->mangleCXXRTTIName(RDT, OS);
     OS << ".";
   }
-
-=======
->>>>>>> 97aec64ff7fa476d0f4ecaf4fec33ee7e1d3f73c
   // FIXME: We probably want to make more tweaks to the printing policy. For
   // example, we should probably enable PrintCanonicalTypes and
   // FullyQualifiedNames.
