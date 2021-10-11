@@ -2083,7 +2083,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
        (F.hasLocalLinkage()
   // CQ370998: Added link once ODR linkage case.
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-       F.hasOneUse() && &F == Call.getCalledFunction()
+       F.hasOneLiveUse() && &F == Call.getCalledFunction()
 #if INTEL_FEATURE_SW_ADVANCED
        && !isHugeFunction(&F, ILIC)
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -2927,7 +2927,7 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
   bool OnlyOneCallAndLocalLinkage =
       (F.hasLocalLinkage()
        || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-      F.hasOneUse() && &F == CandidateCall.getCalledFunction();
+      F.hasOneLiveUse() && &F == CandidateCall.getCalledFunction();
 #endif // INTEL_CUSTOMIZATION
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
