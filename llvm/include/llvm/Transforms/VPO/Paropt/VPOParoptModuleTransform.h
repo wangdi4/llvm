@@ -48,6 +48,9 @@ namespace vpo {
 
 extern std::unordered_map<std::string, std::string> OCLBuiltin;
 
+/// Address space value for offload entries on SPIR-V target.
+extern unsigned SpirvOffloadEntryAddSpace;
+
 /// Provide all functionalities to perform paropt threadization such as
 /// outlining, privatization, loop partitioning, multithreaded code
 /// generation for a Module.
