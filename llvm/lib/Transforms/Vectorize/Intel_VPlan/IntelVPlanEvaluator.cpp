@@ -114,17 +114,31 @@ const char *VPlanPeelEvaluator::getPeelLoopKindStr() const {
 }
 
 void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
+  StringRef PeelLoopModeStr = "";
+  StringRef TripCountStr = "";
+  if (PeelingVariant) {
+    if (isa<VPlanStaticPeeling>(PeelingVariant)) {
+      PeelLoopModeStr = "(static)";
+      TripCountStr = "known";
+    }
+    if (isa<VPlanDynamicPeeling>(PeelingVariant)) {
+      PeelLoopModeStr = "(dynamic)";
+      TripCountStr = "estimated";
+    }
+  }
   switch (getPeelLoopKind()) {
   case PeelLoopKind::None:
     OS << "There is no peel loop.\n";
     break;
   case PeelLoopKind::Scalar:
-    OS << "The peel loop is scalar with trip count " << PeelTC << "."
-       << " The scalar cost is " << LoopCost << "(" << PeelTC << " x "
-       << ScalarIterCost << ").\n";
+    OS << "The peel loop is scalar " << PeelLoopModeStr << " with "
+       << TripCountStr << " trip count " << PeelTC << "."
+       << " The scalar cost is " << LoopCost << "(" << PeelTC
+       << " x " << ScalarIterCost << ").\n";
     break;
   case PeelLoopKind::MaskedVector:
-    OS << "The peel loop has trip count " << PeelTC
+    OS << "The peel loop " << PeelLoopModeStr << " has " << TripCountStr
+       << " trip count " << PeelTC
        << " and it is vectorized with a mask. The vector cost is " << LoopCost
        << ".\n";
     break;
@@ -245,25 +259,27 @@ const char *VPlanRemainderEvaluator::getRemainderLoopKindStr() const {
 }
 
 void VPlanRemainderEvaluator::dump(raw_ostream &OS) const {
+  StringRef TripCountStr = PeelIsDynamic ? "estimated" : "known";
   switch (getRemainderLoopKind()) {
   case RemainderLoopKind::None:
     OS << "There is no remainder loop.\n";
     break;
   case RemainderLoopKind::Scalar:
-    OS << "The remainder loop is scalar with trip count " << RemainderTC << "."
-       << " The scalar cost is " << LoopCost << "(" << RemainderTC << " x "
-       << ScalarIterCost << ").\n";
+    OS << "The remainder loop is scalar with " << TripCountStr << " trip count "
+       << RemainderTC << "." << " The scalar cost is " << LoopCost << "("
+       << RemainderTC << " x " << ScalarIterCost << ").\n";
     break;
   case RemainderLoopKind::VectorScalar:
-    OS << "The remainder loop has trip count " << RemainderTC
-       << " and it is vectorized with vector factor " << RemainderVF
-       << ". The vector cost is " << LoopCost << ".\n";
+    OS << "The remainder loop has " << TripCountStr << " trip count "
+       << RemainderTC << " and it is vectorized with vector factor "
+       << RemainderVF << ". The vector cost is " << LoopCost << ".\n";
     if (NewRemainderTC != 0)
-      OS << "The remainder loop has a new remainder loop with trip count "
-         << NewRemainderTC << ".\n";
+      OS << "The remainder loop has a new remainder loop with "
+         << TripCountStr << " trip count " << NewRemainderTC << ".\n";
     break;
   case RemainderLoopKind::MaskedVector:
-    OS << "The remainder loop has trip count " << RemainderTC
+    OS << "The remainder loop has " << TripCountStr << " trip count "
+       << RemainderTC
        << " and it is vectorized with a mask. The vector cost is " << LoopCost
        << ".\n";
     break;
