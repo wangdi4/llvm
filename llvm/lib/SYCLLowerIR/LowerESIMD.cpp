@@ -1057,47 +1057,6 @@ static uint64_t getIndexFromExtract(ExtractElementInst *EEI) {
   return IndexValue;
 }
 
-<<<<<<< HEAD
-// Helper function to convert extractelement instruction associated with the
-// load from SPIRV builtin global, into the GenX intrinsic that returns vector
-// of coordinates. It also generates required extractelement and cast
-// instructions. Example:
-//  %0 = load <3 x i64>, <3 x i64> addrspace(4)* addrspacecast
-//       (<3 x i64> addrspace(1)* @__spirv_BuiltInLocalInvocationId
-//       to <3 x i64> addrspace(4)*), align 32
-//  %1 = extractelement <3 x i64> %0, i64 0
-//
-//    =>
-//
-//  %.esimd = call <3 x i32> @llvm.genx.local.id.v3i32()
-//  %local_id.x = extractelement <3 x i32> %.esimd, i32 0
-//  %local_id.x.cast.ty = zext i32 %local_id.x to i64
-static Instruction *generateVectorGenXForSpirv(ExtractElementInst *EEI,
-                                               StringRef Suff,
-                                               const std::string &IntrinName,
-                                               StringRef ValueName) {
-  std::string IntrName =
-      std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + IntrinName;
-  auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-  LLVMContext &Ctx = EEI->getModule()->getContext();
-  Type *I32Ty = Type::getInt32Ty(Ctx);
-  Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-      EEI->getModule(), ID, {FixedVectorType::get(I32Ty, 3)});
-  Instruction *IntrI =
-      CallInst::Create(NewFDecl, {}, EEI->getName() + ".esimd", EEI);
-  int ExtractIndex = getIndexForSuffix(Suff);
-  assert(ExtractIndex != -1 && "Extract index is invalid.");
-  Twine ExtractName = ValueName + Suff;
-
-  Instruction *ExtrI = ExtractElementInst::Create(
-      IntrI, ConstantInt::get(I32Ty, ExtractIndex), ExtractName, EEI);
-  Instruction *CastI = addCastInstIfNeeded(EEI, ExtrI);
-  if (EEI->getDebugLoc()) {
-    IntrI->setDebugLoc(EEI->getDebugLoc());
-    ExtrI->setDebugLoc(EEI->getDebugLoc());
-    // It's OK if ExtrI and CastI is the same instruction
-    CastI->setDebugLoc(EEI->getDebugLoc());
-=======
 /// Generates the call of GenX intrinsic \p IntrinName and inserts it
 /// right before the given extract element instruction \p EEI using the result
 /// of vector load. The parameter \p IsVectorCall tells what version of GenX
@@ -1132,41 +1091,11 @@ static Instruction *generateGenXCall(ExtractElementInst *EEI,
     Inst = ExtractElementInst::Create(Inst, ConstantInt::get(I32Ty, IndexValue),
                                       ExtractName, EEI);
     Inst->setDebugLoc(EEI->getDebugLoc());
->>>>>>> f470ec7f30a319aa233473c3c66c7dd67cca0c1c
   }
   Inst = addCastInstIfNeeded(EEI, Inst);
   return Inst;
 }
 
-<<<<<<< HEAD
-// Helper function to convert extractelement instruction associated with the
-// load from SPIRV builtin global, into the GenX intrinsic. It also generates
-// required cast instructions. Example:
-//  %0 = load <3 x i64>, <3 x i64> addrspace(4)* addrspacecast (<3 x i64>
-//  addrspace(1)* @__spirv_BuiltInWorkgroupId to <3 x i64> addrspace(4)*), align
-//  32 %1 = extractelement <3 x i64> %0, i64 0
-//   =>
-//  %0 = load <3 x i64>, <3 x i64> addrspace(4)* addrspacecast (<3 x i64>
-//  addrspace(1)* @__spirv_BuiltInWorkgroupId to <3 x i64> addrspace(4)*), align
-//  32 %group.id.x = call i32 @llvm.genx.group.id.x() %group.id.x.cast.ty = zext
-//  i32 %group.id.x to i64
-static Instruction *generateGenXForSpirv(ExtractElementInst *EEI,
-                                         StringRef Suff,
-                                         const std::string &IntrinName) {
-  std::string IntrName = std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
-                         IntrinName + Suff.str();
-  auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-  Function *NewFDecl =
-      GenXIntrinsic::getGenXDeclaration(EEI->getModule(), ID, {});
-
-  Instruction *IntrI =
-      CallInst::Create(NewFDecl, {}, IntrinName + Suff.str(), EEI);
-  Instruction *CastI = addCastInstIfNeeded(EEI, IntrI);
-  if (EEI->getDebugLoc()) {
-    IntrI->setDebugLoc(EEI->getDebugLoc());
-    // It's OK if IntrI and CastI is the same instruction
-    CastI->setDebugLoc(EEI->getDebugLoc());
-=======
 /// Replaces the load \p LI of SPIRV global with corresponding call(s) of GenX
 /// intrinsic(s). The users of \p LI may also be transformed if needed for
 /// def/use type correctness.
@@ -1195,7 +1124,6 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
     LI->replaceAllUsesWith(NewInst);
     InstsToErase.push_back(LI);
     return;
->>>>>>> f470ec7f30a319aa233473c3c66c7dd67cca0c1c
   }
 
   // Only loads from _vector_ SPIRV globals reach here now. Their users are
