@@ -39,14 +39,10 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
-<<<<<<< HEAD
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif // INTEL_COLLAB
-=======
->>>>>>> 48a5a2d1af2515b1658f3130675ad0c209250077
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
