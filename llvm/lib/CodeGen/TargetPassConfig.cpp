@@ -1262,7 +1262,7 @@ void TargetPassConfig::addMachinePasses() {
   // GC
   if (addGCPasses()) {
     if (PrintGCInfo)
-      addPass(createGCInfoPrinter(dbgs()), false);
+      addPass(createGCInfoPrinter(dbgs()));
   }
 
   // Basic block placement.
@@ -1570,7 +1570,7 @@ void TargetPassConfig::addMachineLateOptimization() {
 
 /// Add standard GC passes.
 bool TargetPassConfig::addGCPasses() {
-  addPass(&GCMachineCodeAnalysisID, false);
+  addPass(&GCMachineCodeAnalysisID);
   return true;
 }
 
