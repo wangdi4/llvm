@@ -39,16 +39,13 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
-<<<<<<< HEAD
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/Utils/IntrinsicUtils.h"
-#endif // INTEL_COLLAB
-=======
 #include "llvm/Support/CommandLine.h"
->>>>>>> d68b59f3ebb253ee7119a25a71c51cf19b73e030
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#if INTEL_COLLAB
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <cstdint>
