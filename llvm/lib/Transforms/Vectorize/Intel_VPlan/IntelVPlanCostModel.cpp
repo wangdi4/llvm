@@ -559,9 +559,33 @@ unsigned VPlanTTICostModel::getTTICostForVF(
     return CmpCost + SelectCost;
   }
 
-  // TODO - costmodel support for AllZeroCheck.
-  case VPInstruction::AllZeroCheck:
-    return 0;
+  case VPInstruction::AllZeroCheck: {
+    // AVX512 targets where zmm usage=high results in the following asm:
+    // kortestb %k1, %k1
+    //
+    // AVX512 targets zmm usage=low register results in the following asm:
+    // kshiftlb $4, %k2, %k0
+    // korb     %k0, %k1, %k0
+    // kortestb %k0, %k0
+    //
+    // AVX2 targets results in the following asm:
+    // vmovmskpd %ymm3, %eax
+    // testl     %eax, %eax
+    //
+    // VPlan CG generates bitcast of <i1 x VF> to int of VF size, followed
+    // by comparison to 0. The cost of these two instructions seems
+    // reasonable for each of the above targets, so this is what is
+    // modeled.
+    Type *OpTy = VPInst->getOperand(0)->getType();
+    Type *VecSrcTy = getWidenedType(OpTy, VF);
+    Type *DestTy = IntegerType::get(VPInst->getType()->getContext(), VF);
+    unsigned CastCost =
+        VPTTI.getCastInstrCost(Instruction::BitCast, DestTy, VecSrcTy,
+                               TTI::CastContextHint::None);
+    unsigned CmpCost = VPTTI.getCmpSelInstrCost(Instruction::ICmp, DestTy);
+    return CastCost + CmpCost;
+  }
+
   // This is a no-op - used to mark block predicate.
   case VPInstruction::Pred:
     return 0;
