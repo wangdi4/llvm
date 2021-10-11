@@ -347,6 +347,9 @@ public:
 #endif
   static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
 
+  /// Utility to check if given WRegion loop has any array reduction idioms.
+  static bool hasArrayReduction(WRNVecLoopNode *WRLp);
+
   /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
   /// was constructed. There are some limitations in CG, CM, and other parts of
   /// VPlan vectorizer on which we better gracefully bail out than assert.

@@ -23,10 +23,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptAtomics.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptAtomics.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #include "llvm/IR/Function.h"
@@ -3082,7 +3083,8 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
                                           bool NoNeedToOffsetOrDerefOldV) {
   Type *AllocaTy;
   Value *NumElements;
-  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(RedI);
+  std::tie(AllocaTy, NumElements, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
 
   // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
   //       will specify the array size. Right now, VLA reductions are
@@ -3834,7 +3836,8 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           DominatorTree *DT) {
   Type *AllocaTy;
   Value *NumElements;
-  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(RedI);
+  std::tie(AllocaTy, NumElements, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
 
   // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
   //       will specify the array size. Right now, VLA reductions are
@@ -3979,7 +3982,8 @@ int VPOParoptTransform::checkFastReduction(WRegionNode *W) {
         }
         // if type of reduction variable is not supported, atomic cannot be used
         Type *AllocaTy;
-        std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+        std::tie(AllocaTy, std::ignore, std::ignore) =
+            VPOParoptUtils::getItemInfo(RedI);
         if (!(AllocaTy->isIntegerTy() || AllocaTy->isFloatTy() ||
               AllocaTy->isDoubleTy())) {
           IsAtomic = false;
@@ -4136,7 +4140,8 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
         SrcArg->getName() + Twine(".") + Orig->getName()); //                (6)
 
     Value *NumElements = nullptr;
-    std::tie(std::ignore, NumElements, std::ignore) = getItemInfo(RedI);
+    std::tie(std::ignore, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(RedI);
 
     if (dyn_cast_or_null<ConstantInt>(NumElements)) {
       // Here we generated same types of variables as in genPrivatizationAlloca
@@ -4227,7 +4232,8 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
 
     Type *ElementType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(ElementType, NumElements, std::ignore) = getItemInfo(RedI);
+    std::tie(ElementType, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(RedI);
     if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
       uint64_t Size = CI->getZExtValue();
       assert(Size > 0 && "Invalid size for new alloca.");
@@ -4465,7 +4471,8 @@ Value *VPOParoptTransform::genFastRedPrivateVariable(ReductionItem *RedI,
                                 RedI->getOrig()->getName() + ".fast_red");
 
   Value *NumElements = nullptr;
-  std::tie(std::ignore, NumElements, std::ignore) = getItemInfo(RedI);
+  std::tie(std::ignore, NumElements, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
 
   // For array section with constant size N, the private reduction variable type
   // got from structure above is [ N x ElementType ]*, and an additional GEP is
@@ -4531,7 +4538,8 @@ void VPOParoptTransform::genFastReduceBB(WRegionNode *W,
              "No atomic call is generated for fast reduction.");
 
       Type *AllocaTy;
-      std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+      std::tie(AllocaTy, std::ignore, std::ignore) =
+          VPOParoptUtils::getItemInfo(RedI);
 
       OptimizationRemark R(DEBUG_TYPE, "FastReductionAtomic", AtomicCall);
       R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
@@ -5355,98 +5363,6 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
                                NewMinusOffsetAddr->getName() + ".cast");
 }
 
-// Extract the type and size of local Alloca to be created to privatize
-// OrigValue.
-void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
-                                              Type *OrigValueElemType,
-                                              Type *&ElementType,    // out
-                                              Value *&NumElements,   // out
-                                              unsigned &AddrSpace) { // out
-  assert(OrigValue && "Null input value.");
-
-  ElementType = nullptr;
-  NumElements = nullptr;
-
-  if (GeneralUtils::isOMPItemGlobalVAR(OrigValue)) {
-    ElementType = OrigValueElemType;
-    AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
-    return;
-  }
-
-  assert(GeneralUtils::isOMPItemLocalVAR(OrigValue) &&
-         "getItemInfoFromValue: Expect isOMPItemLocalVAR().");
-  std::tie(ElementType, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue,
-                                                            OrigValueElemType);
-  assert(ElementType && "getItemInfoFromValue: item type cannot be deduced.");
-
-  if (auto *ConstNumElements = dyn_cast<Constant>(NumElements))
-    if (ConstNumElements->isOneValue())
-      NumElements = nullptr;
-
-  // The final addresspace is inherited from the clause's item.
-  AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
-}
-
-// Extract the type and size of local Alloca to be created to privatize I.
-std::tuple<Type *, Value *, unsigned>
-VPOParoptTransform::getItemInfo(const Item *I) {
-  Type *ElementType = nullptr;
-  Value *NumElements = nullptr;
-  unsigned AddrSpace = 0;
-  assert(I && "Null Clause Item.");
-
-  Value *Orig = I->getOrig();
-  Type *OrigElemTy = I->getOrigElemType();
-  assert(Orig && "Null original Value in clause item.");
-
-  auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
-                                    &AddrSpace]() -> bool {
-    if (const ReductionItem *RedI = dyn_cast<ReductionItem>(I))
-      if (RedI->getIsArraySection()) {
-        const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-        ElementType = ArrSecInfo.getElementType();
-        NumElements = ArrSecInfo.getSize();
-        auto *ItemTy = RedI->getOrig()->getType();
-        assert(isa<PointerType>(ItemTy) &&
-               "Array section item has to have pointer type.");
-        AddrSpace = cast<PointerType>(ItemTy)->getAddressSpace();
-        return true;
-      }
-    return false;
-  };
-
-  auto getItemInfoIfTyped = [I, &ElementType, &NumElements]() -> bool {
-    if (!I->getIsTyped())
-      return false;
-    ElementType = I->getOrigItemElementTypeFromIR();
-    NumElements = I->getNumElements();
-    return true;
-  };
-
-  if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
-    getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
-    assert(ElementType && "Failed to find element type for reduction operand.");
-
-    if (I->getIsByRef()) {
-      assert(isa<PointerType>(ElementType) &&
-             "Expected a pointer type for byref operand.");
-      assert(!NumElements &&
-             "Unexpected number of elements for byref pointer.");
-
-      ElementType = ElementType->getPointerElementType();
-    }
-  }
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
-             Orig->printAsOperand(dbgs()); dbgs() << "' ";
-             if (I->getIsTyped()) dbgs() << "(Typed)"; dbgs() << ":: Type: ";
-             ElementType->print(dbgs()); if (NumElements) {
-               dbgs() << ", NumElements: ";
-               NumElements->printAsOperand(dbgs());
-             } dbgs() << "\n");
-  return std::make_tuple(ElementType, NumElements, AddrSpace);
-}
-
 // Generate a private variable version for the local copy of OrigValue.
 Value *VPOParoptTransform::genPrivatizationAlloca(
     Value *OrigValue, Type *OrigElemTy, Instruction *InsertPt,
@@ -5461,8 +5377,8 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   MaybeAlign OrigAlignment =
       OrigValue->getPointerAlignment(InsertPt->getModule()->getDataLayout());
 
-  getItemInfoFromValue(OrigValue, OrigElemTy, ElementType, NumElements,
-                       AddrSpace);
+  VPOParoptUtils::getItemInfoFromValue(OrigValue, OrigElemTy, ElementType,
+                                       NumElements, AddrSpace);
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, OrigAlignment, InsertPt,
       isTargetSPIRV(), OrigValue->getName() + NameSuffix, AllocaAddrSpace,
@@ -5493,7 +5409,8 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   Value *NumElements = nullptr;
   unsigned AddrSpace = 0;
 
-  std::tie(ElementType, NumElements, AddrSpace) = getItemInfo(I);
+  std::tie(ElementType, NumElements, AddrSpace) =
+      VPOParoptUtils::getItemInfo(I);
   assert(ElementType && "Could not find Type of local element.");
 
   // If the list item being privatized also appears in an allocate clause,
@@ -7767,7 +7684,7 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
   // target. And genArrayLength should be updated to support global VLA too.
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
-  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(I);
+  std::tie(AllocaTy, NumElements, std::ignore) = VPOParoptUtils::getItemInfo(I);
   if (I->getIsNonPod() && (AllocaTy->isArrayTy() || (NumElements != nullptr)))
     return vpo::ADDRESS_SPACE_PRIVATE;
 
@@ -7995,7 +7912,7 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
   Type *ElementTy = FnTy->getParamType(0)->getPointerElementType();
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
-  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(I);
+  std::tie(AllocaTy, NumElements, std::ignore) = VPOParoptUtils::getItemInfo(I);
 
   // If it's array (fixed size or variable length array), but the
   // argument is scalar type, loop for calling constructor will be
