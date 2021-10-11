@@ -1107,6 +1107,8 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Dimension); }
 
+  const Node *getDimension() const { return Dimension; }
+
   void printLeft(OutputStream &S) const override {
     S += "_Float";
     Dimension->print(S);
