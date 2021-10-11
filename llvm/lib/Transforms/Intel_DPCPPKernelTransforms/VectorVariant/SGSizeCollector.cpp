@@ -81,35 +81,40 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
 
   CallGraph CG(M);
   DenseMap<Function *, SmallSet<int, 4>> SGSizes;
+  auto Kernels = KernelList(M).getList();
 
-  // Collect vector length information from the existing functions.
-  for (auto &F : M) {
-    if (F.hasOptNone())
+  // Collect vector length information from kernel VFs (only kernel will have
+  // RecommendedVL set).
+  for (auto *Kernel : Kernels) {
+    if (Kernel->hasOptNone())
       continue;
     int VecLength = 0;
-    // Analyze if vectorization of direct function calls is enabled, or
-    // check whether workaround for Vectorizer not supporting byval/byref
-    // parameters is needed.
-    if (!hasVecLength(&F, VecLength))
+    if (!hasVecLength(Kernel, VecLength))
       continue;
 
-    CallGraphNode *Node = CG[&F];
+    CallGraphNode *Node = CG[Kernel];
     for (auto It = df_begin(Node); It != df_end(Node);) {
+      Function *CalledFunc = It->getFunction();
+      // Always skip the root node.
+      if (CalledFunc == Kernel) {
+        It++;
+        continue;
+      }
 
-      Function *Fn = It->getFunction();
-      if (!Fn || Fn->isIntrinsic() || Fn->isDeclaration() ||
-          Fn->getName().startswith("WG.boundaries.") ||
+      if (!CalledFunc || CalledFunc->isIntrinsic() ||
+          CalledFunc->isDeclaration() ||
+          CalledFunc->getName().startswith("WG.boundaries.") ||
           // Workaround for Vectorizer not supporting byval/byref
           // parameters. We can ignore the children as they won't be called
           // in vector context.
           (!EnableVectorizationOfByvalByrefFunctionsOpt &&
-           DPCPPKernelCompilationUtils::hasByvalByrefArgs(Fn))) {
+           DPCPPKernelCompilationUtils::hasByvalByrefArgs(CalledFunc))) {
 
         It = It.skipChildren();
         continue;
       }
 
-      auto &Set = SGSizes[Fn];
+      auto &Set = SGSizes[CalledFunc];
       if (Set.count(VecLength)) {
         It = It.skipChildren();
         continue;
@@ -120,14 +125,9 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
     }
   }
 
-  auto Kernels = KernelList(M).getList();
-
   // Update vector length information according to the call graph.
   for (auto It : SGSizes) {
     Function *F = It.first;
-
-    if (llvm::find(Kernels, F) != Kernels.end())
-      continue;
 
     StringRef VarsStr;
     DenseSet<unsigned> ExistingVars;
