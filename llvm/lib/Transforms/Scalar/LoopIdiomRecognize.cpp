@@ -1458,13 +1458,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
 
   bool LoopAccessStore =
       mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-<<<<<<< HEAD
                             StoreSizeSCEV, *AA, IgnoredInsts, &AAInfo);  // INTEL
-  if (UseMemMove) {
-=======
-                            StoreSizeSCEV, *AA, IgnoredInsts);
   if (LoopAccessStore) {
->>>>>>> dd5991cc6f2d0b39716c4e6c9272596481f1c7ad
     // For memmove case it's not enough to guarantee that loop doesn't access
     // TheStore and TheLoad. Additionally we need to make sure that TheStore is
     // the only user of TheLoad.
@@ -1506,30 +1501,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
     IgnoredInsts.erase(TheStore);
   MemmoveVerifier Verifier(*LoadBasePtr, *StoreBasePtr, *DL);
   if (mayLoopAccessLocation(LoadBasePtr, ModRefInfo::Mod, CurLoop, BECount,
-<<<<<<< HEAD
                             StoreSizeSCEV, *AA, IgnoredInsts, nullptr)) { // INTEL
-    ORE.emit([&]() {
-      return OptimizationRemarkMissed(DEBUG_TYPE, "LoopMayAccessLoad", TheLoad)
-             << ore::NV("Inst", InstRemark) << " in "
-             << ore::NV("Function", TheStore->getFunction())
-             << " function will not be hoisted: "
-             << ore::NV("Reason", "The loop may access load location");
-    });
-    return Changed;
-  }
-  if (UseMemMove) {
-    // Ensure that LoadBasePtr is after StoreBasePtr or before StoreBasePtr for
-    // negative stride. LoadBasePtr shouldn't overlap with StoreBasePtr.
-    int64_t LoadOff = 0, StoreOff = 0;
-    const Value *BP1 = llvm::GetPointerBaseWithConstantOffset(
-        LoadBasePtr->stripPointerCasts(), LoadOff, *DL);
-    const Value *BP2 = llvm::GetPointerBaseWithConstantOffset(
-        StoreBasePtr->stripPointerCasts(), StoreOff, *DL);
-    int64_t LoadSize =
-        DL->getTypeSizeInBits(TheLoad->getType()).getFixedSize() / 8;
-    if (BP1 != BP2 || LoadSize != int64_t(StoreSize))
-=======
-                            StoreSizeSCEV, *AA, IgnoredInsts)) {
     if (!IsMemCpy) {
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "LoopMayAccessLoad",
@@ -1539,7 +1511,6 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
                << " function will not be hoisted: "
                << ore::NV("Reason", "The loop may access load location");
       });
->>>>>>> dd5991cc6f2d0b39716c4e6c9272596481f1c7ad
       return Changed;
     }
     // At this point loop may access load only for memcpy in same underlying
