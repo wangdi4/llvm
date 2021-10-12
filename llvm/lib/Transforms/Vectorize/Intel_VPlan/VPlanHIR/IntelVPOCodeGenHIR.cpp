@@ -4693,16 +4693,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
 
   case Instruction::GetElementPtr: {
-    // Decomposer can generate GEPs only if underlying LLVMInst is GEP. This
-    // happens for single operand GEP cases (check hir_oneopgep.ll).
-    SmallVector<const RegDDRef *, 4> AuxRefs;
-
-    // If we have a single operand GEP, we can simply reuse RefOp0
-    if (VPInst->getNumOperands() == 1) {
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
-      return;
-    }
-
     if (VPInst->getNumOperands() == 2) {
       // VPlan VLS transformation introduces this kind of GEPs:
       //   %base = ....

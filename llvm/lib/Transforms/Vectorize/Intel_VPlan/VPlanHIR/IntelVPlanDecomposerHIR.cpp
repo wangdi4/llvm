@@ -895,18 +895,15 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
-    } else if(isa<GetElementPtrInst>(LLVMInst)) {
-      assert(VPOperands.size() <= 2 && "Unexpected GEP being created.");
-      NewVPInst = Builder.createGEP(
-          // FIXME: Should come from elsewhere. Or, even better, the GEP
-          // shouldn't be created at all.
-          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
-          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
-          VPOperands[0],
-          ArrayRef<VPValue *>(VPOperands.begin() + 1, VPOperands.end()),
-          nullptr /* Inst */);
-      if (DDNode)
-        NewVPInst->HIR().setUnderlyingNode(DDNode);
+    } else if (auto *GEP = dyn_cast<GetElementPtrInst>(LLVMInst)) {
+      // Don't create an additional single operand no-op GEP here. Re-use the
+      // subscript instruction that was already created during decomposition of
+      // corresponding memref.
+      assert(VPOperands.size() == 1 &&
+             "HLInst with underlying GEP is expected to have single operand.");
+      NewVPInst = cast<VPSubscriptInst>(VPOperands[0]);
+      // Make subscript the master instruction since it was already created.
+      NewVPInst->HIR().setUnderlyingNode(DDNode);
     } else {
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
