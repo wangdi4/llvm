@@ -1390,8 +1390,6 @@ void HIROptPredicate::transformIf(
       }
     }
 
-    addPredicateOptReportOrigin(TargetLoop);
-
     // Handle second loop - NewElseLoop
 
     if (!ThenContainer.empty()) {
@@ -1436,7 +1434,6 @@ void HIROptPredicate::transformIf(
       }
     }
 
-    addPredicateOptReportOrigin(NewElseLoop);
   }
 
   assert(PivotIf && "should be defined");
@@ -1444,9 +1441,19 @@ void HIROptPredicate::transformIf(
   // Allow further unswitching of the top *If* statement.
   PivotIf->setUnswitchDisabled(false);
 
-  // Place TargetLoop and NewElseLoop under PivotIf.
+  // Place TargetLoop under PivotIf.
   HLNodeUtils::moveAsFirstThenChild(PivotIf, TargetLoop);
-  HLNodeUtils::moveAsFirstElseChild(PivotIf, NewElseLoop);
+
+  // Place NewElseLoop under PivotIf if it is non-empty, and
+  // add opt-report origin for both TargetLoop and NewElseLoop.
+  // Otherwise remove the loop.
+  if (NewElseLoop->hasChildren()) {
+    HLNodeUtils::moveAsFirstElseChild(PivotIf, NewElseLoop);
+    addPredicateOptReportOrigin(TargetLoop);
+    addPredicateOptReportOrigin(NewElseLoop);
+  } else {
+    HLNodeUtils::remove(NewElseLoop);
+  }
 
   NewCandidates.append(CloneMapper.getNewCandidates().begin(),
                        CloneMapper.getNewCandidates().end());

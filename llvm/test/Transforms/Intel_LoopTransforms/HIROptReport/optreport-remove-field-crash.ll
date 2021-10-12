@@ -50,10 +50,6 @@
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
-; CHECK-NEXT: <Predicate Optimized v8>
-; CHECK-NEXT: LOOP END
-; CHECK-EMPTY:
-; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Predicate Optimized v7>
 ; CHECK-NEXT:     remark #15300: LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 4
