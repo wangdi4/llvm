@@ -219,6 +219,7 @@
 /llvm/test/Transforms/Intel_VecClone/ @sguggill @hidekisaito
 /llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @hidekisaito
 /llvm/test/Transforms/LoopVectorize/ @sguggill @hidekisaito
+/llvm/test/Transforms/Reassociate/Intel_addsub* @sguggill @hidekisaito
 /llvm/test/Transforms/SLPVectorizer/ @sguggill @hidekisaito
 /llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @hidekisaito
 
