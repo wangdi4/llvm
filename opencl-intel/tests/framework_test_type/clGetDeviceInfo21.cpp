@@ -43,10 +43,11 @@ TEST_F(CL21, GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
     ASSERT_EQ(sizeof(cl_uint), ret_size)
         << " clGetDeviceInfo(CL_DEVICE_MAX_NUM_SUB_GROUPS) failed. "
         << " Expected and returned size differ. ";
-    ASSERT_EQ((cl_uint)1, max_num_SG_for_device)
+    const cl_uint MinSGSize = 4;
+    ASSERT_EQ((cl_uint)(CPU_MAX_WORK_GROUP_SIZE / MinSGSize),
+              max_num_SG_for_device)
         << " clGetDeviceInfo(CL_DEVICE_MAX_NUM_SUB_GROUPS query) failed. "
         << " Unexpected query result. ";
-
 }
 
 TEST_F(CL21, GetDeviceInfo_CL_DEVICE_SUB_GROUP_SIZES_INTEL)
