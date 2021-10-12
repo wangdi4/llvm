@@ -1067,20 +1067,17 @@ void Parser::parseOMPTraitSelectorKind(OMPTraitSelector &TISelector,
   // Since the framework does not handle multi-word selectors check and set it
   // manually. Since 'target variant dispatch' will be added to OpenMP in the
   // future (possibly with a different name) this code is temporary.
-  if (Name == "target" && getPreprocessor().LookAhead(0).is(tok::identifier)) {
-    const Token &NextTok = getPreprocessor().LookAhead(0);
-    if (Tok.is(tok::identifier) && NextTok.is(tok::identifier) &&
-        Tok.getIdentifierInfo()->getName() == "variant" &&
-        NextTok.getIdentifierInfo()->getName() == "dispatch") {
-      TISelector.Kind = TraitSelector::construct_target_variant_dispatch;
-      ConsumeToken();
-      ConsumeToken();
-    }
+  const Token &NextTok = getPreprocessor().LookAhead(0);
+  if (Name == "target" && Tok.is(tok::identifier) &&
+      NextTok.is(tok::identifier) &&
+      Tok.getIdentifierInfo()->getName() == "variant" &&
+      NextTok.getIdentifierInfo()->getName() == "dispatch") {
+    TISelector.Kind = TraitSelector::construct_target_variant_dispatch;
+    ConsumeToken();
+    ConsumeToken();
   } else
-    TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
-#else
-  TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
 #endif // INTEL_COLLAB
+  TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
   if (TISelector.Kind != TraitSelector::invalid) {
     if (checkForDuplicates(*this, Name, NameLoc, Seen, CONTEXT_SELECTOR_LVL))
       TISelector.Kind = TraitSelector::invalid;
