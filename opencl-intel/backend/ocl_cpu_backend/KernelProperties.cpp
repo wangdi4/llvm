@@ -358,6 +358,10 @@ void KernelProperties::GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
         }
     }
 
+    // Desired SG count == 0 can't be fulfilled anyway.
+    if (desiredSGCount == 0)
+      successFill = false;
+
     if (successFill) {
         // fill the rest with ones.
         for(size_t i = 1; i < dim; ++i)
