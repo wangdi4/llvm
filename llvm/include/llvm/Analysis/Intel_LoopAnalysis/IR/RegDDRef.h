@@ -1305,6 +1305,10 @@ public:
   void promoteIVs(unsigned StartLevel);
   void demoteIVs(unsigned StartLevel);
 
+  /// Returns true if any of the dimension indices are vector type.
+  /// Only applicable to GEP refs.
+  bool hasAnyVectorIndices() const;
+
   /// Verifies RegDDRef integrity.
   virtual void verify() const override;
 };

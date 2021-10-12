@@ -313,7 +313,8 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
         OS << "(";
         BitCastTy->print(OS, false, true);
 
-        if (!IsAddressOf || !isa<VectorType>(BitCastTy)) {
+        if (!IsAddressOf || !isa<VectorType>(BitCastTy) ||
+            !hasAnyVectorIndices()) {
           auto *PtrTy = dyn_cast<PointerType>(BitCastTy);
           // Printing '*' adjacent to 'ptr' doesn't make sense.
           if (!PtrTy || !PtrTy->isOpaque()) {
@@ -455,6 +456,18 @@ void RegDDRef::dumpDims(bool Detailed) const {
 }
 #endif
 
+bool RegDDRef::hasAnyVectorIndices() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
+
+  for (auto *Index : make_range(canon_begin(), canon_end())) {
+    if (Index->getDestType()->isVectorTy()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   const CanonExpr *CE = nullptr;
 
@@ -467,7 +480,8 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // Derive ref's destination type using BitCastDestVecOrElemType, if
     // available.
     if (!IsSrc && DestTy) {
-      return (isAddressOf() && !isa<VectorType>(DestTy))
+      return (isAddressOf() &&
+              (!isa<VectorType>(DestTy) || !hasAnyVectorIndices()))
                  ? PointerType::get(DestTy, BasePtrTy->getPointerAddressSpace())
                  : DestTy;
     }
