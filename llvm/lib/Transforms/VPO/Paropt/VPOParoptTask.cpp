@@ -195,6 +195,10 @@ Function *VPOParoptTransform::genTaskDestructorThunk(
 // Generate the code to update the last privates for taskloop.
 void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
                                                  Instruction *InsertPt) {
+  Type *ItemTy = nullptr;
+  Value *NumElements = nullptr;
+  std::tie(ItemTy, NumElements, std::ignore) =
+      VPOParoptUtils::getItemInfo(LprivI);
 
   Value *Src = LprivI->getNew();
   Value *Dst = LprivI->getOrigGEP();
@@ -208,23 +212,26 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   }
 
 #endif // INTEL_CUSTOMIZATION
-  Type *ScalarTy = Src->getType()->getPointerElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
 
   if (LprivI->getIsVla()) {
-    MaybeAlign Align(DL.getABITypeAlignment(ScalarTy));
+    MaybeAlign Align(DL.getABITypeAlignment(ItemTy));
     Builder.CreateMemCpy(Dst, Align, Src, Align,
                          LprivI->getNewThunkBufferSize());
-  } else if (!VPOUtils::canBeRegisterized(ScalarTy, DL)) {
-    uint64_t Size =
-        DL.getTypeAllocSize(Dst->getType()->getPointerElementType());
-    VPOUtils::genMemcpy(Dst, Src, Size, DL.getABITypeAlignment(ScalarTy),
+  } else if (!VPOUtils::canBeRegisterized(ItemTy, DL) ||
+             NumElements) {
+    uint64_t Size = DL.getTypeAllocSize(ItemTy);
+    if (NumElements) {
+      auto *CI = dyn_cast<ConstantInt>(NumElements);
+      assert(CI && "Lastprivate item should have been classified as VLA.");
+      Size *= CI->getZExtValue();
+    }
+    VPOUtils::genMemcpy(Dst, Src, Size, DL.getABITypeAlignment(ItemTy),
                         Builder);
   } else {
-    LoadInst *Load =
-        Builder.CreateLoad(Src->getType()->getPointerElementType(), Src);
+    LoadInst *Load = Builder.CreateLoad(ItemTy, Src);
     Builder.CreateStore(Load, Dst);
   }
 }
@@ -813,9 +820,14 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         // The __kmpc_task_reduction_get_th_data call needs the pointer to the
         // actual data being reduced, after any pointer dereferences or offset
         // additions.
+        Type *ElementType = nullptr;
+        std::tie(ElementType, std::ignore, std::ignore) =
+            VPOParoptUtils::getItemInfo(RedI);
+
         if (RedI->getIsByRef())
           ThunkSharedVal = Builder.CreateLoad(
-              ThunkSharedVal->getType()->getPointerElementType(),
+              ElementType->getPointerTo(
+                  isTargetSPIRV() ? vpo::ADDRESS_SPACE_GENERIC : 0),
               ThunkSharedVal, OrigName + ".shr.deref");
 
         if (RedI->getIsArraySection()) {
@@ -828,10 +840,6 @@ bool VPOParoptTransform::genTaskLoopInitCode(
             W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
             Mode & OmpTbb);
         RedRes->setName(OrigName + ".red");
-
-        Type *ElementType = nullptr;
-        std::tie(ElementType, std::ignore, std::ignore) =
-            VPOParoptUtils::getItemInfo(RedI);
 
         Type *RedNewTy = PointerType::getUnqual(ElementType);
         Value *RedResCast =
@@ -1163,8 +1171,11 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
       Value *OrigCast =
           Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
 
-      MaybeAlign Align(DL.getABITypeAlignment(
-          OrigV->getType()->getPointerElementType()));
+      Type *ItemTy = nullptr;
+      std::tie(ItemTy, std::ignore, std::ignore) =
+          VPOParoptUtils::getItemInfo(FprivI);
+
+      MaybeAlign Align(DL.getABITypeAlignment(ItemTy));
 
       Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
                            FprivI->getThunkBufferSize());
@@ -1540,10 +1551,14 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
           DL.getTypeSizeInBits(ArrSecInfo.getElementType()) / 8);
       Size = Builder.CreateMul(NumElements, ElementSize,
                                Orig->getName() + ".size.in.bytes");
-    } else
+    } else {
+      // OPAQUEPOINTER: we need to add support for TYPED modifier
+      //                and provide a getter for the element type,
+      //                since DependItem is not derived from Item.
       Size = Builder.getIntN(
           DL.getPointerSizeInBits(),
           DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+    }
 
     Value *Gep = Builder.CreateInBoundsGEP(
         KmpTaskDependInfoTy, BaseTaskTDependGep,
@@ -1618,10 +1633,16 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
     // actual data to be reduced (after any offset computation, or  dereference
     // for by-refs etc.)
     Value *RedIBase = RedI->getOrig();
+    Type *ElementType = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElementType, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(RedI);
+
     if (RedI->getIsByRef())
       RedIBase = Builder.CreateLoad(
-          RedIBase->getType()->getPointerElementType(), RedIBase,
-          NamePrefix + Twine(".orig.deref"));
+          ElementType->getPointerTo(
+              isTargetSPIRV() ? vpo::ADDRESS_SPACE_GENERIC : 0),
+          RedIBase, NamePrefix + Twine(".orig.deref"));
 
     if (RedI->getIsArraySection()) {
       const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
@@ -1645,11 +1666,6 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
                                     {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.size");
-
-    Type *ElementType = nullptr;
-    Value *NumElements = nullptr;
-    std::tie(ElementType, NumElements, std::ignore) =
-        VPOParoptUtils::getItemInfo(RedI);
 
     Value *ElementSize = Builder.getInt64(DL.getTypeAllocSize(ElementType));
 
