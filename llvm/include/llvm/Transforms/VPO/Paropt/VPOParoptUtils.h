@@ -421,6 +421,9 @@ public:
   /// information.
   static WRNScheduleKind getLoopScheduleKind(WRegionNode *W);
 
+  /// Set the MONOTONIC or NONMONOTONIC schedule modifier bit if specified
+  static int addModifierToSchedKind(WRegionNode *W, WRNScheduleKind SchedKind);
+
   /// Query distribute loop scheduling kind based on schedule and chunk size
   /// information.
   static WRNScheduleKind getDistLoopScheduleKind(WRegionNode *W);
