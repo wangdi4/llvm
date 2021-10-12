@@ -919,6 +919,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
       VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
       VectorF->copyAttributesFrom(OrigF);
+      VectorF->setVisibility(OrigF->getVisibility());
     }
     return VectorF;
   }
