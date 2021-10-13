@@ -6,6 +6,8 @@
 ; CHECK: define void @_ZTS1K
 ; CHECK: %[[ALLOCA:.*]] = alloca i32
 ; CHECK: %[[PTRTOINT:.*]] = ptrtoint i32 (i32, i32, {{.*}})* @_Z3addii to i32
+; CHECK: %{{.*}} = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i8*
+; CHECK: %{{.*}} = addrspacecast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32) addrspace(4)*
 ; CHECK: store i32 %[[PTRTOINT]], i32* %[[ALLOCA]]
 ; CHECK: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
 ; CHECK: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
@@ -47,6 +49,8 @@ entry:
   %7 = extractelement <3 x i64> %6, i64 0
   %cmp.i = icmp eq i32 %_arg_, 0
   %int = ptrtoint i32 (i32, i32)* @_Z3addii to i32
+  %i8ptr = bitcast i32 (i32, i32)* @_Z3addii to i8*
+  %addr = addrspacecast i32 (i32, i32)* @_Z3addii to i32 (i32, i32) addrspace(4)*
   store i32 %int, i32* %alloca
   %arrayidx.i.i = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i, i64 %7
   %8 = load i32, i32 addrspace(1)* %arrayidx.i.i, align 4

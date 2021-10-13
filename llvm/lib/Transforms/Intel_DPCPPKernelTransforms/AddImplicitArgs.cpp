@@ -324,7 +324,10 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       C->replaceAllUsesWith(NewC);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       replaceCallInst(CI, NewTypes, NewF);
-    } else if (auto *CI = dyn_cast<PtrToIntInst>(U)) {
+    } else if (auto *CI = dyn_cast<CastInst>(U)) {
+      assert((isa<BitCastInst, AddrSpaceCastInst, PtrToIntInst>(CI)) &&
+             "Only expect bitcast, addrspacecast or ptrtoint cast instruction "
+             "users!");
       auto *NewCE = CastInst::CreatePointerCast(NewF, CI->getType(), "", CI);
       NewCE->setDebugLoc(CI->getDebugLoc());
       CI->replaceAllUsesWith(NewCE);
@@ -347,6 +350,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
     } else {
       // We should not be here.
       // Unhandled case except for SelectInst - they will be handled later.
+      LLVM_DEBUG(dbgs() << *U << '\n');
       assert(isa<SelectInst>(U) && "Unhandled function reference");
     }
   }
