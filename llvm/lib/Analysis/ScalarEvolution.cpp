@@ -7249,6 +7249,7 @@ static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
   return Flags != SCEV::FlagAnyWrap;
 }
 
+<<<<<<< HEAD
 static bool getRefinedFlagsUsingConstantFoldingRec(
     const Value *Val, unsigned OrigOpcode,
     const OverflowingBinaryOperator *UserBinOp, APInt AccumulatedConst,
@@ -7566,20 +7567,22 @@ isGuaranteedToTransferExecutionToSuccessor(BasicBlock::const_iterator Begin,
   return true;
 }
 
+=======
+>>>>>>> d694dd0f0d4517e838bcb0aa15e1f56f7df8187e
 bool ScalarEvolution::isGuaranteedToTransferExecutionTo(const Instruction *A,
                                                         const Instruction *B) {
   if (A->getParent() == B->getParent() &&
-      ::isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
-                                                   B->getIterator()))
+      isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
+                                                 B->getIterator()))
     return true;
 
   auto *BLoop = LI.getLoopFor(B->getParent());
   if (BLoop && BLoop->getHeader() == B->getParent() &&
       BLoop->getLoopPreheader() == A->getParent() &&
-      ::isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
-                                                   A->getParent()->end()) &&
-      ::isGuaranteedToTransferExecutionToSuccessor(B->getParent()->begin(),
-                                                   B->getIterator()))
+      isGuaranteedToTransferExecutionToSuccessor(A->getIterator(),
+                                                 A->getParent()->end()) &&
+      isGuaranteedToTransferExecutionToSuccessor(B->getParent()->begin(),
+                                                 B->getIterator()))
     return true;
   return false;
 }
