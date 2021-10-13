@@ -351,6 +351,9 @@ class TLSTy {
   /// Command queue for each device
   std::map<int32_t, ze_command_queue_handle_t> CmdQueues;
 
+  /// CCS Command queue for each device
+  std::map<int32_t, ze_command_queue_handle_t> CCSCmdQueues;
+
   /// Main copy command queue for each device
   std::map<int32_t, ze_command_queue_handle_t> CopyCmdQueues;
 
@@ -388,6 +391,10 @@ public:
     return (CmdQueues.count(ID) > 0) ? CmdQueues.at(ID) : nullptr;
   }
 
+  ze_command_queue_handle_t getCCSCmdQueue(int32_t ID) {
+    return (CCSCmdQueues.count(ID) > 0) ? CCSCmdQueues.at(ID) : nullptr;
+  }
+
   ze_command_queue_handle_t getCopyCmdQueue(int32_t ID) {
     return (CopyCmdQueues.count(ID) > 0) ? CopyCmdQueues.at(ID) : nullptr;
   }
@@ -421,6 +428,10 @@ public:
 
   void setCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
     CmdQueues[ID] = CmdQueue;
+  }
+
+  void setCCSCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
+    CCSCmdQueues[ID] = CmdQueue;
   }
 
   void setCopyCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
@@ -930,7 +941,8 @@ public:
 int64_t RTLProfileTy::Multiplier;
 
 /// Get default command queue group ordinal
-static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device) {
+static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device,
+                                        uint32_t &NumQueues) {
   uint32_t groupCount = 0;
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, nullptr);
@@ -939,10 +951,12 @@ static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device) {
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, groupProperties.data());
   uint32_t groupOrdinal = UINT32_MAX;
+  NumQueues = 0;
   for (uint32_t i = 0; i < groupCount; i++) {
     auto &flags = groupProperties[i].flags;
     if (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
       groupOrdinal = i;
+      NumQueues = groupProperties[i].numQueues;
       break;
     }
   }
@@ -1117,7 +1131,8 @@ struct RTLFlagsTy {
   uint64_t UseMemoryPool : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t UseImageOptions : 1;
-  uint64_t Reserved : 56;
+  uint64_t UseMultipleComputeQueues : 1;
+  uint64_t Reserved : 55;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -1127,6 +1142,7 @@ struct RTLFlagsTy {
       UseMemoryPool(1),
       UseDriverGroupSizes(0),
       UseImageOptions(1),
+      UseMultipleComputeQueues(0),
       Reserved(0) {}
 };
 
@@ -1461,6 +1477,9 @@ public:
 
   // Command queue group ordinals for each device
   std::vector<uint32_t> CmdQueueGroupOrdinals;
+
+  // Number of compute command queues for the device
+  std::vector<uint32_t> NumCCSQueues;
 
   // Command queue group ordinals for copying
   std::vector<uint32_t> CopyCmdQueueGroupOrdinals;
@@ -1953,6 +1972,17 @@ public:
         DP("Disabled command batching due to unknown input \"%s\".\n", env);
       }
     }
+    // LIBOMPTARGET_LEVEL_ZERO_USE_MULTIPLE_COMPUTE_QUEUES=<Bool>
+    if (char *env =
+        readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USE_MULTIPLE_COMPUTE_QUEUES")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1') {
+        Flags.UseMultipleComputeQueues = 1;
+        DP("Enabled using multiple compute queues.\n");
+      } else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0') {
+        Flags.UseMultipleComputeQueues = 0;
+        DP("Disabled using multiple compute queues.\n");
+      }
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -1960,7 +1990,8 @@ public:
     auto CmdList = TLS->getCmdList(DeviceId);
     if (!CmdList) {
       CmdList = createCmdList(Context, Devices[DeviceId],
-          CmdQueueGroupOrdinals[DeviceId], DeviceIdStr[DeviceId]);
+                              CmdQueueGroupOrdinals[DeviceId],
+                              DeviceIdStr[DeviceId]);
       TLS->setCmdList(DeviceId, CmdList);
     }
     return CmdList;
@@ -1972,6 +2003,21 @@ public:
     if (!CmdQueue) {
       CmdQueue = createCommandQueue(DeviceId);
       TLS->setCmdQueue(DeviceId, CmdQueue);
+    }
+    return CmdQueue;
+  }
+
+  ze_command_queue_handle_t getCCSCmdQueue(int32_t DeviceId) {
+    auto TLS = getTLS();
+    auto CmdQueue = TLS->getCCSCmdQueue(DeviceId);
+    if (!CmdQueue) {
+      // Distribute to CCS queues
+      uint32_t Index = __kmpc_global_thread_num(nullptr) %
+          NumCCSQueues[DeviceId];
+      CmdQueue = createCmdQueue(Context, Devices[DeviceId],
+                                CmdQueueGroupOrdinals[DeviceId], Index,
+                                DeviceIdStr[DeviceId]);
+      TLS->setCCSCmdQueue(DeviceId, CmdQueue);
     }
     return CmdQueue;
   }
@@ -2631,6 +2677,8 @@ TLSTy::~TLSTy() {
   for (auto CmdList : LinkCopyCmdLists)
     CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
   for (auto CmdQueue : CmdQueues)
+    CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
+  for (auto CmdQueue : CCSCmdQueues)
     CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
   for (auto CmdQueue : CopyCmdQueues)
     CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
@@ -3413,8 +3461,10 @@ static int32_t appendDeviceProperties(
   DeviceInfo->ComputeProperties.push_back(computeProperties);
 
   DeviceInfo->DeviceIdStr.push_back(IdStr);
+  uint32_t NumQueues = 0;
   if (QueueOrdinal == UINT32_MAX)
-    QueueOrdinal = getCmdQueueGroupOrdinal(Device);
+    QueueOrdinal = getCmdQueueGroupOrdinal(Device, NumQueues);
+  DeviceInfo->NumCCSQueues.push_back(NumQueues);
   DeviceInfo->CmdQueueGroupOrdinals.push_back(QueueOrdinal);
   DeviceInfo->CmdQueueIndices.push_back(QueueIndex);
 
@@ -5080,8 +5130,12 @@ static int32_t runTargetTeamRegion(
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
                    groupSizes[2]);
   auto context = DeviceInfo->Context;
-  auto cmdList = DeviceInfo->getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+  ze_command_list_handle_t cmdList = DeviceInfo->getCmdList(DeviceId);
+  ze_command_queue_handle_t cmdQueue = nullptr;
+  if (DeviceInfo->Flags.UseMultipleComputeQueues)
+    cmdQueue = DeviceInfo->getCCSCmdQueue(DeviceId);
+  else
+    cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
 
   auto &Batch = getTLS()->getCommandBatch();
   if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))

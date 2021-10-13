@@ -140,6 +140,7 @@ set(LLVM_TEST_DEPENDS
           yaml2obj
 # INTEL_CUSTOMIZATION
           intelovls-test
+          intel-bin-opt-report
 # end INTEL_CUSTOMIZATION
         )
 
