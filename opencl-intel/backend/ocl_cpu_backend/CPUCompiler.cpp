@@ -283,7 +283,7 @@ CPUCompiler::CreateLLJIT(llvm::Module *M,
     // Add builtin function symbols
     if (auto Err =
             BuiltinModuleManager::GetInstance()->RegisterCPUBIFunctionsToLLJIT(
-                LLJIT.get())) {
+                m_bIsFPGAEmulator, LLJIT.get())) {
         llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
         throw Exceptions::CompilerException("Failed to add builtin symbols");
     }

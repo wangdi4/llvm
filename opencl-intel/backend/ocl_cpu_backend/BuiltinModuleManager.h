@@ -44,7 +44,7 @@ public:
     /**
      * Static singleton intialization
      */
-    static void Init();
+    static void Init(bool isFPGAEmuDev);
     /**
      * Static singleton termination
      */
@@ -77,7 +77,8 @@ public:
     /**
      * Register symbols of CPU builtins to LLJIT.
      */
-    llvm::Error RegisterCPUBIFunctionsToLLJIT(llvm::orc::LLJIT *LLJIT);
+    llvm::Error RegisterCPUBIFunctionsToLLJIT(bool isFPGAEmuDev,
+                                              llvm::orc::LLJIT *LLJIT);
 
 private:
   template <typename DeviceBuiltinLibrary>

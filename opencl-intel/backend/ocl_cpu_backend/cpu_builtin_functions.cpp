@@ -159,7 +159,7 @@ class IBlockToKernelMapper;
     llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name),                \
                                          (void *)(intptr_t)ptr);               \
   }
-llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT *LLJIT)
+llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
 {
     llvm::JITSymbolFlags flag;
 
@@ -212,10 +212,12 @@ llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("_ihc_pthread_join", _ihc_pthread_join)
     REGISTER_BI_FUNCTION("_ihc_pthread_detach", _ihc_pthread_detach)
 #ifdef _WIN32
-    REGISTER_BI_FUNCTION("_Znwy", _Znwy)
-    REGISTER_BI_FUNCTION("_ZdlPvy", _ZdlPvy)
-    REGISTER_BI_FUNCTION("_ZSt14_Xlength_errorPKc", _ZSt14_Xlength_errorPKc)
-    REGISTER_BI_FUNCTION("_ZdlPv", _ZdlPv)
+    if (isFPGAEmuDev) {
+      REGISTER_BI_FUNCTION("_Znwy", _Znwy)
+      REGISTER_BI_FUNCTION("_ZdlPvy", _ZdlPvy)
+      REGISTER_BI_FUNCTION("_ZSt14_Xlength_errorPKc", _ZSt14_Xlength_errorPKc)
+      REGISTER_BI_FUNCTION("_ZdlPv", _ZdlPv)
+    }
 #ifdef _WIN64
     REGISTER_BI_FUNCTION("___chkstk_ms", ___chkstk_ms)
 #else
