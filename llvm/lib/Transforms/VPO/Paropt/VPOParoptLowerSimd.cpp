@@ -1433,7 +1433,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
       if (GID != GenXIntrinsic::not_genx_intrinsic) {
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
             CallOp->getModule(), GID, {CallOp->getType()});
-        SmallVector<Value *, 2> ValueOperands(CallOp->arg_operands());
+        SmallVector<Value *, 2> ValueOperands(CallOp->args());
         Value *RepI = CallInst::Create(NewFDecl, ValueOperands,
                                        CallOp->getName(), CallOp);
         CallOp->replaceAllUsesWith(RepI);
