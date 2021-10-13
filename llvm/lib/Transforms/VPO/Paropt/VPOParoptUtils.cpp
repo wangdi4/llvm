@@ -4025,7 +4025,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   FunctionType *BaseFnTy = BaseCall->getFunctionType();
   bool IsVarArg = BaseFnTy->isVarArg();
 
-  SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
+  SmallVector<Value *, 4> FnArgs(BaseCall->args());
 
   // When IsVarArg==true, we cannot recreate the FnArgTypes from the FnArgs
   // because there may be more arguments in the call than the formal parameters
@@ -4071,7 +4071,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   // -Base:           call void @foo1(%struct.A* byval(%struct.A) align 8 %AAA)
   // -Variant before: call void @foo2(%struct.A* %AAA)
   // -Variant after:  call void @foo2(%struct.A* byval(%struct.A) align 8 %AAA)
-  for (unsigned ArgNum = 0; ArgNum < BaseCall->getNumArgOperands(); ++ArgNum) {
+  for (unsigned ArgNum = 0; ArgNum < BaseCall->arg_size(); ++ArgNum) {
     if (BaseCall->isByValArgument(ArgNum)) {
       Type *ArgType = FnArgTypes[ArgNum];
       assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");

@@ -664,7 +664,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
                                           const TargetLibraryInfo *TLI,
                                           ScalarEvolution *SE, Loop *OrigLoop)
 {
-  for (unsigned I = 0; I < CI->getNumArgOperands(); ++I) {
+  for (unsigned I = 0; I < CI->arg_size(); ++I) {
 
     Value *CallArg = CI->getArgOperand(I);
     GetElementPtrInst *ArgGep = dyn_cast<GetElementPtrInst>(CallArg);

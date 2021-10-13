@@ -208,7 +208,7 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
         addExternFunctionDeclaration(CalledFuncType, FT, CallbackName);
       }
       // Copy original function operands
-      SmallVector<Value *, 16> ExtExecArgs(CI->arg_operands());
+      SmallVector<Value *, 16> ExtExecArgs(CI->args());
       // Add the RuntimeInterface arg
       ExtExecArgs.push_back(getOrCreateRuntimeInterface());
       // Add the Block2KernelMapper arg
@@ -375,10 +375,10 @@ Value *ResolveWICallPass::updatePrintf(CallInst *CI) {
   // the instruction, including its destination as #0. Since this is
   // a printf call and we're interested in all the arguments after the
   // format string, we start with #2.
-  assert(CI->getNumArgOperands() > 0 &&
+  assert(CI->arg_size() > 0 &&
          "Expect printf to have a format string");
   unsigned TotalArgSize = 0;
-  for (unsigned NumArg = 1; NumArg < CI->getNumArgOperands(); ++NumArg) {
+  for (unsigned NumArg = 1; NumArg < CI->arg_size(); ++NumArg) {
     Value *arg = CI->getArgOperand(NumArg);
     unsigned argsize = DL.getTypeAllocSize(arg->getType());
     TotalArgSize += argsize;
@@ -396,7 +396,7 @@ Value *ResolveWICallPass::updatePrintf(CallInst *CI) {
   // just allocate a dummy buffer of size 1. opencl_printf won't look at
   // it anyway.
   ArrayType *BufArrType;
-  if (CI->getNumArgOperands() == 1) {
+  if (CI->arg_size() == 1) {
     BufArrType = ArrayType::get(I8Type, 1);
   } else {
     BufArrType = ArrayType::get(I8Type, TotalArgSize);
@@ -408,7 +408,7 @@ Value *ResolveWICallPass::updatePrintf(CallInst *CI) {
 
   // Generate instructions to store the operands into the argument buffer.
   unsigned BufPointerOffset = 0;
-  for (unsigned NumArg = 1; NumArg < CI->getNumArgOperands(); ++NumArg) {
+  for (unsigned NumArg = 1; NumArg < CI->arg_size(); ++NumArg) {
     std::vector<Value *> IndexArgs;
     IndexArgs.push_back(getConstZeroInt32Value());
     IndexArgs.push_back(ConstantInt::get(I32Type, BufPointerOffset));

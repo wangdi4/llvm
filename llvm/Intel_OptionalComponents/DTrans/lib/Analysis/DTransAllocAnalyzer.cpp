@@ -367,7 +367,7 @@ DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
 bool DTransAllocAnalyzer::analyzeForIndirectStatus(const CallBase *Call,
                                                    bool Malloc) {
 
-  if (Call->getNumArgOperands() < 2)
+  if (Call->arg_size() < 2)
     return false;
 
   // First argument is 'this' pointer.
