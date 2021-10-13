@@ -158,6 +158,8 @@ MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
             dtrans::SOAToAOSArrayMethodsTransformDebug())        // INTEL
 MODULE_PASS("soatoaos-struct-methods-transform",                 // INTEL
             dtrans::SOAToAOSStructMethodsTransformDebug())       // INTEL
+MODULE_PASS("soatoaosop-arrays-methods-transform",               // INTEL
+            dtransOP::SOAToAOSArrayMethodsTransformDebug())      // INTEL
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("dtrans-annotator-cleaner", dtrans::AnnotatorCleanerPass()) // INTEL
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -360,6 +362,7 @@ FUNCTION_ANALYSIS("soatoaos-approx", dtrans::SOAToAOSApproximationDebug())
 FUNCTION_ANALYSIS("soatoaos-array-methods", dtrans::SOAToAOSArrayMethodsCheckDebug())
 FUNCTION_ANALYSIS("soatoaos-struct-methods", dtrans::SOAToAOSStructMethodsCheckDebug())
 FUNCTION_ANALYSIS("soatoaosop-approx", dtransOP::SOAToAOSOPApproximationDebug())
+FUNCTION_ANALYSIS("soatoaosop-array-methods", dtransOP::SOAToAOSOPArrayMethodsCheckDebug())
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_FEATURE_SW_DTRANS
 
