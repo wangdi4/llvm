@@ -38,7 +38,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; AVX512: LV: Found an estimated cost of 3 for VF 8 For instruction:   %v0 = load float, float* %in0, align 4
 ; AVX512: LV: Found an estimated cost of 5 for VF 16 For instruction:   %v0 = load float, float* %in0, align 4
 ; AVX512: LV: Found an estimated cost of 22 for VF 32 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX512: LV: Found an estimated cost of 92 for VF 64 For instruction:   %v0 = load float, float* %in0, align 4
+; INTEL_CUSTOMIZATION
+; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
+; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
+; AVX512: LV: Found an estimated cost of 64 for VF 64 For instruction:   %v0 = load float, float* %in0, align 4
+; end INTEL_CUSTOMIZATION
 ;
 ; CHECK-NOT: LV: Found an estimated cost of {{[0-9]+}} for VF {{[0-9]+}} For instruction:   %v0 = load float, float* %in0, align 2
 
