@@ -7,10 +7,10 @@
 ;
 ; CHECK:   BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:        |   (@A)[0][i1 + %t.019] = i1;
+; CHECK:        |   (@A)[0][i1 + sext.i32.i64(%t.019)] = i1;
 ; CHECK:        |   %1 = (@B)[0][i1];
 ; CHECK:        |   %t.019 = %1  +  %t.019;
-; CHECK:        |   (@A)[0][i1 + %t.019] = i1 + 1;
+; CHECK:        |   (@A)[0][i1 + sext.i32.i64(%t.019)] = i1 + 1;
 ; CHECK:        + END LOOP
 ; CHECK:   END REGION
 ;
@@ -18,10 +18,10 @@
 ;
 ; CHECK:   BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:        |   (@A)[0][i1 + %t.019] = i1;
+; CHECK:        |   (@A)[0][i1 + sext.i32.i64(%t.019)] = i1;
 ; CHECK:        |   %1 = (@B)[0][i1];
 ; CHECK:        |   %t.019 = %1  +  %t.019;
-; CHECK:        |   (@A)[0][i1 + %t.019] = i1 + 1;
+; CHECK:        |   (@A)[0][i1 + sext.i32.i64(%t.019)] = i1 + 1;
 ; CHECK:        + END LOOP
 ; CHECK:   END REGION
 
