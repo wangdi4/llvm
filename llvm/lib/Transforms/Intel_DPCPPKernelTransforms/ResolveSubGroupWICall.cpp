@@ -451,7 +451,7 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   assert(AtomicWIFenceF && "Failed generating function in current module");
 
   // take mem_fence from the barrier
-  assert((CI->getNumArgOperands() >= 1) &&
+  assert((CI->arg_size() >= 1) &&
          "Expect sub_group_barrier to have at least mem fence argument!");
   Value *MemFence = CI->getArgOperand(0);
   // Obtain MemoryOrder.
@@ -461,7 +461,7 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   Value *MemOrder = Builder.getInt32(MemoryOrderAcqRel);
   // obtain mem_scope.
   Value *MemScope = nullptr;
-  if (CI->getNumArgOperands() == 2)
+  if (CI->arg_size() == 2)
     // take memory scope from the barrier.
     MemScope = CI->getArgOperand(1);
   else {

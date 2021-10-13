@@ -165,7 +165,7 @@ public:
   /// calls.
   unsigned getNumNonBundleOperands() const {
     auto Call = getCallInst();
-    return Call ? (Call->getNumArgOperands() + hasLval()) : getNumOperands();
+    return Call ? (Call->arg_size() + hasLval()) : getNumOperands();
   }
 
   /// Returns the number of operands in the bundle \p BundleNum which is in

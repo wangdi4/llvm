@@ -5414,7 +5414,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
 
   if (CI->getNumOperands() < 2)
     return false;
-  unsigned lastOpNo = CI->getNumArgOperands() - 1;
+  unsigned lastOpNo = CI->arg_size() - 1;
   Value *lastOp = CI->getArgOperand(lastOpNo);
   VectorType *lastOpType = dyn_cast<VectorType>(lastOp->getType());
   if (!lastOpType || lastOpType->getScalarSizeInBits() != 1)
@@ -5442,7 +5442,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
 
   // Create new declaration
   SmallVector<Type *, 3> ParamTys;
-  for (unsigned i = 0; i < CI->getNumArgOperands(); i++)
+  for (unsigned i = 0; i < CI->arg_size(); i++)
     ParamTys.push_back(CI->getArgOperand(i)->getType());
   FunctionType* newFuncType =
     FunctionType::get(CI->getType(), ParamTys, false);

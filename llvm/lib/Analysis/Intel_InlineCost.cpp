@@ -1305,7 +1305,7 @@ preferNotToInlineForSwitchComputations(CallBase &CB,
       return false;
     // The actual arguments to the call should come from the formal arguments
     // to the caller, passed optionally through an all zero index GEP.
-    for (unsigned I = 0; I < CI->getNumArgOperands(); I++) {
+    for (unsigned I = 0; I < CI->arg_size(); I++) {
       auto W = CI->getArgOperand(I);
       auto GEPInst = dyn_cast<GetElementPtrInst>(W);
       if (GEPInst) {
@@ -3385,7 +3385,7 @@ static bool worthInliningFunctionPassedDummyArgs(Function &F,
       continue;
     ++CallSiteCount;
     unsigned E = PtrToIntFirstArgNo + PtrToIntSeriesArgCount;
-    if (E > CS->getNumArgOperands() - 1)
+    if (E > CS->arg_size() - 1)
       return false;
     unsigned MaxMatchCount = 0;
     unsigned SeriesCount = 0;
@@ -3577,10 +3577,10 @@ static bool worthInliningForSmallApp(CallBase &CB,
   // matching Arguments, ConstantFP or LoadInst where the operands match.
   //
   auto MatchedPair = [](CallBase &CB0, CallBase &CB1) -> bool {
-    if (CB0.getNumArgOperands() != CB1.getNumArgOperands())
+    if (CB0.arg_size() != CB1.arg_size())
       return false;
     bool SawMatch = false;
-    for (unsigned I = 0, E = CB0.getNumArgOperands(); I < E; I++) {
+    for (unsigned I = 0, E = CB0.arg_size(); I < E; I++) {
       Value *V0 = CB0.getArgOperand(I);
       Value *V1 = CB1.getArgOperand(I);
       if (V0 == V1)
