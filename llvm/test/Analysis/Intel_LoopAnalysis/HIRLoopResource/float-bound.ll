@@ -1,6 +1,9 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-loop-resource>" -disable-output 2>&1 | FileCheck %s
 
+; RUN: opt < %s -force-opaque-pointers -hir-ssa-deconstruction -analyze -hir-loop-resource | FileCheck %s
+; RUN: opt < %s -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir-loop-resource>" -disable-output 2>&1 | FileCheck %s
+
 ; Src code-
 ; float t = 0;
 ; for(i=0; i<n; i++)
