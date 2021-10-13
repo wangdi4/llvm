@@ -10,8 +10,11 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ;
+; RUN: opt < %s -force-opaque-pointers -hir-ssa-deconstruction -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
+; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
+
 ; CHECK: DD graph for function sub:
-; CHECK-DAG:  %A)[i1] --> (%B)[i1] OUTPUT (=)
+; CHECK-DAG:  (%A)[i1] --> (%B)[i1] OUTPUT (=)
 ; CHECK-DAG:  (%A)[i1 + 3] --> (%A)[i1] ANTI (<)
 ; CHECK-DAG:  (%A)[i1 + 3] --> (%B)[i1] ANTI (=)
 ;
