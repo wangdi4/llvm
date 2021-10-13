@@ -89,7 +89,7 @@ bool CLBuiltinLICM::hoistCLBuiltin(CallInst *CI) {
   if (!m_rtServices->isSafeToSpeculativeExecute(funcName) ) return false;
 
   // All it's operands should be invariant.
-  for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
+  for (unsigned i=0; i<CI->arg_size(); ++i) {
     if (!m_curLoop->isLoopInvariant(CI->getArgOperand(i))) return false;
   }
 

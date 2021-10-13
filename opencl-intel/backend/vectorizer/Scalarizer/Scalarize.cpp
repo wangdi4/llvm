@@ -275,7 +275,7 @@ void ScalarizeFunction::recoverNonScalarizableInst(Instruction *Inst)
   // Iterate over all arguments. Check that they all exist (or rebuilt)
   if (CallInst *CI = dyn_cast<CallInst>(Inst))
   {
-    unsigned numOperands = CI->getNumArgOperands();
+    unsigned numOperands = CI->arg_size();
     for (unsigned i = 0; i < numOperands; i++)
     {
       Value *operand = CI->getArgOperand(i);
@@ -851,7 +851,7 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   SmallPtrSet<Value*, 2> nonScalarizedVectors;
 
   unsigned numArguments = scalarFunction->getFunctionType()->getNumParams();
-  V_ASSERT (CI->getNumArgOperands() == numArguments + argStart && "CALL arguments number error");
+  V_ASSERT (CI->arg_size() == numArguments + argStart && "CALL arguments number error");
   // In some versions of Clang, it would emit a function which returns large types, such as double16,
   // as a function which returns void and takes an extra argument which is a pointer to store the return
   // value to.

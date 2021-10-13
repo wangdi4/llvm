@@ -817,7 +817,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CallInst* inst) {
 
   // Iterate over all input dependencies. If all are uniform - propagate it.
   // otherwise - return RANDOM
-  unsigned numParams = inst->getNumArgOperands();
+  unsigned numParams = inst->arg_size();
 
   bool isAllUniform = true;
   for (unsigned i = 0; i < numParams; ++i)

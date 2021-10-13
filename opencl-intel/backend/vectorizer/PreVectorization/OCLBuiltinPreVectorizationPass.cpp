@@ -181,7 +181,7 @@ void OCLBuiltinPreVectorizationPass::replaceCallWithFakeFunction(CallInst *CI, s
   V_PRINT(prevectorization, "\nreplacing:    " << *CI << "\nwith:   " << *fakeFunc << "\n");
   const FunctionType *fakeFuncType = fakeFunc->getFunctionType();
   unsigned fakeNumArgs = fakeFuncType->getNumParams();
-  unsigned origNumArgs = CI->getNumArgOperands();
+  unsigned origNumArgs = CI->arg_size();
   V_ASSERT(fakeNumArgs == origNumArgs && "fake function have different number of arguments");
   if (fakeNumArgs != origNumArgs) return;
 
@@ -231,7 +231,7 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
   //%extractval1 = <4 x float> extractvalue %sincos, 1
   //store <4 x float>* %cos, %extractval1
   const unsigned int argStart = (CI->getType()->isVoidTy()) ? 1 : 0;
-  V_ASSERT(CI->getNumArgOperands() == (argStart + 2) && "Function is expected to have exactly two arguments");
+  V_ASSERT(CI->arg_size() == (argStart + 2) && "Function is expected to have exactly two arguments");
   Value* Op0 = VectorizerUtils::RootInputArgumentBySignature(CI->getArgOperand(argStart + 0), 0, CI);
   Value* Op1 = CI->getArgOperand(argStart + 1);
   PointerType* Op1Type = dyn_cast<PointerType>(Op1->getType());
@@ -293,7 +293,7 @@ void OCLBuiltinPreVectorizationPass::handleReturnByPtrBuiltin(CallInst* CI, cons
 
 void OCLBuiltinPreVectorizationPass::handleInlineDot(CallInst* CI, unsigned opWidth) {
   V_PRINT("scalarizer", "Before: "<<*CI->getParent()<<"\n\n");
-  V_ASSERT(CI->getNumArgOperands() == 2 && "expect two operands");
+  V_ASSERT(CI->arg_size() == 2 && "expect two operands");
   // TODO : why it fails build?
   //V_ASSERT(CI->getType()->isFloatingPointTy() && "expect float\double return");
   if (!CI->getType()->isFloatingPointTy()) return;

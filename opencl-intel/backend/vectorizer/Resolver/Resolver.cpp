@@ -307,7 +307,7 @@ void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
   V_STAT(m_unresolvedLoadCtr++;)
   V_PRINT(DEBUG_TYPE, "Inspecting scl load\n" <<*caller<<"\n");
   // Operands: pred, ptr
-  V_ASSERT(caller->getNumArgOperands() == 2 && "Bad number of operands");
+  V_ASSERT(caller->arg_size() == 2 && "Bad number of operands");
   V_ASSERT(!isa<VectorType>(caller->getArgOperand(0)->getType()) && "Bad op type");
 
   // Create the new load
@@ -328,7 +328,7 @@ void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
 void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Ptr = caller->getArgOperand(1);
-  V_ASSERT(caller->getNumArgOperands() == 2 && "Bad number of operands");
+  V_ASSERT(caller->arg_size() == 2 && "Bad number of operands");
 
   Type *Tp = caller->getType();
   V_ASSERT(Tp->isVectorTy() && "Return value must be of vector type");
@@ -444,7 +444,7 @@ void FuncResolver::resolveStoreScalar(CallInst* caller, unsigned align) {
   V_STAT(m_unresolvedStoreCtr++;)
   V_PRINT(DEBUG_TYPE, "Inspecting scl store\n" <<*caller<<"\n");
   //Operands pred, val,  ptr
-  V_ASSERT(caller->getNumArgOperands() == 3 && "Bad number of operands");
+  V_ASSERT(caller->arg_size() == 3 && "Bad number of operands");
   V_ASSERT(!isa<VectorType>(caller->getType()) && "Bad return type");
   V_ASSERT(!isa<VectorType>(caller->getArgOperand(0)->getType()) && "Bad op type");
 
@@ -464,7 +464,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   Value *Mask = caller->getArgOperand(0);
   Value *Data = caller->getArgOperand(1);
   Value *Ptr = caller->getArgOperand(2);
-  V_ASSERT(caller->getNumArgOperands() == 3 && "Bad number of operands");
+  V_ASSERT(caller->arg_size() == 3 && "Bad number of operands");
   V_ASSERT(caller->getType()->isVoidTy() && "Store is expected to return 'void'");
 
   Type *Tp = Data->getType();
@@ -566,7 +566,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   std::vector<Type*> args;
 
   //Operands: [PRED, arg0, arg1 , ...]. Omit the pred..
-  for (unsigned j = 1; j < caller->getNumArgOperands(); ++j) {
+  for (unsigned j = 1; j < caller->arg_size(); ++j) {
     args.push_back(caller->getArgOperand(j)->getType());
   }
 
@@ -587,7 +587,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
 
   std::vector<Value*> params;
   // Create arguments for new function call (omit pred)
-  for (unsigned j = 1; j < caller->getNumArgOperands(); ++j) {
+  for (unsigned j = 1; j < caller->arg_size(); ++j) {
     params.push_back(caller->getArgOperand(j));
   }
 
@@ -598,7 +598,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   pcall->setCallingConv(caller->getCallingConv());
   AttributeList as;
   auto callAttr = caller->getAttributes();
-  for (unsigned int i=0; i < caller->getNumArgOperands(); ++i) {
+  for (unsigned int i=0; i < caller->arg_size(); ++i) {
     //Parameter attributes starts with index 1-NumOfParams
     unsigned int idx = i+1;
     //pcall starts with mask argument, skip it when setting original argument attributes.

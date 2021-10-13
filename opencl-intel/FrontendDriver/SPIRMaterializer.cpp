@@ -197,7 +197,7 @@ changeImageCall(llvm::CallInst *CI,
                                             SPIRAS_Global));
   Args.push_back(
       BitCastInst::CreatePointerCast(CI->getArgOperand(0), ArgTys[0], "", CI));
-  for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
+  for (unsigned i = 1; i < CI->arg_size(); ++i) {
     // Cast old sampler type(i32) with new(opaque*) before passing to builtin
     if (auto primitiveType = dyn_cast<reflection::PrimitiveType>(
             (reflection::ParamType *)FD.Parameters[i].get())) {

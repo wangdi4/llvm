@@ -91,7 +91,7 @@ bool DXWrapperParamsCheck::isDXScalarWrapperMasked (CallInst* CI, const RuntimeS
   name = Mangler::demangle(name);
   const Function *origFunc = rtServices->findInRuntimeModule(name);
   assert (origFunc && "scalar function not found in hash");
-  return (CI->getNumArgOperands() != 
+  return (CI->arg_size() != 
       origFunc->getFunctionType()->getNumParams());
 }
 

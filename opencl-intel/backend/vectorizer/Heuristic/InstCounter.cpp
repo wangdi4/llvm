@@ -480,7 +480,7 @@ int WeightedInstCounter::estimateCall(CallInst *Call)
       // cases. E.g., penalize gep's with more than 6 operands instead of exact
       // 6 operands.
       if ((isOCLStore || isStoreIntrinsic) && !MaskType->isVectorTy()) {
-        V_ASSERT(Call->getNumArgOperands() == 3 && "expected 3 params in masked store");
+        V_ASSERT(Call->arg_size() == 3 && "expected 3 params in masked store");
         if (auto * gep = dyn_cast<GetElementPtrInst>(Call->getArgOperand(1))) {
           if (gep->getNumOperands() == NUMBER_OF_PARAMETERS_IN_GEP_PENALTY_HACK) {
             BasicBlock* BB = Call->getParent();

@@ -32,7 +32,7 @@ void PrintfAdder::getConditionalGIDs(Function *F) {
     if (CallInst *CI = dyn_cast<CallInst>(&*sI)) {
       if (Function *func = CI->getCalledFunction()) {
         if (func->getName().find(GET_GID_NAME) != std::string::npos) {
-          if (ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(CI->getNumArgOperands()-1))) {
+          if (ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(CI->arg_size()-1))) {
             unsigned dim = C->getZExtValue();
             numDim = numDim > dim ? numDim : dim +1; 
           }

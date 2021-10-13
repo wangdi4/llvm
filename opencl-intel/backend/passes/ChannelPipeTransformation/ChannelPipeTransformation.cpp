@@ -417,7 +417,7 @@ static CallInst *createCallInstStub(CallInst *Call, Function *Func,
                                     Type *ChannelTy, Type *PipeTy) {
   auto *UndefPipe = UndefValue::get(PipeTy);
   SmallVector<Value *, 8> Args;
-  for (auto &Arg : Call->arg_operands()) {
+  for (auto &Arg : Call->args()) {
     if (Arg->getType() == ChannelTy) {
       Args.push_back(UndefPipe);
     } else {
@@ -467,10 +467,10 @@ static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
   // void write_channel_intel(channel, <value1 ty1>, <value2 ty2>)
   // bool write_channel_nb_intel(channel, <value1 ty1>, <value2 ty2>)
 
-  assert(ChannelCall->getNumArgOperands() <= 3 &&
+  assert(ChannelCall->arg_size() <= 3 &&
                "Too many arguments for channel write function!");
   IRBuilder<> Builder(ChannelCall);
-  if(ChannelCall->getNumArgOperands() == 3) {
+  if(ChannelCall->arg_size() == 3) {
     // This is a channel write with coerced arguments
     // At this time, struct size is > 8 bytes and <= 16 bytes
     // Need to create a struct that contains the coerced arguments and
