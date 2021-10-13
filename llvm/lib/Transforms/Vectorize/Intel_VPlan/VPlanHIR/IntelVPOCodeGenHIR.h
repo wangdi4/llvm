@@ -446,7 +446,7 @@ public:
   // Given a pointer ref that is a selfblob, create and return memory reference
   // for PtrRef[Index]. NumElements if greater than 1 is used to set the
   // destination type of canon expr corresponding to Index appropriately.
-  RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, int Index,
+  RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, Type *ElementType, int Index,
                                  unsigned NumElements);
 
   // Returns the widened address-of DDRef for a pointer. The base pointer is
