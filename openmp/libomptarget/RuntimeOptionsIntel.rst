@@ -360,6 +360,16 @@ region.
 
 **Default**: ``<Type>=none`` (Disabled)
 
+``LIBOMPTARGET_LEVEL_ZERO_USE_MULTIPLE_COMPUTE_QUEUES=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables using multiple compute queues for multiple host threads if the
+device supports.
+
+**Default**: Disabled
 
 Plugin OpenCL
 -------------
