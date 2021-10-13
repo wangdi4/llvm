@@ -26,7 +26,7 @@ define void @foo(i64 %n1, i64 %n2) {
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@arr2}
 ; CHECK-DAG:     [[VP1:%.*]] = {@arr}
-; CHECK-DAG:     [[VP2:%.*]] = {(%n1 * %n2)}
+; CHECK-DAG:     [[VP2:%.*]] = {(%n1 * %n2)<nsw>}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP3:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP4:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64* [[VP5:%.*]] = subscript inbounds [100 x i64]* @arr i64 0 i64 [[VP3]]
