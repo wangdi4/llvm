@@ -1,12 +1,16 @@
-;; Have the original 'internal' linkage transferred over.
+;; Have the original:
+;;    - 'weak' linkage
+;;    - 'protected' visibility
+;; transferred over.
+
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: define internal fastcc void @_ZGVeN16vvv_foo(
+; CHECK: define weak protected fastcc void @_ZGVeN16vvv_foo(
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define internal fastcc void @foo(i32 %c, i32 %a, i32 addrspace(1)* noalias %b) unnamed_addr #0 {
+define weak protected fastcc void @foo(i32 %c, i32 %a, i32 addrspace(1)* noalias %b) unnamed_addr #0 {
 entry:
   %cmp = icmp sgt i32 %c, %a
   br i1 %cmp, label %if.then, label %if.else

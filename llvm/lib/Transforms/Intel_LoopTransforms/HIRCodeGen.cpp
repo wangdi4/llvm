@@ -883,28 +883,17 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
-  bool AnyVector = false;
+  bool HasVectorIndices = Ref->hasAnyVectorIndices();
   bool IsAddressOf = Ref->isAddressOf();
   auto BitCastDestVecOrElemTy = Ref->getBitCastDestVecOrElemType();
-
-  for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
-       ++CEI) {
-    if ((*CEI)->getDestType()->isVectorTy()) {
-      AnyVector = true;
-      break;
-    }
-  }
 
   // A GEP instruction is allowed to have a mix of scalar and vector operands.
   // However, not all optimizations(especially LLVM loop unroller) are handling
   // such cases. To workaround, the base pointer value needs to be broadcast.
   // If Ref's dest type is a vector, we need to do a broadcast.
-  if (!BaseV->getType()->isVectorTy()) {
-    if (AnyVector || (BitCastDestVecOrElemTy && IsAddressOf &&
-                      BitCastDestVecOrElemTy->isVectorTy())) {
-      auto VL = cast<VectorType>(Ref->getDestType())->getNumElements();
-      BaseV = Builder.CreateVectorSplat(VL, BaseV);
-    }
+  if (!BaseV->getType()->isVectorTy() && HasVectorIndices) {
+    auto VL = cast<VectorType>(Ref->getDestType())->getNumElements();
+    BaseV = Builder.CreateVectorSplat(VL, BaseV);
   }
 
   auto &DL = HIRF.getDataLayout();
@@ -1017,7 +1006,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     // to int by bitcast. Note that bitcast of  something like int * to
     // <4 x int>* is also handled here.
     auto *BitCastTy =
-        (IsAddressOf && isa<VectorType>(BitCastDestVecOrElemTy))
+        (IsAddressOf && HasVectorIndices)
             ? BitCastDestVecOrElemTy
             : PointerType::get(
                   BitCastDestVecOrElemTy,
