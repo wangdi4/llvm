@@ -662,11 +662,16 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
           }
           ++ClangIdx;
 
-          llvm::Type *LLVMPadding = ST->getElementType(Idx);
-          if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, Idx, RD, ClangIdx)) {
-            QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
-            LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
-            ++Idx;
+          // If there is a remaining LLVM field, there is a possibility for it
+          // to be padding between this bitfield and the next field.
+          if (ST->getNumElements() > Idx) {
+            llvm::Type *LLVMPadding = ST->getElementType(Idx);
+            if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, Idx, RD,
+                                       ClangIdx)) {
+              QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
+              LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
+              ++Idx;
+            }
           }
         } else {
           LitMD.push_back(
@@ -904,10 +909,13 @@ llvm::MDNode *DTransInfoGenerator::CreateArrayTypeMD(QualType ClangType,
     // about anything other than the 1st initializer.
     if (ILE->getNumInits()) {
       CurInit = ILE->getInit(0);
-    } else {
-      assert(ILE->hasArrayFiller() && "Unknown init list type");
+    } else if (ILE->hasArrayFiller()) {
       CurInit = ILE->getArrayFiller();
     }
+    // If there is no initializer, this is likely a zero-length array, which
+    // just uses the type directly rather than a level of decomposition. So we
+    // should already have the correct element type, and don't need the
+    // initializer.
   }
 
   ArrMD.push_back(

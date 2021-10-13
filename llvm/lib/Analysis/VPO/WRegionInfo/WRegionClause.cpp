@@ -256,6 +256,17 @@ void ArraySectionInfo::populateArraySectionDims(const Use *Args,
   }
 }
 
+bool ArraySectionInfo::isVariableLengthArraySection() const {
+  const int NumDims = ArraySectionDims.size();
+  for (int I = NumDims - 1; I >= 0; --I) {
+    auto const &Dim = ArraySectionDims[I];
+    Value *SectionDimSize = std::get<1>(Dim);
+    if (SectionDimSize && !isa<ConstantInt>(SectionDimSize))
+      return true;
+  }
+  return false;
+}
+
 // This routine populates PreferList from the Args.
 void InteropItem::populatePreferList(const Use *Args, unsigned NumArgs) {
   setIsPrefer();

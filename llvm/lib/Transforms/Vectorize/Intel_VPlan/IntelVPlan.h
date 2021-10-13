@@ -1513,6 +1513,7 @@ private:
       addOperand(Op);
     InBounds = Other.InBounds;
     Dimensions = Other.Dimensions;
+    StructOffsetsStorage = Other.StructOffsetsStorage;
   }
 
 public:

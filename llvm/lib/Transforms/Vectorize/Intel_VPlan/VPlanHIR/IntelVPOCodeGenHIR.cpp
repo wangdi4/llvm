@@ -2862,14 +2862,15 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   return WideRef->clone();
 }
 
-RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
+RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef,
+                                              Type *ElementType, int Index,
                                               unsigned NumElements) {
   assert(PtrRef->isSelfBlob() && "Expected self blob DDRef");
   auto &HIRF = HLNodeUtilities.getHIRFramework();
   llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
   auto Is64Bit = TargetTriple.isArch64Bit();
-  RegDDRef *MemRef = DDRefUtilities.createMemRef(PtrRef->getDestType()->getScalarType()->getPointerElementType(), PtrRef->getSelfBlobIndex(),
-                                                 PtrRef->getDefinedAtLevel());
+  RegDDRef *MemRef = DDRefUtilities.createMemRef(
+      ElementType, PtrRef->getSelfBlobIndex(), PtrRef->getDefinedAtLevel());
   auto Int32Ty = Type::getInt32Ty(HLNodeUtilities.getContext());
   auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
   auto IndexCE =
@@ -2958,6 +2959,13 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   bool IsUnitStride = Plan->getVPlanDA()->isUnitStridePtr(
       VPPtr, VPLdSt->getValueType(), IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
+
+  Type *IndexedElementType = VPLdSt->getValueType();
+  if (!NeedScalarRef)
+    // Re-vectorizing vector load/store into a gather/scatter changes the
+    // element type.
+    IndexedElementType = IndexedElementType->getScalarType();
+
   unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
   if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
     // For accesses to private memory we need to use new private alloca's
@@ -2985,7 +2993,8 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
     MemRef = PtrRef;
     MemRef->setAddressOf(false);
   } else {
-    MemRef = createMemrefFromBlob(PtrRef, 0, NeedScalarRef ? 1 : VF);
+    MemRef = createMemrefFromBlob(PtrRef, IndexedElementType, 0,
+                                  NeedScalarRef ? 1 : VF);
   }
 
   PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
@@ -3015,7 +3024,7 @@ RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
   if (MemRef->isAddressOf())
     MemRef->setAddressOf(false);
   else
-    MemRef = createMemrefFromBlob(MemRef, 0, 1);
+    MemRef = createMemrefFromBlob(MemRef, LoadStore->getValueType(), 0, 1);
   MemRef->setBitCastDestVecOrElemType(LoadStore->getValueType());
   MemRef->setAlignment(LoadStore->getAlignment().value());
   MemRef->setSymbase(LoadStore->HIR().getSymbase());
@@ -4693,16 +4702,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
 
   case Instruction::GetElementPtr: {
-    // Decomposer can generate GEPs only if underlying LLVMInst is GEP. This
-    // happens for single operand GEP cases (check hir_oneopgep.ll).
-    SmallVector<const RegDDRef *, 4> AuxRefs;
-
-    // If we have a single operand GEP, we can simply reuse RefOp0
-    if (VPInst->getNumOperands() == 1) {
-      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
-      return;
-    }
-
     if (VPInst->getNumOperands() == 2) {
       // VPlan VLS transformation introduces this kind of GEPs:
       //   %base = ....

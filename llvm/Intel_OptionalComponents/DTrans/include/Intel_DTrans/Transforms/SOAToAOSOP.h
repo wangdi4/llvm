@@ -65,6 +65,38 @@ public:
   Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
+// Debugging pass to check array method classification.
+struct SOAToAOSOPArrayMethodsCheckDebugResult;
+class SOAToAOSOPArrayMethodsCheckDebug
+    : public AnalysisInfoMixin<SOAToAOSOPArrayMethodsCheckDebug> {
+  static AnalysisKey Key;
+  friend AnalysisInfoMixin<SOAToAOSOPArrayMethodsCheckDebug>;
+  static char PassID;
+
+public:
+  // Called from lit-tests, result is consumed only by lit-tests.
+  class Ignore {
+    std::unique_ptr<SOAToAOSOPArrayMethodsCheckDebugResult> Ptr;
+
+  public:
+    Ignore(SOAToAOSOPArrayMethodsCheckDebugResult *Ptr);
+    Ignore(Ignore &&Other);
+    const SOAToAOSOPArrayMethodsCheckDebugResult *get() const;
+    // Prevent default dtor creation while type is incomplete.
+    ~Ignore();
+  };
+  typedef Ignore Result;
+
+  Result run(Function &F, FunctionAnalysisManager &AM);
+};
+
+// This class is used for testing transformations of arrays' methods.
+class SOAToAOSArrayMethodsTransformDebug
+    : public PassInfoMixin<SOAToAOSArrayMethodsTransformDebug> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+};
+
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 } // namespace dtransOP

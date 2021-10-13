@@ -1170,8 +1170,6 @@ void VPlanPredicator::predicate() {
   //     step.
   //   - The correct phi placement during phi-to-blend processing requires IDF
   //     algorithm as well and is another reason to separate the steps.
-  // It does *NOT* update condBits as they're used later for predicates
-  // creation. We probably need to fix this for the explicit VPBranchInsts.
   if (!SearchLoopHack)
     linearizeRegion();
 

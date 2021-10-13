@@ -725,6 +725,7 @@ public:
   void setBaseIsPointer(bool IsPtr) { BaseIsPointer = IsPtr; }
   GlobalVariable *getGVSize() const { return GVSize; }
   void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
+  bool isVariableLengthArraySection() const;
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const;
   void print(raw_ostream &OS, bool PrintType = true) const;
@@ -2004,6 +2005,10 @@ typedef enum WRNScheduleKind {
     WRNScheduleDistributeStaticEven    = 92
 } WRNScheduleKind;
 
+typedef enum WRNScheduleModifierBit {
+    WRNScheduleMonotonic    = 1<<29,
+    WRNScheduleNonmonotonic = 1<<30
+} WRNScheduleModifierBit;
 
 class ScheduleClause
 {

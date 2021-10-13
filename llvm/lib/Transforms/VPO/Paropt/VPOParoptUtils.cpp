@@ -347,6 +347,29 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
     return WRNScheduleStaticEven;
 }
 
+int VPOParoptUtils::addModifierToSchedKind(WRegionNode *W,
+                                           WRNScheduleKind SchedKind) {
+  // Bail out if SchedKind is static. Currently __kmpc_static_init_*
+  // may fail with the modifier bit encoded in SchedKind.
+  // TODO: Remove this guard once runtime fixes the problem.
+  if ((SchedKind == WRNScheduleStatic) ||
+      (SchedKind == WRNScheduleStaticEven) ||
+      (SchedKind == WRNScheduleOrderedStatic) ||
+      (SchedKind == WRNScheduleOrderedStaticEven)) {
+    return (int)SchedKind;
+  }
+
+  if (W->canHaveSchedule()) {
+    auto Schedule = W->getSchedule();
+    if (Schedule.getIsSchedMonotonic())
+      return SchedKind | WRNScheduleMonotonic;
+    if (Schedule.getIsSchedNonmonotonic())
+      return SchedKind | WRNScheduleNonmonotonic;
+  }
+
+  return (int)SchedKind;
+}
+
 // Query scheduling type based on dist_schedule clause and chunk size
 // information. The values of the enums are used to invoke the RTL, so
 // do not change them.

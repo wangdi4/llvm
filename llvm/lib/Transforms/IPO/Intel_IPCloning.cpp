@@ -2537,20 +2537,13 @@ void CallbackCloner::removeConflictsCBMap(CBMapTy &CBMap) {
   }
   if (!SawConflict)
     return;
-  for (auto I = CBMap.begin(), IE = CBMap.end(), II = I; I != IE; I = II) {
-    II = next(I, 1);
-    bool FoundOne = false;
+  for (auto I = CBMap.begin(), IE = CBMap.end(); I != IE; ++I) {
     ACSFMapTy &AMap = I->second;
-    for (auto J = AMap.begin(), JE = AMap.end(), JJ = J; J != JE; J = JJ) {
-       JJ = next(J, 1);
-       if (J->second.empty())
-         AMap.erase(J);
-       else
-         FoundOne = true;
-    }
-    if (!FoundOne)
-      CBMap.erase(I);
+    AMap.remove_if([&](std::pair<AFTy, AVVecTy> &MapEntry) {
+        return (MapEntry.second.empty()); });
   }
+  CBMap.remove_if([&](std::pair<CallInst *, ACSFMapTy> &MapEntry) {
+      return (MapEntry.second.empty()); });
 }
 
 //
@@ -2581,7 +2574,6 @@ void CallbackCloner::remapCBVec(unsigned Index, ValueToValueMapTy &VMap) {
     ACSFMapTy &ACSFMap = I->second;
     if (auto CBNew = dyn_cast<CallInst>(VMap[CB]))
       CBNewMap[CBNew] = ACSFMap;
-    CBMap.erase(I);
   }
   CBVec[Index] = CBNewMap;
 }
