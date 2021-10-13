@@ -2679,8 +2679,8 @@ public:
       for (auto &F : Call->getModule()->functions()) {
         if (F.hasAddressTaken() && F.isDeclaration()) {
           // The standard test for an indirect call match.
-          if ((F.arg_size() == Call->arg_size()) ||
-              (F.isVarArg() && (F.arg_size() <= Call->arg_size()))) {
+          if ((F.arg_size() == Call->getNumArgOperands()) ||
+              (F.isVarArg() && (F.arg_size() <= Call->getNumArgOperands()))) {
             bool IsFunctionMatch = true;
             DTransType *FormalType = MDReader.getDTransTypeFromMD(&F);
             auto FormalFType = dyn_cast_or_null<DTransFunctionType>(FormalType);
@@ -3301,7 +3301,7 @@ public:
 
     // Mark all other intrinsic calls with UnhandledUse for the arguments that
     // are types of interest.
-    for (Value *Arg : I.args()) {
+    for (Value *Arg : I.arg_operands()) {
       ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
       if (!Info)
         continue;

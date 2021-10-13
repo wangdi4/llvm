@@ -166,7 +166,7 @@ bool AddImplicitArgsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
 
     // Go over explicit arguments, they are currently undef and need to be
     // assigned their actual value.
-    for (unsigned I = 0, E = CI->arg_size() -
+    for (unsigned I = 0, E = CI->getNumArgOperands() -
                              ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
          I < E; ++I)
       NewArgs.push_back(CI->getArgOperand(I));

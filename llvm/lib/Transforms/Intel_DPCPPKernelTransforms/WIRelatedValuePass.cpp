@@ -212,7 +212,7 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
 
   // Iterate over all input dependencies. If all are not WI Id related -
   // propagate it. Otherwise - return WI Id related.
-  unsigned int NumParams = Inst->arg_size();
+  unsigned int NumParams = Inst->getNumArgOperands();
 
   bool IsWIRelated = false;
   for (unsigned int i = 0; i < NumParams; ++i) {

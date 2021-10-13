@@ -195,7 +195,7 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": old printf(): " << *OldCall
                         << "\n");
-      SmallVector<Value *, 4> FnArgs(OldCall->args());
+      SmallVector<Value *, 4> FnArgs(OldCall->arg_operands());
 
       // First argument of the original printf() is of
       // ADDRESS_SPACE_GENERIC (=4) due to its addrspacecast:
@@ -1575,7 +1575,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       // For target data directive, if the "if" clause is evaluated to false,
       // device is host, and the outlined function is called without mapping
       // data.
-      SmallVector<Value *, 4> FnArgs(NewCall->args());
+      SmallVector<Value *, 4> FnArgs(NewCall->arg_operands());
       Builder.CreateCall(NewF, FnArgs, "");
     }
   } else {
@@ -2081,7 +2081,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #endif // INTEL_CUSTOMIZATION
     bool &HasRuntimeEvaluationCaptureSize) const {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::getTargetDataInfo\n");
-  unsigned NumberOfPtrs = Call->arg_size();
+  unsigned NumberOfPtrs = Call->getNumArgOperands();
   HasRuntimeEvaluationCaptureSize = false;
   bool ForceMapping =
       // These regions will not have any real references to the mapped
@@ -2100,7 +2100,7 @@ unsigned VPOParoptTransform::getTargetDataInfo(
 #endif // INTEL_CUSTOMIZATION
                                HasRuntimeEvaluationCaptureSize);
     } else {
-      for (unsigned II = 0; II < Call->arg_size(); ++II) {
+      for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
 #if INTEL_CUSTOMIZATION
@@ -3006,7 +3006,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   //        structures and the initializations must be properly ordered.
   //        We'd better have all the information in some structure,
   //        e.g. TgDataInfo, and just process it here.
-  for (unsigned II = 0; II < Call->arg_size(); ++II) {
+  for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
     BPVal = Call->getArgOperand(II);
 
     Match = false;
@@ -4434,7 +4434,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // BaseCall's original arguments before outlining the call in WrapperFn are
   // used to find corresponding arguments in VariantWrapperCall in order to
   // propagate the ByVal and alignment attributes.
-  SmallVector<Value *, 4> BaseArgs(BaseCall->args());
+  SmallVector<Value *, 4> BaseArgs(BaseCall->arg_operands());
 
   BaseCall->replaceAllUsesWith(VariantCall);
   assert(BaseCall->use_empty());
@@ -4455,7 +4455,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   //          call void @foo2.wrapper(%struct.A* byval(%struct.A) align 8 %AAA)
   LLVMContext &C = Builder.getContext();
   FunctionType *WrapperFnTy = VariantWrapperCall->getFunctionType();
-  for (unsigned ArgNum = 0; ArgNum < BaseCall->arg_size(); ++ArgNum) {
+  for (unsigned ArgNum = 0; ArgNum < BaseCall->getNumArgOperands(); ++ArgNum) {
     if (BaseCall->isByValArgument(ArgNum)) {
       Value *BaseArg = BaseArgs[ArgNum];
       MaybeAlign MayAln = BaseCall->getParamAlign(ArgNum);
@@ -4464,7 +4464,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
       // Find BaseArg in VariantWrapperCall to propagate its ByVal and Alignment
       // attributes to both the wrapper call and the wrapper function.
       for (unsigned WrapperArgNum = 0;
-           WrapperArgNum < VariantWrapperCall->arg_size();
+           WrapperArgNum < VariantWrapperCall->getNumArgOperands();
            ++WrapperArgNum) {
         Value *WrapperArg = VariantWrapperCall->getArgOperand(WrapperArgNum);
         if (BaseArg == WrapperArg) {
@@ -4519,7 +4519,7 @@ void VPOParoptTransform::processNeedDevicePtr(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::processNeedDevicePtr\n");
 
-  SmallVector<Value *, 4> FnArgs(VariantCall->args());
+  SmallVector<Value *, 4> FnArgs(VariantCall->arg_operands());
   SmallVector<StringRef, 4> Substr;
   NeedDevicePtrStr.split(Substr, ",");
 
