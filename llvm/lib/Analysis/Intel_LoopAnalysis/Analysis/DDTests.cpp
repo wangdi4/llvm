@@ -5473,9 +5473,16 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
   const HLInst *DstInst = dyn_cast<HLInst>(DstRegDDRef->getHLDDNode());
 
   // Mark the innermost level DV of an edge as (=) when both src and sink refs
-  // belong to 'sinked' instructions.
+  // belong to 'sinked' instructions, belong to the innermost loop and no
+  // optimizations happened in the loop after sinking.
   if (SrcInst && DstInst && SrcInst->isSinked() && DstInst->isSinked()) {
-    adjustForInnermostAssumedDeps(Result);
+    auto *SrcParentLoop = SrcRegDDRef->getParentLoop();
+    auto *DstParentLoop = DstRegDDRef->getParentLoop();
+    if (SrcParentLoop && (SrcParentLoop == DstParentLoop) &&
+        SrcParentLoop->isInnermost() &&
+        SrcParentLoop->isUndoSinkingCandidate()) {
+      adjustForInnermostAssumedDeps(Result);
+    }
   }
 
   adjustDVforIVDEP(Result, SameBase);
