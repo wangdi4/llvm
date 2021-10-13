@@ -14,7 +14,7 @@ static const char* BC_FILE = "reqd_num_sub_groups_32.bc";
     #define GET_FPOS_T(var) ((var).__pos)
 #endif
 
-TEST_F(CL21, GetKernelSubGroupInfo_MAX_SB_SIZE)
+TEST_F(CL21, GetKernelSubGroupInfo_MAX_SG_SIZE)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -130,8 +130,8 @@ TEST_F(CL21, GetKernelSubGroupInfo_MAX_SB_SIZE)
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
         ASSERT_EQ(sizeof(size_t), returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
-        ASSERT_EQ((size_t)0, max_SG_size)
-            << " clGetKernelSubGroupInfo failed. Expected: max subgroup size is 0 for local size {0, 0, 0}. ";
+        ASSERT_LT((size_t)0, max_SG_size)
+            << " clGetKernelSubGroupInfo failed. Max subgroup size can't be less than 1. ";
     }
 
     {
@@ -218,8 +218,8 @@ TEST_F(CL21, GetKernelSubGroupInfo_SG_COUNT)
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
         ASSERT_EQ(sizeof(size_t), returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
-        ASSERT_LT((size_t)0, number_of_SG)
-            << " clGetKernelSubGroupInfo failed. Max subgroup size can't be less than 1. ";
+        ASSERT_EQ((size_t)0, number_of_SG)
+            << " clGetKernelSubGroupInfo failed. Max subgroup size is zero for NDRange (0, 0, 0). ";
     }
 
     {// Null param value
@@ -248,6 +248,26 @@ TEST_F(CL21, GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
     cl_kernel kern = nullptr;
     ASSERT_NO_FATAL_FAILURE(GetDummyKernel(kern));
 
+    size_t max_SG_size = 0;
+    {// Query max SG size
+        size_t dummy_vec[] = {20, 20, 20};
+        std::vector<size_t> local_work_sizes(dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
+        size_t returned_size = 0;
+        iRet = clGetKernelSubGroupInfo(kern,
+                                    m_device,
+                                    CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
+                                    local_work_sizes.size() * sizeof(local_work_sizes[0]),
+                                    &local_work_sizes[0],
+                                    sizeof(max_SG_size),
+                                    &max_SG_size,
+                                    &returned_size);
+        ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
+        ASSERT_EQ(sizeof(size_t), returned_size)
+            << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
+        ASSERT_LT((size_t)0, max_SG_size)
+            << " clGetKernelSubGroupInfo failed. Max subgroup size can't be less than 1. ";
+    }
+
     {// Desired SG count is 10
         size_t dummy_vec[] = {1, 1, 1};
         std::vector<size_t> local_work_sizes(dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
@@ -264,8 +284,10 @@ TEST_F(CL21, GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
         ASSERT_EQ(sizeof(size_t) * local_work_sizes.size(), returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
-        for(size_t i = 0; i < local_work_sizes.size(); ++i)
-            ASSERT_EQ(size_t(0), local_work_sizes[i])
+        ASSERT_EQ(size_t(max_SG_size * desired_SG_count), local_work_sizes[0])
+            << " clGetKernelSubGroupInfo failed. Expected and returned value differ. ";
+        for(size_t i = 1; i < local_work_sizes.size(); ++i)
+            ASSERT_EQ(size_t(1), local_work_sizes[i])
                 << " clGetKernelSubGroupInfo failed. Expected and returned value differ. ";
     }
 
@@ -291,14 +313,6 @@ TEST_F(CL21, GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
     }
 
     {// Desired SG count is 1
-        size_t maxWGSize = 0;
-        iRet = clGetDeviceInfo(m_device,
-                               CL_DEVICE_MAX_WORK_GROUP_SIZE,
-                               sizeof(maxWGSize),
-                               &maxWGSize,
-                               nullptr);
-        ASSERT_EQ(CL_SUCCESS, iRet) << " clGetDeviceInfo failed. ";
-
         size_t dummy_vec[] = {0, 0, 0};
         std::vector<size_t> local_work_sizes(dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
         size_t desired_SG_count = 1;
@@ -314,7 +328,7 @@ TEST_F(CL21, GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
         ASSERT_EQ(local_work_sizes.size() * sizeof(local_work_sizes[0]), returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
-        ASSERT_EQ(size_t(maxWGSize), local_work_sizes[0])
+        ASSERT_EQ(size_t(max_SG_size), local_work_sizes[0])
                 << " clGetKernelSubGroupInfo failed. Expected and returned value differ. ";
         ASSERT_EQ(size_t(1),    local_work_sizes[1])
                 << " clGetKernelSubGroupInfo failed. Expected and returned value differ. ";

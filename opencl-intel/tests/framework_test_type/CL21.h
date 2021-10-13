@@ -22,17 +22,9 @@
 class CL21 : public ::CL_base {
 protected:
   virtual void SetUp() override {
-    ASSERT_TRUE(SETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS", "False"))
-        << "Falied to set environment variable";
     CL_base::SetUp();
     ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, m_version)
         << "Test required OpenCL2.1 version at least";
-  }
-
-  virtual void TearDown() override {
-    CL_base::TearDown();
-    ASSERT_TRUE(UNSETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS"))
-        << "Failed to unset environment variable";
   }
 
   void GetDummyKernel(cl_kernel &kern) const {
