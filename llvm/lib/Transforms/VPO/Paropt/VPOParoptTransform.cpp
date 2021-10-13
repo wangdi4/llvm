@@ -2153,6 +2153,7 @@ bool VPOParoptTransform::paroptTransforms() {
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
           debugPrintHeader(W, Mode);
+          Changed |= setInsertionPtForVlaAllocas(W);
           Changed |= regularizeOMPLoop(W, false);
           Changed |= genAlignedCode(W);
           Changed |= genNontemporalCode(W);
@@ -2178,6 +2179,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             Changed |= sinkSIMDDirectives(W);
             Changed |= genParallelAccessMetadata(W);
+            Changed |= insertStackSaveRestore(W);
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
@@ -4217,7 +4219,12 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
         RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
     MaxAlignment = max(OrigAlignment, MaxAlignment);
 
-    computeArraySectionTypeOffsetSize(*RedI, InsertPt);
+    computeArraySectionTypeOffsetSize(W, *RedI, InsertPt);
+
+    if (isa<WRNVecLoopNode>(W) && getIsVlaOrVlaSection(RedI)) {
+      InsertPt = W->getVlaAllocaInsertPt();
+      Builder.SetInsertPoint(InsertPt);
+    }
 
     if (RedI->getIsArraySection()) {
       ArraySectionInfo *ArrSecInfo = &RedI->getArraySectionInfo();
@@ -4608,15 +4615,18 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // insertion point returned from getInsertionPtForAllocas() may appear
       // above the size's defintion point. getInsertPtForAllocas cannot handle
       // this case since we do not outline some regions for SPIRV target.
-      Instruction *InsertPt =
-          !FastReductionEnabled
-              ? &EntryBB->front()
-              : VPOParoptUtils::getInsertionPtForAllocas(W, F, false);
-
+      Instruction *InsertPt;
+      if (isa<WRNVecLoopNode>(W) && getIsVlaOrVlaSection(RedI)) {
+        InsertPt = W->getVlaAllocaInsertPt();
+      } else {
+        InsertPt = !FastReductionEnabled
+                       ? &EntryBB->front()
+                       : VPOParoptUtils::getInsertionPtForAllocas(W, F, false);
+      }
       // For fast reduction, the function is called in genFastRedTyAndVar so
       // it's only needed to call here if fast reduction is disabled
       if (!FastReductionEnabled)
-        computeArraySectionTypeOffsetSize(*RedI, InsertPt);
+        computeArraySectionTypeOffsetSize(W, *RedI, InsertPt);
 
       bool UseRecForScalar = ((FastReductionCtrl & 0x1) == 0);
       bool UseRecForArray = ((FastReductionCtrl & 0x2) == 0);
@@ -5105,7 +5115,7 @@ void VPOParoptTransform::genAggrReductionSrcDstInfo(
 }
 
 void VPOParoptTransform::computeArraySectionTypeOffsetSize(
-    Item &I, Instruction *InsertPt) {
+    WRegionNode *W, Item &I, Instruction *InsertPt) {
   bool IsArraySection = false;
   ArraySectionInfo *ArrSecInfo = nullptr;
 
@@ -5123,18 +5133,24 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
     return;
 
   assert(ArrSecInfo && "No array section info.");
-  computeArraySectionTypeOffsetSize(I.getOrig(), *ArrSecInfo, I.getIsByRef(),
+  computeArraySectionTypeOffsetSize(W, I.getOrig(), *ArrSecInfo, I.getIsByRef(),
                                     InsertPt);
 }
 
 void VPOParoptTransform::computeArraySectionTypeOffsetSize(
-    Value *Orig, ArraySectionInfo &ArrSecInfo, bool IsByRef,
+    WRegionNode *W, Value *Orig, ArraySectionInfo &ArrSecInfo, bool IsByRef,
     Instruction *InsertPt) {
 
   const auto &ArraySectionDims = ArrSecInfo.getArraySectionDims();
   if (ArraySectionDims.empty())
     return;
 
+  if (isa<WRNVecLoopNode>(W) && ArrSecInfo.isVariableLengthArraySection()) {
+    assert(W->getVlaAllocaInsertPt() &&
+           "SIMD constructs with variable size array section should have Vla "
+           "Alloca Insertion point set.");
+    InsertPt = W->getVlaAllocaInsertPt();
+  }
   IRBuilder<> Builder(InsertPt);
 
   Type *CITy = Orig->getType();
@@ -6466,9 +6482,13 @@ bool VPOParoptTransform::genLastPrivatizationCode(
 
       Instruction *InsertPt = &EntryBB->front();
       if (!ForTask) {
-        Instruction *AllocaInsertPt =
-            IsVecLoop ? VPOParoptUtils::getInsertionPtForAllocas(W, F)
-                      : InsertPt;
+        Instruction *AllocaInsertPt = InsertPt;
+        if (isa<WRNVecLoopNode>(W)) {
+          if (getIsVlaOrVlaSection(LprivI))
+            AllocaInsertPt = W->getVlaAllocaInsertPt();
+          else
+            AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
+        }
         Value *NewPrivInst =
             genPrivatizationAlloca(LprivI, AllocaInsertPt, ".lpriv");
         LprivI->setNew(NewPrivInst);
@@ -7917,6 +7937,95 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
     VPOParoptUtils::genCopyConstructorCall(Fn, DestVal, SrcVal, InsertPt);
 }
 
+// returns true if the input item is either a Vla or a variable size array
+// section.
+bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
+  if (I->getIsTyped()) {
+    Value *NumElements = I->getNumElements();
+    assert(NumElements &&
+           "Unexpected: no num elements for explicitly-typed clause item.");
+    return !isa<ConstantInt>(NumElements);
+  }
+
+  if (isa<ReductionItem>(I) && cast<ReductionItem>(I)->getIsArraySection())
+    return cast<ReductionItem>(I)
+        ->getArraySectionInfo()
+        .isVariableLengthArraySection();
+
+  Value *NumElements;
+  std::tie(std::ignore, NumElements, std::ignore) =
+      VPOParoptUtils::getItemInfo(I);
+  if (!NumElements)
+    return false;
+
+  return !isa<ConstantInt>(NumElements);
+}
+
+// Loops over every item of every clause. if any item is a Vla or a Vla
+// Section, it creates an empty entry block and sets the Vla alloca insertPt
+// to the terminator of this newly created entry block.
+bool VPOParoptTransform::setInsertionPtForVlaAllocas(WRegionNode *W) {
+  bool FoundVlaOrVlaSec = false;
+
+  auto checkIfVla = [](Item *I) -> bool {
+    if (!getIsVlaOrVlaSection(I))
+      return false;
+    LLVM_DEBUG(dbgs() << "checkIfVLA: '" << *I->getOrig()
+                      << "' is a VLA clause operand.\n");
+    return true;
+  };
+
+  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
+                           W->getRedIfSupported(), checkIfVla) != nullptr);
+  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
+                           W->getPrivIfSupported(), checkIfVla) != nullptr);
+  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
+                           W->getFprivIfSupported(), checkIfVla) != nullptr);
+  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
+                           W->getLprivIfSupported(), checkIfVla) != nullptr);
+
+  if (FoundVlaOrVlaSec) {
+    // Create an empty BB before the entry BB.
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *NewEntryBB =
+        SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+    W->setEntryBBlock(NewEntryBB);
+    W->populateBBSet(true); // rebuild BBSet unconditionally as EntryBB changed
+    W->setVlaAllocaInsertPt(EntryBB->getTerminator());
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__
+               << ": Found a VLA operand. Setting VLA insertion point to '"
+               << *EntryBB->getTerminator() << "'.\n");
+    return true;
+  }
+
+  return false;
+}
+
+// if any item is a Vla or a Vla Section. This function inserts a stacksave
+// at the begining of the region and a restore at the end of the region.note
+// that currently this function is only called for SIMD constructs.
+bool VPOParoptTransform::insertStackSaveRestore(WRegionNode *W) {
+
+  if (!W->getVlaAllocaInsertPt())
+    return false;
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
+  Module *M = EntryBB->getModule();
+
+  IRBuilder<> Builder(EntryBB->getFirstNonPHI());
+  auto *StackSave =
+      Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stacksave));
+
+  Builder.SetInsertPoint(ExitBB->getTerminator());
+  Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stackrestore),
+                     StackSave);
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Inserted stacksave'" << *StackSave
+                    << "'.\n");
+  return true;
+}
+
 bool VPOParoptTransform::genPrivatizationCode(
     WRegionNode *W, Instruction *CtorInsertPt) {
 
@@ -7954,10 +8063,13 @@ bool VPOParoptTransform::genPrivatizationCode(
         // InsertPt at every iteration of this for-loop.
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
         if (!ForTask) {
-          Instruction *AllocaInsertPt =
-              isa<WRNVecLoopNode>(W)
-                  ? VPOParoptUtils::getInsertionPtForAllocas(W, F)
-                  : InsertPt;
+          Instruction *AllocaInsertPt = InsertPt;
+          if (isa<WRNVecLoopNode>(W)) {
+            if (getIsVlaOrVlaSection(PrivI))
+              AllocaInsertPt = W->getVlaAllocaInsertPt();
+            else
+              AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
+          }
           auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, PrivI);
           NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv",
                                                AllocaAddrSpace);

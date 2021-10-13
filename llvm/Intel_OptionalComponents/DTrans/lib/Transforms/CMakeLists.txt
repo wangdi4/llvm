@@ -33,11 +33,13 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   MemManageTrans.cpp
   PaddedPtrPropagation.cpp
   SOAToAOS.cpp
-  SOAToAOSOP.cpp
   SOAToAOSArrays.cpp
   SOAToAOSClassInfo.cpp
   SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
+  SOAToAOSOP.cpp
+  SOAToAOSOPArrays.cpp
+  SOAToAOSOPCommon.cpp
   SOAToAOSOPEffects.cpp
   SOAToAOSPrepare.cpp
   SOAToAOSStruct.cpp

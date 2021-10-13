@@ -2091,6 +2091,22 @@ public:
       std::for_each(Clause->items().begin(), Clause->items().end(), Code);
   }
 
+  /// Utility to search all Items in the given clause for a specific condition.
+  /// Returns the first "Item* I" in \p Clause for which "Condition(I)" returns
+  /// true. Returns \b nullptr if no such Item exists.
+
+  template <typename T, class UnaryFunction>
+  static auto findItemInClauseForWhich(T *Clause, UnaryFunction Condition) ->
+      typename std::decay<decltype(*Clause->items().begin())>::type {
+    if (!Clause)
+      return nullptr;
+    auto ResultIt =
+        std::find_if(Clause->items().begin(), Clause->items().end(), Condition);
+    if (ResultIt == Clause->items().end())
+      return nullptr;
+    return *ResultIt;
+  }
+
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p OrigValue.
   /// \param [in] OrigValue Input Value
