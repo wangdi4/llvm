@@ -121,6 +121,10 @@ private:
   /// Dominator Tree (initialized/used during transformation).
   DominatorTree* DT = nullptr;
 
+  /// Insertion point for Allocas in case of VLA or a variable length array
+  /// section
+  Instruction *VlaAllocaInsertPt = nullptr;
+
   /// Counter used for assigning unique numbers to WRegionNodes.
   static unsigned UniqueNum;
 
@@ -205,6 +209,9 @@ protected:
 
   /// Set the DominatorTree of this region.
   void setDT(DominatorTree *D) { DT = D; }
+
+  /// Set the insertPt of Vla Alloca
+  void setVlaAllocaInsertPt(Instruction *I) { VlaAllocaInsertPt = I; }
 
   /// Finish creating the WRN once its ExitDir is found. This routine calls
   /// setExitDirective(ExitDir) and setExitBBlock(ExitDir->getParent()). In
@@ -315,6 +322,8 @@ public:
   }
 
   DominatorTree *getDT() const { return DT; }
+
+  Instruction *getVlaAllocaInsertPt() { return VlaAllocaInsertPt; }
 
   /// @}
 

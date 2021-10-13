@@ -806,7 +806,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
                                      IRBuilder<> &Builder) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
-        computeArraySectionTypeOffsetSize(*RedI, &*Builder.GetInsertPoint());
+        computeArraySectionTypeOffsetSize(W, *RedI, &*Builder.GetInsertPoint());
 
         StringRef OrigName = RedI->getOrig()->getName();
         Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
@@ -1534,7 +1534,7 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
     // the plan is for the frontend to send us an array section in this form:
     // "(0, i64 %number_of_elements_from_start_to_end, 1)
     // %gep_with_starting_offset".
-    computeArraySectionTypeOffsetSize(Orig, DepI->getArraySectionInfo(),
+    computeArraySectionTypeOffsetSize(W, Orig, DepI->getArraySectionInfo(),
                                       DepI->getIsByRef(), InsertBefore);
 
     Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
@@ -1617,7 +1617,7 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
     // For non-taskgroups, computeArraySectionTypeOffsetSize is called as part
     // of genTaskInitCode/genTaskLoopInitCode.
     if (isa<WRNTaskgroupNode>(W) && RedI->getIsArraySection())
-      computeArraySectionTypeOffsetSize(*RedI, InsertBefore);
+      computeArraySectionTypeOffsetSize(W, *RedI, InsertBefore);
 
     StringRef NamePrefix = RedI->getOrig()->getName();
 
