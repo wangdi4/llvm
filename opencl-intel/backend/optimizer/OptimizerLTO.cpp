@@ -22,6 +22,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
@@ -98,6 +99,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         // TODO: SPIRVLowerConstExprPass() is required before SPIRVToOCL20Pass,
         // but the class definition is not exposed in SPIRV header file yet.
         MPM.addPass(SPIRVToOCL20Pass());
+        MPM.addPass(NameAnonGlobalPass());
         MPM.addPass(DPCPPEqualizerPass());
         Triple TargetTriple(m_M->getTargetTriple());
         if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
