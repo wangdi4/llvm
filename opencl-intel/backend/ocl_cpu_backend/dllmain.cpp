@@ -151,7 +151,12 @@ extern "C"
             Compiler::InitGlobalState( BackendConfiguration::GetInstance().GetGlobalCompilerConfig(pBackendOptions));
             ServiceFactory::Init();
             CPUDeviceBackendFactory::Init();
-            BuiltinModuleManager::Init();
+            DeviceMode targetDev = CPU_DEVICE;
+            if (pBackendOptions) {
+              targetDev = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
+                  (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
+            }
+            BuiltinModuleManager::Init(FPGA_EMU_DEVICE == targetDev);
             LibraryProgramManager::Init();
             ImageCallbackManager::Init();
             // Attempt to initialize the debug service. If debugging is

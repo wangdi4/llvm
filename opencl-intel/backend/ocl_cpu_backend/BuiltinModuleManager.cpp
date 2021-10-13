@@ -21,7 +21,8 @@
 #include "EyeQBuiltinLibrary.h"
 #include "FPGAEmuBuiltinLibrary.h"
 
-llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT* LLJIT = nullptr);
+llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev,
+                                   llvm::orc::LLJIT* LLJIT = nullptr);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -38,12 +39,12 @@ BuiltinModuleManager::~BuiltinModuleManager()
     }
 }
 
-void BuiltinModuleManager::Init()
+void BuiltinModuleManager::Init(bool isFPGAEmuDev)
 {
     assert(!s_pInstance);
     s_pInstance = new BuiltinModuleManager();
     // TODO: need to move this function from the Manager Initialization
-    llvm::consumeError(RegisterCPUBIFunctions());
+    llvm::consumeError(RegisterCPUBIFunctions(isFPGAEmuDev));
 }
 
 void BuiltinModuleManager::Terminate()
@@ -100,10 +101,11 @@ BuiltinModuleManager::GetOrLoadFPGAEmuLibrary(const CPUDetect *cpuId) {
   return GetOrLoadDeviceLibrary<FPGAEmuBuiltinLibrary>(cpuId);
 }
 
-llvm::Error BuiltinModuleManager::RegisterCPUBIFunctionsToLLJIT(
-    llvm::orc::LLJIT *LLJIT)
+llvm::Error
+BuiltinModuleManager::RegisterCPUBIFunctionsToLLJIT(bool isFPGAEmuDev,
+                                                    llvm::orc::LLJIT *LLJIT)
 {
-    return RegisterCPUBIFunctions(LLJIT);
+    return RegisterCPUBIFunctions(isFPGAEmuDev, LLJIT);
 }
 
 }}}
