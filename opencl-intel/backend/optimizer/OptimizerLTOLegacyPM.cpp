@@ -85,6 +85,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   MaterializerMPM.add(createDPCPPPreprocessSPIRVFriendlyIRLegacyPass());
   MaterializerMPM.add(createSPIRVLowerConstExprLegacy());
   MaterializerMPM.add(createSPIRVToOCL20Legacy());
+  MaterializerMPM.add(createNameAnonGlobalPass());
 
   registerPipelineStartCallback(PMBuilder);
   registerVectorizerStartCallback(PMBuilder);

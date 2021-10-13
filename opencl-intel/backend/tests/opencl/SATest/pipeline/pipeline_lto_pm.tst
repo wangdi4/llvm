@@ -4,6 +4,7 @@
 
 ; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass

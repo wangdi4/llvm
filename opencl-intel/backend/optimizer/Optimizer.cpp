@@ -906,6 +906,7 @@ void OptimizerOCL::Optimize() {
   legacy::PassManager materializerPM;
   if (m_IsSYCL)
     materializerPM.add(createSPIRVToOCL20Legacy());
+  materializerPM.add(llvm::createNameAnonGlobalPass());
   materializerPM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
   materializerPM.add(createDPCPPEqualizerLegacyPass(m_RtlModules));
   Triple TargetTriple(m_M->getTargetTriple());
