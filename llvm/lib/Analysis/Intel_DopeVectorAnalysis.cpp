@@ -1617,6 +1617,16 @@ void DopeVectorInfo::validateDopeVector(Value *CopyFromPtr) {
     if (!Field.getIsSingleValue())
       return false;
 
+    // Trying to store into a dope vector without alloc-site.
+    // NOTE: We may want to check this condition in the future. There is a
+    // chance that a global dope vector is a copy of another global dope
+    // vector. In that case it won't have an allocation site, but a
+    // combination of load and store instructions that are handling pointers.
+    // In that case we need to prove that both dope vectors point to the same
+    // data and the information is constant across the whole program.
+    if (AllocSites.empty())
+      return false;
+
     StoreInst *SI = *Field.stores().begin();
     Instruction *AllocSiteInst = cast<Instruction>(AllocSites[0]);
 
