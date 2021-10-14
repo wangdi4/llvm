@@ -121,7 +121,6 @@ llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createOptimizeIDivPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
-llvm::ModulePass *createHandleVPlanMaskPass();
 llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createCleanupWrappedKernelsPass();
@@ -176,6 +175,12 @@ namespace DeviceBackend {
 std::vector<std::tuple<const char *, const char *, const char *>> VectInfos = {
 #include "VectInfo.gen"
 };
+
+const StringSet<> VPlanMaskedFuncs =
+#define IMPORT_VPLAN_MASKED_VARIANTS
+#include "VectInfo.gen"
+#undef IMPORT_VPLAN_MASKED_VARIANTS
+;
 
 // Several PMs are populated in the Optimizer flow:
 // Materializer, PreFail and PostFail PMs.
@@ -629,7 +634,7 @@ static void populatePassesPostFailCheck(
     }
 
     if (UseVplan)
-      PM.add(createHandleVPlanMaskPass());
+      PM.add(createHandleVPlanMaskLegacyPass(&VPlanMaskedFuncs));
 
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,

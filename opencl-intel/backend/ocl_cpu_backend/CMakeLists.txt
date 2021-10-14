@@ -227,7 +227,6 @@ set( BACKEND_PASSES
     RemoveAtExit
     PipeOrdering
     PipeSupport
-    HandleVPlanMask
     OclFunctionAttrs
     BuiltinLibInfo
     DebugInfoPass
