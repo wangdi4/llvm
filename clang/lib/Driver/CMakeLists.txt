@@ -16,6 +16,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 
 set(LLVM_LINK_COMPONENTS
   BinaryFormat
+  MC
   Option
   ProfileData
   Support
