@@ -36,20 +36,24 @@ class DominatorTree;
 
 /// These are the kinds of recurrences that we support.
 enum class RecurKind {
-  None,   ///< Not a recurrence.
-  Add,    ///< Sum of integers.
-  Mul,    ///< Product of integers.
-  Or,     ///< Bitwise or logical OR of integers.
-  And,    ///< Bitwise or logical AND of integers.
-  Xor,    ///< Bitwise or logical XOR of integers.
-  SMin,   ///< Signed integer min implemented in terms of select(cmp()).
-  SMax,   ///< Signed integer max implemented in terms of select(cmp()).
-  UMin,   ///< Unisgned integer min implemented in terms of select(cmp()).
-  UMax,   ///< Unsigned integer max implemented in terms of select(cmp()).
-  FAdd,   ///< Sum of floats.
-  FMul,   ///< Product of floats.
-  FMin,   ///< FP min implemented in terms of select(cmp()).
-  FMax    ///< FP max implemented in terms of select(cmp()).
+  None,       ///< Not a recurrence.
+  Add,        ///< Sum of integers.
+  Mul,        ///< Product of integers.
+  Or,         ///< Bitwise or logical OR of integers.
+  And,        ///< Bitwise or logical AND of integers.
+  Xor,        ///< Bitwise or logical XOR of integers.
+  SMin,       ///< Signed integer min implemented in terms of select(cmp()).
+  SMax,       ///< Signed integer max implemented in terms of select(cmp()).
+  UMin,       ///< Unisgned integer min implemented in terms of select(cmp()).
+  UMax,       ///< Unsigned integer max implemented in terms of select(cmp()).
+  FAdd,       ///< Sum of floats.
+  FMul,       ///< Product of floats.
+  FMin,       ///< FP min implemented in terms of select(cmp()).
+  FMax,       ///< FP max implemented in terms of select(cmp()).
+  SelectICmp, ///< Integer select(icmp(),x,y) where one of (x,y) is loop
+              ///< invariant
+  SelectFCmp  ///< Integer select(fcmp(),x,y) where one of (x,y) is loop
+              ///< invariant
 };
 
 /// The RecurrenceDescriptor is used to identify recurrences variables in a
@@ -220,12 +224,14 @@ public:
   };
 
   /// Returns a struct describing if the instruction 'I' can be a recurrence
-  /// variable of type 'Kind'. If the recurrence is a min/max pattern of
-  /// select(icmp()) this function advances the instruction pointer 'I' from the
-  /// compare instruction to the select instruction and stores this pointer in
-  /// 'PatternLastInst' member of the returned struct.
-  static InstDesc isRecurrenceInstr(Instruction *I, RecurKind Kind,
-                                    InstDesc &Prev, FastMathFlags FuncFMF);
+  /// variable of type 'Kind' for a Loop \p L and reduction PHI \p Phi.
+  /// If the recurrence is a min/max pattern of select(icmp()) this function
+  /// advances the instruction pointer 'I' from the compare instruction to the
+  /// select instruction and stores this pointer in 'PatternLastInst' member of
+  /// the returned struct.
+  static InstDesc isRecurrenceInstr(Loop *L, PHINode *Phi, Instruction *I,
+                                    RecurKind Kind, InstDesc &Prev,
+                                    FastMathFlags FuncFMF);
 
   /// Returns true if instruction I has multiple uses in Insts
   static bool hasMultipleUsesOf(Instruction *I,
@@ -243,10 +249,28 @@ public:
   static InstDesc isMinMaxPattern(Instruction *I, RecurKind Kind,
                                   const InstDesc &Prev);
 
+  /// Returns a struct describing whether the instruction is either a
+  ///   Select(ICmp(A, B), X, Y), or
+  ///   Select(FCmp(A, B), X, Y)
+  /// where one of (X, Y) is a loop invariant integer and the other is a PHI
+  /// value. \p Prev specifies the description of an already processed select
+  /// instruction, so its corresponding cmp can be matched to it.
+  static InstDesc isSelectCmpPattern(Loop *Loop, PHINode *OrigPhi,
+                                     Instruction *I, InstDesc &Prev);
+
   /// Returns a struct describing if the instruction is a
   /// Select(FCmp(X, Y), (Z = X op PHINode), PHINode) instruction pattern.
   static InstDesc isConditionalRdxPattern(RecurKind Kind, Instruction *I);
 
+<<<<<<< HEAD
+=======
+  /// Returns identity corresponding to the RecurrenceKind.
+  Value *getRecurrenceIdentity(RecurKind K, Type *Tp, FastMathFlags FMF);
+
+  /// Returns the opcode corresponding to the RecurrenceKind.
+  static unsigned getOpcode(RecurKind Kind);
+
+>>>>>>> 26b7d9d62275e782da190d1717849c49588a4b0c
   /// Returns true if Phi is a reduction of type Kind and adds it to the
   /// RecurrenceDescriptor. If either \p DB is non-null or \p AC and \p DT are
   /// non-null, the minimal bit width needed to compute the reduction will be
@@ -287,6 +311,44 @@ public:
   /// Returns 1st non-reassociative FP instruction in the PHI node's use-chain.
   Instruction *getExactFPMathInst() const { return ExactFPMathInst; }
 
+<<<<<<< HEAD
+=======
+  /// Returns true if the recurrence kind is an integer kind.
+  static bool isIntegerRecurrenceKind(RecurKind Kind);
+
+  /// Returns true if the recurrence kind is a floating point kind.
+  static bool isFloatingPointRecurrenceKind(RecurKind Kind);
+
+  /// Returns true if the recurrence kind is an arithmetic kind.
+  static bool isArithmeticRecurrenceKind(RecurKind Kind);
+
+  /// Returns true if the recurrence kind is an integer min/max kind.
+  static bool isIntMinMaxRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::UMin || Kind == RecurKind::UMax ||
+           Kind == RecurKind::SMin || Kind == RecurKind::SMax;
+  }
+
+  /// Returns true if the recurrence kind is a floating-point min/max kind.
+  static bool isFPMinMaxRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::FMin || Kind == RecurKind::FMax;
+  }
+
+  /// Returns true if the recurrence kind is any min/max kind.
+  static bool isMinMaxRecurrenceKind(RecurKind Kind) {
+    return isIntMinMaxRecurrenceKind(Kind) || isFPMinMaxRecurrenceKind(Kind);
+  }
+
+  /// Returns true if the recurrence kind is of the form
+  ///   select(cmp(),x,y) where one of (x,y) is loop invariant.
+  static bool isSelectCmpRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::SelectICmp || Kind == RecurKind::SelectFCmp;
+  }
+
+  /// Returns the type of the recurrence. This type can be narrower than the
+  /// actual type of the Phi if the recurrence has been type-promoted.
+  Type *getRecurrenceType() const { return RecurrenceType; }
+
+>>>>>>> 26b7d9d62275e782da190d1717849c49588a4b0c
   /// Returns a reference to the instructions used for type-promoting the
   /// recurrence.
   const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
