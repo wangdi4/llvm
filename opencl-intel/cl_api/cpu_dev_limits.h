@@ -72,11 +72,30 @@
 #define CPU_MIN_VECTOR_SIZE             16
 #define CPU_MAX_PRINTF_BUFFER_SIZE      1024*1024
 
-// Minimum memory size allocate for single WI instance
-#define CPU_DEV_MIN_WI_PRIVATE_SIZE     (1024*sizeof(size_t))
-// Maximum memory size that could be allocated for WG execution allow max 64
-// concurrent WG that utilize full "barrier" buffer, total 512kB/WG
-#define CPU_DEV_MAX_WG_PRIVATE_SIZE     (CPU_DEV_MIN_WI_PRIVATE_SIZE*64)
+// We'd like TBB worker thread stack size to be 6MB.
+// Application can use CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE and
+// CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE to change TBB stack size.
+#define CPU_DEV_TBB_STACK_SIZE          (6 * 1024 * 1024)
+
+// CPU_DEV_MAX_WG_STACK_SIZE is the maximum stack size that could be allocated
+// for WG execution. It takes both master thread and TBB worker threads into
+// account. It is the sum of CPU_DEV_BASE_STACK_SIZE, CPU_DEV_LCL_MEM_SIZE and
+// CPU_DEV_MAX_WG_PRIVATE_SIZE.
+// Refer to TBB worker thread stack size calculation in TBBTaskExecutor::Init.
+#define CPU_DEV_MAX_WG_STACK_SIZE       CPU_DEV_TBB_STACK_SIZE
+
+// Base stack size covers the stack that kernel parameters use and the stack
+// that a TBB worker thread already uses before launching a kernel.
+#define CPU_DEV_BASE_STACK_SIZE         (512 * 1024)
+
+// Maximum memory size that could be allocated for private variables of a WG
+// that is executed by a thread.
+// We'd like TBB worker thread stack size to be 6MB, which is the sum of
+// CPU_DEV_BASE_STACK_SIZE, CPU_DEV_LCL_MEM_SIZE and
+// CPU_DEV_MAX_WG_PRIVATE_SIZE.
+// Refer to TBB worker thread stack size calculation in TBBTaskExecutor::Init.
+#define CPU_DEV_MAX_WG_PRIVATE_SIZE \
+    (CPU_DEV_MAX_WG_STACK_SIZE - CPU_DEV_BASE_STACK_SIZE - CPU_DEV_LCL_MEM_SIZE)
 
 // Maximum private memory size that could be allocated for WG execution for
 // FPGA, total 8MB/WG. Only used when auto memory allocation is enabled.
