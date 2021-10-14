@@ -7249,7 +7249,6 @@ static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
   return Flags != SCEV::FlagAnyWrap;
 }
 
-<<<<<<< HEAD
 static bool getRefinedFlagsUsingConstantFoldingRec(
     const Value *Val, unsigned OrigOpcode,
     const OverflowingBinaryOperator *UserBinOp, APInt AccumulatedConst,
@@ -7548,27 +7547,6 @@ ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
   return Bound ? Bound : &*F.getEntryBlock().begin();
 }
 
-
-static bool
-isGuaranteedToTransferExecutionToSuccessor(BasicBlock::const_iterator Begin,
-                                           BasicBlock::const_iterator End) {
-  // Limit number of instructions we look at, to avoid scanning through large
-  // blocks. The current limit is chosen arbitrarily.
-  unsigned ScanLimit = 32;
-  for (const Instruction &I : make_range(Begin, End)) {
-    if (isa<DbgInfoIntrinsic>(I))
-        continue;
-    if (--ScanLimit == 0)
-      return false;
-
-    if (!isGuaranteedToTransferExecutionToSuccessor(&I))
-      return false;
-  }
-  return true;
-}
-
-=======
->>>>>>> d694dd0f0d4517e838bcb0aa15e1f56f7df8187e
 bool ScalarEvolution::isGuaranteedToTransferExecutionTo(const Instruction *A,
                                                         const Instruction *B) {
   if (A->getParent() == B->getParent() &&
