@@ -132,7 +132,7 @@ public:
   void collectAllZeroBypassNonLoopRegions(
       AllZeroBypassRegionsTy &AllZeroBypassRegions,
       RegionsCollectedTy &RegionsCollected,
-      VPlanCostModelInterface *CM = nullptr);
+      VPlanCostModelInterface *CM = nullptr, Optional<unsigned> VF = None);
 
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
   /// insertion for loops.

@@ -1,5 +1,5 @@
-; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt --vpo-paropt-fast-reduction-gpu-local-update -S | FileCheck %s
-; RUN: opt < %s -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' --vpo-paropt-fast-reduction-gpu-local-update -S | FileCheck %s
+; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt --vpo-paropt-atomic-free-reduction-ctrl=1 -S | FileCheck %s
+; RUN: opt < %s -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' --vpo-paropt-atomic-free-reduction-ctrl=1 -S | FileCheck %s
 
 
 ;
@@ -23,26 +23,26 @@ target triple = "spir64"
 target device_triples = "spir64"
 
 
-; CHECK-LABEL: fast.red.gpu.update.header:
+; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
 ; CHECK: %[[LOCAL_SIZE:[^,]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
 ; CHECK: %[[CMP0:[^,]+]] = icmp uge i64 %[[IDX_PHI]], %[[LOCAL_SIZE]]
-; CHECK: br i1 %[[CMP0]], label %fast.red.gpu.update.exit, label %fast.red.gpu.update.idcheck
-; CHECK-LABEL: fast.red.gpu.update.idcheck:
+; CHECK: br i1 %[[CMP0]], label %atomic.free.red.local.update.update.exit, label %atomic.free.red.local.update.update.idcheck
+; CHECK-LABEL: atomic.free.red.local.update.update.idcheck:
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: %[[CMP1:[^,]+]] = icmp eq i64 %[[IDX_PHI]], %[[LOCAL_ID]]
-; CHECK: br i1 %[[CMP1]], label %fast.red.gpu.update.body, label %fast.red.gpu.update.latch
-; CHECK-LABEL: fast.red.gpu.update.body:
+; CHECK: br i1 %[[CMP1]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
+; CHECK-LABEL: atomic.free.red.local.update.update.body:
 ; CHECK: %[[PRIV_SUM_VAL:[^,]+]] = load
 ; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load i32, i32 addrspace(3)* @[[LOCAL_SUM:[^,]+]]
 ; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[LOCAL_SUM_VAL]], %[[PRIV_SUM_VAL]]
 ; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(3)* @[[LOCAL_SUM]]
-; CHECK: br label %fast.red.gpu.update.latch
-; CHECK-LABEL: fast.red.gpu.update.latch:
+; CHECK: br label %atomic.free.red.local.update.update.latch
+; CHECK-LABEL: atomic.free.red.local.update.update.latch:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
 ; CHECK: add i64 %[[IDX_PHI]], 1
-; CHECK: br label %fast.red.gpu.update.header
-; CHECK-LABEL: fast.red.gpu.update.exit:
+; CHECK: br label %atomic.free.red.local.update.update.header
+; CHECK-LABEL: atomic.free.red.local.update.update.exit:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
 
 ; Function Attrs: convergent noinline nounwind
