@@ -1591,15 +1591,11 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
     case BuiltinType::Double:
       return getTarget().useObjCFPRetForRealType(FloatModeKind::Double);
     case BuiltinType::LongDouble:
-<<<<<<< HEAD
-      return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::LongDouble);
 #if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::Float128);
 #endif  // INTEL_CUSTOMIZATION
-=======
-      return getTarget().useObjCFPRetForRealType(FloatModeKind::LongDouble);
->>>>>>> 8a714722e2aa8a62d7812bd78babc99b7a6aeef6
     }
   }
 
