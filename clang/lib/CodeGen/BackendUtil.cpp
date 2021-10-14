@@ -545,6 +545,7 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = CodeGenOpts.IntelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
+  Options.ApproxFuncFPMath = LangOpts.ApproxFunc;
 
   Options.BBSections =
       llvm::StringSwitch<llvm::BasicBlockSection>(CodeGenOpts.BBSections)

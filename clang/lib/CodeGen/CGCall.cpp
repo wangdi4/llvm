@@ -2242,6 +2242,8 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
     if (LangOpts.NoHonorNaNs && !LangOpts.HonorNaNCompares)
 #endif
       FuncAttrs.addAttribute("no-nans-fp-math", "true");
+    if (LangOpts.ApproxFunc)
+      FuncAttrs.addAttribute("approx-func-fp-math", "true");
     if (LangOpts.UnsafeFPMath)
       FuncAttrs.addAttribute("unsafe-fp-math", "true");
     if (CodeGenOpts.SoftFloat)

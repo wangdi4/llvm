@@ -2795,7 +2795,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   // effect after all other FP options have been rendered.
   bool HonorNaNCompares = false;
 #endif // INTEL_CUSTOMIZATION
-
+  bool ApproxFunc = false;
   // -fmath-errno is the default on some platforms, e.g. BSD-derived OSes.
   bool MathErrno = TC.IsMathErrnoDefault();
   bool AssociativeMath = false;
@@ -2937,6 +2937,8 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     case options::OPT_fno_honor_nan_compares:
                                             HonorNaNCompares = false; break;
 #endif // INTEL_CUSTOMIZATION
+    case options::OPT_fapprox_func:         ApproxFunc = true;        break;
+    case options::OPT_fno_approx_func:      ApproxFunc = false;       break;
     case options::OPT_fmath_errno:          MathErrno = true;         break;
     case options::OPT_fno_math_errno:       MathErrno = false;        break;
     case options::OPT_fassociative_math:    AssociativeMath = true;   break;
@@ -3149,6 +3151,9 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
 
   if (!HonorNaNs)
     CmdArgs.push_back("-menable-no-nans");
+
+  if (ApproxFunc)
+    CmdArgs.push_back("-fapprox-func");
 
   if (MathErrno)
     CmdArgs.push_back("-fmath-errno");
