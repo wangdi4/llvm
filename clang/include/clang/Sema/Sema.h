@@ -628,8 +628,8 @@ public:
   ///
   /// This is the greatest alignment value supported by load, store, and alloca
   /// instructions, and global values.
-  static const unsigned MaxAlignmentExponent = 30;
-  static const unsigned MaximumAlignment = 1u << MaxAlignmentExponent;
+  static const unsigned MaxAlignmentExponent = 32;
+  static const uint64_t MaximumAlignment = 1ull << MaxAlignmentExponent;
 
 #if INTEL_CUSTOMIZATION
   friend void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S);
