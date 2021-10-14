@@ -1329,28 +1329,6 @@ __esimd_reduced_min(__SEIEED::vector_type_t<Ty, N> src1,
   return retv;
 }
 
-<<<<<<< HEAD
-template <typename Ty, int N>
-inline __SEIEED::vector_type_t<Ty, N>
-__esimd_reduced_fmin(__SEIEED::vector_type_t<Ty, N> src1,
-                     __SEIEED::vector_type_t<Ty, N> src2) {
-  return __esimd_reduced_min<Ty, N>(src1, src2);
-}
-
-template <typename Ty, int N>
-inline __SEIEED::vector_type_t<Ty, N>
-__esimd_reduced_umin(__SEIEED::vector_type_t<Ty, N> src1,
-                     __SEIEED::vector_type_t<Ty, N> src2) {
-  return __esimd_reduced_min<Ty, N>(src1, src2);
-}
-
-template <typename Ty, int N>
-inline __SEIEED::vector_type_t<Ty, N>
-__esimd_reduced_smin(__SEIEED::vector_type_t<Ty, N> src1,
-                     __SEIEED::vector_type_t<Ty, N> src2) {
-  return __esimd_reduced_min<Ty, N>(src1, src2);
-}
-
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -1660,10 +1638,5 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> e5cc9b74c383c70dbab8811d65e85bf9453c8090
 #endif // #ifdef __SYCL_DEVICE_ONLY__
-<<<<<<< HEAD
-=======
 
->>>>>>> 236ec8bfab35e2bde5a82e371f95d8932e01ddf2

@@ -416,84 +416,324 @@ template <__SEIEE::atomic_op Op, typename Ty, int N,
 __ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
 __esimd_svm_atomic1(__SEIEED::vector_type_t<uint64_t, N> addrs,
                     __SEIEED::vector_type_t<Ty, N> src0,
-<<<<<<< HEAD
-                    __SEIEED::simd_mask_storage_t<N> pred);
+                    __SEIEED::simd_mask_storage_t<N> pred)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
 
-template <__SEIEE::atomic_op Op, typename Ty, int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N>
-__esimd_slm_atomic2(__SEIEED::vector_type_t<uint32_t, N> addrs,
+template <__SEIEE::atomic_op Op, typename Ty, int N,
+          __SEIEE::CacheHint L1H = __SEIEE::CacheHint::None,
+          __SEIEE::CacheHint L3H = __SEIEE::CacheHint::None>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
+__esimd_svm_atomic2(__SEIEED::vector_type_t<uint64_t, N> addrs,
                     __SEIEED::vector_type_t<Ty, N> src0,
                     __SEIEED::vector_type_t<Ty, N> src1,
-                    __SEIEED::simd_mask_storage_t<N> pred);
+                    __SEIEED::simd_mask_storage_t<N> pred)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
 
-// Media block load
+// esimd_barrier, generic group barrier
+__ESIMD_INTRIN void __esimd_barrier()
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// generic work-group split barrier
+__ESIMD_INTRIN void __esimd_sbarrier(__SEIEE::split_barrier_action flag)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// slm_fence sets the SLM read/write order
+__ESIMD_INTRIN void __esimd_fence(uint8_t cntl)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// Scaled gather from a surface.
+template <typename Ty, int N, typename SurfIndAliasTy, int TySizeLog2,
+          int16_t SCALE = 0>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
+__esimd_gather_scaled(__SEIEED::simd_mask_storage_t<N> pred,
+                      SurfIndAliasTy surf_ind, uint32_t global_offset,
+                      __SEIEED::vector_type_t<uint32_t, N> addrs)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// Reads a block of data from given surface at given offset, offset must be
+// 16-byte-aligned.
+template <typename Ty, int N, typename SurfIndAliasTy, int32_t IsModified = 0>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
+__esimd_oword_ld(SurfIndAliasTy surf_ind, uint32_t addr)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// gather4 scaled from a surface/SLM
+template <typename Ty, int N, typename SurfIndAliasTy,
+          __SEIEE::rgba_channel_mask Mask, int16_t Scale = 0>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N * get_num_channels_enabled(Mask)>
+__esimd_gather4_scaled(__SEIEED::simd_mask_storage_t<N> pred,
+                       SurfIndAliasTy surf_ind, int global_offset,
+                       __SEIEED::vector_type_t<uint32_t, N> offsets)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// scatter4 scaled to a surface/SLM
+template <typename Ty, int N, typename SurfIndAliasTy,
+          __SEIEE::rgba_channel_mask Mask, int16_t Scale = 0>
+__ESIMD_INTRIN void __esimd_scatter4_scaled(
+    __SEIEED::simd_mask_storage_t<N> pred, SurfIndAliasTy surf_ind,
+    int global_offset, __SEIEED::vector_type_t<uint32_t, N> offsets,
+    __SEIEED::vector_type_t<Ty, N * get_num_channels_enabled(Mask)> vals)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// Surface-based atomic operations
+template <__SEIEE::atomic_op Op, typename Ty, int N, typename SurfIndAliasTy>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
+__esimd_dword_atomic0(__SEIEED::simd_mask_storage_t<N> pred,
+                      SurfIndAliasTy surf_ind,
+                      __SEIEED::vector_type_t<uint32_t, N> addrs)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <__SEIEE::atomic_op Op, typename Ty, int N, typename SurfIndAliasTy>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
+__esimd_dword_atomic1(__SEIEED::simd_mask_storage_t<N> pred,
+                      SurfIndAliasTy surf_ind,
+                      __SEIEED::vector_type_t<uint32_t, N> addrs,
+                      __SEIEED::vector_type_t<Ty, N> src0)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <__SEIEE::atomic_op Op, typename Ty, int N, typename SurfIndAliasTy>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N> __esimd_dword_atomic2(
+    __SEIEED::simd_mask_storage_t<N> pred, SurfIndAliasTy surf_ind,
+    __SEIEED::vector_type_t<uint32_t, N> addrs,
+    __SEIEED::vector_type_t<Ty, N> src0, __SEIEED::vector_type_t<Ty, N> src1)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+// Media block load.
 //
-// @param Ty the element data type.
-//
-// @param M the hight of the 2D block.
-//
-// @param N the width of the 2D block.
-//
-// @param TACC type of the surface handle.
-//
-// @param modifier top/bottom field surface access control.
-//
+// @tparam Ty the element data type.
+// @tparam M the hight of the 2D block.
+// @tparam N the width of the 2D block.
+// @tparam Modifier top/bottom field surface access control.
+// @tparam TACC type of the surface handle.
+// @tparam Plane planar surface index.
+// @tparam BlockWidth the width of the return block.
 // @param handle the surface handle.
-//
-// @param plane planar surface index.
-//
-// @param width the width of the return block.
-//
 // @param x X-coordinate of the left upper rectangle corner in BYTES.
-//
 // @param y Y-coordinate of the left upper rectangle corner in ROWS.
 //
 // @return the linearized 2D block data read from surface.
 //
-template <typename Ty, int M, int N, typename TACC>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, M * N>
-__esimd_media_block_load(unsigned modififer, TACC handle, unsigned plane,
-                         unsigned width, unsigned x, unsigned y);
+template <typename Ty, int M, int N, int Modifier, typename TACC, int Plane,
+          int BlockWidth>
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, M * N>
+__esimd_media_ld(TACC handle, unsigned x, unsigned y)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  // On host the input surface is modeled as sycl image 2d object,
+  // and the read/write access is done through accessor,
+  // which is passed in as the handle argument.
+  auto range = __SEIEED::AccessorPrivateProxy::getImageRange(handle);
+  unsigned bpp = __SEIEED::AccessorPrivateProxy::getElemSize(handle);
+  unsigned vpp = bpp / sizeof(Ty);
+  unsigned int i = x / bpp;
+  unsigned int j = y;
+
+  assert(x % bpp == 0);
+  unsigned int xbound = range[0] - 1;
+  unsigned int ybound = range[1] - 1;
+
+  __SEIEED::vector_type_t<Ty, M * N> vals;
+  for (int row = 0; row < M; row++) {
+    for (int col = 0; col < N; col += vpp) {
+      unsigned int xoff = (i > xbound) ? xbound : i;
+      unsigned int yoff = (j > ybound) ? ybound : j;
+      auto coords = cl::sycl::cl_int2(xoff, yoff);
+      cl::sycl::cl_uint4 data = handle.read(coords);
+
+      __SEIEED::vector_type_t<unsigned int, 4> res;
+      for (int idx = 0; idx < 4; idx++) {
+        res[idx] = data[idx];
+      }
+
+      constexpr int refN = sizeof(cl::sycl::cl_uint4) / sizeof(Ty);
+      unsigned int stride = sizeof(cl::sycl::cl_uint4) / bpp;
+      using refTy = __SEIEED::vector_type_t<Ty, refN>;
+      auto ref = reinterpret_cast<refTy>(res);
+
+      unsigned int offset1 = col + row * N;
+      unsigned int offset2 = 0;
+      for (int idx = 0; idx < vpp; idx++) {
+        vals[offset1] = ref[offset2];
+        offset1++;
+        offset2 += stride;
+      }
+      i++;
+    }
+    i = x / bpp;
+    j++;
+  }
+
+  return vals;
+}
+#endif // __SYCL_DEVICE_ONLY__
 
 // Media block store
 //
-// @param Ty the element data type.
-//
-// @param M the hight of the 2D block.
-//
-// @param N the width of the 2D block.
-//
-// @param TACC type of the surface handle.
-//
-// @param modifier top/bottom field surface access control.
-//
+// @tparam Ty the element data type.
+// @tparam M the hight of the 2D block.
+// @tparam N the width of the 2D block.
+// @tparam Modifier top/bottom field surface access control.
+// @tparam TACC type of the surface handle.
+// @tparam Plane planar surface index.
+// @tparam BlockWidth the width of the return block.
 // @param handle the surface handle.
-//
-// @param plane planar surface index.
-//
-// @param width the width of the return block.
-//
 // @param x X-coordinate of the left upper rectangle corner in BYTES.
-//
 // @param y Y-coordinate of the left upper rectangle corner in ROWS.
-//
 // @param vals the linearized 2D block data to be written to surface.
 //
-template <typename Ty, int M, int N, typename TACC>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-__esimd_media_block_store(unsigned modififer, TACC handle, unsigned plane,
-                          unsigned width, unsigned x, unsigned y,
-                          __SEIEED::vector_type_t<Ty, M * N> vals);
+template <typename Ty, int M, int N, int Modifier, typename TACC, int Plane,
+          int BlockWidth>
+__ESIMD_INTRIN void __esimd_media_st(TACC handle, unsigned x, unsigned y,
+                                     __SEIEED::vector_type_t<Ty, M * N> vals)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  unsigned bpp = __SEIEED::AccessorPrivateProxy::getElemSize(handle);
+  unsigned vpp = bpp / sizeof(Ty);
+  auto range = __SEIEED::AccessorPrivateProxy::getImageRange(handle);
+  unsigned int i = x / bpp;
+  unsigned int j = y;
 
-/// \brief esimd_get_value
+  assert(x % bpp == 0);
+
+  for (int row = 0; row < M; row++) {
+    for (int col = 0; col < N; col += vpp) {
+      constexpr int Sz = sizeof(cl::sycl::cl_uint4) / sizeof(Ty);
+      __SEIEED::vector_type_t<Ty, Sz> res = 0;
+
+      unsigned int offset1 = col + row * N;
+      unsigned int offset2 = 0;
+      unsigned int stride = sizeof(cl::sycl::cl_uint4) / bpp;
+      for (int idx = 0; idx < vpp; idx++) {
+        res[offset2] = vals[offset1];
+        offset1++;
+        offset2 += stride;
+      }
+
+      using refTy = __SEIEED::vector_type_t<unsigned int, 4>;
+      auto ref = reinterpret_cast<refTy>(res);
+
+      cl::sycl::cl_uint4 data;
+      for (int idx = 0; idx < 4; idx++) {
+        data[idx] = ref[idx];
+      }
+
+      if (i < range[0] && j < range[1]) {
+        auto coords = cl::sycl::cl_int2(i, j);
+        handle.write(coords, data);
+      }
+      i++;
+    }
+    i = x / bpp;
+    j++;
+  }
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+#ifdef __SYCL_DEVICE_ONLY__
+/// \brief Converts given value to a surface index.
+/// The input must always be a result of
+///   detail::AccessorPrivateProxy::getNativeImageObj(acc)
+/// where acc is a buffer or image accessor. If the result is, say, 'obj', then
+/// 'obj' is really a value of the surface index kept in a differently typed
+/// accessor field. Front-end compilation time type of 'obj' is either
+///   ConcreteASPtrType (detail::DecoratedType<DataT, AS>::type *), for a buffer
+/// or
+///   image{1,2,3}d_t OpenCL type for an image
+/// But when doing code generation, FE replaces e.g. '__read_only image2d_t' FE
+/// type with '%opencl.image2d_ro_t addrspace(1) *' LLVM type.
+/// image2d_t can neither be reinterpret_cast'ed from pointer to intptr_t
+/// (because it is not a pointer at FE translation time), nor it can be
+/// bit_cast'ed to intptr_t (because it is not trivially copyable). This
+/// intrinsic takes advantage of the fact that in LLVM IR 'obj' is always a
+/// pointer, where we can do ptr to uint32_t conversion.
+/// This intrinsic can be called only from the device code, as
+/// accessor => memory handle translation for host is different.
 ///
-/// @param sid the SYCL accessor.
+/// @param SYCL accessor's native memory object extracted from it via
+///   getNativeImageObj.
 ///
-/// Returns the binding table index value.
+/// Returns the surface index (binding table index) value 'sid' corresponds to.
 ///
 template <typename SurfIndAliasTy>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION uint32_t
-__esimd_get_value(SurfIndAliasTy sid);
+__ESIMD_INTRIN __SEIEE::SurfaceIndex
+__esimd_get_surface_index(SurfIndAliasTy sid);
+#endif // __SYCL_DEVICE_ONLY__
 
 /// \brief Raw sends load.
 ///
@@ -528,14 +768,19 @@ __esimd_get_value(SurfIndAliasTy sid);
 ///
 template <typename Ty1, int N1, typename Ty2, int N2, typename Ty3, int N3,
           int N = 16>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty1, N1>
-__esimd_raw_sends_load(uint8_t modifier, uint8_t execSize,
-                       __SEIEED::simd_mask_storage_t<N> pred, uint8_t numSrc0,
-                       uint8_t numSrc1, uint8_t numDst, uint8_t sfid,
-                       uint32_t exDesc, uint32_t msgDesc,
-                       __SEIEED::vector_type_t<Ty2, N2> msgSrc0,
-                       __SEIEED::vector_type_t<Ty3, N3> msgSrc1,
-                       __SEIEED::vector_type_t<Ty1, N1> msgDst);
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty1, N1> __esimd_raw_sends2(
+    uint8_t modifier, uint8_t execSize, __SEIEED::simd_mask_storage_t<N> pred,
+    uint8_t numSrc0, uint8_t numSrc1, uint8_t numDst, uint8_t sfid,
+    uint32_t exDesc, uint32_t msgDesc, __SEIEED::vector_type_t<Ty2, N2> msgSrc0,
+    __SEIEED::vector_type_t<Ty3, N3> msgSrc1,
+    __SEIEED::vector_type_t<Ty1, N1> msgDst)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
 
 /// \brief Raw send load.
 ///
@@ -564,13 +809,19 @@ __esimd_raw_sends_load(uint8_t modifier, uint8_t execSize,
 /// Returns a simd vector of type Ty1 and size N1.
 ///
 template <typename Ty1, int N1, typename Ty2, int N2, int N = 16>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty1, N1>
-__esimd_raw_send_load(uint8_t modifier, uint8_t execSize,
-                      __SEIEED::simd_mask_storage_t<N> pred, uint8_t numSrc0,
-                      uint8_t numDst, uint8_t sfid, uint32_t exDesc,
-                      uint32_t msgDesc,
-                      __SEIEED::vector_type_t<Ty2, N2> msgSrc0,
-                      __SEIEED::vector_type_t<Ty1, N1> msgDst);
+__ESIMD_INTRIN __SEIEED::vector_type_t<Ty1, N1>
+__esimd_raw_send2(uint8_t modifier, uint8_t execSize,
+                  __SEIEED::simd_mask_storage_t<N> pred, uint8_t numSrc0,
+                  uint8_t numDst, uint8_t sfid, uint32_t exDesc,
+                  uint32_t msgDesc, __SEIEED::vector_type_t<Ty2, N2> msgSrc0,
+                  __SEIEED::vector_type_t<Ty1, N1> msgDst)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
 
 /// \brief Raw sends store.
 ///
@@ -597,11 +848,18 @@ __esimd_raw_send_load(uint8_t modifier, uint8_t execSize,
 /// @param msgSrc1 the second source operand of send message.
 ///
 template <typename Ty1, int N1, typename Ty2, int N2, int N = 16>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_raw_sends_store(
+__ESIMD_INTRIN void __esimd_raw_sends2_noresult(
     uint8_t modifier, uint8_t execSize, __SEIEED::simd_mask_storage_t<N> pred,
     uint8_t numSrc0, uint8_t numSrc1, uint8_t sfid, uint32_t exDesc,
     uint32_t msgDesc, __SEIEED::vector_type_t<Ty1, N1> msgSrc0,
-    __SEIEED::vector_type_t<Ty2, N2> msgSrc1);
+    __SEIEED::vector_type_t<Ty2, N2> msgSrc1)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
 
 /// \brief Raw send store.
 ///
@@ -623,11 +881,17 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_raw_sends_store(
 /// @param msgSrc0 the first source operand of send message.
 ///
 template <typename Ty1, int N1, int N = 16>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-__esimd_raw_send_store(uint8_t modifier, uint8_t execSize,
-                       __SEIEED::simd_mask_storage_t<N> pred, uint8_t numSrc0,
-                       uint8_t sfid, uint32_t exDesc, uint32_t msgDesc,
-                       __SEIEED::vector_type_t<Ty1, N1> msgSrc0);
+__ESIMD_INTRIN void __esimd_raw_send2_noresult(
+    uint8_t modifier, uint8_t execSize, __SEIEED::simd_mask_storage_t<N> pred,
+    uint8_t numSrc0, uint8_t sfid, uint32_t exDesc, uint32_t msgDesc,
+    __SEIEED::vector_type_t<Ty1, N1> msgSrc0)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw cl::sycl::feature_not_supported();
+}
+#endif // __SYCL_DEVICE_ONLY__
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -837,17 +1101,10 @@ __esimd_lsc_prefetch_stateless(__SEIEED::vector_type_t<uint16_t, N> pred,
 #ifdef __SYCL_DEVICE_ONLY__
     ;
 #else  // __SYCL_DEVICE_ONLY__
-=======
-                    __SEIEED::simd_mask_storage_t<N> pred)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
->>>>>>> e5cc9b74c383c70dbab8811d65e85bf9453c8090
 {
   throw cl::sycl::feature_not_supported();
 }
 #endif // __SYCL_DEVICE_ONLY__
-<<<<<<< HEAD
 
 /// \brief SLM scatter.
 /// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
@@ -1425,555 +1682,6 @@ __esimd_lsc_fence(__SEIEED::vector_type_t<uint16_t, N> pred)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
-
-#ifndef __SYCL_DEVICE_ONLY__
-
-template <typename Ty, int N, int NumBlk, __SEIEE::CacheHint L1H,
-          __SEIEE::CacheHint L3H>
-inline __SEIEED::vector_type_t<Ty, N * __SEIEED::ElemsPerAddrDecoding(NumBlk)>
-__esimd_flat_read(__SEIEED::vector_type_t<uint64_t, N> addrs, int ElemsPerAddr,
-                  __SEIEED::simd_mask_storage_t<N> pred) {
-  auto NumBlkDecoded = __SEIEED::ElemsPerAddrDecoding(NumBlk);
-  __SEIEED::vector_type_t<Ty, N * __SEIEED::ElemsPerAddrDecoding(NumBlk)> V;
-  ElemsPerAddr = __SEIEED::ElemsPerAddrDecoding(ElemsPerAddr);
-
-  for (int I = 0; I < N; I++) {
-    if (pred[I]) {
-      Ty *Addr = reinterpret_cast<Ty *>(addrs[I]);
-      if (sizeof(Ty) == 2)
-        ElemsPerAddr = ElemsPerAddr / 2;
-      if (sizeof(Ty) <= 2) {
-        for (int J = 0; J < NumBlkDecoded && J < ElemsPerAddr; J++)
-          V[I * NumBlkDecoded + J] = *(Addr + J);
-      } else {
-        for (int J = 0; J < NumBlkDecoded && J < ElemsPerAddr; J++)
-          V[J * N + I] = *(Addr + J);
-      }
-    }
-  }
-  return V;
-}
-
-template <typename Ty, int N, __SEIEE::rgba_channel_mask Mask,
-          __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H>
-inline __SEIEED::vector_type_t<Ty, N * get_num_channels_enabled(Mask)>
-__esimd_flat_read4(__SEIEED::vector_type_t<uint64_t, N> addrs,
-                   __SEIEED::simd_mask_storage_t<N> pred) {
-  __SEIEED::vector_type_t<Ty, N * get_num_channels_enabled(Mask)> V;
-  unsigned int Next = 0;
-
-  if constexpr (__SEIEE::is_channel_enabled(Mask, __SEIEE::rgba_channel::R)) {
-    for (int I = 0; I < N; I++, Next++) {
-      if (pred[I]) {
-        Ty *Addr = reinterpret_cast<Ty *>(addrs[I]);
-        V[Next] = *Addr;
-      }
-    }
-  }
-
-  if constexpr (__SEIEE::is_channel_enabled(Mask, __SEIEE::rgba_channel::G)) {
-    for (int I = 0; I < N; I++, Next++) {
-      if (pred[I]) {
-        Ty *Addr = reinterpret_cast<Ty *>(addrs[I] + sizeof(Ty));
-        V[Next] = *Addr;
-      }
-    }
-  }
-
-  if constexpr (__SEIEE::is_channel_enabled(Mask, __SEIEE::rgba_channel::B)) {
-    for (int I = 0; I < N; I++, Next++) {
-      if (pred[I]) {
-        Ty *Addr = reinterpret_cast<Ty *>(addrs[I] + sizeof(Ty) + sizeof(Ty));
-        V[Next] = *Addr;
-      }
-    }
-  }
-
-  if constexpr (__SEIEE::is_channel_enabled(Mask, __SEIEE::rgba_channel::A)) {
-    for (int I = 0; I < N; I++, Next++) {
-      if (pred[I]) {
-        Ty *Addr = reinterpret_cast<Ty *>(addrs[I] + sizeof(Ty) + sizeof(Ty) +
-                                          sizeof(Ty));
-        V[Next] = *Addr;
-      }
-    }
-  }
-=======
->>>>>>> e5cc9b74c383c70dbab8811d65e85bf9453c8090
-
-template <__SEIEE::atomic_op Op, typename Ty, int N,
-          __SEIEE::CacheHint L1H = __SEIEE::CacheHint::None,
-          __SEIEE::CacheHint L3H = __SEIEE::CacheHint::None>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
-__esimd_svm_atomic2(__SEIEED::vector_type_t<uint64_t, N> addrs,
-                    __SEIEED::vector_type_t<Ty, N> src0,
-                    __SEIEED::vector_type_t<Ty, N> src1,
-                    __SEIEED::simd_mask_storage_t<N> pred)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// esimd_barrier, generic group barrier
-__ESIMD_INTRIN void __esimd_barrier()
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// generic work-group split barrier
-__ESIMD_INTRIN void __esimd_sbarrier(__SEIEE::split_barrier_action flag)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// slm_fence sets the SLM read/write order
-__ESIMD_INTRIN void __esimd_fence(uint8_t cntl)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// Scaled gather from a surface.
-template <typename Ty, int N, typename SurfIndAliasTy, int TySizeLog2,
-          int16_t SCALE = 0>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
-__esimd_gather_scaled(__SEIEED::simd_mask_storage_t<N> pred,
-                      SurfIndAliasTy surf_ind, uint32_t global_offset,
-                      __SEIEED::vector_type_t<uint32_t, N> addrs)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// Reads a block of data from given surface at given offset, offset must be
-// 16-byte-aligned.
-template <typename Ty, int N, typename SurfIndAliasTy, int32_t IsModified = 0>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
-__esimd_oword_ld(SurfIndAliasTy surf_ind, uint32_t addr)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// gather4 scaled from a surface/SLM
-template <typename Ty, int N, typename SurfIndAliasTy,
-          __SEIEE::rgba_channel_mask Mask, int16_t Scale = 0>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N * get_num_channels_enabled(Mask)>
-__esimd_gather4_scaled(__SEIEED::simd_mask_storage_t<N> pred,
-                       SurfIndAliasTy surf_ind, int global_offset,
-                       __SEIEED::vector_type_t<uint32_t, N> offsets)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// scatter4 scaled to a surface/SLM
-template <typename Ty, int N, typename SurfIndAliasTy,
-          __SEIEE::rgba_channel_mask Mask, int16_t Scale = 0>
-__ESIMD_INTRIN void __esimd_scatter4_scaled(
-    __SEIEED::simd_mask_storage_t<N> pred, SurfIndAliasTy surf_ind,
-    int global_offset, __SEIEED::vector_type_t<uint32_t, N> offsets,
-    __SEIEED::vector_type_t<Ty, N * get_num_channels_enabled(Mask)> vals)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// Surface-based atomic operations
-template <__SEIEE::atomic_op Op, typename Ty, int N, typename SurfIndAliasTy>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
-__esimd_dword_atomic0(__SEIEED::simd_mask_storage_t<N> pred,
-                      SurfIndAliasTy surf_ind,
-                      __SEIEED::vector_type_t<uint32_t, N> addrs)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-template <__SEIEE::atomic_op Op, typename Ty, int N, typename SurfIndAliasTy>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N>
-__esimd_dword_atomic1(__SEIEED::simd_mask_storage_t<N> pred,
-                      SurfIndAliasTy surf_ind,
-                      __SEIEED::vector_type_t<uint32_t, N> addrs,
-                      __SEIEED::vector_type_t<Ty, N> src0)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-template <__SEIEE::atomic_op Op, typename Ty, int N, typename SurfIndAliasTy>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, N> __esimd_dword_atomic2(
-    __SEIEED::simd_mask_storage_t<N> pred, SurfIndAliasTy surf_ind,
-    __SEIEED::vector_type_t<uint32_t, N> addrs,
-    __SEIEED::vector_type_t<Ty, N> src0, __SEIEED::vector_type_t<Ty, N> src1)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// Media block load.
-//
-// @tparam Ty the element data type.
-// @tparam M the hight of the 2D block.
-// @tparam N the width of the 2D block.
-// @tparam Modifier top/bottom field surface access control.
-// @tparam TACC type of the surface handle.
-// @tparam Plane planar surface index.
-// @tparam BlockWidth the width of the return block.
-// @param handle the surface handle.
-// @param x X-coordinate of the left upper rectangle corner in BYTES.
-// @param y Y-coordinate of the left upper rectangle corner in ROWS.
-//
-// @return the linearized 2D block data read from surface.
-//
-template <typename Ty, int M, int N, int Modifier, typename TACC, int Plane,
-          int BlockWidth>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty, M * N>
-__esimd_media_ld(TACC handle, unsigned x, unsigned y)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  // On host the input surface is modeled as sycl image 2d object,
-  // and the read/write access is done through accessor,
-  // which is passed in as the handle argument.
-  auto range = __SEIEED::AccessorPrivateProxy::getImageRange(handle);
-  unsigned bpp = __SEIEED::AccessorPrivateProxy::getElemSize(handle);
-  unsigned vpp = bpp / sizeof(Ty);
-  unsigned int i = x / bpp;
-  unsigned int j = y;
-
-  assert(x % bpp == 0);
-  unsigned int xbound = range[0] - 1;
-  unsigned int ybound = range[1] - 1;
-
-  __SEIEED::vector_type_t<Ty, M * N> vals;
-  for (int row = 0; row < M; row++) {
-    for (int col = 0; col < N; col += vpp) {
-      unsigned int xoff = (i > xbound) ? xbound : i;
-      unsigned int yoff = (j > ybound) ? ybound : j;
-      auto coords = cl::sycl::cl_int2(xoff, yoff);
-      cl::sycl::cl_uint4 data = handle.read(coords);
-
-      __SEIEED::vector_type_t<unsigned int, 4> res;
-      for (int idx = 0; idx < 4; idx++) {
-        res[idx] = data[idx];
-      }
-
-      constexpr int refN = sizeof(cl::sycl::cl_uint4) / sizeof(Ty);
-      unsigned int stride = sizeof(cl::sycl::cl_uint4) / bpp;
-      using refTy = __SEIEED::vector_type_t<Ty, refN>;
-      auto ref = reinterpret_cast<refTy>(res);
-
-      unsigned int offset1 = col + row * N;
-      unsigned int offset2 = 0;
-      for (int idx = 0; idx < vpp; idx++) {
-        vals[offset1] = ref[offset2];
-        offset1++;
-        offset2 += stride;
-      }
-      i++;
-    }
-    i = x / bpp;
-    j++;
-  }
-
-  return vals;
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-// Media block store
-//
-// @tparam Ty the element data type.
-// @tparam M the hight of the 2D block.
-// @tparam N the width of the 2D block.
-// @tparam Modifier top/bottom field surface access control.
-// @tparam TACC type of the surface handle.
-// @tparam Plane planar surface index.
-// @tparam BlockWidth the width of the return block.
-// @param handle the surface handle.
-// @param x X-coordinate of the left upper rectangle corner in BYTES.
-// @param y Y-coordinate of the left upper rectangle corner in ROWS.
-// @param vals the linearized 2D block data to be written to surface.
-//
-template <typename Ty, int M, int N, int Modifier, typename TACC, int Plane,
-          int BlockWidth>
-__ESIMD_INTRIN void __esimd_media_st(TACC handle, unsigned x, unsigned y,
-                                     __SEIEED::vector_type_t<Ty, M * N> vals)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  unsigned bpp = __SEIEED::AccessorPrivateProxy::getElemSize(handle);
-  unsigned vpp = bpp / sizeof(Ty);
-  auto range = __SEIEED::AccessorPrivateProxy::getImageRange(handle);
-  unsigned int i = x / bpp;
-  unsigned int j = y;
-
-  assert(x % bpp == 0);
-
-  for (int row = 0; row < M; row++) {
-    for (int col = 0; col < N; col += vpp) {
-      constexpr int Sz = sizeof(cl::sycl::cl_uint4) / sizeof(Ty);
-      __SEIEED::vector_type_t<Ty, Sz> res = 0;
-
-      unsigned int offset1 = col + row * N;
-      unsigned int offset2 = 0;
-      unsigned int stride = sizeof(cl::sycl::cl_uint4) / bpp;
-      for (int idx = 0; idx < vpp; idx++) {
-        res[offset2] = vals[offset1];
-        offset1++;
-        offset2 += stride;
-      }
-
-      using refTy = __SEIEED::vector_type_t<unsigned int, 4>;
-      auto ref = reinterpret_cast<refTy>(res);
-
-      cl::sycl::cl_uint4 data;
-      for (int idx = 0; idx < 4; idx++) {
-        data[idx] = ref[idx];
-      }
-
-      if (i < range[0] && j < range[1]) {
-        auto coords = cl::sycl::cl_int2(i, j);
-        handle.write(coords, data);
-      }
-      i++;
-    }
-    i = x / bpp;
-    j++;
-  }
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-#ifdef __SYCL_DEVICE_ONLY__
-/// \brief Converts given value to a surface index.
-/// The input must always be a result of
-///   detail::AccessorPrivateProxy::getNativeImageObj(acc)
-/// where acc is a buffer or image accessor. If the result is, say, 'obj', then
-/// 'obj' is really a value of the surface index kept in a differently typed
-/// accessor field. Front-end compilation time type of 'obj' is either
-///   ConcreteASPtrType (detail::DecoratedType<DataT, AS>::type *), for a buffer
-/// or
-///   image{1,2,3}d_t OpenCL type for an image
-/// But when doing code generation, FE replaces e.g. '__read_only image2d_t' FE
-/// type with '%opencl.image2d_ro_t addrspace(1) *' LLVM type.
-/// image2d_t can neither be reinterpret_cast'ed from pointer to intptr_t
-/// (because it is not a pointer at FE translation time), nor it can be
-/// bit_cast'ed to intptr_t (because it is not trivially copyable). This
-/// intrinsic takes advantage of the fact that in LLVM IR 'obj' is always a
-/// pointer, where we can do ptr to uint32_t conversion.
-/// This intrinsic can be called only from the device code, as
-/// accessor => memory handle translation for host is different.
-///
-/// @param SYCL accessor's native memory object extracted from it via
-///   getNativeImageObj.
-///
-/// Returns the surface index (binding table index) value 'sid' corresponds to.
-///
-template <typename SurfIndAliasTy>
-__ESIMD_INTRIN __SEIEE::SurfaceIndex
-__esimd_get_surface_index(SurfIndAliasTy sid);
-#endif // __SYCL_DEVICE_ONLY__
-
-/// \brief Raw sends load.
-///
-/// @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
-///
-/// @param execSize the execution size, which must be a compile time constant.
-///
-/// @param pred the predicate to specify enabled channels.
-///
-/// @param numSrc0 the number of GRFs for source-0, which must be a compile time
-/// constant.
-///
-/// @param numSrc1 the number of GRFs for source-1, which must be a compile time
-/// constant.
-///
-/// @param numDst the number of GRFs for destination, which must be a compile
-/// time constant.
-///
-/// @param sfid the shared function ID, which must be a compile time constant.
-///
-/// @param exDesc the extended message descriptor.
-///
-/// @param msgDesc the message descriptor.
-///
-/// @param msgSrc0 the first source operand of send message.
-///
-/// @param msgSrc1 the second source operand of send message.
-///
-/// @param msgDst the destination operand of send message.
-///
-/// Returns a simd vector of type Ty1 and size N1.
-///
-template <typename Ty1, int N1, typename Ty2, int N2, typename Ty3, int N3,
-          int N = 16>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty1, N1> __esimd_raw_sends2(
-    uint8_t modifier, uint8_t execSize, __SEIEED::simd_mask_storage_t<N> pred,
-    uint8_t numSrc0, uint8_t numSrc1, uint8_t numDst, uint8_t sfid,
-    uint32_t exDesc, uint32_t msgDesc, __SEIEED::vector_type_t<Ty2, N2> msgSrc0,
-    __SEIEED::vector_type_t<Ty3, N3> msgSrc1,
-    __SEIEED::vector_type_t<Ty1, N1> msgDst)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-/// \brief Raw send load.
-///
-/// @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
-///
-/// @param execSize the execution size, which must be a compile time constant.
-///
-/// @param pred the predicate to specify enabled channels.
-///
-/// @param numSrc0 the number of GRFs for source-0, which must be a compile time
-/// constant.
-///
-/// @param numDst the number of GRFs for destination, which must be a compile
-/// time constant.
-///
-/// @param sfid the shared function ID, which must be a compile time constant.
-///
-/// @param exDesc the extended message descriptor.
-///
-/// @param msgDesc the message descriptor.
-///
-/// @param msgSrc0 the first source operand of send message.
-///
-/// @param msgDst the destination operand of send message.
-///
-/// Returns a simd vector of type Ty1 and size N1.
-///
-template <typename Ty1, int N1, typename Ty2, int N2, int N = 16>
-__ESIMD_INTRIN __SEIEED::vector_type_t<Ty1, N1>
-__esimd_raw_send2(uint8_t modifier, uint8_t execSize,
-                  __SEIEED::simd_mask_storage_t<N> pred, uint8_t numSrc0,
-                  uint8_t numDst, uint8_t sfid, uint32_t exDesc,
-                  uint32_t msgDesc, __SEIEED::vector_type_t<Ty2, N2> msgSrc0,
-                  __SEIEED::vector_type_t<Ty1, N1> msgDst)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-/// \brief Raw sends store.
-///
-/// @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
-///
-/// @param execSize the execution size, which must be a compile time constant.
-///
-/// @param pred the predicate to specify enabled channels.
-///
-/// @param numSrc0 the number of GRFs for source-0, which must be a compile time
-/// constant.
-///
-/// @param numSrc1 the number of GRFs for source-1, which must be a compile time
-/// constant.
-///
-/// @param sfid the shared function ID, which must be a compile time constant.
-///
-/// @param exDesc the extended message descriptor.
-///
-/// @param msgDesc the message descriptor.
-///
-/// @param msgSrc0 the first source operand of send message.
-///
-/// @param msgSrc1 the second source operand of send message.
-///
-template <typename Ty1, int N1, typename Ty2, int N2, int N = 16>
-__ESIMD_INTRIN void __esimd_raw_sends2_noresult(
-    uint8_t modifier, uint8_t execSize, __SEIEED::simd_mask_storage_t<N> pred,
-    uint8_t numSrc0, uint8_t numSrc1, uint8_t sfid, uint32_t exDesc,
-    uint32_t msgDesc, __SEIEED::vector_type_t<Ty1, N1> msgSrc0,
-    __SEIEED::vector_type_t<Ty2, N2> msgSrc1)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-/// \brief Raw send store.
-///
-/// @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
-///
-/// @param execSize the execution size, which must be a compile time constant.
-///
-/// @param pred the predicate to specify enabled channels.
-///
-/// @param numSrc0 the number of GRFs for source-0, which must be a compile time
-/// constant.
-///
-/// @param sfid the shared function ID, which must be a compile time constant.
-///
-/// @param exDesc the extended message descriptor.
-///
-/// @param msgDesc the message descriptor.
-///
-/// @param msgSrc0 the first source operand of send message.
-///
-template <typename Ty1, int N1, int N = 16>
-__ESIMD_INTRIN void __esimd_raw_send2_noresult(
-    uint8_t modifier, uint8_t execSize, __SEIEED::simd_mask_storage_t<N> pred,
-    uint8_t numSrc0, uint8_t sfid, uint32_t exDesc, uint32_t msgDesc,
-    __SEIEED::vector_type_t<Ty1, N1> msgSrc0)
-#ifdef __SYCL_DEVICE_ONLY__
-    ;
-#else
-{
-  throw cl::sycl::feature_not_supported();
-}
-<<<<<<< HEAD
-
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-
 // Wait for val to be ready
 inline void __esimd_wait(uint16_t val) {}
 
@@ -1995,6 +1703,3 @@ inline void __esimd_raw_send_nbarrier_signal(
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-=======
->>>>>>> e5cc9b74c383c70dbab8811d65e85bf9453c8090
-#endif // __SYCL_DEVICE_ONLY__

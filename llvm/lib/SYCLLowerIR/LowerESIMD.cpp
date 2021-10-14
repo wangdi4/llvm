@@ -489,7 +489,6 @@ public:
         {"raw_send2_noresult",
          {"raw.send2.noresult",
           {a(0), a(1), ai1(2), a(3), a(4), a(5), a(6), a(7)}}},
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
@@ -587,10 +586,7 @@ public:
         {"lsc_fence", {"lsc.fence", {ai1(0), t8(0), t8(1), t8(2)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-        {"satf", {"sat", {a(0)}}},
-=======
         {"sat", {"sat", {a(0)}}},
->>>>>>> e5cc9b74c383c70dbab8811d65e85bf9453c8090
         {"fptoui_sat", {"fptoui.sat", {a(0)}}},
         {"fptosi_sat", {"fptosi.sat", {a(0)}}},
         {"uutrunc_sat", {"uutrunc.sat", {a(0)}}},

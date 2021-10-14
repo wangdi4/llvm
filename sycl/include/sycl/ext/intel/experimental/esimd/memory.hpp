@@ -1123,7 +1123,6 @@ esimd_raw_send_store(simd<T1, n1> msgSrc0, uint32_t exDesc, uint32_t msgDesc,
 }
 /// @}
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -2492,9 +2491,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_fence(simd<uint16_t, N> pred = 1) {
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-=======
+
 #undef __ESIMD_GET_SURF_HANDLE
->>>>>>> e5cc9b74c383c70dbab8811d65e85bf9453c8090
 
 } // namespace esimd
 } // namespace experimental
