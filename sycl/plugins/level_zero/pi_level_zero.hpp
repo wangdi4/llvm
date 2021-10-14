@@ -585,14 +585,8 @@ private:
   std::unordered_map<ze_event_pool_handle_t, pi_uint32>
       NumEventsUnreleasedInEventPool;
 
-  // TODO: we'd like to create a thread safe map class instead of mutex + map,
-  // that must be carefully used together.
-
-  // Mutex to control operations on NumEventsAvailableInEventPool map.
-  std::mutex NumEventsAvailableInEventPoolMutex;
-
-  // Mutex to control operations on NumEventsUnreleasedInEventPool.
-  std::mutex NumEventsUnreleasedInEventPoolMutex;
+  // Mutex to control operations on event pool.
+  std::mutex ZeEventPoolMutex;
 };
 
 // If doing dynamic batching, start batch size at 4.

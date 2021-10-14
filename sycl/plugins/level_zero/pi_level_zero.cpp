@@ -404,6 +404,9 @@ _pi_context::getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &Pool,
     return PI_INVALID_VALUE;
   }
 
+  // Lock while updating event pool machinery.
+  std::lock_guard<std::mutex> Lock(ZeEventPoolMutex);
+
   // Setup for host-visible pool as needed.
   ze_event_pool_flag_t ZePoolFlag = {};
   ze_event_pool_handle_t *ZePool = [&] {
@@ -421,18 +424,6 @@ _pi_context::getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &Pool,
   Index = 0;
   // Create one event ZePool per MaxNumEventsPerPool events
   if ((*ZePool == nullptr) || (NumEventsAvailableInEventPool[*ZePool] == 0)) {
-    // Creation of the new ZePool with record in NumEventsAvailableInEventPool
-    // and initialization of the record in NumEventsUnreleasedInEventPool must
-    // be done atomically. Otherwise it is possible that
-    // decrementUnreleasedEventsInPool will be called for the record in
-    // NumEventsUnreleasedInEventPool before its
-    std::lock(NumEventsAvailableInEventPoolMutex,
-              NumEventsUnreleasedInEventPoolMutex);
-    std::lock_guard<std::mutex> NumEventsAvailableInEventPoolGuard(
-        NumEventsAvailableInEventPoolMutex, std::adopt_lock);
-    std::lock_guard<std::mutex> NumEventsUnreleasedInEventPoolGuard(
-        NumEventsUnreleasedInEventPoolMutex, std::adopt_lock);
-
     ZeStruct<ze_event_pool_desc_t> ZeEventPoolDesc;
     ZeEventPoolDesc.count = MaxNumEventsPerPool;
     ZeEventPoolDesc.flags = ZePoolFlag | ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
@@ -446,8 +437,6 @@ _pi_context::getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &Pool,
     NumEventsAvailableInEventPool[*ZePool] = MaxNumEventsPerPool - 1;
     NumEventsUnreleasedInEventPool[*ZePool] = MaxNumEventsPerPool;
   } else {
-    std::lock_guard<std::mutex> NumEventsAvailableInEventPoolGuard(
-        NumEventsAvailableInEventPoolMutex);
     Index = MaxNumEventsPerPool - NumEventsAvailableInEventPool[*ZePool];
     --NumEventsAvailableInEventPool[*ZePool];
   }
@@ -462,7 +451,7 @@ _pi_context::decrementUnreleasedEventsInPool(ze_event_pool_handle_t &ZePool) {
     // Do nothing.
     return PI_SUCCESS;
   }
-  std::lock_guard<std::mutex> Lock(NumEventsUnreleasedInEventPoolMutex);
+  std::lock_guard<std::mutex> Lock(ZeEventPoolMutex);
   --NumEventsUnreleasedInEventPool[ZePool];
   if (NumEventsUnreleasedInEventPool[ZePool] == 0) {
     ZE_CALL(zeEventPoolDestroy, (ZePool));
@@ -772,12 +761,13 @@ pi_result _pi_context::finalize() {
   // This function is called when pi_context is deallocated, piContextRelease.
   // There could be some memory that may have not been deallocated.
   // For example, zeEventPool could be still alive.
-  std::lock_guard<std::mutex> NumEventsUnreleasedInEventPoolGuard(
-      NumEventsUnreleasedInEventPoolMutex);
-  if (ZeEventPool)
-    ZE_CALL(zeEventPoolDestroy, (ZeEventPool));
-  if (ZeHostVisibleEventPool)
-    ZE_CALL(zeEventPoolDestroy, (ZeHostVisibleEventPool));
+  {
+    std::lock_guard<std::mutex> Lock(ZeEventPoolMutex);
+    if (ZeEventPool)
+      ZE_CALL(zeEventPoolDestroy, (ZeEventPool));
+    if (ZeHostVisibleEventPool)
+      ZE_CALL(zeEventPoolDestroy, (ZeHostVisibleEventPool));
+  }
 
   // Destroy the command list used for initializations
   ZE_CALL(zeCommandListDestroy, (ZeCommandListInit));
