@@ -264,7 +264,7 @@ bool processVConflictIdiom(VPlan &Plan, Function &Fn) {
   // TODO: Remove below loop after adding lowering and CG support for
   // VPTreeConflict.
   for (auto &VPInst : make_early_inc_range(vpinstructions(&Plan)))
-    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPInst))
+    if (isa<VPTreeConflict>(&VPInst))
       return false;
 
   return true;

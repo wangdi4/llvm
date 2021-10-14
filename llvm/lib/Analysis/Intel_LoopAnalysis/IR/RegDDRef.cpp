@@ -2187,7 +2187,8 @@ Type *RegDDRef::getDereferencedType() const {
   // This section of the code is trying to handle these two cases.
   if (auto *BitCastTy = getBitCastDestVecOrElemType()) {
     // We don't have element type information for vector addressOf refs.
-    return !isa<VectorType>(BitCastTy) ? BitCastTy : nullptr;
+    return (!isa<VectorType>(BitCastTy) || !hasAnyVectorIndices()) ? BitCastTy
+                                                                   : nullptr;
 
   } else if (isSelfAddressOf()) {
     auto *DestTy = getDestType();

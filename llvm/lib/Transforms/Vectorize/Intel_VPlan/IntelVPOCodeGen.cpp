@@ -2527,30 +2527,10 @@ void VPOCodeGen::createVectorMaskArg(VPCallInstruction *VPCall,
     return;
   }
 
-  // Promote to characteristic type.
-  Type *CharacteristicType =
-      VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant);
-  unsigned CharacteristicTypeSize =
-      CharacteristicType->getPrimitiveSizeInBits();
-
-  // Promote the i1 to an integer type that has the same size as the
-  // characteristic type.
-  Type *ScalarToType =
-      IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
-  VectorType *VecToType = FixedVectorType::get(ScalarToType, PumpedVF);
-  Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
-
-  // Bitcast if the promoted type is not the same as the characteristic
-  // type.
-  if (ScalarToType != CharacteristicType) {
-    Type *MaskCastTy = FixedVectorType::get(CharacteristicType, PumpedVF);
-    Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
-    VecArgs.push_back(MaskCast);
-    VecArgTys.push_back(MaskCastTy);
-  } else {
-    VecArgs.push_back(MaskExt);
-    VecArgTys.push_back(VecToType);
-  }
+  llvm::createVectorMaskArg(
+      Builder,
+      VPlanCallVecDecisions::calcCharacteristicType(VPCall, *VecVariant),
+      VecVariant, VecArgs, VecArgTys, PumpedVF, MaskToUse);
 }
 
 void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {

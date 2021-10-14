@@ -1288,13 +1288,17 @@ void AddSubReassociate::buildMaxReuseGroups(
                     [&FoundTrees, &GroupOpcode](
                         TreeCollectionTy::value_type &TreeAndOpcodes) {
                       Tree *Tree = TreeAndOpcodes.first;
-                      OpcodesTy &Opcodes = TreeAndOpcodes.second;
-                      if (FoundTrees.count(Tree) == 0)
+                      auto It = FoundTrees.find(Tree);
+                      if (It == FoundTrees.end())
                         return false;
-                      auto It = findCompatibleOpcode(GroupOpcode, Opcodes);
-                      assert(It != Opcodes.end() &&
+                      OpcodesTy &Opcodes = TreeAndOpcodes.second;
+                      auto OpcIt = findMatchingOpcode(
+                          It->second /*IsDirect*/ ? GroupOpcode
+                                                  : GroupOpcode.getReversed(),
+                          Opcodes);
+                      assert(OpcIt != Opcodes.end() &&
                              "Can't find requested opcode for the group");
-                      Opcodes.erase(It);
+                      Opcodes.erase(OpcIt);
                       return Opcodes.empty();
                     }),
           TreeVec.end());

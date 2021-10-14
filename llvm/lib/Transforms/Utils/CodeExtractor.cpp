@@ -1114,7 +1114,7 @@ void CodeExtractor::constructDebugParameters(
       Instruction *IB;
       if (Instruction *I = dyn_cast_or_null<Instruction>(NS))
         IB = I->getNextNode();
-      else if (Argument *A = dyn_cast_or_null<Argument>(NS))
+      else if (NS && isa<Argument>(NS))
         IB = NF->begin()->getTerminator();
       else
         IB = nullptr;
