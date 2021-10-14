@@ -632,7 +632,9 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
                 // as checking whether the execution of kernel will be out of resource
                 // and are also needed to provide the memory info such as
                 // CL_DEVICE_LOCAL_MEM_SIZE.
-                return 0;
+                return (GetDeviceMode() == FPGA_EMU_DEVICE)
+                           ? 0
+                           : CPU_DEV_LCL_MEM_SIZE;
             }
 
             return ParseStringToSize(strForcedSize);
@@ -643,9 +645,10 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             std::string strForcedSize;
             if (!m_pConfigFile->ReadInto(strForcedSize, "CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE"))
             {
-                return 0;
+                return (GetDeviceMode() == FPGA_EMU_DEVICE)
+                           ? 0
+                           : CPU_DEV_MAX_WG_PRIVATE_SIZE;
             }
-
             return ParseStringToSize(strForcedSize);
         }
 

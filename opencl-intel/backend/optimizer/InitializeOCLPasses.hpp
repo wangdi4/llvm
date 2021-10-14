@@ -53,7 +53,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeLoopStridedCodeMotionPass(Registry);
     intel::initializeRelaxedPassPass(Registry);
     intel::initializePrefetchPass(Registry);
-    intel::initializeHandleVPlanMaskPass(Registry);
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);
     intel::initializeResolveWICallPass(Registry);

@@ -17,7 +17,6 @@ set(OCL_BE_PASSES
     DebugInfoPass
     DetectRecursion
     ExternalizeGlobalVariables
-    HandleVPlanMask
     InfiniteLoopCreator
     InstToFuncCall
     InternalizeGlobalVariables
