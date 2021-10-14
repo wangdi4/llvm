@@ -140,7 +140,6 @@ set(LLVM_TEST_DEPENDS
           yaml2obj
 # INTEL_CUSTOMIZATION
           intelovls-test
-          intel-bin-opt-report
 # end INTEL_CUSTOMIZATION
         )
 
@@ -160,6 +159,10 @@ endif()
 if(INTEL_CUSTOMIZATION)
   if(TARGET icx-lto)
     set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} icx-lto)
+  endif()
+
+  if(INTEL_ENABLE_PROTO_BIN_OPTRPT)
+    set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} intel-bin-opt-report)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
