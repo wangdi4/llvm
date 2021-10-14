@@ -1,5 +1,5 @@
 ; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -opaque-pointers -analyze -hir-scc-formation | FileCheck %s
 
 ; Verify that we trace through certain intrinsics like llvm.minnum to form SCCs.
 
