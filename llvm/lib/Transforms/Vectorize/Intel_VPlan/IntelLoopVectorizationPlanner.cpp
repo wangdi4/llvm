@@ -42,10 +42,6 @@
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
-static cl::opt<bool>
-    VPlanEnableDynamicPeeling("vplan-enable-dynamic-peeling-cm", cl::init(true),
-    cl::desc("Use cost model to decide whether to do dynamic peeling or not"));
-
 #if INTEL_CUSTOMIZATION
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
 
@@ -230,6 +226,7 @@ bool EnableSOAAnalysisHIR = false;
 bool EnableNewCFGMerge = true;
 bool EnableNewCFGMergeHIR = false;
 bool VPlanEnablePeeling = false;
+bool VPlanEnableGeneralPeeling = true;
 } // namespace vpo
 } // namespace llvm
 
@@ -469,9 +466,12 @@ void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
+  bool EnableDP = isDynAlignEnabled();
+  if (!VPlanEnableGeneralPeeling && !EnableDP)
+    return;
+
   std::map<VPlanNonMasked *, VPlanPeelingAnalysis> VPPACache;
 
-  bool EnableDP = isDynAlignEnabled();
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
     auto *Plan = cast<VPlanNonMasked>(Pair.second.MainPlan.get());
@@ -597,7 +597,7 @@ bool LoopVectorizationPlanner::readDynAlignEnabled() {
                                "#pragma vector nodynamic_align\n");
     return false;
   }
-  return true;
+  return VPlanEnableGeneralPeeling && VPlanEnablePeeling;
 }
 
 static bool makeGoUnalignedDecision(int64_t AlignedGain,
@@ -606,12 +606,6 @@ static bool makeGoUnalignedDecision(int64_t AlignedGain,
                                     uint64_t TripCount,
                                     bool PeelIsDynamic,
                                     bool IsLoopTripCountEstimated) {
-  if (!VPlanEnablePeeling)
-    return true;
-
-  if (!VPlanEnableDynamicPeeling)
-    return true;
-
   LLVM_DEBUG(dbgs() << "Using cost model to enable peeling. ");
   if (!IsLoopTripCountEstimated && !PeelIsDynamic) {
     // When trip count of main loop is known, rely on cost model completely.
@@ -642,7 +636,6 @@ static bool makeGoUnalignedDecision(int64_t AlignedGain,
                       << " = " << GoUnaligned << "\n");
     return GoUnaligned;
   }
-
   if (UnalignedGain > 0 && AlignedGain > 0) {
     bool GoUnaligned =
       UnalignedGain > FavorAlignedMultiplierDefaultTCEst * AlignedGain;
@@ -664,8 +657,7 @@ static bool makeGoUnalignedDecision(int64_t AlignedGain,
 /// \Returns pair: VF which corresponds to the best VPlan (could be VF = 1) and
 /// the corresponding VPlan.
 std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
-  if (VPlanEnablePeeling)
-   selectBestPeelingVariants();
+  selectBestPeelingVariants();
 
   VPlanVector *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
@@ -851,12 +843,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     int64_t GainWithPeel    = ScalarCost - VectorCost;
     int64_t GainWithoutPeel = ScalarCost - VectorCostWithoutPeel;
-    bool GoUnaligned = makeGoUnalignedDecision(GainWithPeel,
-                                               GainWithoutPeel,
-                                               ScalarCost,
-                                               TripCount,
-                                               PeelIsDynamic,
-                                               IsTripCountEstimated);
+
+    bool GoUnaligned = PeelEvaluator.getPeelLoopKind() ==
+                       VPlanPeelEvaluator::PeelLoopKind::None;
+    if (!GoUnaligned)
+      GoUnaligned = makeGoUnalignedDecision(
+          GainWithPeel, GainWithoutPeel, ScalarCost, TripCount, PeelIsDynamic,
+          IsTripCountEstimated);
 
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';

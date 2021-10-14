@@ -253,6 +253,12 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
     }
   }
 
+  LLVM_DEBUG(dbgs() << "Static peeling selection (" << VF
+                    << " items), profit by offsets: \n";
+             for (size_t P = 0; P < PeelCountProfit.size(); P++)
+               dbgs() << " " << P << "->" << PeelCountProfit[P];
+             dbgs() << "\n";);
+
   auto Iter = std::max_element(PeelCountProfit.begin(), PeelCountProfit.end());
   int BestPeelCount = std::distance(PeelCountProfit.begin(), Iter);
   int MaxProfit = *Iter;
@@ -283,6 +289,13 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
                                     ReqAlign * VF);
         return {std::move(Peeling), Profit};
       });
+
+  LLVM_DEBUG(dbgs() << "Dynamic peeling selection ("
+                    << std::distance(Map.begin(), Map.end()) << " items)\n";
+             for (auto P = Map.begin(); P != Map.end(); P++) {
+               (*P).first.memref()->printWithoutAnalyses(dbgs());
+               dbgs() << " profit=" << (*P).second << "\n";
+             });
 
   // Select the most profitable peeling variant in Map.
   auto Reduce = std::accumulate(Map.begin() + 1, Map.end(), *Map.begin(),
