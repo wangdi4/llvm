@@ -5501,7 +5501,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // When compiling with -qtbb, the oneDPL headers conflict with the system
   // installed parallel STL headers.  Add needed predefine macros to get around
   // this issue.
-  if (Args.hasArg(options::OPT_qtbb) && Triple.isOSLinux()) {
+  llvm::Triple HostTriple = TC.getTriple();
+  if (IsOpenMPDevice || IsSYCLOffloadDevice)
+    HostTriple = C.getSingleOffloadToolChain<Action::OFK_Host>()->getTriple();
+  if (Args.hasArg(options::OPT_qtbb) && HostTriple.isOSLinux()) {
     CmdArgs.push_back("-DPSTL_USE_PARALLEL_POLICIES=0");
     CmdArgs.push_back("-D_GLIBCXX_USE_TBB_PAR_BACKEND=0");
   }

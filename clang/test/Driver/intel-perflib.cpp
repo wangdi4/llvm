@@ -153,11 +153,16 @@
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -tbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-LIN %s
 // RUN: env TBBROOT=/dummy/tbb \
+// RUN: %clangxx -fsycl -target x86_64-unknown-linux-gnu -qtbb -### %s 2>&1 \
+// RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-LIN,CHECK-TBB-LIN-SYCL %s
+// RUN: env TBBROOT=/dummy/tbb \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -qtbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-LIN %s
 // RUN: env TBBROOT=/dummy/tbb \
 // RUN: %clang_cl -Qtbb -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-TBB,CHECK-TBB-WIN %s
+// CHECK-TBB-LIN-SYCL: "-fsycl-is-device"
+// CHECK-TBB-LIN-SYCL-SAME: "-DPSTL_USE_PARALLEL_POLICIES=0" "-D_GLIBCXX_USE_TBB_PAR_BACKEND=0"
 // CHECK-TBB-LIN: "-DPSTL_USE_PARALLEL_POLICIES=0" "-D_GLIBCXX_USE_TBB_PAR_BACKEND=0"
 // CHECK-TBB: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include"
 // CHECK-TBB-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" {{.*}} "-ltbb"
