@@ -7,9 +7,9 @@
 ;   for (int i = 0; i < 100; ++i);
 ; }
 
+; CHECK: [[LOOPLBV:%.+]] = load i32, i32* [[LOOPLBP:%[A-Za-z0-9._]+lower.bnd]]
+; CHECK: [[LOOPUBV:%.+]] = load i32, i32* [[LOOPUBP:%[A-Za-z0-9._]+upper.bnd]]
 ; CHECK: [[TMP1:%.+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
-; CHECK: [[LOOPLBV:%.+]] = load i32, i32* [[LOOPLBP:%[A-Za-z0-9._]+]]
-; CHECK: [[LOOPUBV:%.+]] = load i32, i32* [[LOOPUBP:%[A-Za-z0-9._]+]]
 ; CHECK: [[NUMGROUPS:%.+]] = trunc i64 [[TMP1]] to i32
 ; CHECK: [[STRIDEV:%.+]] = mul i32 [[NUMGROUPS]], 2
 ; CHECK: store i32 [[STRIDEV]], i32* [[TEAMINCP:%[A-Za-z0-9._]+]]
