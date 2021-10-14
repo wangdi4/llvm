@@ -371,29 +371,6 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   DimNum += W->getWRNLoopInfo().getNDRangeStartDim();
   initArgArray(&Arg, DimNum);
 
-  // get_num_groups() returns a value of type size_t by specification,
-  // and the return value is greater than 0.
-  CallInst *NumGroupsCall;
-  if (EmitSPIRVBuiltins) {
-    std::string fname;
-    SmallVector<Value *, 1> Arg;
-    switch (Idx) {
-    case 0: fname = "_Z29__spirv_NumWorkgroups_xv";
-      break;
-    case 1: fname = "_Z29__spirv_NumWorkgroups_yv";
-      break;
-    case 2: fname = "_Z29__spirv_NumWorkgroups_zv";
-      break;
-    default:
-      llvm_unreachable("Invalid dimentional index ");
-    }
-    NumGroupsCall = VPOParoptUtils::genOCLGenericCall(fname,
-      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-  } else {
-    NumGroupsCall = VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
-      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-  }
-
   Value *LB = Builder.CreateLoad(LowerBnd->getAllocatedType(), LowerBnd);
   Value *UB = Builder.CreateLoad(UpperBnd->getAllocatedType(), UpperBnd);
   // LB and UB have the type of the canonical induction variable.
@@ -402,26 +379,63 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   // is a non-negative value.
   Value *ItSpace = Builder.CreateSub(UB, LB);
 
-  // Compute team_chunk_size
   Value *Chunk = nullptr;
-  Value *NumGroups = Builder.CreateZExtOrTrunc(NumGroupsCall, ItSpaceType);
-  if (DistSchedKind == WRNScheduleDistributeStaticEven) {
-    // FIXME: this add may actually overflow.
-    Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumGroups);
-    Chunk = Builder.CreateSDiv(ItSpaceRounded, NumGroups);
-  } else if (DistSchedKind == WRNScheduleDistributeStatic)
-    Chunk = W->getDistSchedule().getChunkExpr();
-  else
-    llvm_unreachable(
-        "Unsupported distribute schedule type in OpenCL based offloading!");
-  Chunk = Builder.CreateSExtOrTrunc(Chunk, ItSpaceType);
+  Value *TeamStrideVal = nullptr;
+  // With specific ND-range and non-static distribute schedule each work group
+  // executes at most one iteration of the distribute loop, so we know that
+  // chunk size will be one.
+  if (isa<WRNDistributeNode>(W) && VPOParoptUtils::useSPMDMode(W) &&
+      W->getDistSchedule().getKind() != WRNScheduleDistributeStatic) {
+    Chunk = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
+    TeamStrideVal = ItSpace;
+  } else {
+    // get_num_groups() returns a value of type size_t by specification,
+    // and the return value is greater than 0.
+    CallInst *NumGroupsCall;
+    if (EmitSPIRVBuiltins) {
+      std::string fname;
+      SmallVector<Value *, 1> Arg;
+      switch (Idx) {
+      case 0:
+        fname = "_Z29__spirv_NumWorkgroups_xv";
+        break;
+      case 1:
+        fname = "_Z29__spirv_NumWorkgroups_yv";
+        break;
+      case 2:
+        fname = "_Z29__spirv_NumWorkgroups_zv";
+        break;
+      default:
+        llvm_unreachable("Invalid dimentional index ");
+      }
+      NumGroupsCall = VPOParoptUtils::genOCLGenericCall(
+          fname, GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
+    } else {
+      NumGroupsCall = VPOParoptUtils::genOCLGenericCall(
+          "_Z14get_num_groupsj", GeneralUtils::getSizeTTy(F), Arg,
+          CallsInsertPt);
+    }
 
-  if (TeamStride) {
+    // Compute team_chunk_size
+    Value *NumGroups = Builder.CreateZExtOrTrunc(NumGroupsCall, ItSpaceType);
+    if (DistSchedKind == WRNScheduleDistributeStaticEven) {
+      // FIXME: this add may actually overflow.
+      Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumGroups);
+      Chunk = Builder.CreateSDiv(ItSpaceRounded, NumGroups);
+    } else if (DistSchedKind == WRNScheduleDistributeStatic)
+      Chunk = W->getDistSchedule().getChunkExpr();
+    else
+      llvm_unreachable(
+          "Unsupported distribute schedule type in OpenCL based offloading!");
+    Chunk = Builder.CreateSExtOrTrunc(Chunk, ItSpaceType);
+
     // FIXME: this multiplication may actually overflow,
     //        if big chunk size is specified in the schedule() clause.
-    Value *TeamStrideVal = Builder.CreateMul(NumGroups, Chunk);
-    Builder.CreateStore(TeamStrideVal, TeamStride);
+    TeamStrideVal = Builder.CreateMul(NumGroups, Chunk);
   }
+
+  if (TeamStride)
+    Builder.CreateStore(TeamStrideVal, TeamStride);
 
   // get_group_id returns a value of type size_t by specification,
   // and the return value is non-negative.
