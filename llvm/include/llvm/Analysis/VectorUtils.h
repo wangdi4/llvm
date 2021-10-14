@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
+#include "llvm/IR/IRBuilder.h" // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
@@ -510,6 +511,15 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
 
   return CharacteristicDataType;
 }
+
+/// Promote provided boolean (i1) mask, \p MaskToUse, to a type suitable for the
+/// \p VecVariant call and add it into vector arguments/vector argument types
+/// arrays.
+void createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
+                         VectorVariant *VecVariant,
+                         SmallVectorImpl<Value *> &VecArgs,
+                         SmallVectorImpl<Type *> &VecArgTys, unsigned VF,
+                         Value *MaskToUse);
 
 /// Helper function that returns widened type of given type \p Ty.
 inline VectorType *getWidenedType(Type *Ty, unsigned VF) {

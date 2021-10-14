@@ -727,6 +727,38 @@ Type *llvm::calcCharacteristicType(Function &F, VectorVariant &Variant) {
                                 F.getParent()->getDataLayout());
 }
 
+void llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
+                               VectorVariant *VecVariant,
+                               SmallVectorImpl<Value *> &VecArgs,
+                               SmallVectorImpl<Type *> &VecArgTys,
+                               unsigned VF, Value *MaskToUse) {
+
+  // Add the mask parameter for masked simd functions.
+  // Mask should already be vectorized as i1 type.
+  VectorType *MaskTy = cast<VectorType>(MaskToUse->getType());
+  assert(MaskTy->getElementType()->isIntegerTy(1) &&
+         "Mask parameter is not vector of i1");
+
+  // Promote the i1 to an integer type that has the same size as the
+  // characteristic type.
+  Type *ScalarToType = IntegerType::get(
+      MaskTy->getContext(), CharacteristicType->getPrimitiveSizeInBits());
+  VectorType *VecToType = FixedVectorType::get(ScalarToType, VF);
+  Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
+
+  // Bitcast if the promoted type is not the same as the characteristic
+  // type.
+  if (ScalarToType != CharacteristicType) {
+    Type *MaskCastTy = FixedVectorType::get(CharacteristicType, VF);
+    Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
+    VecArgs.push_back(MaskCast);
+    VecArgTys.push_back(MaskCastTy);
+  } else {
+    VecArgs.push_back(MaskExt);
+    VecArgTys.push_back(VecToType);
+  }
+}
+
 void llvm::getFunctionsToVectorize(
   llvm::Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars) {
 
