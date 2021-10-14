@@ -667,6 +667,8 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
             // local variables located on stack
             size_t additionalStackSize = m_pConfig->GetForcedLocalMemSize();
             additionalStackSize += m_pConfig->GetForcedPrivateMemSize();
+            if (additionalStackSize < CPU_DEV_TBB_STACK_SIZE)
+                additionalStackSize = CPU_DEV_TBB_STACK_SIZE;
             m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
                 &m_GPAData, additionalStackSize, deviceMode);
             }
