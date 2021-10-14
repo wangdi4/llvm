@@ -1730,7 +1730,8 @@ void LoopUnswitch::unswitchNontrivialCondition(
     MDNode *DisableUnswitchMD = MDNode::get(
         Context, MDString::get(Context, "llvm.loop.unswitch.partial.disable"));
     MDNode *NewLoopID = makePostTransformationMetadata(
-        Context, L->getLoopID(), {"llvm.loop.unswitch.partial"},
+        Context, L->getLoopID(),                            // INTEL
+        {"llvm.loop.unswitch.partial", OptReportTag::Root}, // INTEL
         {DisableUnswitchMD});
     NewLoop->setLoopID(NewLoopID);
   }
