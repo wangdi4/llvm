@@ -542,9 +542,13 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   Options.NoNaNsFPMath = LangOpts.NoHonorNaNs;
   Options.NoZerosInBSS = CodeGenOpts.NoZeroInitializedInBSS;
   Options.UnsafeFPMath = LangOpts.UnsafeFPMath;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = CodeGenOpts.IntelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
+=======
+  Options.ApproxFuncFPMath = LangOpts.ApproxFunc;
+>>>>>>> b0f68791f0ad867118497daf6aa23f9a71500012
 
   Options.BBSections =
       llvm::StringSwitch<llvm::BasicBlockSection>(CodeGenOpts.BBSections)
