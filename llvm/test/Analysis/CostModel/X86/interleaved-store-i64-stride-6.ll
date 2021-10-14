@@ -28,10 +28,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ;
 ; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   store i64 %v5, i64* %out5, align 8
 ; AVX512: LV: Found an estimated cost of 17 for VF 2 For instruction:   store i64 %v5, i64* %out5, align 8
-; AVX512: LV: Found an estimated cost of 25 for VF 4 For instruction:   store i64 %v5, i64* %out5, align 8
-; AVX512: LV: Found an estimated cost of 51 for VF 8 For instruction:   store i64 %v5, i64* %out5, align 8
-; AVX512: LV: Found an estimated cost of 102 for VF 16 For instruction:   store i64 %v5, i64* %out5, align 8
-; AVX512: LV: Found an estimated cost of 204 for VF 32 For instruction:   store i64 %v5, i64* %out5, align 8
+; INTEL_CUSTOMIZATION
+; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
+; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
+; Note that in this case VF=32 does not even present in the dump.
+; LV does special processing of vector lengths which exceed register width for the target (for avx512 it is
+; 8 elements of int64 type). For each such VF it runs cost model and evaluates register pressure.
+; Due to mentioned TTI customization it selected gather/scatter over interleave and that effectively increased
+; the number of vector registers uses so that it tipped over the number of vector registers available in HW (32).
+; LV thus excluded this VF from further consideration.
+; AVX512: LV: Found an estimated cost of 24 for VF 4 For instruction:   store i64 %v5, i64* %out5, align 8
+; AVX512: LV: Found an estimated cost of 48 for VF 8 For instruction:   store i64 %v5, i64* %out5, align 8
+; AVX512: LV: Found an estimated cost of 96 for VF 16 For instruction:   store i64 %v5, i64* %out5, align 8
+; AVX512;: LV: Found an estimated cost of 204 for VF 32 For instruction:   store i64 %v5, i64* %out5, align 8
+; end INTEL_CUSTOMIZATION
 ;
 ; CHECK-NOT: LV: Found an estimated cost of {{[0-9]+}} for VF {{[0-9]+}} For instruction:   store i64 %v5, i64* %out5, align 8
 
