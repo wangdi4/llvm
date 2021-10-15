@@ -2680,6 +2680,9 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
+
+  if (FD->hasAttr<AnnotateAttr>())
+    AddGlobalAnnotations(FD, F);
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
@@ -5971,6 +5974,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalCtor(Fn, CA->getPriority());
   if (const DestructorAttr *DA = D->getAttr<DestructorAttr>())
     AddGlobalDtor(Fn, DA->getPriority(), true);
+<<<<<<< HEAD
   if (D->hasAttr<AnnotateAttr>())
     AddGlobalAnnotations(D, Fn);
 
@@ -5980,6 +5984,8 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 816a2371a862b42468c3a10ea4a8e1cc68b267dd
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
