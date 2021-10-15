@@ -923,18 +923,15 @@ bool RecurrenceDescriptor::isFirstOrderRecurrence(
 
 /// This function returns the identity element (or neutral element) for
 /// the operation K.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-Constant *RecurrenceDescriptorData::getRecurrenceIdentity(RecurKind K, Type *Tp,
-                                                          FastMathFlags FMF) {
+Constant *
+RecurrenceDescriptorData::getConstRecurrenceIdentity(RecurKind K, Type *Tp,
+                                                     FastMathFlags FMF) {
 #else
-Constant *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
-                                                      FastMathFlags FMF) {
+Constant *RecurrenceDescriptor::getConstRecurrenceIdentity(RecurKind K,
+                                                           Type *Tp,
+                                                           FastMathFlags FMF) {
 #endif
-=======
-Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
-                                                   FastMathFlags FMF) {
->>>>>>> 26b7d9d62275e782da190d1717849c49588a4b0c
   switch (K) {
   case RecurKind::Xor:
   case RecurKind::Add:
@@ -974,10 +971,6 @@ Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
     return ConstantFP::getInfinity(Tp, true);
   case RecurKind::FMax:
     return ConstantFP::getInfinity(Tp, false);
-  case RecurKind::SelectICmp:
-  case RecurKind::SelectFCmp:
-    return getRecurrenceStartValue();
-    break;
   default:
     llvm_unreachable("Unknown recurrence kind");
   }
