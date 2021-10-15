@@ -139,6 +139,9 @@ public:
 
   void setIsSimdFlag() { IsSimdLoop = true; }
 
+  bool hasComplexTyReduction() { return HasComplexTyReduction; }
+  void setHasComplexTyReduction() { HasComplexTyReduction = true; }
+
 private:
   /// The loop that we evaluate.
   Loop *TheLoop;
@@ -192,6 +195,8 @@ private:
   bool IsSimdLoop = false;
 
   bool HasF90DopeVectorPrivate = false;
+
+  bool HasComplexTyReduction = false;
 
 public:
   /// Add stride information for pointer \p Ptr.

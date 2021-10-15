@@ -1401,24 +1401,41 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
   VPLAN_DUMP(InitialTransformsDumpControl, Plan);
 }
 
+bool LoopVectorizationPlanner::isItemArrayType(const Item *I) {
+    Type *ElemType = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElemType, NumElements, std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
+    if (isa<ArrayType>(ElemType) || NumElements != nullptr)
+      return true;
+    return false;
+}
+
 bool LoopVectorizationPlanner::hasArrayReduction(WRNVecLoopNode *WRLp) {
   // Visit each reduction clause in the WRegion loop and identify if any of them
   // represents array reduction idiom.
   ReductionClause &RedClause = WRLp->getRed();
   for (ReductionItem *RedItem : RedClause.items()) {
-
     if (RedItem->getIsArraySection())
       return true;
-
-    Type *ElemType = nullptr;
-    Value *NumElements = nullptr;
-    std::tie(ElemType, NumElements, std::ignore) =
-        VPOParoptUtils::getItemInfo(RedItem);
-    if (isa<ArrayType>(ElemType) || NumElements != nullptr)
+    if (isItemArrayType(RedItem))
       return true;
   }
 
   // All checks failed, loop does not have array reductions.
+  return false;
+}
+
+bool LoopVectorizationPlanner::hasArrayLastprivateNonPod(WRNVecLoopNode *WRLp) {
+  LastprivateClause &LPrivClause = WRLp->getLpriv();
+  for (LastprivateItem *LPrivItem : LPrivClause.items()) {
+    if (!LPrivItem->getIsNonPod())
+      continue;
+    if (isItemArrayType(LPrivItem))
+        return true;
+  }
+
+  // All checks failed, loop does not have array lastprivate.
   return false;
 }
 
@@ -1490,6 +1507,9 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #else
       auto V = RedItem->getOrig();
 #endif
+      if (RedItem->getIsComplex())
+        LVL.setHasComplexTyReduction();
+
       ReductionItem::WRNReductionKind Type = RedItem->getType();
       switch (Type) {
       case ReductionItem::WRNReductionMin:

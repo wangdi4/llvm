@@ -1,4 +1,7 @@
 ; RUN: opt < %s -basic-aa -anders-aa -gvn -S | FileCheck %s
+; RUN: opt < %s -basic-aa -anders-aa -gvn -anders-mod-ref-before-inl=true -S | FileCheck %s  --check-prefix=CHECK-BEFOREINL
+; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -S | FileCheck %s
+; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -anders-mod-ref-before-inl=true -S | FileCheck %s --check-prefix=CHECK-BEFOREINL
 
 ; Test where static global is address taken, but can be determined to not be modified by the routine
 ; doesnotmodX, even though that routine modifies memory.
@@ -12,6 +15,12 @@ define i32 @test(i32* %P) {
 ; CHECK-NEXT: store i32 12, i32* @X
 ; CHECK-NEXT: call void @doesnotmodX()
 ; CHECK-NEXT: ret i32 12
+; CHECK-BEFOREINL:      @test
+; CHECK-BEFOREINL-NEXT:  %V = alloca i32, align 4
+; CHECK-BEFOREINL-NEXT: store i32 12, i32* @X
+; CHECK-BEFOREINL-NEXT: call void @doesnotmodX()
+; CHECK-BEFOREINL-NEXT:  %1 = load i32, i32* @X
+; CHECK-BEFOREINL-NEXT: ret i32 %1
     %V = alloca i32, align 4
 	store i32 12, i32* @X
 	call void @doesnotmodX()
