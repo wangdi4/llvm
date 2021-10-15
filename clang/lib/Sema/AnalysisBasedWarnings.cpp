@@ -2291,8 +2291,7 @@ void clang::sema::AnalysisBasedWarnings::IssueWarnings(
       .setAlwaysAdd(Stmt::CStyleCastExprClass)
       .setAlwaysAdd(Stmt::DeclRefExprClass)
       .setAlwaysAdd(Stmt::ImplicitCastExprClass)
-      .setAlwaysAdd(Stmt::UnaryOperatorClass)
-      .setAlwaysAdd(Stmt::AttributedStmtClass);
+      .setAlwaysAdd(Stmt::UnaryOperatorClass);
   }
 
   // Install the logical handler.
