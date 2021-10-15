@@ -400,12 +400,18 @@ void Sema::Initialize() {
         AddPointerSizeDependentTypes();
       }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 544d89e847d42ce8856296752b0fb279aa89aace
       if (getOpenCLOptions().isSupported("cl_khr_fp16", getLangOpts())) {
         auto AtomicHalfT = Context.getAtomicType(Context.HalfTy);
         addImplicitTypedef("atomic_half", AtomicHalfT);
       }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 544d89e847d42ce8856296752b0fb279aa89aace
 
       std::vector<QualType> Atomic64BitTypes;
       if (getOpenCLOptions().isSupported("cl_khr_int64_base_atomics",
