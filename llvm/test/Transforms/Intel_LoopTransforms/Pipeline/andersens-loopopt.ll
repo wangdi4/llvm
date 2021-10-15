@@ -1,3 +1,5 @@
+; FIXME: Remove XFAIL upon long-term resolution of CMPLRLLVM-31841
+; XFAIL: *
 ; RUN: opt -loopopt -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
 ; RUN: opt -loopopt -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details -enable-andersen=false < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
 
