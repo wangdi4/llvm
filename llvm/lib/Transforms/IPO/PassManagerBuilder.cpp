@@ -63,7 +63,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
@@ -355,12 +354,6 @@ static cl::opt<bool> EnableCSAPasses("enable-csa-passes",
   cl::init(false), cl::ReallyHidden, cl::ZeroOrMore,
   cl::desc("Enable extra passes for CSA target."));
 #endif  // INTEL_FEATURE_CSA
-
-// DPCPP Kernel transformations
-static cl::opt<bool> EnableDPCPPKernelTransforms(
-    "enable-dpcpp-kernel-transforms", cl::init(false), cl::Hidden,
-    cl::ZeroOrMore,
-    cl::desc("Enable extra passes for DPCPP kernel on CPU device"));
 
 static cl::opt<bool> EnableArgNoAliasProp(
     "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
@@ -1221,13 +1214,6 @@ void PassManagerBuilder::populateModulePassManager(
       // new unnamed globals.
       MPM.add(createNameAnonGlobalPass());
     }
-#if INTEL_CUSTOMIZATION
-    if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
-      MPM.add(createParseAnnotateAttributesPass());
-      MPM.add(createDPCPPEqualizerLegacyPass());
-      MPM.add(createDPCPPKernelAnalysisLegacyPass());
-    }
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
     if (RunVPOOpt) {
       #if INTEL_CUSTOMIZATION
@@ -1239,16 +1225,6 @@ void PassManagerBuilder::populateModulePassManager(
       addVPOPasses(MPM, true);
     }
 #endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-    if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
-      MPM.add(createUnifyFunctionExitNodesPass());
-      MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
-      MPM.add(createAddImplicitArgsLegacyPass());
-      MPM.add(createResolveWICallLegacyPass(false, false));
-      MPM.add(createPrepareKernelArgsLegacyPass(false));
-      MPM.add(createCleanupWrappedKernelLegacyPass());
-    }
-#endif // INTEL_CUSTOMIZATION
 
     MPM.add(createAnnotationRemarksLegacyPass());
     return;
@@ -1539,33 +1515,10 @@ void PassManagerBuilder::populateModulePassManager(
   } // INTEL
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) {
-    if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
-      MPM.add(createParseAnnotateAttributesPass());
-      MPM.add(createDPCPPEqualizerLegacyPass());
-      MPM.add(createDPCPPKernelAnalysisLegacyPass());
-    }
-
     // In LTO mode, loopopt needs to run in link phase along with community
     // vectorizer and unroll after it until they are phased out.
     if (!PrepareForLTO || !isLoopOptEnabled()) {
       addLoopOptAndAssociatedVPOPasses(MPM, false);
-
-      if (EnableDPCPPKernelTransforms) {
-        MPM.add(createDPCPPKernelPostVecPass());
-        MPM.add(createVPODirectiveCleanupPass());
-        MPM.add(createInstructionCombiningPass());
-        MPM.add(createCFGSimplificationPass());
-        MPM.add(createPromoteMemoryToRegisterPass());
-        MPM.add(createAggressiveDCEPass());
-        MPM.add(createUnifyFunctionExitNodesPass());
-        MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
-
-        MPM.add(createLICMPass());
-        MPM.add(createCFGSimplificationPass());
-        MPM.add(createAddImplicitArgsLegacyPass());
-        MPM.add(createResolveWICallLegacyPass(false, false));
-        MPM.add(createPrepareKernelArgsLegacyPass(false));
-      }
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1651,8 +1604,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createIntelMathLibrariesDeclarationWrapperPass()); // INTEL
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
                                         PrepareForLTO || PrepareForThinLTO));
-  if (EnableDPCPPKernelTransforms && !PrepareForLTO)
-    MPM.add(createCleanupWrappedKernelLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 }
 
