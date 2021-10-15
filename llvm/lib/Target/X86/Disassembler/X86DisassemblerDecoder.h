@@ -488,12 +488,8 @@ namespace X86Disassembler {
   REGS_SEGMENT        \
   REGS_DEBUG          \
   REGS_CONTROL        \
-<<<<<<< HEAD
-  REGS_BOUND          \
   TMM_REGS_PAIRS      \
   TMM_REGS_QUADS      \
-=======
->>>>>>> c2d4fe51bb4f98870a2358a32809f849b0751d7c
   REGS_TMM            \
   ENTRY(RIP)
 #endif // INTEL_CUSTOMIZATION
