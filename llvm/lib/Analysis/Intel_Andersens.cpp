@@ -120,6 +120,7 @@ static cl::opt<bool> PrintNonEscapeCands("print-non-escape-candidates",
                                          cl::ReallyHidden);
 static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::ReallyHidden);
 
+
 // This option is used to find any new Instructions are added after
 // community pulldown.
 static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asserts", cl::init(true), cl::ReallyHidden);
@@ -131,6 +132,12 @@ static cl::opt<bool> IgnoreNullPtr("anders-ignore-nullptr", cl::init(true), cl::
 // all indirect calls conservatively.
 static cl::opt<int>
 AndersIndirectCallsLimit("anders-indirect-calls-limit", cl::ReallyHidden, cl::init(2500));
+
+// This option is used for LIT tests.
+// This option indicates whether the Andersens is called before Inline pass
+// or not.
+static cl::opt<bool> AndersModRefBeforeInl("anders-mod-ref-before-inl",
+                                           cl::init(false), cl::ReallyHidden);
 
 // Both optimization of constraints and points-to propagation are disabled
 // if number of constraints exceeds this limit (i.e no points-to info 
@@ -701,7 +708,7 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
   return IsComplete;
 }
 
-void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
+void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
   SkipAndersensAnalysis = false;
   PointerSizeInBits = DL.getPointerSizeInBits();
   IndirectCallList.clear();
@@ -790,7 +797,10 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   //ReturnNodes.clear();
   //VarargNodes.clear();
 
-  if (UseIntelModRef) {
+  // ModRef is not computed before inlining pass to save compile-time
+  // since ModRef information is not used much before inlining and
+  // most of the Modref info may be deleted during Inlining pass.
+  if (!BeforeInl && UseIntelModRef) {
       IMR.reset(new IntelModRef(this, GetTLI));
       IMR->runAnalysis(M);
   }
@@ -840,11 +850,15 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
 
 /*static*/ AndersensAAResult
 AndersensAAResult::analyzeModule(Module &M, AndersGetTLITy GetTLI,
-                                 CallGraph &CG, WholeProgramInfo *WPInfo) {
+                                 CallGraph &CG, WholeProgramInfo *WPInfo,
+                                 bool BeforeInl) {
   AndersensAAResult Result(M.getDataLayout(), GetTLI, WPInfo);
 
+  if (AndersModRefBeforeInl)
+    BeforeInl = true;
+
   // Run Andersens'ss points-to analysis.
-  Result.RunAndersensAnalysis(M);
+  Result.RunAndersensAnalysis(M, BeforeInl);
 
   return Result;
 }
@@ -859,7 +873,7 @@ AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
   };
   return AndersensAAResult::analyzeModule(M, GetTLI,
       AM.getResult<CallGraphAnalysis>(M),
-      AM.getCachedResult<WholeProgramAnalysis>(M));
+      AM.getCachedResult<WholeProgramAnalysis>(M), BeforeInl);
 }
 
 char AndersensAAWrapperPass::ID = 0;
@@ -885,11 +899,12 @@ INITIALIZE_PASS_END(AndersensAAWrapperPass, "anders-aa",
                     "Andersen Interprocedural AA", false, true)
 
 
-ModulePass *llvm::createAndersensAAWrapperPass() {
-  return new AndersensAAWrapperPass();
+ModulePass *llvm::createAndersensAAWrapperPass(bool BeforeInl) {
+  return new AndersensAAWrapperPass(BeforeInl);
 }
 
-AndersensAAWrapperPass::AndersensAAWrapperPass() : ModulePass(ID) {
+AndersensAAWrapperPass::AndersensAAWrapperPass(bool BeforeInl)
+                          : ModulePass(ID), BeforeInl(BeforeInl) {
   initializeAndersensAAWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -900,7 +915,7 @@ bool AndersensAAWrapperPass::runOnModule(Module &M) {
   };
   Result.reset(new AndersensAAResult(AndersensAAResult::analyzeModule(
       M, GetTLI, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
-      WPA ? &WPA->getResult() : nullptr)));
+      WPA ? &WPA->getResult() : nullptr, BeforeInl)));
   return false;
 }
 
