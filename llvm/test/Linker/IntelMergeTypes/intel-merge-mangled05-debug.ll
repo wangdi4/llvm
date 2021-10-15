@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -irmover-enable-merge-by-mangled-names -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-mangled-names -S %S/Inputs/intel-merge-mangled05-a.ll %S/Inputs/intel-merge-mangled05-b.ll %S/Inputs/intel-merge-mangled05-c.ll %S/Inputs/intel-merge-mangled05-d.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-by-mangled-names -irmover-enable-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -debug-only=irmover-mangled-names -S %S/Inputs/intel-merge-mangled05-a.ll %S/Inputs/intel-merge-mangled05-b.ll %S/Inputs/intel-merge-mangled05-c.ll %S/Inputs/intel-merge-mangled05-d.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types were correctly merged when there is an
 ; anonymous class inside the class. It is the same test case as
@@ -82,37 +82,35 @@
 ;   }
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: Inputs/intel-merge-mangled05-a.ll
+; CHECK-SAME: intel-merge-mangled05-a.ll
+; CHECK:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK:   Source type: %class._ZTS9TestClassIiE.TestClass = type { i32, %class._ZTSN9TestClassIiEUt_E.anon }
 ; CHECK:     Destination type: None
-; CHECK:   Source type: %class._ZTSN9TestClassIiEUt_E.anon = type { i32, i32, double }
-; CHECK:     Destination type: None
+; CHECK:     Fields that will be repaired:
 ; CHECK:   Source type: %class._ZTS9TestClassIdE.TestClass = type { double, %class._ZTSN9TestClassIdEUt_E.anon }
 ; CHECK:     Destination type: None
-; CHECK:   Source type: %class._ZTSN9TestClassIdEUt_E.anon = type { double, i32, double }
-; CHECK:     Destination type: None
-; CHECK: -------------------------------------------------------
+; CHECK:     Fields that will be repaired:
+; CHECK: Destination module passed verification
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: Inputs/intel-merge-mangled05-b.ll
+; CHECK-SAME: intel-merge-mangled05-b.ll
 ; CHECK:   Source type: %class._ZTS9TestClassIiE.TestClass.0 = type { i32, %class._ZTSN9TestClassIiEUt_E.anon.1 }
 ; CHECK:     Destination type: %class._ZTS9TestClassIiE.TestClass = type { i32, %class._ZTSN9TestClassIiEUt_E.anon }
 ; CHECK:   Source type: %class._ZTS9TestClassIdE.TestClass.2 = type { double, %class._ZTSN9TestClassIdEUt_E.anon.3 }
 ; CHECK:     Destination type: %class._ZTS9TestClassIdE.TestClass = type { double, %class._ZTSN9TestClassIdEUt_E.anon }
-; CHECK: -------------------------------------------------------
+; CHECK: Destination module passed verification
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: Inputs/intel-merge-mangled05-c.ll
+; CHECK-SAME: intel-merge-mangled05-c.ll
 ; CHECK:   Source type: %class._ZTS9TestClassIiE.TestClass.4 = type { i32, %class._ZTSN9TestClassIiEUt_E.anon.5 }
 ; CHECK:     Destination type: %class._ZTS9TestClassIiE.TestClass = type { i32, %class._ZTSN9TestClassIiEUt_E.anon }
-; CHECK: -------------------------------------------------------
+; CHECK: Destination module passed verification
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: Inputs/intel-merge-mangled05-d.ll
+; CHECK-SAME: intel-merge-mangled05-d.ll
 ; CHECK:   Source type: %class._ZTS9TestClassIdE.TestClass.6 = type { double, %class._ZTSN9TestClassIdEUt_E.anon.7 }
 ; CHECK:     Destination type: %class._ZTS9TestClassIdE.TestClass = type { double, %class._ZTSN9TestClassIdEUt_E.anon }
-; CHECK: -------------------------------------------------------
-
+; CHECK: Destination module passed verification
 
 
 ; CHECK: %class._ZTS9TestClassIiE.TestClass = type { i32, %class._ZTSN9TestClassIiEUt_E.anon }
