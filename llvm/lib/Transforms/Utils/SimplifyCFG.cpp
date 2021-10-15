@@ -2621,16 +2621,12 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   };
   // Walk the loop in reverse so that we can identify ephemeral values properly
   // (values only feeding assumes).
-<<<<<<< HEAD
-  for (Instruction &I : reverse(BB->instructionsWithoutDebug())) {
+  for (Instruction &I : reverse(BB->instructionsWithoutDebug(false))) {
 #if INTEL_COLLAB
     if (IntrinsicUtils::isDirective(&I))
       return false;
 #endif // INTEL_COLLAB
 
-=======
-  for (Instruction &I : reverse(BB->instructionsWithoutDebug(false))) {
->>>>>>> 098a0d8fbc4ea1c687dd68e445bd0f95e7d9d4ae
     // Can't fold blocks that contain noduplicate or convergent calls.
     if (CallInst *CI = dyn_cast<CallInst>(&I))
       if (CI->cannotDuplicate() || CI->isConvergent())
@@ -2946,7 +2942,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       return match(V0, m_Not(m_Value())) && match(V1, Invertible);
     };
 
-<<<<<<< HEAD
     // Don't fold i1 branches on PHIs which contain binary operators or
     // (possibly inverted) select form of or/ands,  unless one of
     // the incoming values is an 'not' and another one is freely invertible.
@@ -2963,20 +2958,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
          IsBinOpOrAnd(IfCond)) &&
         !CanHoistNotFromBothValues(TrueVal, FalseVal))
       continue;
-=======
-  // If all PHI nodes are promotable, check to make sure that all instructions
-  // in the predecessor blocks can be promoted as well. If not, we won't be able
-  // to get rid of the control flow, so it's not worth promoting to select
-  // instructions.
-  for (BasicBlock *IfBlock : IfBlocks)
-    for (BasicBlock::iterator I = IfBlock->begin(); !I->isTerminator(); ++I)
-      if (!AggressiveInsts.count(&*I) && !I->isDebugOrPseudoInst()) {
-        // This is not an aggressive instruction that we can promote.
-        // Because of this, we won't be able to get rid of the control flow, so
-        // the xform is not worth it.
-        return Changed;
-      }
->>>>>>> 098a0d8fbc4ea1c687dd68e445bd0f95e7d9d4ae
 
     // If all PHI nodes are promotable, check to make sure that all
     // instructions in the selected predecessor blocks can be promoted as well.
@@ -2984,8 +2965,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // worth promoting to select instructions.
     for (BasicBlock *IfBlock : IfBlocks)
       for (BasicBlock::iterator I = IfBlock->begin(); !I->isTerminator(); ++I)
-        if (!AggressiveInsts.count(&*I) && !isa<DbgInfoIntrinsic>(I) &&
-            !isa<PseudoProbeInst>(I)) {
+        if (!AggressiveInsts.count(&*I) && !I->isDebugOrPseudoInst()) {
           // This is not an aggressive instruction that we can promote.
           // Because of this, we won't be able to get rid of the control
           // flow, so the xform is not worth it.
