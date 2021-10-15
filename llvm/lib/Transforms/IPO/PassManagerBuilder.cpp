@@ -1871,7 +1871,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createInlineListsPass()); // -[no]inline-list parsing
   }
   if (EnableAndersen) {
-    PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+    // Andersen's IP alias analysis
+    PM.add(createAndersensAAWrapperPass(true /* BeforeInl */));
   }
   if (EnableIndirectCallConv && EnableAndersen) {
 #if INTEL_FEATURE_SW_DTRANS

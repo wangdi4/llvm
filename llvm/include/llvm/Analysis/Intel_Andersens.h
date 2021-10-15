@@ -468,7 +468,7 @@ public:
   };
 
   static AndersensAAResult analyzeModule(Module &M, AndersGetTLITy GetTLI,
-              CallGraph &CG, WholeProgramInfo *WPInfo);
+              CallGraph &CG, WholeProgramInfo *WPInfo, bool BeforeInl);
 
   // Interface routine to get possible targets of function pointers
   AndersenSetResult GetFuncPointerPossibleTargets(Value *FP,
@@ -531,7 +531,7 @@ private:
   unsigned FindNode(unsigned Node);
   unsigned FindNode(unsigned Node) const;
 
-  void RunAndersensAnalysis(Module &M);
+  void RunAndersensAnalysis(Module &M, bool BeforeInl);
   void IdentifyObjects(Module &M);
   void CollectConstraints(Module &M);
   void CreateConstraintGraph();
@@ -659,21 +659,26 @@ private:
 class AndersensAA : public AnalysisInfoMixin<AndersensAA> {
   friend AnalysisInfoMixin<AndersensAA>;
   static AnalysisKey Key;
+  // Flag that controls whether to compute ModRef info or not.
+  bool BeforeInl;
 
 public:
   typedef AndersensAAResult Result;
 
   AndersensAAResult run(Module &M, ModuleAnalysisManager &AM);
+  AndersensAA(bool BeforeInl = false) : BeforeInl(BeforeInl) {}
 };
 
 /// Legacy wrapper pass to provide the AndersensAAResult object.
 class AndersensAAWrapperPass : public ModulePass {
   std::unique_ptr<AndersensAAResult> Result;
+  // Flag that controls whether to compute ModRef info or not.
+  bool BeforeInl;
 
 public:
   static char ID;
 
-  AndersensAAWrapperPass();
+  AndersensAAWrapperPass(bool BeforeInl = false);
 
   AndersensAAResult &getResult() { return *Result; }
   const AndersensAAResult &getResult() const { return *Result; }
@@ -688,7 +693,7 @@ public:
 // createAndersensAAWrapperPass - This pass provides alias info
 // using Andersens points-to analysis.
 //
-ModulePass *createAndersensAAWrapperPass();
+ModulePass *createAndersensAAWrapperPass(bool BeforeInl = false);
 
 // Tests if a value is a call to a library function that returns
 // "stdout" (i.e __acrt_iob_fun(1)).

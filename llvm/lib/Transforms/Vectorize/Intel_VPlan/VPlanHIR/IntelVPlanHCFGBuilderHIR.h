@@ -267,6 +267,9 @@ public:
 
   bool hasF90DopeVectorPrivate() { return HasF90DopeVectorPrivate; }
 
+  bool hasComplexTyReduction() { return HasComplexTyReduction; }
+  void setHasComplexTyReduction() { HasComplexTyReduction = true; }
+
 private:
   void addReduction(RegDDRef *V, RecurKind Kind, bool IsSigned = false) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
@@ -311,6 +314,7 @@ private:
   mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
   bool IsSimdLoop = false;
   bool HasF90DopeVectorPrivate = false;
+  bool HasComplexTyReduction = false;
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {
