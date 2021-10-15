@@ -374,12 +374,6 @@ namespace X86Disassembler {
   ENTRY(CR14)         \
   ENTRY(CR15)
 
-#define REGS_BOUND    \
-  ENTRY(BND0)         \
-  ENTRY(BND1)         \
-  ENTRY(BND2)         \
-  ENTRY(BND3)
-
 #undef  REGS_TMM
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_LNC
@@ -494,9 +488,12 @@ namespace X86Disassembler {
   REGS_SEGMENT        \
   REGS_DEBUG          \
   REGS_CONTROL        \
+<<<<<<< HEAD
   REGS_BOUND          \
   TMM_REGS_PAIRS      \
   TMM_REGS_QUADS      \
+=======
+>>>>>>> c2d4fe51bb4f98870a2358a32809f849b0751d7c
   REGS_TMM            \
   ENTRY(RIP)
 #endif // INTEL_CUSTOMIZATION
