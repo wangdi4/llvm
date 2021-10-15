@@ -2910,7 +2910,7 @@ static bool cxxDtorIsEmpty(const Function &Fn) {
     return false;
 
   for (auto &I : Fn.getEntryBlock()) {
-    if (isa<DbgInfoIntrinsic>(I))
+    if (I.isDebugOrPseudoInst())
       continue;
     if (isa<ReturnInst>(I))
       return true;

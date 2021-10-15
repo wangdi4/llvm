@@ -2621,12 +2621,16 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   };
   // Walk the loop in reverse so that we can identify ephemeral values properly
   // (values only feeding assumes).
+<<<<<<< HEAD
   for (Instruction &I : reverse(BB->instructionsWithoutDebug())) {
 #if INTEL_COLLAB
     if (IntrinsicUtils::isDirective(&I))
       return false;
 #endif // INTEL_COLLAB
 
+=======
+  for (Instruction &I : reverse(BB->instructionsWithoutDebug(false))) {
+>>>>>>> 098a0d8fbc4ea1c687dd68e445bd0f95e7d9d4ae
     // Can't fold blocks that contain noduplicate or convergent calls.
     if (CallInst *CI = dyn_cast<CallInst>(&I))
       if (CI->cannotDuplicate() || CI->isConvergent())
@@ -2942,6 +2946,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       return match(V0, m_Not(m_Value())) && match(V1, Invertible);
     };
 
+<<<<<<< HEAD
     // Don't fold i1 branches on PHIs which contain binary operators or
     // (possibly inverted) select form of or/ands,  unless one of
     // the incoming values is an 'not' and another one is freely invertible.
@@ -2958,6 +2963,20 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
          IsBinOpOrAnd(IfCond)) &&
         !CanHoistNotFromBothValues(TrueVal, FalseVal))
       continue;
+=======
+  // If all PHI nodes are promotable, check to make sure that all instructions
+  // in the predecessor blocks can be promoted as well. If not, we won't be able
+  // to get rid of the control flow, so it's not worth promoting to select
+  // instructions.
+  for (BasicBlock *IfBlock : IfBlocks)
+    for (BasicBlock::iterator I = IfBlock->begin(); !I->isTerminator(); ++I)
+      if (!AggressiveInsts.count(&*I) && !I->isDebugOrPseudoInst()) {
+        // This is not an aggressive instruction that we can promote.
+        // Because of this, we won't be able to get rid of the control flow, so
+        // the xform is not worth it.
+        return Changed;
+      }
+>>>>>>> 098a0d8fbc4ea1c687dd68e445bd0f95e7d9d4ae
 
     // If all PHI nodes are promotable, check to make sure that all
     // instructions in the selected predecessor blocks can be promoted as well.
@@ -4773,7 +4792,7 @@ static bool mergeConditionalStoreToAddress(
     InstructionCost Cost = 0;
     InstructionCost Budget =
         PHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
-    for (auto &I : BB->instructionsWithoutDebug()) {
+    for (auto &I : BB->instructionsWithoutDebug(false)) {
       // Consider terminator instruction to be free.
       if (I.isTerminator())
         continue;
@@ -5096,7 +5115,7 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
   // fold the conditions into logical ops and one cond br.
 
   // Ignore dbg intrinsics.
-  if (&*BB->instructionsWithoutDebug().begin() != BI)
+  if (&*BB->instructionsWithoutDebug(false).begin() != BI)
     return false;
 
   int PBIOp, BIOp;
@@ -6638,7 +6657,7 @@ GetCaseResults(SwitchInst *SI, ConstantInt *CaseVal, BasicBlock *CaseDest,
   // which we can constant-propagate the CaseVal, continue to its successor.
   SmallDenseMap<Value *, Constant *> ConstantPool;
   ConstantPool.insert(std::make_pair(SI->getCondition(), CaseVal));
-  for (Instruction &I :CaseDest->instructionsWithoutDebug()) {
+  for (Instruction &I : CaseDest->instructionsWithoutDebug(false)) {
     if (I.isTerminator()) {
       // If the terminator is a simple branch, continue to the next block.
       if (I.getNumSuccessors() != 1 || I.isExceptionalTerminator())
@@ -7837,7 +7856,7 @@ bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
 
     // If the block only contains the switch, see if we can fold the block
     // away into any preds.
-    if (SI == &*BB->instructionsWithoutDebug().begin())
+    if (SI == &*BB->instructionsWithoutDebug(false).begin())
       if (FoldValueComparisonIntoPredecessors(SI, Builder))
         return requestResimplify();
   }
