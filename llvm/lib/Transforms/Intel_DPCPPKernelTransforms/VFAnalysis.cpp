@@ -215,7 +215,7 @@ bool VFAnalysisInfo::isSubgroupBroken(Function *Kernel) {
   LLVM_DEBUG(dbgs() << "Checking subgroup semantics:\n");
   DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
-  if (!KIMD.KernelHasSubgroups.hasValue())
+  if (!KIMD.KernelHasSubgroups.hasValue() || !KIMD.KernelHasSubgroups.get())
     return false;
 
   bool Broken = false;
