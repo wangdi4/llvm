@@ -549,7 +549,6 @@ TEST(Assert, TestPositive) {
 #endif // _WIN32
 }
 
-<<<<<<< HEAD
 TEST(Assert, TestAssertServiceKernelHidden) {
   const char *AssertServiceKernelName = sycl::detail::KernelInfo<
       sycl::detail::__sycl_service_kernel__::AssertInfoCopier>::getName();
@@ -564,8 +563,6 @@ TEST(Assert, TestAssertServiceKernelHidden) {
   EXPECT_TRUE(NoFoundServiceKernelID);
 }
 
-=======
->>>>>>> f9bf0300658708fb1e168907cd3c5f3ea4477f49
 TEST(Assert, TestInteropKernelNegative) {
   sycl::platform Plt{sycl::default_selector()};
 
