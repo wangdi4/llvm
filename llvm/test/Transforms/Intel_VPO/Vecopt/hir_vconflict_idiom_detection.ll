@@ -95,8 +95,8 @@ for.body:                                         ; preds = %entry, %for.body
 ; <9>                |   (%A)[%0 + 2] = %add3;
 ; <16>               + END LOOP
 
-; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM7:[0-9]+]]>          (%A)[%0 + 2] = %add3;
-; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM8:[0-9]+]]>          %1 = (%A)[%0 + 2];
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM7:[0-9]+]]>          (%A)[sext.i32.i64(%0) + 2] = %add3;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM8:[0-9]+]]>          %1 = (%A)[sext.i32.i64(%0) + 2];
 ; CHECK-VCONFLICT: [VConflict Idiom] Detected!
 
 ; CHECK-NO-VCONFLICT: No idioms detected.

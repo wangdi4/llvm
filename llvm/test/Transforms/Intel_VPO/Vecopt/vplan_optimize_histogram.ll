@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo1:HIR
+; CHECK-NEXT:  VPlan IR for: foo1:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%B}
 ; CHECK-DAG:     [[VP1:%.*]] = {%A}
@@ -80,18 +80,18 @@ for.body:                                         ; preds = %entry, %for.body
 
 define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo2:HIR
+; CHECK-NEXT:  VPlan IR for: foo2:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%B}
-; CHECK-DAG:     [[VP1:%.*]] = {%A}
-; CHECK-DAG:     [[VP2:%.*]] = {%C}
-; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%A}
+; CHECK-DAG:     [[VP3:%.*]] = {%C}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP3]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -163,17 +163,17 @@ for.body:                                         ; preds = %for.body.preheader,
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
 define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo3:HIR
+; CHECK-NEXT:  VPlan IR for: foo3:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%A}
+; CHECK-DAG:     [[VP0:%.*]] = {%A}
+; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-DAG:     [[VP2:%.*]] = {%B}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP0]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -182,12 +182,12 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP5:%.*]] = add i32 [[VP_LOAD]] i32 2
-; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP5]] to i64
+; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = add i64 [[VP5]] i64 2
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 2
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
+; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = add i64 [[VP6]] i64 2
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VPCONFICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_POP_COUNT:%.*]] = call i64 [[VP_VPCONFICT_INTRINSIC]] llvm.ctpop [x 1]
@@ -246,17 +246,17 @@ for.body:                                         ; preds = %for.body.preheader,
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
 define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo4:HIR
+; CHECK-NEXT:  VPlan IR for: foo4:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%B}
-; CHECK-DAG:     [[VP1:%.*]] = {%A}
-; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -326,19 +326,19 @@ for.body:                                         ; preds = %for.body.preheader,
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
 define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32* noalias nocapture readonly %D, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo5:HIR
+; CHECK-NEXT:  VPlan IR for: foo5:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%C}
 ; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {%A}
-; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {%A}
 ; CHECK-DAG:     [[VP4:%.*]] = {%D}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP3]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -431,18 +431,18 @@ for.body:                                         ; preds = %for.body.preheader,
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
 define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo6:HIR
+; CHECK-NEXT:  VPlan IR for: foo6:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {%A}
-; CHECK-DAG:     [[VP3:%.*]] = {%C}
+; CHECK-DAG:     [[VP0:%.*]] = {%B}
+; CHECK-DAG:     [[VP1:%.*]] = {%A}
+; CHECK-DAG:     [[VP2:%.*]] = {%C}
+; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP0]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP3]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -537,10 +537,10 @@ entry:
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
 define dso_local void @foo7(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N) local_unnamed_addr #1 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo7:HIR
+; CHECK-NEXT:  VPlan IR for: foo7:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%call}
-; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%call}
 ; CHECK-DAG:     [[VP2:%.*]] = {%B}
 ; CHECK-DAG:     [[VP3:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
@@ -548,7 +548,7 @@ define dso_local void @foo7(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP0]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -618,7 +618,7 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
 
 define dso_local void @foo8(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %D, i32* noalias nocapture readonly %E, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
-; CHECK-NEXT:  VPlan IR for: foo8:HIR
+; CHECK-NEXT:  VPlan IR for: foo8:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-DAG:     [[VP1:%.*]] = {%0}
