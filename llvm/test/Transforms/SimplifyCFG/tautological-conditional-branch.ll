@@ -14,12 +14,12 @@ define void @eggs(i1 %arg, i1 %arg16, %0* %arg17, %0* %arg18, %0* %arg19) {
 ; CHECK-NEXT:    unreachable
 ; CHECK:       bb21:
 ; CHECK-NEXT:    [[I:%.*]] = icmp eq %0* [[ARG17:%.*]], null
-; CHECK-NEXT:    [[TMP0:%.*]] = xor i1 [[I]], true
-; CHECK-NEXT:    call void @llvm.assume(i1 [[TMP0]])
+; INTEL_CUSTOMIZATION
+; D109054 is preventing DCE of control flow. We would like to see removal of
+; the branch and related conditional computation.
 ; CHECK-NEXT:    call void @hoge()
-; CHECK-NEXT:    [[TMP1:%.*]] = xor i1 [[ARG16:%.*]], true
-; CHECK-NEXT:    call void @llvm.assume(i1 [[TMP1]])
-; CHECK-NEXT:    [[I27:%.*]] = getelementptr inbounds [[TMP0]], %0* [[ARG19:%.*]], i64 0, i32 0
+; CHECK-NEXT:    [[I27:%.*]] = getelementptr inbounds %0, %0* [[ARG19:%.*]], i64 0, i32 0
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[I28:%.*]] = load %1*, %1** [[I27]], align 8
 ; CHECK-NEXT:    call void @pluto.1(%1* [[I28]])
 ; CHECK-NEXT:    call void @pluto()
@@ -59,6 +59,62 @@ bb30:                                             ; preds = %bb24
   call void @spam()
   ret void
 }
+
+; INTEL_CUSTOMIZATION
+; The "if.else" block is UB because of the null address (in the phi).
+; The branch in land.lhs.true, and related computation should be removed.
+; After D109054, an assume is inserted which prevents dead code removal. This
+; has a knock-on effect on codesize heuristics and causes indvars to insert a
+; phi and perform LSR on the dead code.
+
+; CHECK-LABEL: loop_with_ub
+; CHECK-NOT: xor i1 %cmp3
+; CHECK-NOT: llvm.assume
+define dso_local void @loop_with_ub(i32* %b, i32** %a) local_unnamed_addr #99 {
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.inc
+  ret void
+
+for.body:                                         ; preds = %entry, %for.inc
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
+  %arrayidx = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
+  %0 = load i32, i32* %arrayidx, align 4
+  %1 = and i32 %0, 3
+  %tobool.not = icmp eq i32 %1, 0
+  br i1 %tobool.not, label %for.body.if.else_crit_edge, label %land.lhs.true
+
+for.body.if.else_crit_edge:                       ; preds = %for.body
+  %arrayidx7.phi.trans.insert = getelementptr inbounds i32*, i32** %a, i64 %indvars.iv
+  %.pre = load i32*, i32** %arrayidx7.phi.trans.insert, align 8
+  br label %if.else
+
+land.lhs.true:                                    ; preds = %for.body
+  %arrayidx2 = getelementptr inbounds i32*, i32** %a, i64 %indvars.iv
+  %2 = load i32*, i32** %arrayidx2, align 8
+  %cmp3.not = icmp eq i32* %2, null
+  br i1 %cmp3.not, label %if.else, label %if.then
+
+if.then:                                          ; preds = %land.lhs.true
+  store i32 6, i32* %2, align 4
+  br label %for.inc
+
+if.else:                                          ; preds = %for.body.if.else_crit_edge, %land.lhs.true
+  %3 = phi i32* [ %.pre, %for.body.if.else_crit_edge ], [ null, %land.lhs.true ]
+  store i32 666, i32* %3, align 4
+  br label %for.inc
+
+for.inc:                                          ; preds = %if.then, %if.else
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 256
+  br i1 %exitcond.not, label %for.cond.cleanup, label %for.body, !llvm.loop !99
+}
+
+!99 = !{!"llvm.loop.mustprogress"}
+
+attributes #99 = { mustprogress nofree norecurse nosync nounwind uwtable }
+; end INTEL_CUSTOMIZATION
 
 declare void @wombat()
 declare void @pluto()

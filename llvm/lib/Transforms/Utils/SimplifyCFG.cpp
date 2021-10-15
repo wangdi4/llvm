@@ -8239,11 +8239,18 @@ static bool removeUndefIntroducingPredecessor(BasicBlock *BB,
           else {
             // Preserve guarding condition in assume, because it might not be
             // inferrable from any dominating condition.
+#if !INTEL_CUSTOMIZATION
+            // llvm.assume will prevent DCE of any code that computes the
+            // condition, until codegen. It has a knock-on effect on codesize
+            // heuristics (dtrans) and may cause unwanted phis/LSR.
+            // Example: loop_with_ub function in
+            // "tautological-conditional-branch.ll"
             Value *Cond = BI->getCondition();
             if (BI->getSuccessor(0) == BB)
               Builder.CreateAssumption(Builder.CreateNot(Cond));
             else
               Builder.CreateAssumption(Cond);
+#endif // !INTEL_CUSTOMIZATION
             Builder.CreateBr(BI->getSuccessor(0) == BB ? BI->getSuccessor(1)
                                                        : BI->getSuccessor(0));
           }
