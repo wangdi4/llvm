@@ -30,6 +30,8 @@ kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr Context)
   // For others, PI will turn this into a NOP.
   getPlugin().call<PiApiKind::piKernelSetExecInfo>(
       MKernel, PI_USM_INDIRECT_ACCESS, sizeof(pi_bool), &PI_TRUE);
+
+  MIsInterop = true;
 }
 
 kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
@@ -48,6 +50,8 @@ kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
     throw cl::sycl::invalid_parameter_error(
         "Input context must be the same as the context of cl_kernel",
         PI_INVALID_CONTEXT);
+
+  MIsInterop = MProgramImpl->isInterop();
 }
 
 kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
@@ -61,6 +65,8 @@ kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
   if (!is_host()) {
     getPlugin().call<PiApiKind::piKernelRetain>(MKernel);
   }
+
+  MIsInterop = MKernelBundleImpl->isInterop();
 }
 
 kernel_impl::kernel_impl(ContextImplPtr Context,
