@@ -4230,15 +4230,60 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  case VPInstruction::ScalarPeelRemainderHIR: {
-    auto *VPScalarLp = cast<VPPeelRemainderHIR>(VPInst);
-    HLLoop *ScalarLoop = VPScalarLp->getLoop()->clone();
+  case VPInstruction::ScalarPeelHIR: {
+    auto *VPPeelLp = cast<VPScalarPeelHIR>(VPInst);
+    HLLoop *ScalarPeel = VPPeelLp->getLoop()->clone();
 
-    // Emit scalar loop at current insertion point and initialize required
-    // live-in temps before the loop. We also set scalar loop's lower/upper
+    // Emit scalar peel loop at current insertion point and initialize UB temp.
+    // We also set scalar loop's upper bound captured in corresponding
+    // VPScalarPeelHIR instruction. For example simple scalar peel loop that
+    // looks like -
+    // %scal.peel = scalar-peel-hir <HLLoop>, TempInitMap:
+    //   { Initialize temp %peel.ub with -> i64 %vp.peel.ub }
+    //
+    // is lowered into HIR as -
+    //
+    // %peel.ub = ...
+    // + DO i1 = 0, %peel.ub, 1   <DO_LOOP> <vectorize>
+    // |   %A.i = (%A)[i1];
+    // |   %red.var = %A.i  +  %red.var;
+    // + END LOOP
+
+    assert(VPPeelLp->getNumOperands() == 1 &&
+           "Scalar peel loop is expected to have only one operand.");
+    RegDDRef *UBTemp = cast<RegDDRef>(VPPeelLp->getUpperBoundTemp());
+    RegDDRef *InitValue = getOrCreateScalarRef(VPPeelLp->getOperand(0), 0);
+    HLInst *UBInitInst =
+        HLNodeUtilities.createCopyInst(InitValue, "temp.init", UBTemp->clone());
+    addInstUnmasked(UBInitInst);
+    // Initialized UB temp will be live-in to scalar loop.
+    ScalarPeel->addLiveInTemp(UBTemp);
+
+    // Insert the scalar peel loop into outgoing HIR.
+    LLVM_DEBUG(dbgs() << "[VPOCGHIR] ScalarPeel:\n"; ScalarPeel->dump();
+               dbgs() << "\n");
+    addInst(ScalarPeel, nullptr /*Mask*/);
+
+    // Update upper DDRef of scalar peel.
+    UBTemp->setSymbase(GenericRvalSymbase);
+    ScalarPeel->setUpperDDRef(UBTemp);
+    // Sets the defined at level of new bound to (nesting level - 1) as the
+    // bound temp is defined just before the loop.
+    UBTemp->getSingleCanonExpr()->setDefinedAtLevel(
+        ScalarPeel->getNestingLevel() - 1);
+
+    return;
+  }
+
+  case VPInstruction::ScalarRemainderHIR: {
+    auto *VPRemLp = cast<VPScalarRemainderHIR>(VPInst);
+    HLLoop *ScalarRem = VPRemLp->getLoop()->clone();
+
+    // Emit scalar remainder loop at current insertion point and initialize
+    // required live-in temps before the loop. We also set scalar loop's lower
     // bound based on temps captured in corresponding VPScalarRemainderHIR
     // instruction. For example simple scalar remainder that looks like -
-    // %scal.rem = scalar-hir-loop <HLLoop>, LBTemp: %rem.lb, TempInitMap:
+    // %scal.rem = scalar-remainder-hir <HLLoop>, TempInitMap:
     //   { Initialize temp %rem.lb with -> i64 %vp.rem.lb }
     //   { Initialize temp %red.var with -> i32 %vp.red.var }
     //
@@ -4251,48 +4296,40 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // |   %red.var = %A.i  +  %red.var;
     // + END LOOP
 
-    for (unsigned I = 0; I < VPScalarLp->getNumOperands(); ++I) {
-      RegDDRef *TempToInit = cast<RegDDRef>(VPScalarLp->getTemp(I));
-      RegDDRef *InitValue = getOrCreateScalarRef(VPScalarLp->getOperand(I), 0);
+    for (unsigned I = 0; I < VPRemLp->getNumOperands(); ++I) {
+      RegDDRef *TempToInit = cast<RegDDRef>(VPRemLp->getLiveIn(I));
+      RegDDRef *InitValue = getOrCreateScalarRef(VPRemLp->getOperand(I), 0);
       HLInst *InitInst = HLNodeUtilities.createCopyInst(InitValue, "temp.init",
                                                         TempToInit->clone());
       addInstUnmasked(InitInst);
       // Initialized temp will be live-in to scalar loop.
-      ScalarLoop->addLiveInTemp(TempToInit);
+      ScalarRem->addLiveInTemp(TempToInit);
     }
 
-    // Track bound refs whose def@level needs to be updated after attaching the
-    // scalar loop.
-    SmallVector<RegDDRef *, 2> BoundRefsToFixDefLevel;
-
-    if (auto *LB = VPScalarLp->getLowerBoundTemp()) {
-      auto *LBRef = cast<RegDDRef>(LB);
-      ScalarLoop->setLowerDDRef(LBRef);
-      BoundRefsToFixDefLevel.push_back(LBRef);
-    }
-
-    if (auto *UB = VPScalarLp->getUpperBoundTemp()) {
-      auto *UBRef = cast<RegDDRef>(UB);
-      UBRef->setSymbase(GenericRvalSymbase);
-      ScalarLoop->setUpperDDRef(UBRef);
-      BoundRefsToFixDefLevel.push_back(UBRef);
-    }
-
-    LLVM_DEBUG(dbgs() << "[VPOCGHIR] ScalarLoop:\n"; ScalarLoop->dump();
+    LLVM_DEBUG(dbgs() << "[VPOCGHIR] ScalarRemainder:\n"; ScalarRem->dump();
                dbgs() << "\n");
-    addInst(ScalarLoop, nullptr /*Mask*/);
+    addInst(ScalarRem, nullptr /*Mask*/);
 
-    // Sets the defined at level of new bounds to (nesting level - 1) as the
+    // Update lower DDRef of scalar peel.
+    auto *LBTemp = cast<RegDDRef>(VPRemLp->getLowerBoundTemp());
+    ScalarRem->setLowerDDRef(LBTemp);
+    // Sets the defined at level of new bound to (nesting level - 1) as the
     // bound temp is defined just before the loop.
-    for (auto *Bound : BoundRefsToFixDefLevel)
-      Bound->getSingleCanonExpr()->setDefinedAtLevel(
-          ScalarLoop->getNestingLevel() - 1);
+    LBTemp->getSingleCanonExpr()->setDefinedAtLevel(
+        ScalarRem->getNestingLevel() - 1);
 
     return;
   }
 
-  case VPInstruction::OrigLiveOutHIR: {
-    auto *LiveOut = cast<VPOrigLiveOutHIR>(VPInst);
+  case VPInstruction::PeelOrigLiveOutHIR: {
+    auto *LiveOut = cast<VPPeelOrigLiveOutHIR>(VPInst);
+    auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
+    addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
+    return;
+  }
+
+  case VPInstruction::RemOrigLiveOutHIR: {
+    auto *LiveOut = cast<VPRemainderOrigLiveOutHIR>(VPInst);
     auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
     addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
     return;

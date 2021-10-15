@@ -1573,7 +1573,9 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   } else if (Opcode == VPInstruction::ScalarRemainder)
     NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::OrigLiveOut)
+  else if (Opcode == VPInstruction::PeelOrigLiveOut)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::RemOrigLiveOut)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PushVF)
     NewShape = getUniformVectorShape();

@@ -483,7 +483,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
 
   case VPInstruction::ScalarRemainder:
   case VPInstruction::ScalarPeel:
-  case VPInstruction::ScalarPeelRemainderHIR: {
+  case VPInstruction::ScalarPeelHIR:
+  case VPInstruction::ScalarRemainderHIR: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -491,8 +492,10 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::OrigLiveOut:
-  case VPInstruction::OrigLiveOutHIR: {
+  case VPInstruction::PeelOrigLiveOut:
+  case VPInstruction::RemOrigLiveOut:
+  case VPInstruction::PeelOrigLiveOutHIR:
+  case VPInstruction::RemOrigLiveOutHIR: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -884,9 +887,12 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ActiveLaneExtract:
   case VPInstruction::ScalarRemainder:
   case VPInstruction::ScalarPeel:
-  case VPInstruction::ScalarPeelRemainderHIR:
-  case VPInstruction::OrigLiveOut:
-  case VPInstruction::OrigLiveOutHIR:
+  case VPInstruction::ScalarPeelHIR:
+  case VPInstruction::ScalarRemainderHIR:
+  case VPInstruction::PeelOrigLiveOut:
+  case VPInstruction::RemOrigLiveOut:
+  case VPInstruction::PeelOrigLiveOutHIR:
+  case VPInstruction::RemOrigLiveOutHIR:
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:
   case VPInstruction::PrivateFinalUncondMem:

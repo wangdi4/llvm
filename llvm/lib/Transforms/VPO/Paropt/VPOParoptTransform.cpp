@@ -2342,6 +2342,7 @@ bool VPOParoptTransform::paroptTransforms() {
             }
 #endif  // INTEL_CUSTOMIZATION
 
+            Changed |= setInsertionPtForVlaAllocas(W);
             AllocaInst *IsLastVal = nullptr;
             BasicBlock *IfLastIterBB = nullptr;
             Instruction *InsertLastIterCheckBefore = nullptr;
@@ -2365,6 +2366,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             if (!W->getIsDistribute() && !W->getNowait())
               Changed |= genBarrier(W, false);
+            Changed |= insertStackSaveRestore(W);
           }
           Changed |= sinkSIMDDirectives(W);
           Changed |= genParallelAccessMetadata(W);
@@ -4575,7 +4577,8 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
 
     computeArraySectionTypeOffsetSize(W, *RedI, InsertPt);
 
-    if (isa<WRNVecLoopNode>(W) && getIsVlaOrVlaSection(RedI)) {
+    if ((isa<WRNVecLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+        getIsVlaOrVlaSection(RedI)) {
       InsertPt = W->getVlaAllocaInsertPt();
       Builder.SetInsertPoint(InsertPt);
     }
@@ -4970,7 +4973,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // above the size's defintion point. getInsertPtForAllocas cannot handle
       // this case since we do not outline some regions for SPIRV target.
       Instruction *InsertPt;
-      if (isa<WRNVecLoopNode>(W) && getIsVlaOrVlaSection(RedI)) {
+      if ((isa<WRNVecLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+          getIsVlaOrVlaSection(RedI)) {
         InsertPt = W->getVlaAllocaInsertPt();
       } else {
         InsertPt = !FastReductionEnabled
@@ -6871,12 +6875,11 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       Instruction *InsertPt = &EntryBB->front();
       if (!ForTask) {
         Instruction *AllocaInsertPt = InsertPt;
-        if (isa<WRNVecLoopNode>(W)) {
-          if (getIsVlaOrVlaSection(LprivI))
-            AllocaInsertPt = W->getVlaAllocaInsertPt();
-          else
-            AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
-        }
+        if ((isa<WRNVecLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+            getIsVlaOrVlaSection(LprivI))
+          AllocaInsertPt = W->getVlaAllocaInsertPt();
+        else if (isa<WRNVecLoopNode>(W))
+          AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
         Value *NewPrivInst =
             genPrivatizationAlloca(LprivI, AllocaInsertPt, ".lpriv");
         LprivI->setNew(NewPrivInst);
@@ -8328,6 +8331,12 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
 // returns true if the input item is either a Vla or a variable size array
 // section.
 bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
+#if INTEL_CUSTOMIZATION
+  if (auto *RedI = dyn_cast<ReductionItem>(I)) {
+    if (RedI->getIsF90DopeVector())
+      return true;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (I->getIsTyped()) {
     Value *NumElements = I->getNumElements();
     assert(NumElements &&
@@ -8353,8 +8362,6 @@ bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
 // Section, it creates an empty entry block and sets the Vla alloca insertPt
 // to the terminator of this newly created entry block.
 bool VPOParoptTransform::setInsertionPtForVlaAllocas(WRegionNode *W) {
-  bool FoundVlaOrVlaSec = false;
-
   auto checkIfVla = [](Item *I) -> bool {
     if (!getIsVlaOrVlaSection(I))
       return false;
@@ -8363,14 +8370,15 @@ bool VPOParoptTransform::setInsertionPtForVlaAllocas(WRegionNode *W) {
     return true;
   };
 
-  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
-                           W->getRedIfSupported(), checkIfVla) != nullptr);
-  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
-                           W->getPrivIfSupported(), checkIfVla) != nullptr);
-  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
-                           W->getFprivIfSupported(), checkIfVla) != nullptr);
-  FoundVlaOrVlaSec |= (VPOParoptUtils::findItemInClauseForWhich(
-                           W->getLprivIfSupported(), checkIfVla) != nullptr);
+  bool FoundVlaOrVlaSec =
+      (VPOParoptUtils::findItemInClauseForWhich(W->getRedIfSupported(),
+                                                checkIfVla) != nullptr) ||
+      (VPOParoptUtils::findItemInClauseForWhich(W->getPrivIfSupported(),
+                                                checkIfVla) != nullptr) ||
+      (VPOParoptUtils::findItemInClauseForWhich(W->getFprivIfSupported(),
+                                                checkIfVla) != nullptr) ||
+      (VPOParoptUtils::findItemInClauseForWhich(W->getLprivIfSupported(),
+                                                checkIfVla) != nullptr);
 
   if (FoundVlaOrVlaSec) {
     // Create an empty BB before the entry BB.
@@ -8452,12 +8460,11 @@ bool VPOParoptTransform::genPrivatizationCode(
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
         if (!ForTask) {
           Instruction *AllocaInsertPt = InsertPt;
-          if (isa<WRNVecLoopNode>(W)) {
-            if (getIsVlaOrVlaSection(PrivI))
-              AllocaInsertPt = W->getVlaAllocaInsertPt();
-            else
-              AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
-          }
+          if ((isa<WRNVecLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+              getIsVlaOrVlaSection(PrivI))
+            AllocaInsertPt = W->getVlaAllocaInsertPt();
+          else if (isa<WRNVecLoopNode>(W))
+            AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
           auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, PrivI);
           NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv",
                                                AllocaAddrSpace);
