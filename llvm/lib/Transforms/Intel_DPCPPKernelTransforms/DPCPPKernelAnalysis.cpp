@@ -22,10 +22,8 @@
 
 using namespace llvm;
 
-// TODO: Enable this flag by default when all passes required by native subgroup
-// are ported.
 static cl::opt<bool> DPCPPEnableNativeSubgroups(
-    "dpcpp-enable-native-subgroups", cl::init(false), cl::Hidden,
+    "dpcpp-enable-native-subgroups", cl::init(true), cl::Hidden,
     cl::desc("Enable native subgroup functionality"));
 
 namespace {

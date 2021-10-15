@@ -328,7 +328,8 @@ public:
                              size_t Size);
 
   int32_t enqueueLaunchKernel(int32_t DeviceId, ze_kernel_handle_t Kernel,
-                              ze_group_count_t *GroupCounts);
+                              ze_group_count_t *GroupCounts,
+                              std::unique_lock<std::mutex> &KernelLock);
 
   int32_t enqueueMemFree(int32_t DeviceId, void *Ptr);
 
@@ -1505,9 +1506,16 @@ public:
   std::vector<std::vector<void *>> OwnedMemory;
 
   std::vector<bool> Initialized;
-  std::mutex *Mutexes;
-  std::mutex *DataMutexes; // For internal data
-  std::mutex *RTLMutex;
+
+  /// Default device mutexes
+  std::unique_ptr<std::mutex[]> Mutexes;
+
+  /// For internal data protection
+  std::unique_ptr<std::mutex[]> DataMutexes;
+
+  /// For kernel preparation
+  std::unique_ptr<std::mutex[]> KernelMutexes;
+
   std::vector<std::list<std::vector<DeviceOffloadEntryTy>>> OffloadTables;
   std::vector<std::vector<RTLProfileTy *>> Profiles;
 
@@ -1589,8 +1597,6 @@ public:
 
   RTLDeviceInfoTy() {
     NumDevices = 0;
-    Mutexes = nullptr;
-    DataMutexes = nullptr;
     DataTransferLatency = 0;
     DeviceType = ZE_DEVICE_TYPE_GPU;
     readEnvironmentVars();
@@ -2572,14 +2578,10 @@ static void closeRTL() {
   if (DeviceInfo->Context)
     CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
 
-  delete[] DeviceInfo->Mutexes;
-  delete[] DeviceInfo->DataMutexes;
-  delete DeviceInfo->RTLMutex;
   DP("Closed RTL successfully\n");
 }
 
-static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
-                        std::unique_lock<std::mutex> &copyLock) {
+static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size) {
   auto destType = DeviceInfo->getMemAllocType(Dest);
   auto srcType = DeviceInfo->getMemAllocType(Src);
 
@@ -2591,20 +2593,14 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
           srcType == ZE_MEMORY_TYPE_UNKNOWN)) {
     auto cmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
     auto cmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
-    bool ownsLock = false;
-    if (!copyLock.owns_lock()) {
-      copyLock.lock();
-      ownsLock = true;
-    }
     DP("Copy Engine is %s for data transfer\n",
        DeviceInfo->usingCopyCmdQueue(DeviceId) ? "used" : "not used");
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dest, Src, Size,
                      nullptr, 0, nullptr);
     CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                     nullptr);
-    if (ownsLock)
-      copyLock.unlock();
+    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                         DeviceInfo->Mutexes[DeviceId], cmdQueue, 1, &cmdList,
+                         nullptr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   } else {
@@ -2761,8 +2757,9 @@ int32_t CommandBatchTy::commit(bool Always) {
 
   // Launch enqueued commands
   CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                   nullptr);
+  CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                       DeviceInfo->Mutexes[DeviceId], CmdQueue, 1,
+                       &CmdList, nullptr);
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
 
@@ -2858,7 +2855,8 @@ int32_t CommandBatchTy::enqueueMemCopyFrom(
 }
 
 int32_t CommandBatchTy::enqueueLaunchKernel(
-    int32_t ID, ze_kernel_handle_t _Kernel, ze_group_count_t *GroupCounts) {
+    int32_t ID, ze_kernel_handle_t _Kernel, ze_group_count_t *GroupCounts,
+    std::unique_lock<std::mutex> &KernelLock) {
   if (DeviceId != ID) {
     DP("Invalid device ID %" PRId32 " while performing command batching\n", ID);
     return OFFLOAD_FAIL;
@@ -2870,6 +2868,7 @@ int32_t CommandBatchTy::enqueueLaunchKernel(
 
   CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                    GroupCounts, KernelEvent, 0, nullptr);
+  KernelLock.unlock();
   CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0, nullptr);
   DP("Enqueued launch kernel " DPxMOD "\n", DPxPTR(Kernel));
 
@@ -3013,8 +3012,8 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dst, Src, Size,
                    nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                   nullptr);
+  CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                       Mutexes[DeviceId], cmdQueue, 1, &cmdList, nullptr);
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
 
@@ -3657,15 +3656,16 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
-  DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
-  DeviceInfo->DataMutexes = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
   DeviceInfo->Context = createContext(DeviceInfo->Driver);
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.init(DeviceInfo->Context);
   DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
-  DeviceInfo->RTLMutex = new std::mutex();
+
+  DeviceInfo->Mutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
+  DeviceInfo->DataMutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
+  DeviceInfo->KernelMutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
 
   // Host allocation information needs one additional slot
   for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
@@ -4411,20 +4411,18 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
-  auto &Batch = getTLS()->getCommandBatch();
-  if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
-    return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
+  if (DeviceInfo->CommandBatchLevel > 0) {
+    auto &Batch = getTLS()->getCommandBatch();
+    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+      return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
+  }
 
   ScopedTimerTy tmDataWrite(DeviceId, "DataWrite (Host to Device)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId],
-                                        std::defer_lock);
-
   if (AsyncEvent) {
-    copyLock.lock();
     auto context = DeviceInfo->Context;
     auto cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
                                  DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
@@ -4455,7 +4453,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
       std::copy_n(static_cast<char *>(HstPtr), Size,
                   static_cast<char *>(SrcPtr));
     }
-    if (copyData(DeviceId, TgtPtr, SrcPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+    if (copyData(DeviceId, TgtPtr, SrcPtr, Size) != OFFLOAD_SUCCESS)
       return OFFLOAD_FAIL;
     DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtr), DPxPTR(TgtPtr));
@@ -4489,20 +4487,18 @@ static int32_t retrieveData(
 
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
-  auto &Batch = getTLS()->getCommandBatch();
-  if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
-    return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
+  if (DeviceInfo->CommandBatchLevel > 0) {
+    auto &Batch = getTLS()->getCommandBatch();
+    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+      return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
+  }
 
   ScopedTimerTy tmDataRead(DeviceId, "DataRead (Device to Host)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId],
-                                        std::defer_lock);
-
   if (AsyncEvent) {
-    copyLock.lock();
     auto context = DeviceInfo->Context;
     auto cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
                                  DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
@@ -4530,7 +4526,7 @@ static int32_t retrieveData(
         DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
         DeviceInfo->isDiscreteDevice(DeviceId))
       DstPtr = DeviceInfo->getStagingBuffer().get();
-    if (copyData(DeviceId, DstPtr, TgtPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+    if (copyData(DeviceId, DstPtr, TgtPtr, Size) != OFFLOAD_SUCCESS)
       return OFFLOAD_FAIL;
     if (DstPtr != HstPtr)
         std::copy_n(static_cast<char *>(DstPtr), Size,
@@ -4580,8 +4576,9 @@ EXTERN int32_t __tgt_rtl_data_exchange(
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, DstPtr, SrcPtr, Size,
                    nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                   nullptr);
+  CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                       DeviceInfo->Mutexes[DstId], cmdQueue, 1, &cmdList,
+                       nullptr);
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
 
@@ -4591,9 +4588,11 @@ EXTERN int32_t __tgt_rtl_data_exchange(
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
-  auto &Batch = getTLS()->getCommandBatch();
-  if (Batch.isActive())
-    return Batch.enqueueMemFree(DeviceId, TgtPtr);
+  if (DeviceInfo->CommandBatchLevel > 0) {
+    auto &Batch = getTLS()->getCommandBatch();
+    if (Batch.isActive())
+      return Batch.enqueueMemFree(DeviceId, TgtPtr);
+  }
 
   return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
@@ -4876,9 +4875,9 @@ static void decideKernelGroupArguments(
   std::copy(groupSizes, groupSizes + 3, GroupSizes);
 }
 
+#if INTEL_INTERNAL_BUILD
 static void forceGroupSizes(
     uint32_t *GroupSizes, ze_group_count_t &GroupCounts) {
-#if INTEL_INTERNAL_BUILD
   // Use forced group sizes. This is only for internal experiments, and we
   // don't want to plug these numbers into the decision logic.
   auto userLWS = DeviceInfo->ForcedLocalSizes;
@@ -4895,8 +4894,8 @@ static void forceGroupSizes(
     DP("Forced GWS = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n", userGWS[0],
        userGWS[1], userGWS[2]);
   }
-#endif // INTEL_INTERNAL_BUILD
 }
+#endif // INTEL_INTERNAL_BUILD
 
 static int32_t runTargetTeamRegionSub(
     int64_t DeviceIds, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
@@ -4965,13 +4964,44 @@ static int32_t runTargetTeamRegionSub(
     auto subId = subDeviceIds[subLevel][userId];
 
 #if SUBDEVICE_USE_ROOT_KERNELS
-    std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[rootId]);
     auto kernel = rootKernel;
 #else // !SUBDEVICE_USE_ROOT_KERNELS
-    std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[subId]);
     auto SubItr = DeviceInfo->FuncGblEntries[subId].begin();
     std::advance(SubItr, EntryId);
     auto kernel = SubItr->Kernels[KernelId];
+#endif // !SUBDEVICE_USE_ROOT_KERNELS
+
+    // Decide group sizes and counts
+    uint32_t groupSizes[3];
+    ze_group_count_t groupCounts;
+    if (LoopDesc) {
+      decideLoopKernelGroupArguments(subId, (uint32_t)ThreadLimit,
+          (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
+    } else {
+      decideKernelGroupArguments(subId, (uint32_t )NumTeams,
+          (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
+    }
+
+#if INTEL_INTERNAL_BUILD
+    forceGroupSizes(groupSizes, groupCounts);
+#endif // INTEL_INTERNAL_BUILD
+
+    DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+       groupSizes[0], groupSizes[1], groupSizes[2]);
+    DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+       groupCounts.groupCountX, groupCounts.groupCountY,
+       groupCounts.groupCountZ);
+
+    CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
+                     groupSizes[2]);
+
+    auto cmdList = DeviceInfo->getCmdList(subId);
+    auto cmdQueue = DeviceInfo->getCmdQueue(subId);
+
+#if SUBDEVICE_USE_ROOT_KERNELS
+    std::unique_lock<std::mutex> kernelLock(DeviceInfo->KernelMutexes[rootId]);
+#else // !SUBDEVICE_USE_ROOT_KERNELS
+    std::unique_lock<std::mutex> kernelLock(DeviceInfo->KernelMutexes[subId]);
 #endif // !SUBDEVICE_USE_ROOT_KERNELS
 
     auto *KernelInfo = DeviceInfo->getKernelInfo(subId, kernel);
@@ -5005,37 +5035,13 @@ static int32_t runTargetTeamRegionSub(
     CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
     DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(flags));
 
-    // Decide group sizes and counts
-    uint32_t groupSizes[3];
-    ze_group_count_t groupCounts;
-    if (LoopDesc) {
-      decideLoopKernelGroupArguments(subId, (uint32_t)ThreadLimit,
-          (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
-    } else {
-      decideKernelGroupArguments(subId, (uint32_t )NumTeams,
-          (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
-    }
-
-    forceGroupSizes(groupSizes, groupCounts);
-
-    DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-       groupSizes[0], groupSizes[1], groupSizes[2]);
-    DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-       groupCounts.groupCountX, groupCounts.groupCountY,
-       groupCounts.groupCountZ);
-
-    CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
-                     groupSizes[2]);
-
-    auto cmdList = DeviceInfo->getCmdList(subId);
-    auto cmdQueue = DeviceInfo->getCmdQueue(subId);
-
     // Only get device time for the last subdevice for now.
     if (DeviceInfo->Flags.EnableProfile && i == subCount - 1)
       profileEvent = DeviceInfo->ProfileEvents.getEvent();
 
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
                      &groupCounts, profileEvent, 0, nullptr);
+    kernelLock.unlock();
 
     // Last event waits for other events
     auto event = DeviceInfo->SubDeviceEvents[rootId].Events[subId - subIdBase];
@@ -5046,13 +5052,12 @@ static int32_t runTargetTeamRegionSub(
       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, event, 0, nullptr);
 
     CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                     nullptr);
+    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                         DeviceInfo->Mutexes[subId], cmdQueue, 1,
+                         &cmdList, nullptr);
 
     DP("Submitted kernel " DPxMOD " to subdevice %s\n", DPxPTR(kernel),
        DeviceInfo->DeviceIdStr[subId].c_str());
-
-    kernelLock.unlock();
 
     usedCmdLists.push_back(cmdList);
     usedEvents.push_back(event);
@@ -5086,9 +5091,6 @@ static int32_t runTargetTeamRegion(
                                   TgtOffsets, NumArgs, NumTeams, ThreadLimit,
                                   LoopDesc, AsyncEvent);
 
-  // Protect from kernel preparation to submission as kernels are shared
-  std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[DeviceId]);
-
   ze_kernel_handle_t kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
   if (!kernel) {
     REPORT("Failed to invoke deleted kernel.\n");
@@ -5096,6 +5098,44 @@ static int32_t runTargetTeamRegion(
   }
   ScopedTimerTy tmKernel(DeviceId, "Kernel ",
                          DeviceInfo->KernelProperties[DeviceId][kernel].Name);
+
+  // Decide group sizes and counts
+  uint32_t groupSizes[3];
+  ze_group_count_t groupCounts;
+  if (LoopDesc) {
+    decideLoopKernelGroupArguments(DeviceId, (uint32_t)ThreadLimit,
+        (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
+  } else {
+    decideKernelGroupArguments(DeviceId, (uint32_t )NumTeams,
+        (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
+  }
+
+#if INTEL_INTERNAL_BUILD
+  forceGroupSizes(groupSizes, groupCounts);
+#endif // INTEL_INTERNAL_BUILD
+
+  DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+     groupSizes[0], groupSizes[1], groupSizes[2]);
+  DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+     groupCounts.groupCountX, groupCounts.groupCountY, groupCounts.groupCountZ);
+
+  if (OMPT_ENABLED) {
+    // Push current work size
+    size_t finalNumTeams = groupCounts.groupCountX * groupCounts.groupCountY *
+        groupCounts.groupCountZ;
+    size_t finalThreadLimit = groupSizes[0] * groupSizes[1] * groupSizes[2];
+    OmptGlobal->getTrace().pushWorkSize(finalNumTeams, finalThreadLimit);
+  }
+
+  auto cmdList = DeviceInfo->getCmdList(DeviceId);
+  ze_command_queue_handle_t cmdQueue = nullptr;
+  if (DeviceInfo->Flags.UseMultipleComputeQueues)
+    cmdQueue = DeviceInfo->getCCSCmdQueue(DeviceId);
+  else
+    cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+
+  // Protect from kernel preparation to submission as kernels are shared.
+  std::unique_lock<std::mutex> kernelLock(DeviceInfo->KernelMutexes[DeviceId]);
 
   // Set arguments
   auto *KernelInfo = DeviceInfo->getKernelInfo(DeviceId, kernel);
@@ -5126,47 +5166,18 @@ static int32_t runTargetTeamRegion(
   CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
   DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(flags));
 
-  // Decide group sizes and counts
-  uint32_t groupSizes[3];
-  ze_group_count_t groupCounts;
-  if (LoopDesc) {
-    decideLoopKernelGroupArguments(DeviceId, (uint32_t)ThreadLimit,
-        (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
-  } else {
-    decideKernelGroupArguments(DeviceId, (uint32_t )NumTeams,
-        (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
-  }
-
-  forceGroupSizes(groupSizes, groupCounts);
-
-  DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-     groupSizes[0], groupSizes[1], groupSizes[2]);
-  DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-     groupCounts.groupCountX, groupCounts.groupCountY, groupCounts.groupCountZ);
-
-  if (OMPT_ENABLED) {
-    // Push current work size
-    size_t finalNumTeams = groupCounts.groupCountX * groupCounts.groupCountY *
-        groupCounts.groupCountZ;
-    size_t finalThreadLimit = groupSizes[0] * groupSizes[1] * groupSizes[2];
-    OmptGlobal->getTrace().pushWorkSize(finalNumTeams, finalThreadLimit);
-  }
-
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
                    groupSizes[2]);
-  auto context = DeviceInfo->Context;
-  ze_command_list_handle_t cmdList = DeviceInfo->getCmdList(DeviceId);
-  ze_command_queue_handle_t cmdQueue = nullptr;
-  if (DeviceInfo->Flags.UseMultipleComputeQueues)
-    cmdQueue = DeviceInfo->getCCSCmdQueue(DeviceId);
-  else
-    cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
 
-  auto &Batch = getTLS()->getCommandBatch();
-  if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
-    return Batch.enqueueLaunchKernel(DeviceId, kernel, &groupCounts);
+  if (DeviceInfo->CommandBatchLevel > 0) {
+    auto &Batch = getTLS()->getCommandBatch();
+    if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+      return Batch.enqueueLaunchKernel(DeviceId, kernel, &groupCounts,
+                                       kernelLock);
+  }
 
   if (AsyncEvent) {
+    auto context = DeviceInfo->Context;
     cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
                             DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
                             DeviceInfo->DeviceIdStr[DeviceId]);
@@ -5176,6 +5187,7 @@ static int32_t runTargetTeamRegion(
     }
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
                      &groupCounts, nullptr, 0, nullptr);
+    kernelLock.unlock();
     auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous execution failed -- invalid fence\n");
@@ -5192,10 +5204,11 @@ static int32_t runTargetTeamRegion(
       event = DeviceInfo->ProfileEvents.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
                      &groupCounts, event, 0, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                     nullptr);
     kernelLock.unlock();
+    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                         DeviceInfo->Mutexes[DeviceId], cmdQueue, 1,
+                         &cmdList, nullptr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
     tmKernel.updateDeviceTime(event);
     // Make sure the command list is ready to accept next command
