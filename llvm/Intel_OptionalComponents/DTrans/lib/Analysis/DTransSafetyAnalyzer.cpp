@@ -1549,7 +1549,7 @@ public:
       // check that the value operand is not a structure type, which should
       // not happen. However, if it does, set a safety bit.
       else if (isVTableType(IndexedType)) {
-        if (ValInfo->canAliasToAggregatePointer()) {
+        if (!ValInfo || ValInfo->canAliasToAggregatePointer()) {
           TypesCompatible = false;
           BadCasting = true;
         }
