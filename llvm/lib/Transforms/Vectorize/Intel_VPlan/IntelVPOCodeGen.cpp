@@ -748,10 +748,15 @@ static Loop *cloneLoopBody(BasicBlock *Before, Loop *OrigLoop,
 //                                             OrigLp
 //
 //
+template <class VPPeelRemainderTy>
 Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
                                   BasicBlock *NewLoopSucc,
-                                  VPPeelRemainder *LoopInst,
+                                  VPPeelRemainderTy *LoopInst,
                                   const Twine &Name) {
+  // Determine live-out type based on scalar peel/remainder.
+  using OrigLiveOutTy = typename std::conditional<
+      std::is_same<VPPeelRemainderTy, VPScalarPeel>::value, VPPeelOrigLiveOut,
+      VPRemainderOrigLiveOut>::type;
 
   // Make sure that NewLoopPred and NewLoopSucc are connected.
   assert(count(successors(NewLoopPred), NewLoopSucc) == 1 &&
@@ -789,8 +794,8 @@ Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
 
     // Remap liveouts.
     for (auto U : LoopInst->users()) {
-      if (auto LO = dyn_cast<VPOrigLiveOut>(U))
-        LO->setClonedLiveOutVal(MapValue(LO->getLiveOutVal(), VMap));
+      auto *LO = cast<OrigLiveOutTy>(U);
+      LO->setClonedLiveOutVal(MapValue(LO->getLiveOutVal(), VMap));
     }
   }
 
@@ -804,6 +809,17 @@ Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
 
   return NewLoop;
 }
+
+template Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP,
+                                           BasicBlock *NewLoopPred,
+                                           BasicBlock *NewLoopSucc,
+                                           VPScalarRemainder *LoopInst,
+                                           const Twine &Name);
+template Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP,
+                                           BasicBlock *NewLoopPred,
+                                           BasicBlock *NewLoopSucc,
+                                           VPScalarPeel *LoopInst,
+                                           const Twine &Name);
 
 void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
                                    AttributeList OrigAttrs,
@@ -939,7 +955,8 @@ Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
   return InvBase;
 }
 
-void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse) {
+template <class VPPeelRemainderTy>
+void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
   if (LoopReuse->isCloningRequired()) {
     // Clone before processing if needed.
     VPBasicBlock *ParentSucc = LoopReuse->getParent()->getSingleSuccessor();
@@ -1710,10 +1727,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // Do nothing.
     return;
   case VPInstruction::ScalarRemainder:
-    vectorizeScalarPeelRem(cast<VPPeelRemainder>(VPInst));
+    vectorizeScalarPeelRem(cast<VPScalarRemainder>(VPInst));
     return;
   case VPInstruction::ScalarPeel: {
-    auto LoopReuse = cast<VPPeelRemainder>(VPInst);
+    auto LoopReuse = cast<VPScalarPeel>(VPInst);
     vectorizeScalarPeelRem(LoopReuse);
     // In scalar peel replace original preheader with the new one in the header
     // phis.
@@ -1722,8 +1739,13 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       Phi.replaceIncomingBlockWith(OrigPreHeader, NewPH);
     return;
   }
-  case VPInstruction::OrigLiveOut: {
-    auto *LiveOut = cast<VPOrigLiveOut>(VPInst);
+  case VPInstruction::PeelOrigLiveOut: {
+    auto *LiveOut = cast<VPPeelOrigLiveOut>(VPInst);
+    VPScalarMap[LiveOut][0] = const_cast<Value *>(LiveOut->getLiveOutVal());
+    return;
+  }
+  case VPInstruction::RemOrigLiveOut: {
+    auto *LiveOut = cast<VPRemainderOrigLiveOut>(VPInst);
     VPScalarMap[LiveOut][0] = const_cast<Value *>(LiveOut->getLiveOutVal());
     return;
   }
@@ -4534,8 +4556,7 @@ void VPOCodeGen::fixNonInductionVPPhis() {
       }
       BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
       if (Plan->hasExplicitRemainder()) {
-        auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
-        if (LiveOut && !isa<VPScalarPeel>(LiveOut->getOperand(0))) {
+        if (auto *LiveOut = dyn_cast<VPRemainderOrigLiveOut>(VPVal)) {
           // Add outgoing from the scalar loop.
           Loop *L = cast<VPScalarRemainder>(LiveOut->getOperand(0))->getLoop();
           BB = L->getLoopLatch();

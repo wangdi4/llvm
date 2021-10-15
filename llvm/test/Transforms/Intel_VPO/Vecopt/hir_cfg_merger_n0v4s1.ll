@@ -59,8 +59,8 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-DAG:     [[VP2]] = {%N + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-hir-loop <HLLoop>, NeedsCloning: 0, LBTemp: [[LB_TMP0:%.*]], UBTemp: none, TempInitMap:
-; CHECK-NEXT:         { Initialize temp [[LB_TMP0]] with -> i64 live-in1 }
+; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder-hir <HLLoop>, NeedsCloning: 0, TempInitMap:
+; CHECK-NEXT:         { Initialize temp [[LB_TMP0:%.*]] with -> i64 live-in1 }
 ; CHECK-NEXT:         { Initialize temp [[SUM_070:%.*]] with -> i32 live-in0 }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out-hir token [[VP_ORIG_LOOP]], liveout: [[N0:%.*]] + -1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out-hir token [[VP_ORIG_LOOP]], liveout: [[SUM_070]]
@@ -133,7 +133,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK0]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-hir-loop <HLLoop>, NeedsCloning: 0, LBTemp: [[LB_TMP0]], UBTemp: none, TempInitMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-remainder-hir <HLLoop>, NeedsCloning: 0, TempInitMap:
 ; CHECK-NEXT:         { Initialize temp [[LB_TMP0]] with -> i64 [[VP11]] }
 ; CHECK-NEXT:         { Initialize temp [[SUM_070]] with -> i32 [[VP10]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT]] = orig-live-out-hir token [[VP_ORIG_LOOP]], liveout: [[N0]] + -1

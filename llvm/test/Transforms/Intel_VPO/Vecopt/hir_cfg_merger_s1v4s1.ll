@@ -15,11 +15,11 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4.ScalarPeel
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%sum.07}
-; CHECK-DAG:     [[VP1:%.*]] = {%A}
-; CHECK-DAG:     [[VP2:%.*]] = {%N + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%N + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[PEELBLK0:PeelBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-hir-loop <HLLoop>, NeedsCloning: 1, LBTemp: none, UBTemp: none, TempInitMap:
+; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-peel-hir <HLLoop>, NeedsCloning: 1, TempInitMap:
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out-hir token [[VP_ORIG_LOOP]], liveout: [[N0:%.*]] + -1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out-hir token [[VP_ORIG_LOOP]], liveout: [[SUM_070:%.*]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
@@ -36,14 +36,14 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0]] = {%sum.07}
-; CHECK-DAG:     [[VP1]] = {%A}
-; CHECK-DAG:     [[VP2]] = {%N + -1}
+; CHECK-DAG:     [[VP1]] = {%N + -1}
+; CHECK-DAG:     [[VP2]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
@@ -76,12 +76,12 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4.ScalarRemainder
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0]] = {%sum.07}
-; CHECK-DAG:     [[VP1]] = {%A}
-; CHECK-DAG:     [[VP2]] = {%N + -1}
+; CHECK-DAG:     [[VP1]] = {%N + -1}
+; CHECK-DAG:     [[VP2]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-hir-loop <HLLoop>, NeedsCloning: 0, LBTemp: [[LB_TMP0:%.*]], UBTemp: none, TempInitMap:
-; CHECK-NEXT:         { Initialize temp [[LB_TMP0]] with -> i64 live-in1 }
+; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-remainder-hir <HLLoop>, NeedsCloning: 0, TempInitMap:
+; CHECK-NEXT:         { Initialize temp [[LB_TMP0:%.*]] with -> i64 live-in1 }
 ; CHECK-NEXT:         { Initialize temp [[SUM_070]] with -> i32 live-in0 }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT_2:%.*]] = orig-live-out-hir token [[VP_ORIG_LOOP_1]], liveout: [[N0]] + -1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ORIG_LIVEOUT_3:%.*]] = orig-live-out-hir token [[VP_ORIG_LOOP_1]], liveout: [[SUM_070]]
@@ -106,8 +106,8 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0]] = {%sum.07}
-; CHECK-DAG:     [[VP1]] = {%A}
-; CHECK-DAG:     [[VP2]] = {%N + -1}
+; CHECK-DAG:     [[VP1]] = {%N + -1}
+; CHECK-DAG:     [[VP2]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[PEEL_CHECKZ0:peel.checkz[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
@@ -115,13 +115,13 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[PEEL_CHECKV0]]: # preds: [[PEEL_CHECKZ0]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP9:%.*]] = add i64 1 i64 4
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK:%.*]] = icmp ugt i64 [[VP9]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK:%.*]] = icmp ugt i64 [[VP9]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[PEELBLK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[PEELBLK0]]: # preds: [[PEEL_CHECKV0]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-hir-loop <HLLoop>, NeedsCloning: 1, LBTemp: none, UBTemp: [[UB_TMP0:%.*]], TempInitMap:
-; CHECK-NEXT:         { Initialize temp [[UB_TMP0]] with -> i64 0 }
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-peel-hir <HLLoop>, NeedsCloning: 1, TempInitMap:
+; CHECK-NEXT:         { Initialize temp [[UB_TMP0:%.*]] with -> i64 0 }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT]] = orig-live-out-hir token [[VP_ORIG_LOOP]], liveout: [[UB_TMP0]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_ORIG_LIVEOUT_1]] = orig-live-out-hir token [[VP_ORIG_LOOP]], liveout: [[SUM_070]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB0]]
@@ -137,7 +137,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[MERGE_BLK1]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP12:%.*]] = add i64 1 i64 4
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP12]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP12]] i64 [[VP1]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK0]], [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB7]]
@@ -145,7 +145,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 [[VP2]] i64 1, UF = 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 [[VP1]] i64 1, UF = 1
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_RED_INIT]] = reduction-init i32 0 i32 [[VP10]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP__IND_INIT]] = induction-init{add} i64 [[VP11]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
@@ -171,7 +171,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB8]], [[PEEL_CHECKV0]], [[BB7]]
@@ -181,7 +181,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK0]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP_1]] = scalar-hir-loop <HLLoop>, NeedsCloning: 0, LBTemp: [[LB_TMP0]], UBTemp: none, TempInitMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP_1]] = scalar-remainder-hir <HLLoop>, NeedsCloning: 0, TempInitMap:
 ; CHECK-NEXT:         { Initialize temp [[LB_TMP0]] with -> i64 [[VP14]] }
 ; CHECK-NEXT:         { Initialize temp [[SUM_070]] with -> i32 [[VP13]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT_2]] = orig-live-out-hir token [[VP_ORIG_LOOP_1]], liveout: [[N0]] + -1

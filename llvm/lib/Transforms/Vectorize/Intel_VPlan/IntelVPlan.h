@@ -584,10 +584,13 @@ public:
     ActiveLaneExtract,
     ConstStepVector,
     ScalarPeel,
+    ScalarPeelHIR,
     ScalarRemainder,
-    ScalarPeelRemainderHIR,
-    OrigLiveOut,
-    OrigLiveOutHIR,
+    ScalarRemainderHIR,
+    PeelOrigLiveOut,
+    RemOrigLiveOut,
+    PeelOrigLiveOutHIR,
+    RemOrigLiveOutHIR,
     PushVF,
     PopVF,
     PlanAdapter,
@@ -2789,17 +2792,26 @@ private:
 };
 
 // Base-class for the peel and remainder loop instructions.
-class VPPeelRemainder : public VPInstruction {
+template <class LoopTy, class LiveInOpTy, unsigned PeelRemOpcode>
+class VPPeelRemainderImpl : public VPInstruction {
 
   /// The original loop.
-  Loop *Lp;
+  LoopTy *Lp;
 
   /// The live-in operands list.
-  SmallVector<Use *, 4> OpLiveInMap;
+  SmallVector<LiveInOpTy *, 4> OpLiveInMap;
 
   /// Flag to indicate whether the scalar loop has to be cloned. (Because we
   /// need two copies of it and this is the second one.)
   bool NeedsCloning = false;
+
+  static LLVMContext &getContext(Loop *Lp) {
+    return Lp->getHeader()->getContext();
+  }
+
+  static LLVMContext &getContext(loopopt::HLLoop *Lp) {
+    return Lp->getHLNodeUtils().getContext();
+  }
 
 protected:
 
@@ -2810,32 +2822,27 @@ protected:
 
   /// Add \p VPVal to the instruction operands list and the \p OrigLoopUse to
   /// the OpLiveInMap.
-  void addLiveIn(VPValue *VPVal, Use *OrigLoopUse) {
+  void addLiveIn(VPValue *VPVal, LiveInOpTy *OrigLoopUse) {
     assert(isValidLiveIn(VPVal, OrigLoopUse) &&
-           "Live-ins can only be a phi or a block!");
+           "Live-ins can only be a phi/block/DDRef!");
     addOperand(VPVal);
     OpLiveInMap.push_back(OrigLoopUse);
   }
 
   virtual bool isValidLiveIn(const VPValue *VPVal,
-                             const Use *OrigLoopUse) const {
-    return VPVal->getType()->isLabelTy() ||
-           (isa<PHINode>(OrigLoopUse->getUser()) &&
-            cast<PHINode>(OrigLoopUse->getUser())->getParent() ==
-                getLoop()->getHeader());
-  }
+                             const LiveInOpTy *OrigLoopUse) const = 0;
 
 public:
-  VPPeelRemainder(unsigned Opcode, Loop *Lp, bool ShouldClone = false)
-      : VPInstruction(Opcode, Type::getTokenTy(Lp->getHeader()->getContext()),
-                      /* Operands */ {}),
+  VPPeelRemainderImpl(LoopTy *Lp, bool ShouldClone)
+      : VPInstruction(PeelRemOpcode, Type::getTokenTy(getContext(Lp)),
+                      {} /* Operands */),
         Lp(Lp), NeedsCloning(ShouldClone) {}
 
   /// Get the original loop.
-  Loop *getLoop() const { return Lp; }
+  LoopTy *getLoop() const { return Lp; }
 
   /// Set the new original loop after cloning.
-  void setClonedLoop(Loop *L) {
+  void setClonedLoop(LoopTy *L) {
     assert(L && "unexpected null loop");
     Lp = L;
   }
@@ -2846,14 +2853,16 @@ public:
   void setCloningRequired() { NeedsCloning = true; }
 
   /// Get the live-in value corresponding to the \p Idx.
-  Use *getLiveIn(unsigned Idx) const {
+  LiveInOpTy *getLiveIn(unsigned Idx) const {
     assert(Idx <= OpLiveInMap.size() - 1 &&
            "Invalid entry in the live-in map requested.");
     return OpLiveInMap[Idx];
   }
 
+  unsigned getNumLiveIns() const { return OpLiveInMap.size(); }
+
   /// Get the live-in value corresponding to the \p Idx.
-  void setClonedLiveIn(unsigned Idx, Use *U) {
+  void setClonedLiveIn(unsigned Idx, LiveInOpTy *U) {
     assert(Idx <= OpLiveInMap.size() - 1 &&
            "Invalid entry in the live-in map requested.");
     OpLiveInMap[Idx] = U;
@@ -2861,8 +2870,7 @@ public:
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ScalarPeel ||
-           V->getOpcode() == VPInstruction::ScalarRemainder;
+    return V->getOpcode() == PeelRemOpcode;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2870,173 +2878,121 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void printImpl(raw_ostream &O) const {
-    O << " " << getLoop()->getName()
-      << ", NeedsCloning: " << isCloningRequired() << ", LiveInMap:";
-    assert(getNumOperands() == OpLiveInMap.size() &&
-           "Inconsistent live-ins data!");
-    for (unsigned I = 0; I < getNumOperands(); ++I) {
-      O << "\n       {";
-      OpLiveInMap[I]->get()->printAsOperand(O);
-      O << " in {" << *OpLiveInMap[I]->getUser() << "} -> ";
-      getOperand(I)->printAsOperand(O);
-      O << " }";
-      }
-  }
+  virtual void printImpl(raw_ostream &O) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-protected:
-  VPInstruction *cloneImpl() const override {
-    llvm_unreachable("not expected to clone");
-    return nullptr;
-  }
-};
-
-// Class to represent scalar HIR peel and remainder loop instructions in VPlan.
-class VPPeelRemainderHIR : public VPInstruction {
-  // The original loop.
-  loopopt::HLLoop *HLp;
-
-  // Map to track temps that need to be initialized.
-  SmallVector<loopopt::DDRef *, 4> TempInitMap;
-
-  // Flag to indicate whether the scalar loop has to be cloned. (Because we need
-  // two copies of it and this is the second one.)
-  bool NeedsCloning = false;
-
-  // Temp that defines the lower bound of the scalar loop. Will be nullptr for
-  // peel loop.
-  loopopt::DDRef *LowerBoundTmp = nullptr;
-
-  // Temp that defines the upper bound of the scalar loop. Will be nullptr for
-  // remainder loop. It can be set indirectly only via the setUpperBound
-  // interface.
-  loopopt::DDRef *UpperBoundTmp = nullptr;
 
 protected:
-  using VPInstruction::addOperand;
-  using VPInstruction::removeAllOperands;
-  using VPInstruction::removeOperand;
-  using VPInstruction::setOperand;
-
   VPInstruction *cloneImpl() const override {
     assert(false && "not expected to clone");
     return nullptr;
   }
+};
+
+template <unsigned PeelRemOpcode>
+using VPPeelRemainderIRTy = VPPeelRemainderImpl<Loop, Use, PeelRemOpcode>;
+
+// Class to represent scalar IR peel and remainder loop instructions in VPlan.
+template <unsigned PeelRemOpcode>
+class VPPeelRemainder : public VPPeelRemainderIRTy<PeelRemOpcode> {
+  using Base = VPPeelRemainderIRTy<PeelRemOpcode>;
+
+protected:
+  bool isValidLiveIn(const VPValue *VPVal,
+                     const Use *OrigLoopUse) const override {
+    return VPVal->getType()->isLabelTy() ||
+           (isa<PHINode>(OrigLoopUse->getUser()) &&
+            cast<PHINode>(OrigLoopUse->getUser())->getParent() ==
+                Base::getLoop()->getHeader());
+  }
 
 public:
-  VPPeelRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone = false)
-      : VPInstruction(VPInstruction::ScalarPeelRemainderHIR,
-                      Type::getTokenTy(HLp->getHLNodeUtils().getContext()), {}),
-        HLp(HLp), NeedsCloning(ShouldClone) {}
+  VPPeelRemainder(Loop *Lp, bool ShouldClone = false) : Base(Lp, ShouldClone) {}
 
-  // Get the original loop.
-  loopopt::HLLoop *getLoop() const { return HLp; }
-
-  // Return true if cloning is required.
-  bool isCloningRequired() const { return NeedsCloning; }
-
-  void setCloningRequired() { NeedsCloning = true; }
-
-  // Add \p VPVal to the instruction operands list and the \p Temp to the
-  // TempInitMap.
-  void addTemp(VPValue *VPVal, loopopt::DDRef *Temp) {
-    addOperand(VPVal);
-    TempInitMap.push_back(Temp);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void printImpl(raw_ostream &O) const override {
+    O << " " << Base::getLoop()->getName()
+      << ", NeedsCloning: " << Base::isCloningRequired() << ", LiveInMap:";
+    assert(Base::getNumOperands() == Base::getNumLiveIns() &&
+           "Inconsistent live-ins data!");
+    for (unsigned I = 0; I < Base::getNumOperands(); ++I) {
+      O << "\n       {";
+      Base::getLiveIn(I)->get()->printAsOperand(O);
+      O << " in {" << *Base::getLiveIn(I)->getUser() << "} -> ";
+      Base::getOperand(I)->printAsOperand(O);
+      O << " }";
+    }
   }
-
-  // Get the temp corresponding to the \p Idx.
-  loopopt::DDRef *getTemp(unsigned Idx) const {
-    assert(Idx <= TempInitMap.size() - 1 &&
-           "Invalid entry in the temp-init map requested.");
-    return TempInitMap[Idx];
-  }
-
-  // Set the temp corresponding to the \p Idx.
-  void setClonedTemp(unsigned Idx, loopopt::DDRef *T) {
-    assert(Idx <= TempInitMap.size() - 1 &&
-           "Invalid entry in the temp-init map requested.");
-    TempInitMap[Idx] = T;
-  }
-
-  // Set lower bound temp for the loop.
-  void setLowerBoundTemp(loopopt::DDRef *Tmp) {
-    assert(!UpperBoundTmp && "Setting lower bound for peel loop?");
-    LowerBoundTmp = Tmp;
-  }
-
-  loopopt::DDRef *getLowerBoundTemp() const { return LowerBoundTmp; }
-
-  // Set upper bound for the loop. It creates a new temp and adds it to
-  // temp-initialization map.
-  void setUpperBound(VPValue *UB) {
-    assert(!LowerBoundTmp && "Setting upper bound for remainder loop?");
-    loopopt::RegDDRef *UBTmp =
-        HLp->getHLNodeUtils().createTemp(HLp->getIVType(), "ub.tmp");
-    addTemp(UB, UBTmp);
-    UpperBoundTmp = UBTmp;
-  }
-
-  // Helper to get the operand that defines the upper bound of this scalar loop.
-  // Obtained indirectly by looking up index of UpperBoundTmp in TempInitMap.
-  VPValue *getUpperBound() const {
-    if (!UpperBoundTmp)
-      return nullptr;
-
-    auto UBIter = llvm::find(TempInitMap, UpperBoundTmp);
-    assert(UBIter != TempInitMap.end() &&
-           "Upper bound temp not found in TempInitMap.");
-    unsigned UBIdx = std::distance(TempInitMap.begin(), UBIter);
-    return getOperand(UBIdx);
-  }
-
-  loopopt::DDRef *getUpperBoundTemp() const { return UpperBoundTmp; }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::ScalarPeelRemainderHIR;
+    return V->getOpcode() == PeelRemOpcode;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
+};
+
+template <unsigned PeelRemOpcode>
+using VPPeelRemainderHIRTy =
+    VPPeelRemainderImpl<loopopt::HLLoop, loopopt::DDRef, PeelRemOpcode>;
+
+// Class to represent scalar HIR peel and remainder loop instructions in VPlan.
+template <unsigned PeelRemOpcode>
+class VPPeelRemainderHIR : public VPPeelRemainderHIRTy<PeelRemOpcode> {
+  using Base = VPPeelRemainderHIRTy<PeelRemOpcode>;
+
+protected:
+  bool isValidLiveIn(const VPValue *VPVal,
+                     const loopopt::DDRef *OrigLoopUse) const override {
+    // We allow temps that are live-in to loop or represent unattached refs like
+    // %lb.tmp or %ub.tmp.
+    return Base::getLoop()->isLiveIn(OrigLoopUse->getSymbase()) ||
+           OrigLoopUse->getHLDDNode() == nullptr;
+  }
+
+public:
+  VPPeelRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone = false)
+      : Base(HLp, ShouldClone) {}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void printImpl(raw_ostream &O) const {
+  virtual void printImpl(raw_ostream &O) const override {
     formatted_raw_ostream FO(O);
     // TODO: How to find unique ID for HLLoop?
     FO << " "
        << "<HLLoop>"
-       << ", NeedsCloning: " << isCloningRequired() << ", LBTemp: ";
-    if (auto *LB = getLowerBoundTemp())
-      LB->print(FO);
-    else
-      FO << "none";
-    FO << ", UBTemp: ";
-    if (auto *UB = getUpperBoundTemp())
-      UB->print(FO);
-    else
-      FO << "none";
+       << ", NeedsCloning: " << Base::isCloningRequired();
     FO << ", TempInitMap:";
-    assert(getNumOperands() == TempInitMap.size() &&
+    assert(Base::getNumOperands() == Base::getNumLiveIns() &&
            "Inconsistent temp init data!");
-    for (unsigned I = 0; I < getNumOperands(); ++I) {
+    for (unsigned I = 0; I < Base::getNumOperands(); ++I) {
       FO << "\n       { Initialize temp ";
-      TempInitMap[I]->print(FO);
+      Base::getLiveIn(I)->print(FO);
       FO << " with -> ";
-      getOperand(I)->printAsOperand(FO);
+      Base::getOperand(I)->printAsOperand(FO);
       FO << " }";
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == PeelRemOpcode;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
 };
 
 /// Class for representing the 'scalar-peel' instruction.
 /// This class holds all the information needed for representing the code
 /// required for peel-loop generation.
-class VPScalarPeel final : public VPPeelRemainder {
+class VPScalarPeel final : public VPPeelRemainder<VPInstruction::ScalarPeel> {
 
   // Variable that keeps track of index of the TargetLabel.
   int IndexOfTargetLabel = -1;
@@ -3045,8 +3001,7 @@ class VPScalarPeel final : public VPPeelRemainder {
   int IndexOfUpperBound = -1;
 
 public:
-  VPScalarPeel(Loop *Lp, bool ShouldClone)
-      : VPPeelRemainder(VPInstruction::ScalarPeel, Lp, ShouldClone) {}
+  VPScalarPeel(Loop *Lp, bool ShouldClone) : VPPeelRemainder(Lp, ShouldClone) {}
 
   bool isValidLiveIn(const VPValue *VPVal,
                      const Use *OrigLoopUse) const override {
@@ -3109,16 +3064,60 @@ private:
   Use *findUpperBoundUseInLatch() const;
 };
 
+/// Class for representing the 'scalar-peel' instruction for HIR input.
+class VPScalarPeelHIR final
+    : public VPPeelRemainderHIR<VPInstruction::ScalarPeelHIR> {
+  // Variable that is used to track index of UpperBound in LiveInMap.
+  int IndexOfUB = -1;
+
+public:
+  VPScalarPeelHIR(loopopt::HLLoop *HLp, bool ShouldClone)
+      : VPPeelRemainderHIR(HLp, ShouldClone) {}
+
+  // Set upper bound for the loop. It creates a new temp and adds it to
+  // live-in map.
+  void setUpperBound(VPValue *UB) {
+    assert(IndexOfUB == -1 && "Upper bound of peel loop already set");
+    IndexOfUB = getNumOperands();
+    loopopt::RegDDRef *UBTmp = getLoop()->getHLNodeUtils().createTemp(
+        getLoop()->getIVType(), "ub.tmp");
+    addLiveIn(UB, UBTmp);
+  }
+
+  // Helper to get the operand that defines the upper bound of this scalar peel
+  // loop.
+  VPValue *getUpperBound() const {
+    assert(IndexOfUB >= 0 && "Upper bound of peel loop has not been set.");
+    return getOperand(IndexOfUB);
+  }
+
+  loopopt::DDRef *getUpperBoundTemp() const {
+    assert(IndexOfUB >= 0 && "Upper bound of peel loop has not been set.");
+    return getLiveIn(IndexOfUB);
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarPeelHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
 /// Class representing the 'scalar-remainder' instruction.
 /// This class holds all the information needed for representing the code
 /// required for remainder-loop generation.
-class VPScalarRemainder final : public VPPeelRemainder {
+class VPScalarRemainder final
+    : public VPPeelRemainder<VPInstruction::ScalarRemainder> {
 
 public:
   // TODO: Consider storing the loop as header/latch pair with an assert on some
   // canonical form because \p Lp might become stale during CG stage.
   VPScalarRemainder(Loop *Lp, bool ShouldClone)
-      : VPPeelRemainder(VPInstruction::ScalarRemainder, Lp, ShouldClone) {}
+      : VPPeelRemainder(Lp, ShouldClone) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
@@ -3138,6 +3137,43 @@ public:
 
   /// Get the original use at index \p Idx.
   Use *getOrigUse(unsigned Idx) const { return getLiveIn(Idx); }
+};
+
+class VPScalarRemainderHIR final
+    : public VPPeelRemainderHIR<VPInstruction::ScalarRemainderHIR> {
+  // Variable used to track index of lower bound in LiveInMap.
+  int IndexOfLB = -1;
+
+public:
+  VPScalarRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone)
+      : VPPeelRemainderHIR(HLp, ShouldClone) {}
+
+  // Add live-in variable VPVal and corresponding temp.
+  void addLiveIn(VPValue *VPVal, loopopt::DDRef *Temp) {
+    VPPeelRemainderHIR::addLiveIn(VPVal, Temp);
+  }
+
+  // Set lower bound temp for the loop.
+  void setLowerBoundTemp(VPValue *LB, loopopt::DDRef *Tmp) {
+    assert(IndexOfLB == -1 && "Lower bound for remainder loop is already set");
+    IndexOfLB = getNumOperands();
+    addLiveIn(LB, Tmp);
+  }
+
+  loopopt::DDRef *getLowerBoundTemp() const {
+    assert(IndexOfLB >= 0 && "Lower bound for remainder loop is not set.");
+    return getLiveIn(IndexOfLB);
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarRemainderHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
 };
 
 /// Class for representing the vp-scev-wrapper instruction.
@@ -3264,7 +3300,7 @@ private:
 
   // Peel loop specific utility for HIR path where we update orig-live-out-hir
   // created for main loop IV when upper bound of peel loop is set.
-  void updateHIROrigLiveOut();
+  void updateUBInHIROrigLiveOut();
 };
 
 // VPInstruction to allocate private memory. This is translated into
@@ -3434,7 +3470,7 @@ using VPPrivateFinalCond = VPPrivateFinalC<VPInstruction::PrivateFinalCond>;
 using VPPrivateFinalCondMem = VPPrivateFinalC<VPInstruction::PrivateFinalCondMem>;
 
 /// VPOrigLiveOut represents the outgoing value from the scalar
-/// loop described by VPScalarRemainder/VPPeelRemainderHIR, which is its
+/// loop described by VPPeelRemainder/VPPeelRemainderHIR, which is its
 /// operand. It links an outgoing scalar value from the loop with VPlan.
 /// Example.
 ///
@@ -3503,10 +3539,16 @@ protected:
 };
 
 // Specialized types for IR and HIR versions.
-using VPOrigLiveOut =
-    VPOrigLiveOutImpl<VPPeelRemainder, Value, VPInstruction::OrigLiveOut>;
-using VPOrigLiveOutHIR = VPOrigLiveOutImpl<VPPeelRemainderHIR, loopopt::DDRef,
-                                           VPInstruction::OrigLiveOutHIR>;
+using VPPeelOrigLiveOut =
+    VPOrigLiveOutImpl<VPScalarPeel, Value, VPInstruction::PeelOrigLiveOut>;
+using VPRemainderOrigLiveOut =
+    VPOrigLiveOutImpl<VPScalarRemainder, Value, VPInstruction::RemOrigLiveOut>;
+using VPPeelOrigLiveOutHIR =
+    VPOrigLiveOutImpl<VPScalarPeelHIR, loopopt::DDRef,
+                      VPInstruction::PeelOrigLiveOutHIR>;
+using VPRemainderOrigLiveOutHIR =
+    VPOrigLiveOutImpl<VPScalarRemainderHIR, loopopt::DDRef,
+                      VPInstruction::RemOrigLiveOutHIR>;
 
 /// Instruction representing a wide VLS-optimized (Vector Load/Stores) load. It
 /// takes place of several adjacent loads and substitutes several
