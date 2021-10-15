@@ -123,7 +123,11 @@
 ; CHECK-O23SZ-NEXT: Running analysis: InlineAdvisorAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
+=======
+; CHECK-O23SZ-NEXT: Invalidating analysis: InlineAdvisorAnalysis
+>>>>>>> ea4a6c84267fe51c6a0debddf437df37b62ed2d1
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
 ; CHECK-O23SZ: Running pass: PartialInlinerPass
 ; CHECK-O23SZ: Running pass: GlobalDCEPass
