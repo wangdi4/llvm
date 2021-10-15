@@ -151,6 +151,15 @@ config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
+if config.cuda_be == "ON":
+    config.available_features.add('cuda_be')
+
+if config.hip_be == "ON":
+    config.available_features.add('hip_be')
+
+if config.esimd_emulator_be == "ON":
+    config.available_features.add('esimd_emulator_be')
+
 if triple == 'nvptx64-nvidia-cuda':
     config.available_features.add('cuda')
 

@@ -27,6 +27,10 @@ config.extra_environment = lit_config.params.get("extra_environment", "@LIT_EXTR
 # INTEL_CUSTOMIZATION
 config.extra_include = "@CMAKE_CURRENT_SOURCE_DIR@/include"
 # end INTEL_CUSTOMIZATION
+config.cuda_be = '@SYCL_BUILD_PI_CUDA@'
+config.esimd_emulator_be = '@SYCL_BUILD_PI_ESIMD_EMULATOR@'
+config.hip_be = '@SYCL_BUILD_PI_HIP@'
+>>>>>>> 2b0ebab376dc6b3f0d576c62be947d816d2f31a5
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
