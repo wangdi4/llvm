@@ -165,8 +165,9 @@ public:
   //  TODO: This function will most likely not work for multi-exit loops. The
   //  full support for cloning such loops would have to be tested before this
   //  function is used for cloning such loops.
+  template <class VPPeelRemainderTy>
   Loop *cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
-                        BasicBlock *NewLoopSucc, VPPeelRemainder *LoopInst,
+                        BasicBlock *NewLoopSucc, VPPeelRemainderTy *LoopInst,
                         const Twine &Name = "cloned.loop");
 
 private:
@@ -350,7 +351,8 @@ private:
   Value *codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW);
 
   /// Vectorize VPInstruction that corresponds to scalar peel/remainder.
-  void vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse);
+  template <class VPPeelRemainderTy>
+  void vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse);
 
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using

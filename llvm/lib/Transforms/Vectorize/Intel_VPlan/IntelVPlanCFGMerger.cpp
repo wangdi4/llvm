@@ -340,7 +340,7 @@ VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
     const ScalarInOutDescr *ScalarDescr = ScalarInOuts.getDescr(Id);
     assert(ScalarDescr && "InOutDescr not found");
     // Old CFGMerger is used only by LLVM-IR path.
-    auto LO = Builder.create<VPOrigLiveOut>(
+    auto LO = Builder.create<VPRemainderOrigLiveOut>(
         "orig.liveout", ScalarDescr->getValueType(), Remainder,
         ScalarDescr->getLiveOut(), Id);
     Plan.getVPlanDA()->markUniform(*LO);
@@ -473,9 +473,9 @@ class ScalarPeelOrRemainderVPlanFab
   virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
                                        ScalarInOutDescr *Descr,
                                        VPInstructionType *I) override {
-    return Builder.create<VPOrigLiveOut>("orig.liveout", Descr->getValueType(),
-                                         I, Descr->getLiveOut(),
-                                         Descr->getId());
+    return Builder.create<VPPeelOrigLiveOut>(
+        "orig.liveout", Descr->getValueType(), I, Descr->getLiveOut(),
+        Descr->getId());
   }
 
 public:
@@ -488,9 +488,9 @@ public:
 template <bool>
 class ScalarPeelOrRemainderVPlanFabHIR
     : public ScalarPeelOrRemainderVPlanFabBase<VPlanScalarPeel,
-                                               VPPeelRemainderHIR> {
+                                               VPScalarPeelHIR> {
   using VPlanType = VPlanScalarPeel;
-  using VPInstructionType = VPPeelRemainderHIR;
+  using VPInstructionType = VPScalarPeelHIR;
 
   virtual const char *getFirstBlockName() override { return "PeelBlk"; }
   virtual void setPlanName(VPlan &MainPlan) override {
@@ -500,9 +500,9 @@ class ScalarPeelOrRemainderVPlanFabHIR
   virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
                                        ScalarInOutDescrHIR *Descr,
                                        VPInstructionType *I) override {
-    return Builder.create<VPOrigLiveOutHIR>("orig.liveout",
-                                            Descr->getValueType(), I,
-                                            Descr->getHIRRef(), Descr->getId());
+    return Builder.create<VPPeelOrigLiveOutHIR>(
+        "orig.liveout", Descr->getValueType(), I, Descr->getHIRRef(),
+        Descr->getId());
   }
 
 public:
@@ -539,9 +539,9 @@ class ScalarPeelOrRemainderVPlanFab<false>
   virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
                                        ScalarInOutDescr *Descr,
                                        VPInstructionType *I) override {
-    return Builder.create<VPOrigLiveOut>("orig.liveout", Descr->getValueType(),
-                                         I, Descr->getLiveOut(),
-                                         Descr->getId());
+    return Builder.create<VPRemainderOrigLiveOut>(
+        "orig.liveout", Descr->getValueType(), I, Descr->getLiveOut(),
+        Descr->getId());
   }
 
 public:
@@ -554,9 +554,9 @@ public:
 template <>
 class ScalarPeelOrRemainderVPlanFabHIR<false>
     : public ScalarPeelOrRemainderVPlanFabBase<VPlanScalarRemainder,
-                                               VPPeelRemainderHIR> {
+                                               VPScalarRemainderHIR> {
   using VPlanType = VPlanScalarRemainder;
-  using VPInstructionType = VPPeelRemainderHIR;
+  using VPInstructionType = VPScalarRemainderHIR;
 
   virtual const char *getFirstBlockName() override { return "RemBlk"; }
   virtual void setPlanName(VPlan &MainPlan) override {
@@ -583,21 +583,20 @@ class ScalarPeelOrRemainderVPlanFabHIR<false>
     if (Descr->isMainLoopIV()) {
       loopopt::RegDDRef *LBTmp =
           OrigLp->getHLNodeUtils().createTemp(OrigLp->getIVType(), "lb.tmp");
-      I->addTemp(LiveIn, LBTmp);
-      I->setLowerBoundTemp(LBTmp);
+      I->setLowerBoundTemp(LiveIn, LBTmp);
       return;
     }
 
     // For other descriptors we simply update temp-init map.
-    I->addTemp(LiveIn, const_cast<loopopt::DDRef *>(HIRRef));
+    I->addLiveIn(LiveIn, const_cast<loopopt::DDRef *>(HIRRef));
   }
 
   virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
                                        ScalarInOutDescrHIR *Descr,
                                        VPInstructionType *I) override {
-    return Builder.create<VPOrigLiveOutHIR>("orig.liveout",
-                                            Descr->getValueType(), I,
-                                            Descr->getHIRRef(), Descr->getId());
+    return Builder.create<VPRemainderOrigLiveOutHIR>(
+        "orig.liveout", Descr->getValueType(), I, Descr->getHIRRef(),
+        Descr->getId());
   }
 
 public:
@@ -614,9 +613,12 @@ void VPlanCFGMerger::updateMergeBlockByScalarLiveOuts(VPBasicBlock *BB,
     MergePhis[PN.getMergeId()] = &PN;
 
   // TODO: Old CFGMerger is used only by LLVM-IR path.
-  for (auto &I : *InBlock)
-    if (auto *OrigLI = dyn_cast<VPOrigLiveOut>(&I))
+  for (auto &I : *InBlock) {
+    if (auto *OrigLI = dyn_cast<VPPeelOrigLiveOut>(&I))
       MergePhis[OrigLI->getMergeId()]->addIncoming(OrigLI, InBlock);
+    if (auto *OrigLI = dyn_cast<VPRemainderOrigLiveOut>(&I))
+      MergePhis[OrigLI->getMergeId()]->addIncoming(OrigLI, InBlock);
+  }
 }
 
 void VPlanCFGMerger::updateExternalUsesOperands(VPBasicBlock *FinalBB) {

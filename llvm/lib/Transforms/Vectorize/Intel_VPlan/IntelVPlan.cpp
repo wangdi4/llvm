@@ -339,9 +339,11 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "active-lane";
   case VPInstruction::ActiveLaneExtract:
     return "lane-extract";
-  case VPInstruction::OrigLiveOut:
+  case VPInstruction::PeelOrigLiveOut:
+  case VPInstruction::RemOrigLiveOut:
     return "orig-live-out";
-  case VPInstruction::OrigLiveOutHIR:
+  case VPInstruction::PeelOrigLiveOutHIR:
+  case VPInstruction::RemOrigLiveOutHIR:
     return "orig-live-out-hir";
   case VPInstruction::PushVF:
     return "pushvf";
@@ -349,10 +351,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "popvf";
   case VPInstruction::ScalarPeel:
     return "scalar-peel";
+  case VPInstruction::ScalarPeelHIR:
+    return "scalar-peel-hir";
   case VPInstruction::ScalarRemainder:
     return "scalar-remainder";
-  case VPInstruction::ScalarPeelRemainderHIR:
-    return "scalar-hir-loop";
+  case VPInstruction::ScalarRemainderHIR:
+    return "scalar-remainder-hir";
   case VPInstruction::PlanAdapter:
     return "vplan-adapter";
   case VPInstruction::PlanPeelAdapter:
@@ -552,17 +556,22 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     O << getOpcodeName(getOpcode());
   }
 
-  if (auto *ScalarPeel = dyn_cast<VPScalarPeel>(this)) {
-    ScalarPeel->printImpl(O);
+  if (auto *ScalarLp = dyn_cast<VPScalarPeel>(this)) {
+    ScalarLp->printImpl(O);
     return;
   }
 
-  if (auto *ScalarRemainder = dyn_cast<VPScalarRemainder>(this)) {
-    ScalarRemainder->printImpl(O);
+  if (auto *ScalarLp = dyn_cast<VPScalarRemainder>(this)) {
+    ScalarLp->printImpl(O);
     return;
   }
 
-  if (auto *ScalarLpHIR = dyn_cast<VPPeelRemainderHIR>(this)) {
+  if (auto *ScalarLpHIR = dyn_cast<VPScalarPeelHIR>(this)) {
+    ScalarLpHIR->printImpl(O);
+    return;
+  }
+
+  if (auto *ScalarLpHIR = dyn_cast<VPScalarRemainderHIR>(this)) {
     ScalarLpHIR->printImpl(O);
     return;
   }
@@ -572,12 +581,22 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     return;
   }
 
-  if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
+  if (auto *LiveOut = dyn_cast<VPPeelOrigLiveOut>(this)) {
     LiveOut->printImpl(O);
     return;
   }
 
-  if (auto *LiveOut = dyn_cast<VPOrigLiveOutHIR>(this)) {
+  if (auto *LiveOut = dyn_cast<VPRemainderOrigLiveOut>(this)) {
+    LiveOut->printImpl(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPPeelOrigLiveOutHIR>(this)) {
+    LiveOut->printImpl(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPRemainderOrigLiveOutHIR>(this)) {
     LiveOut->printImpl(O);
     return;
   }
@@ -998,16 +1017,12 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
       Plan(P) {}
 
 VPValue *VPlanPeelAdapter::getPeelLoop() const {
-  for (auto &BB : Plan) {
-    for (auto &I : BB) {
-      if (auto *PeelLoop = dyn_cast<VPScalarPeel>(&I))
-        return PeelLoop;
-      if (auto *PeelHLoop = dyn_cast<VPPeelRemainderHIR>(&I)) {
-        if (!PeelHLoop->getLowerBoundTemp())
-          return PeelHLoop;
-      }
-    }
-  }
+  auto It = llvm::find_if(vpinstructions(&Plan), [](const VPInstruction &I) {
+    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I);
+  });
+
+  if (It != vpinstructions(&Plan).end())
+    return &*It;
   llvm_unreachable("can't find scalar peel");
 }
 
@@ -1015,29 +1030,28 @@ VPValue *VPlanPeelAdapter::getPeelLoop() const {
 // Transform looks like -
 // Before:
 //  PeelBlk:
-//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   token %hir-loop = scalar-peel-hir NeedsCloning: 1, TempInitMap:
+//     { Initialize temp %ub with %vp.peel.ub }
 //   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %N + -1
 //   br PostPeel
 // After:
 //  PeelBlk:
-//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   token %hir-loop = scalar-peel-hir NeedsCloning: 1, TempInitMap:
+//     { Initialize temp %ub with %vp.peel.ub }
 //   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %ub
 //   br PostPeel
-void VPlanPeelAdapter::updateHIROrigLiveOut() {
-  auto *PeelHLp = cast<VPPeelRemainderHIR>(getPeelLoop());
+void VPlanPeelAdapter::updateUBInHIROrigLiveOut() {
+  auto *PeelHLp = cast<VPScalarPeelHIR>(getPeelLoop());
   loopopt::DDRef *OrigUB = PeelHLp->getLoop()->getUpperDDRef();
   loopopt::DDRef *NewUB = PeelHLp->getUpperBoundTemp();
 
-  // Iterate over instruction in the scalar VPlan and update all
-  // VPOrigLiveOutHIR that use OrigUB.
-  for (auto &BB : Plan) {
-    for (auto &I : BB) {
-      if (auto *HIRLiveOut = dyn_cast<VPOrigLiveOutHIR>(&I)) {
-        // TODO: Use HIR's equal interfaces instead?
-        if (HIRLiveOut->getLiveOutVal() == OrigUB)
-          HIRLiveOut->setClonedLiveOutVal(NewUB);
-      }
-    }
+  // Iterate over users of scalar peel loop and update all VPOrigLiveOutHIR that
+  // use OrigUB.
+  for (auto *U : PeelHLp->users()) {
+    auto *HIRLiveOut = cast<VPPeelOrigLiveOutHIR>(U);
+    // TODO: Use HIR's equal interfaces instead?
+    if (HIRLiveOut->getLiveOutVal() == OrigUB)
+      HIRLiveOut->setClonedLiveOutVal(NewUB);
   }
 }
 
@@ -1045,7 +1059,7 @@ const VPValue *VPlanPeelAdapter::getUpperBound() const {
   VPValue *PeelLp = getPeelLoop();
   if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
     return IRPeel->getUpperBound();
-  return cast<VPPeelRemainderHIR>(PeelLp)->getUpperBound();
+  return cast<VPScalarPeelHIR>(PeelLp)->getUpperBound();
 }
 
 void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
@@ -1054,8 +1068,8 @@ void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
     if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
       IRPeel->setUpperBound(TC);
     else {
-      cast<VPPeelRemainderHIR>(PeelLp)->setUpperBound(TC);
-      updateHIROrigLiveOut();
+      cast<VPScalarPeelHIR>(PeelLp)->setUpperBound(TC);
+      updateUBInHIROrigLiveOut();
     }
     return;
   }
@@ -1274,13 +1288,25 @@ void VPlanScalar::setNeedCloneOrigLoop(bool V) {
     return;
   for (VPBasicBlock &B : *this) {
     auto LoopI = llvm::find_if(B, [](const VPInstruction &I) {
-      return isa<VPPeelRemainder>(I) || isa<VPPeelRemainderHIR>(I);
+      switch (I.getOpcode()) {
+      case VPInstruction::ScalarPeel:
+      case VPInstruction::ScalarRemainder:
+      case VPInstruction::ScalarPeelHIR:
+      case VPInstruction::ScalarRemainderHIR:
+        return true;
+      default:
+        return false;
+      }
     });
     if (LoopI != B.end()) {
-      if (auto *IRPeelRem = dyn_cast<VPPeelRemainder>(&*LoopI))
-        IRPeelRem->setCloningRequired();
+      if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
+        IRPeel->setCloningRequired();
+      else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
+        IRRem->setCloningRequired();
+      else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
+        HIRPeel->setCloningRequired();
       else
-        cast<VPPeelRemainderHIR>(*LoopI).setCloningRequired();
+        cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
       return;
     }
   }
