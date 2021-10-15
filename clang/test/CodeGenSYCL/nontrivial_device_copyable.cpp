@@ -27,10 +27,5 @@ int main() {
   });
 }
 
-<<<<<<< HEAD
-// CHECK: define {{.*}}spir_kernel void @{{.*}}kernel_name(%struct.{{.*}}NontriviallyCopyable* byval(%struct.{{.*}}NontriviallyCopyable)
-// CHECK-NOT: define {{.*}}spir_func void @{{.*}}device_func{{.*}}({{.*}}byval(%struct.{{.*}}NontriviallyCopyable)
-=======
 // CHECK: define {{.*}}spir_kernel void @{{.*}}kernel_name(%struct.NontriviallyCopyable* byval(%struct.NontriviallyCopyable)
 // CHECK-NOT: define {{.*}}spir_func void @{{.*}}device_func{{.*}}({{.*}}byval(%struct.NontriviallyCopyable)
->>>>>>> 2c58fd46c88a5aef0eed1665cddf65590a5207de
