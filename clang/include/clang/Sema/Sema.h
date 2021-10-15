@@ -3745,7 +3745,7 @@ public:
   EnforceTCBAttr *mergeEnforceTCBAttr(Decl *D, const EnforceTCBAttr &AL);
   EnforceTCBLeafAttr *mergeEnforceTCBLeafAttr(Decl *D,
                                               const EnforceTCBLeafAttr &AL);
-  BTFTagAttr *mergeBTFTagAttr(Decl *D, const BTFTagAttr &AL);
+  BTFDeclTagAttr *mergeBTFDeclTagAttr(Decl *D, const BTFDeclTagAttr &AL);
 
 #if INTEL_CUSTOMIZATION
   void AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI, Expr *P1,
