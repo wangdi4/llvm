@@ -92,8 +92,9 @@ define i32 @add_poison1() {
 
 define i32 @add_constexpr() {
 ; CHECK-LABEL: @add_constexpr(
-; CHECK-NEXT:    [[X:%.*]] = call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> bitcast (<4 x i64> <i64 0, i64 1, i64 2, i64 3> to <8 x i32>))
-; CHECK-NEXT:    ret i32 [[X]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT: ret i32 6
+; end INTEL_CUSTOMIZATION
 ;
   %x = call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> bitcast (<4 x i64> <i64 0, i64 1, i64 2, i64 3> to <8 x i32>))
   ret i32 %x
