@@ -11545,6 +11545,7 @@ public:
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
   /// \param TI The context traits associated with the function variant.
+<<<<<<< HEAD
   void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
 #if INTEL_COLLAB
       MutableArrayRef<Expr *> AdjustArgsNothing,
@@ -11553,6 +11554,12 @@ public:
       SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
 #endif // INTEL_COLLAB
                                           OMPTraitInfo &TI, SourceRange SR);
+=======
+  void ActOnOpenMPDeclareVariantDirective(
+      FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
+      ArrayRef<Expr *> AdjustArgsNothing,
+      ArrayRef<Expr *> AdjustArgsNeedDevicePtr, SourceRange SR);
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

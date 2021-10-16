@@ -11003,6 +11003,10 @@ def err_omp_depend_type_unsupported_taskwait : Error<
 #endif // INTEL_COLLAB
 def err_omp_instantiation_not_supported
     : Error<"instantiation of '%0' not supported yet">;
+def err_omp_adjust_arg_multiple_clauses : Error<
+  "'adjust_arg' argument %0 used in multiple clauses">;
+def err_omp_clause_requires_dispatch_construct : Error<
+  "'%0' clause requires 'dispatch' context selector">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {

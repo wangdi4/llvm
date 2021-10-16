@@ -240,7 +240,11 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     OS << ")";
   }
   OS << " match(" << traitInfos << ")";
+<<<<<<< HEAD
 #if INTEL_COLLAB
+=======
+
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   auto PrintExprs = [&OS, &Policy](Expr **Begin, Expr **End) {
     for (Expr **I = Begin; I != End; ++I) {
       assert(*I && "Expected non-null Stmt");
@@ -249,6 +253,7 @@ void OMPDeclareVariantAttr::printPrettyPragma(
       (*I)->printPretty(OS, nullptr, Policy);
     }
   };
+<<<<<<< HEAD
   auto PrintInteropTypes = [&OS](InteropType *Begin, InteropType *End) {
     for (InteropType *I = Begin; I != End; ++I) {
       if (I != Begin)
@@ -258,6 +263,8 @@ void OMPDeclareVariantAttr::printPrettyPragma(
       OS << ")";
     }
   };
+=======
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   if (adjustArgsNothing_size()) {
     OS << " adjust_args(nothing:";
     PrintExprs(adjustArgsNothing_begin(), adjustArgsNothing_end());
@@ -268,12 +275,15 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     PrintExprs(adjustArgsNeedDevicePtr_begin(), adjustArgsNeedDevicePtr_end());
     OS << ")";
   }
+<<<<<<< HEAD
   if (appendArgs_size()) {
     OS << " append_args(";
     PrintInteropTypes(appendArgs_begin(), appendArgs_end());
     OS << ")";
   }
 #endif // INTEL_COLLAB
+=======
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
 }
 
 #include "clang/AST/AttrImpl.inc"

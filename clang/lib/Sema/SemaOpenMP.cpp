@@ -7191,6 +7191,7 @@ void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
 
   OMPDeclareVariantScope &DVScope = OMPDeclareVariantScopes.back();
   auto *OMPDeclareVariantA = OMPDeclareVariantAttr::CreateImplicit(
+<<<<<<< HEAD
 #if INTEL_COLLAB
       Context, VariantFuncRef, DVScope.TI,
       /*NothingArgs=*/nullptr, /*NothingArgsSize=*/0,
@@ -7199,6 +7200,11 @@ void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
 #else // INTEL_COLLAB
       Context, VariantFuncRef, DVScope.TI);
 #endif // INTEL_COLLAB
+=======
+      Context, VariantFuncRef, DVScope.TI,
+      /*NothingArgs=*/nullptr, /*NothingArgsSize=*/0,
+      /*NeedDevicePtrArgs=*/nullptr, /*NeedDevicePtrArgsSize=*/0);
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   for (FunctionDecl *BaseFD : Bases)
     BaseFD->addAttr(OMPDeclareVariantA);
 }
@@ -7701,6 +7707,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   return std::make_pair(FD, cast<Expr>(DRE));
 }
 
+<<<<<<< HEAD
 void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
                                               Expr *VariantRef,
 #if INTEL_COLLAB
@@ -7712,6 +7719,13 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
                                               OMPTraitInfo &TI,
                                               SourceRange SR) {
 #if INTEL_COLLAB
+=======
+void Sema::ActOnOpenMPDeclareVariantDirective(
+    FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
+    ArrayRef<Expr *> AdjustArgsNothing,
+    ArrayRef<Expr *> AdjustArgsNeedDevicePtr, SourceRange SR) {
+
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   // OpenMP 5.1 [2.3.5, declare variant directive, Restrictions]
   // An adjust_args clause or append_args clause can only be specified if the
   // dispatch selector of the construct selector set appears in the match
@@ -7721,6 +7735,7 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
   llvm::append_range(AllAdjustArgs, AdjustArgsNothing);
   llvm::append_range(AllAdjustArgs, AdjustArgsNeedDevicePtr);
 
+<<<<<<< HEAD
   if (!AllAdjustArgs.empty() || !AppendArgs.empty()) {
     VariantMatchInfo VMI;
     bool Found = false;
@@ -7737,6 +7752,17 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
       if (!AppendArgs.empty())
         Diag(AppendArgsLoc, diag::err_omp_clause_requires_dispatch_construct)
             << getOpenMPClauseName(OMPC_append_args);
+=======
+  if (!AllAdjustArgs.empty()) {
+    VariantMatchInfo VMI;
+    TI.getAsVariantMatchInfo(Context, VMI);
+    if (!llvm::is_contained(
+            VMI.ConstructTraits,
+            llvm::omp::TraitProperty::construct_dispatch_dispatch)) {
+      Diag(AllAdjustArgs[0]->getExprLoc(),
+           diag::err_omp_clause_requires_dispatch_construct)
+          << getOpenMPClauseName(OMPC_adjust_args);
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
       return;
     }
   }
@@ -7765,12 +7791,17 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
       }
     }
     // Anything that is not a function parameter is an error.
+<<<<<<< HEAD
     Diag(E->getExprLoc(), diag::err_omp_param_or_this_in_clause)
         << FD->getDeclName() << 0;
+=======
+    Diag(E->getExprLoc(), diag::err_omp_param_or_this_in_clause) << FD << 0;
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
     return;
   }
 
   auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
+<<<<<<< HEAD
       Context, VariantRef, &TI, AdjustArgsNothing.data(),
       AdjustArgsNothing.size(), AdjustArgsNeedDevicePtr.data(),
       AdjustArgsNeedDevicePtr.size(), AppendArgs.data(), AppendArgs.size(), SR);
@@ -7778,6 +7809,12 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
   auto *NewAttr =
       OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, &TI, SR);
 #endif // INTEL_COLLAB
+=======
+      Context, VariantRef, &TI, const_cast<Expr **>(AdjustArgsNothing.data()),
+      AdjustArgsNothing.size(),
+      const_cast<Expr **>(AdjustArgsNeedDevicePtr.data()),
+      AdjustArgsNeedDevicePtr.size(), SR);
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   FD->addAttr(NewAttr);
 }
 

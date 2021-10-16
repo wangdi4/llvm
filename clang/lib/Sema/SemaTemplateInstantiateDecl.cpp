@@ -533,6 +533,7 @@ static void instantiateOMPDeclareVariantAttr(
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   SmallVector<Expr *, 8> NothingExprs;
   SmallVector<Expr *, 8> NeedDevicePtrExprs;
@@ -564,6 +565,24 @@ static void instantiateOMPDeclareVariantAttr(
 #else  // INTEL_COLLAB
   S.ActOnOpenMPDeclareVariantDirective(FD, E, TI, Attr.getRange());
 #endif // INTEL_COLLAB
+=======
+  SmallVector<Expr *, 8> NothingExprs;
+  SmallVector<Expr *, 8> NeedDevicePtrExprs;
+  for (Expr *E : Attr.adjustArgsNothing()) {
+    ExprResult ER = Subst(E);
+    if (ER.isInvalid())
+      continue;
+    NothingExprs.push_back(ER.get());
+  }
+  for (Expr *E : Attr.adjustArgsNeedDevicePtr()) {
+    ExprResult ER = Subst(E);
+    if (ER.isInvalid())
+      continue;
+    NeedDevicePtrExprs.push_back(ER.get());
+  }
+  S.ActOnOpenMPDeclareVariantDirective(FD, E, TI, NothingExprs,
+                                       NeedDevicePtrExprs, Attr.getRange());
+>>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
