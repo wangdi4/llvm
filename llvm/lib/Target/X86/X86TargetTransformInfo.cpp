@@ -5128,6 +5128,7 @@ InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
                                             Type *SrcVTy, bool VariableMask,
                                             Align Alignment,
                                             unsigned AddressSpace) {
+  Type *ScalarTy = SrcVTy->getScalarType();
   unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
   APInt DemandedElts = APInt::getAllOnes(VF);
   TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
@@ -5136,8 +5137,8 @@ InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
   if (VariableMask) {
     auto *MaskTy =
         FixedVectorType::get(Type::getInt1Ty(SrcVTy->getContext()), VF);
-    MaskUnpackCost =
-        getScalarizationOverhead(MaskTy, DemandedElts, false, true);
+    MaskUnpackCost = getScalarizationOverhead(
+        MaskTy, DemandedElts, /*Insert=*/false, /*Extract=*/true);
     InstructionCost ScalarCompareCost = getCmpSelInstrCost(
         Instruction::ICmp, Type::getInt1Ty(SrcVTy->getContext()), nullptr,
         CmpInst::BAD_ICMP_PREDICATE, CostKind);
@@ -5145,8 +5146,13 @@ InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
     MaskUnpackCost += VF * (BranchCost + ScalarCompareCost);
   }
 
+  InstructionCost AddressUnpackCost = getScalarizationOverhead(
+      FixedVectorType::get(ScalarTy->getPointerTo(), VF), DemandedElts,
+      /*Insert=*/false, /*Extract=*/true);
+
   // The cost of the scalar loads/stores.
   InstructionCost MemoryOpCost =
+<<<<<<< HEAD
       VF * getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
                            MaybeAlign(Alignment), AddressSpace, CostKind);
 
@@ -5170,6 +5176,19 @@ InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
         getVectorInstrCost(Instruction::ExtractElement, SrcVTy, i);
 
   return MemoryOpCost + MaskUnpackCost + InsertExtractCost;
+=======
+      VF * getMemoryOpCost(Opcode, ScalarTy, MaybeAlign(Alignment),
+                           AddressSpace, CostKind);
+
+  // The cost of forming the vector from loaded scalars/
+  // scalarizing the vector to perform scalar stores.
+  InstructionCost InsertExtractCost =
+      getScalarizationOverhead(cast<FixedVectorType>(SrcVTy), DemandedElts,
+                               /*Insert=*/Opcode == Instruction::Load,
+                               /*Extract=*/Opcode == Instruction::Store);
+
+  return AddressUnpackCost + MemoryOpCost + MaskUnpackCost + InsertExtractCost;
+>>>>>>> 18eef13dad225e5064e1b37cfb39c4bfea988249
 }
 
 static unsigned getLoadPermuteCost(Type *ArrayElemTy, uint64_t ArrayNum,
