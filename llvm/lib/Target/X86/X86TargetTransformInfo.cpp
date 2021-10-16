@@ -5152,31 +5152,6 @@ InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
 
   // The cost of the scalar loads/stores.
   InstructionCost MemoryOpCost =
-<<<<<<< HEAD
-      VF * getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
-                           MaybeAlign(Alignment), AddressSpace, CostKind);
-
-  InstructionCost InsertExtractCost = 0;
-#if INTEL_CUSTOMIZATION
-  // The cost to extract bases from the Ptr vector.
-  for (unsigned i = 0; i < VF; ++i)
-    InsertExtractCost +=
-        getVectorInstrCost(Instruction::ExtractElement, PtrTy, i);
-#endif // INTEL_CUSTOMIZATION
-
-  if (Opcode == Instruction::Load)
-    for (unsigned i = 0; i < VF; ++i)
-      // Add the cost of inserting each scalar load into the vector
-      InsertExtractCost +=
-        getVectorInstrCost(Instruction::InsertElement, SrcVTy, i);
-  else
-    for (unsigned i = 0; i < VF; ++i)
-      // Add the cost of extracting each element out of the data vector
-      InsertExtractCost +=
-        getVectorInstrCost(Instruction::ExtractElement, SrcVTy, i);
-
-  return MemoryOpCost + MaskUnpackCost + InsertExtractCost;
-=======
       VF * getMemoryOpCost(Opcode, ScalarTy, MaybeAlign(Alignment),
                            AddressSpace, CostKind);
 
@@ -5188,7 +5163,6 @@ InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
                                /*Extract=*/Opcode == Instruction::Store);
 
   return AddressUnpackCost + MemoryOpCost + MaskUnpackCost + InsertExtractCost;
->>>>>>> 18eef13dad225e5064e1b37cfb39c4bfea988249
 }
 
 static unsigned getLoadPermuteCost(Type *ArrayElemTy, uint64_t ArrayNum,
