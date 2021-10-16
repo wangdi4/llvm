@@ -1423,13 +1423,9 @@ def err_omp_declare_variant_wrong_clause : Error<
   "'omp declare variant' directive">;
 #else // INTEL_COLLAB
 def err_omp_declare_variant_wrong_clause : Error<
-<<<<<<< HEAD
-  "expected '%0' clause on 'omp declare variant' directive">;
-#endif // INTEL_COLLAB
-=======
   "expected %select{'match'|'match' or 'adjust_args'}0 clause on "
   "'omp declare variant' directive">;
->>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
+#endif // INTEL_COLLAB
 def err_omp_declare_variant_duplicate_nested_trait : Error<
   "nested OpenMP context selector contains duplicated trait '%0'"
   " in selector '%1' and set '%2' with different score">;

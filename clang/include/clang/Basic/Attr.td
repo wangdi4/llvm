@@ -4503,18 +4503,13 @@ def OMPDeclareVariant : InheritableAttr {
   let Args = [
     ExprArgument<"VariantFuncRef">,
     OMPTraitInfoArgument<"TraitInfos">,
-<<<<<<< HEAD
-// INTEL_COLLAB
     VariadicExprArgument<"AdjustArgsNothing">,
     VariadicExprArgument<"AdjustArgsNeedDevicePtr">,
+// INTEL_COLLAB
     VariadicEnumArgument<"AppendArgs", "InteropType",
                          ["target", "targetsync", "target,targetsync"],
                          ["Target", "TargetSync", "Target_TargetSync"]>
 // end INTEL_COLLAB
-=======
-    VariadicExprArgument<"AdjustArgsNothing">,
-    VariadicExprArgument<"AdjustArgsNeedDevicePtr">
->>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   ];
   let AdditionalMembers = [{
     OMPTraitInfo &getTraitInfo() { return *traitInfos; }

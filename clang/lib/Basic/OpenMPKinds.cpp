@@ -178,24 +178,18 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_REDUCTION_MODIFIER(Name) .Case(#Name, OMPC_REDUCTION_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_REDUCTION_unknown);
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   case OMPC_adjust_args:
     return llvm::StringSwitch<OpenMPAdjustArgsOpKind>(Str)
 #define OPENMP_ADJUST_ARGS_KIND(Name) .Case(#Name, OMPC_ADJUST_ARGS_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ADJUST_ARGS_unknown);
-<<<<<<< HEAD
+#if INTEL_COLLAB
   case OMPC_ompx_places:
     return llvm::StringSwitch<OpenMPOmpxPlacesClauseModifier>(Str)
 #define OPENMP_OMPX_PLACES_MODIFIER(Name) .Case(#Name, OMPC_OMPX_PLACES_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_OMPX_PLACES_unknown);
 #endif // INTEL_COLLAB
-=======
->>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   case OMPC_unknown:
 #if INTEL_COLLAB
   case OMPC_subdevice:
@@ -480,10 +474,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'reduction' clause modifier");
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   case OMPC_adjust_args:
     switch (Type) {
     case OMPC_ADJUST_ARGS_unknown:
@@ -494,7 +484,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'adjust_args' clause kind");
-<<<<<<< HEAD
+#if INTEL_COLLAB
   case OMPC_ompx_places:
     switch (Type) {
     case OMPC_OMPX_PLACES_unknown:
@@ -506,8 +496,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     }
     llvm_unreachable("Invalid OpenMP 'ompx_places' clause modifier");
 #endif // INTEL_COLLAB
-=======
->>>>>>> fb4c451001d06c600394382e2c6ad6872f78f646
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
