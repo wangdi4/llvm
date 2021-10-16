@@ -483,16 +483,14 @@ static void instantiateOMPDeclareVariantAttr(
     return;
 
   Expr *E = VariantFuncRef.get();
+
   // Check function/variant ref for `omp declare variant` but not for `omp
   // begin declare variant` (which use implicit attributes).
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
-      S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New),
+      S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New), E, TI,
 #if INTEL_COLLAB
-                                          VariantFuncRef.get(),
-                                          TI, Attr.appendArgs_size(),
-#else //INTEL_COLLAB
-                                          VariantFuncRef.get(), TI,
-#endif // INTEL_COLLAB
+                                          Attr.appendArgs_size(),
+#endif //INTEL_COLLAB
                                           Attr.getRange());
 
   if (!DeclVarData)
