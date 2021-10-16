@@ -5215,11 +5215,17 @@ static bool canCreateUndefOrPoison(const Operator *Op, bool PoisonOnly,
     if (const auto *ExactOp = dyn_cast<PossiblyExactOperator>(Op))
       if (ExactOp->isExact())
         return true;
-    if (const auto *FP = dyn_cast<FPMathOperator>(Op)) {
-      auto FMF = FP->getFastMathFlags();
-      if (FMF.noNaNs() || FMF.noInfs())
+    if (const auto *GEP = dyn_cast<GEPOperator>(Op))
+      if (GEP->isInBounds())
         return true;
-    }
+  }
+
+  // TODO: this should really be under the ConsiderFlags block, but currently
+  // these are not dropped by dropPoisonGeneratingFlags
+  if (const auto *FP = dyn_cast<FPMathOperator>(Op)) {
+    auto FMF = FP->getFastMathFlags();
+    if (FMF.noNaNs() || FMF.noInfs())
+      return true;
   }
 
   unsigned Opcode = Op->getOpcode();
@@ -5304,10 +5310,10 @@ static bool canCreateUndefOrPoison(const Operator *Op, bool PoisonOnly,
   case Instruction::ICmp:
   case Instruction::FCmp:
     return false;
-  case Instruction::GetElementPtr: {
-    const auto *GEP = cast<GEPOperator>(Op);
-    return GEP->isInBounds();
-  }
+  case Instruction::GetElementPtr:
+    // inbounds is handled above
+    // TODO: what about inrange on constexpr?
+    return false;
   default: {
     const auto *CE = dyn_cast<ConstantExpr>(Op);
     if (isa<CastInst>(Op) || (CE && CE->isCast()))
