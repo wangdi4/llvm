@@ -527,13 +527,21 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 
     m_err = m_dllTBBLib.Load(modulePath.c_str());
     if (m_err != 0) {
-        m_err = m_dllTBBLib.Load(tbbPath.c_str());
+      // Load TBB from full path defiend by TBB_DLL_PATH env variable.
+      const char *tbbLocation = getenv("TBB_DLL_PATH");
+      if (tbbLocation) {
+        std::string tbbFullPath =
+            std::string(tbbLocation) + "/" + tbbPath.c_str();
 
-        if (m_err != 0)
-        {
-            LOG_ERROR(TEXT("Failed to load TBB from system path or relative path %s"),
-                      modulePath.c_str());
+        m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
+
+        if (m_err != 0) {
+          LOG_ERROR(TEXT("Failed to load TBB from full path %s"),
+                    tbbFullPath.c_str());
         }
+      } else {
+        LOG_ERROR(TEXT("TBB full path is not configured."));
+      }
     }
 #endif
 
