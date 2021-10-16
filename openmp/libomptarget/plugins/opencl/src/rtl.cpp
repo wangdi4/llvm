@@ -1019,7 +1019,8 @@ public:
       size_t value = std::stoi(env);
       const size_t maxValue = 2048;
       if (value > maxValue) {
-        DP("Adjusted dynamic memory size to %zu MB\n", maxValue);
+        WARNING("Requested dynamic memory size %zu MB exceeds allowed limit -- "
+                "setting it to %zu MB\n", value, maxValue);
         value = maxValue;
       }
       KernelDynamicMemorySize = value << 20;
