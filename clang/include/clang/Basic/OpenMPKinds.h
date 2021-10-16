@@ -186,13 +186,6 @@ bool isAllowedInSPIRSubset(OpenMPDirectiveKind DKind);
 #endif //INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-/// OpenMP adjust-op kinds for 'adjust_args' clause.
-enum OpenMPAdjustArgsOpKind {
-#define OPENMP_ADJUST_ARGS_KIND(Name) OMPC_ADJUST_ARGS_##Name,
-#include "clang/Basic/OpenMPKinds.def"
-  OMPC_ADJUST_ARGS_unknown
-};
-
 /// OpenMP modifiers for 'allocate' clause.
 enum OpenMPAllocateClauseModifier {
 #define OPENMP_ALLOCATE_MODIFIER(Name) OMPC_ALLOCATE_##Name,
@@ -207,6 +200,13 @@ enum OpenMPOmpxPlacesClauseModifier {
   OMPC_OMPX_PLACES_unknown,
 };
 #endif // INTEL_COLLAB
+
+/// OpenMP adjust-op kinds for 'adjust_args' clause.
+enum OpenMPAdjustArgsOpKind {
+#define OPENMP_ADJUST_ARGS_KIND(Name) OMPC_ADJUST_ARGS_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_ADJUST_ARGS_unknown,
+};
 
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,
                                    const LangOptions &LangOpts);

@@ -178,12 +178,12 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_REDUCTION_MODIFIER(Name) .Case(#Name, OMPC_REDUCTION_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_REDUCTION_unknown);
-#if INTEL_COLLAB
   case OMPC_adjust_args:
     return llvm::StringSwitch<OpenMPAdjustArgsOpKind>(Str)
 #define OPENMP_ADJUST_ARGS_KIND(Name) .Case(#Name, OMPC_ADJUST_ARGS_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ADJUST_ARGS_unknown);
+#if INTEL_COLLAB
   case OMPC_ompx_places:
     return llvm::StringSwitch<OpenMPOmpxPlacesClauseModifier>(Str)
 #define OPENMP_OMPX_PLACES_MODIFIER(Name) .Case(#Name, OMPC_OMPX_PLACES_##Name)
@@ -474,7 +474,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'reduction' clause modifier");
-#if INTEL_COLLAB
   case OMPC_adjust_args:
     switch (Type) {
     case OMPC_ADJUST_ARGS_unknown:
@@ -485,6 +484,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'adjust_args' clause kind");
+#if INTEL_COLLAB
   case OMPC_ompx_places:
     switch (Type) {
     case OMPC_OMPX_PLACES_unknown:

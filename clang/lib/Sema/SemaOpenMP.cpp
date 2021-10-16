@@ -7191,14 +7191,15 @@ void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
 
   OMPDeclareVariantScope &DVScope = OMPDeclareVariantScopes.back();
   auto *OMPDeclareVariantA = OMPDeclareVariantAttr::CreateImplicit(
-#if INTEL_COLLAB
       Context, VariantFuncRef, DVScope.TI,
       /*NothingArgs=*/nullptr, /*NothingArgsSize=*/0,
+#if INTEL_COLLAB
       /*NeedDevicePtrArgs=*/nullptr, /*NeedDevicePtrArgsSize=*/0,
       /*AppendArgs=*/nullptr, /*AppendArgsSize=*/0);
 #else // INTEL_COLLAB
-      Context, VariantFuncRef, DVScope.TI);
+      /*NeedDevicePtrArgs=*/nullptr, /*NeedDevicePtrArgsSize=*/0);
 #endif // INTEL_COLLAB
+
   for (FunctionDecl *BaseFD : Bases)
     BaseFD->addAttr(OMPDeclareVariantA);
 }
@@ -7313,8 +7314,8 @@ Optional<std::pair<FunctionDecl *, Expr *>>
 Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 #if INTEL_COLLAB
                                         Expr *VariantRef,
-                                        unsigned NumAppendArgs,
                                         OMPTraitInfo &TI,
+                                        unsigned NumAppendArgs,
 #else // INTEL_COLLAB
                                         Expr *VariantRef, OMPTraitInfo &TI,
 #endif // INTEL_COLLAB
@@ -7701,17 +7702,18 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   return std::make_pair(FD, cast<Expr>(DRE));
 }
 
-void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
-                                              Expr *VariantRef,
+void Sema::ActOnOpenMPDeclareVariantDirective(
+    FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
+    ArrayRef<Expr *> AdjustArgsNothing,
 #if INTEL_COLLAB
-    MutableArrayRef<Expr *> AdjustArgsNothing,
-    MutableArrayRef<Expr *> AdjustArgsNeedDevicePtr,
-    MutableArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
+    ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
+    ArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
     SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
+    SourceRange SR) {
+#else // INTEL_COLLAB
+    ArrayRef<Expr *> AdjustArgsNeedDevicePtr, SourceRange SR) {
 #endif // INTEL_COLLAB
-                                              OMPTraitInfo &TI,
-                                              SourceRange SR) {
-#if INTEL_COLLAB
+
   // OpenMP 5.1 [2.3.5, declare variant directive, Restrictions]
   // An adjust_args clause or append_args clause can only be specified if the
   // dispatch selector of the construct selector set appears in the match
@@ -7721,22 +7723,27 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
   llvm::append_range(AllAdjustArgs, AdjustArgsNothing);
   llvm::append_range(AllAdjustArgs, AdjustArgsNeedDevicePtr);
 
+#if INTEL_COLLAB
   if (!AllAdjustArgs.empty() || !AppendArgs.empty()) {
+#else // INTEL_COLLAB
+  if (!AllAdjustArgs.empty()) {
+#endif // INTEL_COLLAB
     VariantMatchInfo VMI;
-    bool Found = false;
     TI.getAsVariantMatchInfo(Context, VMI);
-    for (TraitProperty Property : VMI.ConstructTraits)
-      if (Property == llvm::omp::TraitProperty::construct_dispatch_dispatch) {
-        Found = true;
-        break;
-      }
-    if (!Found) {
+    if (!llvm::is_contained(
+            VMI.ConstructTraits,
+            llvm::omp::TraitProperty::construct_dispatch_dispatch)) {
+#if INTEL_COLLAB
       if (!AllAdjustArgs.empty())
-        Diag(AdjustArgsLoc, diag::err_omp_clause_requires_dispatch_construct)
-            << getOpenMPClauseName(OMPC_adjust_args);
+#endif // INTEL_COLLAB
+      Diag(AllAdjustArgs[0]->getExprLoc(),
+           diag::err_omp_clause_requires_dispatch_construct)
+          << getOpenMPClauseName(OMPC_adjust_args);
+#if INTEL_COLLAB
       if (!AppendArgs.empty())
         Diag(AppendArgsLoc, diag::err_omp_clause_requires_dispatch_construct)
             << getOpenMPClauseName(OMPC_append_args);
+#endif // INTEL_COLLAB
       return;
     }
   }
@@ -7765,19 +7772,22 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
       }
     }
     // Anything that is not a function parameter is an error.
-    Diag(E->getExprLoc(), diag::err_omp_param_or_this_in_clause)
-        << FD->getDeclName() << 0;
+    Diag(E->getExprLoc(), diag::err_omp_param_or_this_in_clause) << FD << 0;
     return;
   }
 
   auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-      Context, VariantRef, &TI, AdjustArgsNothing.data(),
-      AdjustArgsNothing.size(), AdjustArgsNeedDevicePtr.data(),
-      AdjustArgsNeedDevicePtr.size(), AppendArgs.data(), AppendArgs.size(), SR);
+      Context, VariantRef, &TI, const_cast<Expr **>(AdjustArgsNothing.data()),
+      AdjustArgsNothing.size(),
+      const_cast<Expr **>(AdjustArgsNeedDevicePtr.data()),
+#if INTEL_COLLAB
+      AdjustArgsNeedDevicePtr.size(),
+      const_cast<OMPDeclareVariantAttr::InteropType *>(AppendArgs.data()),
+      AppendArgs.size(), SR);
 #else // INTEL_COLLAB
-  auto *NewAttr =
-      OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, &TI, SR);
+      AdjustArgsNeedDevicePtr.size(), SR);
 #endif // INTEL_COLLAB
+
   FD->addAttr(NewAttr);
 }
 

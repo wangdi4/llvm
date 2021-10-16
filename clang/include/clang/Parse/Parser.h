@@ -3339,7 +3339,6 @@ private:
 
   // Parse 'append_args' clause.
   bool ParseOpenMPAppendArgs(
-      OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
       SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes);
 #endif // INTEL_COLLAB
 

@@ -489,7 +489,7 @@ static void instantiateOMPDeclareVariantAttr(
       S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New),
 #if INTEL_COLLAB
                                           VariantFuncRef.get(),
-                                          Attr.appendArgs_size(), TI,
+                                          TI, Attr.appendArgs_size(),
 #else //INTEL_COLLAB
                                           VariantFuncRef.get(), TI,
 #endif // INTEL_COLLAB
@@ -533,36 +533,32 @@ static void instantiateOMPDeclareVariantAttr(
     }
   }
 
-#if INTEL_COLLAB
   SmallVector<Expr *, 8> NothingExprs;
   SmallVector<Expr *, 8> NeedDevicePtrExprs;
+  for (Expr *E : Attr.adjustArgsNothing()) {
+    ExprResult ER = Subst(E);
+    if (ER.isInvalid())
+      continue;
+    NothingExprs.push_back(ER.get());
+  }
+  for (Expr *E : Attr.adjustArgsNeedDevicePtr()) {
+    ExprResult ER = Subst(E);
+    if (ER.isInvalid())
+      continue;
+    NeedDevicePtrExprs.push_back(ER.get());
+  }
+
+#if INTEL_COLLAB
   SmallVector<OMPDeclareVariantAttr::InteropType, 8> AppendArgs;
-  if (Attr.adjustArgsNothing_size()) {
-    for (auto *E : Attr.adjustArgsNothing()) {
-      ExprResult Inst = Subst(E);
-      if (Inst.isInvalid())
-        continue;
-      NothingExprs.push_back(Inst.get());
-    }
+  for (auto A : Attr.appendArgs()) {
+    AppendArgs.push_back(A);
   }
-  if (Attr.adjustArgsNeedDevicePtr_size()) {
-    for (auto *E : Attr.adjustArgsNeedDevicePtr()) {
-      ExprResult Inst = Subst(E);
-      if (Inst.isInvalid())
-        continue;
-      NeedDevicePtrExprs.push_back(Inst.get());
-    }
-  }
-  if (Attr.appendArgs_size()) {
-    for (auto A : Attr.appendArgs()) {
-      AppendArgs.push_back(A);
-    }
-  }
-  S.ActOnOpenMPDeclareVariantDirective(FD, E, NothingExprs, NeedDevicePtrExprs,
-                                       AppendArgs, SourceLocation(),
-                                       SourceLocation(), TI, Attr.getRange());
-#else  // INTEL_COLLAB
-  S.ActOnOpenMPDeclareVariantDirective(FD, E, TI, Attr.getRange());
+  S.ActOnOpenMPDeclareVariantDirective(
+      FD, E, TI, NothingExprs, NeedDevicePtrExprs, AppendArgs, SourceLocation(),
+      SourceLocation(), Attr.getRange());
+#else // INTEL_COLLAB
+  S.ActOnOpenMPDeclareVariantDirective(FD, E, TI, NothingExprs,
+                                       NeedDevicePtrExprs, Attr.getRange());
 #endif // INTEL_COLLAB
 }
 
