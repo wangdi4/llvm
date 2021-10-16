@@ -1963,8 +1963,7 @@ void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
     return;
   }
 
-  if (AllocaInst->getType()->isPointerTy() &&
-      !isScalarTy(AllocaInst->getType()->getPointerElementType()) &&
+  if (!isScalarTy(AllocaInst->getType()->getPointerElementType()) &&
       !AllocaInst->getType()->getPointerElementType()->isVectorTy()) {
     PTag = VPPrivate::PrivateTag::PTArray;
     return;
