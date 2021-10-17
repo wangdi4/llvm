@@ -4016,10 +4016,9 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
     // using LibIRC.
     if (!getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
 #endif // INTEL_CUSTOMIZATION
-    Features.erase(std::remove_if(
-        Features.begin(), Features.end(), [&Target](StringRef Feat) {
-          return !Target.validateCpuSupports(Feat);
-        }), Features.end());
+    llvm::erase_if(Features, [&Target](StringRef Feat) {
+      return !Target.validateCpuSupports(Feat);
+    });
     Options.emplace_back(cast<llvm::Function>(Func), StringRef{}, Features);
     ++Index;
   }
