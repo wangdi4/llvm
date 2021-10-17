@@ -761,9 +761,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
         const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride);
         if (!CStride) {
           Decomposed.Base = V;
-          // The decomposed indices must be constants. Bail out.
           // true result: analysis limit is hit.
-          Decomposed.HasCompileTimeConstantScale = false;
           return Decomposed;
         }
 
@@ -1339,16 +1337,6 @@ AliasResult BasicAAResult::aliasGEP(
   if (DecompGEP1.Base == GEP1 && DecompGEP2.Base == V2)
     return AliasResult::MayAlias;
 
-<<<<<<< HEAD
-  assert((DecompGEP1.Base == UnderlyingV1 ||       // INTEL
-          isa<SubscriptInst>(DecompGEP1.Base)) &&  // INTEL
-         (DecompGEP2.Base == UnderlyingV2 ||       // INTEL
-          isa<SubscriptInst>(DecompGEP2.Base)) &&  // INTEL
-         "DecomposeGEPExpression returned a result different from "
-         "getUnderlyingObject");
-
-=======
->>>>>>> 5f05ff081f391fd482e3a5c3ea9f191c6961c42e
   // Subtract the GEP2 pointer from the GEP1 pointer to find out their
   // symbolic difference.
   subtractDecomposedGEPs(DecompGEP1, DecompGEP2);
