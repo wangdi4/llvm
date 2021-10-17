@@ -622,6 +622,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // sense that it's not weighted by profile counts at all.
   int ColdSize = 0;
 
+  // Whether inlining is decided by cost-threshold analysis.
+  bool DecidedByCostThreshold = false;
+
   // Whether inlining is decided by cost-benefit analysis.
   bool DecidedByCostBenefit = false;
 
@@ -1029,13 +1032,12 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     InlineReason Reason =
         IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
                      : bestInlineReason(NoReasonVector, NinlrNotProfitable);
+    if (!IgnoreThreshold)
+      DecidedByCostThreshold = true;
     if (!IsProfitable)
       return InlineResult::failure("not profitable").setIntelInlReason(Reason);
     return InlineResult::success().setIntelInlReason(Reason);
 #endif // INTEL_CUSTOMIZATION
-    if (IgnoreThreshold || Cost < std::max(1, Threshold))
-      return InlineResult::success();
-    return InlineResult::failure("Cost over threshold.");
   }
 
   bool shouldStop() override {
@@ -1043,8 +1045,10 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // the cost, but only when undercounting doesn't matter.
 #if INTEL_CUSTOMIZATION
     if (!IgnoreThreshold && Cost >= Threshold) {
-      if (!ComputeFullInlineCost)
+      if (!ComputeFullInlineCost) {
+         DecidedByCostThreshold = true;
          return true;
+      }
       if (EarlyExitCost == INT_MAX) {
          EarlyExitCost = Cost;
          EarlyExitThreshold = Threshold;
@@ -1214,6 +1218,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   bool wasDecidedByCostBenefit() const { return DecidedByCostBenefit; }
+  bool wasDecidedByCostThreshold() const { return DecidedByCostThreshold; }
 };
 
 class InlineCostFeaturesAnalyzer final : public CallAnalyzer {
@@ -3303,18 +3308,18 @@ InlineCost llvm::getInlineCost(
       return InlineCost::getNever("cost over benefit", CA.getCostBenefitPair());
   }
 
-  // Check if there was a reason to force inlining or no inlining.
-  if (!ShouldInline.isSuccess() && CA.getCost() < CA.getThreshold())
-    return InlineCost::getNever(ShouldInline.getFailureReason(), // INTEL
-                                Reason);                         // INTEL
-  if (ShouldInline.isSuccess() && CA.getCost() >= CA.getThreshold())
-    return InlineCost::getAlways("empty function", Reason);    // INTEL
-
 #if INTEL_CUSTOMIZATION
-  return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
-      ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
-      CA.getEarlyExitThreshold());
+  if (CA.wasDecidedByCostThreshold())
+    return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
+        ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
+        CA.getEarlyExitThreshold());
 #endif // INTEL_CUSTOMIZATION
+
+  // No details on how the decision was made, simply return always or never.
+  return ShouldInline.isSuccess()
+             ? InlineCost::getAlways("empty function", Reason)       // INTEL
+             : InlineCost::getNever(ShouldInline.getFailureReason(), // INTEL
+                                    Reason);                         // INTEL
 }
 
 InlineResult llvm::isInlineViable(Function &F) {
