@@ -23,6 +23,6 @@ endif()
 # environment
 if (NOT MSVC)
   if (SYCL_BUILD_PI_ESIMD_EMULATOR)
-    add_subdirectory(esimd_cpu)
+    add_subdirectory(esimd_emulator)
   endif()
 endif()
