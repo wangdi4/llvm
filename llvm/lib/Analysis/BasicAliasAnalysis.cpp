@@ -655,7 +655,7 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
 
     // Use GetLinearExpression to decompose the index into a C1*V+C2 form.
     LinearExpression LE = GetLinearExpression(
-        ExtendedValue(Index, 0, SExtBits), DL, 0, AC, DT);
+        CastedValue(Index, 0, SExtBits), DL, 0, AC, DT);
     Decomposed.Offset += LE.Offset.getSExtValue() * Scale;
     Scale *= LE.Scale.getSExtValue();
 
@@ -665,7 +665,7 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     // This also ensures that 'x' only appears in the index list once.
     for (unsigned i = 0, e = Decomposed.VarIndices.size(); i != e; ++i) {
       if (Decomposed.VarIndices[i].Val.V == LE.Val.V &&
-          Decomposed.VarIndices[i].Val.hasSameExtensionsAs(LE.Val)) {
+          Decomposed.VarIndices[i].Val.hasSameCastsAs(LE.Val)) {
         Scale += Decomposed.VarIndices[i].Scale;
         Decomposed.VarIndices.erase(Decomposed.VarIndices.begin() + i);
         break;
