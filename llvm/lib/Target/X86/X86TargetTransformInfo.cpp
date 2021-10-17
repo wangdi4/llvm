@@ -5374,7 +5374,6 @@ bool X86TTIImpl::isLegalMaskedCompressStore(Type *DataTy) {
   return isLegalMaskedExpandLoad(DataTy);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool X86TTIImpl::isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const {
     const TargetMachine &TM = getTLI()->getTargetMachine();
@@ -5652,10 +5651,7 @@ bool X86TTIImpl::isLegalToTransformGather2PermuteLoad(
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
-=======
 bool X86TTIImpl::supportsGather() const {
->>>>>>> d137f1288e2c2169b53a1baef0d5cd94a4bb3999
   // Some CPUs have better gather performance than others.
   // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
   // enable gather with a -march.

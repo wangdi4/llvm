@@ -288,13 +288,9 @@ public:
   bool enableInterleavedAccessVectorization();
 
 private:
-<<<<<<< HEAD
+  bool supportsGather() const;
 #if INTEL_CUSTOMIZATION
   InstructionCost getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
-=======
-  bool supportsGather() const;
-  InstructionCost getGSScalarCost(unsigned Opcode, Type *DataTy,
->>>>>>> d137f1288e2c2169b53a1baef0d5cd94a4bb3999
                                   bool VariableMask, Align Alignment,
                                   unsigned AddressSpace);
   InstructionCost getGSVectorCost(unsigned Opcode, Type *DataTy,
