@@ -184,41 +184,37 @@ cl::opt<SpecConstMode> SpecConstLower{
                    "set spec constants to C++ defaults")),
     cl::cat(PostLinkCat)};
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
-static cl::opt<std::string> OmpOffloadEntriesSymbol(
+cl::opt<std::string> OmpOffloadEntriesSymbol(
     "ompoffload-link-entries", cl::ValueOptional,
     cl::init("__omp_offloading_entries_table"),
     cl::desc("link OpenMP offload entries into one table"),
     cl::value_desc("symbol-name"), cl::cat(PostLinkCat));
 
-static cl::opt<bool> SortOmpOffloadEntries(
+cl::opt<bool> SortOmpOffloadEntries(
     "ompoffload-sort-entries", cl::init(false),
     cl::desc("sort OpenMP offload entries by name. "
              "Does nothing without -ompoffload-link-entries"),
     cl::cat(PostLinkCat));
 
-static cl::opt<bool>
+cl::opt<bool>
     MakeOmpGlobalsStatic("ompoffload-make-globals-static", cl::init(false),
                          cl::desc("make OpenMP global variables referenced "
                                   "in the offload table static."),
                          cl::cat(PostLinkCat));
 
-static cl::opt<bool> EnableOmpExplicitSimd(
+cl::opt<bool> EnableOmpExplicitSimd(
     "ompoffload-explicit-simd", cl::init(false),
     cl::desc("enable OpenMP offload explicit simd. "
              "Does nothing without -ompoffload-explicit-simd"),
     cl::cat(PostLinkCat));
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool> FixupVTables(
+cl::opt<bool> FixupVTables(
     "fixup-vtables", cl::Hidden, cl::init(true),
     cl::desc("Remove unresolved references from vtable initializers"));
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
-static cl::opt<bool> EmitKernelParamInfo{
-=======
 cl::opt<bool> EmitKernelParamInfo{
->>>>>>> a6423409af7cd4de107ea8699a50e572e5e56f23
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
     cl::cat(PostLinkCat)};
 
@@ -928,14 +924,10 @@ string_vector saveResultSymbolsLists(string_vector &ResSymbolsLists,
 // When ESIMD code was separated from the regular SYCL code,
 // we can safely process ESIMD part.
 // TODO: support options like -debug-pass, -print-[before|after], and others
-<<<<<<< HEAD
-static void LowerEsimdConstructs(Module &M) {
+void LowerEsimdConstructs(Module &M) {
 #if INTEL_CUSTOMIZATION
   initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
 #endif // INTEL_CUSTOMIZATION
-=======
-void LowerEsimdConstructs(Module &M) {
->>>>>>> a6423409af7cd4de107ea8699a50e572e5e56f23
   legacy::PassManager MPM;
   MPM.add(createSYCLLowerESIMDPass());
   if (!OptLevelO0) {
