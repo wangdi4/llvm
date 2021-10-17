@@ -1004,10 +1004,7 @@ public:
     return NonODRUsedCapturingExprs.count(CapturingVarExpr);
   }
   void removePotentialCapture(Expr *E) {
-    PotentiallyCapturingExprs.erase(
-        std::remove(PotentiallyCapturingExprs.begin(),
-            PotentiallyCapturingExprs.end(), E),
-        PotentiallyCapturingExprs.end());
+    llvm::erase_value(PotentiallyCapturingExprs, E);
   }
   void clearPotentialCaptures() {
     PotentiallyCapturingExprs.clear();
