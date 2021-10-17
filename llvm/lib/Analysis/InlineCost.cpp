@@ -1027,38 +1027,28 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         return InlineResult::failure("Cost over threshold.");
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
     InlineReason Reason =
         IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
                      : bestInlineReason(NoReasonVector, NinlrNotProfitable);
+    if (!IgnoreThreshold)
+      DecidedByCostThreshold = true;
     if (!IsProfitable)
       return InlineResult::failure("not profitable").setIntelInlReason(Reason);
     return InlineResult::success().setIntelInlReason(Reason);
 #endif // INTEL_CUSTOMIZATION
-    if (IgnoreThreshold || Cost < std::max(1, Threshold))
-=======
-    if (IgnoreThreshold)
->>>>>>> 3f96f7b30c91b912de1c6c7c03ab6a4c18e8aa26
-      return InlineResult::success();
-
-    DecidedByCostThreshold = true;
-    return Cost < std::max(1, Threshold)
-               ? InlineResult::success()
-               : InlineResult::failure("Cost over threshold.");
   }
 
   bool shouldStop() override {
-    if (IgnoreThreshold || ComputeFullInlineCost)
-      return false;
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (!IgnoreThreshold && Cost >= Threshold) {
-      if (!ComputeFullInlineCost)
+      if (!ComputeFullInlineCost) {
+         DecidedByCostThreshold = true;
          return true;
+      }
       if (EarlyExitCost == INT_MAX) {
          EarlyExitCost = Cost;
          EarlyExitThreshold = Threshold;
@@ -1066,12 +1056,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     }
     return false;
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (Cost < Threshold)
-      return false;
-    DecidedByCostThreshold = true;
-    return true;
->>>>>>> 3f96f7b30c91b912de1c6c7c03ab6a4c18e8aa26
   }
 
   void onLoadEliminationOpportunity() override {
@@ -3324,28 +3308,18 @@ InlineCost llvm::getInlineCost(
       return InlineCost::getNever("cost over benefit", CA.getCostBenefitPair());
   }
 
-<<<<<<< HEAD
-  // Check if there was a reason to force inlining or no inlining.
-  if (!ShouldInline.isSuccess() && CA.getCost() < CA.getThreshold())
-    return InlineCost::getNever(ShouldInline.getFailureReason(), // INTEL
-                                Reason);                         // INTEL
-  if (ShouldInline.isSuccess() && CA.getCost() >= CA.getThreshold())
-    return InlineCost::getAlways("empty function", Reason);    // INTEL
-
 #if INTEL_CUSTOMIZATION
-  return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
-      ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
-      CA.getEarlyExitThreshold());
-#endif // INTEL_CUSTOMIZATION
-=======
   if (CA.wasDecidedByCostThreshold())
-    return InlineCost::get(CA.getCost(), CA.getThreshold());
+    return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
+        ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
+        CA.getEarlyExitThreshold());
+#endif // INTEL_CUSTOMIZATION
 
   // No details on how the decision was made, simply return always or never.
   return ShouldInline.isSuccess()
-             ? InlineCost::getAlways("empty function")
-             : InlineCost::getNever(ShouldInline.getFailureReason());
->>>>>>> 3f96f7b30c91b912de1c6c7c03ab6a4c18e8aa26
+             ? InlineCost::getAlways("empty function", Reason)       // INTEL
+             : InlineCost::getNever(ShouldInline.getFailureReason(), // INTEL
+                                    Reason);                         // INTEL
 }
 
 InlineResult llvm::isInlineViable(Function &F) {
