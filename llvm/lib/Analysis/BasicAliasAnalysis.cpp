@@ -90,8 +90,7 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 const unsigned MaxNumPhiBBsValueReachabilityCheck = 20;
 
 // The max limit of the search depth in DecomposeGEPExpression() and
-// getUnderlyingObject(), both functions need to use the same search
-// depth otherwise the algorithm in aliasGEP will assert.
+// getUnderlyingObject().
 static const unsigned MaxLookupSearchDepth = 6;
 
 bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
@@ -590,8 +589,6 @@ struct BasicAAResult::DecomposedGEP {
   APInt Offset;
   // Scaled variable (non-constant) indices.
   SmallVector<VariableGEPIndex, 4> VarIndices;
-  // Is GEP index scale compile-time constant.
-  bool HasCompileTimeConstantScale;
   // Are all operations inbounds GEPs or non-indexing operations?
   // (None iff expression doesn't involve any geps)
   Optional<bool> InBounds;
@@ -609,8 +606,7 @@ struct BasicAAResult::DecomposedGEP {
         OS << ", ";
       VarIndices[i].print(OS);
     }
-    OS << "], HasCompileTimeConstantScale=" << HasCompileTimeConstantScale
-       << ")";
+    OS << "])";
   }
 };
 
@@ -693,11 +689,6 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
 /// in the VarIndices vector) are Value*'s that are known to be scaled by the
 /// specified amount, but which may have other unrepresented high bits. As
 /// such, the gep cannot necessarily be reconstructed from its decomposed form.
-///
-/// This function is capable of analyzing everything that getUnderlyingObject
-/// can look through. To be able to do that getUnderlyingObject and
-/// DecomposeGEPExpression must use the same search depth
-/// (MaxLookupSearchDepth).
 BasicAAResult::DecomposedGEP
 BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
                                       AssumptionCache *AC, DominatorTree *DT) {
@@ -709,7 +700,6 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
   unsigned MaxPointerSize = DL.getMaxPointerSizeInBits();
   DecomposedGEP Decomposed;
   Decomposed.Offset = APInt(MaxPointerSize, 0);
-  Decomposed.HasCompileTimeConstantScale = true;
   do {
     // See if this is a bitcast or GEP.
     const Operator *Op = dyn_cast<Operator>(V);
@@ -771,9 +761,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
         const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride);
         if (!CStride) {
           Decomposed.Base = V;
-          // The decomposed indices must be constants. Bail out.
           // true result: analysis limit is hit.
-          Decomposed.HasCompileTimeConstantScale = false;
           return Decomposed;
         }
 
@@ -804,7 +792,6 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
     // constant.
     if (isa<ScalableVectorType>(GEPOp->getSourceElementType())) {
       Decomposed.Base = V;
-      Decomposed.HasCompileTimeConstantScale = false;
       return Decomposed;
     }
 
@@ -1346,18 +1333,9 @@ AliasResult BasicAAResult::aliasGEP(
   DecomposedGEP DecompGEP1 = DecomposeGEPExpression(GEP1, DL, &AC, DT);
   DecomposedGEP DecompGEP2 = DecomposeGEPExpression(V2, DL, &AC, DT);
 
-  // Don't attempt to analyze the decomposed GEP if index scale is not a
-  // compile-time constant.
-  if (!DecompGEP1.HasCompileTimeConstantScale ||
-      !DecompGEP2.HasCompileTimeConstantScale)
+  // Bail if we were not able to decompose anything.
+  if (DecompGEP1.Base == GEP1 && DecompGEP2.Base == V2)
     return AliasResult::MayAlias;
-
-  assert((DecompGEP1.Base == UnderlyingV1 ||       // INTEL
-          isa<SubscriptInst>(DecompGEP1.Base)) &&  // INTEL
-         (DecompGEP2.Base == UnderlyingV2 ||       // INTEL
-          isa<SubscriptInst>(DecompGEP2.Base)) &&  // INTEL
-         "DecomposeGEPExpression returned a result different from "
-         "getUnderlyingObject");
 
   // Subtract the GEP2 pointer from the GEP1 pointer to find out their
   // symbolic difference.
