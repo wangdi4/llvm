@@ -4011,21 +4011,14 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
     Target.getCPUSpecificCPUDispatchFeatures(II->getName(), Features);
     llvm::transform(Features, Features.begin(),
                     [](StringRef Str) { return Str.substr(1); });
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Don't remove the features that aren't supported in CpuSupports if we're
     // using LibIRC.
     if (!getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
 #endif // INTEL_CUSTOMIZATION
-    Features.erase(std::remove_if(
-        Features.begin(), Features.end(), [&Target](StringRef Feat) {
-          return !Target.validateCpuSupports(Feat);
-        }), Features.end());
-=======
     llvm::erase_if(Features, [&Target](StringRef Feat) {
       return !Target.validateCpuSupports(Feat);
     });
->>>>>>> d245f2e8597bfb52c34810a328d42b990e4af1a4
     Options.emplace_back(cast<llvm::Function>(Func), StringRef{}, Features);
     ++Index;
   }
