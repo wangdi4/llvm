@@ -8577,10 +8577,16 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   AllocaInst *UpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "upperD");
   UpperD->setAlignment(Align(4));
 
-  // Get Schedule chunk information from W-Region node
-  ConstantInt *SchedType = REBuilder.getInt32(SchedKind);
-  Value *DistChunkVal = REBuilder.getInt32(1);
+  // SchedType is schedule code to be sent to __kmpc_dispatch_init_*().
+  // If no schedule modifier is specified, then SchedType is just SchedKind.
+  // If the monotonic or nonmonotonic modifier is specified, then
+  // SchedType is (SchedKind | ModifierBit).
+  int SchedKindWithModifier =
+      VPOParoptUtils::addModifierToSchedKind(W, SchedKind);
+  ConstantInt *SchedType = REBuilder.getInt32(SchedKindWithModifier);
 
+  // Get Schedule chunk information from W-Region node
+  Value *DistChunkVal = REBuilder.getInt32(1);
   if (IsDistParLoop || IsDistForLoop) {
     // Get dist_schedule kind and chunk information from W-Region node
     // Default: DistributeStaticEven.

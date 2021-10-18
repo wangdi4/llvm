@@ -2024,6 +2024,10 @@ typedef enum WRNScheduleKind {
     WRNScheduleDistributeStaticEven    = 92
 } WRNScheduleKind;
 
+typedef enum WRNScheduleModifierBit {
+    WRNScheduleMonotonic    = 1<<29,
+    WRNScheduleNonmonotonic = 1<<30
+} WRNScheduleModifierBit;
 
 class ScheduleClause
 {
