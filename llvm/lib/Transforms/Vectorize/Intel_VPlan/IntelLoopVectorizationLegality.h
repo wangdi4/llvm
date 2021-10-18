@@ -242,13 +242,13 @@ public:
   void addReductionAdd(Value *V);
   void addReductionMult(Value *V);
   void addReductionAnd(Value *V) {
-    return parseExplicitReduction(V, RecurKind::And);
+    return addReduction(V, RecurKind::And);
   }
   void addReductionXor(Value *V) {
-    return parseExplicitReduction(V, RecurKind::Xor);
+    return addReduction(V, RecurKind::Xor);
   }
   void addReductionOr(Value *V) {
-    return parseExplicitReduction(V, RecurKind::Or);
+    return addReduction(V, RecurKind::Or);
   }
 
   bool isExplicitReductionPhi(PHINode *Phi);
@@ -353,7 +353,7 @@ public:
 private:
   // Find pattern inside the loop for matching the explicit
   // reduction variable \p V.
-  void parseExplicitReduction(Value *V, RecurKind Kind);
+  void addReduction(Value *V, RecurKind Kind);
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.

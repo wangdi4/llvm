@@ -598,8 +598,8 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::parseExplicitReduction(Value *RedVarPtr,
-                                                      RecurKind Kind) {
+void VPOVectorizationLegality::addReduction(Value *RedVarPtr,
+                                            RecurKind Kind) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
@@ -615,32 +615,32 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
 
 void VPOVectorizationLegality::addReductionMult(Value *V) {
   if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurKind::Mul);
+    addReduction(V, RecurKind::Mul);
   else
-    parseExplicitReduction(V, RecurKind::FMul);
+    addReduction(V, RecurKind::FMul);
 }
 
 void VPOVectorizationLegality::addReductionAdd(Value *V) {
   if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurKind::Add);
+    addReduction(V, RecurKind::Add);
   else
-    parseExplicitReduction(V, RecurKind::FAdd);
+    addReduction(V, RecurKind::FAdd);
 }
 
 void VPOVectorizationLegality::addReductionMin(Value *V, bool IsSigned) {
   if (V->getType()->getPointerElementType()->isIntegerTy()) {
     RecurKind Kind = IsSigned ? RecurKind::SMin : RecurKind::UMin;
-    parseExplicitReduction(V, Kind);
+    addReduction(V, Kind);
   } else
-    parseExplicitReduction(V, RecurKind::FMin);
+    addReduction(V, RecurKind::FMin);
 }
 
 void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
   if (V->getType()->getPointerElementType()->isIntegerTy()) {
     RecurKind Kind = IsSigned ? RecurKind::SMax : RecurKind::UMax;
-    parseExplicitReduction(V, Kind);
+    addReduction(V, Kind);
   } else
-    parseExplicitReduction(V, RecurKind::FMax);
+    addReduction(V, RecurKind::FMax);
 }
 
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
