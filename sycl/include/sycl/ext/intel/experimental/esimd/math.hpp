@@ -2627,14 +2627,15 @@ ESIMD_NODEBUG ESIMD_INLINE
 namespace detail {
 
 enum class EsimdDpasOptPerChannel : unsigned {
-    OP1 = 1u,
-    OP2 = 2u,
-    OP4 = 4u,
-    OP8 = 8u,
-    INVALID = 0xffffffffu
+  OP1 = 1u,
+  OP2 = 2u,
+  OP4 = 4u,
+  OP8 = 8u,
+  INVALID = 0xffffffffu
 };
-constexpr EsimdDpasOptPerChannel get_ops_per_channel(
-        EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision) {
+constexpr EsimdDpasOptPerChannel
+get_ops_per_channel(EsimdPrecisionType src1_precision,
+                    EsimdPrecisionType src2_precision) {
   if ((src1_precision == EsimdPrecisionType::U8) ||
       (src1_precision == EsimdPrecisionType::S8)) {
     if ((src2_precision == EsimdPrecisionType::U8) ||
@@ -2723,15 +2724,15 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   constexpr bool check_integer =
       detail::is_one_of_v<T, unsigned int, int> &&
       detail::is_one_of_v<T0, unsigned int, int> &&
-      detail::is_one_of_enum_v<
-          EsimdPrecisionType, src1_precision, EsimdPrecisionType::S8,
-          EsimdPrecisionType::U8, EsimdPrecisionType::U4,
-          EsimdPrecisionType::S4, EsimdPrecisionType::U2,
-          EsimdPrecisionType::S2> &&
-      detail::is_one_of_enum_v<EsimdPrecisionType, src2_precision, EsimdPrecisionType::S8,
-                              EsimdPrecisionType::U8, EsimdPrecisionType::U4,
-          EsimdPrecisionType::S4, EsimdPrecisionType::U2,
-          EsimdPrecisionType::S2>;
+      detail::is_one_of_enum_v<EsimdPrecisionType, src1_precision,
+                               EsimdPrecisionType::S8, EsimdPrecisionType::U8,
+                               EsimdPrecisionType::U4, EsimdPrecisionType::S4,
+                               EsimdPrecisionType::U2,
+                               EsimdPrecisionType::S2> &&
+      detail::is_one_of_enum_v<EsimdPrecisionType, src2_precision,
+                               EsimdPrecisionType::S8, EsimdPrecisionType::U8,
+                               EsimdPrecisionType::U4, EsimdPrecisionType::S4,
+                               EsimdPrecisionType::U2, EsimdPrecisionType::S2>;
   // f, bf | f, bf | bf | bf
   constexpr bool check_bf16 =
       detail::is_one_of_v<T, float, short> &&
@@ -2775,36 +2776,36 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   constexpr bool check_passed =
       (check_integer || check_hf || check_bf16 || check_bf8 || check_tf32);
   static_assert(check_passed,
-      "unsupported dpas type! The supported types are:\n"
-      "    dst    |    src0    |      src1      |      src2      \n"
-      "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
-      "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
-      "   f, bf   |    f, bf   |       bf       |       bf       \n"
-      "   f, hf   |    f, hf   |       hf       |       hf       \n"
-      " f, hf, bf | f, hf, bf  |       bf8      |       bf8      \n"
-      "    f      |     f      |      tf32      |      tf32      \n");
-#else // else defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
-// ATS-EMBARGO-SECTION (TGL):
+                "unsupported dpas type! The supported types are:\n"
+                "    dst    |    src0    |      src1      |      src2      \n"
+                "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
+                "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
+                "   f, bf   |    f, bf   |       bf       |       bf       \n"
+                "   f, hf   |    f, hf   |       hf       |       hf       \n"
+                " f, hf, bf | f, hf, bf  |       bf8      |       bf8      \n"
+                "    f      |     f      |      tf32      |      tf32      \n");
+#else  // else defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
+  // ATS-EMBARGO-SECTION (TGL):
   constexpr bool check_passed = (check_integer || check_hf || check_bf16);
   static_assert(check_passed,
-      "unsupported dpas type! The supported types are:\n"
-      "    dst    |    src0    |      src1      |      src2      \n"
-      "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
-      "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
-      "   f, bf   |    f, bf   |       bf       |       bf       \n"
-      "   f, hf   |    f, hf   |       hf       |       hf       \n");
+                "unsupported dpas type! The supported types are:\n"
+                "    dst    |    src0    |      src1      |      src2      \n"
+                "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
+                "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
+                "   f, bf   |    f, bf   |       bf       |       bf       \n"
+                "   f, hf   |    f, hf   |       hf       |       hf       \n");
 #endif // end else defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
 
   static_assert(detail::is_dword_type<T1>::value, "Src1 must be DWORD type");
   static_assert(detail::is_dword_type<T2>::value, "Src2 must be DWORD type");
 
-// PVC-EMBARGO-SECTION: ESIMD_GEN12_7, ESIMD_GEN12_9
-  #if defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
-    static_assert((N == 16 * repeat_count), "Execution size on PVC must be 16");
-  #else
-// ATS-EMBARGO-SECTION (TGL):
-    static_assert((N == 8 * repeat_count), "Execution size must be 8");
-  #endif
+  // PVC-EMBARGO-SECTION: ESIMD_GEN12_7, ESIMD_GEN12_9
+#if defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
+  static_assert((N == 16 * repeat_count), "Execution size on PVC must be 16");
+#else
+  // ATS-EMBARGO-SECTION (TGL):
+  static_assert((N == 8 * repeat_count), "Execution size must be 8");
+#endif
 
   static_assert((systolic_depth == 8) || (systolic_depth == 4),
                 "systolic_depth must be 8 or 4");
@@ -2816,8 +2817,7 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
       detail::get_ops_per_channel(src1_precision, src2_precision);
   static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
                 "invalid combination of Src1/Src2 precision");
-  constexpr auto ops_per_channel =
-      static_cast<unsigned>(en_ops_per_channel);
+  constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
   constexpr auto src1_precision_bits =
       detail::get_precision_bits(src1_precision);
@@ -2834,7 +2834,7 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
                 "invalid size for Src2");
 
 #if defined(__SYCL_DEVICE_ONLY__)
-  constexpr int dst_signed  = std::is_signed<T>::value;
+  constexpr int dst_signed = std::is_signed<T>::value;
   constexpr int src0_signed = std::is_signed<T0>::value;
   simd<T, N> result =
       __esimd_dpas<T, T0, T1, T2, N, N1, N2>(src0.data(), src1.data(), src2.data(),
@@ -2847,7 +2847,8 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
 #else
   simd<T, N> result =
       __esimd_dpas<src1_precision, src2_precision, systolic_depth, repeat_count,
-                   T, T0, T1, T2, N, N1, N2>(src0, src1, src2);
+                   T, T0, T1, T2, N, N1, N2>(src0.data(), src1.data(),
+                                             src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
@@ -2873,9 +2874,9 @@ template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
           typename T2, int N, int N1, int N2>
 ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
 esimd_dpas(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
-            int flag = GENX_NOSAT) {
-  return esimd_dpas<src1_precision, src2_precision, T,
-                    systolic_depth, repeat_count>(src0, src1, src2, flag);
+           int flag = GENX_NOSAT) {
+  return esimd_dpas<src1_precision, src2_precision, T, systolic_depth,
+                    repeat_count>(src0, src1, src2, flag);
 }
 
 /// DPAS
@@ -2911,8 +2912,7 @@ esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
       detail::get_ops_per_channel(src1_precision, src2_precision);
   static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
                 "invalid combination of Src1/Src2 precision");
-  constexpr auto ops_per_channel =
-      static_cast<unsigned>(en_ops_per_channel);
+  constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
   constexpr auto src1_precision_bits =
       detail::get_precision_bits(src1_precision);
@@ -2936,7 +2936,8 @@ esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
 #else
   simd<T, N> result =
       __esimd_dpas2<src1_precision, src2_precision, systolic_depth,
-                    repeat_count, T, T1, T2, N, N1, N2>(src1.data(), src2.data());
+                    repeat_count, T, T1, T2, N, N1, N2>(src1.data(),
+                                                        src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
@@ -2962,7 +2963,8 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
             int flag = GENX_NOSAT) {
   constexpr bool is_4xhf =
       (detail::is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
-      src1_precision == src2_precision && src1_precision == EsimdPrecisionType::FP16;
+      src1_precision == src2_precision &&
+      src1_precision == EsimdPrecisionType::FP16;
 
   constexpr bool is_4xbf = detail::is_word_type<T>::value &&
                            src1_precision == src2_precision &&
@@ -2990,8 +2992,7 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
       detail::get_ops_per_channel(src1_precision, src2_precision);
   static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
                 "invalid combination of Src1/Src2 precision");
-  constexpr auto ops_per_channel =
-      static_cast<unsigned>(en_ops_per_channel);
+  constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
   constexpr auto src1_precision_bits =
       detail::get_precision_bits(src1_precision);
@@ -3010,12 +3011,13 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
 #if defined(__SYCL_DEVICE_ONLY__)
   int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
                   (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
-  simd<T, N> result =
-      __esimd_dpasw<T, T1, T2, N, N1, N2>(src0.data(), src1.data(), src2.data(), dpas_info);
+  simd<T, N> result = __esimd_dpasw<T, T1, T2, N, N1, N2>(
+      src0.data(), src1.data(), src2.data(), dpas_info);
 #else
   simd<T, N> result =
       __esimd_dpasw<src1_precision, src2_precision, systolic_depth,
-                    repeat_count, T, T1, T2, N, N1, N2>(src0.data(), src1.data(), src2.data());
+                    repeat_count, T, T1, T2, N, N1, N2>(
+          src0.data(), src1.data(), src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
@@ -3038,7 +3040,8 @@ ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
 esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
   constexpr bool is_4xhf =
       (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
-      src1_precision == src2_precision && src1_precision == EsimdPrecisionType::FP16;
+      src1_precision == src2_precision &&
+      src1_precision == EsimdPrecisionType::FP16;
 
   constexpr bool is_4xbf = detail::is_word_type<T>::value &&
                            src1_precision == src2_precision &&
@@ -3066,8 +3069,7 @@ esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
       detail::get_ops_per_channel(src1_precision, src2_precision);
   static_assert(en_ops_per_channel != detail::EsimdDpasOptPerChannel::INVALID,
                 "invalid combination of Src1/Src2 precision");
-  constexpr auto ops_per_channel =
-      static_cast<unsigned>(en_ops_per_channel);
+  constexpr auto ops_per_channel = static_cast<unsigned>(en_ops_per_channel);
 
   constexpr auto src1_precision_bits =
       detail::get_precision_bits(src1_precision);
@@ -3091,7 +3093,8 @@ esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
 #else
   simd<T, N> result =
       __esimd_dpasw2<src1_precision, src2_precision, systolic_depth,
-                     repeat_count, T, T1, T2, N, N1, N2>(src1.data(), src2.data());
+                     repeat_count, T, T1, T2, N, N1, N2>(src1.data(),
+                                                         src2.data());
 #endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
