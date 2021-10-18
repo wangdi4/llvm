@@ -389,6 +389,20 @@ private:
                                   Value *DestVal, Value *SrcVal,
                                   Instruction *InsertPt, DominatorTree *DT);
 
+  /// If any item is a VLA or a variable length array section, a stacksave is
+  /// inserted at the begining of the region and a restore is inserted at the
+  /// end of the region. Note that currently this function is only called for
+  /// SIMD constructs.
+  bool insertStackSaveRestore(WRegionNode *W);
+
+  /// Loops over every item of every clause. If any item is a VLA or a variable
+  /// length array section, it creates an empty entry block and sets the VLA
+  /// alloca insertPt to the terminator of this newly created entry block.
+  bool setInsertionPtForVlaAllocas(WRegionNode *W);
+
+  /// returns true if the input item is either a Vla or a Vla Section.
+  static bool getIsVlaOrVlaSection(Item *I);
+
   /// Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W,
                             Instruction *CtorInsertPt = nullptr );
@@ -548,12 +562,13 @@ private:
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
   /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
   /// Instructions, which is done \b before \p InsertPt.
-  void computeArraySectionTypeOffsetSize(Item &CI, Instruction *InsertPt);
+  void computeArraySectionTypeOffsetSize(WRegionNode *W, Item &CI,
+                                         Instruction *InsertPt);
 
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
   /// ArraySectionInfo \p ArrSecInfo. \p Orig is the base of the array section.
   /// The code emitted is inserted \b before \p InsertPt.
-  void computeArraySectionTypeOffsetSize(Value *Orig,
+  void computeArraySectionTypeOffsetSize(WRegionNode *W, Value *Orig,
                                          ArraySectionInfo &ArrSecInfo,
                                          bool IsByRef, Instruction *InsertPt);
 
