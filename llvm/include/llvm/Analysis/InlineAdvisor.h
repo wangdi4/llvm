@@ -42,6 +42,9 @@ using namespace InlineReportTypes; // INTEL
 /// training.
 enum class InliningAdvisorMode : int { Default, Release, Development };
 
+/// For Replay Inliner initialization
+enum class ReplayInlineScope : int { Function, Module };
+
 class InlineAdvisor;
 /// Capture state between an inlining decision having had been made, and
 /// its impact being observable. When collecting model training data, this
@@ -155,12 +158,22 @@ public:
   /// be up-to-date wrt previous inlining decisions. \p MandatoryOnly indicates
   /// only mandatory (always-inline) call sites should be recommended - this
   /// allows the InlineAdvisor track such inlininings.
+<<<<<<< HEAD
   /// Returns an InlineAdvice with the inlining recommendation.
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI,
             InlineCost **IC, bool MandatoryOnly = false);
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Returns:
+  /// - An InlineAdvice with the inlining recommendation.
+  /// - Null when no recommendation is made (https://reviews.llvm.org/D110658).
+  /// TODO: Consider removing the Null return scenario by incorporating the
+  /// SampleProfile inliner into an InlineAdvisor
+  std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
+                                          bool MandatoryOnly = false);
+>>>>>>> 313c657fcea371a533ad5f3adcff44fabc6531ae
 
   /// This must be called when the Inliner pass is entered, to allow the
   /// InlineAdvisor update internal state, as result of function passes run
@@ -252,7 +265,7 @@ public:
       return !PAC.preservedWhenStateless();
     }
     bool tryCreate(InlineParams Params, InliningAdvisorMode Mode,
-                   StringRef ReplayFile);
+                   StringRef ReplayFile, ReplayInlineScope ReplayScope);
     InlineAdvisor *getAdvisor() const { return Advisor.get(); }
 
   private:
@@ -274,6 +287,11 @@ std::unique_ptr<InlineAdvisor>
 getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
                           std::function<bool(CallBase &)> GetDefaultAdvice);
 #endif
+
+std::unique_ptr<InlineAdvisor> getReplayInlineAdvisor(
+    Module &M, FunctionAnalysisManager &FAM, LLVMContext &Context,
+    std::unique_ptr<InlineAdvisor> OriginalAdvisor, StringRef RemarksFile,
+    ReplayInlineScope Scope, bool EmitRemarks);
 
 // Default (manual policy) decision making helper APIs. Shared with the legacy
 // pass manager inliner.

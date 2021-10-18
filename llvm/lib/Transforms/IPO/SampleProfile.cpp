@@ -45,7 +45,6 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
-#include "llvm/Analysis/ReplayInlineAdvisor.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -235,6 +234,18 @@ static cl::opt<std::string> ProfileInlineReplayFile(
     cl::desc(
         "Optimization remarks file containing inline remarks to be replayed "
         "by inlining from sample profile loader."),
+    cl::Hidden);
+
+static cl::opt<ReplayInlineScope> ProfileInlineReplayScope(
+    "sample-profile-inline-replay-scope", cl::init(ReplayInlineScope::Function),
+    cl::values(clEnumValN(ReplayInlineScope::Function, "Function",
+                          "Replay on functions that have remarks associated "
+                          "with them (default)"),
+               clEnumValN(ReplayInlineScope::Module, "Module",
+                          "Replay on the entire module")),
+    cl::desc("Whether inline replay should be applied to the entire "
+             "Module or just the Functions (default) that are present as "
+             "callers in remarks during sample profile inlining."),
     cl::Hidden);
 
 static cl::opt<unsigned>
@@ -477,7 +488,7 @@ protected:
   bool ProfAccForSymsInList;
 
   // External inline advisor used to replay inline decision from remarks.
-  std::unique_ptr<ReplayInlineAdvisor> ExternalInlineAdvisor;
+  std::unique_ptr<InlineAdvisor> ExternalInlineAdvisor;
 
   // A pseudo probe helper to correlate the imported sample counts.
   std::unique_ptr<PseudoProbeManager> ProbeManager;
@@ -1272,6 +1283,7 @@ InlineCost
 SampleProfileLoader::shouldInlineCandidate(InlineCandidate &Candidate) {
   std::unique_ptr<InlineAdvice> Advice = nullptr;
   if (ExternalInlineAdvisor) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     InlineCost *IC = nullptr;
     Advice = ExternalInlineAdvisor->getAdvice(*Candidate.CallInstr, nullptr,
@@ -1280,9 +1292,17 @@ SampleProfileLoader::shouldInlineCandidate(InlineCandidate &Candidate) {
     if (!Advice->isInliningRecommended()) {
       Advice->recordUnattemptedInlining();
       return InlineCost::getNever("not previously inlined");
+=======
+    Advice = ExternalInlineAdvisor->getAdvice(*Candidate.CallInstr);
+    if (Advice) {
+      if (!Advice->isInliningRecommended()) {
+        Advice->recordUnattemptedInlining();
+        return InlineCost::getNever("not previously inlined");
+      }
+      Advice->recordInlining();
+      return InlineCost::getAlways("previously inlined");
+>>>>>>> 313c657fcea371a533ad5f3adcff44fabc6531ae
     }
-    Advice->recordInlining();
-    return InlineCost::getAlways("previously inlined");
   }
 
   // Adjust threshold based on call site hotness, only do this for callsite
@@ -1838,11 +1858,9 @@ bool SampleProfileLoader::doInitialization(Module &M,
   }
 
   if (FAM && !ProfileInlineReplayFile.empty()) {
-    ExternalInlineAdvisor = std::make_unique<ReplayInlineAdvisor>(
+    ExternalInlineAdvisor = getReplayInlineAdvisor(
         M, *FAM, Ctx, /*OriginalAdvisor=*/nullptr, ProfileInlineReplayFile,
-        /*EmitRemarks=*/false);
-    if (!ExternalInlineAdvisor->areReplayRemarksLoaded())
-      ExternalInlineAdvisor.reset();
+        ProfileInlineReplayScope, /*EmitRemarks=*/false);
   }
 
   // Apply tweaks if context-sensitive profile is available.
