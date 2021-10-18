@@ -342,6 +342,10 @@ public:
     }
     // Innermost flag verification end
 
+    uint64_t TC;
+    assert(!(Loop->isConstTripLoop(&TC) && TC == 0) && "Zero TripCount Loop Found");
+    (void)TC;
+
     BlobUsesKills.postCheckLoopAndReport(Loop);
 
     postVisit(static_cast<const HLNode *>(Loop));
