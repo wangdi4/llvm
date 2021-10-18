@@ -1395,7 +1395,6 @@ def ProcessorFeatures {
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GRT
   // Gracemont
   list<SubtargetFeature> GRTTuning = [TuningMacroFusion,
                                       TuningSlow3OpsLEA,
@@ -1407,7 +1406,6 @@ def ProcessorFeatures {
                                       TuningFastVariablePerLaneShuffle,
                                       TuningPOPCNTFalseDeps,
                                       TuningInsertVZEROUPPER];
-#endif // INTEL_FEATURE_CPU_GRT
 #endif // INTEL_CUSTOMIZATION
 
   // Knights Landing
@@ -1863,10 +1861,8 @@ def : ProcModel<"sapphirerapids", SkylakeServerModel,
 def : ProcModel<"alderlake", SkylakeClientModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GRT
 def : ProcModel<"gracemont", SkylakeClientModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
-#endif // INTEL_FEATURE_CPU_GRT
 #endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.
