@@ -940,10 +940,10 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2) &&
       (EnableFirstIterPeelMEVec || EnablePeelMEVec) && isSearchLoop() &&
       (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq ||
-       getSearchLoopType() == VPlanIdioms::SearchLoopStructPtrEq);
+       getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq);
 
   if (isSearchLoop() &&
-      getSearchLoopType() == VPlanIdioms::SearchLoopStructPtrEq) {
+      getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq) {
     assert(SearchLoopPeelArrayRef &&
            "StructPtrEq search loop does not have peel array ref.\n");
   }
@@ -2212,7 +2212,7 @@ void VPOCodeGenHIR::handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto) {
     // is non-zero for such live-out instructions.
     handleLiveOutLinearInEarlyExit(
         NewLOInst, CurMaskValue,
-        SearchLoopType == VPlanIdioms::SearchLoopStructPtrEq /*NonZeroMask*/);
+        SearchLoopType == VPlanIdioms::SearchLoopPtrEq /*NonZeroMask*/);
   }
 }
 
@@ -2568,7 +2568,7 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     assert(Mask && "HLInst with linear ref does not have mask.");
     handleLiveOutLinearInEarlyExit(
         INode->clone(), Mask,
-        SearchLoopType == VPlanIdioms::SearchLoopStructPtrEq /*NonZeroMask*/);
+        SearchLoopType == VPlanIdioms::SearchLoopPtrEq /*NonZeroMask*/);
     return;
   }
 
