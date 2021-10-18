@@ -29,18 +29,14 @@ if (NOT TARGET LLVMGenXIntrinsics)
 
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
 
+    set( LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource )
+    set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
     set( LLVMGenXIntrinsics_GIT_TAG dpcpp_staging )
 
     if( INTEL_CUSTOMIZATION )
-#      set( LLVMGenXIntrinsics_GIT_REPO_PATH ssh://git-amr-2.devtools.intel.com:29418 )
-#      set( LLVMGenXIntrinsics_GIT_REPO_NAME dpd_icl-vc-intrinsics.git )
-       set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
-       set( LLVMGenXIntrinsics_GIT_TAG dpcpp_staging )
-
 # INTEL_FEATURE_ESIMD_EMBARGO
       if( IS_INTERNAL_ESIMD_BUILD )
-        # use different git repo and tag for the internal ESIMD EMBARGO build
-        set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
+        # use different git tag for the internal ESIMD EMBARGO build
         set( LLVMGenXIntrinsics_GIT_TAG fbfb199f83f74a838efe363202dbe666df83a2c9 )
       endif()
 # end INTEL_FEATURE_ESIMD_EMBARGO
