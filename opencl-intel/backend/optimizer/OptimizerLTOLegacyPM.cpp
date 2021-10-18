@@ -140,7 +140,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         MPM.add(createSGSizeCollectorLegacyPass(ISA));
         MPM.add(createSGSizeCollectorIndirectLegacyPass(ISA));
 
-        MPM.add(createDPCPPKernelVecClonePass(VectInfos, ISA,
+        MPM.add(createDPCPPKernelVecClonePass(getVectInfos(), ISA,
                                               !m_IsSYCL && !m_IsOMP));
         MPM.add(createVectorVariantFillInLegacyPass());
         MPM.add(createUpdateCallAttrsLegacyPass());
