@@ -1,0 +1,26 @@
+; This module is used by unify-min-legal-vector-width.ll
+
+target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
+target triple = "spir64-unknonw-unknown"
+
+define <16 x i32> @builtin_calling_other_builtin(<16 x i32> %in) {
+entry:
+  %out = call <16 x i32> @builtin_requires_zmm(<16 x i32> %in)
+  ret <16 x i32> %out
+}
+
+define <16 x i32> @builtin_requires_zmm(<16 x i32> %in) #0 {
+entry:
+  %out = call <16 x i32> @llvm.smax.v16i32(<16 x i32> %in, <16 x i32> zeroinitializer)
+  ret <16 x i32> %out
+}
+
+define <16 x i32> @builtin_without_restriction(<16 x i32> %in) {
+entry:
+  %out = call <16 x i32> @llvm.smax.v16i32(<16 x i32> %in, <16 x i32> zeroinitializer)
+  ret <16 x i32> %out
+}
+
+declare <16 x i32> @llvm.smax.v16i32(<16 x i32> %a, <16 x i32> %b)
+
+attributes #0 = { "min-legal-vector-width"="512" }
