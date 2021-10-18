@@ -446,6 +446,10 @@ EXTERN void *ompx_target_aligned_alloc_host(
     size_t align, size_t size, int device_num);
 EXTERN void *ompx_target_aligned_alloc_shared(
     size_t align, size_t size, int device_num);
+
+/// Get number of subdevices supported by the given device ID at the specified
+/// level
+EXTERN int ompx_get_num_subdevices(int device_num, int level);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators

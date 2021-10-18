@@ -62,6 +62,7 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h" // INTEL
 #include <algorithm>
 #include <bitset>
 #include <cctype>
@@ -103,15 +104,6 @@ static void errorUnsupported(SelectionDAG &DAG, const SDLoc &dl,
   DAG.getContext()->diagnose(
       DiagnosticInfoUnsupported(MF.getFunction(), Msg, dl.getDebugLoc()));
 }
-
-#if INTEL_CUSTOMIZATION
-static bool isSVMLCallingConv(CallingConv::ID CC) {
-  return CC == CallingConv::SVML || CC == CallingConv::SVML_AVX ||
-         CC == CallingConv::SVML_AVX512 || CC == CallingConv::SVML_Unified ||
-         CC == CallingConv::SVML_Unified_256 ||
-         CC == CallingConv::SVML_Unified_512;
-}
-#endif // INTEL_CUSTOMIZATION
 
 X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
                                      const X86Subtarget &STI)
