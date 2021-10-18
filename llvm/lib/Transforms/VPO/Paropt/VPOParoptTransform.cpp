@@ -152,14 +152,14 @@ static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                                     " bit 0, but for array "
                                                     "reduction."));
 cl::opt<bool> AtomicFreeReduction("vpo-paropt-atomic-free-reduction",
-                                  cl::Hidden, cl::init(true),
+                                  cl::Hidden, cl::init(false),
                                   cl::desc("Enable atomic-free GPU reduction"));
 cl::opt<uint32_t> AtomicFreeReductionCtrl(
-    "vpo-paropt-atomic-free-reduction-ctrl", cl::Hidden, cl::init(3),
+    "vpo-paropt-atomic-free-reduction-ctrl", cl::Hidden, cl::init(0),
     cl::desc(
-        "Control option for atomic-free reduction. Bit 0(default on): Local "
+        "Control option for atomic-free reduction. Bit 0(default off): Local "
         "update loop emitted "
-        "reduction code. Bit 1(default on): Global update loop is emitted."));
+        "reduction code. Bit 1(default off): Global update loop is emitted."));
 
 static cl::opt<bool> EmitTargetFPCtorDtors(
     "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
@@ -227,12 +227,12 @@ static void debugPrintHeader(WRegionNode *W, int Mode) {
 }
 
 static bool isAtomicFreeReductionLocalEnabled() {
-  return AtomicFreeReduction &&
+  return AtomicFreeReduction ||
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Local);
 }
 
 static bool isAtomicFreeReductionGlobalEnabled() {
-  return AtomicFreeReduction &&
+  return AtomicFreeReduction ||
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
 
