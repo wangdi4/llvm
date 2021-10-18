@@ -92,8 +92,8 @@ struct NotifyTabHeader {
 
 // Structure to represent anchor table entry.
 struct AnchorTabEntry {
-  char AnchorID[32];
-  uint64_t AnchorAddr;
+  char AnchorID[32] = {0};
+  uint64_t AnchorAddr = 0;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const {
@@ -223,9 +223,11 @@ static void parseSection(const SectionRef *Scn) {
       LLVM_DEBUG(Entry.dump(dbgs()));
 
       // Populate entry in outgoing parsed data.
-      assert(ParsedData.AnchorTab.count(Entry.AnchorID) == 0 &&
+      assert(ParsedData.AnchorTab.count(
+                 StringRef(Entry.AnchorID, sizeof(Entry.AnchorID))) == 0 &&
              "Repeating anchor IDs found in anchor table.");
-      ParsedData.AnchorTab[Entry.AnchorID] = Entry.AnchorAddr;
+      ParsedData.AnchorTab[StringRef(Entry.AnchorID, sizeof(Entry.AnchorID))] =
+          Entry.AnchorAddr;
     }
 
     /**** Parse Protobuf message entry ****/
