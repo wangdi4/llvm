@@ -21,7 +21,7 @@
 int v;
 
 int addit(float a, float b) {
-  // CHECK: define {{.*}}@addit(float noundef {{.*}}, float noundef {{.*}}) #0 {
+  // CHECK: define {{.*}}@addit(float {{.*}}, float {{.*}}) #0 {
 
   // CHECKSTINT-32: [[P_32:%.*]] = alloca i32*, align 4
   // CHECKSTINT-32-NEXT: [[I_32:%.*]] = alloca i32, align 4
@@ -134,18 +134,18 @@ int addit(float a, float b) {
 }
 
 int addit1(int a, int b) {
-  // CHECK: define {{.*}}@addit1(i32 noundef {{.*}}, i32 noundef {{.*}}
+  // CHECK: define {{.*}}@addit1(i32 {{.*}}, i32 {{.*}}
   v = (a + b);
-  // CHECK-NOT: call{{.*}} float @llvm.arithmetic.fence.int(float noundef {{.*}})
+  // CHECK-NOT: call{{.*}} float @llvm.arithmetic.fence.int(float {{.*}})
   return 0;
 }
 #ifdef FAST
 #pragma float_control(precise, on)
 int subit(float a, float b, float *fp) {
-  // CHECKFAST: define {{.*}}@subit(float noundef {{.*}}, float noundef {{.*}}
+  // CHECKFAST: define {{.*}}@subit(float {{.*}}, float {{.*}}
   *fp = __arithmetic_fence(a - b);
   *fp = (a + b);
-  // CHECK-NOT: call{{.*}} float @llvm.arithmetic.fence.f32(float noundef {{.*}})
+  // CHECK-NOT: call{{.*}} float @llvm.arithmetic.fence.f32(float {{.*}})
   return 0;
 }
 #endif
