@@ -359,9 +359,7 @@ constexpr ProcInfo Processors[] = {
   { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus },
   { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GRT
   { {"gracemont"}, CK_Gracemont, FEATURE_AVX2, FeaturesAlderlake },
-#endif // INTEL_FEATURE_CPU_GRT
 #endif // INTEL_CUSTOMIZATION
   // Nehalem microarchitecture based processors.
   { {"nehalem"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem },

@@ -338,9 +338,6 @@
 # end INTEL_FEATURE_SW_DTRANS
 # === New SW features section end ===
 
-# INTEL_FEATURE_CPU_GRT
-@CPU_GRT:SECRET@
-#end INTEL_FEATURE_CPU_GRT
 # === New CPU section end ===
 
 # Special software features section currently consist of

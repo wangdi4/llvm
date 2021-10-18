@@ -126,6 +126,9 @@ void verifycpustrings() {
   (void)__builtin_cpu_is("tigerlake");
   (void)__builtin_cpu_is("sapphirerapids");
   (void)__builtin_cpu_is("tremont");
+#if INTEL_CUSTOMIZATION
+  (void)__builtin_cpu_is("gracemont");
+#endif // INTEL_CUSTOMIZATION
   (void)__builtin_cpu_is("westmere");
   (void)__builtin_cpu_is("znver1");
   (void)__builtin_cpu_is("znver2");
