@@ -14,7 +14,7 @@
 
 
 ; The loop just before CG-
-; CHECK:   + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:   + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:   |   %.vec = (<4 x i8>*)(%src)[-1 * i1 + -1 * ptrtoint.i8*.i32(%src) + umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len)) + -4];
 ; CHECK:   |   %reverse = shufflevector %.vec,  undef, <i32 3, i32 2, i32 1, i32 0>;
 ; CHECK:   |   (<4 x i8>*)(%dest)[i1 + ptrtoint.i8*.i32(%src) + %len + -1 * umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len))] = %reverse;
