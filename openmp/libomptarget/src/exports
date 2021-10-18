@@ -68,6 +68,7 @@ VERS1.0 {
     omp_get_interop_rc_desc;
     omp_set_sub_device;
     omp_unset_sub_device;
+    ompx_get_num_subdevices;
     ompx_target_realloc;
     ompx_target_realloc_device;
     ompx_target_realloc_host;

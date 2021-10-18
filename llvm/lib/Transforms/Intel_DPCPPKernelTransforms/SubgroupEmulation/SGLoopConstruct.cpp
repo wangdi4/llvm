@@ -226,8 +226,8 @@ void SGLoopConstructPass::createSGLoop() {
       Builder.CreateCondBr(LoopContinue, LoopLatch, LoopExit);
 
       // Dump sub-group loop control variable for debugging.
-      LLVM_DEBUG(Helper.insertPrintf(PrevExitingBB->getName(),
-                                     (Instruction *)SGLIdInc, SGLId));
+      LLVM_DEBUG(insertPrintf(PrevExitingBB->getName(), (Instruction *)SGLIdInc,
+                              SGLId));
 
       // Make latch.
       // Add unconditional branch to the single target OR add switch to

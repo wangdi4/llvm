@@ -719,5 +719,29 @@ EXTERN void omp_unset_sub_device(int device_num) {
 
   PM->Devices[device_num]->unsetSubDevice();
 }
+
+EXTERN int ompx_get_num_subdevices(int device_num, int level) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s returns 0 for the host device\n", __func__);
+    return 0;
+  }
+
+  if (level < 0 || level > 1) {
+    REPORT("%s returns 0 for invalid level %" PRId32 "\n", __func__, level);
+    return 0;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s returns 0 for device %d\n", __func__, device_num);
+    return 0;
+  }
+
+  // We return 1 if the device does not support subdevice (Ret == 0)
+  int Ret = PM->Devices[device_num]->getNumSubDevices(level);
+  if (Ret > 1)
+    return Ret;
+  else
+    return 1;
+}
 #endif  // INTEL_COLLAB
 

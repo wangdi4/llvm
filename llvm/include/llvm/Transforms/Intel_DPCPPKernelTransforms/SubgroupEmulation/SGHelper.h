@@ -127,11 +127,6 @@ public:
   Value *createGetSubGroupSize(Instruction *IP);
   Value *createGetMaxSubGroupSize(Instruction *IP);
 
-  /// Insert printf in the kernel for debug purpose.
-  /// TODO: Move this to CompilationUtils
-  static void insertPrintf(const Twine &Prefix, Instruction *IP,
-                           ArrayRef<Value *> Inputs = None);
-
   /// Get promoted integer vector type for IntVecType. Return IntVecType if
   /// promotion is not needed.
   /// Some integer vector types are not element-wise-addressable on X86 targets.

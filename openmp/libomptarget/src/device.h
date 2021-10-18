@@ -388,6 +388,7 @@ struct DeviceTy {
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
   int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
+  int32_t getNumSubDevices(int32_t Level);
   int32_t isSupportedDevice(void *DeviceType);
   __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
                                intptr_t *PreferIDs);
