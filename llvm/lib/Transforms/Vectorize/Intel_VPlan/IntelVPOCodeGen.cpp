@@ -49,22 +49,6 @@ static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
     ParentLoop->addBasicBlockToLoop(BB, LI);
 }
 
-// TODO: Consolidate and move this function to a IntelVPlanUtils.h
-static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
-  assert(isa<PointerType>(Val->getType()) &&
-         "Expect a pointer-type argument to isScalarPointeeTy function.");
-  Type *PointeeTy = Val->getType()->getPointerElementType();
-  return (!(PointeeTy->isAggregateType() || PointeeTy->isVectorTy() ||
-            PointeeTy->isPointerTy()));
-}
-
-/// Helper function that returns widened type of given type \p VPInstTy.
-static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
-  auto *VPInstVecTy = dyn_cast<VectorType>(VPInstTy);
-  unsigned NumElts = VPInstVecTy ? VPInstVecTy->getNumElements() * VF : VF;
-  return FixedVectorType::get(VPInstTy->getScalarType(), NumElts);
-}
-
 /// Return true if \p Var a variable identified for SOA-layout.
 static bool isSOAAccess(const VPValue *Var, const VPlanVector *Plan) {
   return Plan->getVPlanDA()->isSOAShape(Var);
@@ -377,12 +361,13 @@ void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
 
   // Generate code to check that the loop's trip count that we computed by
   // adding one to the backedge-taken count will not overflow.
-  BasicBlock *NewBB = BB->splitBasicBlock(BB->getTerminator(), "vector.ph");
-  // Update dominator tree immediately if the generated block is a
-  // LoopBypassBlock because SCEV expansions to generate loop bypass
-  // checks may query it before the current function is finished.
-  DT->addNewBlock(NewBB, BB);
-  addBlockToParentLoop(L, NewBB, *LI);
+
+  // Update dominator tree immediately (i.e. not using delayed DomTreeUpdater)
+  // if the generated block is a LoopBypassBlock because SCEV expansions to
+  // generate loop bypass checks may query it before the current function is
+  // finished.
+  BasicBlock *NewBB = SplitBlock(BB, BB->getTerminator(), DT, LI,
+                                 nullptr /* MemorySSAUpdater */, "vector.ph");
   ReplaceInstWithInst(BB->getTerminator(),
                       BranchInst::Create(Bypass, NewBB, Cmp));
   LoopBypassBlocks.push_back(BB);
@@ -2316,7 +2301,7 @@ void VPOCodeGen::vectorizeCast(
   }
 
   Value *WidenedOp = getVectorValue(VPInst->getOperand(0));
-  Type *WidenedTy = getVPInstVectorType(VPInst->getType(), VF);
+  Type *WidenedTy = getWidenedType(VPInst->getType(), VF);
   Value *WidenedCast = Builder.CreateCast(Opcode, WidenedOp, WidenedTy);
   VPWidenMap[VPInst] = WidenedCast;
 }
@@ -3522,7 +3507,9 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
       // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
       // expect CSE following up to take care of this.
       Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
-      if (!PointerArg->getType()->getPointerElementType()->isIntegerTy(8))
+      auto *PointerArgType = cast<PointerType>(PointerArg->getType());
+      if (!PointerArgType->isOpaque() &&
+          !PointerArgType->getElementType()->isIntegerTy(8))
         PointerArg = Builder.CreateBitCast(
             PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
 
