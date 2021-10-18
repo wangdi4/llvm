@@ -51,6 +51,9 @@
 ; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=goldmont 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
 ; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=goldmont-plus 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
 ; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=tremont 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
+; INTEL_CUSTOMIZATION
+; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=gracemont 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
+; end INTEL_CUSTOMIZATION
 ; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=knl 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
 ; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=knm 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
 
