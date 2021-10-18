@@ -38,9 +38,6 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-extern std::vector<std::tuple<const char *, const char *, const char *>>
-    VectInfos;
-
 class Optimizer {
 public:
   Optimizer(llvm::Module *M,
@@ -92,6 +89,11 @@ public:
   /// @param Ty is a type of global variables to search
   /// @return std::vector with global variable names
   std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty) const;
+
+  static std::vector<std::tuple<const char *, const char *, const char *>> &
+  getVectInfos();
+
+  static const StringSet<> &getVPlanMaskedFuncs();
 
 protected:
   llvm::Module *m_M;

@@ -172,15 +172,23 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 // Load Table-Gen'erated VectInfo.gen
-std::vector<std::tuple<const char *, const char *, const char *>> VectInfos = {
+std::vector<std::tuple<const char *, const char *, const char *>> &
+Optimizer::getVectInfos() {
+  static std::vector<std::tuple<const char *, const char *, const char *>>
+      VectInfos = {
 #include "VectInfo.gen"
-};
+      };
+  return VectInfos;
+}
 
-const StringSet<> VPlanMaskedFuncs =
+const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
+  static const StringSet<> VPlanMaskedFuncs =
 #define IMPORT_VPLAN_MASKED_VARIANTS
 #include "VectInfo.gen"
 #undef IMPORT_VPLAN_MASKED_VARIANTS
-;
+      ;
+  return VPlanMaskedFuncs;
+}
 
 // Several PMs are populated in the Optimizer flow:
 // Materializer, PreFail and PostFail PMs.
@@ -634,7 +642,8 @@ static void populatePassesPostFailCheck(
     }
 
     if (UseVplan)
-      PM.add(createHandleVPlanMaskLegacyPass(&VPlanMaskedFuncs));
+      PM.add(
+          createHandleVPlanMaskLegacyPass(&Optimizer::getVPlanMaskedFuncs()));
 
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,
