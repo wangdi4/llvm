@@ -17,11 +17,11 @@ define void @main1() {
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
-; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
+; CHECK-NEXT:   Remainders: masked, VF=4,
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
-; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
+; CHECK-NEXT:   Remainders: masked, VF=4,
 ;
 entry:
   br label %preheader
@@ -101,11 +101,11 @@ define void @main3() {
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
-; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
+; CHECK-NEXT:   Remainders: masked, VF=4,
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
-; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
+; CHECK-NEXT:   Remainders: masked, VF=4,
 ;
 entry:
   br label %preheader

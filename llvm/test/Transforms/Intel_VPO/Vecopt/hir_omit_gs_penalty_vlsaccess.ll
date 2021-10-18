@@ -40,9 +40,9 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP8:%.*]] = add i64 [[VP_LOAD]] i64 [[VP4]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP8]] i64 [[VP_LOAD_1]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CMCHECK-NEXT:    Cost 8000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CMCHECK-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 58000
+; CMCHECK-NEXT:  [[BB2]]: base cost: 52000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -51,24 +51,26 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
-; CMCHECK-NEXT:  Base Cost: 58000
+; CMCHECK-NEXT:  Base Cost: 52000
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
-; HIRCHECK-NEXT:            BEGIN REGION { modified }
-; HIRCHECK-NEXT:                 [[RED_VAR0:%.*]] = 0
-; HIRCHECK-NEXT:                 [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[SUM_0130:%.*]],  0
-; HIRCHECK:                      + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; HIRCHECK-NEXT:                 |   [[DOTCOPY0:%.*]] = [[RED_VAR0]]
-; HIRCHECK-NEXT:                 |   [[DOTVLS_LOAD0:%.*]] = (<8 x i64>*)([[LP0:%.*]])[2 * i1]
-; HIRCHECK-NEXT:                 |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
-; HIRCHECK-NEXT:                 |   [[VLS_EXTRACT10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
-; HIRCHECK-NEXT:                 |   [[DOTVEC0:%.*]] = [[VLS_EXTRACT0]]  +  [[DOTCOPY0]]
-; HIRCHECK-NEXT:                 |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[VLS_EXTRACT10]]
-; HIRCHECK-NEXT:                 + END LOOP
-; HIRCHECK:                      [[SUM_0130]] = @llvm.vector.reduce.add.v4i64([[RED_VAR0]])
-; HIRCHECK-NEXT:            END REGION
+; HIRCHECK-NEXT:  <0>          BEGIN REGION { modified }
+; HIRCHECK-NEXT:  <24>               [[RED_VAR0:%.*]] = 0
+; HIRCHECK-NEXT:  <25>               [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[SUM_0130:%.*]],  0
+; HIRCHECK-NEXT:  <20>
+; HIRCHECK-NEXT:  <20>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; HIRCHECK-NEXT:  <27>               |   [[DOTCOPY0:%.*]] = [[RED_VAR0]]
+; HIRCHECK-NEXT:  <28>               |   [[DOTVLS_LOAD0:%.*]] = (<8 x i64>*)([[LP0:%.*]])[2 * i1]
+; HIRCHECK-NEXT:  <29>               |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
+; HIRCHECK-NEXT:  <30>               |   [[VLS_EXTRACT10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
+; HIRCHECK-NEXT:  <31>               |   [[DOTVEC0:%.*]] = [[VLS_EXTRACT0]]  +  [[DOTCOPY0]]
+; HIRCHECK-NEXT:  <32>               |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[VLS_EXTRACT10]]
+; HIRCHECK-NEXT:  <20>               + END LOOP
+; HIRCHECK-NEXT:  <20>
+; HIRCHECK-NEXT:  <34>               [[SUM_0130]] = @llvm.vector.reduce.add.v4i64([[RED_VAR0]])
+; HIRCHECK-NEXT:  <0>          END REGION
 ;
 entry:
   br label %for.body
