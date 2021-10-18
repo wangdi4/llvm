@@ -40,6 +40,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeSize.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #include <map>
 
 #define SV_NAME "iml-trans"
@@ -629,56 +630,6 @@ Value *MapIntrinToImlImpl::extractLowerPart(Value *V, unsigned ExtractingVL,
   return Extracted;
 }
 
-// Returns the return vector type in the function signature. NumRet is based
-// on this type. Most math functions' argument types match the return type and
-// these are the simple cases. However, this function should be flexible enough
-// to deal with odd cases like the following (assume xmm target for explanatory
-// purposes).
-//
-// Case 1) int ilogb(double) -> <4 x i32> ilogb(<4 x double>)
-// - argument must be split into two <2 x double> vectors
-// - return is reduced to <2 x i32>
-// - this function should return <4 x double>, so that we know NumRet = 2
-//   (i.e., generate two svml calls)
-// - this is ok because the function should return only two i32 values in the
-//   lower half of the xmm register.
-//
-// TODO: support for Case 1 still needs to be added. Calls to ilogb (and any
-//       other functions with parameter/return types that will result in
-//       different vector type widths) will not be vectorized at the moment, so
-//       stability is not an issue.
-//
-// Case 2) double drand48() -> <4 x double> drand(void)
-// - return must be split into two <2 x double> vectors
-// - this function returns <4 x double>, so NumRet = 2
-//
-// Case 3) void sincos(double, double*, double*) ->
-//         void sincos(<4 x double>, <4 x double*>, <4 x double*>)
-// - return is void, so the largest argument is <4 x double> (keep in mind
-//   that double* is 32-bit or 64-bit depending on target pointer size).
-// - all arguments are reduced to 2 elements
-// - NumRet = 2
-// - this is ok because __svml_sincos expects two pointers for each sin/cos
-//   result.
-//
-// For cases 1 and 3, we unfortunately need special logic to determine the
-// correct call type information. sincos is void, but the incoming vector call
-// will be transformed to an svml call that returns a 2x wide vector based on
-// the type of the 1st argument of the call signature. For ilogb, the number
-// of elements returned is the number of elements indicated by the 1st argument
-// since it is 2x the size of the return. Case 2 will work as is.
-
-VectorType *MapIntrinToImlImpl::getVectorTypeForSVMLFunction(FunctionType *FT) {
-  Type *CallRetType = FT->getReturnType();
-  auto *RetStructTy = dyn_cast_or_null<StructType>(CallRetType);
-  // For structure return types, return the first structure element as
-  // a vector type.
-  if (RetStructTy && RetStructTy->getNumElements())
-    return dyn_cast<VectorType>(RetStructTy->getElementType(0));
-  else
-    return dyn_cast<VectorType>(CallRetType);
-}
-
 void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
                                              StringRef ScalarFuncName,
                                              unsigned LogicalVL,
@@ -1032,24 +983,10 @@ CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
                                              ArrayRef<Value *> Args,
                                              const Twine &Name) {
   CallInst *NewCI = Builder.CreateCall(Callee, Args, Name);
-
-  // Set calling convention according to the VL of the call.
-  unsigned BitWidth = getVectorTypeForSVMLFunction(Callee.getFunctionType())
-                          ->getPrimitiveSizeInBits();
-  assert(isPowerOf2_32(BitWidth) && BitWidth <= 512 && "Invalid vector width");
-  switch (BitWidth) {
-  case 256:
-    NewCI->setCallingConv(CallingConv::SVML_AVX);
-    break;
-  case 512:
-    NewCI->setCallingConv(CallingConv::SVML_AVX512);
-    break;
-  // All smaller VLs use the 128-bit calling convention
-  default:
-    NewCI->setCallingConv(CallingConv::SVML);
-    break;
-  }
-
+  NewCI->setCallingConv(
+      getLegacyCSVMLCallingConvFromUnified(getSVMLCallingConvByNameAndType(
+          cast<Function>(Callee.getCallee())->getName(),
+          Callee.getFunctionType())));
   return NewCI;
 }
 
@@ -1126,7 +1063,7 @@ bool MapIntrinToImlImpl::runImpl() {
       // Only transform functions with SVML naming scheme if SVML is enabled.
       if (FuncName.startswith("__svml")) {
         if (TLI->isSVMLEnabled() &&
-            getVectorTypeForSVMLFunction(CI->getFunctionType()))
+            getVectorTypeForCSVMLFunction(CI->getFunctionType()))
           InstToTranslate.push_back(CI);
       } else if (is_libm_function(FuncName.str().c_str())) {
         ScalarCallsToTranslate.push_back(CI);
@@ -1145,7 +1082,7 @@ bool MapIntrinToImlImpl::runImpl() {
     // vector typed. Thus, here it is known that
     // getVectorTypeForSVMLFunction(FunctionType) will return a vector type.
     VectorType *VecCallType =
-        getVectorTypeForSVMLFunction(CI->getFunctionType());
+        getVectorTypeForCSVMLFunction(CI->getFunctionType());
 
     Type *ElemType = VecCallType->getElementType();
     unsigned LogicalVL = 0;
