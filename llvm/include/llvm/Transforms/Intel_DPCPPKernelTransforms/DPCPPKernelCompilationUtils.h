@@ -540,6 +540,10 @@ void initializeVectInfoOnce(
     std::vector<std::tuple<std::string, std::string, std::string>>
         &ExtendedVectInfos);
 
+/// Insert printf in the kernel for debug purpose.
+void insertPrintf(const Twine &Prefix, Instruction *IP,
+                  ArrayRef<Value *> Inputs = None);
+
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm
 
