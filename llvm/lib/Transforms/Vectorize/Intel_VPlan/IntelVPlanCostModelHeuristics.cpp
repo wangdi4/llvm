@@ -295,7 +295,7 @@ void HeuristicSearchLoop::apply(
       // Return some huge value, so that VectorCost still could be computed.
       Cost = UnknownCost;
     break;
-  case VPlanIdioms::SearchLoopStructPtrEq:
+  case VPlanIdioms::SearchLoopPtrEq:
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
     if (VF == 1)

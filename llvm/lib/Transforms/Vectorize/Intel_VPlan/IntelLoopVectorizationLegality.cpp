@@ -613,36 +613,6 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
 }
 
-void VPOVectorizationLegality::addReductionMult(Value *V) {
-  if (V->getType()->getPointerElementType()->isIntegerTy())
-    addReduction(V, RecurKind::Mul);
-  else
-    addReduction(V, RecurKind::FMul);
-}
-
-void VPOVectorizationLegality::addReductionAdd(Value *V) {
-  if (V->getType()->getPointerElementType()->isIntegerTy())
-    addReduction(V, RecurKind::Add);
-  else
-    addReduction(V, RecurKind::FAdd);
-}
-
-void VPOVectorizationLegality::addReductionMin(Value *V, bool IsSigned) {
-  if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurKind Kind = IsSigned ? RecurKind::SMin : RecurKind::UMin;
-    addReduction(V, Kind);
-  } else
-    addReduction(V, RecurKind::FMin);
-}
-
-void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
-  if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurKind Kind = IsSigned ? RecurKind::SMax : RecurKind::UMax;
-    addReduction(V, Kind);
-  } else
-    addReduction(V, RecurKind::FMax);
-}
-
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                                             const CallInst *RegionEntry) {
 
