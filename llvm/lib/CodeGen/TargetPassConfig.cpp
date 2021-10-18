@@ -381,12 +381,9 @@ namespace {
 struct InsertedPass {
   AnalysisID TargetPassID;
   IdentifyingPassPtr InsertedPassID;
-  bool VerifyAfter;
 
-  InsertedPass(AnalysisID TargetPassID, IdentifyingPassPtr InsertedPassID,
-               bool VerifyAfter)
-      : TargetPassID(TargetPassID), InsertedPassID(InsertedPassID),
-        VerifyAfter(VerifyAfter) {}
+  InsertedPass(AnalysisID TargetPassID, IdentifyingPassPtr InsertedPassID)
+      : TargetPassID(TargetPassID), InsertedPassID(InsertedPassID) {}
 
   Pass *getInsertedPass() const {
     assert(InsertedPassID.isValid() && "Illegal Pass ID!");
@@ -665,14 +662,13 @@ CodeGenOpt::Level TargetPassConfig::getOptLevel() const {
 
 /// Insert InsertedPassID pass after TargetPassID.
 void TargetPassConfig::insertPass(AnalysisID TargetPassID,
-                                  IdentifyingPassPtr InsertedPassID,
-                                  bool VerifyAfter) {
+                                  IdentifyingPassPtr InsertedPassID) {
   assert(((!InsertedPassID.isInstance() &&
            TargetPassID != InsertedPassID.getID()) ||
           (InsertedPassID.isInstance() &&
            TargetPassID != InsertedPassID.getInstance()->getPassID())) &&
          "Insert a pass after itself!");
-  Impl->InsertedPasses.emplace_back(TargetPassID, InsertedPassID, VerifyAfter);
+  Impl->InsertedPasses.emplace_back(TargetPassID, InsertedPassID);
 }
 
 /// createPassConfig - Create a pass configuration object to be used by
@@ -750,7 +746,7 @@ bool TargetPassConfig::isPassSubstitutedOrOverridden(AnalysisID ID) const {
 /// a later pass or that it should stop after an earlier pass, then do not add
 /// the pass.  Finally, compare the current pass against the StartAfter
 /// and StopAfter options and change the Started/Stopped flags accordingly.
-void TargetPassConfig::addPass(Pass *P, bool verifyAfter) {
+void TargetPassConfig::addPass(Pass *P) {
   assert(!Initialized && "PassConfig is immutable");
 
   // Cache the Pass ID here in case the pass manager finds this pass is
@@ -768,16 +764,16 @@ void TargetPassConfig::addPass(Pass *P, bool verifyAfter) {
       addMachinePrePasses();
     std::string Banner;
     // Construct banner message before PM->add() as that may delete the pass.
-    if (AddingMachinePasses && verifyAfter)
+    if (AddingMachinePasses)
       Banner = std::string("After ") + std::string(P->getPassName());
     PM->add(P);
     if (AddingMachinePasses)
-      addMachinePostPasses(Banner, /*AllowVerify*/ verifyAfter);
+      addMachinePostPasses(Banner);
 
     // Add the passes after the pass P if there is any.
     for (const auto &IP : Impl->InsertedPasses) {
       if (IP.TargetPassID == PassID)
-        addPass(IP.getInsertedPass(), IP.VerifyAfter);
+        addPass(IP.getInsertedPass());
     }
   } else {
     delete P;
@@ -797,7 +793,7 @@ void TargetPassConfig::addPass(Pass *P, bool verifyAfter) {
 ///
 /// addPass cannot return a pointer to the pass instance because is internal the
 /// PassManager and the instance we create here may already be freed.
-AnalysisID TargetPassConfig::addPass(AnalysisID PassID, bool verifyAfter) {
+AnalysisID TargetPassConfig::addPass(AnalysisID PassID) {
   IdentifyingPassPtr TargetID = getPassSubstitution(PassID);
   IdentifyingPassPtr FinalPtr = overridePass(PassID, TargetID);
   if (!FinalPtr.isValid())
@@ -812,7 +808,7 @@ AnalysisID TargetPassConfig::addPass(AnalysisID PassID, bool verifyAfter) {
       llvm_unreachable("Pass ID not registered");
   }
   AnalysisID FinalID = P->getPassID();
-  addPass(P, verifyAfter); // Ends the lifetime of P.
+  addPass(P); // Ends the lifetime of P.
 
   return FinalID;
 }
@@ -856,8 +852,7 @@ void TargetPassConfig::addMachinePrePasses(bool AllowDebugify) {
     addDebugifyPass();
 }
 
-void TargetPassConfig::addMachinePostPasses(const std::string &Banner,
-                                            bool AllowVerify, bool AllowStrip) {
+void TargetPassConfig::addMachinePostPasses(const std::string &Banner) {
   if (DebugifyIsSafe) {
     if (DebugifyCheckAndStripAll == cl::BOU_TRUE) {
       addCheckDebugPass();
@@ -865,8 +860,7 @@ void TargetPassConfig::addMachinePostPasses(const std::string &Banner,
     } else if (DebugifyAndStripAll == cl::BOU_TRUE)
       addStripDebugPass();
   }
-  if (AllowVerify)
-    addVerifyPass(Banner);
+  addVerifyPass(Banner);
 }
 
 /// Add common target configurable passes that perform LLVM IR to IR transforms
@@ -1220,7 +1214,7 @@ void TargetPassConfig::addMachinePasses() {
 #if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   if (EnableRAReport)
-    addPass(&RAReportEmitterID, false);
+    addPass(&RAReportEmitterID);
 #endif  // !INTEL_PRODUCT_RELEASE
 #endif //INTEL_CUSTOMIZATION
 
@@ -1292,14 +1286,14 @@ void TargetPassConfig::addMachinePasses() {
 
   // FIXME: Some backends are incompatible with running the verifier after
   // addPreEmitPass.  Maybe only pass "false" here for those targets?
-  addPass(&FuncletLayoutID, false);
+  addPass(&FuncletLayoutID);
 
-  addPass(&StackMapLivenessID, false);
-  addPass(&LiveDebugValuesID, false);
+  addPass(&StackMapLivenessID);
+  addPass(&LiveDebugValuesID);
 
 #if INTEL_CUSTOMIZATION
   if (IntelOptReportEmitter == OptReportOptions::MIR)
-    addPass(&MachineOptReportEmitterID, false);
+    addPass(&MachineOptReportEmitterID);
 #endif  // INTEL_CUSTOMIZATION
 
   if (TM->Options.EnableMachineOutliner && getOptLevel() != CodeGenOpt::None &&
