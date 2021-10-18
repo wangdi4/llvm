@@ -925,6 +925,13 @@ int32_t DeviceTy::popSubDevice(void) {
     return OFFLOAD_SUCCESS;
 }
 
+int32_t DeviceTy::getNumSubDevices(int32_t Level) {
+  if (RTL->get_num_sub_devices)
+    return RTL->get_num_sub_devices(RTLDeviceID, Level);
+  else
+    return 0;
+}
+
 int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
   if (RTL->is_supported_device)
     return RTL->is_supported_device(RTLDeviceID, DeviceType);
