@@ -236,20 +236,9 @@ public:
       HasF90DopeVectorPrivate = true;
   }
 
-  /// Register explicit reduction variables provided from outside.
-  void addReductionMin(Value *V, bool IsSigned);
-  void addReductionMax(Value *V, bool IsSigned);
-  void addReductionAdd(Value *V);
-  void addReductionMult(Value *V);
-  void addReductionAnd(Value *V) {
-    return addReduction(V, RecurKind::And);
-  }
-  void addReductionXor(Value *V) {
-    return addReduction(V, RecurKind::Xor);
-  }
-  void addReductionOr(Value *V) {
-    return addReduction(V, RecurKind::Or);
-  }
+  /// Register explicit reduction variables provided from outside by finding
+  /// pattern inside the loop for matching the explicit reduction variable \p V.
+  void addReduction(Value *V, RecurKind Kind);
 
   bool isExplicitReductionPhi(PHINode *Phi);
 
@@ -351,9 +340,6 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
-  // Find pattern inside the loop for matching the explicit
-  // reduction variable \p V.
-  void addReduction(Value *V, RecurKind Kind);
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.

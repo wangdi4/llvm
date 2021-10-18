@@ -179,26 +179,9 @@ public:
   }
 
   /// Register explicit reduction variables provided from outside.
-  void addReductionMin(RegDDRef *V, bool IsSigned) {
-    addReduction(V, IsSigned ? RecurKind::SMin : RecurKind::UMin, IsSigned);
-  }
-  void addReductionMax(RegDDRef *V, bool IsSigned) {
-    addReduction(V, IsSigned ? RecurKind::SMax : RecurKind::UMax, IsSigned);
-  }
-  void addReductionAdd(RegDDRef *V) {
-    addReduction(V, RecurKind::Add);
-  }
-  void addReductionMult(RegDDRef *V) {
-    addReduction(V, RecurKind::Mul);
-  }
-  void addReductionAnd(RegDDRef *V) {
-    addReduction(V, RecurKind::And);
-  }
-  void addReductionXor(RegDDRef *V) {
-    addReduction(V, RecurKind::Xor);
-  }
-  void addReductionOr(RegDDRef *V) {
-    addReduction(V, RecurKind::Or);
+  void addReduction(RegDDRef *V, RecurKind Kind, bool IsSigned = false) {
+    assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+    ReductionList.emplace_back(V, Kind, IsSigned);
   }
 
   // Add explicit linear.
@@ -271,11 +254,6 @@ public:
   void setHasComplexTyReduction() { HasComplexTyReduction = true; }
 
 private:
-  void addReduction(RegDDRef *V, RecurKind Kind, bool IsSigned = false) {
-    assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
-    ReductionList.emplace_back(V, Kind, IsSigned);
-  }
-
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
   /// corresponding to it, else nullptr
