@@ -3507,7 +3507,9 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
       // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
       // expect CSE following up to take care of this.
       Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
-      if (!PointerArg->getType()->getPointerElementType()->isIntegerTy(8))
+      auto *PointerArgType = cast<PointerType>(PointerArg->getType());
+      if (!PointerArgType->isOpaque() &&
+          !PointerArgType->getElementType()->isIntegerTy(8))
         PointerArg = Builder.CreateBitCast(
             PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
 
