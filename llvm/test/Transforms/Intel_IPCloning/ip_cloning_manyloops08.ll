@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt < %s -S -ip-cloning -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-cloning -ip-spec-cloning-min-loops=2 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=2 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
 
 ; Check that many loops specialization cloning was performed.
 
@@ -11,9 +11,10 @@
 ; CHECK: MLSC: Testing aer_rad_props_mp_aer_rad_props_sw_:
 ; CHECK: MLSC: Arg(0): ArgUse(0): Missing minimal GEPI conditions
 ; CHECK: MLSC: Arg(1): ArgUse(0): Missing minimal GEPI conditions
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing CastInst or more than one use
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): Good partial result
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(2): Missing CastInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Good partial result
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): Missing CastInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(2): Good partial result
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(3): Missing CastInst or more than one use
 ; CHECK: MLSC: Arg(1): ArgUse(1): FOUND MLSC CANDIDATE
 ; CHECK: Selected ManyLoopSpecialization cloning
 
@@ -73,6 +74,7 @@ L0:
   %t81 = getelementptr inbounds [26 x [4 x double]], [26 x [4 x double]]* %t19, i64 0, i64 0, i64 0
   %t82 = add nsw i64 %t77, 1
   br label %L83
+
 L83:                                               ; preds = %L96, %L1
   %t84 = phi i64 [ %t97, %L96 ], [ 1, %L0 ]
   br i1 %t80, label %L96, label %L85
@@ -96,9 +98,40 @@ L88:                                               ; preds = %L88, %L85
 L96:                                               ; preds = %L88, %L83
   %t97 = add nuw nsw i64 %t84, 1
   %t98 = icmp eq i64 %t97, 27
-  br i1 %t98, label %L99, label %L83
+  br i1 %t98, label %L100, label %L83
 
-L99:                                               ; preds = %L96
+L100:                                              ; preds = %L96
+  %t100 = load i32, i32* %t25, align 1
+  %t101 = sext i32 %t100 to i64
+  %t102 = add nsw i64 %t101, 1
+  br label %L183
+
+L183:                                               ; preds = %L196, %L100
+  %t184 = phi i64 [ %t197, %L196 ], [ 1, %L100 ]
+  br i1 %t80, label %L196, label %L185
+
+L185:                                               ; preds = %L183
+  %t186 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* elementtype(double) nonnull %t79, i64 %t184)
+  %t187 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* elementtype(double) nonnull %t81, i64 %t184)
+  br label %L188
+
+L188:                                               ; preds = %L188, %L185
+  %t189 = phi i64 [ 1, %L185 ], [ %t194, %L188 ]
+  %t190 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t186, i64 %t189)
+  %t191 = load double, double* %t190, align 1
+  %t192 = fmul fast double %t191, %t78
+  %t193 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %t187, i64 %t189)
+  store double %t192, double* %t193, align 1
+  %t194 = add nuw nsw i64 %t189, 1
+  %t195 = icmp eq i64 %t194, %t102
+  br i1 %t195, label %L196, label %L188
+
+L196:                                               ; preds = %L188, %L183
+  %t197 = add nuw nsw i64 %t184, 1
+  %t198 = icmp eq i64 %t197, 27
+  br i1 %t198, label %L99, label %L183
+
+L99:                                               ; preds = %L196
   ret void
 }
 
