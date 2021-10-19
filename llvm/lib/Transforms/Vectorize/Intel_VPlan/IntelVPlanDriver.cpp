@@ -126,6 +126,11 @@ static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
         "(-vplan-enable-peeling-hir) to be enabled. When false disables any "
         "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
+static cl::opt<bool> ForceComplexTyReductionVec(
+    "vplan-force-complex-type-reduction-vectorization", cl::init(false),
+    cl::Hidden,
+    cl::desc("Force vectorization of reduction involving complex type."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
@@ -310,6 +315,10 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // The decision about possible loop vectorization is based
   // on this data.
   LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
+  if (!ForceComplexTyReductionVec && LVL.hasComplexTyReduction()) {
+    LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
+    return false;
+  }
 
   // The function canVectorize() collects information about induction
   // and reduction variables. It also verifies that the loop vectorization
@@ -1277,6 +1286,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LVP.EnterExplicitData(WRLp, HIRVecLegal);
   if (HIRVecLegal.hasF90DopeVectorPrivate()) {
     LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
+    return false;
+  }
+  if (!ForceComplexTyReductionVec && HIRVecLegal.hasComplexTyReduction()) {
+    LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
     return false;
   }
   // Find any DDRefs in loop pre-header that are aliases to the descriptor

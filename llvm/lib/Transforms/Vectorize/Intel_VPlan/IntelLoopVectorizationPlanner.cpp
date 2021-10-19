@@ -1490,6 +1490,9 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #else
       auto V = RedItem->getOrig();
 #endif
+      if (RedItem->getIsComplex())
+        LVL.setHasComplexTyReduction();
+
       ReductionItem::WRNReductionKind Type = RedItem->getType();
       switch (Type) {
       case ReductionItem::WRNReductionMin:
