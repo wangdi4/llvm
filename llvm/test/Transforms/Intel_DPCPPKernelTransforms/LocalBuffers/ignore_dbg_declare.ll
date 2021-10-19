@@ -117,5 +117,4 @@ entry:
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} getelementptr
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} bitcast
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} getelementptr
 ; DEBUGIFY-NOT: WARNING

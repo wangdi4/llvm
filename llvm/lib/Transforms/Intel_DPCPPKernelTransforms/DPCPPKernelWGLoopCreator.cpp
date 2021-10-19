@@ -65,8 +65,10 @@ bool DPCPPKernelWGLoopCreatorLegacy::runOnModule(Module &M) {
   FuncSet FSet = getAllKernels(M);
   MapFunctionToReturnInst FuncReturn;
   for (auto *F : FSet) {
+    bool Changed = false;
     BasicBlock *SingleRetBB =
-        getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F).getReturnBlock();
+        getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F, &Changed)
+            .getReturnBlock();
     if (SingleRetBB)
       FuncReturn[F] = cast<ReturnInst>(SingleRetBB->getTerminator());
   }
