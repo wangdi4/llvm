@@ -389,7 +389,13 @@ private:
   // during recursive calls to analyzeValue() and with a DenseMap or
   // ValueMap that would cause the LocalPointerInfo to be copied and our
   // local reference to it to be invalidated.
-  std::map<const Value *, ValueTypeInfo *> LocalMap;
+  //
+  // Separate maps will be used for each Function, along with a map for Global
+  // objects (uses 'nullptr' as the 'LocalMaps' lookup key) to avoid having to
+  // search a single map of all Value objects when looking up the ValueTypeInfo
+  // object for a Value.
+  using PerFunctionLocalMapType = std::map<const Value*, ValueTypeInfo*>;
+  std::map<const Function*, PerFunctionLocalMapType> LocalMaps;
 
   // Compiler constants such as 'undef' and 'null' need to have context
   // sensitive information. For example:
@@ -3755,9 +3761,10 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
 //
 ////////////////////////////////////////////////////////////////////////////////
 PtrTypeAnalyzerImpl::~PtrTypeAnalyzerImpl() {
-  for (auto &LPI : LocalMap)
-    delete LPI.second;
-  LocalMap.clear();
+  for (auto &LM : LocalMaps)
+    for (auto &LPI : LM.second)
+      delete LPI.second;
+  LocalMaps.clear();
 
   for (auto &LPI : LocalMapForConstant)
     delete LPI.second;
@@ -3791,12 +3798,13 @@ void PtrTypeAnalyzerImpl::run(Module &M) {
 
 ValueTypeInfo *PtrTypeAnalyzerImpl::getOrCreateValueTypeInfo(Value *V) {
   assert(!isCompilerConstant(V) && "Should not be compiler constant.");
-  ValueTypeInfo *Info = getValueTypeInfo(V);
-  if (Info)
-    return Info;
-
-  Info = new ValueTypeInfo(V);
-  LocalMap[V] = Info;
+  Function *F = nullptr;
+  if (auto *I = dyn_cast<Instruction>(V))
+    F = I->getFunction();
+  auto &FuncLocalMap = LocalMaps[F];
+  ValueTypeInfo *&Info = FuncLocalMap[V];
+  if (!Info)
+    Info = new ValueTypeInfo(V);
   return Info;
 }
 
@@ -3816,11 +3824,19 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getOrCreateValueTypeInfo(const User *U,
 }
 
 ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const Value *V) const {
-  auto It = LocalMap.find(V);
-  if (It == LocalMap.end())
+  const Function *F = nullptr;
+  if (auto *I = dyn_cast<Instruction>(V))
+    F = I->getFunction();
+  auto It = LocalMaps.find(F);
+  if (It == LocalMaps.end())
     return nullptr;
 
-  return It->second;
+  const PerFunctionLocalMapType &FuncLocalMap = It->second;
+  auto It2 = FuncLocalMap.find(V);
+  if (It2 == FuncLocalMap.end())
+    return nullptr;
+
+  return It2->second;
 }
 
 ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,

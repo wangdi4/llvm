@@ -522,9 +522,9 @@ DTransTypeManager::~DTransTypeManager() {
     delete P.second;
   VecTypeInfoMap.clear();
 
-  for (auto *FTy : FunctionTypeVec)
-    delete FTy;
-  FunctionTypeVec.clear();
+  for (auto &FTyNode : FunctionTypeNodes)
+    delete FTyNode.getFunctionType();
+  FunctionTypeNodes.clear();
 
   for (auto &P : StructTypeInfoMap)
     delete P.second;
@@ -662,35 +662,14 @@ DTransVectorType *DTransTypeManager::getOrCreateVectorType(DTransType *ElemType,
 DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
     DTransType *DTRetTy, SmallVectorImpl<DTransType *> &ParamTypes,
     bool IsVarArg) {
-
-  auto CompareFunctionTypes = [](DTransFunctionType *DTFnTy,
-                                 DTransType *DTRetTy,
-                                 SmallVectorImpl<DTransType *> &ParamTypes,
-                                 bool IsVarArg) {
-    if (DTFnTy->getNumArgs() != ParamTypes.size())
-      return false;
-
-    if (DTFnTy->isVarArg() != IsVarArg)
-      return false;
-
-    if (!DTFnTy->getReturnType() || !DTFnTy->getReturnType()->compare(*DTRetTy))
-      return false;
-
-    unsigned AI = 0;
-    for (auto CurParamTy : DTFnTy->args()) {
-      assert(ParamTypes[AI] && "Should be non-null when AllAnalyzed is true");
-      if (!CurParamTy || !CurParamTy->compare(*ParamTypes[AI]))
-        return false;
-      ++AI;
-    }
-
-    return true;
-  };
-
-  // Check for an existing function type that matches the signature
-  for (auto *DTFnTy : FunctionTypeVec)
-    if (CompareFunctionTypes(DTFnTy, DTRetTy, ParamTypes, IsVarArg))
-      return DTFnTy;
+  llvm::FoldingSetNodeID Profile;
+  DTransFunctionTypeNode::generateProfile(DTRetTy, ParamTypes, IsVarArg,
+                                          Profile);
+  void *IP = nullptr;
+  DTransFunctionTypeNode *N =
+      FunctionTypeNodes.FindNodeOrInsertPos(Profile, IP);
+  if (N)
+    return N->getFunctionType();
 
   auto *NewDTFnTy = new DTransFunctionType(Ctx, ParamTypes.size(), IsVarArg);
   NewDTFnTy->setReturnType(DTRetTy);
@@ -698,7 +677,9 @@ DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
   for (auto ParamTy : ParamTypes)
     NewDTFnTy->setArgType(AI++, ParamTy);
 
-  FunctionTypeVec.push_back(NewDTFnTy);
+  DTransFunctionTypeNode *NewN =
+      new (Allocator) DTransFunctionTypeNode(NewDTFnTy);
+  FunctionTypeNodes.InsertNode(NewN, IP);
   return NewDTFnTy;
 }
 

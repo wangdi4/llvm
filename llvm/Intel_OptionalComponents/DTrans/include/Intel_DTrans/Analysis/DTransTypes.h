@@ -26,6 +26,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSTYPES_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -820,6 +821,46 @@ private:
   bool IsVarArg;
 };
 
+// This class is used to track DTransFunctionType objects so that only a single
+// instance is created for each unique function type.
+class DTransFunctionTypeNode : public FoldingSetNode {
+public:
+  DTransFunctionTypeNode(DTransFunctionType *FTy) : FTy(FTy) {}
+
+  // Used by the FoldingSet template instantiation of this type to generate a
+  // unique fingerprint that corresponds to the 'DTransFunctionType' object
+  // stored.
+  void Profile(FoldingSetNodeID &ID) const {
+    // The ID, is just a concatenation of these values to get a unique value for
+    // the function signature of the DTransFunctionType object.
+    ID.AddPointer(FTy->getReturnType());
+    ID.AddInteger(FTy->getNumArgs());
+    for (auto CurParamTy : FTy->args())
+      ID.AddPointer(CurParamTy);
+    ID.AddBoolean(FTy->isVarArg());
+  }
+
+  // Generate the fingerprint value for a DTransFunctionType that would be
+  // created if a DTransFunctionType were created with the specified types.
+  static void generateProfile(DTransType *DTRetTy,
+                              SmallVectorImpl<DTransType *> &ParamTypes,
+                              bool IsVarArg, FoldingSetNodeID &ID) {
+    // This must match the logic of the 'Profile' member so that the same
+    // fingerprint will be generated once a DTransFunctionType object is
+    // created.
+    ID.AddPointer(DTRetTy);
+    ID.AddInteger(ParamTypes.size());
+    for (auto CurParamTy : ParamTypes)
+      ID.AddPointer(CurParamTy);
+    ID.AddBoolean(IsVarArg);
+  }
+
+  DTransFunctionType *getFunctionType() const { return FTy; }
+
+private:
+  DTransFunctionType *FTy;
+};
+
 // This class is used for keeping track of what types exist and owns the memory
 // for all the types
 class DTransTypeManager {
@@ -942,6 +983,15 @@ private:
 
   // List of DTransFunctionType objects allocated that need to be destroyed.
   SmallVector<DTransFunctionType *, 32> FunctionTypeVec;
+
+  // This allocator will be used for all the DTransFunctionTypeNode objects so
+  // that the entire memory pool can be released, instead of deleting each
+  // object, since there is no need to run destructors on the
+  // DTransFunctionTypeNode objects.
+  BumpPtrAllocator Allocator;
+
+  // Set of handles to unique DTransFunctionType objects allocated.
+  FoldingSet<DTransFunctionTypeNode> FunctionTypeNodes;
 };
 
 } // namespace dtransOP
