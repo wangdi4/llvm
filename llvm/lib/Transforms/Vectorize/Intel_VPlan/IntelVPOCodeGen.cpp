@@ -526,6 +526,7 @@ void VPOCodeGen::finalizeLoop() {
     VPBasicBlock *VHeader = (*VPLI->begin())->getHeader();
     LoopVectorBody = cast<BasicBlock>(getScalarValue(VHeader, 0));
     LoopVectorBody->setName("vector.body");
+    LoopVectorBody->getTerminator()->setDebugLoc(OrigLoop->getStartLoc());
   } else {
     fixOutgoingValues();
     fixNonInductionVPPhis();
