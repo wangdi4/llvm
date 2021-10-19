@@ -2965,7 +2965,6 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
   return finalizeAnalysis();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool InlineCostCallAnalyzer::onDynamicAllocaInstException(AllocaInst &I) {
   bool ReturnValue = false;
@@ -2975,12 +2974,9 @@ bool InlineCostCallAnalyzer::onDynamicAllocaInstException(AllocaInst &I) {
   return ReturnValue;
 }
 #endif // INTEL_CUSTOMIZATION
-void InlineCostCallAnalyzer::print() {
-#define DEBUG_PRINT_STAT(x) dbgs() << "      " #x ": " << x << "\n"
-=======
+
 void InlineCostCallAnalyzer::print(raw_ostream &OS) {
 #define DEBUG_PRINT_STAT(x) OS << "      " #x ": " << x << "\n"
->>>>>>> ecd25edfc5d908a1010fdf81419d779e8347de79
   if (PrintInstructionComments)
     F.print(OS, &Writer);
   DEBUG_PRINT_STAT(NumConstantArgs);
