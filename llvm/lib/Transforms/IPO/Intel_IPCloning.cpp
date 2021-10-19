@@ -5091,7 +5091,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
   //
   // Given 'CI' a call site which we would like to specialize on the Argument
   // with 'ArgNo', a field of which is accessed with 'GEPI' and 'LI', and
-  // 'TCNumber - 1' is the predicted field value, return a condition test
+  // 'TCNumber' is the predicted field value, return a condition test
   // which tests whether the field value is equal to the predicted value.
   //
   auto CondTest = [](CallInst *CI, int ArgNo, GetElementPtrInst *GEPI,
@@ -5107,7 +5107,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
     LoadInst *LINew = Builder.CreateLoad(LI->getType(), GEPINew, "");
     if (DIL)
       LINew->setDebugLoc(DIL);
-    auto CI2 = ConstantInt::get(LI->getType(), TCNumber - 1);
+    auto CI2 = ConstantInt::get(LI->getType(), TCNumber);
     Value *IC = Builder.CreateICmp(ICmpInst::ICMP_EQ, LINew, CI2, "");
     return IC;
   };
@@ -5145,7 +5145,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
     // Test some basic arguments. 'onlyReadsMemory' is the most important one,
     // since we need to test the argument value in the specialization test.
     const DataLayout &DL = F->getParent()->getDataLayout();
-    if (!Arg.hasNoCaptureAttr() || !Arg.getType()->isPointerTy()) {
+    if (!Arg.getType()->isPointerTy()) {
       LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                         << "Arg missing required attributes\n");
       continue;
@@ -5201,49 +5201,89 @@ static bool isManyLoopSpecializationCandidate(Function *F,
                           << "GEPI does not feed a LoadInst\n");
         continue;
       }
+      // Create a vector of LoadInsts that load the potential trip count
+      SmallVector<LoadInst *, 4> LoadVec;
+      LoadVec.push_back(LI);
+      for (User *U00 : LI->users()) {
+        auto SI = dyn_cast<StoreInst>(U00);
+        if (SI && SI->getValueOperand() == LI) {
+          Value *V = SI->getPointerOperand();
+          for (User *U01 : V->users())
+            if (auto VLI = dyn_cast<LoadInst>(U01))
+              LoadVec.push_back(VLI);
+        }
+      }
+      // Look at the LoadInsts to find loops whose trip counts all can
+      // be predicted to be the same value.
       int LoadUseCount = -1;
-      for (User *U1 : LI->users()) {
-        LoadUseCount++;
-        // Right now, a SExtInst followed by an increment appears in the cases
-        // we care about. This code below could also be generalized if it were
-        // found to be useful to do so.
-        auto SX = dyn_cast<SExtInst>(U1);
-        if (!SX || !SX->hasOneUse()) {
+      unsigned TripCountCount = 0;
+      unsigned TCN = 0;
+      while (!LoadVec.empty()) {
+        LoadInst *LI = LoadVec.pop_back_val();
+        for (User *U1 : LI->users()) {
+          LoadUseCount++;
+          // Right now, a SExtInst or ZExtInst followed by an increment
+          // appears in the cases we care about. This code below could also
+          // be generalized if it were found to be useful to do so.
+          auto CsI = dyn_cast<CastInst>(U1);
+          if (!CsI || !CsI->hasOneUse()) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Missing CastInst or more than "
+                              << "one use\n");
+            continue;
+          }
+          if (!isa<SExtInst>(CsI) && !isa<ZExtInst>(CsI)) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Not SExtInst or ZExtInst\n");
+            continue;
+          }
+          Value *TCV = *CsI->user_begin();
+          if (!match(TCV, m_Add(m_Specific(CsI), m_One()))) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Missing increment\n");
+            continue;
+          }
+          // Expect to see many loops in the function for which we find the
+          // same trip count based on this value.
+          unsigned LocalTripCountCount = 0;
+          unsigned TCNL = TripCount(TCV, &LocalTripCountCount);
+          if (TCNL == 0 || TCN != 0 && TCN != TCNL) {
+            LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                              << "ArgUse(" << ArgUseCount << "): "
+                              << "LoadUse(" << LoadUseCount << "): "
+                              << "Could not find matching trip count\n");
+            continue;
+          }
           LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                             << "ArgUse(" << ArgUseCount << "): "
                             << "LoadUse(" << LoadUseCount << "): "
-                            << "Missing SExtInst or more than one use\n");
-          continue;
+                            << "Good partial result\n");
+          TripCountCount += LocalTripCountCount;
+          TCN = TCNL;
         }
-        Value *TCV = *SX->user_begin();
-        if (!match(TCV, m_Add(m_Specific(SX), m_One()))) {
-          LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
-                            << "ArgUse(" << ArgUseCount << "): "
-                            << "LoadUse(" << LoadUseCount << "): "
-                            << "Missing increment\n");
-          continue;
-        }
-        // Expect to see many loops in the function for which we find the
-        // same trip count based on this value.
-        unsigned TripCountCount = 0;
-        unsigned TCN = TripCount(TCV, &TripCountCount);
-        if (TCN == 0 || TripCountCount < IPSpeCloningMinLoops) {
-          LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
-                            << "ArgUse(" << ArgUseCount << "): "
-                            << "LoadUse(" << LoadUseCount << "): "
-                            << "Not enough loops\n");
-          continue;
-        }
-        // We found it! Generate the condition test.
-        *IC = CondTest(CI, ArgNo, GEPI, LI, TCN);
-        *LIOut = LI;
-        *TCNumber = TCN;
+      }
+      // Check that we have seen enough loops with this trip count.
+      if (TripCountCount < IPSpeCloningMinLoops) {
         LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                           << "ArgUse(" << ArgUseCount << "): "
-                          << "LoadUse(" << LoadUseCount << "): "
-                          << "FOUND MLSC CANDIDATE\n");
-        return true;
+                          << "Not enough loops " << TripCountCount
+                          << " < " << IPSpeCloningMinLoops <<"\n");
+        continue;
       }
+      // We found it! Generate the condition test.
+      *IC = CondTest(CI, ArgNo, GEPI, LI, TCN);
+      *LIOut = LI;
+      *TCNumber = TCN;
+      LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                        << "ArgUse(" << ArgUseCount << "): "
+                        << "FOUND MLSC CANDIDATE\n");
+      return true;
     }
   }
   return false;
@@ -5251,7 +5291,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
 
 //
 // Clone 'F' and create a specialization test of the form:
-//   if (Arg->Field == TCNumber - 1)
+//   if (Arg->Field == TCNumber)
 //     foo(...);
 //   else
 //     foo.clone-index(...);
@@ -5293,7 +5333,7 @@ static void createManyLoopSpecializationClones(Function *F,
   // The original Function will be used for the specialized version. Replace
   // the tested expression by the predicted constant value and get rid of
   // the extraneous test in the original Function.
-  auto CINew = ConstantInt::get(LI->getType(), TCNumber - 1);
+  auto CINew = ConstantInt::get(LI->getType(), TCNumber);
   LI->replaceAllUsesWith(CINew);
   auto GEPI = cast<GetElementPtrInst>(LI->getPointerOperand());
   LI->eraseFromParent();

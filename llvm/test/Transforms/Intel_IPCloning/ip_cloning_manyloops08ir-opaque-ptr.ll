@@ -1,21 +1,10 @@
 ; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers < %s -S -ip-cloning -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=1 -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning 2>&1 | FileCheck %s
+; REQUIRES: intel_feature_sw_advanced
+; RUN: opt -force-opaque-pointers < %s -S -ip-cloning -ip-spec-cloning-min-loops=2 -ip-gen-cloning-force-enable-dtrans 2>&1 | FileCheck %s
+; RUN: opt -force-opaque-pointers < %s -S -passes='module(ip-cloning)' -ip-spec-cloning-min-loops=2 -ip-gen-cloning-force-enable-dtrans 2>&1 | FileCheck %s
 
 ; Check that many loops specialization cloning was performed.
-
-; Check the trace rejects non-matching conditions, but finds the desired
-; matching condition.
-
-; CHECK: MLSC: Testing aer_rad_props_mp_aer_rad_props_sw_:
-; CHECK: MLSC: Arg(0): ArgUse(0): Missing minimal GEPI conditions
-; CHECK: MLSC: Arg(1): ArgUse(0): Missing minimal GEPI conditions
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing CastInst or more than one use
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): Good partial result
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(2): Missing CastInst or more than one use
-; CHECK: MLSC: Arg(1): ArgUse(1): FOUND MLSC CANDIDATE
-; CHECK: Selected ManyLoopSpecialization cloning
+; This test is similar to ip_cloning_manyloops08-opaque-ptr.ll, but only checks the IR.
 
 ; Check the specialization test in the output
 
@@ -78,16 +67,16 @@ L83:                                              ; preds = %L96, %L0
   br i1 %t80, label %L96, label %L85
 
 L85:                                              ; preds = %L83
-  %t86 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr elementtype(i32) nonnull %t79, i64 %t84)
-  %t87 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr elementtype(i32) nonnull %t81, i64 %t84)
+  %t86 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr nonnull elementtype(double) %t79, i64 %t84)
+  %t87 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr nonnull elementtype(double) %t81, i64 %t84)
   br label %L88
 
 L88:                                              ; preds = %L88, %L85
   %t89 = phi i64 [ 1, %L85 ], [ %t94, %L88 ]
-  %t90 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(i32) nonnull %t86, i64 %t89)
+  %t90 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t86, i64 %t89)
   %t91 = load double, ptr %t90, align 1
   %t92 = fmul fast double %t91, %t78
-  %t93 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(i32) nonnull %t87, i64 %t89)
+  %t93 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t87, i64 %t89)
   store double %t92, ptr %t93, align 1
   %t94 = add nuw nsw i64 %t89, 1
   %t95 = icmp eq i64 %t94, %t82
@@ -96,9 +85,40 @@ L88:                                              ; preds = %L88, %L85
 L96:                                              ; preds = %L88, %L83
   %t97 = add nuw nsw i64 %t84, 1
   %t98 = icmp eq i64 %t97, 27
-  br i1 %t98, label %L99, label %L83
+  br i1 %t98, label %L100, label %L83
 
-L99:                                              ; preds = %L96
+L100:                                             ; preds = %L96
+  %t100 = load i32, ptr %t25, align 1
+  %t101 = sext i32 %t100 to i64
+  %t102 = add nsw i64 %t101, 1
+  br label %L183
+
+L183:                                             ; preds = %L196, %L100
+  %t184 = phi i64 [ %t197, %L196 ], [ 1, %L100 ]
+  br i1 %t80, label %L196, label %L185
+
+L185:                                             ; preds = %L183
+  %t186 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr nonnull elementtype(double) %t79, i64 %t184)
+  %t187 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr nonnull elementtype(double) %t81, i64 %t184)
+  br label %L188
+
+L188:                                             ; preds = %L188, %L185
+  %t189 = phi i64 [ 1, %L185 ], [ %t194, %L188 ]
+  %t190 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t186, i64 %t189)
+  %t191 = load double, ptr %t190, align 1
+  %t192 = fmul fast double %t191, %t78
+  %t193 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t187, i64 %t189)
+  store double %t192, ptr %t193, align 1
+  %t194 = add nuw nsw i64 %t189, 1
+  %t195 = icmp eq i64 %t194, %t102
+  br i1 %t195, label %L196, label %L188
+
+L196:                                             ; preds = %L188, %L183
+  %t197 = add nuw nsw i64 %t184, 1
+  %t198 = icmp eq i64 %t197, 27
+  br i1 %t198, label %L99, label %L183
+
+L99:                                              ; preds = %L196
   ret void
 }
 

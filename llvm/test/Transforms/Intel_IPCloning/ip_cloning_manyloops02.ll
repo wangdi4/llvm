@@ -11,10 +11,10 @@
 ; CHECK: MLSC: Testing aer_rad_props_mp_aer_rad_props_sw_:
 ; CHECK: MLSC: Arg(0): ArgUse(0): Missing minimal GEPI conditions
 ; CHECK: MLSC: Arg(1): ArgUse(0): Missing minimal GEPI conditions
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing SExtInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing CastInst or more than one use
 ; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): Missing increment
-; CHECK-NOT: MLSC: Arg(1): ArgUse(1): LoadUse(1): FOUND MLSC CANDIDATE
-; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(2): Missing SExtInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(2): Missing CastInst or more than one use
+; CHECK: MLSC: Arg(1): ArgUse(1): Not enough loops 0 < 1
 ; CHECK: Selected Specialization cloning
 ; CHECK-NOT: Selected ManyLoopSpecialization cloning
 
