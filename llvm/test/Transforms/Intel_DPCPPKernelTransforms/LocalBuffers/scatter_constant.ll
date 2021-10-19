@@ -8,9 +8,9 @@
 ; CHECK-LABEL: void @foo
 ; CHECK: [[GEP:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT: [[GEP_BC:%.*]] = bitcast i8 addrspace(3)* [[GEP]] to i32 addrspace(4)* addrspace(3)*
-; CHECK-NEXT: [[INSERT_0:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> undef, i32 addrspace(4)* addrspace(3)* [[GEP_BC]], i64 0
+; CHECK: [[INSERT_0:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> undef, i32 addrspace(4)* addrspace(3)* [[GEP_BC]], i64 0
 ; CHECK-NEXT: [[INSERT_1:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_0]], i32 addrspace(4)* addrspace(3)* %1, i64 1
-; CHECK: call void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*> {{%.*}}, <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_1]], i32 8, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT: call void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*> {{%.*}}, <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_1]], i32 8, <2 x i1> <i1 true, i1 true>)
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

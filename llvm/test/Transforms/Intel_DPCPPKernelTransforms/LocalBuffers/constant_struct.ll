@@ -21,5 +21,4 @@ define void @test() {
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} getelementptr
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} bitcast
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} addrspacecast
 ; DEBUGIFY-NOT: WARNING
