@@ -27,7 +27,7 @@
 ;        + END LOOP
 ;  END REGION
 
-; WAS-RECOGNIZED-CHECK: StructPtrEq loop has PeelArray:(%t4)[i1]
+; WAS-RECOGNIZED-CHECK: PtrEq loop has PeelArray:(%t4)[i1]
 ; WAS-RECOGNIZED-CHECK: Search loop was recognized.
 
 ; -----------------------------------------------------------------------------
