@@ -158,22 +158,16 @@ public:
   /// be up-to-date wrt previous inlining decisions. \p MandatoryOnly indicates
   /// only mandatory (always-inline) call sites should be recommended - this
   /// allows the InlineAdvisor track such inlininings.
-<<<<<<< HEAD
-  /// Returns an InlineAdvice with the inlining recommendation.
-#if INTEL_CUSTOMIZATION
-  std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI,
-            InlineCost **IC, bool MandatoryOnly = false);
-#endif // INTEL_CUSTOMIZATION
-=======
   /// Returns:
   /// - An InlineAdvice with the inlining recommendation.
   /// - Null when no recommendation is made (https://reviews.llvm.org/D110658).
   /// TODO: Consider removing the Null return scenario by incorporating the
   /// SampleProfile inliner into an InlineAdvisor
-  std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
-                                          bool MandatoryOnly = false);
->>>>>>> 313c657fcea371a533ad5f3adcff44fabc6531ae
+#if INTEL_CUSTOMIZATION
+  std::unique_ptr<InlineAdvice>
+  getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI,
+            InlineCost **IC, bool MandatoryOnly = false);
+#endif // INTEL_CUSTOMIZATION
 
   /// This must be called when the Inliner pass is entered, to allow the
   /// InlineAdvisor update internal state, as result of function passes run

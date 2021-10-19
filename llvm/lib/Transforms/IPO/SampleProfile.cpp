@@ -1283,17 +1283,11 @@ InlineCost
 SampleProfileLoader::shouldInlineCandidate(InlineCandidate &Candidate) {
   std::unique_ptr<InlineAdvice> Advice = nullptr;
   if (ExternalInlineAdvisor) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     InlineCost *IC = nullptr;
     Advice = ExternalInlineAdvisor->getAdvice(*Candidate.CallInstr, nullptr,
         nullptr, &IC);
 #endif // INTEL_CUSTOMIZATION
-    if (!Advice->isInliningRecommended()) {
-      Advice->recordUnattemptedInlining();
-      return InlineCost::getNever("not previously inlined");
-=======
-    Advice = ExternalInlineAdvisor->getAdvice(*Candidate.CallInstr);
     if (Advice) {
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
@@ -1301,7 +1295,6 @@ SampleProfileLoader::shouldInlineCandidate(InlineCandidate &Candidate) {
       }
       Advice->recordInlining();
       return InlineCost::getAlways("previously inlined");
->>>>>>> 313c657fcea371a533ad5f3adcff44fabc6531ae
     }
   }
 

@@ -27,20 +27,14 @@ public:
   ReplayInlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
                       LLVMContext &Context,
                       std::unique_ptr<InlineAdvisor> OriginalAdvisor,
-<<<<<<< HEAD
-                      StringRef RemarksFile, bool EmitRemarks);
+                      StringRef RemarksFile, ReplayInlineScope Scope,
+                      bool EmitRemarks);
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
                 WholeProgramInfo *WPI = nullptr,
                 InlineCost **IC = nullptr) override;
 #endif // INTEL_CUSTOMIZATION
-
-=======
-                      StringRef RemarksFile, ReplayInlineScope Scope,
-                      bool EmitRemarks);
-  std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) override;
->>>>>>> 313c657fcea371a533ad5f3adcff44fabc6531ae
   bool areReplayRemarksLoaded() const { return HasReplayRemarks; }
 
 private:
