@@ -129,14 +129,10 @@ TEST(KernelBundle, KernelBundleAndItsDevImageStateConsistency) {
     return;
   }
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 7dbb6fbb introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cout << "Test is not supported on ROCm platform, skipping\n";
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cout << "Test is not supported on HIP platform, skipping\n";
     return;
   }
-  /* end INTEL_CUSTOMIZATION */
 
   sycl::unittest::PiMock Mock{Plt};
   setupDefaultMockAPIs(Mock);
@@ -177,15 +173,11 @@ TEST(KernelBundle, EmptyKernelBundle) {
     std::cerr << "Test is not supported on CUDA platform, skipping\n";
     return;
   }
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 7dbb6fbb introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cout << "Test is not supported on ROCM platform, skipping\n";
+
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cout << "Test is not supported on HIP platform, skipping\n";
     return;
   }
-  /* end INTEL_CUSTOMIZATION */
-
 
   sycl::unittest::PiMock Mock{Plt};
   setupDefaultMockAPIs(Mock);
@@ -214,14 +206,10 @@ TEST(KernelBundle, EmptyKernelBundleKernelLaunchException) {
     return;
   }
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 7dbb6fbb introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cout << "Test is not supported on ROCM platform, skipping\n";
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cout << "Test is not supported on HIP platform, skipping\n";
     return;
   }
-  /* end INTEL_CUSTOMIZATION */
 
   sycl::unittest::PiMock Mock{Plt};
   setupDefaultMockAPIs(Mock);
