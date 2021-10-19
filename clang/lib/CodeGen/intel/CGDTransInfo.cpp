@@ -223,7 +223,7 @@ llvm::GlobalVariable *CodeGenModule::addDTransInfoToGlobal(
     return GV;
 
   QualType Ty = VD->getType();
-  if (!Ty->isPointerType() && !Ty->isArrayType())
+  if (!Ty->isPointerType() && !Ty->isReferenceType() && !Ty->isArrayType())
     return GV;
 
   llvm::LLVMContext &Ctx = TheModule.getContext();
