@@ -378,6 +378,21 @@ public:
       if (ConstVal->isZeroValue())
         return;
 
+      // If the initializer is getting the address from another initialized
+      // field, try to check if whether address type matches the type expected.
+      // If it matches here, then no safety flag needs to be set. Otherwise,
+      // fallthru to the remaining checks of this function, which may result in
+      // the "Unsafe pointer store" safety flag being set.
+      if (auto *GEP = dyn_cast<GEPOperator>(ConstVal)) {
+        ValueTypeInfo *GepInfo = PTA.getValueTypeInfo(GEP);
+        if (GepInfo) {
+          DTransType *InitializerType =
+              PTA.getDominantType(*GepInfo, ValueTypeInfo::VAT_Decl);
+          if (InitializerType && InitializerType == DType)
+            return;
+        }
+      }
+
       // When opaque pointers are in use, the Constant can be used without the
       // intervening bitcasts, but there still may be a getelementptr operator
       // that converts from an address of a variable that is an array to an
