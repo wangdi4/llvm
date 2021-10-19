@@ -126,6 +126,7 @@ set (SUPPORT_SOURCES
   BranchProbability.cpp
   BuryPointer.cpp
   CachePruning.cpp
+  Caching.cpp
   circular_raw_ostream.cpp
   Chrono.cpp
   COM.cpp
