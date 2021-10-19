@@ -155,6 +155,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         if (Config->GetTransposeSize() != 1) {
           MPM.add(createDPCPPKernelPostVecPass());
           MPM.add(createVPODirectiveCleanupPass());
+          MPM.add(createHandleVPlanMaskLegacyPass(&getVPlanMaskedFuncs()));
         }
         MPM.add(createInstructionCombiningPass());
         MPM.add(createCFGSimplificationPass());
