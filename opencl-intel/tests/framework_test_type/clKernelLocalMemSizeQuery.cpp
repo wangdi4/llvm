@@ -83,11 +83,12 @@ void clKernelLocalMemSizeQueryTest() {
   status = clSetKernelArg(krnl, 0, sizeof(cl_mem), &buffer_a);
   ASSERT_OCL_SUCCESS(status, "clSetKernelArg");
 
-  size_t kernelLocalMemSize;
+  cl_ulong kernelLocalMemSize;
 
   /* Get size of work-group info: CL_KERNEL_LOCAL_MEM_SIZE. */
-  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_LOCAL_MEM_SIZE, 8,
-                                    &kernelLocalMemSize, &param_value_size_ret);
+  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_LOCAL_MEM_SIZE,
+                                    sizeof(cl_ulong), &kernelLocalMemSize,
+                                    &param_value_size_ret);
 
   ASSERT_EQ(CL_SUCCESS, status)
       << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
@@ -100,8 +101,9 @@ void clKernelLocalMemSizeQueryTest() {
   status = clSetKernelArg(krnl, 1, 100, NULL);
   ASSERT_OCL_SUCCESS(status, "clSetKernelArg");
 
-  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_LOCAL_MEM_SIZE, 8,
-                                    &kernelLocalMemSize, &param_value_size_ret);
+  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_LOCAL_MEM_SIZE,
+                                    sizeof(cl_ulong), &kernelLocalMemSize,
+                                    &param_value_size_ret);
 
   ASSERT_EQ(CL_SUCCESS, status)
       << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
@@ -112,8 +114,9 @@ void clKernelLocalMemSizeQueryTest() {
   status = clSetKernelArg(krnl, 2, 200, NULL);
   ASSERT_OCL_SUCCESS(status, "clSetKernelArg");
 
-  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_LOCAL_MEM_SIZE, 8,
-                                    &kernelLocalMemSize, &param_value_size_ret);
+  status = clGetKernelWorkGroupInfo(krnl, dev, CL_KERNEL_LOCAL_MEM_SIZE,
+                                    sizeof(cl_ulong), &kernelLocalMemSize,
+                                    &param_value_size_ret);
 
   ASSERT_EQ(CL_SUCCESS, status)
       << "clGetKernelWorkGroupInfo(CL_KERNEL_LOCAL_MEM_SIZE) failed";
