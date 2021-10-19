@@ -419,8 +419,8 @@ bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
 
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
-    RegionsCollectedTy &RegionsCollected,
-    VPlanCostModelInterface *CM) {
+    RegionsCollectedTy &RegionsCollected, VPlanCostModelInterface *CM,
+    Optional<unsigned> VF) {
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
@@ -566,16 +566,32 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
                             RegionsCollected))
       continue;
 
+    // Temporary workaround for CMPLRLLVM-30680:
+    //
+    // Probability of the mask being all-zero should take its part in the
+    // decision to bypass. Ideally, we'd like to keep track of all ANDs/ORs and
+    // known non-allzero masks in the expression tree (due to an earlier
+    // bypass), but we're not there. For now, special case for a condition based
+    // on a uniform value.
+    unsigned EffectiveThreshold = RegionThreshold;
+    auto *BlockPredI = dyn_cast<VPInstruction>(CandidateBlockPred);
+    if (!BlockPredI ||
+        (BlockPredI->getOpcode() == Instruction::And &&
+         (Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(0)) ||
+          Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(1)))))
+      if (VF)
+        EffectiveThreshold = EffectiveThreshold * 4 / *VF;
+
     // Cost model not yet available for function vectorization pipeline. It's
     // ok because there's really no reason for it there yet anyway since this
     // pipeline is only used for testing at the moment.
-    unsigned RegionCost = RegionThreshold;
+    unsigned RegionCost = EffectiveThreshold;
     if (CM)
       RegionCost = CM->getBlockRangeCost(CandidateBlock, LastBB);
 
     // If the region meets minimum cost requirements, record it for later
     // insertion.
-    if (RegionCost >= RegionThreshold) {
+    if (RegionCost >= EffectiveThreshold) {
       AllZeroBypassRegionsTy::iterator InsertPt = AllZeroBypassRegions.end();
       for (AllZeroBypassRegionsTy::iterator It = AllZeroBypassRegions.begin();
            It != AllZeroBypassRegions.end(); ++It) {

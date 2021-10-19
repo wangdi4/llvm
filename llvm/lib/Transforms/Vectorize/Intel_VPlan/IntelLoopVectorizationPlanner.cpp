@@ -1098,7 +1098,7 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
 
     AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
                                            RegionsCollected,
-                                           createCostModel(Plan, VF).get());
+                                           createCostModel(Plan, VF).get(), VF);
   }
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
   VPLAN_DUMP(AllZeroBypassDumpControl, Plan);
