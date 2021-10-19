@@ -1,4 +1,4 @@
-; RUN: opt < %s  -O3 -enable-lv -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -S | FileCheck --check-prefix AUTO_VEC %s
+; RUN: opt < %s  -passes='default<O3>' -enable-lv -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -S | FileCheck --check-prefix AUTO_VEC %s
 ; This test copied from LoopVectorize/X86.
 ; It started failing when the "external_use" functions were added.
 ; We changed the expected code sequences. The original test is marked as *XFAIL*
