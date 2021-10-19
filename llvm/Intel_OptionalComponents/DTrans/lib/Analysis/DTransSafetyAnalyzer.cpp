@@ -2692,7 +2692,7 @@ public:
         return true;
       // Look for a matching address taken external call.
       for (auto &F : Call->getModule()->functions()) {
-        if (F.hasAddressTaken() && F.isDeclaration()) {
+        if (isExternalAddressTakenFunction(&F)) {
           // The standard test for an indirect call match.
           if ((F.arg_size() == Call->getNumArgOperands()) ||
               (F.isVarArg() && (F.arg_size() <= Call->getNumArgOperands()))) {
@@ -4155,13 +4155,35 @@ public:
                                             "Unhandled instruction", &I);
     }
 
-    for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum) {
-      ValueTypeInfo *OpInfo = PTA.getValueTypeInfo(&I, OpNum);
-      if (OpInfo && OpInfo->canAliasToAggregatePointer())
-        setAllAliasedAndPointeeTypeSafetyData(
-            OpInfo, dtrans::UnhandledUse,
-            "Operand used in unhandled instruction", &I);
-    }
+    for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum)
+      if (IsPossiblePtrValue(I.getOperand(OpNum))) {
+        ValueTypeInfo *OpInfo = PTA.getValueTypeInfo(&I, OpNum);
+        if (OpInfo && OpInfo->canAliasToAggregatePointer())
+          setAllAliasedAndPointeeTypeSafetyData(
+              OpInfo, dtrans::UnhandledUse,
+              "Operand used in unhandled instruction", &I);
+      }
+  }
+
+  bool IsPossiblePtrValue(Value *V) {
+    if (dtrans::hasPointerType(V->getType()))
+      return true;
+
+    if (isa<PtrToIntOperator>(V))
+      return true;
+
+    // If the value is not a pointer and is not a pointer-sized integer,
+    // it is not a value we will track as a pointer.
+    if (V->getType() != getLLVMPtrSizedIntType())
+      return false;
+
+    // If it is a pointer-sized integer, we need may need to analyze it if
+    // it is the result of a load, select or PHI node.
+    if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
+      return true;
+
+    // Otherwise, we don't need to analyze it as a pointer.
+    return false;
   }
 
 private:
@@ -4846,6 +4868,21 @@ private:
     return false;
   }
 
+  bool isExternalAddressTakenFunction(Function *F) {
+    if (!ExternalAddressTakenFunctionsComputed) {
+      // Cache the set of external address taken functions to avoid needing the
+      // compute whether a function is address taken every time an indirect
+      // function call is encountered.
+      ExternalAddressTakenFunctionsComputed = true;
+      Module *M = F->getParent();
+      for (auto &F : *M)
+        if (F.isDeclaration() && F.hasAddressTaken())
+          ExternalAddressTakenFunctions.insert(&F);
+    }
+
+    return ExternalAddressTakenFunctions.count(F);
+  }
+
 private:
   // private data members
   const DataLayout &DL;
@@ -4859,6 +4896,12 @@ private:
 
   // Set at the start of each visitFunction call.
   BlockFrequencyInfo *BFI;
+
+  // Set of external functions that are address taken.
+  DenseSet<Function*> ExternalAddressTakenFunctions;
+
+  // Indicates whether the ExternalAddressTakenFunctions has been computed yet.
+  bool ExternalAddressTakenFunctionsComputed = false;
 
   // Types that are frequently needed for comparing type aliases against
   // known types.
