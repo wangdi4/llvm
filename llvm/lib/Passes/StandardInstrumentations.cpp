@@ -1235,17 +1235,12 @@ void VerifyInstrumentation::registerCallbacks(
 InLineChangePrinter::~InLineChangePrinter() {}
 
 void InLineChangePrinter::generateIRRepresentation(Any IR, StringRef PassID,
-<<<<<<< HEAD
-                                                   ChangedIRData &D) {
+                                                   IRDataT<EmptyData> &D) {
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  ChangedIRComparer::analyzeIR(IR, D);
+  IRComparer<EmptyData>::analyzeIR(IR, D);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
-=======
-                                                   IRDataT<EmptyData> &D) {
-  IRComparer<EmptyData>::analyzeIR(IR, D);
->>>>>>> 3af474c0a15a642e5d73981d5cdf465bbdfc3d51
 }
 
 void InLineChangePrinter::handleAfter(StringRef PassID, std::string &Name,
@@ -1254,14 +1249,8 @@ void InLineChangePrinter::handleAfter(StringRef PassID, std::string &Name,
   SmallString<20> Banner =
       formatv("*** IR Dump After {0} on {1} ***\n", PassID, Name);
   Out << Banner;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      ChangedIRComparer(Out, Before, After, UseColour)
-          .compare(IR, "", PassID, Name);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#endif // INTEL_CUSTOMIZATION
-=======
   IRComparer<EmptyData>(Before, After)
       .compare(getModuleForComparison(IR),
                [&](bool InModule, unsigned Minor,
@@ -1270,7 +1259,8 @@ void InLineChangePrinter::handleAfter(StringRef PassID, std::string &Name,
                  handleFunctionCompare(Name, "", PassID, " on ", InModule,
                                        Minor, Before, After);
                });
->>>>>>> 3af474c0a15a642e5d73981d5cdf465bbdfc3d51
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_CUSTOMIZATION
   Out << "\n";
 }
 
@@ -1282,16 +1272,11 @@ void InLineChangePrinter::handleFunctionCompare(
   if (InModule)
     Out << "\n*** IR for function " << Name << " ***\n";
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  ChangedFuncData::report(
-      Before, After, [&](const ChangedBlockData *B, const ChangedBlockData *A) {
-=======
   FuncDataT<EmptyData>::report(
       Before, After,
       [&](const BlockDataT<EmptyData> *B, const BlockDataT<EmptyData> *A) {
->>>>>>> 3af474c0a15a642e5d73981d5cdf465bbdfc3d51
         StringRef BStr = B ? B->getBody() : "\n";
         StringRef AStr = A ? A->getBody() : "\n";
         const std::string Removed =
@@ -1311,13 +1296,9 @@ void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
       PrintChanged == ChangePrinter::PrintChangedDiffQuiet ||
       PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose ||
       PrintChanged == ChangePrinter::PrintChangedColourDiffQuiet)
-<<<<<<< HEAD
-    TextChangeReporter<ChangedIRData>::registerRequiredCallbacks(PIC);
+    TextChangeReporter<IRDataT<EmptyData>>::registerRequiredCallbacks(PIC);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
-=======
-    TextChangeReporter<IRDataT<EmptyData>>::registerRequiredCallbacks(PIC);
->>>>>>> 3af474c0a15a642e5d73981d5cdf465bbdfc3d51
 }
 
 namespace llvm {
