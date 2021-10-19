@@ -680,12 +680,10 @@ TEST(FrameworkTestType, Test_UniformWorkGroupTest)
     UniformWorkGroupTest();
 }
 
-#ifndef _WIN32
 TEST(FrameworkTestType, Test_clKernelLocalMemSizeQueryTest)
 {
     clKernelLocalMemSizeQueryTest();
 }
-#endif
 
 #ifdef _WIN32
 TEST(FrameworkTestType, Test_clDisableMasterJoinTest)
