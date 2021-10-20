@@ -5484,6 +5484,9 @@ static bool hasFPCMov(unsigned X86CC) {
   }
 }
 
+static bool useVPTERNLOG(const X86Subtarget &Subtarget, MVT VT) {
+  return Subtarget.hasVLX() || (Subtarget.hasAVX512() && VT.is512BitVector());
+}
 
 bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
                                            const CallInst &I,
@@ -48473,9 +48476,7 @@ static SDValue canonicalizeBitSelect(SDNode *N, SelectionDAG &DAG,
 
   // On XOP we'll lower to PCMOV so accept one use. With AVX512, we can use
   // VPTERNLOG. Otherwise only do this if either mask has multiple uses already.
-  bool UseVPTERNLOG = (Subtarget.hasAVX512() && VT.is512BitVector()) ||
-                      Subtarget.hasVLX();
-  if (!(Subtarget.hasXOP() || UseVPTERNLOG ||
+  if (!(Subtarget.hasXOP() || useVPTERNLOG(Subtarget, VT) ||
         !N0.getOperand(1).hasOneUse() || !N1.getOperand(1).hasOneUse()))
     return SDValue();
 
@@ -48499,8 +48500,8 @@ static SDValue canonicalizeBitSelect(SDNode *N, SelectionDAG &DAG,
 
   SDLoc DL(N);
 
-  if (UseVPTERNLOG) {
-    // Emit a VPTERNLOG node directly.
+  if (useVPTERNLOG(Subtarget, VT)) {
+    // Emit a VPTERNLOG node directly - 0xCA is the imm code for A?B:C.
     SDValue A = DAG.getBitcast(VT, N0.getOperand(1));
     SDValue B = DAG.getBitcast(VT, N0.getOperand(0));
     SDValue C = DAG.getBitcast(VT, N1.getOperand(0));
