@@ -113,7 +113,7 @@ public:
            "Underlying HLInst is not a call instruction.");
     auto *Call = HInst->getCallInst();
     VPCallInstruction *NewVPCall =
-        new VPCallInstruction(CalledValue, ArgList, Call);
+        new VPCallInstruction(CalledValue, ArgList, *Call);
     NewVPCall->setName(HInst->getLLVMInstruction()->getName());
     insert(NewVPCall);
     if (DDNode)

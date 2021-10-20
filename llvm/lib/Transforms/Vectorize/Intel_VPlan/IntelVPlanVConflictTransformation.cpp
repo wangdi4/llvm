@@ -83,13 +83,15 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
   auto *ConflictInst = VPBldr.create<VPConflictInsn>(
       "vpconfict.intrinsic", ConflictIndex->getType(), ConflictIndex);
   EmittedInsns.push_back(ConflictInst);
+
   // Emit pop count intrinsic.
-  auto *PopCountCall = VPBldr.create<VPCallInstruction, const Twine &,
-                                     FunctionCallee, ArrayRef<VPValue *>>(
-      "vp.pop.count",
-      Intrinsic::getDeclaration(Fn.getParent(), Intrinsic::ctpop,
-                                {ConflictInst->getType()}),
-      {ConflictInst}, Plan);
+  auto *PopCountFn = Intrinsic::getDeclaration(Fn.getParent(), Intrinsic::ctpop,
+                                               {ConflictInst->getType()});
+  auto *PopCountCall =
+      VPBldr.create<VPCallInstruction, const Twine &, VPValue *, FunctionType *,
+                    ArrayRef<VPValue *>>(
+          "vp.pop.count", Plan->getVPConstant(PopCountFn),
+          PopCountFn->getFunctionType(), {ConflictInst});
   Plan->getVPlanDA()->markUniform(*PopCountCall->getCalledValue());
   PopCountCall->setVectorizeWithIntrinsic(Intrinsic::ctpop);
   EmittedInsns.push_back(PopCountCall);

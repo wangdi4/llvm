@@ -1884,21 +1884,29 @@ private:
   /// VF.
   CallVecScenarios VecScenario = CallVecScenarios::Undefined;
 
+  FunctionType *FnTy;
   const CallInst *OrigCall;
 
 public:
   using CallVecScenariosTy = CallVecScenarios;
   using SerializationReasonTy = CallVecProperties::SerializationReason;
-  VPCallInstruction(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
-                    const CallInst *OrigCall)
-      : VPInstruction(Instruction::Call, OrigCall->getType(), ArgList),
-        OrigCall(OrigCall) {
-    assert(OrigCall &&
-           "VPlan trying to create a new VPCall without underlying Call.");
-    assert(CalledValue && "Call instruction does not have CalledValue");
+
+  // Most generic ctor.
+  VPCallInstruction(VPValue *Callee, FunctionType *FnTy,
+                    ArrayRef<VPValue *> ArgList)
+      : VPInstruction(Instruction::Call, FnTy->getReturnType(), ArgList),
+        FnTy(FnTy), OrigCall(nullptr) {
+    assert(Callee && "Call instruction does not have Callee");
     // Add called value to end of operand list for def-use chain.
-    addOperand(CalledValue);
+    addOperand(Callee);
     resetVecScenario(0 /*Initial VF*/);
+  }
+
+  // If extra information from the underlying CallInst is available.
+  VPCallInstruction(VPValue *Callee, ArrayRef<VPValue *> ArgList,
+                    const CallInst &OrigCallInst)
+      : VPCallInstruction(Callee, OrigCallInst.getFunctionType(), ArgList) {
+    OrigCall = &OrigCallInst;
     // Check if Call should not be strictly widened i.e. not (re-)vectorized or
     // serialized.
     if (OrigCall->hasFnAttr("kernel-uniform-call"))
@@ -1907,20 +1915,6 @@ public:
     if (OrigCall->hasFnAttr("unmasked"))
       VecScenario = CallVecScenarios::UnmaskedWiden;
   }
-
-  // Alternate constructor to create VPCall without any underlying CallInst, for
-  // example - constructor/destructor calls for non-POD private memory.
-  VPCallInstruction(VPValue *Callee, ArrayRef<VPValue *> ArgList,
-                    Type *CallType)
-      : VPInstruction(Instruction::Call, CallType, ArgList), OrigCall(nullptr) {
-    assert(Callee && "Call instruction does not have Callee");
-    // Add called value to end of operand list for def-use chain.
-    addOperand(Callee);
-    resetVecScenario(0 /*Initial VF*/);
-  }
-
-  VPCallInstruction(FunctionCallee Callee, ArrayRef<VPValue *> ArgList,
-                    VPlan *Plan);
 
   /// Helper utility to access underlying CallInst corresponding to this
   /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
@@ -1948,6 +1942,8 @@ public:
     // Indirect call.
     return nullptr;
   }
+
+  FunctionType *getFunctionType() const { return FnTy; }
 
   /// Getter for called function's calling convention.
   CallingConv::ID getOrigCallingConv() const {
@@ -2251,8 +2247,7 @@ public:
 protected:
   virtual VPCallInstruction *cloneImpl() const final {
     VPCallInstruction *Cloned = new VPCallInstruction(
-        getCalledValue(), ArrayRef<VPValue *>(op_begin(), op_end() - 1),
-        getType());
+        getCalledValue(), FnTy, ArrayRef<VPValue *>(op_begin(), op_end() - 1));
     Cloned->OrigCall = getUnderlyingCallInst();
     Cloned->VecScenario = VecScenario;
     Cloned->VecProperties = VecProperties;

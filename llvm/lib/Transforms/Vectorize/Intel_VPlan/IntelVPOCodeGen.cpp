@@ -174,6 +174,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(Ops.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
+    auto *VPCall = cast<VPCallInstruction>(VPInst);
+
     if (auto *ScalarF = dyn_cast<Function>(Ops.back())) {
       Ops = Ops.drop_back();
       if (ScalarF->getIntrinsicID() == Intrinsic::assume) {
@@ -198,16 +200,9 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       Value *FuncPtr = Ops.back();
       Ops = Ops.drop_back();
 
-      Type *FuncPtrTy = FuncPtr->getType();
-      assert(isa<PointerType>(FuncPtrTy) &&
-             "Function pointer operand is not pointer type.");
-      auto *FT = cast<FunctionType>(
-          cast<PointerType>(FuncPtrTy)->getPointerElementType());
-
-      SerialInst = Builder.CreateCall(FT, FuncPtr, Ops);
+      SerialInst = Builder.CreateCall(VPCall->getFunctionType(), FuncPtr, Ops);
     }
     auto *SerialCall = cast<CallInst>(SerialInst);
-    auto *VPCall = cast<VPCallInstruction>(VPInst);
     SerialCall->setCallingConv(VPCall->getOrigCallingConv());
     SerialCall->setAttributes(VPCall->getOrigCallAttrs());
     SerialCall->setTailCall(VPCall->isOrigTailCall());

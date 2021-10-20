@@ -1702,14 +1702,3 @@ VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactoryBase &VPAF,
   copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }
-
-VPCallInstruction::VPCallInstruction(FunctionCallee Callee,
-                                     ArrayRef<VPValue *> ArgList, VPlan *Plan)
-    : VPInstruction(Instruction::Call,
-                    Callee.getFunctionType()->getReturnType(), ArgList),
-      OrigCall(nullptr) {
-  assert(Callee && "Call instruction does not have Callee");
-  // Add called value to end of operand list for def-use chain.
-  addOperand(Plan->getVPConstant(cast<Constant>(Callee.getCallee())));
-  resetVecScenario(0 /*Initial VF*/);
-}

@@ -1064,7 +1064,7 @@ static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
   auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
 
   auto *VPCall =
-      new VPCallInstruction(VPFunc, {NonPODMemory}, F->getReturnType());
+      new VPCallInstruction(VPFunc, F->getFunctionType(), {NonPODMemory});
   Builder.insert(VPCall);
 }
 
