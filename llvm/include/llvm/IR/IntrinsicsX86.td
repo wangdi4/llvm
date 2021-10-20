@@ -7124,6 +7124,32 @@ def int_x86_dvpnccdpwqimm : GCCBuiltin<"__builtin_ia32_dvpnccdpwqimm">,
         Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_v8i16_ty, llvm_v8i16_ty],
                   [IntrNoMem]>;
 // end Chapter 3
+// Chapter 4
+def int_x86_dvpdpbwuud : GCCBuiltin<"__builtin_ia32_dvpdpbwuud">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpbwuuds : GCCBuiltin<"__builtin_ia32_dvpdpbwuuds">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpbwssd : GCCBuiltin<"__builtin_ia32_dvpdpbwssd">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpbwssds : GCCBuiltin<"__builtin_ia32_dvpdpbwssds">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpbwsud : GCCBuiltin<"__builtin_ia32_dvpdpbwsud">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpbwsuds : GCCBuiltin<"__builtin_ia32_dvpdpbwsuds">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpbwusd : GCCBuiltin<"__builtin_ia32_dvpdpbwusd">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpbwusds : GCCBuiltin<"__builtin_ia32_dvpdpbwusds">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+// end Chapter 4
 // Chapter 7
 def int_x86_dvpmuludhhq : GCCBuiltin<"__builtin_ia32_dvpmuludhhq">,
         Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty, llvm_v4i32_ty],
