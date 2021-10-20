@@ -103,7 +103,9 @@ namespace {
     BlockStateMap BlockStates;
     DirtySuccessorsWorkList DirtySuccessors;
     bool EverMadeChange;
-    bool IsX86INTR;
+#if INTEL_CUSTOMIZATION
+    bool HasYmmOrZmmCSR;
+#endif // INTEL_CUSTOMIZATION
     const TargetInstrInfo *TII;
 
     static char ID;
@@ -179,6 +181,17 @@ static bool callHasRegMask(MachineInstr &MI) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// Check if the function has Y/ZMM0-15 in its callee-saved registers.
+static bool checkFnHasYmmOrZmmCSR(MachineRegisterInfo &MRI) {
+  const MCPhysReg *CSR = MRI.getCalleeSavedRegs();
+  for (unsigned I = 0; CSR[I] != 0; ++I)
+    if (isYmmOrZmmReg(CSR[I]))
+      return true;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Insert a vzeroupper instruction before I.
 void VZeroUpperInserter::insertVZeroUpper(MachineBasicBlock::iterator I,
                                           MachineBasicBlock &MBB) {
@@ -208,10 +221,14 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
     bool IsReturn = MI.isReturn();
     bool IsControlFlow = IsCall || IsReturn;
 
-    // No need for vzeroupper before iret in interrupt handler function,
-    // epilogue will restore YMM/ZMM registers if needed.
-    if (IsX86INTR && IsReturn)
+#if INTEL_CUSTOMIZATION
+    // If the function have one of YMM/ZMM0-15 registers as callee-saved
+    // register (e.g. interrupt handler function), there is no need to insert
+    // vzeroupper since the register will be restored. The state is going to be
+    // dirty anyway.
+    if (HasYmmOrZmmCSR && IsReturn)
       continue;
+#endif // INTEL_CUSTOMIZATION
 
     // An existing VZERO* instruction resets the state.
     if (MI.getOpcode() == X86::VZEROALL || MI.getOpcode() == X86::VZEROUPPER) {
@@ -291,7 +308,9 @@ bool VZeroUpperInserter::runOnMachineFunction(MachineFunction &MF) {
   TII = ST.getInstrInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
   EverMadeChange = false;
-  IsX86INTR = MF.getFunction().getCallingConv() == CallingConv::X86_INTR;
+#if INTEL_CUSTOMIZATION
+  HasYmmOrZmmCSR = checkFnHasYmmOrZmmCSR(MRI);
+#endif // INTEL_CUSTOMIZATION
 
   bool FnHasLiveInYmmOrZmm = checkFnHasLiveInYmmOrZmm(MRI);
 

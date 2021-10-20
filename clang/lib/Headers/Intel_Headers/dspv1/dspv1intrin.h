@@ -345,5 +345,37 @@ _mm_dsp_phaddlsdq_epi32(__m128i __A) {
 #define _mm_dpbusds_epi32(S, A, B)                                             \
   ((__m128i)__builtin_ia32_vpdpbusds128((__v4si)(S), (__v4si)(A), (__v4si)(B)))
 
+#define _mm_dsp_pdpbwuud_epi32(A, B, C, D)                                     \
+  ((__m128i)__builtin_ia32_dvpdpbwuud((__v4su)(A), (__v16qu)(B), (__v8hu)(C),  \
+                                      (int)(D)))
+
+#define _mm_dsp_pdpbwuuds_epi32(A, B, C, D)                                    \
+  ((__m128i)__builtin_ia32_dvpdpbwuuds((__v4su)(A), (__v16qu)(B), (__v8hu)(C), \
+                                       (int)(D)))
+
+#define _mm_dsp_pdpbwssd_epi32(A, B, C, D)                                     \
+  ((__m128i)__builtin_ia32_dvpdpbwssd((__v4su)(A), (__v16qu)(B), (__v8hu)(C),  \
+                                      (int)(D)))
+
+#define _mm_dsp_pdpbwssds_epi32(A, B, C, D)                                    \
+  ((__m128i)__builtin_ia32_dvpdpbwssds((__v4su)(A), (__v16qu)(B), (__v8hu)(C), \
+                                       (int)(D)))
+
+#define _mm_dsp_pdpbwsud_epi32(A, B, C, D)                                     \
+  ((__m128i)__builtin_ia32_dvpdpbwsud((__v4su)(A), (__v16qu)(B), (__v8hu)(C),  \
+                                      (int)(D)))
+
+#define _mm_dsp_pdpbwsuds_epi32(A, B, C, D)                                    \
+  ((__m128i)__builtin_ia32_dvpdpbwsuds((__v4su)(A), (__v16qu)(B), (__v8hu)(C), \
+                                       (int)(D)))
+
+#define _mm_dsp_pdpbwusd_epi32(A, B, C, D)                                     \
+  ((__m128i)__builtin_ia32_dvpdpbwusd((__v4su)(A), (__v16qu)(B), (__v8hu)(C),  \
+                                      (int)(D)))
+
+#define _mm_dsp_pdpbwusds_epi32(A, B, C, D)                                    \
+  ((__m128i)__builtin_ia32_dvpdpbwusds((__v4su)(A), (__v16qu)(B), (__v8hu)(C), \
+                                       (int)(D)))
+
 #undef __DEFAULT_FN_ATTRS128
 #endif // __DSPINTRIN_H
