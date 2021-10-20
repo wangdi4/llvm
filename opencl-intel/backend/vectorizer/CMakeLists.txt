@@ -92,7 +92,6 @@ set(TARGET_INCLUDE_FILES
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
   VectorKernelDiscard/VectorKernelDiscard.h
-  VectorVariant/IndirectCallLowering.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
   ${TARGET_EXTRA_INCLUDE_FILES}
@@ -128,7 +127,6 @@ set(TARGET_SOURCE_FILES
   Utils/VectorizerCore.cpp
   Utils/VectorizerCommon.cpp
   VectorKernelDiscard/VectorKernelDiscard.cpp
-  VectorVariant/IndirectCallLowering.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
