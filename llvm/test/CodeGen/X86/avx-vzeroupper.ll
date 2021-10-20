@@ -317,39 +317,13 @@ define <4 x float> @test04(<4 x float> %a, <4 x float> %b) nounwind {
 
 ; INTEL_CUSTOMIZATION
 define preserve_allcc <4 x float> @preserve_all_vzeroupper(<4 x double> %a, <4 x double> %b) nounwind {
-; VZ-LABEL: preserve_all_vzeroupper:
-; VZ:       # %bb.0:
-; VZ-NEXT:    vmovupd %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; VZ-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
-; VZ-NEXT:    vcvtpd2ps %ymm0, %xmm0
-; VZ-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
-; VZ-NEXT:    vzeroupper
-; VZ-NEXT:    retq
-;
-; DISABLE-VZ-LABEL: preserve_all_vzeroupper:
-; DISABLE-VZ:       # %bb.0:
-; DISABLE-VZ-NEXT:    vmovupd %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; DISABLE-VZ-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
-; DISABLE-VZ-NEXT:    vcvtpd2ps %ymm0, %xmm0
-; DISABLE-VZ-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
-; DISABLE-VZ-NEXT:    retq
-;
-; BDVER2-LABEL: preserve_all_vzeroupper:
-; BDVER2:       # %bb.0:
-; BDVER2-NEXT:    vmovupd %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; BDVER2-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
-; BDVER2-NEXT:    vcvtpd2ps %ymm0, %xmm0
-; BDVER2-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
-; BDVER2-NEXT:    vzeroupper
-; BDVER2-NEXT:    retq
-;
-; BTVER2-LABEL: preserve_all_vzeroupper:
-; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vmovupd %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
-; BTVER2-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
-; BTVER2-NEXT:    vcvtpd2ps %ymm0, %xmm0
-; BTVER2-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
-; BTVER2-NEXT:    retq
+; ALL-LABEL: preserve_all_vzeroupper:
+; ALL:       # %bb.0:
+; ALL-NEXT:    vmovupd %ymm0, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
+; ALL-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
+; ALL-NEXT:    vcvtpd2ps %ymm0, %xmm0
+; ALL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
+; ALL-NEXT:    retq
   %1 = fadd <4 x double> %a, %b
   %2 = fptrunc <4 x double> %1 to <4 x float>
   ret <4 x float> %2
