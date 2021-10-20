@@ -732,15 +732,13 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Indicates target prefers AVX512 mask registers.
   bool PreferMaskRegisters = false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Processor supports Decoded Stream Buffer.
   X86DSBEnum DSBSize = NoDSB;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// Use Silvermont specific arithmetic costs.
   bool UseSLMArithCosts = false;
->>>>>>> 9fc523d114085d194da90ef108c16c931c40ae38
 
   /// Use Goldmont specific floating point div/sqrt costs.
   bool UseGLMDivSqrtCosts = false;
