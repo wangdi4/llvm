@@ -115,6 +115,7 @@ if (CLANG_BUILD_EXAMPLES)
     AnnotateFunctions
     CallSuperAttr
     clang-interpreter
+    PluginsOrder
     PrintFunctionNames
     )
 endif ()
