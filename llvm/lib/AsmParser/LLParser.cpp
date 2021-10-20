@@ -618,32 +618,28 @@ bool LLParser::parseUnnamedGlobal() {
       parseOptionalThreadLocal(TLM) || parseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
-<<<<<<< HEAD
-  if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
+  switch (Lex.getKind()) {
 #if INTEL_COLLAB
+  default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                        IsThreadPrivate, IsTargetDeclare);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+  case lltok::kw_alias:
+  case lltok::kw_ifunc:
+    return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                              IsThreadPrivate, IsTargetDeclare);
 #else // INTEL_COLLAB
-    return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
-                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
-                             DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
-#endif // INTEL_COLLAB
-=======
-  switch (Lex.getKind()) {
   default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+
   case lltok::kw_alias:
   case lltok::kw_ifunc:
     return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+#endif // INTEL_COLLAB
   }
->>>>>>> 08ed216000b6503a4a4be52f18394d008d5fb8f4
 }
 
 /// parseNamedGlobal:
@@ -676,32 +672,28 @@ bool LLParser::parseNamedGlobal() {
       parseOptionalThreadLocal(TLM) || parseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
-<<<<<<< HEAD
-  if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
+  switch (Lex.getKind()) {
 #if INTEL_COLLAB
+  default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                        IsThreadPrivate, IsTargetDeclare);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+  case lltok::kw_alias:
+  case lltok::kw_ifunc:
+    return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                              IsThreadPrivate, IsTargetDeclare);
-#else
-    return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
-                       DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
-                             DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
-#endif // INTEL_COLLAB
-=======
-  switch (Lex.getKind()) {
+#else // INTEL_COLLAB
   default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+
   case lltok::kw_alias:
   case lltok::kw_ifunc:
     return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
+#endif // INTEL_COLLAB
   }
->>>>>>> 08ed216000b6503a4a4be52f18394d008d5fb8f4
 }
 
 bool LLParser::parseComdat() {
@@ -988,26 +980,17 @@ static std::string typeComparisonErrorMessage(StringRef Message, Type *Ty1,
 ///
 /// Everything through OptionalUnnamedAddr has already been parsed.
 ///
-<<<<<<< HEAD
-bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
-                                   unsigned L, unsigned Visibility,
-                                   unsigned DLLStorageClass, bool DSOLocal,
-                                   GlobalVariable::ThreadLocalMode TLM,
+bool LLParser::parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
+                                 unsigned L, unsigned Visibility,
+                                 unsigned DLLStorageClass, bool DSOLocal,
+                                 GlobalVariable::ThreadLocalMode TLM,
 #if INTEL_COLLAB
                                    GlobalVariable::UnnamedAddr UnnamedAddr,
                                    bool IsThreadPrivate,
                                    bool IsTargetDeclare) {
 #else
-                                   GlobalVariable::UnnamedAddr UnnamedAddr) {
-
-#endif // INTEL_COLLAB
-=======
-bool LLParser::parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
-                                 unsigned L, unsigned Visibility,
-                                 unsigned DLLStorageClass, bool DSOLocal,
-                                 GlobalVariable::ThreadLocalMode TLM,
                                  GlobalVariable::UnnamedAddr UnnamedAddr) {
->>>>>>> 08ed216000b6503a4a4be52f18394d008d5fb8f4
+#endif // INTEL_COLLAB
   bool IsAlias;
   if (Lex.getKind() == lltok::kw_alias)
     IsAlias = true;
@@ -1102,25 +1085,17 @@ bool LLParser::parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
     GI.reset(GlobalIFunc::create(Ty, AddrSpace,
                                  (GlobalValue::LinkageTypes)Linkage, Name,
                                  Aliasee, /*Parent*/ nullptr));
-<<<<<<< HEAD
-  GA->setThreadLocalMode(TLM);
-#if INTEL_COLLAB
-  GA->setThreadPrivate(IsThreadPrivate);
-  GA->setTargetDeclare(IsTargetDeclare);
-#endif // INTEL_COLLAB
-  GA->setVisibility((GlobalValue::VisibilityTypes)Visibility);
-  GA->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
-  GA->setUnnamedAddr(UnnamedAddr);
-  maybeSetDSOLocal(DSOLocal, *GA);
-=======
     GV = GI.get();
   }
   GV->setThreadLocalMode(TLM);
+#if INTEL_COLLAB
+  GV->setThreadPrivate(IsThreadPrivate);
+  GV->setTargetDeclare(IsTargetDeclare);
+#endif // INTEL_COLLAB
   GV->setVisibility((GlobalValue::VisibilityTypes)Visibility);
   GV->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
   GV->setUnnamedAddr(UnnamedAddr);
   maybeSetDSOLocal(DSOLocal, *GV);
->>>>>>> 08ed216000b6503a4a4be52f18394d008d5fb8f4
 
   // At this point we've parsed everything except for the IndirectSymbolAttrs.
   // Now parse them if there are any.

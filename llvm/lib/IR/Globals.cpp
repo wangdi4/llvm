@@ -461,57 +461,6 @@ void GlobalVariable::dropAllReferences() {
 }
 
 //===----------------------------------------------------------------------===//
-<<<<<<< HEAD
-// GlobalIndirectSymbol Implementation
-//===----------------------------------------------------------------------===//
-
-GlobalIndirectSymbol::GlobalIndirectSymbol(Type *Ty, ValueTy VTy,
-    unsigned AddressSpace, LinkageTypes Linkage, const Twine &Name,
-    Constant *Symbol)
-    : GlobalValue(Ty, VTy, &Op<0>(), 1, Linkage, Name, AddressSpace) {
-    Op<0>() = Symbol;
-}
-
-static const GlobalObject *
-findBaseObject(const Constant *C, DenseSet<const GlobalAlias *> &Aliases) {
-  if (auto *GO = dyn_cast<GlobalObject>(C))
-    return GO;
-  if (auto *GA = dyn_cast<GlobalAlias>(C))
-    if (Aliases.insert(GA).second)
-      return findBaseObject(GA->getOperand(0), Aliases);
-#if INTEL_CUSTOMIZATION
-  if (auto *GI = dyn_cast<GlobalIFunc>(C))
-    return findBaseObject(GI->getOperand(0), Aliases);
-#endif // INTEL_CUSTOMIZATION
-  if (auto *CE = dyn_cast<ConstantExpr>(C)) {
-    switch (CE->getOpcode()) {
-    case Instruction::Add: {
-      auto *LHS = findBaseObject(CE->getOperand(0), Aliases);
-      auto *RHS = findBaseObject(CE->getOperand(1), Aliases);
-      if (LHS && RHS)
-        return nullptr;
-      return LHS ? LHS : RHS;
-    }
-    case Instruction::Sub: {
-      if (findBaseObject(CE->getOperand(1), Aliases))
-        return nullptr;
-      return findBaseObject(CE->getOperand(0), Aliases);
-    }
-    case Instruction::IntToPtr:
-    case Instruction::PtrToInt:
-    case Instruction::BitCast:
-    case Instruction::GetElementPtr:
-      return findBaseObject(CE->getOperand(0), Aliases);
-    default:
-      break;
-    }
-  }
-  return nullptr;
-}
-
-//===----------------------------------------------------------------------===//
-=======
->>>>>>> 08ed216000b6503a4a4be52f18394d008d5fb8f4
 // GlobalAlias Implementation
 //===----------------------------------------------------------------------===//
 

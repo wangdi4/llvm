@@ -312,25 +312,18 @@ namespace llvm {
                      bool IsThreadPrivate, bool IsTargetDeclare);
 #else // INTEL_COLLAB
                      GlobalVariable::UnnamedAddr UnnamedAddr);
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-    bool parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
-                             unsigned L, unsigned Visibility,
-                             unsigned DLLStorageClass, bool DSOLocal,
-                             GlobalVariable::ThreadLocalMode TLM,
+    bool parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
+                           unsigned L, unsigned Visibility,
+                           unsigned DLLStorageClass, bool DSOLocal,
+                           GlobalVariable::ThreadLocalMode TLM,
 #if INTEL_COLLAB
-                             GlobalVariable::UnnamedAddr UnnamedAddr,
-                             bool IsThreadPrivate,
-                             bool IsTargetDeclare);
+                           GlobalVariable::UnnamedAddr UnnamedAddr,
+                           bool IsThreadPrivate,
+                           bool IsTargetDeclare);
 #else // INTEL_COLLAB
-                             GlobalVariable::UnnamedAddr UnnamedAddr);
-#endif // INTEL_COLLAB
-=======
-    bool parseAliasOrIFunc(const std::string &Name, LocTy NameLoc, unsigned L,
-                           unsigned Visibility, unsigned DLLStorageClass,
-                           bool DSOLocal, GlobalVariable::ThreadLocalMode TLM,
                            GlobalVariable::UnnamedAddr UnnamedAddr);
->>>>>>> 08ed216000b6503a4a4be52f18394d008d5fb8f4
+#endif // INTEL_COLLAB
     bool parseComdat();
     bool parseStandaloneMetadata();
     bool parseNamedMetadata();
