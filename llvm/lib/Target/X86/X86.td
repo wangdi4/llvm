@@ -889,6 +889,10 @@ def TuningFastMOVBE
     : SubtargetFeature<"fast-movbe", "HasFastMOVBE", "true",
     "Prefer a movbe over a single-use load + bswap / single-use bswap + store">;
 
+def TuningUseSLMArithCosts
+    : SubtargetFeature<"use-slm-arith-costs", "UseSLMArithCosts", "true",
+        "Use Silvermont specific arithmetic costs">;
+
 def TuningUseGLMDivSqrtCosts
     : SubtargetFeature<"use-glm-div-sqrt-costs", "UseGLMDivSqrtCosts", "true",
         "Use Goldmont specific floating point div/sqrt costs">;
@@ -930,8 +934,6 @@ def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
 
 // Bonnell
 def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
-// Silvermont
-def ProcIntelSLM  : SubtargetFeature<"", "X86ProcFamily", "IntelSLM", "">;
 
 //===----------------------------------------------------------------------===//
 // Register File Description
@@ -1320,7 +1322,7 @@ def ProcessorFeatures {
                                                   FeaturePCLMUL,
                                                   FeaturePRFCHW,
                                                   FeatureRDRAND];
-  list<SubtargetFeature> SLMTuning = [ProcIntelSLM,
+  list<SubtargetFeature> SLMTuning = [TuningUseSLMArithCosts,
                                       TuningSlowTwoMemOps,
                                       TuningSlowLEA,
                                       TuningSlowIncDec,
