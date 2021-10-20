@@ -540,11 +540,10 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
     // Default to C++ legacy pipeline if triple is spir64_x86_64.
-    PassManagerType PMType = m_passManagerType;
     llvm::Triple TT(pModule->getTargetTriple());
-    if (PMType == PM_NONE &&
+    if (m_passManagerType == PM_NONE &&
         TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
-      PMType = PM_LTO_LEGACY;
+      m_passManagerType = PM_LTO_LEGACY;
 
     materializeSpirTriple(pModule);
 
@@ -577,7 +576,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             m_expensiveMemOpts);
     auto &BIModules = GetBuiltinModuleList();
     std::unique_ptr<Optimizer> optimizer;
-    switch (PMType) {
+    switch (m_passManagerType) {
     case PM_LTO_LEGACY:
       optimizer = std::make_unique<OptimizerLTOLegacyPM>(pModule, BIModules,
                                                          &optimizerConfig);
