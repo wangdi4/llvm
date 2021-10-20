@@ -346,7 +346,7 @@ public:
     assert(Inst && "Cannot create VPCallInstruction without underlying IR.");
     CallInst *Call = cast<CallInst>(Inst);
     VPCallInstruction *NewVPCall =
-        new VPCallInstruction(CalledValue, ArgList, Call);
+        new VPCallInstruction(CalledValue, ArgList, *Call);
     NewVPCall->setUnderlyingValue(*Call);
     NewVPCall->setName(Inst->getName());
     insert(NewVPCall);
