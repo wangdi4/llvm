@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/IndirectCallLowering.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
@@ -78,7 +79,6 @@ bool IndirectCallLowering::runImpl(Module &M) {
       VectorVariant Variant(Variants[Index]);
       unsigned VecLen = Variant.getVlen();
       ConstantInt *Zero = ConstantInt::get(M.getContext(), APInt(32, 0, true));
-      ConstantInt *One = ConstantInt::get(M.getContext(), APInt(32, 1, true));
       FunctionType *FTy = Call.getFunctionType();
 
       IRBuilder<> Builder(&Call);
@@ -109,13 +109,20 @@ bool IndirectCallLowering::runImpl(Module &M) {
       }
 
       // Preparing the mask.
-      VectorType *MaskTy =
-          VectorType::get(Type::getInt32Ty(M.getContext()), VecLen, false);
-      VecArgTy.push_back(MaskTy);
+      Value *Zeros = Constant::getNullValue(
+          FixedVectorType::get(Type::getInt1Ty(F->getContext()), VecLen));
+      Value *MaskToUse =
+          Builder.CreateInsertElement(Zeros, Builder.getInt1(1), Zero);
 
-      Value *MaskArg = Builder.CreateInsertElement(
-          ConstantAggregateZero::get(MaskTy), One, Zero);
-      VecArgs.push_back(MaskArg);
+      // Drop the first arg due to it's a function pointer.
+      auto Args = llvm::drop_begin(Call.args(), 1);
+      Type *CharacteristicType = llvm::calcCharacteristicType(
+          Call.getType(),
+          map_range(Args, [](Use &U) -> Value & { return *U.get(); }), Variant,
+          Call.getParent()->getParent()->getParent()->getDataLayout());
+
+      createVectorMaskArg(Builder, CharacteristicType, &Variant, VecArgs,
+                          VecArgTy, VecLen, MaskToUse);
 
       // Preparing chosen variant call.
       Type *RetTy = FTy->getReturnType();
