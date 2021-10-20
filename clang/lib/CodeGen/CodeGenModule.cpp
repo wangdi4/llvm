@@ -4795,6 +4795,17 @@ llvm::GlobalVariable *CodeGenModule::CreateOrReplaceCXXRuntimeVariable(
   }
 
   // Create a new variable.
+#if INTEL_COLLAB
+  if (!getLangOpts().SYCLIsDevice) {
+    unsigned GlobalsAS = getDataLayout().getDefaultGlobalsAddressSpace();
+    Optional<unsigned> AS = GlobalsAS ? GlobalsAS
+                                      : getContext().getTargetAddressSpace(
+                                            GetGlobalConstantAddressSpace());
+    GV = new llvm::GlobalVariable(getModule(), Ty, /*isConstant=*/true, Linkage,
+                                  nullptr, Name, nullptr,
+                                  llvm::GlobalValue::NotThreadLocal, AS);
+  } else
+#endif // INTEL_COLLAB
   GV = new llvm::GlobalVariable(getModule(), Ty, /*isConstant=*/true,
                                 Linkage, nullptr, Name);
 

@@ -24,6 +24,9 @@
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
+#if INTEL_COLLAB
+#include "CGOpenMPRuntime.h"
+#endif  // INTEL_COLLAB
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/StmtCXX.h"
@@ -1778,6 +1781,12 @@ void ItaniumCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
   // Set the correct linkage.
   VTable->setLinkage(Linkage);
 
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline && VTable->isTargetDeclare()) {
+    CGM.getOpenMPRuntime().registerTargetVtableGlobalVar(VTable->getName(),
+                                                         VTable);
+  }
+#endif  // INTEL_COLLAB
   if (CGM.supportsCOMDAT() && VTable->isWeakForLinker())
     VTable->setComdat(CGM.getModule().getOrInsertComdat(VTable->getName()));
 
@@ -1911,6 +1920,12 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
   assert(VPtrOffset.isZero() && "Itanium ABI only supports zero vptr offsets");
 
   llvm::GlobalVariable *&VTable = VTables[RD];
+
+#if INTEL_COLLAB
+  if (VTable && CGM.getLangOpts().OpenMPLateOutline && CGM.inTargetRegion())
+    VTable->setTargetDeclare(true);
+#endif  // INTEL_COLLAB
+
   if (VTable)
     return VTable;
 
@@ -1957,6 +1972,11 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
   }
   CGM.setGVProperties(VTable, RD);
   CGM.addDTransVTableInfo(VTable, VTLayout); // INTEL
+
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline && CGM.inTargetRegion())
+    VTable->setTargetDeclare(true);
+#endif  // INTEL_COLLAB
 
   return VTable;
 }
