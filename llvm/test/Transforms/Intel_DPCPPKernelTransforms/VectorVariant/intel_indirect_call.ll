@@ -158,7 +158,7 @@ scalar_kernel_entry:                              ; preds = %scalar_kernel_entry
 ; CHECK-NEXT: %38 = bitcast i32 (i32, i32)** %35 to <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)**
 ; CHECK-NEXT: %39 = getelementptr <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %38, i32 0
 ; CHECK-NEXT: %40 = load <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %39, align 8
-; CHECK-NEXT: %41 = call <16 x i32> %40(<16 x i32> %36, <16 x i32> %37, <16 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>)
+; CHECK-NEXT: %41 = call <16 x i32> %40(<16 x i32> %36, <16 x i32> %37, <16 x i32> <i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>)
 ; CHECK-NEXT: %42 = extractelement <16 x i32> %41, i32 0
   %36 = tail call i32 (i32 (i32, i32)**, i32, i32, ...) @__intel_indirect_call(i32 (i32, i32)** %35, i32 %conv.i, i32 %conv7.i) #7
 ; CHECK-NOT: call {{.*}} @__intel_indirect_call
