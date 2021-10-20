@@ -7630,6 +7630,9 @@ public:
     Address LB = Address::invalid();
     bool IsArraySection = false;
     bool HasCompleteRecord = false;
+#if INTEL_COLLAB
+    bool HasVTPtr = false;
+#endif  // INTEL_COLLAB
   };
 
 private:
@@ -8072,6 +8075,15 @@ public:
     const auto *OASE = dyn_cast<OMPArraySectionExpr>(AssocExpr);
     const auto *OAShE = dyn_cast<OMPArrayShapingExpr>(AssocExpr);
 
+#if INTEL_COLLAB
+    bool HasVTPtr = false;
+    if (auto *RT = dyn_cast<RecordType>(AssocExpr->getType()))
+      if (auto *ClassDecl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+        if (ClassDecl->isDynamicClass() &&
+            !CGF.getVTablePointers(ClassDecl).empty())
+          HasVTPtr = true;
+#endif // INTEL_COLLAB
+
     if (isa<MemberExpr>(AssocExpr)) {
       // The base is the 'this' pointer. The content of the pointer is going
       // to be the base of the field being mapped.
@@ -8454,9 +8466,17 @@ public:
         // If we have encountered a member expression so far, keep track of the
         // mapped member. If the parent is "*this", then the value declaration
         // is nullptr.
+#if INTEL_COLLAB
+        if (EncounteredME || HasVTPtr) {
+          const auto *FD = EncounteredME
+                               ? cast<FieldDecl>(EncounteredME->getMemberDecl())
+                               : nullptr;
+          unsigned FieldIndex = EncounteredME ? FD->getFieldIndex() : 0;
+#else // INTEL_COLLAB
         if (EncounteredME) {
           const auto *FD = cast<FieldDecl>(EncounteredME->getMemberDecl());
           unsigned FieldIndex = FD->getFieldIndex();
+#endif  // INTEL_COLLAB
 
           // Update info about the lowest and highest elements for this struct
           if (!PartialStruct.Base.isValid()) {
@@ -8479,6 +8499,10 @@ public:
         }
 
         // Need to emit combined struct for array sections.
+#if INTEL_COLLAB
+        if (HasVTPtr)
+          PartialStruct.HasVTPtr = true;
+#endif // INTEL_COLLAB
         if (IsFinalArraySection || IsNonContiguous)
           PartialStruct.IsArraySection = true;
 
@@ -8507,6 +8531,15 @@ public:
     // record.
     if (!EncounteredME)
       PartialStruct.HasCompleteRecord = true;
+
+#if INTEL_COLLAB
+    if (HasVTPtr) {
+      // map for vtable pointers - alloc the space for the whole record.
+      PartialStruct.HasCompleteRecord = true;
+      // generate map info for vptrs.
+      generateInfoForVTable(AssocExpr->getType(), PartialStruct, CombinedInfo);
+    }
+#endif  // INTEL_COLLAB
 
     if (!IsNonContiguous)
       return;
@@ -9232,6 +9265,9 @@ public:
                          bool NotTargetParams = true) const {
     if (CurTypes.size() == 1 &&
         ((CurTypes.back() & OMP_MAP_MEMBER_OF) != OMP_MAP_MEMBER_OF) &&
+#if INTEL_COLLAB
+        !PartialStruct.HasVTPtr &&
+#endif  // INTEL_COLLAB
         !PartialStruct.IsArraySection)
       return;
     Address LBAddr = PartialStruct.LowestElem.second;
@@ -9409,6 +9445,34 @@ public:
     if ((Types & MappableExprsHandler::OMP_MAP_DELETE))
       return OMPC_MAP_delete;
     return OMPC_MAP_tofrom;
+  }
+
+  /// Emit map info for VTables.
+  void generateInfoForVTable(QualType ClassTy,
+                             const StructRangeInfoTy &PartialStruct,
+                             MapCombinedInfoTy &CurInfo) const {
+    CXXRecordDecl *ClassDecl =
+        cast<CXXRecordDecl>(ClassTy->castAs<RecordType>()->getDecl());
+    assert(ClassDecl && "not a class decl");
+    CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, /*ShouldEnter=*/true);
+    for (const CodeGenFunction::VPtr &Vptr : CGF.getVTablePointers(ClassDecl)) {
+      Address This = Address(PartialStruct.Base.getPointer(),
+                             CGF.CGM.getContext().getTypeAlignInChars(ClassTy));
+      llvm::Value *VPtrValue = CGF.GetVptr(Vptr, This);
+      if (!VPtrValue)
+        continue;
+      MappableExprsHandler::OpenMPOffloadMappingFlags Type =
+          MappableExprsHandler::OMP_MAP_MEMBER_OF |
+          MappableExprsHandler::OMP_MAP_PTR_AND_OBJ |
+          MappableExprsHandler::OMP_MAP_TO;
+      CurInfo.Exprs.emplace_back(CurInfo.Exprs[0]);
+      CurInfo.BasePointers.push_back(PartialStruct.Base.getPointer());
+      CurInfo.Pointers.push_back(VPtrValue);
+      CurInfo.Sizes.push_back(CGF.Builder.getInt32(8));
+      CurInfo.Types.push_back(Type);
+      CurInfo.Mappers.push_back(nullptr);
+      CurInfo.NonContigInfo.Dims.push_back(1);
+    }
   }
 #endif // INTEL_COLLAB
 
@@ -11553,6 +11617,19 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
       VarName, Addr, VarSize, Flags, Linkage);
 }
+
+#if INTEL_COLLAB
+void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
+                                                    llvm::Constant *Addr) {
+  if (CGM.getLangOpts().OMPTargetTriples.empty() &&
+      !CGM.getLangOpts().OpenMPIsDevice)
+    return;
+  OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
+      VarName, Addr, CGM.getPointerSize(),
+      OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo,
+      llvm::GlobalValue::ExternalLinkage);
+}
+#endif // INTEL_COLLAB
 
 bool CGOpenMPRuntime::emitTargetGlobal(GlobalDecl GD) {
   if (isa<FunctionDecl>(GD.getDecl()) ||

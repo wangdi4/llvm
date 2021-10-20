@@ -2297,6 +2297,24 @@ void CodeGenFunction::EmitInlinedInheritingCXXConstructorCall(
   EmitCtorPrologue(Ctor, CtorType, Params);
 }
 
+#if INTEL_COLLAB
+llvm::Value *CodeGenFunction::GetVptr(const VPtr &Vptr, Address This) {
+  llvm::Value *VTableGlobal =
+      CGM.getCXXABI().getVTableAddressPoint(Vptr.Base, Vptr.VTableClass);
+  if (!VTableGlobal)
+    return nullptr;
+
+  // We can just use the base offset in the complete class.
+  CharUnits NonVirtualOffset = Vptr.Base.getBaseOffset();
+
+  if (!NonVirtualOffset.isZero())
+    This =
+        ApplyNonVirtualAndVirtualOffset(*this, This, NonVirtualOffset, nullptr,
+                                        Vptr.VTableClass, Vptr.NearestVBase);
+  return GetVTablePtr(This, VTableGlobal->getType(), Vptr.VTableClass);
+}
+#endif  // INTEL_COLLAB
+
 void CodeGenFunction::EmitVTableAssumptionLoad(const VPtr &Vptr, Address This) {
   llvm::Value *VTableGlobal =
       CGM.getCXXABI().getVTableAddressPoint(Vptr.Base, Vptr.VTableClass);
