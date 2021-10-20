@@ -6332,6 +6332,7 @@ def code_completion_with_fixits : Flag<["-"], "code-completion-with-fixits">,
 def disable_free : Flag<["-"], "disable-free">,
   HelpText<"Disable freeing of memory on exit">,
   MarshallingInfoFlag<FrontendOpts<"DisableFree">>;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def no_disable_free: Flag<["-"], "no-disable-free">,
   HelpText<"Do not disable freeing of memory on exit">;
@@ -6339,6 +6340,15 @@ def no_disable_free: Flag<["-"], "no-disable-free">,
 def clear_ast_before_backend : Flag<["-"], "clear-ast-before-backend">,
   HelpText<"Clear the Clang AST before running backend code generation">,
   MarshallingInfoFlag<CodeGenOpts<"ClearASTBeforeBackend">>;
+=======
+defm clear_ast_before_backend : BoolOption<"",
+  "clear-ast-before-backend",
+  CodeGenOpts<"ClearASTBeforeBackend">,
+  DefaultFalse,
+  PosFlag<SetTrue, [], "Clear">,
+  NegFlag<SetFalse, [], "Don't clear">,
+  BothFlags<[], " the Clang AST before running backend code generation">>;
+>>>>>>> 063c2f89aa7f5b0b61a63d639d8124035f26935c
 def enable_noundef_analysis : Flag<["-"], "enable-noundef-analysis">, Group<f_Group>,
   HelpText<"Enable analyzing function argument and return types for mandatory definedness">,
   MarshallingInfoFlag<CodeGenOpts<"EnableNoundefAttrs">>;
