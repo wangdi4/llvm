@@ -1808,6 +1808,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::STRICT_UINT_TO_FP, MVT::v4i32,
                        Subtarget.hasVLX() ? Legal : Custom);
     setOperationAction(ISD::LDEXP, MVT::f64, Custom); // INTEL
+    setOperationAction(ISD::LDEXP, MVT::f32, Custom); // INTEL
 
     if (Subtarget.hasDQI()) {
       // Fast v2f32 SINT_TO_FP( v2i64 ) custom conversion.
@@ -22850,11 +22851,14 @@ SDValue X86TargetLowering::lowerLdexp(SDValue Op, SelectionDAG &DAG) const {
   if (!Subtarget.hasAVX512())
     return SDValue();
 
-  if (Op.getValueType() == MVT::f64 && Exp.getValueType() == MVT::i32) {
-    SDValue fExp = DAG.getNode(ISD::SINT_TO_FP, DL, MVT::f64, Exp);
-    return DAG.getNode(X86ISD::SCALEFS, DL, MVT::f64, Mul, fExp);
+  MVT VT1 = Op.getSimpleValueType();
+  MVT VT2 = Exp.getSimpleValueType();
+  if ((VT1 == MVT::f64 || VT1 == MVT::f32) && VT2 == MVT::i32) {
+    SDValue fExp = DAG.getNode(ISD::SINT_TO_FP, DL, VT1, Exp);
+    return DAG.getNode(X86ISD::SCALEFS, DL, VT1, Mul, fExp);
   }
-  //TODO: Enable optimization for vnf64[.vni32] to SCALEF if needed in fureture.
+  // TODO: Enable optimization for vnf64[.vni32] to SCALEF if needed in
+  // fureture.
   return SDValue();
 }
 #endif // INTEL_CUSTOMIZATION
