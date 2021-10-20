@@ -3266,6 +3266,11 @@ public:
   /// Emit assumption that vptr load == global vtable.
   void EmitVTableAssumptionLoad(const VPtr &vptr, Address This);
 
+#if INTEL_COLLAB
+  // Return the Value of the vtable pointer member pointed to by This.
+  llvm::Value *GetVptr(const VPtr &Vptr, Address This);
+#endif  // INTEL_COLLAB
+
   void EmitSynthesizedCXXCopyCtorCall(const CXXConstructorDecl *D,
                                       Address This, Address Src,
                                       const CXXConstructExpr *E);
