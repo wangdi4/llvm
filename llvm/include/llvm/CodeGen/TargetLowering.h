@@ -2224,8 +2224,7 @@ protected:
   /// Indicate that the specified operation does not work with the specified
   /// type and indicate what to do about it. Note that VT may refer to either
   /// the type of a result or that of an operand of Op.
-  void setOperationAction(unsigned Op, MVT VT,
-                          LegalizeAction Action) {
+  void setOperationAction(unsigned Op, MVT VT, LegalizeAction Action) {
     assert(Op < array_lengthof(OpActions[0]) && "Table isn't big enough!");
     OpActions[(unsigned)VT.SimpleTy][Op] = Action;
   }
@@ -2244,8 +2243,7 @@ protected:
 
   /// Indicate that the specified truncating store does not work with the
   /// specified type and indicate what to do about it.
-  void setTruncStoreAction(MVT ValVT, MVT MemVT,
-                           LegalizeAction Action) {
+  void setTruncStoreAction(MVT ValVT, MVT MemVT, LegalizeAction Action) {
     assert(ValVT.isValid() && MemVT.isValid() && "Table isn't big enough!");
     TruncStoreActions[(unsigned)ValVT.SimpleTy][MemVT.SimpleTy] = Action;
   }
@@ -3860,7 +3858,7 @@ public:
       RetSExt = Call.hasRetAttr(Attribute::SExt);
       RetZExt = Call.hasRetAttr(Attribute::ZExt);
       NoMerge = Call.hasFnAttr(Attribute::NoMerge);
-      
+
       Callee = Target;
 
       CallConv = Call.getCallingConv();
