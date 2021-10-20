@@ -311,6 +311,15 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     return false;
   }
 
+  // Loop entities framework does not support nonPOD lastprivates array. Bailout
+  // to prevent incorrect vector code generatiion. TODO: CMPLRLLVM-30686.
+  if (WRLp && LoopVectorizationPlanner::hasArrayLastprivateNonPod(WRLp)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "VD: Not vectorizing: Cannot handle nonPOD array lastprivates.\n");
+    return false;
+  }
+
   // Send explicit data from WRLoop to the Legality.
   // The decision about possible loop vectorization is based
   // on this data.
