@@ -81,14 +81,21 @@ define void @foo() {
 ; CHECK-NEXT:    [[TMP23:%.*]] = add i32 0, [[TMP22]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i8>, <4 x i8>* [[RET_LPRIV_VEC]], align 1
 ; CHECK-NEXT:    [[WIDE_LOAD17:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
-; CHECK-NEXT:    [[TMP24:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[WIDE_LOAD17]])
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT18:%.*]] = insertelement <4 x i32> poison, i32 [[TMP24]], i32 0
+; CHECK-NEXT:    [[TMP24:%.*]] = load i8, i8* [[RET_LPRIV]], align 1
+; CHECK-NEXT:    [[TMP25:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[WIDE_LOAD17]])
+; CHECK-NEXT:    [[TMP26:%.*]] = icmp ne i32 [[TMP25]], -1
+; CHECK-NEXT:    br i1 [[TMP26]], label [[COND_LAST_PRIVATE_THEN:%.*]], label [[COND_LAST_PRIVATE_ELSE:%.*]]
+; CHECK:       cond.last.private.then:
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT18:%.*]] = insertelement <4 x i32> poison, i32 [[TMP25]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT19:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT18]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PRIV_IDX_CMP:%.*]] = icmp eq <4 x i32> [[WIDE_LOAD17]], [[BROADCAST_SPLAT19]]
-; CHECK-NEXT:    [[TMP25:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4
-; CHECK-NEXT:    [[CTTZ:%.*]] = call i4 @llvm.cttz.i4(i4 [[TMP25]], i1 true)
+; CHECK-NEXT:    [[TMP27:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4
+; CHECK-NEXT:    [[CTTZ:%.*]] = call i4 @llvm.cttz.i4(i4 [[TMP27]], i1 true)
 ; CHECK-NEXT:    [[PRIV_EXTRACT:%.*]] = extractelement <4 x i8> [[WIDE_LOAD]], i4 [[CTTZ]]
-; CHECK-NEXT:    store i8 [[PRIV_EXTRACT]], i8* [[RET_LPRIV]], align 1
+; CHECK-NEXT:    br label [[COND_LAST_PRIVATE_ELSE]]
+; CHECK:       cond.last.private.else:
+; CHECK-NEXT:    [[TMP28:%.*]] = phi i8 [ [[PRIV_EXTRACT]], [[COND_LAST_PRIVATE_THEN]] ], [ [[TMP24]], [[VPLANNEDBB16]] ]
+; CHECK-NEXT:    store i8 [[TMP28]], i8* [[RET_LPRIV]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ;
 entry:
