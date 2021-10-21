@@ -43,6 +43,7 @@ const StringRef KernelAttribute::RecursionWithBarrier =
     "barrier_with_recursion";
 const StringRef KernelAttribute::UniformCall = "kernel-uniform-call";
 const StringRef KernelAttribute::VectorVariants = "vector-variants";
+const StringRef KernelAttribute::VectorVariantFailure = "vector-variant-failure";
 
 namespace {
 // Document what source language this module was translated from.

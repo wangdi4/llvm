@@ -73,8 +73,13 @@ bool IndirectCallLowering::runImpl(Module &M) {
 
       // We expect here at least one masked vector-variant.
       // In other case code generation can't be done correctly.
-      assert(Index < Variants.size() &&
-             "failed to find a masked vector variant for an indirect call");
+      if (Index >= Variants.size()) {
+        // Final function's code will be incorrect, so let's mark it as
+        // an invalid one.
+        Fn.addFnAttr(KernelAttribute::VectorVariantFailure,
+                     "failed to find a masked vector variant for an indirect call");
+        continue;
+      }
 
       VectorVariant Variant(Variants[Index]);
       unsigned VecLen = Variant.getVlen();
