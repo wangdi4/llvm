@@ -40,12 +40,29 @@ define i64 @foo(i64* nocapture %larr, i64* %mm) {
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB8:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[TMP5:%.*]] = call i64 @llvm.vector.reduce.smax.v4i64(<4 x i64> [[PREDBLEND]])
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i64 [[TMP5]], -1
+; CHECK-NEXT:    br i1 [[TMP6]], label [[COND_LAST_PRIVATE_THEN:%.*]], label [[COND_LAST_PRIVATE_ELSE:%.*]]
+; CHECK:       cond.last.private.then:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[TMP5]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PRIV_IDX_CMP:%.*]] = icmp eq <4 x i64> [[PREDBLEND]], [[BROADCAST_SPLAT]]
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4
-; CHECK-NEXT:    [[CTTZ:%.*]] = call i4 @llvm.cttz.i4(i4 [[TMP6]], i1 true)
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4
+; CHECK-NEXT:    [[CTTZ:%.*]] = call i4 @llvm.cttz.i4(i4 [[TMP7]], i1 true)
 ; CHECK-NEXT:    [[PRIV_EXTRACT:%.*]] = extractelement <4 x i64> [[PREDBLEND7]], i4 [[CTTZ]]
+; CHECK-NEXT:    br label [[COND_LAST_PRIVATE_ELSE]]
+; CHECK:       cond.last.private.else:
+; CHECK-NEXT:    [[TMP8:%.*]] = phi i64 [ [[PRIV_EXTRACT]], [[COND_LAST_PRIVATE_THEN]] ], [ [[M1]], [[VPLANNEDBB8]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB9:%.*]]
+; CHECK:       VPlannedBB9:
+; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]
+; CHECK:       final.merge:
+; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ [[TMP8]], [[VPLANNEDBB9]] ]
+; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi i64 [ 100, [[VPLANNEDBB9]] ]
+; CHECK-NEXT:    br label [[FOR_END:%.*]]
+; CHECK:       for.end:
+; CHECK-NEXT:    [[LCSSA_MERGE:%.*]] = phi i64 [ [[UNI_PHI10]], [[FINAL_MERGE]] ]
+; CHECK-NEXT:    store i64 [[LCSSA_MERGE]], i64* [[MM]], align 4
+; CHECK-NEXT:    ret i64 [[LCSSA_MERGE]]
 ;
 entry:
   %m1 = load i64, i64* %mm
