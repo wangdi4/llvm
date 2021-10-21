@@ -599,9 +599,13 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
 }
 
 void VPOVectorizationLegality::addReduction(Value *RedVarPtr,
-                                            RecurKind Kind) {
+                                            RecurKind Kind,
+                                            bool IsF90DopeVector) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
+
+  if (IsF90DopeVector)
+    HasF90DopeVectorReduction = true;
 
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
     return parseMinMaxReduction(RedVarPtr, Kind);
@@ -619,6 +623,10 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
   // TODO: implement Fortran dope vectors support (CMPLRLLVM-10783)
   if (HasF90DopeVectorPrivate) {
     LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
+    return false;
+  }
+  if (HasF90DopeVectorReduction) {
+    LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
     return false;
   }
 
@@ -895,31 +903,9 @@ bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
          isInMemoryReduction(V);
 }
 
-bool VPOVectorizationLegality::isLoopPrivateAggregate(Value *V) const {
-  V = getPtrThruCast<BitCastInst>(V);
-  V = getPtrThruCast<AddrSpaceCastInst>(V);
-  if (isLoopPrivate(V)) {
-    Type *PointeeTy = cast<PointerType>(V->getType())->getPointerElementType();
-    return PointeeTy->isVectorTy() || PointeeTy->isAggregateType();
-  }
-  return false;
-}
-
 bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
   V = getPtrThruCast<BitCastInst>(V);
   return isa<PointerType>(V->getType()) && InMemoryReductions.count(V);
-}
-
-bool VPOVectorizationLegality::isLastPrivate(Value *V) const {
-  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
-    return Privates.find(V)->second->isLast();
-  return false;
-}
-
-bool VPOVectorizationLegality::isCondLastPrivate(Value *V) const {
-  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
-    return Privates.find(V)->second->isCond();
-  return false;
 }
 
 bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {
@@ -927,21 +913,6 @@ bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {
   if (Linears.count(PtrThruBitCast)) {
     if (Step)
       *Step = Linears[PtrThruBitCast];
-    return true;
-  }
-
-  return false;
-}
-
-bool VPOVectorizationLegality::isUnitStepLinear(Value *Val, int *Step,
-                                                Value **NewScal) {
-  if (UnitStepLinears.count(Val)) {
-    auto NewValStep = UnitStepLinears[Val];
-    if (Step)
-      *Step = NewValStep.second;
-    if (NewScal)
-      *NewScal = NewValStep.first;
-
     return true;
   }
 

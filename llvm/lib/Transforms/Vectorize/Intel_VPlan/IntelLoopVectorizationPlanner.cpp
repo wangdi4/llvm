@@ -1548,7 +1548,7 @@ void LoopVectorizationPlanner::EnterExplicitData(
       default:
         continue;
       }
-      LVL.addReduction(V, Kind);
+      LVL.addReduction(V, Kind, RedItem->getIsF90DopeVector());
     }
   }
   if (WRLp) {

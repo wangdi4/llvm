@@ -195,6 +195,7 @@ private:
   bool IsSimdLoop = false;
 
   bool HasF90DopeVectorPrivate = false;
+  bool HasF90DopeVectorReduction = false;
 
   bool HasComplexTyReduction = false;
 
@@ -238,7 +239,7 @@ public:
 
   /// Register explicit reduction variables provided from outside by finding
   /// pattern inside the loop for matching the explicit reduction variable \p V.
-  void addReduction(Value *V, RecurKind Kind);
+  void addReduction(Value *V, RecurKind Kind, bool IsF90DopeVector);
 
   bool isExplicitReductionPhi(PHINode *Phi);
 
@@ -248,15 +249,6 @@ public:
 
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
-
-  // Return true if the specified value \p Val is private.
-  bool isLoopPrivateAggregate(Value *Val) const;
-
-  // Return True if the specified value \p Val is (unconditional) last private.
-  bool isLastPrivate(Value *Val) const;
-
-  // Return True if the specified value \p Val is conditional last private.
-  bool isCondLastPrivate(Value *Val) const;
 
   // Add linear value to Linears map
   void addLinear(Value *LinearVal, Value *StepValue) {
@@ -275,11 +267,6 @@ public:
   // Return true if \p Val is a linear and return linear step in \p Step if
   // non-null
   bool isLinear(Value *Val, int *Step = nullptr);
-
-  // Return true if \p Val is a unit step linear item and return linear step in
-  // \p Step if non-null and New scalar value in NewScal if non-null
-  bool isUnitStepLinear(Value *Val, int *Step = nullptr,
-                        Value **NewScal = nullptr);
 
   // Return pointer to Linears map
   LinearListTy *getLinears() {
