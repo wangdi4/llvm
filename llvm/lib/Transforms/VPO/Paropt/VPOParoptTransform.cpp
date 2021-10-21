@@ -3285,9 +3285,6 @@ bool VPOParoptTransform::genReductionScalarFini(
     }
     return Res;
   };
-  Instruction *Init = nullptr;
-  if (isTargetSPIRV() && UseGlobalUpdates)
-    Init = Builder.CreateLoad(RedElemType, ReductionVar, "init");
   auto *Rhs2 = Builder.CreateLoad(
       ReductionValueLoc->getType()->getPointerElementType(), ReductionValueLoc);
   auto *Rhs1 =
