@@ -1069,17 +1069,17 @@ define i32 @masked_scatter() {
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> undef, <4 x double*> undef, i32 1, <4 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> undef, <2 x double*> undef, i32 1, <2 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: call void @llvm.masked.scatter.v1f64.v1p0f64(<1 x double> undef, <1 x double*> undef, i32 1, <1 x i1> undef)
-; SKX-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: call void @llvm.masked.scatter.v16f32.v16p0f32(<16 x float> undef, <16 x float*> undef, i32 1, <16 x i1> undef)
-; SKX-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: call void @llvm.masked.scatter.v8f32.v8p0f32(<8 x float> undef, <8 x float*> undef, i32 1, <8 x i1> undef)
-; SKX-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: call void @llvm.masked.scatter.v4f32.v4p0f32(<4 x float> undef, <4 x float*> undef, i32 1, <4 x i1> undef)
+; SKX-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: call void @llvm.masked.scatter.v16f32.v16p0f32(<16 x float> undef, <16 x float*> undef, i32 1, <16 x i1> undef)
+; SKX-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: call void @llvm.masked.scatter.v8f32.v8p0f32(<8 x float> undef, <8 x float*> undef, i32 1, <8 x i1> undef)
+; SKX-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: call void @llvm.masked.scatter.v4f32.v4p0f32(<4 x float> undef, <4 x float*> undef, i32 1, <4 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: call void @llvm.masked.scatter.v2f32.v2p0f32(<2 x float> undef, <2 x float*> undef, i32 1, <2 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: call void @llvm.masked.scatter.v8i64.v8p0i64(<8 x i64> undef, <8 x i64*> undef, i32 1, <8 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: call void @llvm.masked.scatter.v4i64.v4p0i64(<4 x i64> undef, <4 x i64*> undef, i32 1, <4 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: call void @llvm.masked.scatter.v2i64.v2p0i64(<2 x i64> undef, <2 x i64*> undef, i32 1, <2 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: call void @llvm.masked.scatter.v1i64.v1p0i64(<1 x i64> undef, <1 x i64*> undef, i32 1, <1 x i1> undef)
-; SKX-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> undef, <16 x i32*> undef, i32 1, <16 x i1> undef)
-; SKX-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> undef, <8 x i32*> undef, i32 1, <8 x i1> undef)
-; SKX-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> undef, <4 x i32*> undef, i32 1, <4 x i1> undef)
+; SKX-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> undef, <16 x i32*> undef, i32 1, <16 x i1> undef)
+; SKX-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> undef, <8 x i32*> undef, i32 1, <8 x i1> undef)
+; SKX-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> undef, <4 x i32*> undef, i32 1, <4 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> undef, <2 x i32*> undef, i32 1, <2 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: call void @llvm.masked.scatter.v32i16.v32p0i16(<32 x i16> undef, <32 x i16*> undef, i32 1, <32 x i1> undef)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: call void @llvm.masked.scatter.v16i16.v16p0i16(<16 x i16> undef, <16 x i16*> undef, i32 1, <16 x i1> undef)
@@ -2037,7 +2037,7 @@ define void @test_scatter_8i32(<8 x i32>%a1, <8 x i32*> %ptr, <8 x i1>%mask) {
 ; KNL-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; SKX-LABEL: 'test_scatter_8i32'
-; SKX-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> %a1, <8 x i32*> %ptr, i32 4, <8 x i1> %mask)
+; SKX-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> %a1, <8 x i32*> %ptr, i32 4, <8 x i1> %mask)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> %a1, <8 x i32*> %ptr, i32 4, <8 x i1> %mask)
