@@ -42,6 +42,8 @@ attributes #0 = { convergent norecurse nounwind }
 !llvm.module.flags = !{!3, !4}
 !sycl.kernels = !{!5}
 
+; CHECK-NOT: !DILocation(line: 0
+
 !0 = distinct !DICompileUnit(language: DW_LANG_OpenCL, file: !1, producer: "clang based Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
 !1 = !DIFile(filename: "test.cl", directory: "")
 !2 = !{}
