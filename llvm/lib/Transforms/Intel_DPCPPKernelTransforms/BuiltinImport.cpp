@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
 #include "CPUDetect.h"
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Linker/Linker.h"
@@ -331,6 +332,77 @@ CloneModuleOnlyRequired(const Module *M, ValueToValueMapTy &VMap,
   return New;
 }
 
+static const char MinLegalVectorWidthStrAttr[] = "min-legal-vector-width";
+
+// Return true if F has a valid "min-legal-vector-width".
+static bool getMinLegalVectorWidthAttrVal(Function *F, unsigned &Val) {
+  if (!F)
+    return false;
+  Attribute Attr = F->getFnAttribute(MinLegalVectorWidthStrAttr);
+  // getAsInteger() returns true on error.
+  if (!Attr.isValid() || Attr.getValueAsString().getAsInteger(0, Val))
+    return false;
+  return true;
+}
+
+// A directed graph is said to be a WCC (Weakly Connected Component), if every
+// node is reachable from every other node, ignoring the direction of the
+// edge. (For undirected graphs, WCC is equivalent to SCC).
+// We need to make sure that all function nodes in the same WCC have the same
+// "min-legal-vector-width" attribute, so that they have agreement on calling
+// conventions (especially passing arguments and returning results via ZMM/YMM
+// registers).
+static void unifyMinLegalVectorWidthAttr(Module &M) {
+  EquivalenceClasses<Function *> WeaklyConnectedComponents;
+  CallGraph CG = CallGraph(M);
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
+    CallGraphNode *CGN = CG[&F];
+    WeaklyConnectedComponents.insert(&F);
+    // Visit all functions called by F.
+    for (auto CallRecord : *CGN) {
+      Function *Callee = CallRecord.second->getFunction();
+      if (!Callee)
+        continue;
+      // If F calls Callee, merge them into the same equivalence class.
+      WeaklyConnectedComponents.unionSets(&F, Callee);
+    }
+  }
+
+  for (auto I = WeaklyConnectedComponents.begin(),
+            E = WeaklyConnectedComponents.end();
+       I != E; ++I) {
+    // Find the leader set.
+    if (!I->isLeader())
+      continue;
+    // Traverse the WCC to get the largest 'min-legal-vector-width' value.
+    unsigned LargestMinLegalVectorWidth = 0;
+    for (auto MI = WeaklyConnectedComponents.member_begin(I),
+              ME = WeaklyConnectedComponents.member_end();
+         MI != ME; ++MI) {
+      unsigned AttrVal = 0;
+      getMinLegalVectorWidthAttrVal(*MI, AttrVal);
+      LargestMinLegalVectorWidth =
+          std::max(LargestMinLegalVectorWidth, AttrVal);
+    }
+    // Doesn't have to update the attributes.
+    if (LargestMinLegalVectorWidth == 0)
+      continue;
+    // Set 'min-legal-vector-width' to the largest one among the WCC.
+    LLVM_DEBUG(dbgs() << "The following functions are in the same WCC, setting "
+                         "'min-legal-vector-width' to "
+                      << LargestMinLegalVectorWidth << ":\n");
+    for (auto MI = WeaklyConnectedComponents.member_begin(I),
+              ME = WeaklyConnectedComponents.member_end();
+         MI != ME; ++MI) {
+      (*MI)->addFnAttr(MinLegalVectorWidthStrAttr,
+                       utostr(LargestMinLegalVectorWidth));
+      LLVM_DEBUG(dbgs() << (*MI)->getName() << '\n');
+    }
+  }
+}
+
 bool BuiltinImportPass::runImpl(Module &M) {
   if (CPUPrefix.empty())
     CPUPrefix = OptCPUPrefix;
@@ -476,6 +548,10 @@ bool BuiltinImportPass::runImpl(Module &M) {
   // that we don't need to modify BuiltinModules because that may cause
   // some caller's calling convention not updated in another clBuildProgram.
   UpdateSvmlBuiltin(SvmlFunctions, M);
+
+  // Unify the 'min-legal-vector-width' attribute if caller/callee functions
+  // mismatch on how to pass/read arguments/return values.
+  unifyMinLegalVectorWidthAttr(M);
 
   return true;
 }
