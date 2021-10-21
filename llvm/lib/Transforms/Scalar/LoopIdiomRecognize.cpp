@@ -1091,19 +1091,13 @@ mayLoopAccessLocation(Value *Ptr, ModRefInfo Access, Loop *L,
   // which will then no-alias a store to &A[100].
   MemoryLocation StoreLoc(Ptr, AccessSize);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (AATags != nullptr)
     StoreLoc = MemoryLocation(Ptr, AccessSize, *AATags);
 #endif // INTEL_CUSTOMIZATION
 
-  for (Loop::block_iterator BI = L->block_begin(), E = L->block_end(); BI != E;
-       ++BI)
-    for (Instruction &I : **BI)
-=======
   for (BasicBlock *B : L->blocks())
     for (Instruction &I : *B)
->>>>>>> 9ba5bb43099db70031e0df6a438e7cb56fb05540
       if (IgnoredInsts.count(&I) == 0 &&
           isModOrRefSet(
               intersectModRef(AA.getModRefInfo(&I, StoreLoc), Access)))
