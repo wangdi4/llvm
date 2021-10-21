@@ -7998,6 +7998,8 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
 #if INTEL_CUSTOMIZATION
 bool CodeGenFunction::useFrontEndOutlining(const Stmt *S) {
   switch (S->getStmtClass()) {
+  case Stmt::OMPTileDirectiveClass:
+    return true;
   case Stmt::OMPTargetDirectiveClass:
     return !CGM.getLangOpts().OpenMPLateOutlineTarget;
   case Stmt::OMPAtomicDirectiveClass: {
