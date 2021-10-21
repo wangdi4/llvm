@@ -5014,12 +5014,14 @@ InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
 
   static const CostTblEntry SKXScatterQTbl[] = {
     { ISD::MSCATTER, MVT::v2i32, 4 }, // vpscatterqd xmm version.
+                                      // FIXME: Maybe xmm version is 3?
     { ISD::MSCATTER, MVT::v4i32, 4 }, // vpscatterqd ymm version.
-    { ISD::MSCATTER, MVT::v8i32, 2 }, // vpscatterqd zmm version.
+    { ISD::MSCATTER, MVT::v8i32, 8 }, // vpscatterqd zmm version.
 
     { ISD::MSCATTER, MVT::v2f32, 4 }, // vpscatterqps xmm version.
+                                      // FIXME: Maybe xmm version is 3?
     { ISD::MSCATTER, MVT::v4f32, 4 }, // vpscatterqps ymm version.
-    { ISD::MSCATTER, MVT::v8f32, 2 }, // vpscatterqps zmm version.
+    { ISD::MSCATTER, MVT::v8f32, 8 }, // vpscatterqps zmm version.
 
     { ISD::MSCATTER, MVT::v2i64, 3 }, // vpscatterqq xmm version.
     { ISD::MSCATTER, MVT::v4i64, 4 }, // vpscatterqq ymm version.
