@@ -1,9 +1,9 @@
 ; REQUIRES: asserts
-; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-FOO
-; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-BAR
+; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination  %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-FOO
+; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-BAR
 
-; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-FOO
-; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-BAR
+; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-FOO
+; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s -check-prefix=CHECK-BAR
 
 ; This test case checks that IPO simplified dead argument elimination removes
 ; argument %0 in functions @foo and @bar, and deletes the actual parameter

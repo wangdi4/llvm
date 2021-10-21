@@ -1,10 +1,10 @@
 ; Inline report
-; RUN: opt  -inline -intel-ipo-dead-arg-elimination -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
-; RUN: opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
+; RUN: opt  -inline -intel-ipo-dead-arg-elimination -inline-report=0xe807  < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
+; RUN: opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
 
 ; Inline report with metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inline -intel-ipo-dead-arg-elimination -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt  -inlinereportemitter -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -intel-ipo-dead-arg-elimination -inline-report=0xe886 -S | opt  -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
 
 ; This test case checks that the inlining report is preserved after simplified
 ; dead arguments elimination. Function @foo wasn't inlined intentionally to
@@ -19,14 +19,12 @@
 ; CHECK-IR-NEXT: }
 
 ; Make sure that dead arg elimination produced the IR we want
-; CHECK-IR: define float @bas(float* %0, float %1, i64 %2, i64 %3) #2 {
+; CHECK-IR: define float @bas(float* %0, float %1, i64 %2, i64 %3)
 ; CHECK-IR-NEXT:   %5 = call float @foo(float* %0, i64 %2, i64 %3)
 ; CHECK-IR-NEXT:   %6 = fadd float %1, %5
 ; CHECK-IR-NEXT:   ret float %6
-; CHECK-IR-NEXT: }
 
-; CHECK-IR: attributes #1 = { noinline "target-features"="+avx2" }
-; CHECK-IR: attributes #2 = { "target-features"="+avx2" }
+; CHECK-IR: attributes #1 = { noinline }
 
 ; Check that function @foo is shown as "noinline" in the report
 ; CHECK-IR: DEAD STATIC FUNC: bar
@@ -46,7 +44,7 @@
 ; CHECK-IR-MD: ; Function Attrs: noinline
 ; CHECK-IR-MD: define internal float @foo(float* %0, i64 %1, i64 %2) #1 !intel.function.inlining.report !8 {
 
-; CHECK-IR-MD: define float @bas(float* %0, float %1, i64 %2, i64 %3) #2 !intel.function.inlining.report !24 {
+; CHECK-IR-MD: define float @bas(float* %0, float %1, i64 %2, i64 %3) !intel.function.inlining.report !24 {
 ; CHECK-IR-MD:   %5 = call float @foo(float* %0, i64 %2, i64 %3), !intel.callsite.inlining.report !29
 
 ; CHECK-IR-MD: !intel.module.inlining.report = !{!0, !8, !12, !24}

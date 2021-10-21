@@ -736,17 +736,7 @@ bool IPDeadArgElimination::runImpl(WholeProgramInfo &WPInfo) {
   if (!EnableDeadArgEliminationStore)
     return false;
 
-  // Check if AVX2 is supported.
   LLVM_DEBUG(dbgs() << "Debug information for IPO dead arg elimination:\n");
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
-    LLVM_DEBUG({
-      dbgs() << "  AVX disabled\n";
-      dbgs() << "  Total functions modified: "
-             << NumOfFunctionsTransformed << "\n\n";
-    });
-    return false;
-  }
 
   for (Function &F : M) {
     // The function must be local, no varargs and shouldn't be naked.

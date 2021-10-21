@@ -1,29 +1,24 @@
-; RUN: opt -intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -S 2>&1 | FileCheck %s
+; RUN: opt -intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-ipo-dead-arg-elimination  %s -S 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination removes
 ; argument %0 in functions @foo and @bar, and deletes the actual parameter
 ; in function @bas. This test case is the same as intel-ipo-dead-arg-02.ll but
 ; it checks the IR.
 
-; CHECK: define internal float @foo(float* %0, i64 %1, i64 %2) #1 {
+; CHECK: define internal float @foo(float* %0, i64 %1, i64 %2)
 ; CHECK-NEXT:   %4 = load float, float* %0, align 4
 ; CHECK-NEXT:   ret float %4
-; CHECK-NEXT: }
 
-; CHECK: define internal float @bar(float* %0, i64 %1, i64 %2) #1 {
+; CHECK: define internal float @bar(float* %0, i64 %1, i64 %2)
 ; CHECK-NEXT:   %4 = load float, float* %0, align 4
 ; CHECK-NEXT:   ret float %4
-; CHECK-NEXT: }
 
-; CHECK: define internal float @bas(float* %0, float* %1, i64 %2, i64 %3) #1 {
+; CHECK: define internal float @bas(float* %0, float* %1, i64 %2, i64 %3)
 ; CHECK-NEXT:   %5 = call float @foo(float* %0, i64 %2, i64 %3)
 ; CHECK-NEXT:   %6 = call float @bar(float* %1, i64 %2, i64 %3)
 ; CHECK-NEXT:   %7 = fadd float %5, %6
 ; CHECK-NEXT:   ret float %7
-; CHECK-NEXT: }
-
-; CHECK: attributes #1 = { "target-features"="+avx2" }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

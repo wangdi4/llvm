@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination won't
 ; be performed since function @foo has varargs.
