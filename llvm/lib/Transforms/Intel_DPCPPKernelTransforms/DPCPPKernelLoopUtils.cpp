@@ -278,46 +278,5 @@ Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP) {
   return generateRemainderMask(VF, LoopLenVal, IP);
 }
 
-void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
-  auto *M = ScalarKernel->getParent();
-  assert(M == MaskedKernel->getParent() &&
-         "Scalar and masked kernel are not in the same module");
-  LLVMContext &Ctx = M->getContext();
-
-  // Prepare args for masked kernel.
-  SmallVector<Value *, 4> Args;
-  for (auto &Arg : ScalarKernel->args())
-    Args.push_back(&Arg);
-
-  // Mask argument is handled in generateRemainderMask.
-  auto DummyMaskArg = UndefValue::get((MaskedKernel->arg_end() - 1)->getType());
-  Args.push_back(DummyMaskArg);
-
-  // The scalar kernel body should be removed.
-  SmallVector<BasicBlock *, 16> OriginalBBs;
-  for (auto &BB : *ScalarKernel)
-    OriginalBBs.push_back(&BB);
-
-  auto *Entry =
-      BasicBlock::Create(Ctx, "", ScalarKernel, &ScalarKernel->getEntryBlock());
-
-  // Call the masked kernel.
-  auto *CI = CallInst::Create(MaskedKernel, Args, "", Entry);
-  // Set debug scope which should be in ScalarKernel's DISubprogram.
-  if (DISubprogram *SP = ScalarKernel->getSubprogram())
-    CI->setDebugLoc(DILocation::get(Ctx, SP->getScopeLine(), 0, SP));
-
-  ReturnInst::Create(Ctx, Entry);
-
-  // Inline the masked kernel into scalar kernel.
-  InlineFunctionInfo InlineInfo;
-  InlineFunction(*CI, InlineInfo);
-
-  // Delete all original BBs of the scalar kernel.
-  DeleteDeadBlocks(OriginalBBs);
-
-  // Erase the masked kernel.
-  MaskedKernel->eraseFromParent();
-}
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm
