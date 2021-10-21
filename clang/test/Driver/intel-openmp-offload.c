@@ -271,10 +271,29 @@
 // FOPENMP_TARGET_SIMD: "-mllvm" "-vpo-paropt-emit-spirv-builtins"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-vpo-paropt-gpu-execution-scheme=0"
 // FOPENMP_TARGET_SIMD: "-mllvm" "-enable-device-simd"
+// FOPENMP_TARGET_SIMD: "-mllvm" "-vplan-force-vf=16"
 // FOPENMP_TARGET_SIMD: "-O2"
 // FOPENMP_TARGET_SIMD: sycl-post-link{{.*}} "--ompoffload-explicit-simd"
 // FOPENMP_TARGET_SIMD: llvm-spirv{{.*}}" {{.*}}"-o" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}}
 // FOPENMP_TARGET_SIMD: clang-offload-wrapper{{.*}} "-compile-opts=-vc-codegen"
+
+/// check -fopenmp-target-simdlen=n behavior
+// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=8 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN -DSIMDLEN=8
+// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=32 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN -DSIMDLEN=32
+// RUN: %clang_cl --target=x86_64-pc-windows-msvc --intel -Qopenmp -Qopenmp-targets:spir64 -Qopenmp-target-simd -Qopenmp-target-simdlen:64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN -DSIMDLEN=64
+// FOPENMP_TARGET_SIMDLEN: clang{{.*}} "-triple" "spir64" {{.*}} "-fopenmp-target-simd" "-mllvm" "-vpo-paropt-enable-device-simd-codegen"
+// FOPENMP_TARGET_SIMDLEN: "-mllvm" "-vplan-force-vf=[[SIMDLEN]]"
+
+// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=4 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN_ERROR
+// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=128 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN_ERROR
+// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=hello %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN_ERROR
+// FOPENMP_TARGET_SIMDLEN_ERROR: invalid integral value
 
 /// Test for compile and link opts that are passed to the wrapper
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \

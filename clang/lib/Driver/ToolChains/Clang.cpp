@@ -5110,6 +5110,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-enable-device-simd");
         CmdArgs.push_back("-mllvm");
         CmdArgs.push_back("-vpo-paropt-preserve-llvm-intrin");
+        unsigned SIMDLen = 16;
+        if (const Arg *A = Args.getLastArg(options::OPT_fopenmp_target_simdlen_EQ)) {
+          StringRef Value(A->getValue());
+          // Valid values are:  8, 16, 32, 64.  Default 16
+          if (Value.getAsInteger(10, SIMDLen) || SIMDLen > 64 || SIMDLen < 8 ||
+              (SIMDLen & (SIMDLen - 1)))
+            TC.getDriver().Diag(diag::err_drv_invalid_int_value)
+                << A->getAsString(Args) << Value;
+        }
+        CmdArgs.push_back("-mllvm");
+        CmdArgs.push_back(Args.MakeArgString("-vplan-force-vf=" + Twine(SIMDLen)));
       }
       if (Args.hasArg(options::OPT_fopenmp_target_fast_atomics)) {
         CmdArgs.push_back("-mllvm");
