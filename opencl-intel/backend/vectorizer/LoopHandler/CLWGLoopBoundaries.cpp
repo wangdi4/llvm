@@ -188,6 +188,9 @@ void CLWGLoopBoundaries::collectTIDData() {
 }
 
 bool CLWGLoopBoundaries::runOnFunction(Function& F) {
+  if (F.hasOptNone())
+    return false;
+
   m_F = &F;
   m_M = F.getParent();
   m_context = &F.getContext();
