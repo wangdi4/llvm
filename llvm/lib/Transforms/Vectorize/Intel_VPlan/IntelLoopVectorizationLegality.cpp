@@ -599,9 +599,13 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
 }
 
 void VPOVectorizationLegality::addReduction(Value *RedVarPtr,
-                                            RecurKind Kind) {
+                                            RecurKind Kind,
+                                            bool IsF90DopeVector) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
+
+  if (IsF90DopeVector)
+    HasF90DopeVectorReduction = true;
 
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
     return parseMinMaxReduction(RedVarPtr, Kind);
@@ -619,6 +623,10 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
   // TODO: implement Fortran dope vectors support (CMPLRLLVM-10783)
   if (HasF90DopeVectorPrivate) {
     LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
+    return false;
+  }
+  if (HasF90DopeVectorReduction) {
+    LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
     return false;
   }
 
