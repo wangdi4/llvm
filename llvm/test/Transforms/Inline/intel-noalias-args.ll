@@ -26,7 +26,13 @@ entry:
 
 ; CHECK: !0 = !{!1}
 ; CHECK: !1 = distinct !{!1, !2, !"foo: rq"}
+<<<<<<< HEAD
 ; CHECK: !2 = distinct !{!2, !"domain"}
 ; CHECK: !3 = !{!4}
 ; CHECK: !4 = distinct !{!4, !2, !"foo: rp"}
 
+=======
+; CHECK: !2 = distinct !{!2, !"foo"}
+; CHECK: !3 = !{!4}
+; CHECK: !4 = distinct !{!4, !2, !"foo: rp"}
+>>>>>>> e069124d00eb71abd415bc125de42a4982bc478e
