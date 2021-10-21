@@ -19,14 +19,16 @@ entry:
   ret void
 }
 
-!0 = !{!1, !3}
-!1 = distinct !{!1, !2, !"foo: rp"}
-!2 = distinct !{!2, !"domain"}
-!3 = distinct !{!3, !2, !"foo: rq"}
+!0 = !{!1, !4}
+!1 = !{!2}
+!2 = distinct !{!2, !3, !"foo: rp"}
+!3 = distinct !{!3, !"foo"}
+!4 = !{!5}
+!5 = distinct !{!5, !3, !"foo: rq"}
 
 ; CHECK: !0 = !{!1}
 ; CHECK: !1 = distinct !{!1, !2, !"foo: rq"}
-; CHECK: !2 = distinct !{!2, !"domain"}
+; CHECK: !2 = distinct !{!2, !"foo"}
 ; CHECK: !3 = !{!4}
 ; CHECK: !4 = distinct !{!4, !2, !"foo: rp"}
 

@@ -1036,9 +1036,8 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
-  MDNode *ArgAliasScopeList = CB.getMetadata("intel.args.alias.scope");
-
-  if (NoAliasArgs.empty() && !ArgAliasScopeList && PtrNoAliasArgs.empty())
+  MDNode *AAScopeList = CB.getMetadata("intel.args.alias.scope");
+  if (NoAliasArgs.empty() && !AAScopeList && PtrNoAliasArgs.empty())
     return;
 #endif // INTEL_CUSTOMIZATION
 
@@ -1107,30 +1106,6 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
     for (const Value *PtrLoad : PtrNoAliasLoads.second) {
       // Construct reverse map that associates ptr load to an argument.
       PtrNoAliasEquivSets[PtrLoad] = PtrNoAliasLoads.first;
-    }
-  }
-
-  // Look for alias.scopes defined in argument metadata.
-  if (ArgAliasScopeList) {
-    for (int I = 0, E = ArgAliasScopeList->getNumOperands(); I < E; ++I) {
-      MDNode *ArgScope =
-          dyn_cast_or_null<MDNode>(ArgAliasScopeList->getOperand(I));
-      if (!ArgScope) {
-        continue;
-      }
-
-      auto *Arg = CalledFunc->getArg(I);
-      MDNode *&Scope = NewScopes[Arg];
-      if (!Scope) {
-        Scope = ArgScope;
-      } else {
-        Scope = MDNode::concatenate(Scope, ArgScope);
-      }
-
-      if (std::find(NoAliasArgs.begin(), NoAliasArgs.end(), Arg) ==
-          NoAliasArgs.end()) {
-        NoAliasArgs.push_back(Arg);
-      }
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1231,11 +1206,15 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         // completely describe the aliasing properties using alias.scope
         // metadata (and, thus, won't add any).
         if (const Argument *A = dyn_cast<Argument>(V)) {
-          if (NewScopes.count(A) == 0) // INTEL
+#if INTEL_CUSTOMIZATION
+          unsigned I = A->getArgNo();
+          if (!CB.paramHasAttr(I, Attribute::NoAlias) && (!AAScopeList ||
+              !dyn_cast_or_null<MDNode>(AAScopeList->getOperand(I))))
             UsesAliasingPtr = true;
-        } else if (const LoadInst *LI = dyn_cast<LoadInst>(V)) { // INTEL
-          if (PtrNoAliasNewScopes.count(PtrNoAliasEquivSets[LI]) == 0) // INTEL
-            UsesAliasingPtr = true; // INTEL
+        } else if (const LoadInst *LI = dyn_cast<LoadInst>(V)) {
+          if (PtrNoAliasNewScopes.count(PtrNoAliasEquivSets[LI]) == 0)
+            UsesAliasingPtr = true;
+#endif // INTEL_CUSTOMIZATION
         } else {
           UsesAliasingPtr = true;
         }
@@ -1284,6 +1263,21 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
       }
 
 #if INTEL_CUSTOMIZATION
+      if (AAScopeList) {
+        SmallPtrSet<MDNode *, 10> VisitedNoAliases;
+        for (int I = 0, E = AAScopeList->getNumOperands(); I < E; ++I) {
+          MDNode *ASL = dyn_cast_or_null<MDNode>(AAScopeList->getOperand(I));
+          if (!ASL)
+            continue;
+          if (MayAssumeNoAlias(CalledFunc->getArg(I)))
+            for (auto &MDOperand : ASL->operands())
+              if (MDNode *Scope = dyn_cast_or_null<MDNode>(MDOperand))
+                if (!VisitedNoAliases.count(Scope)) {
+                  VisitedNoAliases.insert(Scope);
+                  NoAliases.push_back(Scope);
+                }
+        }
+      }
       for (auto &ArgLoadsPair : PtrNoAliasArgs) {
         if (llvm::all_of(ArgLoadsPair.second, MayAssumeNoAlias))
           NoAliases.push_back(PtrNoAliasNewScopes[ArgLoadsPair.first]);
@@ -1317,6 +1311,21 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         }
 
 #if INTEL_CUSTOMIZATION
+        if (AAScopeList) {
+          SmallPtrSet<MDNode *, 10> VisitedScopes;
+          for (int I = 0, E = AAScopeList->getNumOperands(); I < E; ++I) {
+            MDNode *ASL = dyn_cast_or_null<MDNode>(AAScopeList->getOperand(I));
+            if (!ASL)
+              continue;
+            if (ObjSet.count(CalledFunc->getArg(I)))
+              for (auto &MDOperand : ASL->operands())
+                if (MDNode *Scope = dyn_cast_or_null<MDNode>(MDOperand))
+                  if (!VisitedScopes.count(Scope)) {
+                    VisitedScopes.insert(Scope);
+                    Scopes.push_back(Scope);
+                  }
+          }
+        }
         for (auto &ArgLoadsPair : PtrNoAliasArgs) {
           if (llvm::any_of(ArgLoadsPair.second,
                            [&](const Value *V) { return ObjSet.count(V); }))
