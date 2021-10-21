@@ -249,15 +249,6 @@ public:
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
 
-  // Return true if the specified value \p Val is private.
-  bool isLoopPrivateAggregate(Value *Val) const;
-
-  // Return True if the specified value \p Val is (unconditional) last private.
-  bool isLastPrivate(Value *Val) const;
-
-  // Return True if the specified value \p Val is conditional last private.
-  bool isCondLastPrivate(Value *Val) const;
-
   // Add linear value to Linears map
   void addLinear(Value *LinearVal, Value *StepValue) {
     assert(isa<ConstantInt>(StepValue) &&
@@ -275,11 +266,6 @@ public:
   // Return true if \p Val is a linear and return linear step in \p Step if
   // non-null
   bool isLinear(Value *Val, int *Step = nullptr);
-
-  // Return true if \p Val is a unit step linear item and return linear step in
-  // \p Step if non-null and New scalar value in NewScal if non-null
-  bool isUnitStepLinear(Value *Val, int *Step = nullptr,
-                        Value **NewScal = nullptr);
 
   // Return pointer to Linears map
   LinearListTy *getLinears() {
