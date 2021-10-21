@@ -2641,9 +2641,8 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
   Value *V = nullptr;
 
   if (Ty->isIntOrIntVectorTy()) {
-    LLVMContext &C = F->getContext();
     bool IsUnsigned = RedI->getIsUnsigned();
-    V = VPOParoptUtils::getMinMaxIntVal(C, Ty, IsUnsigned, !IsMax);
+    V = VPOParoptUtils::getMinMaxIntVal(Ty, IsUnsigned, !IsMax);
   }
   else if (Ty->isFPOrFPVectorTy())
     V = IsMax ? ConstantFP::getInfinity(Ty, true) :  // max: negative inf

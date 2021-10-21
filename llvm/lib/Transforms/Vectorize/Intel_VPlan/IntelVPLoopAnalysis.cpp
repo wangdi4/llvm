@@ -911,8 +911,7 @@ VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
        Opc == VPInstruction::UMin);
 
   Constant *MinMaxInt = VPOParoptUtils::getMinMaxIntVal(
-      *Plan.getLLVMContext(), LoopIVPhi->getType(), !NonLinNdx->isSigned(),
-      NeedMaxIntVal);
+      LoopIVPhi->getType(), !NonLinNdx->isSigned(), NeedMaxIntVal);
 
   Builder.setInsertPointFirstNonPhi(Header);
   VPConstant *IncomingVal = Plan.getVPConstant(MinMaxInt);

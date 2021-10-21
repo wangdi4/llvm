@@ -5368,8 +5368,8 @@ std::tuple<Type *, Value *, Value *>
   return std::make_tuple(ElemTy, NumElements, ArrayBegin);
 }
 
-Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
-                                             bool IsUnsigned, bool GetMax) {
+Constant *VPOParoptUtils::getMinMaxIntVal(Type *Ty, bool IsUnsigned,
+                                          bool GetMax) {
   IntegerType *IntTy = dyn_cast<IntegerType>(Ty->getScalarType());
   assert(IntTy && "getMinMaxIntVal: Expected Interger type");
 
@@ -5385,7 +5385,7 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
     MinMaxAPInt = IsUnsigned ? APInt::getMinValue(BitWidth) :
                                APInt::getSignedMinValue(BitWidth);
 
-  ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
+  ConstantInt *MinMaxVal = ConstantInt::get(Ty->getContext(), MinMaxAPInt);
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
     return ConstantVector::getSplat(ElementCount::getFixed(VTy->getNumElements()),
                                     MinMaxVal);
