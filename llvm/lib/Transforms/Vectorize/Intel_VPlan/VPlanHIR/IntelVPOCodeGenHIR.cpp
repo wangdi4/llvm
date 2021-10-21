@@ -3251,8 +3251,7 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
          Opc == VPInstruction::UMin);
 
     Constant *MinMaxIntVec = VPOParoptUtils::getMinMaxIntVal(
-        CanonExprUtilities.getContext(), IndexVecTy, !RedFinal->isSigned(),
-        NeedMaxIntVal);
+        IndexVecTy, !RedFinal->isSigned(), NeedMaxIntVal);
     RegDDRef *MinMaxIntVecRef = DDRefUtilities.createConstDDRef(MinMaxIntVec);
     HLInst *IndexBlend =
         HLNodeUtilities.createSelect(Pred, ParentFinal, ParentExit->clone(),

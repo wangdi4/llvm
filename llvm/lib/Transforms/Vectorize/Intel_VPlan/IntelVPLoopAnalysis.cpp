@@ -807,29 +807,23 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 
   // Process the list of Reductions.
   for (VPReduction *Reduction : vpreductions()) {
-    if (ProcessedReductions.find(Reduction) != ProcessedReductions.end())
-      continue;
-    SmallVector<const VPReduction *, 3> WorkList;
-    WorkList.push_back(Reduction);
-    if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
-      // For index part of min/max+index idioms, it's essential that
-      // parent reductions are processed before. As we don't care about
-      // reductions order during import we should make additional checks here
-      // and process parent reductions first.
-      const VPReduction *Parent = IndexRed->getParentReduction();
-      while (ProcessedReductions.find(Parent) == ProcessedReductions.end()) {
-        WorkList.push_back(Parent);
-        if (auto IndexRed = dyn_cast<VPIndexReduction>(Parent))
-          Parent = IndexRed->getParentReduction();
-        else
-          break;
-      }
+    // For index part of min/max+index idioms, it's essential that
+    // parent reductions are processed before. As we don't care about
+    // reductions order during import we should make additional checks here
+    // and process parent reductions first.
+    SmallVector<VPReduction *, 3> WorkList;
+    while (!is_contained(ProcessedReductions, Reduction)) {
+      WorkList.push_back(Reduction);
+      auto *IndexRed = dyn_cast<VPIndexReduction>(Reduction);
+      if (!IndexRed)
+        break;
+
+      Reduction = const_cast<VPReduction *>(IndexRed->getParentReduction());
     }
-    while (!WorkList.empty()) {
-      Reduction = const_cast<VPReduction*>(WorkList.pop_back_val());
+
+    for (auto *Reduction : reverse(WorkList))
       insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
-                                    RedFinalMap, ProcessedReductions);
-    }
+                                       RedFinalMap, ProcessedReductions);
   }
 }
 
@@ -919,8 +913,7 @@ VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
        Opc == VPInstruction::UMin);
 
   Constant *MinMaxInt = VPOParoptUtils::getMinMaxIntVal(
-      *Plan.getLLVMContext(), LoopIVPhi->getType(), !NonLinNdx->isSigned(),
-      NeedMaxIntVal);
+      LoopIVPhi->getType(), !NonLinNdx->isSigned(), NeedMaxIntVal);
 
   Builder.setInsertPointFirstNonPhi(Header);
   VPConstant *IncomingVal = Plan.getVPConstant(MinMaxInt);

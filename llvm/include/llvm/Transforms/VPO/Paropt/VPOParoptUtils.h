@@ -1621,8 +1621,7 @@ public:
 
   /// Returns min/max int of the given integer type.
   /// This can be used to initialize min/max reduction variables.
-  static Constant *getMinMaxIntVal(LLVMContext &C, Type *Ty, bool IsUnsigned,
-                                   bool GetMax);
+  static Constant *getMinMaxIntVal(Type *Ty, bool IsUnsigned, bool GetMax);
   // static uint64_t getMinInt(Type *IntTy, bool IsUnsigned);
   // static uint64_t getMaxInt(Type *IntTy, bool IsUnsigned);
 
