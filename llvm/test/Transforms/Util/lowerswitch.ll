@@ -264,7 +264,10 @@ entry:
   ]
 
 cleanup17:
-; CHECK: cleanup17:
+; INTEL_CUSTOMIZATION
+; cleanup17 is removed because it's unreachable
+; CHECK-NOT: cleanup17:
+; end INTEL_CUSTOMIZATION
 ; CHECK-NOT: phi i16 [ undef, %entry ]
 ; CHECK: return:
 
