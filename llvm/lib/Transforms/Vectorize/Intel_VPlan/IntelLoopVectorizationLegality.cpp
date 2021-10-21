@@ -895,31 +895,9 @@ bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
          isInMemoryReduction(V);
 }
 
-bool VPOVectorizationLegality::isLoopPrivateAggregate(Value *V) const {
-  V = getPtrThruCast<BitCastInst>(V);
-  V = getPtrThruCast<AddrSpaceCastInst>(V);
-  if (isLoopPrivate(V)) {
-    Type *PointeeTy = cast<PointerType>(V->getType())->getPointerElementType();
-    return PointeeTy->isVectorTy() || PointeeTy->isAggregateType();
-  }
-  return false;
-}
-
 bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
   V = getPtrThruCast<BitCastInst>(V);
   return isa<PointerType>(V->getType()) && InMemoryReductions.count(V);
-}
-
-bool VPOVectorizationLegality::isLastPrivate(Value *V) const {
-  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
-    return Privates.find(V)->second->isLast();
-  return false;
-}
-
-bool VPOVectorizationLegality::isCondLastPrivate(Value *V) const {
-  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
-    return Privates.find(V)->second->isCond();
-  return false;
 }
 
 bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {
@@ -927,21 +905,6 @@ bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {
   if (Linears.count(PtrThruBitCast)) {
     if (Step)
       *Step = Linears[PtrThruBitCast];
-    return true;
-  }
-
-  return false;
-}
-
-bool VPOVectorizationLegality::isUnitStepLinear(Value *Val, int *Step,
-                                                Value **NewScal) {
-  if (UnitStepLinears.count(Val)) {
-    auto NewValStep = UnitStepLinears[Val];
-    if (Step)
-      *Step = NewValStep.second;
-    if (NewScal)
-      *NewScal = NewValStep.first;
-
     return true;
   }
 
