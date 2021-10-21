@@ -894,7 +894,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
-    } else if (auto *GEP = dyn_cast<GetElementPtrInst>(LLVMInst)) {
+    } else if (isa<GetElementPtrInst>(LLVMInst)) {
       // Don't create an additional single operand no-op GEP here. Re-use the
       // subscript instruction that was already created during decomposition of
       // corresponding memref.
