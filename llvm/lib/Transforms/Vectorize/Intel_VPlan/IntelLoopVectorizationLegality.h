@@ -195,6 +195,7 @@ private:
   bool IsSimdLoop = false;
 
   bool HasF90DopeVectorPrivate = false;
+  bool HasF90DopeVectorReduction = false;
 
   bool HasComplexTyReduction = false;
 
@@ -238,7 +239,7 @@ public:
 
   /// Register explicit reduction variables provided from outside by finding
   /// pattern inside the loop for matching the explicit reduction variable \p V.
-  void addReduction(Value *V, RecurKind Kind);
+  void addReduction(Value *V, RecurKind Kind, bool IsF90DopeVector);
 
   bool isExplicitReductionPhi(PHINode *Phi);
 

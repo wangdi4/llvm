@@ -179,8 +179,10 @@ public:
   }
 
   /// Register explicit reduction variables provided from outside.
-  void addReduction(RegDDRef *V, RecurKind Kind, bool IsSigned = false) {
+  void addReduction(RegDDRef *V, RecurKind Kind, bool IsF90DopeVector, bool IsSigned = false) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+    if (IsF90DopeVector)
+      HasF90DopeVectorReduction = true;
     ReductionList.emplace_back(V, Kind, IsSigned);
   }
 
@@ -249,6 +251,7 @@ public:
   void collectPostExitLoopDescrAliases();
 
   bool hasF90DopeVectorPrivate() { return HasF90DopeVectorPrivate; }
+  bool hasF90DopeVectorReduction() { return HasF90DopeVectorReduction; }
 
   bool hasComplexTyReduction() { return HasComplexTyReduction; }
   void setHasComplexTyReduction() { HasComplexTyReduction = true; }
@@ -292,6 +295,7 @@ private:
   mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
   bool IsSimdLoop = false;
   bool HasF90DopeVectorPrivate = false;
+  bool HasF90DopeVectorReduction = false;
   bool HasComplexTyReduction = false;
 };
 
