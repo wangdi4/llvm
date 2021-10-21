@@ -203,16 +203,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   LLVM_DEBUG(F.dump());
 
   FunctionType* OrigFunctionType = F.getFunctionType();
-  Type *ReturnType = F.getReturnType();
   Type *CharacteristicType = calcCharacteristicType(F, V);
-
-  // Expand return type to vector.
-  if (!ReturnType->isVoidTy()) {
-    unsigned VF = V.getVlen();
-    if (auto *FVT = dyn_cast<FixedVectorType>(ReturnType))
-      VF *= FVT->getNumElements();
-    ReturnType = FixedVectorType::get(ReturnType->getScalarType(), VF);
-  }
 
   std::vector<VectorKind> ParmKinds = V.getParameters();
   SmallVector<Type*, 4> ParmTypes;

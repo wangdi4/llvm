@@ -2641,9 +2641,8 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
   Value *V = nullptr;
 
   if (Ty->isIntOrIntVectorTy()) {
-    LLVMContext &C = F->getContext();
     bool IsUnsigned = RedI->getIsUnsigned();
-    V = VPOParoptUtils::getMinMaxIntVal(C, Ty, IsUnsigned, !IsMax);
+    V = VPOParoptUtils::getMinMaxIntVal(Ty, IsUnsigned, !IsMax);
   }
   else if (Ty->isFPOrFPVectorTy())
     V = IsMax ? ConstantFP::getInfinity(Ty, true) :  // max: negative inf
@@ -3285,9 +3284,6 @@ bool VPOParoptTransform::genReductionScalarFini(
     }
     return Res;
   };
-  Instruction *Init = nullptr;
-  if (isTargetSPIRV() && UseGlobalUpdates)
-    Init = Builder.CreateLoad(RedElemType, ReductionVar, "init");
   auto *Rhs2 = Builder.CreateLoad(
       ReductionValueLoc->getType()->getPointerElementType(), ReductionValueLoc);
   auto *Rhs1 =
