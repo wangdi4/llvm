@@ -718,6 +718,12 @@ void TypeMapTy::mapTypesByMangledNames(Module &SrcM, Module &DstM) {
     assert(!(*DTMap) && "DTransStructsMap already allocated");
 
     NamedMDNode *DTransMDTypes = M.getNamedMetadata("intel.dtrans.types");
+
+    // TODO: The following boolean needs to be updated as
+    // EnableIncompleteDTransMetadata && M.getContext().supportsTypedPointers()
+    // after pulldown. The reason is that incomplete metadata is only allowed
+    // when typed pointers are available since we can reconstruct the types
+    // information in that case.
     bool AllowsIncompleteMD = EnableIncompleteDTransMetadata;
 
     // destination module always starts with empty metadata
@@ -974,6 +980,25 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
     if (FieldNum > SrcST->getNumElements())
       return false;
 
+    auto DTStructSrc = DTransSrcStructsMap->getDTransStructure(SrcST);
+    auto DTStructDst = DTransDstStructsMap->getDTransStructure(DstST);
+    if (!DTStructSrc || !DTStructDst)
+      return false;
+
+    // If the DTrans metadata was constructed incorrectly then we can't query
+    // it.
+    //
+    // TODO: Incomplete metadata is only allowed if the llvm:Context allows
+    // typed pointers.
+    if (DTStructSrc->getReconstructError() ||
+        DTStructDst->getReconstructError()) {
+      if (EnableIncompleteDTransMetadata)
+        return false;
+      else
+        llvm_unreachable("Collecting information from incomplete "
+                         "DTrans type");
+    }
+
     PointerType *PtrSrc =
         dyn_cast<PointerType>(SrcST->getElementType(FieldNum));
     PointerType *PtrDst =
@@ -987,13 +1012,14 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
 
       // Return if using the DTrans pointer type is not allowed for non-opaque
       // pointers
+      //
+      // TODO: The following condition needs to be updated after the pulldown.
+      // We are going to collect from the llvm::Context if typed pointers are
+      // supported and if EnableFullDTransTypesCheck is disabled. If these
+      // conditions are true then we don't need to enter in this function since
+      // it means that type merging using DTrans metadata is disabled for typed
+      // pointers.
       if (!EnableFullDTransTypesCheck && !PtrSrc->isOpaque())
-        return false;
-
-      auto DTStructSrc = DTransSrcStructsMap->getDTransStructure(SrcST);
-      auto DTStructDst = DTransDstStructsMap->getDTransStructure(DstST);
-
-      if (!DTStructSrc || !DTStructDst)
         return false;
 
       auto *DTFieldPtrSrc =
@@ -1012,11 +1038,13 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
 
       // If the fields are array or vector types then we need to
       // collect the element type
-      auto DTStructSrc = DTransSrcStructsMap->getDTransStructure(SrcST);
-      auto DTStructDst = DTransDstStructsMap->getDTransStructure(DstST);
-
       DTransType *DTSrcFieldTy = DTStructSrc->getFieldType(FieldNum);
       DTransType *DTDstFieldTy = DTStructDst->getFieldType(FieldNum);
+
+      assert(DTSrcFieldTy && "Field comes from incomplete source structure");
+
+      assert(DTDstFieldTy && "Field comes from incomplete "
+                             " destination structure");
 
       // We need to make sure that both fields are array or vector,
       // but they can't be array and vector
@@ -1047,7 +1075,10 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
       auto *DTFieldPtrSrc = dyn_cast<DTransPointerType>(DTSrcFieldTy);
       auto *DTFieldPtrDst = dyn_cast<DTransPointerType>(DTDstFieldTy);
 
-      if (!DTFieldPtrSrc && !DTFieldPtrDst)
+      // Both types must be pointer types, if not then:
+      //   a. At least one array or vector is not a pointer (*int[] vs int[])
+      //   b. Different dereference level (*int[][] vs *int[])
+      if (!DTFieldPtrSrc || !DTFieldPtrDst)
         return false;
 
       auto *PtrSrc =
@@ -1066,6 +1097,13 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
 
       // Return if using the DTrans pointer type is not allowed for non-opaque
       // pointers
+      //
+      // TODO: The following condition needs to be updated after the pulldown.
+      // We are going to collect from the llvm::Context if typed pointers are
+      // supported and if EnableFullDTransTypesCheck is disabled. If these
+      // conditions are true then we don't need to enter in this function since
+      // it means that type merging using DTrans metadata is disabled for typed
+      // pointers.
       if (!EnableFullDTransTypesCheck && !PtrSrc->isOpaque())
         return false;
 
@@ -2273,6 +2311,9 @@ void IRLinker::verifyDestinationModule() {
 
   // We need to create a new DTrans map since the destination module now
   // has new types.
+  //
+  // TODO: Incomplete metadata is only allowed if the llvm::Context allows
+  // it. This update will be done after the pulldown.
   DTransStructsMap DTMap(DstM, true);
   DenseMap<StringRef, SetVector<StructType *>> UniqueTypesMap;
 
