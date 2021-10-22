@@ -75,12 +75,12 @@ void error_check(int i, int *x, int *y) {
     x[i] = y[i];
   }
   int array[10];
-  // expected-error@+1 {{invalid argument of type 'int [10]'; expected a scalar type}}
+  // expected-error@+1 {{invalid argument of type 'int[10]'; expected a scalar type}}
   #pragma block_loop level(3) private(array)
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
-  // expected-error@+1 {{invalid argument of type 'int [10]'; expected an integer type}}
+  // expected-error@+1 {{invalid argument of type 'int[10]'; expected an integer type}}
   #pragma block_loop level(3) factor(array)
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
