@@ -702,8 +702,6 @@ public:
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
     AU.addRequired<BlockFrequencyInfoWrapperPass>();
-    AU.addRequired<BranchProbabilityInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
 
     AU.addPreserved<WholeProgramWrapperPass>();
   }
@@ -751,8 +749,6 @@ INITIALIZE_PASS_BEGIN(IntelPartialInlineLegacyPass, "intel-partialinline",
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(IntelPartialInlineLegacyPass, "intel-partialinline",
                     "Intel partial inlining", false, false)
 
