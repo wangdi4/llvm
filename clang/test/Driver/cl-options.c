@@ -768,4 +768,18 @@
 // FAKEDIR: "-libpath:/foo{{/|\\\\}}Lib{{/|\\\\}}10.0.12345.0{{/|\\\\}}ucrt
 // FAKEDIR: "-libpath:/foo{{/|\\\\}}Lib{{/|\\\\}}10.0.12345.0{{/|\\\\}}um
 
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cl -### /Z7 -fprofile-instr-generate --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### /Zi -fprofile-instr-generate --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### /ZI -fprofile-instr-generate --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### /debug -fprofile-instr-generate --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### -gdwarf -fprofile-instr-generate --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### /Z7 -fprofile-instr-generate=/tmp/somefile.profraw --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### /Zi -fprofile-instr-generate=/tmp/somefile.profraw --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### /ZI -fprofile-instr-generate=/tmp/somefile.profraw --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### /debug -fprofile-instr-generate=/tmp/somefile.profraw --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// RUN: %clang_cl -### -gdwarf -fprofile-instr-generate=/tmp/somefile.profraw --intel -- %s 2>&1 | FileCheck -check-prefix=CHECK-LLD-LINK %s
+// CHECK-LLD-LINK: lld-link
+// end INTEL_CUSTOMIZATION
+
 void f() { }
