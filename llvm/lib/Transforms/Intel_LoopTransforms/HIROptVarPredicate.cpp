@@ -197,7 +197,7 @@ private:
   void updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
                             BlobTy SplitPointBlob, bool IsSigned);
 
-  void addVarPredicateReport(HLIf *If, HLLoop *Loop,
+  void addVarPredicateRemark(const EqualCandidates &Candidates, HLLoop *Loop,
                              OptReportBuilder &ORBuilder, unsigned RemarkID);
 };
 } // namespace
@@ -547,19 +547,45 @@ static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
   return IsNegativeOrZeroTC;
 }
 
-void HIROptVarPredicate::addVarPredicateReport(HLIf *If, HLLoop *Loop,
-                                               OptReportBuilder &ORBuilder,
-                                               unsigned RemarkID) {
+static SmallString<32>
+constructLineNumberString(SmallVector<unsigned, 8> LineNumbers) {
+  SmallString<32> LineNumStr;
+  raw_svector_ostream VOS(LineNumStr);
+  auto It = LineNumbers.begin();
+
+  if (LineNumbers.size() == 1) {
+    VOS << " at line " << *It;
+  } else if (LineNumbers.size() == 2) {
+    VOS << " at lines ";
+    VOS << *It << " and " << *std::next(It);
+  } else {
+    VOS << " at lines ";
+    while (std::next(It) != LineNumbers.end()) {
+      VOS << *It << ", ";
+      ++It;
+    }
+    VOS << "and " << *It;
+  }
+
+  return LineNumStr;
+}
+
+void HIROptVarPredicate::addVarPredicateRemark(
+    const EqualCandidates &Candidates, HLLoop *Loop,
+    OptReportBuilder &ORBuilder, unsigned RemarkID) {
   if (!Loop) {
     return;
   }
 
-  unsigned LineNum = 0;
-  if (If->getDebugLoc()) {
-    LineNum = If->getDebugLoc().getLine();
+  SmallVector<unsigned, 8> LineNumbers;
+  for (HLIf *If : Candidates) {
+    auto &DebugLoc = If->getDebugLoc();
+    LineNumbers.push_back(DebugLoc ? DebugLoc.getLine() : 0);
   }
 
-  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, RemarkID, LineNum);
+  auto LineNumStr = constructLineNumberString(LineNumbers);
+
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, RemarkID, LineNumStr);
 }
 
 // The loop could be split into two loops:
@@ -801,18 +827,16 @@ void HIROptVarPredicate::splitLoop(
       ORBuilder(*Loop).moveOptReportTo(*ThirdLoop);
     }
 
-    for (HLIf *If : Candidates) {
-      if (IsLoopPeeled) {
-        // Loop peeled using condition at line %d
-        addVarPredicateReport(If, OptReportLoop, ORBuilder, 25258u);
-      } else if (IsLoopOptimizedAway) {
-        // Loop optimized away using condition at line %d
-        addVarPredicateReport(If, OptReportLoop, ORBuilder, 25259u);
-        ORBuilder(*OptReportLoop).preserveLostOptReport();
-      } else {
-        // Induction variable range split using condition at line %d
-        addVarPredicateReport(If, OptReportLoop, ORBuilder, 25580u);
-      }
+    if (IsLoopPeeled) {
+      // Loop peeled using condition%s
+      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder, 25258u);
+    } else if (IsLoopOptimizedAway) {
+      // Loop optimized away using condition%s
+      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder, 25259u);
+      ORBuilder(*OptReportLoop).preserveLostOptReport();
+    } else {
+      // Induction variable range split using condition%s
+      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder, 25580u);
     }
   }
 
