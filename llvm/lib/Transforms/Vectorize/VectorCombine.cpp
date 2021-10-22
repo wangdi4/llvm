@@ -103,11 +103,8 @@ private:
   bool foldExtractedCmps(Instruction &I);
   bool foldSingleElementStore(Instruction &I);
   bool scalarizeLoadExtract(Instruction &I);
-<<<<<<< HEAD
-  bool foldVLSInsert(Instruction &I); // INTEL
-=======
   bool foldShuffleOfBinops(Instruction &I);
->>>>>>> 66d22b4da4afe00c695d9714687aac8b9e4b7396
+  bool foldVLSInsert(Instruction &I); // INTEL
 
   void replaceValue(Value &Old, Value &New) {
     Old.replaceAllUsesWith(&New);
@@ -1071,7 +1068,6 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
   return true;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 struct VLSInsert {
   VLSInsert(Value *V, unsigned SizeInGroup, unsigned NumElems, Type *ElemTy)
@@ -1350,7 +1346,7 @@ bool VectorCombine::foldVLSInsert(Instruction &I) {
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Try to convert "shuffle (binop), (binop)" with a shared binop operand into
 /// "binop (shuffle), (shuffle)".
 bool VectorCombine::foldShuffleOfBinops(Instruction &I) {
@@ -1404,7 +1400,6 @@ bool VectorCombine::foldShuffleOfBinops(Instruction &I) {
   replaceValue(I, *NewBO);
   return true;
 }
->>>>>>> 66d22b4da4afe00c695d9714687aac8b9e4b7396
 
 /// This is the entry point for all transforms. Pass manager differences are
 /// handled in the callers of this function.
