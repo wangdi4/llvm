@@ -613,8 +613,9 @@ bool HIRPrefetching::doAnalysis(
       if (!FirstRef->isLinearAtLevel(Level)) {
         NumNonLinearStreams++;
 
-        if (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB) ||
-            HasPrefetchAll || EnableIndirectPrefetching) {
+        if (!FirstRef->getDestType()->isVectorTy() &&
+            (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB) ||
+             HasPrefetchAll || EnableIndirectPrefetching)) {
           collectIndirectPrefetchingCandidates(Lp, FirstRef, Dist, Hint,
                                                HasSpecifiedHintOrDist,
                                                IndirectPrefetchCandidates);
