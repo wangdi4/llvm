@@ -52,13 +52,7 @@ if(INTEL_CUSTOMIZATION)
 endif()
 
 add_llvm_external_project(dragonegg)
-<<<<<<< HEAD
-add_llvm_external_project(parallel-libs)
-# INTEL: Below logic moved to the flag above.
-#add_llvm_external_project(openmp) INTEL
-=======
 add_llvm_external_project(openmp)
->>>>>>> ee24d3f9d1d686f7dce32ec529da4794dcfa303c
 
 if(LLVM_INCLUDE_TESTS)
   add_llvm_external_project(cross-project-tests)
