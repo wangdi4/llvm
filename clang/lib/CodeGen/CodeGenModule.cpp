@@ -2685,9 +2685,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
-
-  if (FD->hasAttr<AnnotateAttr>())
-    AddGlobalAnnotations(FD, F);
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
@@ -5989,6 +5986,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalCtor(Fn, CA->getPriority());
   if (const DestructorAttr *DA = D->getAttr<DestructorAttr>())
     AddGlobalDtor(Fn, DA->getPriority(), true);
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   // CQ#411303 Intel driver requires front-end to produce special file if
@@ -5996,6 +5994,10 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (D->hasAttr<AnnotateAttr>())
+    AddGlobalAnnotations(D, Fn);
+>>>>>>> 4cee8053c005b02029e34f0776419de36398772d
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
