@@ -602,10 +602,26 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
           isIntelLTO = true;
       }
     }
+
+    // For PGO on windows, use -fuse-ld=lld when debug options are used
+    bool isPGOAndDebugEnabled = false;
+    if (IsCLMode())
+      if (Arg *A = Args.getLastArg(options::OPT_fprofile_instr_generate,
+                                  options::OPT_fprofile_instr_generate_EQ,
+                                  options::OPT_fno_profile_instr_generate))
+        if (!A->getOption().matches(options::OPT_fno_profile_instr_generate))
+          if (Args.hasArg(options::OPT__SLASH_Z7,
+                          options::OPT_intel_debug_Group,
+                          options::OPT_g_Group))
+            isPGOAndDebugEnabled = true;
+
     // TODO - improve determination of last phase
-    if (IsCLMode() && isIntelLTO && !Args.hasArg(options::OPT_fuse_ld_EQ) &&
+    if (IsCLMode() &&
+        (isIntelLTO || isPGOAndDebugEnabled) &&
+        !Args.hasArg(options::OPT_fuse_ld_EQ) &&
         !Args.hasArg(options::OPT_c, options::OPT_S))
       addClaim(options::OPT_fuse_ld_EQ, "lld");
+
     // -fveclib=SVML default.
     if (!Args.hasArg(options::OPT_fveclib)) {
       bool HasDefaultVeclib = true;
