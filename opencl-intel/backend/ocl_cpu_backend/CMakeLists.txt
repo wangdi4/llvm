@@ -245,7 +245,6 @@ set( BACKEND_PASSES
     KernelInfo
     Prefetch
     SubGroupAdaptation
-    ResolveBlockToStaticCall
     PatchCallbackArgs
     SinCosFold
     SmartGVN

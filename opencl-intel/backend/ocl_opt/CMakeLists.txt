@@ -33,7 +33,6 @@ set(OCL_BE_PASSES
     Prefetch
     PreventDivCrashes
     RelaxedPass
-    ResolveBlockToStaticCall
     ResolveWICall
     SetPreferVectorWidth
     SinCosFold
