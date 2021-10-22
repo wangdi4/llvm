@@ -21,15 +21,14 @@ using namespace llvm;
 namespace {
 
 class IMLUtilsTest : public testing::Test {
-protected:
-  LLVMContext Context;
-
-  Type *FloatTy = Type::getFloatTy(Context);
-  Type *DoubleTy = Type::getDoubleTy(Context);
-
 };
 
 TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {
+  LLVMContext Context;
+  Context.enableOpaquePointers();
+  Type *FloatTy = Type::getFloatTy(Context);
+  Type *DoubleTy = Type::getDoubleTy(Context);
+
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
                 "__ocl_svml_g9_cvtfptoi64rtpsatf3",
                 FunctionType::get(
