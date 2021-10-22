@@ -983,10 +983,10 @@ CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
                                              ArrayRef<Value *> Args,
                                              const Twine &Name) {
   CallInst *NewCI = Builder.CreateCall(Callee, Args, Name);
+  Optional<CallingConv::ID> UnifiedCC = getSVMLCallingConvByNameAndType(
+      cast<Function>(Callee.getCallee())->getName(), Callee.getFunctionType());
   NewCI->setCallingConv(
-      getLegacyCSVMLCallingConvFromUnified(getSVMLCallingConvByNameAndType(
-          cast<Function>(Callee.getCallee())->getName(),
-          Callee.getFunctionType())));
+      getLegacyCSVMLCallingConvFromUnified(UnifiedCC.getValue()));
   return NewCI;
 }
 
