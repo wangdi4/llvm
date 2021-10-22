@@ -525,6 +525,12 @@ inline bool hasByvalByrefArgs(Function *F) {
   });
 }
 
+/// Create instruction(s) which is semantically equivalent to the original
+/// constant \a Original, with operand \a From replaced with \a To.
+/// Only expect \a ConstantExpr and \a ConstantAggregate for \a Original.
+Instruction *createInstructionFromConstantWithReplacement(
+    Constant *Original, Value *From, Value *To, Instruction *InsertPoint);
+
 /// Whether the CallGraphNode `Node` contains a call to the function that
 /// satisfies the given `Condition`. This will perform a DFS on the CallGraph.
 /// Returns true if `Node->getFunction()` calls target function

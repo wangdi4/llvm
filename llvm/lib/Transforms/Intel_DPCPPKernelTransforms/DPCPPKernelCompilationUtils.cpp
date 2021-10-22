@@ -1539,6 +1539,31 @@ void updateMetadataTreeWithNewFuncs(
   }
 }
 
+Instruction *createInstructionFromConstantWithReplacement(
+    Constant *Original, Value *From, Value *To, Instruction *InsertPoint) {
+  if (auto *CE = dyn_cast<ConstantExpr>(Original)) {
+    auto *Inst = CE->getAsInstruction();
+    Inst->insertBefore(InsertPoint);
+    Inst->setDebugLoc(InsertPoint->getDebugLoc());
+    Inst->replaceUsesOfWith(From, To);
+    return Inst;
+  }
+
+  auto *CA = cast<ConstantAggregate>(Original);
+  IRBuilder<> B(InsertPoint);
+  Value *V = UndefValue::get(CA->getType());
+  for (unsigned I = 0; I < CA->getNumOperands(); ++I) {
+    Value *Op = CA->getOperand(I);
+    if (Op == From)
+      Op = To;
+    if (isa<ConstantVector>(CA))
+      V = B.CreateInsertElement(V, Op, I, "insert.vec.element." + Twine(I));
+    else // insertvalue for Struct or Array
+      V = B.CreateInsertValue(V, Op, I, "insert.agg.value." + Twine(I));
+  }
+  return cast<Instruction>(V);
+}
+
 bool hasFunctionCallInCGNodeSatisfiedWith(
     CallGraphNode *Node, function_ref<bool(Function *)> Condition) {
   for (auto It = df_begin(Node); It != df_end(Node); ++It) {

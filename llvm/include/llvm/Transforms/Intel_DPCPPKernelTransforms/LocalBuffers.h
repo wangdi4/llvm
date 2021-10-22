@@ -44,23 +44,6 @@ private:
   /// variables
   void parseLocalBuffers(Function *F, Value *LocalMem);
 
-  /// @brief Replaces all uses of Constant `From` with `To`. We can't simply
-  ///        call `From->replaceAllUsesWith` because the users of `From` may
-  ///        be ConstantExpr, ConstantVector, ConstantStruct. We have to
-  ///        convert those Constant uses to instructions first.
-  /// @param From The constant value needs to be replaced
-  /// @param To The replacement target value
-  void replaceAllUsesOfConstantWith(Constant *From, Value *To);
-
-  /// @brief Create instructions (GEP, insertvalue, etc.) to generate a Value
-  ///        of same semantic with the original Constant `C`. Also replace
-  ///        `From` with `To` during the instruction creation.
-  /// @param C The constant to be converted as instructions
-  /// @param From Should be one of the operands of `C`
-  /// @return The generated Value which should be equivalent as `C`
-  Value *createInstructionFromConstantWithReplacement(Constant *C, Value *From,
-                                                      Value *To);
-
   /// @brief Copies DebugInfo of `GV` to Local Memory Buffer `LocalMem`,
   ///        with corresponding `offset`.
   void attachDebugInfoToLocalMem(GlobalVariable *GV, Value *LocalMem,
