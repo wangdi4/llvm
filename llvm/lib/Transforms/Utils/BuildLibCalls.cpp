@@ -269,9 +269,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // SPIR target can't have unreachable code. SYCL library functions that
   // would normally have the "noreturn" attribute should be left with the
   // default attributes. We check only SYCL supported library functions below.
-  bool IsSpirFunc =
-      StringRef(F.getParent()->getTargetTriple()).contains("sycldevice") &&
-      F.getCallingConv() == CallingConv::SPIR_FUNC;
+  bool IsSpirFunc = Triple(F.getParent()->getTargetTriple()).isSPIR();
 #endif // INTEL_CUSTOMIZATION
 
   if(!isLibFreeFunction(&F, TheLibFunc) && !isReallocLikeFn(&F,  &TLI))
