@@ -981,16 +981,15 @@ private:
   // List of all literal struct types allocation that need to be destroyed.
   SmallVector<DTransStructType *, 32> LitStructTypeVec;
 
-  // List of DTransFunctionType objects allocated that need to be destroyed.
-  SmallVector<DTransFunctionType *, 32> FunctionTypeVec;
-
   // This allocator will be used for all the DTransFunctionTypeNode objects so
   // that the entire memory pool can be released, instead of deleting each
   // object, since there is no need to run destructors on the
   // DTransFunctionTypeNode objects.
   BumpPtrAllocator Allocator;
 
-  // Set of handles to unique DTransFunctionType objects allocated.
+  // Set of handles to unique DTransFunctionType objects allocated. The
+  // DTransFunctionType objects referenced by the DTransFunctionTypeNode need to
+  // be deallocated prior to the destruction of this set.
   FoldingSet<DTransFunctionTypeNode> FunctionTypeNodes;
 };
 
