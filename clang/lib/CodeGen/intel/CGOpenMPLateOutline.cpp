@@ -2552,6 +2552,17 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
 
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
+
+    // If this loop was transformed by a tile directive, find the original
+    // loop variables and mark them private.
+    if (const auto *CS = dyn_cast<CapturedStmt>(LoopDir->getAssociatedStmt()))
+      if (const auto *TileDir =
+              dyn_cast<OMPTileDirective>(CS->getCapturedStmt()))
+        if (const auto *DS = dyn_cast<DeclStmt>(TileDir->getPreInits()))
+          for (const Decl *D : DS->decls())
+            if (const auto *VD = dyn_cast<VarDecl>(D))
+              ImplicitMap.insert(std::make_pair(VD, ICK_private));
+
     for (auto *E : LoopDir->counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
       if (isOpenMPSimdDirective(LoopDir->getDirectiveKind())) {
