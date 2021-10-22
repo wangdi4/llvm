@@ -17,6 +17,7 @@
 #ifndef LLVM_TRANSFORMS_UTILS_INTEL_IMLUTILS_H
 #define LLVM_TRANSFORMS_UTILS_INTEL_IMLUTILS_H
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/CallingConv.h"
 
@@ -34,15 +35,16 @@ bool isSVMLCallingConv(CallingConv::ID CC);
 VectorType *getVectorTypeForCSVMLFunction(FunctionType *FT);
 
 /// Determine which variant of SVML calling convention a function should use
-/// according to its name and type.
-CallingConv::ID getSVMLCallingConvByNameAndType(StringRef FnName, FunctionType *FT);
+/// according to its name and type. Returns None if a variant can't be chosen
+/// with the given input.
+Optional<CallingConv::ID> getSVMLCallingConvByNameAndType(StringRef FnName,
+                                                          FunctionType *FT);
 
 /// Convert a unified SVML calling convention to its corresponding variant among
 /// legacy C/C++ SVML calling conventions. Used for calling functions from
 /// ICC-built SVML library. This function should be removed along with legacy
 /// SVML calling conventions, after we switch to new Xmain-built SVML libraries.
 CallingConv::ID getLegacyCSVMLCallingConvFromUnified(CallingConv::ID);
-
 }
 
 #endif // LLVM_TRANSFORMS_UTILS_INTEL_IMLUTILS_H
