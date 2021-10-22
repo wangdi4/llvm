@@ -1316,9 +1316,11 @@ llvm::DIType *CGDebugInfo::CreateType(const TypedefType *Ty,
 
   uint32_t Align = getDeclAlignIfRequired(Ty->getDecl(), CGM.getContext());
   // Typedefs are derived from some other type.
+  llvm::DINodeArray Annotations = CollectBTFDeclTagAnnotations(Ty->getDecl());
   return DBuilder.createTypedef(Underlying, Ty->getDecl()->getName(),
                                 getOrCreateFile(Loc), getLineNumber(Loc),
-                                getDeclContextDescriptor(Ty->getDecl()), Align);
+                                getDeclContextDescriptor(Ty->getDecl()), Align,
+                                Annotations);
 }
 
 static unsigned getDwarfCC(CallingConv CC) {
