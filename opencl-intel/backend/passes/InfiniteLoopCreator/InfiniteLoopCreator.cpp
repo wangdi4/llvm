@@ -64,8 +64,10 @@ bool InfiniteLoopCreator::runOnModule(Module &M) {
 }
 
 bool InfiniteLoopCreator::runOnFunction(Function *F) {
+  bool Changed = false;
   if (BasicBlock *SingleRetBB =
-          getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F).getReturnBlock()) {
+          getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F, &Changed)
+              .getReturnBlock()) {
     BasicBlock *EntryBlock = &F->getEntryBlock();
     BasicBlock *InfiniteLoopEntry = EntryBlock->splitBasicBlock(
         EntryBlock->begin(), "infinite_loop_entry");
