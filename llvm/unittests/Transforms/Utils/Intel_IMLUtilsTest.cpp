@@ -21,18 +21,16 @@ using namespace llvm;
 namespace {
 
 class IMLUtilsTest : public testing::Test {
-};
-
-<<<<<<< HEAD
-TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {
+protected:
   LLVMContext Context;
-  Context.enableOpaquePointers();
-=======
+
   Type *HalfTy = Type::getHalfTy(Context);
->>>>>>> ea7d016b4ce16d7c5b6f9d0f6b9c1540bbfdf385
   Type *FloatTy = Type::getFloatTy(Context);
   Type *DoubleTy = Type::getDoubleTy(Context);
 
+};
+
+TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {
   EXPECT_EQ(getSVMLCallingConvByNameAndType(
                 "__ocl_svml_g9_cvtfptoi64rtpsatf3",
                 FunctionType::get(
