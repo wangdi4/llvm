@@ -150,7 +150,6 @@ llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize,
                                           bool useTLSGlobals);
 llvm::ModulePass *createDetectRecursionPass();
-llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
@@ -341,10 +340,6 @@ static void populatePassesPreFailCheck(
   PM.add(createFMASplitterPass());
   PM.add(llvm::createAddFunctionAttrsLegacyPass());
   PM.add(createPrintfArgumentsPromotionPass());
-  if (isOcl20) {
-    // OCL2.0 resolve block to static call
-    PM.add(createResolveBlockToStaticCallPass());
-  }
 
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
