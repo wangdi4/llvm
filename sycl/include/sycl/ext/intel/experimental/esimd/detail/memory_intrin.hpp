@@ -989,7 +989,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           int N>
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_load_slm(__SEIEED::vector_type_t<uint16_t, N> pred,
+    __esimd_lsc_load_slm(__SEIEED::simd_mask_storage_t<N> pred,
                          __SEIEED::vector_type_t<uint32_t, N> offsets)
 #ifdef __SYCL_DEVICE_ONLY__
         ;
@@ -1026,7 +1026,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           int N, typename SurfIndAliasTy>
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_load_bti(__SEIEED::vector_type_t<uint16_t, N> pred,
+    __esimd_lsc_load_bti(__SEIEED::simd_mask_storage_t<N> pred,
                          __SEIEED::vector_type_t<uint32_t, N> offsets,
                          SurfIndAliasTy surf_ind)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1062,7 +1062,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           int N>
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_load_stateless(__SEIEED::vector_type_t<uint16_t, N> pred,
+    __esimd_lsc_load_stateless(__SEIEED::simd_mask_storage_t<N> pred,
                                __SEIEED::vector_type_t<uintptr_t, N> addrs)
 #ifdef __SYCL_DEVICE_ONLY__
         ;
@@ -1096,7 +1096,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N, typename SurfIndAliasTy>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-__esimd_lsc_prefetch_bti(__SEIEED::vector_type_t<uint16_t, N> pred,
+__esimd_lsc_prefetch_bti(__SEIEED::simd_mask_storage_t<N> pred,
                          __SEIEED::vector_type_t<uint32_t, N> offsets,
                          SurfIndAliasTy surf_ind)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1128,7 +1128,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-__esimd_lsc_prefetch_stateless(__SEIEED::vector_type_t<uint16_t, N> pred,
+__esimd_lsc_prefetch_stateless(__SEIEED::simd_mask_storage_t<N> pred,
                                __SEIEED::vector_type_t<uintptr_t, N> addrs)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
@@ -1160,7 +1160,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_store_slm(
-    __SEIEED::vector_type_t<uint16_t, N> pred,
+    __SEIEED::simd_mask_storage_t<N> pred,
     __SEIEED::vector_type_t<uint32_t, N> offsets,
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> vals)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1195,7 +1195,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N, typename SurfIndAliasTy>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_store_bti(
-    __SEIEED::vector_type_t<uint16_t, N> pred,
+    __SEIEED::simd_mask_storage_t<N> pred,
     __SEIEED::vector_type_t<uint32_t, N> offsets,
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> vals,
     SurfIndAliasTy surf_ind)
@@ -1229,7 +1229,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           __SEIEED::lsc_vector_size VS, __SEIEED::lsc_data_order _Transposed,
           int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_store_stateless(
-    __SEIEED::vector_type_t<uint16_t, N> pred,
+    __SEIEED::simd_mask_storage_t<N> pred,
     __SEIEED::vector_type_t<uintptr_t, N> addrs,
     __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> vals)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1275,7 +1275,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
           int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N>
-__esimd_lsc_load2d_stateless(__SEIEED::vector_type_t<uint16_t, N> Pred,
+__esimd_lsc_load2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
                              uintptr_t Ptr, int SurfaceWidth, int SurfaceHeight,
                              int SurfacePitch, int X, int Y)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1316,7 +1316,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
           int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_lsc_prefetch2d_stateless(
-    __SEIEED::vector_type_t<uint16_t, N> Pred, uintptr_t Ptr, int SurfaceWidth,
+    __SEIEED::simd_mask_storage_t<N> Pred, uintptr_t Ptr, int SurfaceWidth,
     int SurfaceHeight, int SurfacePitch, int X, int Y)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
@@ -1360,7 +1360,7 @@ template <typename Ty, __SEIEE::CacheHint L1H, __SEIEE::CacheHint L3H,
           uint8_t NBlocks, int BlockWidth, int BlockHeight, bool Transformed,
           int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-__esimd_lsc_store2d_stateless(__SEIEED::vector_type_t<uint16_t, N> Pred,
+__esimd_lsc_store2d_stateless(__SEIEED::simd_mask_storage_t<N> Pred,
                               uintptr_t Ptr, int SurfaceWidth,
                               int SurfaceHeight, int SurfacePitch, int X, int Y,
                               __SEIEED::vector_type_t<Ty, N> vals)
@@ -1393,7 +1393,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
           __SEIEED::lsc_data_order _Transposed, int N>
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_slm_0(__SEIEED::vector_type_t<uint16_t, N> pred,
+    __esimd_lsc_xatomic_slm_0(__SEIEED::simd_mask_storage_t<N> pred,
                               __SEIEED::vector_type_t<uint32_t, N> offsets)
 #ifdef __SYCL_DEVICE_ONLY__
         ;
@@ -1427,7 +1427,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
     __esimd_lsc_xatomic_slm_1(
-        __SEIEED::vector_type_t<uint16_t, N> pred,
+        __SEIEED::simd_mask_storage_t<N> pred,
         __SEIEED::vector_type_t<uint32_t, N> offsets,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1463,7 +1463,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
     __esimd_lsc_xatomic_slm_2(
-        __SEIEED::vector_type_t<uint16_t, N> pred,
+        __SEIEED::simd_mask_storage_t<N> pred,
         __SEIEED::vector_type_t<uint32_t, N> offsets,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1)
@@ -1499,7 +1499,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
           __SEIEED::lsc_data_order _Transposed, int N, typename SurfIndAliasTy>
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_bti_0(__SEIEED::vector_type_t<uint16_t, N> pred,
+    __esimd_lsc_xatomic_bti_0(__SEIEED::simd_mask_storage_t<N> pred,
                               __SEIEED::vector_type_t<uint32_t, N> offsets,
                               SurfIndAliasTy surf_ind)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1536,7 +1536,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
     __esimd_lsc_xatomic_bti_1(
-        __SEIEED::vector_type_t<uint16_t, N> pred,
+        __SEIEED::simd_mask_storage_t<N> pred,
         __SEIEED::vector_type_t<uint32_t, N> offsets,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
         SurfIndAliasTy surf_ind)
@@ -1575,7 +1575,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
     __esimd_lsc_xatomic_bti_2(
-        __SEIEED::vector_type_t<uint16_t, N> pred,
+        __SEIEED::simd_mask_storage_t<N> pred,
         __SEIEED::vector_type_t<uint32_t, N> offsets,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1,
@@ -1610,7 +1610,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
           __SEIEED::lsc_data_order _Transposed, int N>
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
-    __esimd_lsc_xatomic_stateless_0(__SEIEED::vector_type_t<uint16_t, N> pred,
+    __esimd_lsc_xatomic_stateless_0(__SEIEED::simd_mask_storage_t<N> pred,
                                     __SEIEED::vector_type_t<uintptr_t, N> addrs)
 #ifdef __SYCL_DEVICE_ONLY__
         ;
@@ -1644,7 +1644,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
     __esimd_lsc_xatomic_stateless_1(
-        __SEIEED::vector_type_t<uint16_t, N> pred,
+        __SEIEED::simd_mask_storage_t<N> pred,
         __SEIEED::vector_type_t<uintptr_t, N> addrs,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -1680,7 +1680,7 @@ template <typename Ty, __SEIEED::lsc_atomic_op Op, __SEIEE::CacheHint L1H,
 SYCL_EXTERNAL
     SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()>
     __esimd_lsc_xatomic_stateless_2(
-        __SEIEED::vector_type_t<uint16_t, N> pred,
+        __SEIEED::simd_mask_storage_t<N> pred,
         __SEIEED::vector_type_t<uintptr_t, N> addrs,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src0,
         __SEIEED::vector_type_t<Ty, N * __SEIEED::to_int<VS>()> src1)
@@ -1704,7 +1704,7 @@ SYCL_EXTERNAL
 template <__SEIEE::lsc_sfid Sfid, __SEIEE::lsc_fence_op FenceOp,
           __SEIEE::lsc_scope Scope, int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
-__esimd_lsc_fence(__SEIEED::vector_type_t<uint16_t, N> pred)
+__esimd_lsc_fence(__SEIEED::simd_mask_storage_t<N> pred)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
 #else  // __SYCL_DEVICE_ONLY__

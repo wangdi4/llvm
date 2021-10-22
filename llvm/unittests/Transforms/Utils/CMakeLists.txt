@@ -17,6 +17,9 @@ add_llvm_unittest(UtilsTests
   DebugifyTest.cpp
   FunctionComparatorTest.cpp
   IntegerDivisionTest.cpp
+# INTEL_CUSTOMIZATION
+  Intel_IMLUtilsTest.cpp
+# end INTEL_CUSTOMIZATION
   LocalTest.cpp
   LoopRotationUtilsTest.cpp
   LoopUtilsTest.cpp
