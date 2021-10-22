@@ -151,9 +151,15 @@ static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                                     "default on): similar with"
                                                     " bit 0, but for array "
                                                     "reduction."));
-cl::opt<bool> FastReductionGPULocalUpdate(
-    "vpo-paropt-fast-reduction-gpu-local-update", cl::Hidden, cl::init(false),
-    cl::desc("Enable local updating loop for GPU reduction"));
+cl::opt<bool> AtomicFreeReduction("vpo-paropt-atomic-free-reduction",
+                                  cl::Hidden, cl::init(false),
+                                  cl::desc("Enable atomic-free GPU reduction"));
+cl::opt<uint32_t> AtomicFreeReductionCtrl(
+    "vpo-paropt-atomic-free-reduction-ctrl", cl::Hidden, cl::init(0),
+    cl::desc(
+        "Control option for atomic-free reduction. Bit 0(default off): Local "
+        "update loop emitted "
+        "reduction code. Bit 1(default off): Global update loop is emitted."));
 
 static cl::opt<bool> EmitTargetFPCtorDtors(
     "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
@@ -218,6 +224,16 @@ static void debugPrintHeader(WRegionNode *W, int Mode) {
     LLVM_DEBUG(dbgs() << "\n\n === VPOParopt ???: ");
 
   LLVM_DEBUG(dbgs() << W->getName().upper() << " construct\n\n");
+}
+
+static bool isAtomicFreeReductionLocalEnabled() {
+  return AtomicFreeReduction ||
+         (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Local);
+}
+
+static bool isAtomicFreeReductionGlobalEnabled() {
+  return AtomicFreeReduction ||
+         (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
 
 // Generate the placeholders for the loop lower bound and upper bound.
@@ -1597,6 +1613,14 @@ bool VPOParoptTransform::paroptTransforms() {
     F->getContext().diagnose(DI);
   };
 
+  // we want to process the whole WRGraph before the actual codegen
+  // to make sure we possess the whole info required for atomic-free
+  // reduction validity check (e.g. we want to know about WRNDistribute
+  // KnownNDRange clause before generating reduction for the loop)
+  if ((Mode & OmpPar) && (Mode & ParTrans))
+    for (auto *W : WRegionList)
+      checkAtomicFreeReductionOpportunity(W);
+
   SmallPtrSet<WRegionNode *, 4> RegionsNeedingDummyBranchInsertion;
   //
   // Walk through W-Region list, the outlining / lowering is performed from
@@ -1690,6 +1714,9 @@ bool VPOParoptTransform::paroptTransforms() {
         RemoveDirectives = false;
       }
 
+      if (Mode & ParPrepare)
+        checkAtomicFreeReductionOpportunity(W);
+
       switch (W->getWRegionKindID()) {
 
       // 1. Constructs that need to perform outlining:
@@ -1780,6 +1807,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
+          checkAtomicFreeReductionOpportunity(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
@@ -2011,6 +2039,8 @@ bool VPOParoptTransform::paroptTransforms() {
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           Changed |= addMapAndPrivateForIsDevicePtr(W);
+          if (isAtomicFreeReductionGlobalEnabled())
+            Changed |= addFastGlobalRedBufMap(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           if (isTargetSPIRV() && !WRegionUtils::hasParentTarget(W))
             Changed |= callPushPopNumThreadsAtRegionBoundary(W, true);
@@ -2149,6 +2179,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= fixupKnownNDRange(W);
+          checkAtomicFreeReductionOpportunity(W);
         }
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
@@ -2209,6 +2240,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
+          checkAtomicFreeReductionOpportunity(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
@@ -2475,6 +2507,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= fixupKnownNDRange(W);
+          checkAtomicFreeReductionOpportunity(W);
           RemoveDirectives = false;
         }
         break;
@@ -2808,36 +2841,38 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
 //   workgroup_barrier();
 // }
 // workgroup_barrier();
-bool VPOParoptTransform::genFastGPUReductionScalarFini(WRegionNode *W,
-                                                       StoreInst *RedStore,
-                                                       IRBuilder<> &Builder,
-                                                       DominatorTree *DT) {
+bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
+                                                         ReductionItem *RedI,
+                                                         StoreInst *RedStore,
+                                                         IRBuilder<> &Builder,
+                                                         DominatorTree *DT) {
   // do not generate another loop if we already have one
   // for the same WRegion
-  if (GPURedUpdateBBs.count(W))
+  if (AtomicFreeRedLocalUpdateBBs.count(W))
     return false;
   auto *SizeTy = cast<IntegerType>(GeneralUtils::getSizeTTy(F));
   auto *UpdateBB = RedStore->getParent();
-  // assert(UpdateBB->getFirstInsertionPt() == UpdateBB->begin());
-  GPURedUpdateBBs[W] = UpdateBB;
+  AtomicFreeRedLocalUpdateBBs[W] = UpdateBB;
   auto *ExitBB = UpdateBB->getSingleSuccessor();
   assert(ExitBB);
-  ExitBB->setName("fast.red.gpu.update.exit");
-  Builder.SetInsertPoint(UpdateBB, UpdateBB->begin());
+  ExitBB->setName("atomic.free.red.local.update.update.exit");
   auto *LocalSize = VPOParoptUtils::genOCLGenericCall(
       "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
       UpdateBB->getFirstNonPHI());
   auto *HeaderBB =
       SplitBlock(UpdateBB, LocalSize->getNextNode(), DT, LI, nullptr, "", true);
-  HeaderBB->setName("fast.red.gpu.update.header");
+  HeaderBB->setName("atomic.free.red.local.update.update.header");
   Builder.SetInsertPoint(HeaderBB, HeaderBB->begin());
   auto *IVPhi = Builder.CreatePHI(SizeTy, 0);
   for (const auto &Pred : predecessors(HeaderBB))
     IVPhi->addIncoming(ConstantInt::getNullValue(SizeTy), Pred);
+  for (const auto &Pred : predecessors(UpdateBB))
+    if (Pred != HeaderBB)
+      IVPhi->addIncoming(ConstantInt::getNullValue(SizeTy), Pred);
 
   Builder.SetInsertPoint(UpdateBB);
   UpdateBB->getTerminator()->eraseFromParent();
-  UpdateBB->setName("fast.red.gpu.update.body");
+  UpdateBB->setName("atomic.free.red.local.update.update.body");
   auto *IVNext = cast<BinaryOperator>(
       Builder.CreateAdd(IVPhi, ConstantInt::get(SizeTy, 1)));
   CallInst *BarrierCI = VPOParoptUtils::genCall(
@@ -2852,7 +2887,7 @@ bool VPOParoptTransform::genFastGPUReductionScalarFini(WRegionNode *W,
   Builder.CreateBr(HeaderBB);
   // NOTE: consider using SplitBlockAndInsertIfThenElse
   auto *LatchBB = SplitBlock(UpdateBB, BarrierCI, DT, LI);
-  LatchBB->setName("fast.red.gpu.update.latch");
+  LatchBB->setName("atomic.free.red.local.update.update.latch");
   IVPhi->addIncoming(IVNext, LatchBB);
 
   Builder.SetInsertPoint(UpdateBB, UpdateBB->begin());
@@ -2868,7 +2903,7 @@ bool VPOParoptTransform::genFastGPUReductionScalarFini(WRegionNode *W,
   auto *IdCheckBB = SplitBlock(UpdateBB, ShouldUpdate->getNextNode(), DT, LI,
                                nullptr, "", true);
   IdCheckBB->getTerminator()->eraseFromParent();
-  IdCheckBB->setName("fast.red.gpu.update.idcheck");
+  IdCheckBB->setName("atomic.free.red.local.update.update.idcheck");
   Builder.SetInsertPoint(IdCheckBB);
   Builder.CreateCondBr(ShouldUpdate, UpdateBB, LatchBB);
 
@@ -2887,6 +2922,221 @@ bool VPOParoptTransform::genFastGPUReductionScalarFini(WRegionNode *W,
       ExitBB->getFirstNonPHI());
   ExitBarrierCI->getCalledFunction()->setConvergent();
   // no kmpc_critical required
+  Builder.SetInsertPoint(ExitBB);
+
+  if (!DT->getNode(ExitBB))
+    DT->addNewBlock(ExitBB, HeaderBB);
+  return false;
+}
+
+// Generate global update loop for fast GPU reduction.
+// NOTE: Current compiler & RT implementation supports GWS with
+// only 1 dimension > 1 for loops not containing KNOWN_NDRANGE clause
+// that's why we're only iterating over 0th dimension here. Once that
+// changes the loop nest for all the 3 dimensions will be required.
+//
+// local_counter = 0
+// if (is_master_thread)
+//    local_counter = atomic_add(@teams_counter, 1);
+// // this check is required to ensure we're the last team
+// // accessing @red_buf to ensure it already contains all the
+// // necessary data
+// if (local_counter == num_teams(0) && is_master_thread) {
+//   for (int i = 0; i < num_teams(0); ++i)
+//     result = red_op(result, red_buf[i]);
+// }
+bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
+    WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
+    Value *ReductionValueLoc, Instruction *RedValToLoad, PHINode *RedSumPhi,
+    bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT) {
+  auto *BB0 = RedStore->getParent();
+
+  auto *EntryBB = BB0;
+  assert(EntryBB);
+
+  BasicBlock *HeaderBB = nullptr, *StoreBB = nullptr;
+
+  Value *GlobalCounter = nullptr;
+  PHINode *IdxPhi = nullptr;
+
+  Type *RedElemType = nullptr;
+  std::tie(RedElemType, std::ignore, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
+  auto *Init =
+      Builder.CreateLoad(RedElemType, RedStore->getPointerOperand(), "init");
+
+  if (!UseExistingUpdateLoop) {
+    auto *ExitBB = BB0->getUniqueSuccessor();
+    if (!ExitBB)
+      ExitBB = EntryBB->getTerminator()->getSuccessor(0);
+    Builder.SetInsertPoint(BB0);
+
+    auto *StartPoint = RedValToLoad;
+
+    auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+    assert(WTarget);
+    auto &MapClause = WTarget->getMap();
+
+    for (auto &MItem : MapClause.items()) {
+      if (isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
+          cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
+              ->hasAttribute(VPOParoptAtomicFreeReduction::TeamsCounterAttr)) {
+        GlobalCounter = MItem->getMapChain()[0]->getBasePtr();
+        break;
+      }
+    }
+    assert(GlobalCounter && "No teams counter found");
+
+    Builder.SetInsertPoint(StartPoint);
+
+    auto *OldCntr = Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
+    auto *NewCntr = Builder.CreateAdd(OldCntr, Builder.getInt32(1));
+    Builder.CreateStore(NewCntr, GlobalCounter);
+    Instruction *CntrToCheck =
+        Builder.CreateLoad(Builder.getInt32Ty(), GlobalCounter);
+
+    auto *LocalCntr = Builder.CreateAlloca(CntrToCheck->getType());
+    Builder.CreateStore(CntrToCheck, LocalCntr);
+    auto *CntrCheckBB = SplitBlock(EntryBB, RedValToLoad, DT, LI);
+    auto *AtomicUpdate = VPOParoptAtomics::handleAtomicCaptureInBlock(
+        W, EntryBB, nullptr, nullptr, true);
+    assert(AtomicUpdate && "No atomic was generated for global teams counter");
+    assert(AtomicUpdate->hasOneUse());
+    cast<Instruction>(*AtomicUpdate->users().begin())->eraseFromParent();
+    LocalCntr->eraseFromParent();
+    AtomicUpdate->moveBefore(StartPoint);
+    CntrToCheck = AtomicUpdate;
+
+    CntrCheckBB->setName("counter_check");
+
+    Builder.SetInsertPoint(StartPoint);
+
+    Value *NumGroups0 = VPOParoptUtils::genOCLGenericCall(
+        "_Z14get_num_groupsj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
+        CntrToCheck);
+    auto *NumGroupsCall = cast<Instruction>(Builder.CreateTrunc(NumGroups0, Builder.getInt32Ty()));
+
+    // TODO: unify this with the same code in VPOParoptTarget.cpp
+    auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
+    Value *LocalId = nullptr;
+
+    Value *MasterCheckPredicate = nullptr;
+    for (unsigned Dim = 0; Dim < 3; ++Dim) {
+      if (VPOParoptUtils::enableDeviceSimdCodeGen())
+        LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, NumGroupsCall);
+      else {
+        auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
+        LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+                                                    GeneralUtils::getSizeTTy(F),
+                                                    {Arg}, NumGroupsCall);
+      }
+      Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
+
+      if (!MasterCheckPredicate) {
+        MasterCheckPredicate = Predicate;
+        continue;
+      }
+
+      MasterCheckPredicate = Builder.CreateAnd(MasterCheckPredicate, Predicate);
+    }
+
+    MasterCheckPredicate->setName("is.master.thread");
+
+    auto *GroupCmp =
+        Builder.CreateICmpNE(CntrToCheck, NumGroupsCall);
+    auto *NotMasterCheckPredicate = Builder.CreateNot(MasterCheckPredicate);
+    GroupCmp = Builder.CreateOr(GroupCmp, NotMasterCheckPredicate);
+    SplitBlockAndInsertIfThen(GroupCmp, RedValToLoad, false, nullptr, DT, LI,
+                              ExitBB);
+    HeaderBB = cast<BranchInst>(CntrCheckBB->getTerminator())->getSuccessor(1);
+
+    Value *IdxInc = nullptr;
+    BasicBlock *Preheader = CntrCheckBB;
+    auto GenerateLoop =
+        [&Builder, &W, &Preheader, &IdxInc, &RedStore, this,
+         &DT](Value *CmpValue, Value *ResInit, Instruction *StartPt,
+              Instruction *ThenBlockSplitPt, bool GenerateSumPhi) -> PHINode * {
+      Builder.SetInsertPoint(StartPt);
+      auto *HeaderBB = StartPt->getParent();
+      auto *IdxPhi = Builder.CreatePHI(Builder.getInt64Ty(), 0);
+      PHINode *SumPhi =
+          GenerateSumPhi
+              ? Builder.CreatePHI(RedStore->getOperand(0)->getType(), 0)
+              : nullptr;
+      auto *ExitCond =
+          cast<Instruction>(Builder.CreateICmpUGE(IdxPhi, CmpValue));
+
+      Builder.SetInsertPoint(ThenBlockSplitPt);
+      IdxInc =
+          cast<Instruction>(Builder.CreateAdd(IdxPhi, Builder.getInt64(1)));
+      auto *LatchBB =
+          SplitBlock(ThenBlockSplitPt->getParent(), ThenBlockSplitPt, DT, LI);
+
+      SplitBlockAndInsertIfThen(ExitCond, StartPt, false, nullptr, DT, LI,
+                                LatchBB);
+      auto *BodyBB =
+          cast<BranchInst>(HeaderBB->getTerminator())->getSuccessor(1);
+      IdxPhi->addIncoming(Builder.getInt64(0), Preheader);
+      IdxPhi->addIncoming(IdxInc, BodyBB);
+      if (SumPhi) {
+        SumPhi->addIncoming(ResInit, Preheader);
+        SumPhi->addIncoming(RedStore->getOperand(0), BodyBB);
+      }
+      HeaderBB->setName("atomic.free.red.global.update.header");
+      BodyBB->setName("atomic.free.red.global.update.body");
+      LatchBB->setName("atomic.free.red.global.update.latch");
+      // BodyBB is designed to stay the same between consequent
+      // calls of this lambda
+      BodyBB->getTerminator()->setSuccessor(0, HeaderBB);
+      if (RedStore->getParent() != LatchBB) {
+        LatchBB->getTerminator()->setSuccessor(0, Preheader);
+      }
+      if (SumPhi)
+        cast<Instruction>(RedStore->getOperand(0))->setOperand(1, SumPhi);
+      Preheader = HeaderBB;
+
+      AtomicFreeRedGlobalUpdateBBs[W] = BodyBB;
+      return IdxPhi;
+    };
+
+    IdxPhi = GenerateLoop(NumGroups0, Init, RedValToLoad, RedStore, false);
+
+    RedStore->getParent()->setName("atomic.free.red.global.update.store");
+
+    Builder.SetInsertPoint(HeaderBB, HeaderBB->getTerminator()->getIterator());
+  } else {
+    auto *BodyBB = AtomicFreeRedGlobalUpdateBBs.lookup(W);
+    HeaderBB = cast<BranchInst>(BodyBB->getTerminator())->getSuccessor(0);
+    StoreBB = cast<BranchInst>(HeaderBB->getTerminator())->getSuccessor(0);
+    IdxPhi = cast<PHINode>(&HeaderBB->front());
+  }
+
+  auto *BodyBB = IdxPhi->getIncomingBlock(1);
+  Builder.SetInsertPoint(IdxPhi->getNextNode());
+  Builder.Insert(RedSumPhi);
+  RedSumPhi->addIncoming(Init, IdxPhi->getIncomingBlock(0));
+  Init->moveBefore(IdxPhi->getIncomingBlock(0)->getTerminator());
+
+  // Now as we have IdxPhi we need to use it for the source pointer
+  // offsets in the loop body
+  Builder.SetInsertPoint(RedValToLoad);
+  auto *GlobalGep = Builder.CreateGEP(RedElemType, ReductionValueLoc, IdxPhi);
+  RedValToLoad->setOperand(0, GlobalGep);
+
+  RedSumPhi->addIncoming(RedStore->getOperand(0), BodyBB);
+  RedStore->setOperand(0, RedSumPhi);
+
+  if (UseExistingUpdateLoop)
+    RedStore->moveBefore(StoreBB->getTerminator());
+
+  // this store is in the single-thread loop so master-thread check
+  // is not necessary
+  // (it's not even guaranteed that the master thread is going to execute it)
+  RedStore->setMetadata(VPOParoptAtomicFreeReduction::GlobalStoreMD,
+                        MDNode::get(F->getContext(), ConstantAsMetadata::get(
+                                                         Builder.getInt32(1))));
+  Builder.SetInsertPoint(StoreBB);
+
   return false;
 }
 
@@ -2895,90 +3145,143 @@ bool VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
     Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
     DominatorTree *DT) {
+  auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
   // the local update loop is already emitted, reuse its body
   // for another reduction items' updates
-  if (isTargetSPIRV() && FastReductionGPULocalUpdate && W->getIsParLoop() &&
-      GPURedUpdateBBs.count(W))
-    Builder.SetInsertPoint(GPURedUpdateBBs[W]->getTerminator());
-  Value *Res = nullptr;
+  bool UseLocalUpdates =
+      isTargetSPIRV() && (isa<WRNParallelNode>(W) || W->getIsParLoop());
+  bool UseGlobalUpdates = isTargetSPIRV() && W->getIsTeams();
+  UseLocalUpdates &= isAtomicFreeReductionLocalEnabled() && WTarget &&
+                     AtomicFreeReductionCheck[WTarget].isLocalValid() &&
+                     // we want to generate local reduction loop only if
+                     // we have teams reduction or no teams at all
+                     (WTarget->getHasTeamsReduction() ||
+                      !AtomicFreeReductionCheck[WTarget].getTeamsIsOk());
+  UseGlobalUpdates &= isAtomicFreeReductionGlobalEnabled() &&
+                      AtomicFreeRedGlobalBufs.count(RedI);
+
+#ifdef INTEL_CUSTOMIZATION
+  if ((UseLocalUpdates || UseGlobalUpdates) &&
+      (RedI->getIsArraySection() || RedI->getIsF90DopeVector())) {
+#else  // INTEL_CUSTOMIZATION
+  if ((UseLocalUpdates || UseGlobalUpdates) && RedI->getIsArraySection()) {
+#endif // INTEL_CUSTOMIZATION
+    OptimizationRemark R(DEBUG_TYPE, "AtomicFreeReduction",
+                         W->getEntryDirective());
+    R << ore::NV("Kind", RedI->getOpName())
+      << " fast GPU reduction is not supported for array section yet";
+    ORE.emit(R);
+    UseLocalUpdates = false;
+    UseGlobalUpdates = false;
+  }
+
+  bool UseExistingLocalLoop =
+      UseLocalUpdates && AtomicFreeRedLocalUpdateBBs.count(W);
+  bool UseExistingGlobalLoop =
+      UseGlobalUpdates && AtomicFreeRedGlobalUpdateBBs.count(W);
+
+  if (UseExistingLocalLoop)
+    Builder.SetInsertPoint(
+        AtomicFreeRedLocalUpdateBBs.lookup(W)->getTerminator());
+  else if (UseExistingGlobalLoop)
+    Builder.SetInsertPoint(
+        AtomicFreeRedGlobalUpdateBBs.lookup(W)->getTerminator());
+
+  Type *RedElemType = nullptr;
+  std::tie(RedElemType, std::ignore, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
+
+  auto *SumPhi = PHINode::Create(RedElemType, 0);
+
+  auto GenerateRedOp = [&RedI, &Builder, &ScalarTy,
+                        this](Value *Rhs1, Value *Rhs2) -> Value * {
+    Value *Res = nullptr;
+    switch (RedI->getType()) {
+    case ReductionItem::WRNReductionAdd:
+    case ReductionItem::WRNReductionSub:
+      if (RedI->getIsComplex()) {
+        Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
+        Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
+        Value *ResReal = Builder.CreateFAdd(Rhs1Real, Rhs2Real, "add");
+        Value *Rhs1Img = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
+        Value *Rhs2Img = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
+        Value *ResImaginary = Builder.CreateFAdd(Rhs1Img, Rhs2Img, "add");
+        Res = ConstantAggregateZero::get(Rhs1->getType());
+        Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
+        Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
+      } else {
+        Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
+                                             : Builder.CreateFAdd(Rhs1, Rhs2);
+      }
+      break;
+    case ReductionItem::WRNReductionMult:
+      if (RedI->getIsComplex()) {
+        // multiply two complex variables (N1=a+bi, N2=c+di) is equal to:
+        //   N1*N2 = (ac-bd) + (ad+cb)i
+        Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
+        Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
+        Value *Rhs1Imaginary = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
+        Value *Rhs2Imaginary = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
+        Value *Mult00 = Builder.CreateFMul(Rhs1Real, Rhs2Real, "mul");
+        Value *Mult11 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Imaginary, "mul");
+        Value *Mult01 = Builder.CreateFMul(Rhs1Real, Rhs2Imaginary, "mul");
+        Value *Mult10 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Real, "mul");
+        Value *ResReal = Builder.CreateFSub(Mult00, Mult11, "sub");
+        Value *ResImaginary = Builder.CreateFAdd(Mult01, Mult10, "add");
+        Res = ConstantAggregateZero::get(Rhs1->getType());
+        Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
+        Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
+      } else {
+        Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateMul(Rhs1, Rhs2)
+                                             : Builder.CreateFMul(Rhs1, Rhs2);
+      }
+      break;
+    case ReductionItem::WRNReductionBand:
+      Res = Builder.CreateAnd(Rhs1, Rhs2);
+      break;
+    case ReductionItem::WRNReductionBor:
+      Res = Builder.CreateOr(Rhs1, Rhs2);
+      break;
+    case ReductionItem::WRNReductionBxor:
+#if INTEL_CUSTOMIZATION
+    case ReductionItem::WRNReductionNeqv:
+#endif // INTEL_CUSTOMIZATION
+      Res = Builder.CreateXor(Rhs1, Rhs2);
+      break;
+    case ReductionItem::WRNReductionAnd:
+      Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, true);
+      break;
+    case ReductionItem::WRNReductionOr:
+      Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, false);
+      break;
+    case ReductionItem::WRNReductionMax:
+      Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, true);
+      break;
+    case ReductionItem::WRNReductionMin:
+      Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, false);
+      break;
+#if INTEL_CUSTOMIZATION
+    case ReductionItem::WRNReductionEqv:
+      Res = Builder.CreateXor(Rhs1, Rhs2);
+      Res = Builder.CreateNot(Res);
+      break;
+#endif // INTEL_CUSTOMIZATION
+    default:
+      llvm_unreachable("Reduction operator not yet supported!");
+    }
+    return Res;
+  };
+  Instruction *Init = nullptr;
+  if (isTargetSPIRV() && UseGlobalUpdates)
+    Init = Builder.CreateLoad(RedElemType, ReductionVar, "init");
   auto *Rhs2 = Builder.CreateLoad(
       ReductionValueLoc->getType()->getPointerElementType(), ReductionValueLoc);
-  auto *Rhs1 = Builder.CreateLoad(
-      ReductionVar->getType()->getPointerElementType(), ReductionVar);
-
-  switch (RedI->getType()) {
-  case ReductionItem::WRNReductionAdd:
-  case ReductionItem::WRNReductionSub:
-    if (RedI->getIsComplex()) {
-      Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
-      Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
-      Value *ResReal = Builder.CreateFAdd(Rhs1Real, Rhs2Real, "add");
-      Value *Rhs1Img = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
-      Value *Rhs2Img = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
-      Value *ResImaginary = Builder.CreateFAdd(Rhs1Img, Rhs2Img, "add");
-      Res = ConstantAggregateZero::get(Rhs1->getType());
-      Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
-      Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
-    } else {
-      Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
-                                           : Builder.CreateFAdd(Rhs1, Rhs2);
-    }
-    break;
-  case ReductionItem::WRNReductionMult:
-    if (RedI->getIsComplex()) {
-      // multiply two complex variables (N1=a+bi, N2=c+di) is equal to:
-      //   N1*N2 = (ac-bd) + (ad+cb)i
-      Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
-      Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
-      Value *Rhs1Imaginary = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
-      Value *Rhs2Imaginary = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
-      Value *Mult00 = Builder.CreateFMul(Rhs1Real, Rhs2Real, "mul");
-      Value *Mult11 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Imaginary, "mul");
-      Value *Mult01 = Builder.CreateFMul(Rhs1Real, Rhs2Imaginary, "mul");
-      Value *Mult10 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Real, "mul");
-      Value *ResReal = Builder.CreateFSub(Mult00, Mult11, "sub");
-      Value *ResImaginary = Builder.CreateFAdd(Mult01, Mult10, "add");
-      Res = ConstantAggregateZero::get(Rhs1->getType());
-      Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
-      Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
-    } else {
-      Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateMul(Rhs1, Rhs2)
-                                           : Builder.CreateFMul(Rhs1, Rhs2);
-    }
-    break;
-  case ReductionItem::WRNReductionBand:
-    Res = Builder.CreateAnd(Rhs1, Rhs2);
-    break;
-  case ReductionItem::WRNReductionBor:
-    Res = Builder.CreateOr(Rhs1, Rhs2);
-    break;
-  case ReductionItem::WRNReductionBxor:
-#if INTEL_CUSTOMIZATION
-  case ReductionItem::WRNReductionNeqv:
-#endif // INTEL_CUSTOMIZATION
-    Res = Builder.CreateXor(Rhs1, Rhs2);
-    break;
-  case ReductionItem::WRNReductionAnd:
-    Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, true);
-    break;
-  case ReductionItem::WRNReductionOr:
-    Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, false);
-    break;
-  case ReductionItem::WRNReductionMax:
-    Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, true);
-    break;
-  case ReductionItem::WRNReductionMin:
-    Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, false);
-    break;
-#if INTEL_CUSTOMIZATION
-  case ReductionItem::WRNReductionEqv:
-    Res = Builder.CreateXor(Rhs1, Rhs2);
-    Res = Builder.CreateNot(Res);
-    break;
-#endif // INTEL_CUSTOMIZATION
-  default:
-    llvm_unreachable("Reduction operator not yet supported!");
-  }
+  auto *Rhs1 =
+      UseGlobalUpdates
+          ? cast<Instruction>(SumPhi)
+          : Builder.CreateLoad(ReductionVar->getType()->getPointerElementType(),
+                               ReductionVar);
+  auto *Res = GenerateRedOp(Rhs1, Rhs2);
   auto *Tmp0 = Builder.CreateStore(Res, ReductionVar);
 
   if (isa<WRNVecLoopNode>(W))
@@ -2989,15 +3292,12 @@ bool VPOParoptTransform::genReductionScalarFini(
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
-    if (FastReductionGPULocalUpdate && W->getIsParLoop()) {
-      if (RedI->getIsArraySection()) {
-        DiagnosticInfoOptimizationFailure DI(
-            "openmp", "implementation-warning",
-            W->getEntryDirective()->getDebugLoc(), W->getEntryBBlock());
-        DI << "Fast GPU reduction for array section is not supported yet!";
-        F->getContext().diagnose(DI);
-      } else
-        return genFastGPUReductionScalarFini(W, Tmp0, Builder, DT);
+    if (UseLocalUpdates) {
+      return genAtomicFreeReductionLocalFini(W, RedI, Tmp0, Builder, DT);
+    } else if (UseGlobalUpdates) {
+      return genAtomicFreeReductionGlobalFini(
+          W, RedI, Tmp0, ReductionValueLoc, Rhs2, SumPhi, UseExistingGlobalLoop,
+          Builder, DT);
     }
     Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
         W, Tmp0->getParent(), nullptr, nullptr, true);
@@ -3109,6 +3409,33 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
                                      NoNeedToOffsetOrDerefOldV);
 
 #endif // INTEL_CUSTOMIZATION
+
+  if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
+      !RedI->getIsArraySection() &&
+      RedI->getType() != ReductionItem::WRNReductionUdr &&
+      (isa<WRNParallelNode>(W) || W->getIsParLoop() || W->getIsTeams())) {
+    auto *OrigInsertPt = InsertPt;
+    if ((isa<WRNParallelNode>(W) || W->getIsParLoop()) &&
+        AtomicFreeRedLocalUpdateBBs.count(W)) {
+      InsertPt = AtomicFreeRedLocalUpdateBBs[W]->getTerminator();
+      Builder.SetInsertPoint(InsertPt);
+    }
+    if (AtomicFreeRedGlobalBufs.count(RedI)) {
+      auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
+      if ((isa<WRNParallelNode>(W) || W->getIsParLoop())) {
+        auto *GroupId0 = VPOParoptUtils::genOCLGenericCall(
+            "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
+            Builder.getInt32(0), InsertPt);
+        OldV = Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
+                                 GlobalBuf, GroupId0);
+      } else {
+        NewV = Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
+                                 GlobalBuf, Builder.getInt32(0));
+      }
+    }
+    Builder.SetInsertPoint(OrigInsertPt);
+  }
+
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy())
     return genRedAggregateInitOrFini(W, RedI, NewV, OldV, InsertPt, false, DT,
                                      NoNeedToOffsetOrDerefOldV);
@@ -3872,13 +4199,26 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
     return;
   }
 
+  bool isArraySection = RedI->getIsArraySection() || AllocaTy->isArrayTy();
+
+  IRBuilder<> Builder(InsertPt);
+  if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
+      W->getIsTeams() && !isArraySection && !IsUDR &&
+      AtomicFreeRedGlobalBufs.count(RedI)) {
+    auto *GroupId0 = VPOParoptUtils::genOCLGenericCall(
+        "_Z12get_group_idj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
+        InsertPt);
+    auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
+    NewV = Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
+                             GlobalBuf, GroupId0);
+  }
+
 #endif // INTEL_CUSTOMIZATION
-  if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
+  if (isArraySection) {
     genRedAggregateInitOrFini(W, RedI, NewV, NeedSrc ? OldV : nullptr, InsertPt,
                               true, DT, true);
     return;
   }
-  IRBuilder<> Builder(InsertPt);
   if (IsUDR) {
     genReductionUdrInit(RedI, OldV, NewV, AllocaTy, Builder);
     return;
@@ -4666,6 +5006,40 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                                    // to call _f90_dv_size(&dv) to get
                                    // num_elements in the reduction callback.
 #endif // INTEL_CUSTOMIZATION
+      // Filling the AtomicFreeRedGlobalBufs array to be used for
+      // fast GPU reduction generation later
+      if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
+          ((isa<WRNParallelNode>(W) || W->getIsParLoop()) || W->getIsTeams()) &&
+          !AtomicFreeRedGlobalBufs.count(RedI)) {
+        auto *WTarget =
+            WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+        auto &MapClause = WTarget->getMap();
+
+        int CurBufIdx = 0;
+        bool Found = false;
+        for (auto &MItem : MapClause.items()) {
+          if (isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
+              cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
+                  ->hasAttribute(
+                      VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
+            if (CurBufIdx == ItemIndex) {
+              auto *GV = dyn_cast<GlobalVariable>(
+                  MItem->getMapChain()[0]->getBasePtr());
+              assert(GV);
+              AtomicFreeRedGlobalBufs[RedI] = GV;
+              Found = true;
+              break;
+            }
+            ++CurBufIdx;
+          }
+        }
+        // we need to increment ItemIndex but need to ensure non-GPU
+        // FastReduction is disabled to prevent its failure due to the updated
+        // ItemIndex
+        assert(!Found || !FastReductionEnabled);
+        if (Found)
+          ItemIndex++;
+      }
 
       RedInitEntryBB = createEmptyPrivInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);

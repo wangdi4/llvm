@@ -97,6 +97,14 @@ enum DeviceArch : uint64_t {
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 
+namespace VPOParoptAtomicFreeReduction {
+constexpr StringRef GlobalBufferAttr = "paropt_red_globalbuf";
+constexpr StringRef TeamsCounterAttr = "paropt_red_teamscounter";
+constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
+
+enum Kind { Kind_Local = 1, Kind_Global = 2 };
+} // namespace VPOParoptAtomicFreeReduction
+
 class VPOParoptModuleTransform;
 
 /// Provide all functionalities to perform paropt threadization
@@ -278,8 +286,34 @@ private:
   ///           };
   StructType *KmpTaskDependInfoTy;
 
-  /// BBs that perform local updates within the fast GPU reduction loop.
-  std::map<WRegionNode *, BasicBlock *> GPURedUpdateBBs;
+  DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
+
+  class AtomicFreeReductionValidityCheck {
+    bool LoopIsOk = false;
+    bool ParIsOk = false;
+    bool TeamsIsOk = false;
+
+  public:
+    AtomicFreeReductionValidityCheck() {}
+
+    bool getLoopIsOk() const { return LoopIsOk; }
+    bool getParIsOk() const { return ParIsOk; }
+    bool getTeamsIsOk() const { return TeamsIsOk; }
+
+    void setLoopIsOk(bool Val = true) { LoopIsOk = Val; }
+    void setParIsOk(bool Val = true) { ParIsOk = Val; }
+    void setTeamsIsOk(bool Val = true) { TeamsIsOk = Val; }
+
+    bool isLocalValid() const { return LoopIsOk && ParIsOk; }
+    bool isGlobalValid() const { return LoopIsOk && ParIsOk && TeamsIsOk; }
+  };
+
+  DenseMap<WRegionNode *, AtomicFreeReductionValidityCheck>
+      AtomicFreeReductionCheck;
+
+  /// BBs that perform updates within the fast GPU reduction loops.
+  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedLocalUpdateBBs;
+  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedGlobalUpdateBBs;
 
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.
@@ -579,6 +613,9 @@ private:
   bool addMapForUseDevicePtr(WRegionNode *W,
                  Instruction *InsertBefore = nullptr);
 
+  void checkAtomicFreeReductionOpportunity(WRegionNode *W);
+  bool addFastGlobalRedBufMap(WRegionNode *W);
+
   // Convert 'IS_DEVICE_PTR' clauses in W to MAP, and 'IS_DEVICE_PTR:PTR_TO_PTR'
   // clauses to MAP + PRIVATE.
   bool addMapAndPrivateForIsDevicePtr(WRegionNode *W);
@@ -676,9 +713,16 @@ private:
                        StructType *FastRedStructTy, Value *FastRedVar,
                        BasicBlock *EntryBB, BasicBlock *EndBB);
 
-  /// Generate local update loop for fast GPU reduction
-  bool genFastGPUReductionScalarFini(WRegionNode *W, StoreInst *RedStore,
-                                     IRBuilder<> &Builder, DominatorTree *DT);
+  /// Generate local update loop for atomic-free GPU reduction
+  bool genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
+                                       StoreInst *RedStore,
+                                       IRBuilder<> &Builder, DominatorTree *DT);
+
+  /// Generate global update loop for atomic-free GPU reduction
+  bool genAtomicFreeReductionGlobalFini(
+      WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
+      Value *ReductionValueLoc, Instruction *RedValToLoad, PHINode *RedSumPhi,
+      bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate code for the aligned clause.
   bool genAlignedCode(WRegionNode *W);

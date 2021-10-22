@@ -78,7 +78,8 @@ static cl::opt<int> DataSharingOptNumCase(
     "vpo-paropt-opt-data-sharing-num-case", cl::Hidden, cl::init(-1),
     cl::desc("Maximum number of optimized clause items"));
 
-extern cl::opt<bool> FastReductionGPULocalUpdate;
+// Defined in VPOParoptTransform.cpp
+extern cl::opt<bool> AtomicFreeReduction;
 
 #define DEBUG_TYPE "vpo-paropt-optimize-data-sharing"
 #define PASS_NAME "VPO Paropt Optimize Data Sharing"
@@ -607,7 +608,7 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
   // and their respective atomic updates to be emiited. Otherwise ParLoop's
   // local updates will update cross-WG accumulators in a non-thread-safe
   // manner causing dataraces.
-  if (FastReductionGPULocalUpdate) {
+  if (AtomicFreeReduction) {
     OptimizationRemark R(
         "openmp", "Ignored OptDataSharing as fast GPU reduction is enabled", F);
     R << " OptDataSharing as fast GPU reduction is enabled";

@@ -204,6 +204,7 @@ getAllocMemProperties(size_t Size, cl_ulong MaxSize) {
 class KernelInfoTy {
   uint32_t Version = 0;
   uint64_t Attributes1 = 0;
+  uint64_t WGNum = 0;
 
   struct KernelArgInfoTy {
     bool IsLiteral = false;
@@ -242,6 +243,12 @@ public:
   }
   bool getHasTeamsReduction() const {
     return (Attributes1 & 1);
+  }
+  void setWGNum(uint64_t Val) {
+    WGNum = Val;
+  }
+  uint64_t getWGNum() const {
+    return WGNum;
   }
 };
 
@@ -1817,7 +1824,7 @@ bool RTLDeviceInfoTy::readKernelInfo(
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
   }
-  if (Version > 2) {
+  if (Version > 3) {
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
        Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
@@ -1828,6 +1835,9 @@ bool RTLDeviceInfoTy::readKernelInfo(
   size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
   // Support Attributes1 since version 2.
   if (Version > 1)
+    ExpectedInfoVarSize += 8;
+  // Support WGNum since version 3.
+  if (Version > 2)
     ExpectedInfoVarSize += 8;
   if (InfoVarSize != ExpectedInfoVarSize) {
     DP("Error: expected kernel info variable size %zu - got %zu\n",
@@ -1848,6 +1858,14 @@ bool RTLDeviceInfoTy::readKernelInfo(
     // Read 8-byte Attributes1 since version 2.
     uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
     Info.setAttributes1(Attributes1);
+    ReadPtr += 8;
+  }
+
+  if (Version > 2) {
+    // Read 8-byte WGNum since version 3.
+    uint32_t WGNum = llvm::support::endian::read64le(ReadPtr);
+    Info.setWGNum(WGNum);
+    ReadPtr += 8;
   }
 
   FuncGblEntries[DeviceId].back().KernelInfo.emplace(
@@ -3887,6 +3905,12 @@ static void decideKernelGroupArguments(
       GroupCounts[0] *= DeviceInfo->SubscriptionRate;
     }
   }
+  // cannot use std::min as some std Windows header
+  // define min as a macro
+  if (KInfo && KInfo->getWGNum())
+    GroupCounts[0] = (KInfo->getWGNum() < static_cast<uint64_t>(GroupCounts[0]))
+                         ? KInfo->getWGNum()
+                         : static_cast<uint64_t>(GroupCounts[0]);
 }
 
 static inline int32_t runTargetTeamNDRegion(

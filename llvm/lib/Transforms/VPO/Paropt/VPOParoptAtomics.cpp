@@ -335,12 +335,21 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   // We're interested in only the middle one here.
   BasicBlock *BB = *(AtomicNode->bbset_begin() + 1);
 
+  return handleAtomicCaptureInBlock(AtomicNode, BB, IdentTy, TidPtr,
+                                    IsTargetSPIRV);
+}
+
+Instruction *VPOParoptAtomics::handleAtomicCaptureInBlock(WRegionNode *W,
+                                                          BasicBlock *BB,
+                                                          StructType *IdentTy,
+                                                          Constant *TidPtr,
+                                                          bool IsTargetSPIRV) {
   // Make sure that the BBlock has enough Instructions to start with.
   if (BB->size() <= 3) {
     LLVM_DEBUG(dbgs() << __FUNCTION__
                       << ": Atomic Capture BBlock has less than 4"
                       << " Instructions. Returning.\n");
-    return false; // Handle using critical section.
+    return nullptr; // Handle using critical section.
   }
 
   // We use the last statement of this BB as the anchor for new instructions.
@@ -379,12 +388,12 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
                              InstsToDelete); // In, Out
 
   if (CaptureKind == CaptureUnknown)
-    return false; // Handle using critical section.
+    return nullptr; // Handle using critical section.
 
   removeDuplicateInstsFromList(InstsToDelete);
 
   if (instructionsAreUsedOutsideBB(InstsToDelete, BB))
-    return false; // Handle using critical section.
+    return nullptr; // Handle using critical section.
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
   // the types of AtomicOpnd and ValueOpnd are not the same.
@@ -413,7 +422,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
     if (ValueOpndCast != nullptr)
       delete ValueOpndCast;
     // No intrinsic found. Handle using critical sections.
-    return false;
+    return nullptr;
   }
 
   // We found the matching intrinsic. So, it's safe to insert ValueOpndCast
@@ -448,8 +457,8 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(ReturnTy != nullptr && "Invalid return type for KMPC call.");
 
   // Now we can generate the call.
-  CallInst *AtomicCall = genAtomicCall(AtomicNode, IdentTy, TidPtr, Anchor,
-                                       Name, ReturnTy, FnArgs, IsTargetSPIRV);
+  CallInst *AtomicCall = genAtomicCall(W, IdentTy, TidPtr, Anchor, Name,
+                                       ReturnTy, FnArgs, IsTargetSPIRV);
   assert(AtomicCall != nullptr && "Generated Atomic Capture call is null.");
 
   AtomicCall->insertBefore(Anchor);
@@ -472,7 +481,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   // And finally, delete the instructions that are no longer needed.
   deleteInstructionsInList(InstsToDelete);
 
-  return true;
+  return AtomicCall;
 }
 
 // Omit the Ident and Tid parameters if IsTargetSPIRV is true.

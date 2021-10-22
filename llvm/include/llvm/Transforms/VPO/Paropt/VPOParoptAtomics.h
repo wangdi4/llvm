@@ -81,6 +81,27 @@ public:
       WRegionNode *W, BasicBlock *BB, StructType *IdentTy, Constant *TidPtr,
       bool IsTargetSPIRV);
 
+  /// Transforms capture operation sequence into an atomic capture.
+  ///
+  /// This method is made public so that it can be used for transforming
+  /// reduction captures into atomic ones.
+  /// \param [in] W is the WRegionNode for which the KMPC calls are
+  /// to be generated.  It is used for Loc structure initialization,
+  /// and may not be WRNAtomicNode.
+  /// \param [in] BB is a BasicBlock containing update operation sequence.
+  /// Look for examples in handleAtomicCapture() header comment.
+  /// \param [in] IdentTy is the Loc struct type, needed for KMPC calls.
+  /// \param [in] TidPtr is pointer to the alloca instruction for
+  /// thread ID. Needed for KMPC calls.
+  /// \param [in] IsTargetSPIRV if true don't emit the Ident and Tid parameters.
+  /// \p IdentTy and \p TidPtr may be nullptr, if \p IsTargetSPIRV is true.
+  ///
+  /// \returns Instruction generated for KMPC call.
+  static Instruction *handleAtomicCaptureInBlock(WRegionNode *W, BasicBlock *BB,
+                                                 StructType *IdentTy,
+                                                 Constant *TidPtr,
+                                                 bool IsTargetSPIRV);
+
 private:
   /// \name Private constructors, destructors.
   /// All methods in the class are static. Object instantiation is not needed.

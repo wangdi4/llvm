@@ -101,6 +101,14 @@ static cl::opt<uint64_t> KernelArgsSizeLimit(
     "vpo-paropt-kernel-args-size-limit", cl::Hidden, cl::init(1024),
     cl::desc("Maximum total size in bytes of the arguments for a kernel"));
 
+static cl::opt<uint32_t> AtomicFreeRedGlobalBufSize(
+    "vpo-paropt-atomic-free-red-global-buf-size", cl::Hidden, cl::init(1024),
+    cl::desc("Maximum number of elements (and teams) in the global buffer for "
+             "atomic-free reduction"));
+
+extern cl::opt<bool> AtomicFreeReduction;
+extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
+
 // Reset the value in the Map clause to be empty.
 //
 // Do not reset base pointers (including the item's getOrig() pointer),
@@ -347,7 +355,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   // Generate '<kernel-name>_kernel_info' global variable that specifies
   // whether a kernel argument is passed by value or not.
-  // Versions 1-2 of the data structure use the following format:
+  // Versions 1-3 of the data structure use the following format:
   //   struct KernelInfoTy {
   //     uint32_t Version = [1 .. 2];
   //     uint32_t ArgsNum = <number of the kernel arguments>;
@@ -356,6 +364,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   //       uint32_t Size = <argument size>;
   //     } ArgsDesc[ArgsNum];
   //     uint64_t Attributes1; // Since version 2.
+  //     uint64_t WGNum;       // Since version 3.
   //   };
   auto GenerateKernelArgInfoVar =
       [](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
@@ -369,10 +378,10 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         SmallVector<Type *, 3> KernelInfoInitMemberTypes;
         SmallVector<Constant *, 10> KernelInfoInitBuffer;
 
-        // The current version is 2.
+        // The current version is 3.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt32Ty(C), 2));
+            ConstantInt::get(Type::getInt32Ty(C), 3));
         // Specify the number of kernel argument.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
@@ -411,6 +420,16 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt64Ty(C), Attributes1));
+
+        uint64_t UseGPURedWGLimit =
+            (HasTeamsReduction && AtomicFreeReduction &&
+             (AtomicFreeReductionCtrl &
+              VPOParoptAtomicFreeReduction::Kind_Global))
+                ? AtomicFreeRedGlobalBufSize
+                : 0;
+        KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
+        KernelInfoInitBuffer.push_back(
+            ConstantInt::get(Type::getInt64Ty(C), UseGPURedWGLimit));
 
         KernelInfoInitTy = StructType::create(KernelInfoInitMemberTypes);
         Constant *KernelInfoInit =
@@ -763,6 +782,12 @@ static bool ignoreSpecialOperands(const Instruction *I) {
     const Value *StorePointer = StoreI->getPointerOperand();
     const Value *RootPointer = StorePointer->stripInBoundsOffsets();
     LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer << "\n");
+
+    // atomic-free reduction implementation's global update loop
+    // is executed only by a master thread of a single team
+    // so no guarding required
+    if (StoreI->hasMetadata(VPOParoptAtomicFreeReduction::GlobalStoreMD))
+      return true;
 
     // We must not guard stores through private pointers. The store must
     // happen in each work item, so that the variable is initialized
@@ -2335,6 +2360,124 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
                dbgs() << "', for use_device_ptr '"; UDP->printAsOperand(dbgs());
                dbgs() << "'.\n");
   }
+  return true;
+}
+
+void VPOParoptTransform::checkAtomicFreeReductionOpportunity(WRegionNode *W) {
+  if (W->getIsSections())
+    return;
+  auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  if (!WTarget)
+    return;
+
+  if (W->getIsOmpLoop())
+    AtomicFreeReductionCheck[WTarget].setLoopIsOk(
+        !W->getWRNLoopInfo().isKnownNDRange());
+  if (W->getIsPar())
+    AtomicFreeReductionCheck[WTarget].setParIsOk();
+  if (W->getIsDistribute())
+    AtomicFreeReductionCheck[WTarget].setParIsOk(
+        // TODO: set WRNDistirbute inner stores pointer operands to @redbuf
+        // so that the following condition could be removed
+        // TODO: remove isKnownNDRange call here once the related clause
+        // is correctly handled in fixupKnownNDRange()
+        (isa<WRNDistributeNode>(W)
+             ? AtomicFreeReductionCheck[WTarget].getParIsOk()
+             : true) &&
+        !W->getWRNLoopInfo().isKnownNDRange());
+  if (W->getIsTeams())
+    AtomicFreeReductionCheck[WTarget].setTeamsIsOk();
+}
+
+// Add globals for fast GPU reduction global buffers (one per reduction item)
+// and global teams counter (one per kernel)
+bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
+  assert(W && "Null WRegionNode.");
+
+  assert(W->getIsTarget());
+
+  if (!AtomicFreeReductionCheck[W].isGlobalValid())
+    return false;
+
+  auto WTeamsIt =
+      std::find_if(W->getChildren().begin(), W->getChildren().end(),
+                   [](WRegionNode *SW) { return SW->getIsTeams(); });
+  assert(WTeamsIt != W->getChildren().end() &&
+         "Teams presence was promised by AtomicFreeReductionCheck");
+
+  auto *WTeams = *WTeamsIt;
+
+  CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
+
+  auto &RedClause = WTeams->getRed();
+  if (RedClause.empty())
+    return false;
+
+  using ClauseBundleTy = SmallVector<Value *, 4>;
+  SmallVector<std::pair<StringRef, ClauseBundleTy>, 8> NewClauses;
+  StringRef MapClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_MAP_TO);
+
+  MapClause &MapC = W->getMap();
+
+  auto addMapForValue = [&](Value *V, uint64_t MapType, Value *MapTypeVal,
+                            Value *MapSize) {
+    MapAggrTy *MapAggr = new MapAggrTy(V, V, MapSize, MapType);
+    MapItem *MapI = new MapItem(MapAggr);
+    MapI->setOrig(V);
+    MapC.add(MapI);
+
+    // FIXME: create 6-operand MAP clause with the variable name
+    //        and the null mapper.
+    NewClauses.push_back(
+        {MapClauseName, ClauseBundleTy({V, V, MapSize, MapTypeVal})});
+  };
+  const DataLayout &DL = F->getParent()->getDataLayout();
+
+  for (ReductionItem *RedI : RedClause.items()) {
+    uint64_t Size = DL.getPointerSizeInBits() / 8;
+    uint64_t MapType = TGT_MAP_PRIVATE;
+    Value *MapTypeVal =
+        ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
+    Value *MapSize = ConstantInt::get(
+        Type::getInt64Ty(F->getContext()),
+        Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+
+    Type *BufTy = nullptr;
+    std::tie(BufTy, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(RedI);
+
+    auto *NewBuf = new GlobalVariable(
+        *F->getParent(), BufTy, false,
+        GlobalValue::LinkageTypes::ExternalWeakLinkage, nullptr, "red_buf",
+        nullptr, GlobalValue::NotThreadLocal,
+        isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
+    NewBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
+    addMapForValue(NewBuf, MapType, MapTypeVal, MapSize);
+  }
+
+  uint64_t Size = DL.getPointerSizeInBits() / 8;
+  uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_TO;
+  Value *MapTypeVal =
+      ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
+  Value *MapSize = ConstantInt::get(Type::getInt64Ty(F->getContext()), Size);
+
+  auto *GlobalCounter = new GlobalVariable(
+      *(F->getParent()), Type::getInt32Ty(F->getContext()), false,
+      GlobalValue::LinkageTypes::PrivateLinkage,
+      ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
+      "teams_counter",
+      nullptr, GlobalValue::NotThreadLocal, isTargetSPIRV() ? 1 : 0);
+  GlobalCounter->addAttribute(VPOParoptAtomicFreeReduction::TeamsCounterAttr);
+
+  addMapForValue(GlobalCounter, MapType, MapTypeVal, MapSize);
+
+  SmallVector<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd;
+  for (auto &C : NewClauses)
+    OpBundlesToAdd.emplace_back(C.first, C.second);
+
+  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
+  W->setEntryDirective(EntryCI);
+
   return true;
 }
 
