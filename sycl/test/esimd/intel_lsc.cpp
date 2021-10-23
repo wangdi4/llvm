@@ -8,7 +8,7 @@
 // NOTE: must be run in -O0, as optimizer optimizes away some of the code
 
 #include <CL/sycl.hpp>
-#include <CL/sycl/INTEL/esimd.hpp>
+#include <sycl/ext/intel/experimental/esimd.hpp>
 #include <CL/sycl/detail/image_ocl_types.hpp>
 
 using namespace sycl::ext::intel::experimental::esimd;
@@ -46,7 +46,7 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void foo() {
   lsc_flat_prefetch<int, VL, lsc_data_size::default_size, CacheHint::Uncached,
                     CacheHint::Uncached>(ptr);
 
-  auto offsets = simd<uint32_t, VL>(1) * sizeof(int);
+  simd<uint32_t, VL> offsets = simd<uint32_t, VL>(1) * sizeof(int);
 
   // CHECK: call void @llvm.genx.lsc.store.stateless.v4i1.v4i64.v4i32(<4 x i1> {{[^)]+}}, i8 4, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i64> {{[^)]+}}, <4 x i32> {{[^)]+}}, i32 0)
   lsc_flat_store<int>(ptr, data1, offsets);
@@ -90,43 +90,43 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void foo() {
   auto add = simd<uint16_t, VL>(5);
   auto compare = simd<uint32_t, VL>(VL, 1);
   auto swap = compare * 2;
-  auto pred = simd<uint16_t, VL>(1);
+  auto pred = simd_mask<VL>(1);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.stateless.v4i32.v4i1.v4i64(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 8, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i64> %{{[a-zA-Z0-9_]+}}, <4 x i32> undef, <4 x i32> undef, i32 0, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.stateless.v4i32.v4i1.v4i64(<4 x i1> {{[^)]+}} i8 8, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i64> {{[^)]+}}, <4 x i32> undef, <4 x i32> undef, i32 0, <4 x i32> undef)
   auto res_flat_atomic_0 =
       lsc_flat_atomic<int, EsimdAtomicOpType::ATOMIC_INC>(ptr, offsets, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.stateless.v4i32.v4i1.v4i64(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 12, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i64> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> undef, i32 0, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.stateless.v4i32.v4i1.v4i64(<4 x i1> {{[^)]+}}, i8 12, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i64> {{[^)]+}}, <4 x i32> {{[^)]+}}, <4 x i32> undef, i32 0, <4 x i32> undef)
   auto res_flat_atomic_1 = lsc_flat_atomic<int, EsimdAtomicOpType::ATOMIC_ADD>(
       ptr, offsets, add, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.stateless.v4i32.v4i1.v4i64(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 18, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i64> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, i32 0, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.stateless.v4i32.v4i1.v4i64(<4 x i1> {{[^)]+}}, i8 18, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i64> {{[^)]+}}, <4 x i32> {{[^)]+}}, <4 x i32> {{[^)]+}}, i32 0, <4 x i32> undef)
   auto res_flat_atomic_2 =
       lsc_flat_atomic<int, EsimdAtomicOpType::ATOMIC_CMPXCHG>(
           ptr, offsets, compare, swap, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.slm.v4i32.v4i1.v4i32(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 8, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> undef, <4 x i32> undef, i32 0, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.slm.v4i32.v4i1.v4i32(<4 x i1> {{[^)]+}}, i8 8, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> {{[^)]+}}, <4 x i32> undef, <4 x i32> undef, i32 0, <4 x i32> undef)
   auto res_slm_atomic_0 =
       lsc_slm_atomic<int, EsimdAtomicOpType::ATOMIC_INC>(offsets, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.slm.v4i32.v4i1.v4i32(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 12, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> undef, i32 0, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.slm.v4i32.v4i1.v4i32(<4 x i1> {{[^)]+}}, i8 12, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> {{[^)]+}}, <4 x i32> {{[^)]+}}, <4 x i32> undef, i32 0, <4 x i32> undef)
   auto res_slm_atomic_1 =
       lsc_slm_atomic<int, EsimdAtomicOpType::ATOMIC_ADD>(offsets, add, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.slm.v4i32.v4i1.v4i32(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 18, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, i32 0, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.slm.v4i32.v4i1.v4i32(<4 x i1> {{[^)]+}}, i8 18, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> {{[^)]+}}, <4 x i32> {{[^)]+}}, <4 x i32> {{[^)]+}}, i32 0, <4 x i32> undef)
   auto res_slm_atomic_2 =
       lsc_slm_atomic<int, EsimdAtomicOpType::ATOMIC_CMPXCHG>(offsets, compare,
                                                              swap, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.bti.v4i32.v4i1.v4i32(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 8, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> undef, <4 x i32> undef, i32 %{{[a-zA-Z0-9_]+}}, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.bti.v4i32.v4i1.v4i32(<4 x i1> {{[^)]+}}, i8 8, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> {{[^)]+}}, <4 x i32> undef, <4 x i32> undef, i32 {{[^)]+}}, <4 x i32> undef)
   auto res_surf_atomic_0 =
       lsc_surf_atomic<int, EsimdAtomicOpType::ATOMIC_INC>(acc, offsets, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.bti.v4i32.v4i1.v4i32(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 12, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> undef, i32 %{{[a-zA-Z0-9_]+}}, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.bti.v4i32.v4i1.v4i32(<4 x i1> {{[^)]+}}, i8 12, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> {{[^)]+}}, <4 x i32> {{[^)]+}}, <4 x i32> undef, i32 {{[^)]+}}, <4 x i32> undef)
   auto res_surf_atomic_1 = lsc_surf_atomic<int, EsimdAtomicOpType::ATOMIC_ADD>(
       acc, offsets, add, pred);
 
-  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.bti.v4i32.v4i1.v4i32(<4 x i1> %{{[a-zA-Z0-9_]+}}, i8 18, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, <4 x i32> %{{[a-zA-Z0-9_]+}}, i32 %{{[a-zA-Z0-9_]+}}, <4 x i32> undef)
+  // CHECK: call <4 x i32> @llvm.genx.lsc.xatomic.bti.v4i32.v4i1.v4i32(<4 x i1> {{[^)]+}}, i8 18, i8 0, i8 0, i16 1, i32 0, i8 3, i8 1, i8 1, i8 0, <4 x i32> {{[^)]+}}, <4 x i32> {{[^)]+}}, <4 x i32> {{[^)]+}}, i32 {{[^)]+}}, <4 x i32> undef)
   auto res_surf_atomic_2 =
       lsc_surf_atomic<int, EsimdAtomicOpType::ATOMIC_CMPXCHG>(
           acc, offsets, compare, swap, pred);
@@ -154,6 +154,6 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void foo() {
       ptr, data_width, data_height, data_pitch, x, y);
 
   lsc_fence<lsc_sfid::slm, lsc_fence_op::none, lsc_scope::group, 16>();
-  // CHECK: call void @llvm.genx.lsc.fence.v16i1(<16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i8 3, i8 0, i8 0)
+  // CHECK: call void @llvm.genx.lsc.fence.v16i1(<16 x i1> {{[^)]+}}, i8 3, i8 0, i8 0)
 }
 // end INTEL_FEATURE_ESIMD_EMBARGO
