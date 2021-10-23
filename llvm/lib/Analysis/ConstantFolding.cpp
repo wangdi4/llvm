@@ -1378,6 +1378,7 @@ Constant *llvm::ConstantFoldLoadThroughGEPConstantExpr(Constant *C,
   return ConstantFoldLoadThroughBitcast(C, Ty, DL);
 }
 
+<<<<<<< HEAD
 Constant *
 llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
                                         ArrayRef<Constant *> Indices) {
@@ -1404,6 +1405,8 @@ static bool hasAnyImfFnAttr(const CallBase *Call) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> c5b5b7f621ee5438c802d0b5a54c78af8a99dfa3
 //===----------------------------------------------------------------------===//
 //  Constant Folding for Calls
 //
