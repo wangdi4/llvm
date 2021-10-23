@@ -1378,6 +1378,10 @@ Constant *llvm::ConstantFoldLoadThroughGEPConstantExpr(Constant *C,
   return ConstantFoldLoadThroughBitcast(C, Ty, DL);
 }
 
+#if INTEL_COLLAB
+// Following function has been removed from llorg as of commit c5b5b7f. Keeping
+// it here because it is still needed by
+// llvm/lib/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.cpp
 Constant *
 llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
                                         ArrayRef<Constant *> Indices) {
@@ -1390,6 +1394,7 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
   }
   return C;
 }
+#endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
 // FIXME: We should have a more general interface for the imf attributes.
