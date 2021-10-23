@@ -547,6 +547,12 @@ bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC) {
     DeleteDeadBlock(BB);
   }
 
+#if INTEL_CUSTOMIZATION
+// Quick fix for the urgent issue CMPLRLLVM-32098.
+// The issue and final solution should be discussed later in the community.
+  Changed |= EliminateUnreachableBlocks(F);
+#endif // INTEL_CUSTOMIZATION
+
   return Changed;
 }
 
