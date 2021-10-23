@@ -159,6 +159,19 @@ Constant *ConstantFoldLoadThroughGEPConstantExpr(Constant *C, ConstantExpr *CE,
                                                  Type *Ty,
                                                  const DataLayout &DL);
 
+#if INTEL_COLLAB
+// Following function has been removed from llorg as of commit c5b5b7f. Keeping
+// it here because it is still needed by
+// llvm/lib/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.cpp
+
+/// ConstantFoldLoadThroughGEPIndices - Given a constant and getelementptr
+/// indices (with an *implied* zero pointer index that is not in the list),
+/// return the constant value being addressed by a virtual load, or null if
+/// something is funny and we can't decide.
+Constant *ConstantFoldLoadThroughGEPIndices(Constant *C,
+                                            ArrayRef<Constant *> Indices);
+#endif // INTEL_COLLAB
+
 /// canConstantFoldCallTo - Return true if its even possible to fold a call to
 /// the specified function.
 bool canConstantFoldCallTo(const CallBase *Call, const Function *F);
