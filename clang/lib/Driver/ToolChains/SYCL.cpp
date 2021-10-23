@@ -842,7 +842,8 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
           continue;
         }
       } else {
-        if (Args.getAllArgValues(options::OPT_fopenmp_targets_EQ).size() != 1) {
+        const Arg *TargetArg = Args.getLastArg(options::OPT_fsycl_targets_EQ);
+        if (TargetArg && TargetArg->getValues().size() != 1) {
           getDriver().Diag(diag::err_drv_Xopenmp_target_missing_triple)
               << A->getSpelling();
           continue;
