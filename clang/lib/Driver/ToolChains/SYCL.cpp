@@ -834,7 +834,6 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
     if (OptNoTriple) {
       // With multiple -fsycl-targets, a triple is required so we know where
       // the options should go.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (DeviceOffloadKind == Action::OFK_SYCL) {
         if (Args.getAllArgValues(options::OPT_fsycl_targets_EQ).size() != 1) {
@@ -843,18 +842,12 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
           continue;
         }
       } else {
-        if (Args.getAllArgValues(options::OPT_fopenmp_targets_EQ).size() != 1) {
+        const Arg *TargetArg = Args.getLastArg(options::OPT_fsycl_targets_EQ);
+        if (TargetArg && TargetArg->getValues().size() != 1) {
           getDriver().Diag(diag::err_drv_Xopenmp_target_missing_triple)
               << A->getSpelling();
           continue;
         }
-=======
-      const Arg *TargetArg = Args.getLastArg(options::OPT_fsycl_targets_EQ);
-      if (TargetArg && TargetArg->getValues().size() != 1) {
-        getDriver().Diag(diag::err_drv_Xsycl_target_missing_triple)
-            << A->getSpelling();
-        continue;
->>>>>>> c623223a78e0d1b8bc8bdba6cd7fd4ddf960cb3e
       }
 #endif // INTEL_CUSTOMIZATION
       // No triple, so just add the argument.
