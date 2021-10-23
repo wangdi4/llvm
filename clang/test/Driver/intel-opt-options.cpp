@@ -182,3 +182,8 @@
 // RUN: %clang_cl -Qopt-for-throughput=badarg -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s
 // THROUGHPUT-BADARG: error: invalid argument 'badarg'
+
+// Make sure -mllvm -loopopt is passed when -x<arg> is used
+// RUN: %clangxx -mllvm -loopopt -xAVX2 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK_LOOPOPT %s
+// CHECK_LOOPOPT: "-mllvm" "-loopopt"
