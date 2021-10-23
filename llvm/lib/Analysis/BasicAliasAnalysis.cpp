@@ -674,10 +674,11 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     unsigned Width = Index->getType()->getIntegerBitWidth();
     if (PointerSize > Width)
       SExtBits += PointerSize - Width;
+    unsigned TruncBits = PointerSize < Width ? Width - PointerSize : 0;
 
     // Use GetLinearExpression to decompose the index into a C1*V+C2 form.
     LinearExpression LE = GetLinearExpression(
-        CastedValue(Index, 0, SExtBits), DL, 0, AC, DT);
+        CastedValue(Index, 0, SExtBits, TruncBits), DL, 0, AC, DT);
     Decomposed.Offset += LE.Offset.getSExtValue() * Scale;
     Scale *= LE.Scale.getSExtValue();
 
