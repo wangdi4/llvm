@@ -7,7 +7,7 @@
 // RUN: FileCheck %s -input-file=%t_esimd_0.ll
 
 #include <CL/sycl.hpp>
-#include <CL/sycl/INTEL/esimd.hpp>
+#include <sycl/ext/intel/experimental/esimd.hpp>
 
 using namespace sycl::ext::intel::experimental::esimd;
 

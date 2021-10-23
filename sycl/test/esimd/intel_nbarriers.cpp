@@ -3,7 +3,7 @@
 // RUN: %clangxx -fsycl -c -fsycl-device-only -Xclang -emit-llvm %s -o %t
 
 #include <CL/sycl.hpp>
-#include <CL/sycl/INTEL/esimd.hpp>
+#include <sycl/ext/intel/experimental/esimd.hpp>
 
 using namespace sycl::ext::intel::experimental::esimd;
 
