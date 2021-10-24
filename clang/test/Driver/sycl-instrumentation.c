@@ -1,3 +1,7 @@
+// INTEL_CUSTOMIZATION
+// XFAIL: win32
+// end INTEL_CUSTOMIZATION
+
 /// Check if -fsycl-instrument-device-code is passed to device-side -cc1
 /// and if ITT device libraries are pulled in.
 /// The following conditions must be fulfilled:
