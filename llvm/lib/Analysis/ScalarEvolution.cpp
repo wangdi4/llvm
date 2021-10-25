@@ -8589,7 +8589,6 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     // ValuesAtScopes map.
     LoopWorklist.append(CurrL->begin(), CurrL->end());
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If we are in scoped mode, we need to forget underlying regular
   // ScalarEvolution results as well.
@@ -8597,9 +8596,8 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     ScopedSE->getOrigSE().forgetLoop(L);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   forgetMemoizedResults(ToForget);
->>>>>>> dbab339ea44e812fb4deb669ce70001e99c2d2c9
 }
 
 void ScalarEvolution::forgetTopmostLoop(const Loop *L) {
@@ -8632,7 +8630,6 @@ void ScalarEvolution::forgetValue(Value *V) {
 
     PushDefUseChildren(I, Worklist, Visited);
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If we are in scoped mode, we need to forget underlying regular
   // ScalarEvolution results as well.
@@ -8640,9 +8637,8 @@ void ScalarEvolution::forgetValue(Value *V) {
     ScopedSE->getOrigSE().forgetValue(V);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   forgetMemoizedResults(ToForget);
->>>>>>> dbab339ea44e812fb4deb669ce70001e99c2d2c9
 }
 
 void ScalarEvolution::forgetLoopDispositions(const Loop *L) {
