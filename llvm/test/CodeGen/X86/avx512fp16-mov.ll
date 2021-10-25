@@ -1926,3 +1926,36 @@ define void @load_store_v4f16(<4 x half>* %x, <4 x half>* %y, <4 x half>* %z) {
   store <4 x half> %c, <4 x half>* %z
   ret void
 }
+
+; INTEL_CUSTOMIZATION
+define dso_local fastcc void @v8i16_vzmovl(i16* %rmsk) {
+; CHECK-LABEL: v8i16_vzmovl:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  .LBB119_1: # %loop.183
+; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    testb %al, %al
+; CHECK-NEXT:    jne .LBB119_1
+; CHECK-NEXT:  # %bb.2: # %afterloop.183
+; CHECK-NEXT:    ret{{[l|q]}}
+entry:
+  %0 = load i16, i16* null, align 2
+  %1 = load i16, i16* %rmsk, align 2
+  %and48197 = and i16 %1, %0
+  %red.init.insert299 = insertelement <16 x i16> <i16 poison, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0, i16 0>, i16 %and48197, i64 0
+  br label %loop.183
+
+loop.183:                                         ; preds = %loop.183, %entry
+  %t110.0 = phi <16 x i16> [ %red.init.insert299, %entry ], [ %2, %loop.183 ]
+  %2 = or <16 x i16> %t110.0, undef
+  %condloop.183.not.not = icmp slt i64 undef, undef
+  br i1 %condloop.183.not.not, label %loop.183, label %afterloop.183
+
+afterloop.183:                                    ; preds = %loop.183
+  %3 = call i16 @llvm.vector.reduce.or.v16i16(<16 x i16> %2)
+  ret void
+}
+
+declare i16 @llvm.vector.reduce.or.v16i16(<16 x i16>)
+; end INTEL_CUSTOMIZATION
