@@ -2104,11 +2104,48 @@ RValue CodeGenFunction::EmitHLSMemHostBuiltin(unsigned BuiltinID,
   return EmitCall(FuncInfo, CGCallee::forDirect(Func), ReturnValue, Args);
 }
 
-void CodeGenFunction::EmitCpuFeaturesInit() {
+// This generates a while loop around the indicator_x value to emulate what ICC
+// does.
+llvm::BasicBlock *
+CodeGenFunction::EmitCpuFeaturesInit(llvm::Function *CalleeFunc) {
+  llvm::Type *Ty = llvm::ArrayType::get(CGM.Int64Ty, 2);
+  llvm::Constant *IndicatorPtr =
+      CGM.CreateRuntimeVariable(Ty, "__intel_cpu_feature_indicator_x");
+  llvm::Value *IndGep = Builder.CreateConstGEP2_64(Ty, IndicatorPtr, 0, 0,
+                                                   "cpu_feature_init_ind_gep");
+
+  BasicBlock *LoopCond = createBasicBlock("cpu_feat_init_cmp", CalleeFunc);
+  BasicBlock *LoopBody = createBasicBlock("cpu_feat_init_body", CalleeFunc);
+  BasicBlock *FunctionRest = createBasicBlock("cpu_feat_init_rest", CalleeFunc);
+  Value *ZeroVal = llvm::Constant::getNullValue(CGM.Int64Ty);
+
+  // Unconditional branch, so we can do this as a 'while' loop.
+  Builder.CreateBr(LoopCond);
+
+  // While loop condition. Load the Indicator value, and check that the 0th
+  // element is 0, if so, branch to the body.
+  Builder.SetInsertPoint(LoopCond);
+  llvm::Value *Indicator =
+      Builder.CreateAlignedLoad(CGM.Int64Ty, IndGep,
+                                getContext().getTypeAlignInChars(
+                                    getContext().getIntTypeForBitwidth(64, 0)),
+                                "cpu_feature_indicator");
+  Value *CmpResult =
+      Builder.CreateCmp(llvm::CmpInst::ICMP_EQ, Indicator, ZeroVal);
+  Builder.CreateCondBr(CmpResult, LoopBody, FunctionRest);
+
+  // While loop body, just call the function, then jump back to the loop
+  // condition.
+  Builder.SetInsertPoint(LoopBody);
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, /*Variadic*/ false);
   llvm::FunctionCallee Func =
       CGM.CreateRuntimeFunction(FTy, "__intel_cpu_features_init_x");
   Builder.CreateCall(Func);
+  Builder.CreateBr(LoopCond);
+
+  // Leave the builder in the 'rest' of the function basic block.
+  Builder.SetInsertPoint(FunctionRest);
+  return FunctionRest;
 }
 
 static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
@@ -2116,7 +2153,7 @@ static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
                                             bool CreateInitCall = true,
                                             bool ConvertToInt = true) {
   if (CreateInitCall)
-    CGF.EmitCpuFeaturesInit();
+    CGF.EmitCpuFeaturesInit(CGF.CurFn);
 
   ASTContext &Context = CGF.getContext();
 
