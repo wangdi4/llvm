@@ -122,17 +122,6 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
   // TODO: Handle "int posix_memalign(void **, size_t, size_t)"
 };
 
-#if INTEL_CUSTOMIZATION
-static bool isIntegerPointerWithWidth(Type *Ty, const unsigned Width) {
-  if (Ty->isPointerTy()) {
-    PointerType *PTy = dyn_cast<PointerType>(Ty);
-    Type *PointeeTy = PTy->getPointerElementType();
-    return PointeeTy->isIntegerTy(Width);
-  }
-  return false;
-}
-#endif //INTEL_CUSTOMIZATION
-
 static const Function *getCalledFunction(const Value *V, bool LookThroughBitCast,
                                          bool &IsNoBuiltin) {
   // Don't care about intrinsics in this case.
@@ -194,8 +183,8 @@ getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
   // Model a free or delete call signature
   if (FTy->getReturnType()==Type::getVoidTy(FTy->getContext()) &&
       (FTy->getNumParams()==FnData->NumParams) &&
-      (FstParam==0 &&
-          isIntegerPointerWithWidth(FTy->getParamType(FstParam), 8)) &&
+       (FstParam >= 0 &&
+        FTy->getParamType(FstParam) == Type::getInt8PtrTy(FTy->getContext())) &&
       (SndParam < 0))
     return *FnData;
 #endif // INTEL_CUSTOMIZATION
