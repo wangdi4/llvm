@@ -423,8 +423,8 @@ llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
     if (ClangType->isMemberFunctionPointerType() &&
         CGM.getTriple().isWindowsMSVCEnvironment()) {
       // Pointer-to-Member Functions are represented on windows as either an
-      // i8*, or as a struct of {i8*, i32, i32, i32}.  This code path covers the
-      // former by just emitting the i8 pointer info.
+      // i8*, or as a struct of {i8* followed by a number of i32s}.  This code
+      // path covers the former by just emitting the i8 pointer info.
       MD.push_back(CreateElementMD(CGM.getContext().CharTy,
                                    llvm::Type::getInt8Ty(Ctx), InitExpr));
       MD.push_back(llvm::ConstantAsMetadata::get(
@@ -732,28 +732,28 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
            "Unknown LLVM Literal Struct type");
 
     if (CGM.getTriple().isWindowsMSVCEnvironment()) {
-      // Pointer-to-member-functionss are represented on windows as either an
-      // i8*, or as a struct of {i8*, i32, i32, i32}.  This code path covers the
-      // latter by just emitting the correct info.
-      assert(ST->getNumElements() == 4 &&
-             "Windows Member pointer type represented by !4 values?");
+      // Pointer-to-member-functions are represented on windows as either an
+      // i8*, or as a struct of {i8* followed by a number of i32s}.  This code
+      // path covers the latter by just emitting the correct info.
       assert(ST->getElementType(0)->isPointerTy() &&
              "Windows Member pointer type first element not pointer?");
-      assert(ST->getElementType(1)->isIntegerTy() &&
-             ST->getElementType(1) == ST->getElementType(2) &&
-             ST->getElementType(2) == ST->getElementType(3) &&
-             "Windows member pointer type not followed by 3 ints?");
 
       QualType PtrElemTy =
           CGM.getContext().getPointerType(CGM.getContext().CharTy);
-
-      QualType IntElemTy = CGM.getContext().getIntTypeForBitwidth(
-          ST->getElementType(1)->getIntegerBitWidth(), /*signed*/ 0);
-
       LitMD.push_back(CreateTypeMD(PtrElemTy, ST->getElementType(0), nullptr));
-      LitMD.push_back(CreateTypeMD(IntElemTy, ST->getElementType(1), nullptr));
-      LitMD.push_back(CreateTypeMD(IntElemTy, ST->getElementType(2), nullptr));
-      LitMD.push_back(CreateTypeMD(IntElemTy, ST->getElementType(3), nullptr));
+
+      llvm::Type *EltTy = nullptr;
+      for (unsigned I = 1; I < ST->getNumElements(); ++I) {
+        assert((I == 1 || ST->getElementType(I) == EltTy) &&
+               "Windows member pointer types not all the same?");
+        EltTy = ST->getElementType(I);
+        assert(EltTy->isIntegerTy() &&
+               "Windows member pointer type followed by not integer?");
+        QualType IntElemTy = CGM.getContext().getIntTypeForBitwidth(
+            EltTy->getIntegerBitWidth(), /*signed*/ 0);
+
+        LitMD.push_back(CreateTypeMD(IntElemTy, EltTy, nullptr));
+      }
       return llvm::MDNode::get(Ctx, LitMD);
     }
 
