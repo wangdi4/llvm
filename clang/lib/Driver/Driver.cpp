@@ -1914,20 +1914,6 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // Determine FPGA emulation status.
   if (C->hasOffloadToolChain<Action::OFK_SYCL>()) {
     auto SYCLTCRange = C->getOffloadToolChains<Action::OFK_SYCL>();
-<<<<<<< HEAD
-    ArgStringList TargetArgs;
-    const ToolChain *TC = SYCLTCRange.first->second;
-    const toolchains::SYCLToolChain *SYCLTC =
-        static_cast<const toolchains::SYCLToolChain *>(TC);
-#if INTEL_CUSTOMIZATION
-    SYCLTC->TranslateBackendTargetArgs(
-        Action::OFK_SYCL, SYCLTC->getTriple(), *TranslatedArgs, TargetArgs);
-#endif // INTEL_CUSTOMIZATION
-    for (StringRef ArgString : TargetArgs) {
-      if (ArgString.equals("-hardware") || ArgString.equals("-simulation")) {
-        setFPGAEmulationMode(false);
-        break;
-=======
     for (auto TI = SYCLTCRange.first, TE = SYCLTCRange.second; TI != TE; ++TI) {
       if (TI->second->getTriple().getSubArch() !=
           llvm::Triple::SPIRSubArch_fpga)
@@ -1935,14 +1921,15 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
       ArgStringList TargetArgs;
       const toolchains::SYCLToolChain *FPGATC =
           static_cast<const toolchains::SYCLToolChain *>(TI->second);
-      FPGATC->TranslateBackendTargetArgs(FPGATC->getTriple(), *TranslatedArgs,
+#if INTEL_CUSTOMIZATION
+      FPGATC->TranslateBackendTargetArgs(Action::OFK_SYCL, FPGATC->getTriple(), *TranslatedArgs,
                                          TargetArgs);
+#endif // INTEL_CUSTOMIZATION
       for (StringRef ArgString : TargetArgs) {
         if (ArgString.equals("-hardware") || ArgString.equals("-simulation")) {
           setFPGAEmulationMode(false);
           break;
         }
->>>>>>> 074944e44f5af12c0f41e622c84cac3b20b11211
       }
       break;
     }
