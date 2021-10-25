@@ -257,8 +257,13 @@
 
 /// -fsycl-device-code-split=per_kernel should not be used for OpenMP
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
-// RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT
-// FOPENMP_NO_SPLIT-NOT: sycl-post-link{{.*}} -split=per_kernel
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT_KERNEL
+// FOPENMP_NO_SPLIT_KERNEL-NOT: sycl-post-link{{.*}} -split=per_kernel
+
+/// -fsycl-device-code-split=auto should not be default for OpenMP
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT_AUTO
+// FOPENMP_NO_SPLIT_AUTO-NOT: sycl-post-link{{.*}} -split=auto
 
 /// check -fopenmp-target-simd behavior
 // RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -fopenmp-target-simd %s -### 2>&1 \
