@@ -164,7 +164,7 @@ Constant *ConstantFoldLoadThroughGEPConstantExpr(Constant *C, ConstantExpr *CE,
                                                  Type *Ty,
                                                  const DataLayout &DL);
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 // Following function has been removed from llorg as of commit c5b5b7f. Keeping
 // it here because it is still needed by
 // llvm/lib/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.cpp
@@ -175,7 +175,7 @@ Constant *ConstantFoldLoadThroughGEPConstantExpr(Constant *C, ConstantExpr *CE,
 /// something is funny and we can't decide.
 Constant *ConstantFoldLoadThroughGEPIndices(Constant *C,
                                             ArrayRef<Constant *> Indices);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 /// canConstantFoldCallTo - Return true if its even possible to fold a call to
 /// the specified function.
