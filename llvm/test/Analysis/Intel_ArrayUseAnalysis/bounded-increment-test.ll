@@ -1,6 +1,7 @@
 ; REQUIRES: asserts
 ; RUN: opt -passes "function(print<array-use>)" -o /dev/null < %s 2>&1 | FileCheck %s
 ; RUN: opt -analyze -array-use <%s 2>&1 | FileCheck %s
+; RUN: opt -analyze -array-use -force-opaque-pointers <%s 2>&1 | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -8,10 +9,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; a variable that is or is not incremented every loop iteration.
 
 ; CHECK: Classifying array use for: @do_something
-; CHECK:   store i64 %indvars.iv54, i64* %arrayidx, align 8
+; CHECK:   store i64 %indvars.iv54, [[PTR:.*]] %arrayidx, align 8
 ; CHECK:   -->  array at   %array = alloca [10000 x i64], align 16 (size 10000) [0, 9999]
 ; CHECK:        only using [0, 4999]
-; CHECK:   %val = load i64, i64* %arrayidx.2, align 8
+; CHECK:   %val = load i64, [[PTR]] %arrayidx.2, align 8
 ; CHECK:   -->  array at   %array = alloca [10000 x i64], align 16 (size 10000) [0, 4999]
 ; CHECK:        only using empty set
 

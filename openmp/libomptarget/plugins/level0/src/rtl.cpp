@@ -63,8 +63,8 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 
 /// Default alignmnet for allocation
 #define LEVEL0_ALIGNMENT 0
-/// Default staging buffer size for host to device copy
-#define LEVEL0_STAGING_BUFFER_SIZE (1 << 12)
+/// Default staging buffer size for host to device copy (16KB)
+#define LEVEL0_STAGING_BUFFER_SIZE (1 << 14)
 /// Default staging buffer count
 #define LEVEL0_STAGING_BUFFER_COUNT 64
 
