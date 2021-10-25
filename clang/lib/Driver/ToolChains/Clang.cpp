@@ -9870,23 +9870,25 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
                        getToolChain().getTriple().isSPIR();
 
-  Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ);
-  // See if device code splitting is requested
-  if (!IsOpenMPSPIRV && A) {
-#endif // INTEL_CUSTOMIZATION
-    if (StringRef(A->getValue()) == "per_kernel")
-      addArgs(CmdArgs, TCArgs, {"-split=kernel"});
-    else if (StringRef(A->getValue()) == "per_source")
-      addArgs(CmdArgs, TCArgs, {"-split=source"});
-    else if (StringRef(A->getValue()) == "auto")
+  // For OpenMP offload, -split=* should not be used
+  if (!IsOpenMPSPIRV) {
+    // See if device code splitting is requested
+    if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ)) {
+      if (StringRef(A->getValue()) == "per_kernel")
+        addArgs(CmdArgs, TCArgs, {"-split=kernel"});
+      else if (StringRef(A->getValue()) == "per_source")
+        addArgs(CmdArgs, TCArgs, {"-split=source"});
+      else if (StringRef(A->getValue()) == "auto")
+        addArgs(CmdArgs, TCArgs, {"-split=auto"});
+      else
+        // split must be off
+        assert(StringRef(A->getValue()) == "off");
+    } else {
+      // auto is the default split mode
       addArgs(CmdArgs, TCArgs, {"-split=auto"});
-    else
-      // split must be off
-      assert(StringRef(A->getValue()) == "off");
-  } else {
-    // auto is the default split mode
-    addArgs(CmdArgs, TCArgs, {"-split=auto"});
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   // On FPGA target we don't need non-kernel functions as entry points, because
   // it only increases amount of code for device compiler to handle, without any
