@@ -11029,13 +11029,13 @@ public:
   }
 
   /// Attempt to vectorize the tree found by matchAssociativeReduction.
-  bool tryToReduce(BoUpSLP &V, TargetTransformInfo *TTI) {
+  Value *tryToReduce(BoUpSLP &V, TargetTransformInfo *TTI) {
     // If there are a sufficient number of reduction values, reduce
     // to a nearby power-of-2. We can safely generate oversized
     // vectors and rely on the backend to split them to legal sizes.
     unsigned NumReducedVals = ReducedVals.size();
     if (NumReducedVals < 4)
-      return false;
+      return nullptr;
 
     // Intersect the fast-math-flags from all reduction operations.
     FastMathFlags RdxFMF;
@@ -11138,7 +11138,7 @@ public:
       InstructionCost Cost = TreeCost + ReductionCost;
       if (!Cost.isValid()) {
         LLVM_DEBUG(dbgs() << "Encountered invalid baseline cost.\n");
-        return false;
+        return nullptr;
       }
       if (Cost >= -SLPCostThreshold) {
         V.getORE()->emit([&]() {
@@ -11225,7 +11225,7 @@ public:
       // vector reductions.
       V.eraseInstructions(IgnoreList);
     }
-    return VectorizedTree != nullptr;
+    return VectorizedTree;
   }
 
   unsigned numReductionValues() const { return ReducedVals.size(); }
@@ -11517,18 +11517,33 @@ static bool tryToVectorizeHorReductionOrInstOperands(
   // Skip the analysis of CmpInsts.Compiler implements postanalysis of the
   // CmpInsts so we can skip extra attempts in
   // tryToVectorizeHorReductionOrInstOperands and save compile time.
-  SmallVector<std::pair<Instruction *, unsigned>, 8> Stack(1, {Root, 0});
+  std::queue<std::pair<Instruction *, unsigned>> Stack;
+  Stack.emplace(Root, 0);
   SmallPtrSet<Value *, 8> VisitedInstrs;
+  SmallVector<WeakTrackingVH> PostponedInsts;
   bool Res = false;
+  auto &&TryToReduce = [TTI, &P, &R](Instruction *Inst, Value *&B0,
+                                     Value *&B1) -> Value * {
+    bool IsBinop = matchRdxBop(Inst, B0, B1);
+    bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
+    if (IsBinop || IsSelect) {
+      HorizontalReduction HorRdx;
+      if (HorRdx.matchAssociativeReduction(P, Inst))
+        return HorRdx.tryToReduce(R, TTI);
+    }
+    return nullptr;
+  };
   while (!Stack.empty()) {
     Instruction *Inst;
     unsigned Level;
-    std::tie(Inst, Level) = Stack.pop_back_val();
+    std::tie(Inst, Level) = Stack.front();
+    Stack.pop();
     // Do not try to analyze instruction that has already been vectorized.
     // This may happen when we vectorize instruction operands on a previous
     // iteration while stack was populated before that happened.
     if (R.isDeleted(Inst))
       continue;
+<<<<<<< HEAD
     Value *B0, *B1;
     bool IsBinop = matchRdxBop(Inst, B0, B1);
     bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
@@ -11555,7 +11570,21 @@ static bool tryToVectorizeHorReductionOrInstOperands(
           P = nullptr;
           continue;
         }
+=======
+    Value *B0 = nullptr, *B1 = nullptr;
+    if (Value *V = TryToReduce(Inst, B0, B1)) {
+      Res = true;
+      // Set P to nullptr to avoid re-analysis of phi node in
+      // matchAssociativeReduction function unless this is the root node.
+      P = nullptr;
+      if (auto *I = dyn_cast<Instruction>(V)) {
+        // Try to find another reduction.
+        Stack.emplace(I, Level);
+        continue;
+>>>>>>> eb9b75dd4da850254b95e8a9e6cfd35ad1201c4d
       }
+    } else {
+      bool IsBinop = B0 && B1;
       if (P && IsBinop) {
         Inst = dyn_cast<Instruction>(B0);
         if (Inst == P)
@@ -11572,10 +11601,10 @@ static bool tryToVectorizeHorReductionOrInstOperands(
     // matchAssociativeReduction function unless this is the root node.
     P = nullptr;
     // Do not try to vectorize CmpInst operands, this is done separately.
-    if (!isa<CmpInst>(Inst) && Vectorize(Inst, R)) {
-      Res = true;
-      continue;
-    }
+    // Final attempt for binop args vectorization should happen after the loop
+    // to try to find reductions.
+    if (!isa<CmpInst>(Inst))
+      PostponedInsts.push_back(Inst);
 
     // Try to vectorize operands.
     // Continue analysis for the instruction from the same basic block only to
@@ -11588,8 +11617,13 @@ static bool tryToVectorizeHorReductionOrInstOperands(
             // separately.
             if (!isa<PHINode>(I) && !isa<CmpInst>(I) && !R.isDeleted(I) &&
                 I->getParent() == BB)
-              Stack.emplace_back(I, Level);
+              Stack.emplace(I, Level);
   }
+  // Try to vectorized binops where reductions were not found.
+  for (Value *V : PostponedInsts)
+    if (auto *Inst = dyn_cast<Instruction>(V))
+      if (!R.isDeleted(Inst))
+        Res |= Vectorize(Inst, R);
   return Res;
 }
 
