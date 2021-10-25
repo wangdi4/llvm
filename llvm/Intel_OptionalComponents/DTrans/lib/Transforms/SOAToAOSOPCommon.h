@@ -392,6 +392,33 @@ inline bool isSafeCallForAppend(Function *F, DTransSafetyInfo *DTInfo,
   return true;
 }
 
+// Replace OrigFunc's body with Cloned's body and remove Cloned function.
+inline void replaceOrigFuncBodyWithClonedFuncBody(Function &OrigFunc,
+                                                  Function &Cloned) {
+  // Delete original IR from OrigFunc.
+  OrigFunc.deleteBody();
+  // Move modified IR from Cloned to the OrigFunc.
+  OrigFunc.getBasicBlockList().splice(OrigFunc.begin(),
+                                      Cloned.getBasicBlockList());
+
+  // Move users of arguments over to the OrigFunc.
+  for (Function::arg_iterator I = Cloned.arg_begin(), E = Cloned.arg_end(),
+                              I2 = OrigFunc.arg_begin();
+       I != E; ++I, ++I2)
+    I->replaceAllUsesWith(&*I2);
+
+  // Clone metadata to the OrigFunc, including debug info descriptor.
+  SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
+  Cloned.getAllMetadata(MDs);
+  for (auto MD : MDs)
+    OrigFunc.addMetadata(MD.first, *MD.second);
+  if (Cloned.hasPersonalityFn())
+    OrigFunc.setPersonalityFn(Cloned.getPersonalityFn());
+
+  // Remove temporary Cloned function.
+  Cloned.eraseFromParent();
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Offset of memory interface in structure.
 extern cl::opt<unsigned> DTransSOAToAOSOPMemoryInterfaceOff;
