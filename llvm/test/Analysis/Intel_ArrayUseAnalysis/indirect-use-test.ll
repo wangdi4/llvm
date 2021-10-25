@@ -1,6 +1,7 @@
 ; REQUIRES: asserts
 ; RUN: opt -passes "function(print<array-use>)" -o /dev/null < %s 2>&1 | FileCheck %s
 ; RUN: opt -analyze -array-use <%s 2>&1 | FileCheck %s
+; RUN: opt -analyze -array-use -force-opaque-pointers <%s 2>&1 | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -9,14 +10,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Check that the array use analysis is capable of recognizing non-use of
 ; the pointer values pointed to by the array.
 
-; CHECK:  store i8* %call, i8** %1, align 8
-; CHECK:  -->  array at   %array = alloca [10000 x %struct.example*], align 16 (size 10000) [0, 9999]
+; CHECK:  store [[I8_P:.*]] %call, [[I8_PP:.*]] %1, align 8
+; CHECK:  -->  array at   %array = alloca [10000 x [[ST_P:.*]]], align 16 (size 10000) [0, 9999]
 ; CHECK:       only using empty set
-; CHECK:  %2 = load %struct.example*, %struct.example** %arrayidx7, align 8
-; CHECK:  -->  array at   %array = alloca [10000 x %struct.example*], align 16 (size 10000) [0, 9999]
+; CHECK:  %2 = load [[ST_P]], [[ST_PP:.*]] %arrayidx7, align 8
+; CHECK:  -->  array at   %array = alloca [10000 x [[ST_P]]], align 16 (size 10000) [0, 9999]
 ; CHECK:       only using [0, 999]
-; CHECK:  %5 = load %struct.example*, %struct.example** %arrayidx19, align 8
-; CHECK:  -->  array at   %array = alloca [10000 x %struct.example*], align 16 (size 10000) [0, 999]
+; CHECK:  %5 = load [[ST_P]], [[ST_PP]] %arrayidx19, align 8
+; CHECK:  -->  array at   %array = alloca [10000 x [[ST_P]]], align 16 (size 10000) [0, 999]
 ; CHECK:       only using [0, 999]
 
 

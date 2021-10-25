@@ -373,9 +373,6 @@ ArrayUseInfo::computeDataflow(ScalarEvolution &SE, const ArrayUse &AU) {
     return std::unique_ptr<RangeDataflow>(DataflowResults);
   }
 
-  bool CheckIndirect = I.getType()->getPointerElementType()
-    ->getArrayElementType()->isPointerTy();
-
   auto addUse = [&](const ArrayRangeInfo &Range, Instruction *U,
       Instruction *Point) {
     GenKillInfo GKI(Range, Point, isa<LoadInst>(U));
@@ -387,7 +384,7 @@ ArrayUseInfo::computeDataflow(ScalarEvolution &SE, const ArrayUse &AU) {
     LLVM_DEBUG(dbgs() << "Found range " << Range << " for use " << *U << "\n");
 
     bool UsedIndirect = false;
-    if (CheckIndirect && isa<LoadInst>(U)) {
+    if (CheckIndirectUses && isa<LoadInst>(U)) {
       std::vector<Instruction *> IndirectUses =
         getPointerUses(*U, SE.getDataLayout());
       if (!IndirectUses.empty()) {
@@ -408,8 +405,8 @@ ArrayUseInfo::computeDataflow(ScalarEvolution &SE, const ArrayUse &AU) {
   return std::unique_ptr<RangeDataflow>(DataflowResults);
 }
 
-ArrayUseInfo::ArrayUseInfo(Value *Source, const SCEV *Size)
-  : Source(Source), Size(Size) {}
+ArrayUseInfo::ArrayUseInfo(Value *Source, const SCEV *Size, bool CheckIndirect)
+  : Source(Source), Size(Size), CheckIndirectUses(CheckIndirect) {}
 ArrayUseInfo::~ArrayUseInfo() = default;
 
 std::unique_ptr<ArrayUseInfo> ArrayUseInfo::make(Value *Source,
@@ -426,7 +423,10 @@ std::unique_ptr<ArrayUseInfo> ArrayUseInfo::make(Value *Source,
       return nullptr;
     }
 
-    return std::make_unique<ArrayUseInfo>(Source, ArraySize);
+    bool CheckIndirect =
+      AI->getAllocatedType()->getArrayElementType()->isPointerTy();
+
+    return std::make_unique<ArrayUseInfo>(Source, ArraySize, CheckIndirect);
   } else {
     // We could support global arrays in this analysis. But PtrUseVisitor, which
     // we use for tracking, tracks starting from an Instruction, making it more
