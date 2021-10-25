@@ -260,28 +260,8 @@ public:
 
     // If temporary cloned is used to fix IR, just move the IR to the
     // OrigFunc.
-    if (!isCloned) {
-      // Delete original IR from OrigFunc.
-      OrigFunc.deleteBody();
-      // Move modified IR from Clone to the OrigFunc.
-      OrigFunc.getBasicBlockList().splice(OrigFunc.begin(),
-                                          Clone->getBasicBlockList());
-
-      // Move users of arguments over to the OrigFunc.
-      for (Function::arg_iterator I = Clone->arg_begin(), E = Clone->arg_end(),
-                                  I2 = OrigFunc.arg_begin();
-           I != E; ++I, ++I2)
-        I->replaceAllUsesWith(&*I2);
-
-      // Clone metadatas to the OrigFunc, including debug info descriptor.
-      SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
-      Clone->getAllMetadata(MDs);
-      for (auto MD : MDs)
-        OrigFunc.addMetadata(MD.first, *MD.second);
-
-      // Remove temporary Clone function.
-      Clone->eraseFromParent();
-    }
+    if (!isCloned)
+      replaceOrigFuncBodyWithClonedFuncBody(OrigFunc, *Clone);
 
     // TODO: Remove unnecessary BitCast instructions that convert from
     // pointer to pointer.
