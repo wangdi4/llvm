@@ -151,6 +151,8 @@ static bool hasNonStructNonSingleValueType(StructType *STy) {
    return false;
 }
 
+static bool isScalarTBAANode(const MDNode *MD);
+
 //
 // For C/C++, clang usually translates the structure assignment into the
 // memcpy annotated with struct type meta data. This transformation hampers
@@ -167,9 +169,86 @@ static bool hasNonStructNonSingleValueType(StructType *STy) {
 // nested ArrayTypes or VectorTypes, for compatibility with what was done
 // in ifort.
 //
-static bool IsGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size) {
+static bool isGoodStructMemcpyOpaque(AnyMemTransferInst *MI, uint64_t Size,
+                                     StructType *&STy) {
+  // Is the memcpy too large to break up? The Fortran threshold is measured in
+  // bytes, while the C threshold is meaured in fields. We assume that every
+  // struct field greater than 8 bytes is a vector or array type that would be
+  // excluded for C anyways.
+  uint64_t SizeThreshold = MI->getFunction()->isFortran() ?
+    StructCopySizeThresholdFortran : StructCopyCountThresholdC * 8;
+  if (Size > SizeThreshold)
+    return false;
+
+  const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
+  if ((Size & (Size - 1)) != 0)
+    return false;
+  MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
+  if (!M || M->getNumOperands() % 3 != 0)
+    return false;
+
+  // Check the C struct element count rules. In CMPLRLLVM-8813, the heuristic
+  // was changed to allow up to 2 * 2 = 4 fields if the struct is 8 bytes or
+  // fewer.
+  unsigned int ElemNum = M->getNumOperands() / 3;
+  unsigned Multiplier = Size <= 8 ? 2 : 1;
+  if (!MI->getFunction()->isFortran() &&
+      ElemNum > StructCopyCountThresholdC * Multiplier)
+    return false;
+
+  // Build the struct type that represents the data that comes from the
+  // !tbaa.struct metadata. This will be used to break the memcpy into several
+  // distinct load/stores.
+  SmallVector<Type *, 4> Fields;
+  SmallVector<uint64_t, 4> Offsets;
+  for (unsigned int i = 0; i < ElemNum; ++i) {
+    // Parse the tbaa.struct metadata to get field information.
+    if (!mdconst::hasa<ConstantInt>(M->getOperand(3 * i)) ||
+        !mdconst::hasa<ConstantInt>(M->getOperand(3 * i + 1)))
+      return false;
+    unsigned FieldOffset =
+      mdconst::extract<ConstantInt>(M->getOperand(3 * i))->getZExtValue();
+    unsigned FieldSize =
+      mdconst::extract<ConstantInt>(M->getOperand(3 * i + 1))->getZExtValue();
+
+    // Any field size larger than 8 bytes is assumed to be an array or vector
+    // type.
+    if (FieldSize > 8) {
+      return false;
+    }
+
+    Offsets.push_back(FieldOffset);
+    Fields.push_back(Type::getIntNTy(MI->getContext(), FieldSize * 8));
+
+    MDNode *TBAAType = dyn_cast_or_null<MDNode>(M->getOperand(3 * i + 2));
+    if (!TBAAType || !isScalarTBAANode(TBAAType)) {
+      return false;
+    }
+  }
+
+  // If the tbaa.struct metadata is empty, then return nothing. This appears to
+  // happen when the C/C++ "there are no zero-sized objects" rule kicked in,
+  // causing the entire struct to be padding.
+  if (Fields.empty())
+    return false;
+
+  // Construct a new struct type from the TBAA metadata. If the data layout of
+  // the offsets doesn't match, then fail the optimization. This allows us to
+  // account for simple cases of padding between fields, but it could
+  // potentially miss some more complex padding issues.
+  STy = StructType::get(MI->getContext(), Fields);
+  const StructLayout *Layout = DL.getStructLayout(STy);
+  return Offsets == Layout->getMemberOffsets() &&
+    Size == Layout->getSizeInBytes();
+}
+
+static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
+                               StructType *&STy) {
   Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
   Value *StrippedDst = MI->getArgOperand(0)->stripPointerCasts();
+  if (StrippedSrc->getType()->isOpaquePointerTy())
+    return isGoodStructMemcpyOpaque(MI, Size, STy);
+
   // The following code gets the structure type for the source operand
   // and destination operand in the memcpy.
   Type *SrcPtrTyp = cast<PointerType>(StrippedSrc->getType())->getElementType();
@@ -179,6 +258,7 @@ static bool IsGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size) {
   if (!SrcSTy || !DstSTy || SrcSTy != DstSTy) {
     return false;
   }
+  STy = SrcSTy;
   const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
   if (MI->getFunction()->isFortran())
     return DL.getTypeStoreSize(SrcSTy) == Size &&
@@ -248,8 +328,7 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
       Index = GenFieldsForStruct(MI, SSTy, GEPSrc, GEPDest, Index);
       continue;
     }
-    auto *GEPSrcTy = GEPSrc->getType()->getPointerElementType();
-    LDSrc = Builder.CreateLoad(GEPSrcTy, GEPSrc);
+    LDSrc = Builder.CreateLoad(ElemTy, GEPSrc);
     // Take into account an alignment specified for the pointer in the mem
     // intrinsic which can decrease the default alignment. For example, in the
     // case when packed structure is processed.
@@ -260,6 +339,15 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
     if (M) {
       CopyMD = cast<MDNode>(M->getOperand(2 + Index * 3));
       Index++;
+      // The references to tbaa metadata here may not be directly a struct-path
+      // tbaa form. If not, convert CopyMD into such a form. The check is taken
+      // from isStructPathTBAA, which is a static function in
+      // TypeBasedAliasAnalysis.cpp
+      // See the test test/Transforms/InstCombine/intel-struct-tbaa.ll for an
+      // example of metadata that would cause failures without this check.
+      if (CopyMD->getNumOperands() < 3 || !isa<MDNode>(CopyMD->getOperand(0)))
+        CopyMD = MDTuple::get(CopyMD->getContext(),
+            {CopyMD, CopyMD, ConstantAsMetadata::get(Builder.getInt64(0))});
       LDSrc->setMetadata(LLVMContext::MD_tbaa, CopyMD);
     }
     STDest = Builder.CreateStore(LDSrc, GEPDest);
@@ -285,14 +373,13 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
 }
 
 // It expands the memcpy of a structure into the copies of structure members.
-void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI) {
+void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI,
+                                                     StructType *STy) {
   // The following code gets structure pointer for the source operand
   // and destination operand in the memcpy.
   LLVM_DEBUG(dbgs() << "Generating fields for memcpy " << *MI << "\n");
   Value *StrippedSrc = MI->getArgOperand(1)->stripPointerCasts();
   Value *StrippedDest = MI->getArgOperand(0)->stripPointerCasts();
-  Type *PtrTyp = cast<PointerType>(StrippedDest->getType())->getElementType();
-  StructType *STy = dyn_cast<StructType>(&*PtrTyp);
   assert(STy && "Expected non-empty structure type");
   (void) GenFieldsForStruct(MI, STy, StrippedSrc, StrippedDest, 0);
 }
@@ -301,7 +388,7 @@ void InstCombinerImpl::GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI) {
 // scalar type, valid for load/store instructions.
 // We assume that the TBAA MD is otherwise well formed (no illegal operands).
 // Details are in the code comments.
-static bool IsScalarTBAANode(const MDNode *MD) {
+static bool isScalarTBAANode(const MDNode *MD) {
   const MDNode *currMD = MD;
   SmallPtrSet<const MDNode *, 4> Cache;
   // New-style TBAA, let the verifier handle it.
@@ -374,8 +461,9 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
 #if INTEL_CUSTOMIZATION
   // Translate the memcpy into structure members copies in certain
   // cases.
-  if (IsGoodStructMemcpy(MI, Size)) {
-    GenStructFieldsCopyFromMemcpy(MI);
+  StructType *STy;
+  if (isGoodStructMemcpy(MI, Size, STy)) {
+    GenStructFieldsCopyFromMemcpy(MI, STy);
     MI->setArgOperand(2, Constant::getNullValue(MemOpLength->getType()));
     return MI;
   }
@@ -431,7 +519,7 @@ Instruction *InstCombinerImpl::SimplifyAnyMemTransfer(AnyMemTransferInst *MI) {
   // node instead.
   if (CopyMD) {
     MDNode *StructFormMD = MI->getMetadata(LLVMContext::MD_tbaa_struct);
-    if (StructFormMD && !IsScalarTBAANode(CopyMD)) {
+    if (StructFormMD && !isScalarTBAANode(CopyMD)) {
       Kind = LLVMContext::MD_tbaa_struct;
       CopyMD = StructFormMD;
     }

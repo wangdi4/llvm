@@ -803,7 +803,7 @@ public:
   unsigned int GenFieldsForStruct(AnyMemTransferInst *MI, StructType *STy,
                                   Value *StrippedSrc, Value *StrippedDest,
                                   unsigned Index);
-  void GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI);
+  void GenStructFieldsCopyFromMemcpy(AnyMemTransferInst *MI, StructType *STy);
   bool ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0, Value *Op1,
                                 unsigned Size);
 #endif // INTEL_CUSTOMIZATION
