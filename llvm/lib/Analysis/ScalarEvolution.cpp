@@ -4767,6 +4767,7 @@ static void PushDefUseChildren(Instruction *I,
 void ScalarEvolution::forgetSymbolicName(Instruction *PN, const SCEV *SymName) {
   SmallVector<Instruction *, 16> Worklist;
   SmallPtrSet<Instruction *, 8> Visited;
+  SmallVector<const SCEV *, 8> ToForget;
   Visited.insert(PN);
   Worklist.push_back(PN);
   while (!Worklist.empty()) {
@@ -4792,12 +4793,13 @@ void ScalarEvolution::forgetSymbolicName(Instruction *PN, const SCEV *SymName) {
           !isa<SCEVUnknown>(Old) ||
           (I != PN && Old == SymName)) {
         eraseValueFromMap(It->first);
-        forgetMemoizedResults(Old);
+        ToForget.push_back(Old);
       }
     }
 
     PushDefUseChildren(I, Worklist, Visited);
   }
+  forgetMemoizedResults(ToForget);
 }
 
 namespace {
@@ -8443,6 +8445,7 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   if (Result.hasAnyInfo()) {
     SmallVector<Instruction *, 16> Worklist;
     SmallPtrSet<Instruction *, 8> Discovered;
+    SmallVector<const SCEV *, 8> ToForget;
     PushLoopPHIs(L, Worklist, Discovered);
     while (!Worklist.empty()) {
       Instruction *I = Worklist.pop_back_val();
@@ -8460,7 +8463,7 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
         // own when it gets to that point.
         if (!isa<PHINode>(I) || !isa<SCEVUnknown>(Old)) {
           eraseValueFromMap(It->first);
-          forgetMemoizedResults(Old);
+          ToForget.push_back(Old);
         }
         if (PHINode *PN = dyn_cast<PHINode>(I))
           ConstantEvolutionLoopExitValue.erase(PN);
@@ -8492,6 +8495,7 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
             Worklist.push_back(I);
         }
     }
+    forgetMemoizedResults(ToForget);
   }
 
   // Re-lookup the insert position, since the call to
@@ -8535,6 +8539,7 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
   SmallVector<const Loop *, 16> LoopWorklist(1, L);
   SmallVector<Instruction *, 32> Worklist;
   SmallPtrSet<Instruction *, 16> Visited;
+  SmallVector<const SCEV *, 16> ToForget;
 
   // Iterate over all the loops and sub-loops to drop SCEV information.
   while (!LoopWorklist.empty()) {
@@ -8556,8 +8561,8 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
 
     auto LoopUsersItr = LoopUsers.find(CurrL);
     if (LoopUsersItr != LoopUsers.end()) {
-      for (auto *S : LoopUsersItr->second)
-        forgetMemoizedResults(S);
+      ToForget.insert(ToForget.end(), LoopUsersItr->second.begin(),
+                LoopUsersItr->second.end());
       LoopUsers.erase(LoopUsersItr);
     }
 
@@ -8571,7 +8576,7 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
           ValueExprMap.find_as(static_cast<Value *>(I));
       if (It != ValueExprMap.end()) {
         eraseValueFromMap(It->first);
-        forgetMemoizedResults(It->second);
+        ToForget.push_back(It->second);
         if (PHINode *PN = dyn_cast<PHINode>(I))
           ConstantEvolutionLoopExitValue.erase(PN);
       }
@@ -8584,6 +8589,7 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     // ValuesAtScopes map.
     LoopWorklist.append(CurrL->begin(), CurrL->end());
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If we are in scoped mode, we need to forget underlying regular
   // ScalarEvolution results as well.
@@ -8591,6 +8597,9 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     ScopedSE->getOrigSE().forgetLoop(L);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  forgetMemoizedResults(ToForget);
+>>>>>>> dbab339ea44e812fb4deb669ce70001e99c2d2c9
 }
 
 void ScalarEvolution::forgetTopmostLoop(const Loop *L) {
@@ -8606,6 +8615,7 @@ void ScalarEvolution::forgetValue(Value *V) {
   // Drop information about expressions based on loop-header PHIs.
   SmallVector<Instruction *, 16> Worklist;
   SmallPtrSet<Instruction *, 8> Visited;
+  SmallVector<const SCEV *, 8> ToForget;
   Worklist.push_back(I);
   Visited.insert(I);
 
@@ -8615,13 +8625,14 @@ void ScalarEvolution::forgetValue(Value *V) {
       ValueExprMap.find_as(static_cast<Value *>(I));
     if (It != ValueExprMap.end()) {
       eraseValueFromMap(It->first);
-      forgetMemoizedResults(It->second);
+      ToForget.push_back(It->second);
       if (PHINode *PN = dyn_cast<PHINode>(I))
         ConstantEvolutionLoopExitValue.erase(PN);
     }
 
     PushDefUseChildren(I, Worklist, Visited);
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If we are in scoped mode, we need to forget underlying regular
   // ScalarEvolution results as well.
@@ -8629,6 +8640,9 @@ void ScalarEvolution::forgetValue(Value *V) {
     ScopedSE->getOrigSE().forgetValue(V);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  forgetMemoizedResults(ToForget);
+>>>>>>> dbab339ea44e812fb4deb669ce70001e99c2d2c9
 }
 
 void ScalarEvolution::forgetLoopDispositions(const Loop *L) {
