@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
 #include "LoopPeeling.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
@@ -61,7 +60,6 @@ INITIALIZE_PASS_END(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
                     "Create loops over dpcpp kernels", false, false)
 
 bool DPCPPKernelWGLoopCreatorLegacy::runOnModule(Module &M) {
-  // saveModuleTofile("DPCPPKernelWGLoopCreatorLegacy-Before.ll", M);
   FuncSet FSet = getAllKernels(M);
   MapFunctionToReturnInst FuncReturn;
   for (auto *F : FSet) {
@@ -110,6 +108,8 @@ bool DPCPPKernelWGLoopCreatorPass::runImpl(Module &M) {
   IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
   ConstZero = ConstantInt::get(IndTy, 0);
   ConstOne = ConstantInt::get(IndTy, 1);
+  IRBuilder<> Builder(*Ctx);
+  this->Builder = &Builder;
 
   auto Kernels = getKernels(M);
   bool Changed = false;
@@ -245,8 +245,25 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   // Now the masked kernel is a full workgroup which is organized as several
   // loops of vector kernel following by one masked kernel.
   // Replace the scalar kernel body with the masked kernel body.
-  if (MaskedF)
-    DPCPPKernelLoopUtils::inlineMaskedToScalar(F, MaskedF);
+  if (MaskedF) {
+    auto replaceScalarKernelWithMasked = [](Function *F, Function *MaskedF) {
+      // Erase all BasicBlocks from scalar kernel.
+      for (auto &BB : *F)
+        BB.dropAllReferences();
+      while (!F->empty())
+        F->begin()->eraseFromParent();
+
+      F->getBasicBlockList().splice(F->begin(), MaskedF->getBasicBlockList());
+      for (auto I = F->arg_begin(), E = F->arg_end(),
+                MaskedI = MaskedF->arg_begin();
+           I != E; ++I, ++MaskedI)
+        MaskedI->replaceAllUsesWith(I);
+      F->setSubprogram(MaskedF->getSubprogram());
+
+      MaskedF->eraseFromParent();
+    };
+    replaceScalarKernelWithMasked(F, MaskedF);
+  }
 
   // Finally, remove noinline attr
   if (!F->hasFnAttribute(llvm::Attribute::OptimizeNone))
@@ -279,8 +296,8 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
 
   // Get initial GID and store to implicit GIDs.
   // Insert to new entry block.
-  IRBuilder<> Builder(NewEntry);
-  Builder.SetCurrentDebugLocation(DebugLoc());
+  Builder->SetInsertPoint(NewEntry);
+  Builder->SetCurrentDebugLocation(DebugLoc());
   for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
     Value *InitGID;
     if (Dim < NumDim) {
@@ -294,7 +311,7 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
             F->getParent(), nameGetBaseGID(), IndTy, Dim, NewEntry);
       }
     }
-    Builder.CreateStore(InitGID, ImplicitGIDs[Dim], /* isVolatile */ true);
+    Builder->CreateStore(InitGID, ImplicitGIDs[Dim], /* isVolatile */ true);
   }
 }
 
@@ -612,7 +629,7 @@ BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
 
   // Map debug information metadata entries in the cloned code from the vector
   // DISubprogram to the scalar DISubprogram.
-  DISubprogram *SSP = F->getSubprogram();
+  DISubprogram *SSP = Fn->getSubprogram();
   DISubprogram *VSP = VectorF->getSubprogram();
   if (SSP && VSP) {
     auto &MD = ValueMap.MD();
@@ -630,7 +647,7 @@ BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
   // already has debug info metadata, it ends up with two DISubprograms
   // assigned. The easiest way to assign the correct one is to erase both of
   // them by resetting the original scalar subprogram.
-  F->setSubprogram(SSP);
+  Fn->setSubprogram(SSP);
 
   for (auto &VBB : *VectorF) {
     BasicBlock *ClonedBB = dyn_cast<BasicBlock>(ValueMap[&VBB]);
@@ -705,9 +722,12 @@ void DPCPPKernelWGLoopCreatorPass::createEECall(Function *Func) {
   }
 
   // Return a call in the new entry block.
-  EECall = CallInst::Create(EEFunc, Args, "early_exit_call", NewEntry);
-  if (DISubprogram *SP = F->getSubprogram())
-    EECall->setDebugLoc(DILocation::get(*Ctx, 0, 0, SP));
+  Builder->SetInsertPoint(NewEntry);
+  EECall = Builder->CreateCall(EEFunc, Args, "early_exit_call");
+  // Make -debugify happy.
+  if (EEFunc->getSubprogram())
+    if (DISubprogram *SP = Func->getSubprogram())
+      EECall->setDebugLoc(DILocation::get(*Ctx, 0, 0, SP));
 }
 
 void DPCPPKernelWGLoopCreatorPass::handleUniformEE(BasicBlock *RetBB) {

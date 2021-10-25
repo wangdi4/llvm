@@ -123,9 +123,6 @@ Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP);
 Value *generateRemainderMask(unsigned VF, Value *LoopLen, IRBuilder<> &Builder,
                              Module *M);
 
-/// Inline the masked kernel into scalar kernel.
-void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel);
-
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm
 

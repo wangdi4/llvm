@@ -54,6 +54,8 @@ private:
   /// LLVM context of the current module.
   LLVMContext *Ctx;
 
+  IRBuilder<> *Builder;
+
   /// Prefix for name of instructions used for loop of the dimension.
   std::string DimStr;
 

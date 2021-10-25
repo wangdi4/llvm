@@ -11,7 +11,7 @@
 ; CHECK: mask_generate
 ; CHECK: masked_kernel_entry
 
-; CHECK: _ZGVcM4u_test.exit:
+; CHECK: exit:
 ; CHECK-NEXT: ret void
 
 ;; Original scalar body is removed.
@@ -142,8 +142,9 @@ attributes #3 = { nofree nosync nounwind willreturn writeonly }
 !18 = !{i32 22}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-49: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-50: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing line 2
 ; DEBUGIFY: WARNING: Missing line 18
-; DEBUGIFY: WARNING: Missing line 40
 ; DEBUGIFY: WARNING: Missing variable 1
 ; DEBUGIFY-NOT: WARNING
