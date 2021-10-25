@@ -37,6 +37,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Process.h"
 #include <mutex>
 
 #include "lld/Common/Driver.h"
@@ -98,6 +99,9 @@ LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)
   ArgvLLD.push_back("-threads:1");
 }
 
+/// LLDJIT destructor won't be called if program is not released, then many
+/// temp files will be kept in disk. Nevertheless, we probably still need to
+/// cleanup temp files in shutdown process (TODO).
 LLDJIT::~LLDJIT() {
   std::lock_guard<sys::Mutex> locked(lock);
 
@@ -105,7 +109,12 @@ LLDJIT::~LLDJIT() {
   DeleteTempFiles();
 }
 
-void LLDJIT::DeleteTempFiles() { OwnedTempFiles.clear(); }
+void LLDJIT::DeleteTempFiles() {
+  OwnedTempFiles.clear();
+  for (auto &FileName : OwnedTempFileNames) {
+    sys::fs::remove(FileName);
+  }
+}
 
 void LLDJIT::DeleteTempFiles(
     const llvm::SmallVectorImpl<std::string> &FilesToDelete) {
@@ -275,7 +284,15 @@ std::string LLDJIT::emitObject(Module *M) {
   ObjFile.OS() << ObjBufferSV;
   ObjFile.OS().flush();
 
-  OwnedTempFiles.emplace_back(std::move(ObjFile));
+  // Close file descriptor immediately when ObjFile is out of scope, in order
+  // to avoid too many files being open and cause _open_osfhandle failure.
+  //
+  // An alternative approach is move dll/pdb generation from LoadDLL to
+  // generateCodeForModule, however, it signicantly increases program build time
+  // if application has many programs which don't contain kernel, while current
+  // implementation won't build them into dll/pdb.
+  ObjFile.keep();
+  OwnedTempFileNames.emplace_back(ObjFile.FileName());
 
   // If we have an object cache, tell it about the new object.
   if (ObjCache) {
@@ -284,7 +301,7 @@ std::string LLDJIT::emitObject(Module *M) {
     ObjCache->notifyObjectCompiled(M, MB);
   }
 
-  return OwnedTempFiles.back().FileName();
+  return ObjFile.FileName();
 }
 
 void LLDJIT::generateCodeForModule(Module *M) {
@@ -877,12 +894,16 @@ void LLDJIT::UnregisterJITEventListener(JITEventListener *L) {
 LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
                          llvm::StringRef FileExtension) {
   int FD;
+  SmallString<8> Str;
+  raw_svector_ostream OS(Str);
+  unsigned Num = sys::Process::GetRandomNumber();
+  for (int i = 0; i < 4; ++i)
+    OS << format("%.2x", (Num >> (i * 8)) & 0xFF);
   SmallString<128> ResultPath;
-  // const Twine &Model, int &ResultFd,SmallVectorImpl<char>
-  // &ResultPath,unsigned Mode, OpenFlags Flags
   if (std::error_code EC = llvm::sys::fs::createTemporaryFile(
-          Prefix, FileExtension, FD, ResultPath))
-    report_fatal_error("Failed to create a temporary file on the system!");
+          Prefix + "-" + Str.str(), FileExtension, FD, ResultPath))
+    report_fatal_error("Failed to create a temporary file " + ResultPath.str() +
+                       " on the system: " + EC.message());
   File = std::make_unique<llvm::ToolOutputFile>(ResultPath, FD);
   Name = std::string(ResultPath);
 }
