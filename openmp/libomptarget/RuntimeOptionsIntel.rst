@@ -336,7 +336,7 @@ Staging buffer is used in copy operations between host and device as a
 temporary storage for two-step copy operation. The buffer is only used for
 discrete devices.
 
-**Default**: 4
+**Default**: 16
 
 ``LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Value>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
