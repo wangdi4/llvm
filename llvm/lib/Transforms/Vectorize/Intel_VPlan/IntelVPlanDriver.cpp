@@ -1297,6 +1297,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
     return false;
   }
+  if (HIRVecLegal.hasF90DopeVectorReduction()) {
+    LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
+    return false;
+  }
   if (!ForceComplexTyReductionVec && HIRVecLegal.hasComplexTyReduction()) {
     LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
     return false;

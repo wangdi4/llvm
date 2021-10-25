@@ -1447,6 +1447,9 @@ template <class Legality> constexpr IRKind getIRKindByLegality() {
              : IRKind::HIR;
 }
 
+static Type *getType(Value *V) { return V->getType(); }
+static Type *getType(RegDDRef *V) { return V->getDestType(); }
+
 template <class VPOVectorizationLegality>
 #endif
 void LoopVectorizationPlanner::EnterExplicitData(
@@ -1510,33 +1513,42 @@ void LoopVectorizationPlanner::EnterExplicitData(
       if (RedItem->getIsComplex())
         LVL.setHasComplexTyReduction();
 
+      bool IsInteger = getType(V)->getPointerElementType()->isIntegerTy();
       ReductionItem::WRNReductionKind Type = RedItem->getType();
+      RecurKind Kind;
       switch (Type) {
       case ReductionItem::WRNReductionMin:
-        LVL.addReductionMin(V, !RedItem->getIsUnsigned());
+        Kind = IsInteger ? (RedItem->getIsUnsigned()
+                            ? RecurKind::UMin
+                            : RecurKind::SMin)
+                         : RecurKind::FMin;
         break;
       case ReductionItem::WRNReductionMax:
-        LVL.addReductionMax(V, !RedItem->getIsUnsigned());
+        Kind = IsInteger ? (RedItem->getIsUnsigned()
+                            ? RecurKind::UMax
+                            : RecurKind::SMax)
+                         : RecurKind::FMax;
         break;
       case ReductionItem::WRNReductionAdd:
       case ReductionItem::WRNReductionSub:
-        LVL.addReductionAdd(V);
+        Kind = IsInteger ? RecurKind::Add : RecurKind::FAdd;
         break;
       case ReductionItem::WRNReductionMult:
-        LVL.addReductionMult(V);
+        Kind = IsInteger ? RecurKind::Mul : RecurKind::FMul;
         break;
       case ReductionItem::WRNReductionBor:
-        LVL.addReductionOr(V);
+        Kind = RecurKind::Or;
         break;
       case ReductionItem::WRNReductionBxor:
-        LVL.addReductionXor(V);
+        Kind = RecurKind::Xor;
         break;
       case ReductionItem::WRNReductionBand:
-        LVL.addReductionAnd(V);
+        Kind = RecurKind::And;
         break;
       default:
-        break;
+        continue;
       }
+      LVL.addReduction(V, Kind, RedItem->getIsF90DopeVector());
     }
   }
   if (WRLp) {

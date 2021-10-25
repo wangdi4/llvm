@@ -598,10 +598,14 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::parseExplicitReduction(Value *RedVarPtr,
-                                                      RecurKind Kind) {
+void VPOVectorizationLegality::addReduction(Value *RedVarPtr,
+                                            RecurKind Kind,
+                                            bool IsF90DopeVector) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
+
+  if (IsF90DopeVector)
+    HasF90DopeVectorReduction = true;
 
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
     return parseMinMaxReduction(RedVarPtr, Kind);
@@ -613,42 +617,16 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
 }
 
-void VPOVectorizationLegality::addReductionMult(Value *V) {
-  if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurKind::Mul);
-  else
-    parseExplicitReduction(V, RecurKind::FMul);
-}
-
-void VPOVectorizationLegality::addReductionAdd(Value *V) {
-  if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurKind::Add);
-  else
-    parseExplicitReduction(V, RecurKind::FAdd);
-}
-
-void VPOVectorizationLegality::addReductionMin(Value *V, bool IsSigned) {
-  if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurKind Kind = IsSigned ? RecurKind::SMin : RecurKind::UMin;
-    parseExplicitReduction(V, Kind);
-  } else
-    parseExplicitReduction(V, RecurKind::FMin);
-}
-
-void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
-  if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurKind Kind = IsSigned ? RecurKind::SMax : RecurKind::UMax;
-    parseExplicitReduction(V, Kind);
-  } else
-    parseExplicitReduction(V, RecurKind::FMax);
-}
-
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                                             const CallInst *RegionEntry) {
 
   // TODO: implement Fortran dope vectors support (CMPLRLLVM-10783)
   if (HasF90DopeVectorPrivate) {
     LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
+    return false;
+  }
+  if (HasF90DopeVectorReduction) {
+    LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
     return false;
   }
 
