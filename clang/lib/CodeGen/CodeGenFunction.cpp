@@ -3264,7 +3264,7 @@ void CodeGenFunction::EmitMultiVersionResolver(
 #if INTEL_CUSTOMIZATION
   if (IsCpuDispatch &&
       CGM.getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
-    EmitCpuFeaturesInit();
+    CurBlock = EmitCpuFeaturesInit(Resolver);
   else
     EmitX86CpuInit();
 #endif // INTEL_CUSTOMIZATION

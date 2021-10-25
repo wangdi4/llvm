@@ -5309,7 +5309,7 @@ public:
   void EmitMultiVersionResolver(llvm::Function *Resolver,
                                 ArrayRef<MultiVersionResolverOption> Options,
                                 bool IsCpuDispatch);
-  void EmitCpuFeaturesInit();
+  llvm::BasicBlock *EmitCpuFeaturesInit(llvm::Function *Func);
   static std::array<uint64_t, 2>
   GetCpuFeatureBitmap(ArrayRef<StringRef> FeatureStrs);
 

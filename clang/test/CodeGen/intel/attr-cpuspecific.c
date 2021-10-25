@@ -50,7 +50,17 @@ void TwoVersions(void);
 ATTR(cpu_dispatch(ivybridge, knl))
 void TwoVersions(void);
 // LINUX: define weak_odr void ()* @TwoVersions.resolver()
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: br label %[[INIT_CMP:.+]]
+// LINUX: [[INIT_CMP]]:
+// LINUX-NEXT: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+// LINUX-NEXT: %[[INIT_RESULT:.+]] = icmp eq i64 %[[FEAT_INIT]], 0
+// LINUX-NEXT: br i1 %[[INIT_RESULT]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
+
+// LINUX: [[INIT_BODY]]:
+// LINUX-NEXT: call void @__intel_cpu_features_init_x()
+// LINUX-NEXT: br label %[[INIT_CMP]]
+
+// LINUX: [[REST]]
 // LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
 // LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754348
 // LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754348
@@ -61,7 +71,17 @@ void TwoVersions(void);
 // LINUX: unreachable
 
 // WINDOWS: define weak_odr dso_local void @TwoVersions() comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: br label %[[INIT_CMP:.+]]
+// WINDOWS: [[INIT_CMP]]:
+// WINDOWS-NEXT: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+// WINDOWS-NEXT: %[[INIT_RESULT:.+]] = icmp eq i64 %[[FEAT_INIT]], 0
+// WINDOWS-NEXT: br i1 %[[INIT_RESULT]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
+
+// WINDOWS: [[INIT_BODY]]:
+// WINDOWS-NEXT: call void @__intel_cpu_features_init_x()
+// WINDOWS-NEXT: br label %[[INIT_CMP]]
+
+// WINDOWS: [[REST]]
 // WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
 // WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754348
 // WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754348
@@ -286,6 +306,7 @@ int DispatchFirst(void) { return 1; }
 ATTR(cpu_dispatch(generic, haswell, broadwell))
 int FullFeatures(void);
 // LINUX: define weak_odr i32 ()* @FullFeatures.resolver
+// LINUX: call void @__intel_cpu_features_init_x()
 // LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
 // LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 278765548
 // LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 278765548
@@ -296,6 +317,7 @@ int FullFeatures(void);
 // LINUX: ret i32 ()* @FullFeatures.V
 // LINUX: ret i32 ()* @FullFeatures.A
 // WINDOWS: define weak_odr dso_local i32 @FullFeatures() comdat
+// WINDOWS: call void @__intel_cpu_features_init_x()
 // WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
 // WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 278765548
 // WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 278765548
