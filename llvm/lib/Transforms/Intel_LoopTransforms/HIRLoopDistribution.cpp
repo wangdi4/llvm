@@ -187,6 +187,10 @@ bool HIRLoopDistribution::run() {
       }
     }
 
+    // Save the loop before checking Scalar Expansion. SCEX analysis requires
+    // processing PiBlocks which will modify HIR before we decide if
+    // transformation will happen. We'll revert to LoopClone as backup.
+    HLLoop *LoopClone = Lp->clone();
     SmallVector<PiBlockList, 8> NewOrdering;
     findDistPoints(Lp, PG, NewOrdering);
 
@@ -198,7 +202,7 @@ bool HIRLoopDistribution::run() {
       processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
 
       // Do scalar expansion analysis.
-      ScalarExpansion SCEX(Lp->getNestingLevel(), false, DistributedLoops);
+      ScalarExpansion SCEX(Lp, false, DistributedLoops);
       LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
 
       // Can't do the following assertion because scalar expansion is allowed in
@@ -215,6 +219,18 @@ bool HIRLoopDistribution::run() {
         LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                           << "Number of temps required for distribution exceed "
                              "MaxArrayTempsAllowed\n");
+        continue;
+      }
+
+      // There are certain cases we can't handle involving liveout temps and
+      // SCEX reloading from temp arrays inside control flow. Bailout here.
+      if (SCEX.hasBadCandidate()) {
+        LLVM_DEBUG(
+            dbgs()
+            << "LOOP DISTRIBUTION: "
+            << "Cannot distribute for liveout scalar with control flow\n");
+        // Replace modified Loop with original loop
+        HLNodeUtils::replace(Lp, LoopClone);
         continue;
       }
 
@@ -474,9 +490,10 @@ bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
   return !IsMemRef;
 }
 
-ScalarExpansion::ScalarExpansion(unsigned Level, bool HasDistributePoint,
+ScalarExpansion::ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
                                  ArrayRef<HLDDNodeList> Chunks)
-    : Level(Level), HasDistributePoint(HasDistributePoint) {
+    : Lp(Loop), Level(Loop->getNestingLevel()),
+      HasDistributePoint(HasDistributePoint) {
   analyze(Chunks);
 }
 
@@ -573,6 +590,50 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *SrcRef,
 
   // It also should be safe to recompute SrcRef at level of DstRef.
   return IsSafeToRecompute && Level >= SrcRValLevel;
+}
+
+// Scalar expansion assumes we can re-load temps/globals once per
+// loop, disregarding control flow from the original loop. This may
+// cause inconsistencies for liveouts, e.g.
+//
+// Orig_Loop:
+// if (pred)
+//   x = A[i]; <-- DistLoop1
+//   B[x] = 1; <-- DistLoop2
+//
+// DistLoop1:
+// if (pred)
+//   x = A[i];
+//
+// DistLoop2:
+// if (pred)
+//   B[x] = 1;
+// ...
+// Since x is used in DistLoop2, we need to load x before the first use
+// in of DistLoop2. However, if x is liveout, correct loading
+// of x in DistLoop2 from the value stored in DistLoop1 needs to happen
+// inside the if node. Otherwise the last value of x could be incorrect.
+// But since x could have additional uses, loading inside the if is
+// correct only if it's a single use.
+
+// Candidate is bad if:
+// 1) Candidate has multiple uses (TODO)
+// 2) Candidate is live out
+// 3) Candidate def is conditional
+bool ScalarExpansion::hasBadCandidate() const {
+  for (auto &Candidate : Candidates) {
+    unsigned SB = Candidate.getSymbase();
+    if (!Lp->isLiveOut(SB)) {
+      continue;
+    }
+
+    for (auto &Src : Candidate.SrcRefs) {
+      if (!isa<HLLoop>(Src->getHLDDNode()->getParent())) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
@@ -1490,7 +1551,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
-  ScalarExpansion SCEX(Lp->getNestingLevel(), true, DistributedLoops);
+  ScalarExpansion SCEX(Lp, true, DistributedLoops);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(), true);
   return Success;
 }
