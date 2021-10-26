@@ -1686,9 +1686,6 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
     }
   }
 
-  // Get loop trip count
-  uint64_t LoopTripCount = getLoopTripCount(DeviceId);
-
   // Launch device execution.
 #if INTEL_COLLAB
 #else // INTEL_COLLAB
@@ -1719,7 +1716,8 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
                                     TgtNDLoopDesc);
   else if (IsTeamConstruct)
     Ret = Device.runTeamRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
-                               TeamNum, ThreadLimit, LoopTripCount, AsyncInfo);
+                               TeamNum, ThreadLimit, getLoopTripCount(DeviceId),
+                               AsyncInfo);
   else
     Ret = Device.runRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
                            AsyncInfo);
@@ -1730,7 +1728,7 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
     if (IsTeamConstruct)
       Ret = Device.runTeamRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
                                  TgtArgs.size(), TeamNum, ThreadLimit,
-                                 LoopTripCount, AsyncInfo);
+                                 getLoopTripCount(DeviceId), AsyncInfo);
     else
       Ret = Device.runRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
                              TgtArgs.size(), AsyncInfo);
