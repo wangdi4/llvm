@@ -363,7 +363,7 @@ public:
 class SharedFile : public ELFFileBase {
 public:
   SharedFile(MemoryBufferRef m, StringRef defaultSoName)
-      : ELFFileBase(SharedKind, m), soName(std::string(defaultSoName)),
+      : ELFFileBase(SharedKind, m), soName(defaultSoName),
         isNeeded(!config->asNeeded) {}
 
   // This is actually a vector of Elf_Verdef pointers.
@@ -377,7 +377,7 @@ public:
   static unsigned vernauxNum;
 
   std::vector<StringRef> dtNeeded;
-  std::string soName;
+  StringRef soName;
 
   static bool classof(const InputFile *f) { return f->kind() == SharedKind; }
 
