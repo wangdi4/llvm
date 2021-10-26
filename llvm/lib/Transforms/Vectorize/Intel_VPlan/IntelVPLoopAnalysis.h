@@ -1175,7 +1175,6 @@ class PrivateDescr : public VPEntityImportDescr {
 public:
   PrivateDescr() = default;
 
-  VPValue *getAllocaInst() const { return AllocaInst; }
   bool isConditional() const { return IsConditional; }
   bool isLast() const { return IsLast; }
   bool isExplicit() const { return IsExplicit; }
@@ -1188,7 +1187,6 @@ public:
   void clear() override {
     BaseT::clear();
     PtrAliases.clear();
-    AllocaInst = nullptr;
     ExitInst = nullptr;
     IsConditional = false;
     IsLast = false;
@@ -1208,7 +1206,6 @@ public:
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
 
-  void setAllocaInst(VPValue *AllocaI) { AllocaInst = AllocaI; }
   void setIsConditional(bool IsCond) { IsConditional = IsCond; }
   void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
@@ -1227,7 +1224,6 @@ private:
   /// select instruction.
   void updateKind(const VPLoop *Loop);
 
-  VPValue *AllocaInst = nullptr;
   VPInstruction *ExitInst = nullptr;
   // These are Pointer-aliases. Each Loop-private memory descriptor can have
   // multiple aliases as opposed to memory descriptors for inductions or
