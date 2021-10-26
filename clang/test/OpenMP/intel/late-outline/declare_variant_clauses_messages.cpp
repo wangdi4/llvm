@@ -49,7 +49,7 @@ void foo_v4(float *AAA, float *BBB, int *I, omp_interop_t) { return; }
 #pragma omp declare variant(foo_v4)                          \
    append_args(interop(target)) match(device={arch(ppc)})
 
-// expected-error@+2 {{unexpected append-op in 'append_args' clause, expected 'interop'}}
+// expected-error@+2 {{unexpected operation specified in 'append_args' clause, expected 'interop'}}
 #pragma omp declare variant(foo_v2)                          \
    append_args(inerop(target)) match(construct={dispatch}, device={arch(ppc)})
 // expected-error@+2 {{expected interop type: 'target' and/or 'targetsync'}}

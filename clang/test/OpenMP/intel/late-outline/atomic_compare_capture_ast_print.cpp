@@ -734,18 +734,18 @@ void test()
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:DeclRefExpr {{.*}}'v' 'int'
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 2
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '>'
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 2
   //DUMP:DeclRefExpr {{.*}}'expr' 'int'
   //DUMP:CompoundStmt
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 2
   //DUMP:DeclRefExpr {{.*}}'expr' 'int'
   #pragma omp atomic compare capture
@@ -764,19 +764,19 @@ void test()
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '>'
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 2
   //DUMP:DeclRefExpr {{.*}}'expr' 'int'
   //DUMP:CompoundStmt
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 2
   //DUMP:DeclRefExpr {{.*}}'expr' 'int'
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:DeclRefExpr {{.*}}'v' 'int'
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 2
   #pragma omp atomic compare capture
   { if (x[2] > expr) { x[2] = expr; } v = x[2]; }
@@ -794,18 +794,18 @@ void test()
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:DeclRefExpr {{.*}}'v' 'int'
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 3
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '=='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 3
   //DUMP:DeclRefExpr {{.*}}'e' 'int'
   //DUMP:CompoundStmt
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 3
   //DUMP:DeclRefExpr {{.*}}'d' 'int'
   #pragma omp atomic compare capture
@@ -824,19 +824,19 @@ void test()
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '=='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 3
   //DUMP:DeclRefExpr {{.*}}'e' 'int'
   //DUMP:CompoundStmt
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 3
   //DUMP:DeclRefExpr {{.*}}'d' 'int'
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:DeclRefExpr {{.*}}'v' 'int'
   //DUMP:ArraySubscriptExpr
-  //DUMP:DeclRefExpr {{.*}}'x' 'int [4]'
+  //DUMP:DeclRefExpr {{.*}}'x' 'int[4]'
   //DUMP:IntegerLiteral {{.*}}'int' 3
   #pragma omp atomic compare capture
   { if (x[3] == e) { x[3] = d; } v = x[3]; }

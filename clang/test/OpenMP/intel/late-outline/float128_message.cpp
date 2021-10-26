@@ -12,7 +12,7 @@
 // expected-note@+1 {{'f' defined here}}
 floatDef foo(floatDef f) {
 #pragma omp target map(f)
-  // expected-error@+1 {{'f' requires 128 bit size '__float128' type support, but device 'spir64' does not support it}}
+  // expected-error@+1 {{'f' requires 128 bit size '__float128' type support, but target 'spir64' does not support it}}
   f = 1.0000;
   return f;
 }
@@ -21,7 +21,7 @@ floatDef foo(floatDef f) {
 long double zoo(long double d)
 {
 #pragma omp target map(d)
-  // expected-error@+1 {{'d' requires 128 bit size 'long double' type support, but device 'spir64' does not support it}}
+  // expected-error@+1 {{'d' requires 128 bit size 'long double' type support, but target 'spir64' does not support it}}
   d = 1.0;
   return d;
 }
