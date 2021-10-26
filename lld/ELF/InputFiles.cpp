@@ -627,7 +627,7 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
 #if INTEL_CUSTOMIZATION
     // If the section name starts with .gnu.lto then a GNU
     // LTO file was found.
-    StringRef sectionName = getSectionName(sec);
+    StringRef sectionName = CHECK(getObj().getSectionName(sec), this);
     if (sectionName.startswith(".gnu.lto"))
       this->isGNULTOFile = true;
 #endif
