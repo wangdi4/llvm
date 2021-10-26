@@ -1716,7 +1716,8 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
                                     TgtNDLoopDesc);
   else if (IsTeamConstruct)
     Ret = Device.runTeamRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
-                               TeamNum, ThreadLimit, LoopTripCount, AsyncInfo);
+                               TeamNum, ThreadLimit, getLoopTripCount(DeviceId),
+                               AsyncInfo);
   else
     Ret = Device.runRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
                            AsyncInfo);
