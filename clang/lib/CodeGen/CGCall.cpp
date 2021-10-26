@@ -43,6 +43,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 using namespace clang;
 using namespace CodeGen;
@@ -60,8 +61,8 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
   case CC_X86_64SysV: return llvm::CallingConv::X86_64_SysV;
   case CC_AAPCS: return llvm::CallingConv::ARM_AAPCS;
   case CC_AAPCS_VFP: return llvm::CallingConv::ARM_AAPCS_VFP;
-  case CC_IntelOclBicc: return llvm::CallingConv::Intel_OCL_BI;
 #if INTEL_CUSTOMIZATION
+  case CC_IntelOclBicc: return llvm::CallingConv::SVML_Unified;
   case CC_IntelOclBiccAVX: return llvm::CallingConv::Intel_OCL_BI_AVX;
   case CC_IntelOclBiccAVX512: return llvm::CallingConv::Intel_OCL_BI_AVX512;
 #endif // INTEL_CUSTOMIZATION
@@ -5782,6 +5783,24 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // Apply the attributes and calling convention.
   CI->setAttributes(Attrs);
   CI->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
+
+#if INTEL_CUSTOMIZATION
+  // For SVML functions, the calling convention computed from CallInfo may not
+  // be the correct variant, because it depends on both the name and type of the
+  // function, but CallInfo doesn't know it's name. Instead, the appropriate
+  // calling convention is computed later at SetLLVMFunctionAttributes and set
+  // in generated IR of that function.
+  // If the function is called directly, use the calling convention specified in
+  // it's declaration. If it's called through a function pointer, we can assume
+  // it's a dynamic dispatch, and just use the calling convention of the caller.
+  if (CallingConv == llvm::CallingConv::SVML_Unified) {
+    auto *FPtr = dyn_cast<llvm::Function>(CalleePtr);
+    if (!FPtr)
+      CI->setCallingConv(CurFn->getCallingConv());
+    else if (llvm::isSVMLCallingConv(FPtr->getCallingConv()))
+      CI->setCallingConv(FPtr->getCallingConv());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Apply various metadata.
 
