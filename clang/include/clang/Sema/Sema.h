@@ -11529,16 +11529,23 @@ public:
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
   /// \param TI The trait info object representing the match clause.
+  /// \param NumAppendArgs The number of omp_interop_t arguments to account for
+  /// in checking.
   /// \returns None, if the function/variant function are not compatible with
   /// the pragma, pair of original function/variant ref expression otherwise.
   Optional<std::pair<FunctionDecl *, Expr *>>
   checkOpenMPDeclareVariantFunction(DeclGroupPtrTy DG, Expr *VariantRef,
+<<<<<<< HEAD
 #if INTEL_COLLAB
                                     OMPTraitInfo &TI, unsigned NumAppendArgs,
                                     SourceRange SR);
 #else // INTEL_COLLAB
                                     OMPTraitInfo &TI, SourceRange SR);
 #endif // INTEL_COLLAB
+=======
+                                    OMPTraitInfo &TI, unsigned NumAppendArgs,
+                                    SourceRange SR);
+>>>>>>> d8699391a431af5730fe36ac4b05840020c42203
 
   /// Called on well-formed '\#pragma omp declare variant' after parsing of
   /// the associated method/function.
@@ -11547,9 +11554,16 @@ public:
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
   /// \param TI The context traits associated with the function variant.
+  /// \param AdjustArgsNothing The list of 'nothing' arguments.
+  /// \param AdjustArgsNeedDevicePtr The list of 'need_device_ptr' arguments.
+  /// \param AppendArgs The list of 'append_args' arguments.
+  /// \param AdjustArgsLoc The Location of an 'adjust_args' clause.
+  /// \param AppendArgsLoc The Location of an 'append_args' clause.
+  /// \param SR The SourceRange of the 'declare variant' directive.
   void ActOnOpenMPDeclareVariantDirective(
       FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
       ArrayRef<Expr *> AdjustArgsNothing,
+<<<<<<< HEAD
 #if INTEL_COLLAB
       ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
       ArrayRef<OMPDeclareVariantAttr::InteropType> AdjustArgs,
@@ -11558,6 +11572,12 @@ public:
 #else // INTEL_COLLAB
       ArrayRef<Expr *> AdjustArgsNeedDevicePtr, SourceRange SR);
 #endif // INTEL_COLLAB
+=======
+      ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
+      ArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
+      SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
+      SourceRange SR);
+>>>>>>> d8699391a431af5730fe36ac4b05840020c42203
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

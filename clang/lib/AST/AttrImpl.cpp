@@ -261,7 +261,10 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     OS << ")";
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
+=======
+>>>>>>> d8699391a431af5730fe36ac4b05840020c42203
   auto PrintInteropTypes = [&OS](InteropType *Begin, InteropType *End) {
     for (InteropType *I = Begin; I != End; ++I) {
       if (I != Begin)
@@ -276,7 +279,10 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     PrintInteropTypes(appendArgs_begin(), appendArgs_end());
     OS << ")";
   }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+>>>>>>> d8699391a431af5730fe36ac4b05840020c42203
 }
 
 #include "clang/AST/AttrImpl.inc"

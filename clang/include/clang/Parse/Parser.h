@@ -3327,6 +3327,7 @@ private:
   /// Parses OpenMP context selectors.
   bool parseOMPContextSelectors(SourceLocation Loc, OMPTraitInfo &TI);
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Parse a `match`, 'adjust_args', or 'append_args' clause for an
   /// '#pragma omp declare variant'. Return true if there was an error.
@@ -3341,6 +3342,11 @@ private:
   bool ParseOpenMPAppendArgs(
       SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes);
 #endif // INTEL_COLLAB
+=======
+  /// Parse an 'append_args' clause for '#pragma omp declare variant'.
+  bool parseOpenMPAppendArgs(
+      SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes);
+>>>>>>> d8699391a431af5730fe36ac4b05840020c42203
 
   /// Parse a `match` clause for an '#pragma omp declare variant'. Return true
   /// if there was an error.
