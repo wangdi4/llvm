@@ -10909,18 +10909,8 @@ def err_omp_declare_variant_prototype_required : Error<
 def err_omp_interop_type_not_found : Error<
   "'omp_interop_t' must be defined when 'append_args' clause is used; include <omp.h>">;
 def err_omp_declare_variant_incompat_types : Error<
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  "variant in '#pragma omp declare variant' with type %0 is incompatible with"
-  " type %1%select{| with appended arguments}2"
-#else // INTEL_COLLAB
-  "variant in '#pragma omp declare variant' with type %0 is incompatible with type %1"
-#endif // INTEL_COLLAB
-  >;
-=======
   "variant in '#pragma omp declare variant' with type %0 is incompatible with"
   " type %1%select{| with appended arguments}2">;
->>>>>>> d8699391a431af5730fe36ac4b05840020c42203
 def warn_omp_declare_variant_marked_as_declare_variant : Warning<
   "variant function in '#pragma omp declare variant' is itself marked as '#pragma omp declare variant'"
   >, InGroup<SourceUsesOpenMP>;

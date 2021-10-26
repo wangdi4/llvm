@@ -11535,17 +11535,8 @@ public:
   /// the pragma, pair of original function/variant ref expression otherwise.
   Optional<std::pair<FunctionDecl *, Expr *>>
   checkOpenMPDeclareVariantFunction(DeclGroupPtrTy DG, Expr *VariantRef,
-<<<<<<< HEAD
-#if INTEL_COLLAB
                                     OMPTraitInfo &TI, unsigned NumAppendArgs,
                                     SourceRange SR);
-#else // INTEL_COLLAB
-                                    OMPTraitInfo &TI, SourceRange SR);
-#endif // INTEL_COLLAB
-=======
-                                    OMPTraitInfo &TI, unsigned NumAppendArgs,
-                                    SourceRange SR);
->>>>>>> d8699391a431af5730fe36ac4b05840020c42203
 
   /// Called on well-formed '\#pragma omp declare variant' after parsing of
   /// the associated method/function.
@@ -11563,21 +11554,10 @@ public:
   void ActOnOpenMPDeclareVariantDirective(
       FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
       ArrayRef<Expr *> AdjustArgsNothing,
-<<<<<<< HEAD
-#if INTEL_COLLAB
-      ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
-      ArrayRef<OMPDeclareVariantAttr::InteropType> AdjustArgs,
-      SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
-      SourceRange SR);
-#else // INTEL_COLLAB
-      ArrayRef<Expr *> AdjustArgsNeedDevicePtr, SourceRange SR);
-#endif // INTEL_COLLAB
-=======
       ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
       ArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
       SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
       SourceRange SR);
->>>>>>> d8699391a431af5730fe36ac4b05840020c42203
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,
