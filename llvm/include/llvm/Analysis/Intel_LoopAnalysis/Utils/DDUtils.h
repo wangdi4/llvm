@@ -96,27 +96,20 @@ public:
   ///  adjacent both in the original and the new permutations.
   static bool isLegalForPermutation(unsigned DstLevel, unsigned SrcLevel,
                                     unsigned OutmostNestingLevel,
-                                    SmallVectorImpl<DirectionVector> &DVs);
+                                    ArrayRef<DirectionVector> DVs);
 
   /// Collect DVs for checking the legality of loop permutation (a.k.a
   /// interchange). Usable in any transformation for preparing checking
   /// validity of permutation. OutermostLoop is the outermost loop of
   /// the loopnest being analyzed for permutation.
-  static void computeDVsForPermute(SmallVectorImpl<DirectionVector> &DV,
-                                   const HLLoop *OutermostLoop,
-                                   unsigned InnermostNestingLevel,
-                                   HIRDDAnalysis &DDA,
-                                   HIRSafeReductionAnalysis &SRA,
-                                   bool RefineDV);
-
-  static void computeDVsForPermuteIgnoringSBs(
-      SmallVectorImpl<DirectionVector> &DV, const HLLoop *OutermostLoop,
-      unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
-      HIRSafeReductionAnalysis &SRA, bool RefineDV,
-      const SpecialSymbasesTy *IgnorableSBs);
-
   static void computeDVsForPermuteWithSBs(
       SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
+      const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
+      HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
+      const SpecialSymbasesTy *SpecialSBs);
+
+  static void computeDVsForPermuteWithSBs(
+      SmallVectorImpl<DirectionVector> &DVs,
       const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
       HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
       const SpecialSymbasesTy *SpecialSBs);

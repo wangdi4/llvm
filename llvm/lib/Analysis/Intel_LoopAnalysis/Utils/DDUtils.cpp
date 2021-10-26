@@ -917,7 +917,7 @@ bool DDUtils::isValidReductionDDRef(RegDDRef *RRef, HLLoop *Loop,
 namespace {
 bool isLegalToShiftLoop(unsigned DstLevel, unsigned SrcLevel,
                         unsigned OutmostNestingLevel,
-                        SmallVectorImpl<DirectionVector> &DVs) {
+                        ArrayRef<DirectionVector> DVs) {
 
   unsigned SmallerLevel;
 
@@ -982,7 +982,7 @@ bool isLegalToShiftLoop(unsigned DstLevel, unsigned SrcLevel,
 
 bool DDUtils::isLegalForPermutation(unsigned DstLevel, unsigned SrcLevel,
                                     unsigned OutmostNestingLevel,
-                                    SmallVectorImpl<DirectionVector> &DVs) {
+                                    ArrayRef<DirectionVector> DVs) {
   if (SrcLevel == DstLevel) {
     return true;
   }
@@ -1096,7 +1096,6 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   DDGraph DDG;
   HIRSafeReductionAnalysis &SRA;
   const SpecialSymbasesTy *SpecialSymbases;
-  bool IgnoreSpecialSymbases;
 
   // Indicates if we need to call Demand Driven DD to refine DV
   bool RefineDV;
@@ -1107,7 +1106,7 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned InnermostLevel,
                           HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
                           const SpecialSymbasesTy *SpecialSBs,
-                          bool IgnoreSpecialSymbases, bool RefineDV, T &DVs);
+                          bool RefineDV, T &DVs);
 
   void addToDVs(T &DVs, const DirectionVector &DV, const DDEdge *Edge);
 
@@ -1149,13 +1148,12 @@ template <typename T>
 CollectDDInfoForPermute<T>::CollectDDInfoForPermute(
     const HLLoop *CandidateLoop, unsigned InnermostLevel, HIRDDAnalysis &DDA,
     HIRSafeReductionAnalysis &SRA, const SpecialSymbasesTy *SpecialSBs,
-    bool IgnoreSpecialSymbases, bool RefineDV, T &DVs)
+    bool RefineDV, T &DVs)
     : CandidateLoop(CandidateLoop),
       OutermostLevel(CandidateLoop->getNestingLevel()),
       InnermostLevel(InnermostLevel), DDA(DDA),
       DDG(DDA.getGraph(CandidateLoop)), SRA(SRA), SpecialSymbases(SpecialSBs),
-      IgnoreSpecialSymbases(IgnoreSpecialSymbases), RefineDV(RefineDV),
-      DVs(DVs) {
+      RefineDV(RefineDV), DVs(DVs) {
   DVs.clear();
 }
 
@@ -1170,29 +1168,16 @@ void CollectDDInfoForPermute<T>::visit(const HLDDNode *DDNode) {
 
   for (auto I = DDNode->ddref_begin(), E = DDNode->ddref_end(); I != E; ++I) {
 
-    // Ignorable symbases are symbases of temps originally were
-    // in pre(post)loop or preheader/postexit.
-    // Those were legally sinked into the innermost loop.
-    // The fact allows us to ignore DDs related to those temps.
-    if ((*I)->isTerminalRef() && SpecialSymbases) {
-      if (!IgnoreSpecialSymbases &&
-          !(SpecialSymbases->count((*I)->getSymbase()))) {
-        // Consider only these symbases
+    // In general, non-livein temps are ignored.
+    if ((*I)->isTerminalRef() && SpecialSymbases &&
+        !SpecialSymbases->count((*I)->getSymbase()))
         continue;
-      }
-      if (IgnoreSpecialSymbases &&
-          (SpecialSymbases->count((*I)->getSymbase()))) {
-        // Ignore this symbase
-        continue;
-      }
-    }
 
     for (auto II = DDG.outgoing_edges_begin(*I),
               EE = DDG.outgoing_edges_end(*I);
          II != EE; ++II) {
       // Examining outoging edges is sufficent
       const DDEdge *Edge = *II;
-      DDRef *DDref = Edge->getSink();
 
       if (ignoreEdgeForPermute(Edge, CandidateLoop)) {
 
@@ -1209,7 +1194,7 @@ void CollectDDInfoForPermute<T>::visit(const HLDDNode *DDNode) {
 
       if (RefineDV) {
         DDRef *SrcDDRef = Edge->getSrc();
-        DDRef *DstDDRef = DDref;
+        DDRef *DstDDRef = Edge->getSink();
 
         // Refine works only for non-terminal refs
         RefinedDep = DDA.refineDV(SrcDDRef, DstDDRef, OutermostLevel,
@@ -1251,20 +1236,6 @@ void CollectDDInfoForPermute<T>::visit(const HLDDNode *DDNode) {
   }
 }
 
-void DDUtils::computeDVsForPermute(SmallVectorImpl<DirectionVector> &DVs,
-                                   const HLLoop *OutermostLoop,
-                                   unsigned InnermostNestingLevel,
-                                   HIRDDAnalysis &DDA,
-                                   HIRSafeReductionAnalysis &SRA,
-                                   bool RefineDV) {
-
-  CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD(
-      OutermostLoop, InnermostNestingLevel, DDA, SRA, nullptr, true, RefineDV,
-      DVs);
-
-  HLNodeUtils::visit(CDD, OutermostLoop);
-}
-
 void DDUtils::computeDVsForPermuteWithSBs(
     SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
     const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
@@ -1272,20 +1243,20 @@ void DDUtils::computeDVsForPermuteWithSBs(
     const SpecialSymbasesTy *SpecialSBs) {
 
   CollectDDInfoForPermute<SmallVectorImpl<std::pair<DirectionVector, unsigned>>>
-      CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs, false,
+      CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs,
           RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
 
-void DDUtils::computeDVsForPermuteIgnoringSBs(
-    SmallVectorImpl<DirectionVector> &DVs, const HLLoop *OutermostLoop,
-    unsigned InnermostNestingLevel, HIRDDAnalysis &DDA,
-    HIRSafeReductionAnalysis &SRA, bool RefineDV,
+void DDUtils::computeDVsForPermuteWithSBs(
+    SmallVectorImpl<DirectionVector> &DVs,
+    const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
+    HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
     const SpecialSymbasesTy *SpecialSBs) {
 
-  CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD(
-      OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs, true,
+  CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD
+      (OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs,
       RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
