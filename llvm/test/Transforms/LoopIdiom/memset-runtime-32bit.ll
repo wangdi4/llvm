@@ -290,11 +290,12 @@ define dso_local void @NestedFor64(i32* %ar, i64 %n, i64 %m, i64 %o) #0 {
 ; CHECK-LABEL: @NestedFor64(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP3:%.*]] = icmp slt i64 0, [[N:%.*]]
+; CHECK-NEXT:    br i1 [[CMP3]], label [[FOR_BODY_LR_PH:%.*]], label [[FOR_END17:%.*]]
+; CHECK:       for.body.lr.ph:
 ; CHECK-NEXT:    [[CMP41:%.*]] = icmp slt i64 0, [[M:%.*]]
 ; CHECK-NEXT:    [[MUL13:%.*]] = mul nsw i64 [[O:%.*]], 4
 ; CHECK-NEXT:    [[CONV14:%.*]] = trunc i64 [[MUL13]] to i32
-; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[CMP3]], i1 [[CMP41]], i1 false
-; CHECK-NEXT:    br i1 [[OR_COND]], label [[FOR_BODY_US_PREHEADER:%.*]], label [[FOR_END17:%.*]]
+; CHECK-NEXT:    br i1 [[CMP41]], label [[FOR_BODY_US_PREHEADER:%.*]], label [[FOR_END17]]
 ; CHECK:       for.body.us.preheader:
 ; CHECK-NEXT:    [[TMP0:%.*]] = mul i64 [[O]], [[M]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i64 [[TMP0]] to i32
