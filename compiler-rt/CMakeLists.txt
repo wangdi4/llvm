@@ -231,10 +231,11 @@ if (CMAKE_CXX_FLAGS MATCHES "-fprofile-arcs" AND CMAKE_CXX_FLAGS MATCHES "-ftest
   string(REGEX REPLACE "-fprofile-arcs" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   string(REGEX REPLACE "-ftest-coverage" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   set(CCOV_BUILD_FLAGS "-fprofile-arcs -ftest-coverage")
-  # Libirc is not ready when running lit tests, so we disable it when
-  # doing ccov build.
-  string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
 endif()
+
+# Libirc is not ready when running lit tests, so we disable using it.
+string(APPEND CMAKE_C_FLAGS " -i_no-use-libirc")
+string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
 # end INTEL_CUSTOMIZATION
 
 set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER OFF)
