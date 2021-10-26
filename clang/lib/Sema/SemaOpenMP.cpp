@@ -7186,13 +7186,8 @@ void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
   auto *OMPDeclareVariantA = OMPDeclareVariantAttr::CreateImplicit(
       Context, VariantFuncRef, DVScope.TI,
       /*NothingArgs=*/nullptr, /*NothingArgsSize=*/0,
-#if INTEL_COLLAB
       /*NeedDevicePtrArgs=*/nullptr, /*NeedDevicePtrArgsSize=*/0,
       /*AppendArgs=*/nullptr, /*AppendArgsSize=*/0);
-#else // INTEL_COLLAB
-      /*NeedDevicePtrArgs=*/nullptr, /*NeedDevicePtrArgsSize=*/0);
-#endif // INTEL_COLLAB
-
   for (FunctionDecl *BaseFD : Bases)
     BaseFD->addAttr(OMPDeclareVariantA);
 }
@@ -7305,13 +7300,8 @@ ExprResult Sema::ActOnOpenMPCall(ExprResult Call, Scope *Scope,
 
 Optional<std::pair<FunctionDecl *, Expr *>>
 Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
-#if INTEL_COLLAB
-                                        Expr *VariantRef,
-                                        OMPTraitInfo &TI,
-                                        unsigned NumAppendArgs,
-#else // INTEL_COLLAB
                                         Expr *VariantRef, OMPTraitInfo &TI,
-#endif // INTEL_COLLAB
+                                        unsigned NumAppendArgs,
                                         SourceRange SR) {
   if (!DG || DG.get().isNull())
     return None;
@@ -7448,51 +7438,46 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
       if (MergedType.isNull()) {
         Diag(VariantRef->getExprLoc(),
              diag::err_omp_declare_variant_incompat_types)
-#if INTEL_COLLAB
             << VariantRef->getType() << FD->getType() << (NumAppendArgs ? 1 : 0)
-#else // INTEL_COLLAB
-            << VariantRef->getType() << FD->getType()
-#endif // INTEL_COLLAB
             << VariantRef->getSourceRange();
         return None;
       }
     }
   }
+#endif // INTEL_COLLAB
 
-  auto AdjustFunctionTypeForAppendArgs = [&](QualType FT, unsigned NumArgs) {
-    if (NumArgs == 0)
-      return FT;
-    auto *PTy = dyn_cast<FunctionProtoType>(FT);
-    auto *FTy = dyn_cast<FunctionNoProtoType>(FT);
-    if (!PTy && FTy) {
-      FunctionType::ExtInfo Ext = FTy->getExtInfo();
-      FunctionProtoType::ExtProtoInfo EPI;
-      EPI.ExtInfo = Ext;
-      QualType RetTy = Context.VoidTy;
-      PTy = dyn_cast<FunctionProtoType>(
-          Context.getFunctionType(RetTy, None, EPI));
+  QualType AdjustedFnType = FD->getType();
+  if (NumAppendArgs) {
+    if (isa<FunctionNoProtoType>(FD->getType())) {
+      Diag(FD->getLocation(), diag::err_omp_declare_variant_prototype_required)
+          << SR;
+      return None;
     }
-    llvm::SmallVector<QualType, 8> Params;
-    Params.append(PTy->param_type_begin(), PTy->param_type_end());
-
-    // Add omp_interop_t for each append_arg.
-    QualType InteropType = Context.VoidPtrTy;
+    // Adjust the function type to account for an extra omp_interop_t for each
+    // specified in the append_args clause.
+    const TypeDecl *TD = nullptr;
     LookupResult Result(*this, &Context.Idents.get("omp_interop_t"),
                         SR.getBegin(), Sema::LookupOrdinaryName);
     if (LookupName(Result, getCurScope())) {
       NamedDecl *ND = Result.getFoundDecl();
-      if (const auto *TD = dyn_cast<TypeDecl>(ND))
-        InteropType = QualType(TD->getTypeForDecl(), 0);
+      TD = dyn_cast_or_null<TypeDecl>(ND);
     }
-    Params.insert(Params.end(), NumArgs, InteropType);
-
-    QualType NewFnTy = Context.getFunctionType(PTy->getReturnType(), Params,
-                                               PTy->getExtProtoInfo());
-    return NewFnTy;
-  };
-  QualType AdjustedFnType =
-        AdjustFunctionTypeForAppendArgs(FD->getType(), NumAppendArgs);
-#endif // INTEL_COLLAB
+    if (!TD) {
+      Diag(SR.getBegin(), diag::err_omp_interop_type_not_found) << SR;
+      return None;
+    }
+    QualType InteropType = QualType(TD->getTypeForDecl(), 0);
+    auto *PTy = cast<FunctionProtoType>(FD->getType());
+    if (PTy->isVariadic()) {
+      Diag(FD->getLocation(), diag::err_omp_append_args_with_varargs) << SR;
+      return None;
+    }
+    llvm::SmallVector<QualType, 8> Params;
+    Params.append(PTy->param_type_begin(), PTy->param_type_end());
+    Params.insert(Params.end(), NumAppendArgs, InteropType);
+    AdjustedFnType = Context.getFunctionType(PTy->getReturnType(), Params,
+                                             PTy->getExtProtoInfo());
+  }
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
@@ -7507,11 +7492,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
     if (Method && !Method->isStatic()) {
       const Type *ClassType =
           Context.getTypeDeclType(Method->getParent()).getTypePtr();
-#if INTEL_COLLAB
       FnPtrType = Context.getMemberPointerType(AdjustedFnType, ClassType);
-#else // INTEL_COLLAB
-      FnPtrType = Context.getMemberPointerType(FD->getType(), ClassType);
-#endif // INTEL_COLLAB
       ExprResult ER;
       {
         // Build adrr_of unary op to correctly handle type checks for member
@@ -7527,11 +7508,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
       }
       VariantRef = ER.get();
     } else {
-#if INTEL_COLLAB
       FnPtrType = Context.getPointerType(AdjustedFnType);
-#else // INTEL_COLLAB
-      FnPtrType = Context.getPointerType(FD->getType());
-#endif // INTEL_COLLAB
     }
     QualType VarianPtrType = Context.getPointerType(VariantRef->getType());
     if (VarianPtrType.getUnqualifiedType() != FnPtrType.getUnqualifiedType()) {
@@ -7546,11 +7523,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
              diag::err_omp_declare_variant_incompat_types)
             << VariantRef->getType()
             << ((Method && !Method->isStatic()) ? FnPtrType : FD->getType())
-#if INTEL_COLLAB
             << (NumAppendArgs ? 1 : 0) << VariantRef->getSourceRange();
-#else // INTEL_COLLAB
-            << VariantRef->getSourceRange();
-#endif // INTEL_COLLAB
         return None;
       }
       VariantRefCast = PerformImplicitConversion(
@@ -7596,20 +7569,12 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   if (!LangOpts.CPlusPlus) {
 #endif // INTEL_COLLAB
     QualType NewType =
-#if INTEL_COLLAB
         Context.mergeFunctionTypes(AdjustedFnType, NewFD->getType());
-#else // INTEL_COLLAB
-        Context.mergeFunctionTypes(FD->getType(), NewFD->getType());
-#endif // INTEL_COLLAB
     if (NewType.isNull()) {
       Diag(VariantRef->getExprLoc(),
            diag::err_omp_declare_variant_incompat_types)
-#if INTEL_COLLAB
           << NewFD->getType() << FD->getType() << (NumAppendArgs ? 1 : 0)
           << VariantRef->getSourceRange();
-#else // INTEL_COLLAB
-          << NewFD->getType() << FD->getType() << VariantRef->getSourceRange();
-#endif // INTEL_COLLAB
       return None;
     }
     if (NewType->isFunctionProtoType()) {
@@ -7698,14 +7663,10 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
 void Sema::ActOnOpenMPDeclareVariantDirective(
     FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
     ArrayRef<Expr *> AdjustArgsNothing,
-#if INTEL_COLLAB
     ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
     ArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
     SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
     SourceRange SR) {
-#else // INTEL_COLLAB
-    ArrayRef<Expr *> AdjustArgsNeedDevicePtr, SourceRange SR) {
-#endif // INTEL_COLLAB
 
   // OpenMP 5.1 [2.3.5, declare variant directive, Restrictions]
   // An adjust_args clause or append_args clause can only be specified if the
@@ -7716,27 +7677,18 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
   llvm::append_range(AllAdjustArgs, AdjustArgsNothing);
   llvm::append_range(AllAdjustArgs, AdjustArgsNeedDevicePtr);
 
-#if INTEL_COLLAB
   if (!AllAdjustArgs.empty() || !AppendArgs.empty()) {
-#else // INTEL_COLLAB
-  if (!AllAdjustArgs.empty()) {
-#endif // INTEL_COLLAB
     VariantMatchInfo VMI;
     TI.getAsVariantMatchInfo(Context, VMI);
     if (!llvm::is_contained(
             VMI.ConstructTraits,
             llvm::omp::TraitProperty::construct_dispatch_dispatch)) {
-#if INTEL_COLLAB
       if (!AllAdjustArgs.empty())
-#endif // INTEL_COLLAB
-      Diag(AllAdjustArgs[0]->getExprLoc(),
-           diag::err_omp_clause_requires_dispatch_construct)
-          << getOpenMPClauseName(OMPC_adjust_args);
-#if INTEL_COLLAB
+        Diag(AdjustArgsLoc, diag::err_omp_clause_requires_dispatch_construct)
+            << getOpenMPClauseName(OMPC_adjust_args);
       if (!AppendArgs.empty())
         Diag(AppendArgsLoc, diag::err_omp_clause_requires_dispatch_construct)
             << getOpenMPClauseName(OMPC_append_args);
-#endif // INTEL_COLLAB
       return;
     }
   }
@@ -7773,14 +7725,9 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
       Context, VariantRef, &TI, const_cast<Expr **>(AdjustArgsNothing.data()),
       AdjustArgsNothing.size(),
       const_cast<Expr **>(AdjustArgsNeedDevicePtr.data()),
-#if INTEL_COLLAB
       AdjustArgsNeedDevicePtr.size(),
       const_cast<OMPDeclareVariantAttr::InteropType *>(AppendArgs.data()),
       AppendArgs.size(), SR);
-#else // INTEL_COLLAB
-      AdjustArgsNeedDevicePtr.size(), SR);
-#endif // INTEL_COLLAB
-
   FD->addAttr(NewAttr);
 }
 

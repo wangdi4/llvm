@@ -488,9 +488,7 @@ static void instantiateOMPDeclareVariantAttr(
   // begin declare variant` (which use implicit attributes).
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New), E, TI,
-#if INTEL_COLLAB
                                           Attr.appendArgs_size(),
-#endif //INTEL_COLLAB
                                           Attr.getRange());
 
   if (!DeclVarData)
@@ -533,6 +531,8 @@ static void instantiateOMPDeclareVariantAttr(
 
   SmallVector<Expr *, 8> NothingExprs;
   SmallVector<Expr *, 8> NeedDevicePtrExprs;
+  SmallVector<OMPDeclareVariantAttr::InteropType, 8> AppendArgs;
+
   for (Expr *E : Attr.adjustArgsNothing()) {
     ExprResult ER = Subst(E);
     if (ER.isInvalid())
@@ -545,19 +545,12 @@ static void instantiateOMPDeclareVariantAttr(
       continue;
     NeedDevicePtrExprs.push_back(ER.get());
   }
-
-#if INTEL_COLLAB
-  SmallVector<OMPDeclareVariantAttr::InteropType, 8> AppendArgs;
-  for (auto A : Attr.appendArgs()) {
+  for (auto A : Attr.appendArgs())
     AppendArgs.push_back(A);
-  }
+
   S.ActOnOpenMPDeclareVariantDirective(
       FD, E, TI, NothingExprs, NeedDevicePtrExprs, AppendArgs, SourceLocation(),
       SourceLocation(), Attr.getRange());
-#else // INTEL_COLLAB
-  S.ActOnOpenMPDeclareVariantDirective(FD, E, TI, NothingExprs,
-                                       NeedDevicePtrExprs, Attr.getRange());
-#endif // INTEL_COLLAB
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
