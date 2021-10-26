@@ -64,12 +64,14 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(
     CmdArgs.push_back("-o");
     CmdArgs.push_back(OutputFileName);
   } else {
+#if INTEL_CUSTOMIZATION
+    // Workaround for old GPU driver version
     CmdArgs.push_back("-spirv-max-version=1.3");
+#else  // INTEL_CUSTOMIZATION
+    CmdArgs.push_back("-spirv-max-version=1.4");
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-spirv-ext=+all");
-    if (!C.getDriver().isFPGAEmulationMode())
-      CmdArgs.push_back("-spirv-debug-info-version=legacy");
-    else
-      CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
+    CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
     CmdArgs.push_back("-spirv-allow-extra-diexpressions");
     CmdArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
     CmdArgs.push_back("-o");
@@ -219,14 +221,14 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         LibPostfix = ".obj";
       StringRef InputFilename =
           llvm::sys::path::filename(StringRef(II.getFilename()));
-      if (!InputFilename.startswith("libsycl-") ||
+      StringRef LibSyclPrefix("libsycl-");
+      if (!InputFilename.startswith(LibSyclPrefix) ||
           !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
         return false;
-      size_t PureLibNameLen = InputFilename.find_last_of('-');
       // Skip the prefix "libsycl-"
-      StringRef PureLibName = InputFilename.substr(8, PureLibNameLen - 8);
+      StringRef PureLibName = InputFilename.substr(LibSyclPrefix.size());
       for (const auto &L : SYCLDeviceLibList) {
-        if (PureLibName.compare(L) == 0)
+        if (PureLibName.startswith(L))
           return true;
       }
       return false;

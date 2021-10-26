@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
 ; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-safetyanalyzer-ir -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test of the -dtrans-print-types option of the DTransSafetyAnalyzer pass.
 ; This case is to verify structures are printed in the same lexical order that

@@ -1178,8 +1178,9 @@ ParseOptimizationRemark(DiagnosticsEngine &Diags, ArgList &Args,
                         OptSpecifier OptEQ, StringRef Name) {
   CodeGenOptions::OptRemark Result;
 
-  auto InitializeResultPattern = [&Diags, &Args, &Result](const Arg *A) {
-    Result.Pattern = A->getValue();
+  auto InitializeResultPattern = [&Diags, &Args, &Result](const Arg *A,
+                                                          StringRef Pattern) {
+    Result.Pattern = Pattern.str();
 
     std::string RegexError;
     Result.Regex = std::make_shared<llvm::Regex>(Result.Pattern);
@@ -1204,17 +1205,21 @@ ParseOptimizationRemark(DiagnosticsEngine &Diags, ArgList &Args,
         Result.Kind = CodeGenOptions::RK_Disabled;
       else if (Value == "no-everything")
         Result.Kind = CodeGenOptions::RK_DisabledEverything;
+      else
+        continue;
+
+      if (Result.Kind == CodeGenOptions::RK_Disabled ||
+          Result.Kind == CodeGenOptions::RK_DisabledEverything) {
+        Result.Pattern = "";
+        Result.Regex = nullptr;
+      } else {
+        InitializeResultPattern(A, ".*");
+      }
     } else if (A->getOption().matches(OptEQ)) {
       Result.Kind = CodeGenOptions::RK_WithPattern;
-      if (!InitializeResultPattern(A))
+      if (!InitializeResultPattern(A, A->getValue()))
         return CodeGenOptions::OptRemark();
     }
-  }
-
-  if (Result.Kind == CodeGenOptions::RK_Disabled ||
-      Result.Kind == CodeGenOptions::RK_DisabledEverything) {
-    Result.Pattern = "";
-    Result.Regex = nullptr;
   }
 
   return Result;
@@ -1422,6 +1427,13 @@ void CompilerInvocation::GenerateCodeGenArgs(
                llvm::DICompileUnit::DebugNameTableKind::Default))
     GenerateArg(Args, OPT_gpubnames, SA);
 
+  auto TNK = Opts.getDebugSimpleTemplateNames();
+  if (TNK != codegenoptions::DebugTemplateNamesKind::Full) {
+    if (TNK == codegenoptions::DebugTemplateNamesKind::Simple)
+      GenerateArg(Args, OPT_gsimple_template_names_EQ, "simple", SA);
+    else if (TNK == codegenoptions::DebugTemplateNamesKind::Mangled)
+      GenerateArg(Args, OPT_gsimple_template_names_EQ, "mangled", SA);
+  }
   // ProfileInstrumentUsePath is marshalled automatically, no need to generate
   // it or PGOUseInstrumentor.
 
@@ -1701,6 +1713,16 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
           : Args.hasArg(OPT_gpubnames)
                 ? llvm::DICompileUnit::DebugNameTableKind::Default
                 : llvm::DICompileUnit::DebugNameTableKind::None);
+  if (const Arg *A = Args.getLastArg(OPT_gsimple_template_names_EQ)) {
+    StringRef Value = A->getValue();
+    if (Value != "simple" && Value != "mangled")
+      Diags.Report(diag::err_drv_unsupported_option_argument)
+          << A->getOption().getName() << A->getValue();
+    Opts.setDebugSimpleTemplateNames(
+        StringRef(A->getValue()) == "simple"
+            ? codegenoptions::DebugTemplateNamesKind::Simple
+            : codegenoptions::DebugTemplateNamesKind::Mangled);
+  }
 
   if (!Opts.ProfileInstrumentUsePath.empty())
     setPGOUseInstrumentor(Opts, Opts.ProfileInstrumentUsePath);
@@ -1730,7 +1752,6 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
       Args.hasFlag(OPT_disable_free, OPT_no_disable_free, /*Default=*/false);
 #endif //INTEL_CUSTOMIZATION
   Opts.Reciprocals = Args.getAllArgValues(OPT_mrecip_EQ);
-
   Opts.PrepareForLTO = false;
   Opts.PrepareForThinLTO = false;
   if (Arg *A = Args.getLastArg(OPT_flto_EQ)) {
@@ -3591,6 +3612,13 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
       GenerateArg(Args, OPT_fopenmp_version_EQ, Twine(Opts.OpenMP), SA);
   }
 
+  if (Opts.OpenMPTargetNewRuntime)
+    GenerateArg(Args, OPT_fopenmp_target_new_runtime, SA);
+
+  if (Opts.OpenMPTargetDebug != 0)
+    GenerateArg(Args, OPT_fopenmp_target_debug_EQ,
+                Twine(Opts.OpenMPTargetDebug), SA);
+
   if (Opts.OpenMPCUDANumSMs != 0)
     GenerateArg(Args, OPT_fopenmp_cuda_number_of_sm_EQ,
                 Twine(Opts.OpenMPCUDANumSMs), SA);
@@ -4188,6 +4216,9 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_enable_irbuilder);
   bool IsTargetSpecified =
       Opts.OpenMPIsDevice || Args.hasArg(options::OPT_fopenmp_targets_EQ);
+  Opts.OpenMPTargetNewRuntime =
+      Opts.OpenMPIsDevice &&
+      Args.hasArg(options::OPT_fopenmp_target_new_runtime);
 
   Opts.ConvergentFunctions = Opts.ConvergentFunctions || Opts.OpenMPIsDevice;
 
@@ -4215,6 +4246,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   // handling code for those requiring so.
   if ((Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN())) ||
       Opts.OpenCLCPlusPlus) {
+
     Opts.Exceptions = 0;
     Opts.CXXExceptions = 0;
   }
@@ -4228,6 +4260,20 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     Opts.OpenMPCUDAReductionBufNum = getLastArgIntValue(
         Args, options::OPT_fopenmp_cuda_teams_reduction_recs_num_EQ,
         Opts.OpenMPCUDAReductionBufNum, Diags);
+  }
+
+  // Set the value of the debugging flag used in the new offloading device RTL.
+  // Set either by a specific value or to a default if not specified.
+  if (Opts.OpenMPIsDevice && (Args.hasArg(OPT_fopenmp_target_debug) ||
+                              Args.hasArg(OPT_fopenmp_target_debug_EQ))) {
+    if (Opts.OpenMPTargetNewRuntime) {
+      Opts.OpenMPTargetDebug = getLastArgIntValue(
+          Args, OPT_fopenmp_target_debug_EQ, Opts.OpenMPTargetDebug, Diags);
+      if (!Opts.OpenMPTargetDebug && Args.hasArg(OPT_fopenmp_target_debug))
+        Opts.OpenMPTargetDebug = 1;
+    } else {
+      Diags.Report(diag::err_drv_debug_no_new_runtime);
+    }
   }
 
   // Get the OpenMP target triples if any.

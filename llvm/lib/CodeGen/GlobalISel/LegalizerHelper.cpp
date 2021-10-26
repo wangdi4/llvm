@@ -2435,7 +2435,7 @@ LegalizerHelper::widenScalar(MachineInstr &MI, unsigned TypeIdx, LLT WideTy) {
 
       widenScalarSrc(
           MI, LLT::vector(VecTy.getElementCount(), WideTy.getSizeInBits()), 1,
-          TargetOpcode::G_SEXT);
+          TargetOpcode::G_ANYEXT);
 
       widenScalarDst(MI, WideTy, 0);
       Observer.changedInstr(MI);
@@ -2670,7 +2670,7 @@ static Register getBitcastWiderVectorElementOffset(MachineIRBuilder &B,
 
   // Now figure out the amount we need to shift to get the target bits.
   auto OffsetMask = B.buildConstant(
-    IdxTy, ~(APInt::getAllOnesValue(IdxTy.getSizeInBits()) << Log2EltRatio));
+      IdxTy, ~(APInt::getAllOnes(IdxTy.getSizeInBits()) << Log2EltRatio));
   auto OffsetIdx = B.buildAnd(IdxTy, Idx, OffsetMask);
   return B.buildShl(IdxTy, OffsetIdx,
                     B.buildConstant(IdxTy, Log2_32(OldEltSize))).getReg(0);
@@ -4075,9 +4075,7 @@ LegalizerHelper::fewerElementsVectorExtractInsertVectorElt(MachineInstr &MI,
   // If the index is a constant, we can really break this down as you would
   // expect, and index into the target size pieces.
   int64_t IdxVal;
-  auto MaybeCst =
-      getConstantVRegValWithLookThrough(Idx, MRI, /*LookThroughInstrs*/ true,
-                                        /*HandleFConstants*/ false);
+  auto MaybeCst = getIConstantVRegValWithLookThrough(Idx, MRI);
   if (MaybeCst) {
     IdxVal = MaybeCst->Value.getSExtValue();
     // Avoid out of bounds indexing the pieces.
@@ -4822,7 +4820,7 @@ LegalizerHelper::narrowScalarShiftByConstant(MachineInstr &MI, const APInt &Amt,
   Register InH = MRI.createGenericVirtualRegister(HalfTy);
   MIRBuilder.buildUnmerge({InL, InH}, MI.getOperand(1));
 
-  if (Amt.isNullValue()) {
+  if (Amt.isZero()) {
     MIRBuilder.buildMerge(MI.getOperand(0), {InL, InH});
     MI.eraseFromParent();
     return Legalized;
@@ -4931,8 +4929,7 @@ LegalizerHelper::narrowScalarShift(MachineInstr &MI, unsigned TypeIdx,
   const LLT HalfTy = LLT::scalar(NewBitSize);
   const LLT CondTy = LLT::scalar(1);
 
-  if (auto VRegAndVal =
-          getConstantVRegValWithLookThrough(Amt, MRI, true, false)) {
+  if (auto VRegAndVal = getIConstantVRegValWithLookThrough(Amt, MRI)) {
     return narrowScalarShiftByConstant(MI, VRegAndVal->Value, HalfTy,
                                        ShiftAmtTy);
   }
@@ -5340,26 +5337,23 @@ LegalizerHelper::narrowScalarMul(MachineInstr &MI, LLT NarrowTy) {
   if (Ty.isVector())
     return UnableToLegalize;
 
-  unsigned SrcSize = MRI.getType(Src1).getSizeInBits();
-  unsigned DstSize = Ty.getSizeInBits();
+  unsigned Size = Ty.getSizeInBits();
   unsigned NarrowSize = NarrowTy.getSizeInBits();
-  if (DstSize % NarrowSize != 0 || SrcSize % NarrowSize != 0)
+  if (Size % NarrowSize != 0)
     return UnableToLegalize;
 
-  unsigned NumDstParts = DstSize / NarrowSize;
-  unsigned NumSrcParts = SrcSize / NarrowSize;
+  unsigned NumParts = Size / NarrowSize;
   bool IsMulHigh = MI.getOpcode() == TargetOpcode::G_UMULH;
-  unsigned DstTmpParts = NumDstParts * (IsMulHigh ? 2 : 1);
+  unsigned DstTmpParts = NumParts * (IsMulHigh ? 2 : 1);
 
   SmallVector<Register, 2> Src1Parts, Src2Parts;
   SmallVector<Register, 2> DstTmpRegs(DstTmpParts);
-  extractParts(Src1, NarrowTy, NumSrcParts, Src1Parts);
-  extractParts(Src2, NarrowTy, NumSrcParts, Src2Parts);
+  extractParts(Src1, NarrowTy, NumParts, Src1Parts);
+  extractParts(Src2, NarrowTy, NumParts, Src2Parts);
   multiplyRegisters(DstTmpRegs, Src1Parts, Src2Parts, NarrowTy);
 
   // Take only high half of registers if this is high mul.
-  ArrayRef<Register> DstRegs(
-      IsMulHigh ? &DstTmpRegs[DstTmpParts / 2] : &DstTmpRegs[0], NumDstParts);
+  ArrayRef<Register> DstRegs(&DstTmpRegs[DstTmpParts - NumParts], NumParts);
   MIRBuilder.buildMerge(DstReg, DstRegs);
   MI.eraseFromParent();
   return Legalized;
@@ -6287,7 +6281,7 @@ LegalizerHelper::LegalizeResult LegalizerHelper::lowerFPTOUI(MachineInstr &MI) {
   APInt TwoPExpInt = APInt::getSignMask(DstTy.getSizeInBits());
   APFloat TwoPExpFP(SrcTy.getSizeInBits() == 32 ? APFloat::IEEEsingle()
                                                 : APFloat::IEEEdouble(),
-                    APInt::getNullValue(SrcTy.getSizeInBits()));
+                    APInt::getZero(SrcTy.getSizeInBits()));
   TwoPExpFP.convertFromAPInt(TwoPExpInt, false, APFloat::rmNearestTiesToEven);
 
   MachineInstrBuilder FPTOSI = MIRBuilder.buildFPTOSI(DstTy, Src);
@@ -7536,7 +7530,7 @@ static Type *getTypeForLLT(LLT Ty, LLVMContext &C) {
 static Register getMemsetValue(Register Val, LLT Ty, MachineIRBuilder &MIB) {
   MachineRegisterInfo &MRI = *MIB.getMRI();
   unsigned NumBits = Ty.getScalarSizeInBits();
-  auto ValVRegAndVal = getConstantVRegValWithLookThrough(Val, MRI);
+  auto ValVRegAndVal = getIConstantVRegValWithLookThrough(Val, MRI);
   if (!Ty.isVector() && ValVRegAndVal) {
     APInt Scalar = ValVRegAndVal->Value.truncOrSelf(8);
     APInt SplatVal = APInt::getSplat(NumBits, Scalar);
@@ -7590,7 +7584,7 @@ LegalizerHelper::lowerMemset(MachineInstr &MI, Register Dst, Register Val,
   const auto &DstMMO = **MI.memoperands_begin();
   MachinePointerInfo DstPtrInfo = DstMMO.getPointerInfo();
 
-  auto ValVRegAndVal = getConstantVRegValWithLookThrough(Val, MRI);
+  auto ValVRegAndVal = getIConstantVRegValWithLookThrough(Val, MRI);
   bool IsZeroVal = ValVRegAndVal && ValVRegAndVal->Value == 0;
 
   if (!findGISelOptimalMemOpLowering(MemOps, Limit,
@@ -7691,7 +7685,7 @@ LegalizerHelper::lowerMemcpyInline(MachineInstr &MI) {
   bool IsVolatile = MemOp->isVolatile();
 
   // See if this is a constant length copy
-  auto LenVRegAndVal = getConstantVRegValWithLookThrough(Len, MRI);
+  auto LenVRegAndVal = getIConstantVRegValWithLookThrough(Len, MRI);
   // FIXME: support dynamically sized G_MEMCPY_INLINE
   assert(LenVRegAndVal.hasValue() &&
          "inline memcpy with dynamic size is not yet supported");
@@ -7954,7 +7948,7 @@ LegalizerHelper::lowerMemCpyFamily(MachineInstr &MI, unsigned MaxLen) {
   }
 
   // See if this is a constant length copy
-  auto LenVRegAndVal = getConstantVRegValWithLookThrough(Len, MRI);
+  auto LenVRegAndVal = getIConstantVRegValWithLookThrough(Len, MRI);
   if (!LenVRegAndVal)
     return UnableToLegalize;
   uint64_t KnownLen = LenVRegAndVal->Value.getZExtValue();

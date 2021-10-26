@@ -1052,7 +1052,8 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
   auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
     LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI,    *SE,
-                                      *TLI, *TTI, BFI, nullptr /* MemorySSA */};
+                                      *TLI, *TTI, BFI, nullptr /* BPI */,
+                                      nullptr /* MemorySSA */};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
 

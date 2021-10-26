@@ -88,15 +88,6 @@ InputFile *createObjectFile(MemoryBufferRef mb, StringRef archiveName) {
   fatal("unknown file type: " + mb.getBufferIdentifier());
 }
 
-void ObjFile::dumpInfo() const {
-  log("info for: " + toString(this) +
-      "\n              Symbols : " + Twine(symbols.size()) +
-      "\n     Function Imports : " + Twine(wasmObj->getNumImportedFunctions()) +
-      "\n       Global Imports : " + Twine(wasmObj->getNumImportedGlobals()) +
-      "\n          Tag Imports : " + Twine(wasmObj->getNumImportedTags()) +
-      "\n        Table Imports : " + Twine(wasmObj->getNumImportedTables()));
-}
-
 // Relocations contain either symbol or type indices.  This function takes a
 // relocation and returns relocated index (i.e. translates from the input
 // symbol/type space to the output symbol/type space).
@@ -491,19 +482,25 @@ void ObjFile::parse(bool ignoreComdats) {
     } else
       seg = make<InputSegment>(s, this);
     seg->discarded = isExcludedByComdat(seg);
-
+    // Older object files did not include WASM_SEG_FLAG_TLS and instead
+    // relied on the naming convention.  To maintain compat with such objects
+    // we still imply the TLS flag based on the name of the segment.
+    if (!seg->isTLS() &&
+        (seg->name.startswith(".tdata") || seg->name.startswith(".tbss"))) {
+      seg->flags |= WASM_SEG_FLAG_TLS;
+      seg->implicitTLS = true;
+    }
     segments.emplace_back(seg);
   }
   setRelocs(segments, dataSection);
 
   // Populate `Functions`.
   ArrayRef<WasmFunction> funcs = wasmObj->functions();
-  ArrayRef<uint32_t> funcTypes = wasmObj->functionTypes();
   ArrayRef<WasmSignature> types = wasmObj->types();
   functions.reserve(funcs.size());
 
-  for (size_t i = 0, e = funcs.size(); i != e; ++i) {
-    auto* func = make<InputFunction>(types[funcTypes[i]], &funcs[i], this);
+  for (auto &f : funcs) {
+    auto *func = make<InputFunction>(types[f.SigIndex], &f, this);
     func->discarded = isExcludedByComdat(func);
     functions.emplace_back(func);
   }
@@ -543,7 +540,7 @@ void ObjFile::parse(bool ignoreComdats) {
   addLegacyIndirectFunctionTableIfNeeded(tableSymbolCount);
 }
 
-bool ObjFile::isExcludedByComdat(InputChunk *chunk) const {
+bool ObjFile::isExcludedByComdat(const InputChunk *chunk) const {
   uint32_t c = chunk->getComdat();
   if (c == UINT32_MAX)
     return false;
@@ -592,6 +589,9 @@ Symbol *ObjFile::createDefined(const WasmSymbol &sym) {
     InputChunk *seg = segments[sym.Info.DataRef.Segment];
     auto offset = sym.Info.DataRef.Offset;
     auto size = sym.Info.DataRef.Size;
+    if (seg->implicitTLS) {
+      flags |= WASM_SYMBOL_TLS;
+    }
     if (sym.isBindingLocal())
       return make<DefinedData>(name, flags, this, seg, offset, size);
     if (seg->discarded)

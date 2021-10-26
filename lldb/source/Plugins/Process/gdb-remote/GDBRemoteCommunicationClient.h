@@ -315,8 +315,6 @@ public:
       uint32_t length,       // Byte Size of breakpoint or watchpoint
       std::chrono::seconds interrupt_timeout); // Time to wait for an interrupt
 
-  bool SetNonStopMode(const bool enable);
-
   void TestPacketSpeed(const uint32_t num_packets, uint32_t max_send,
                        uint32_t max_recv, uint64_t recv_amount, bool json,
                        Stream &strm);
@@ -375,6 +373,12 @@ public:
                            mode_t mode, Status &error);
 
   bool CloseFile(lldb::user_id_t fd, Status &error);
+
+  llvm::Optional<GDBRemoteFStatData> FStat(lldb::user_id_t fd);
+
+  // NB: this is just a convenience wrapper over open() + fstat().  It does not
+  // work if the file cannot be opened.
+  llvm::Optional<GDBRemoteFStatData> Stat(const FileSpec &file_spec);
 
   lldb::user_id_t GetFileSize(const FileSpec &file_spec);
 
@@ -581,7 +585,9 @@ protected:
       m_supports_QEnvironment : 1, m_supports_QEnvironmentHexEncoded : 1,
       m_supports_qSymbol : 1, m_qSymbol_requests_done : 1,
       m_supports_qModuleInfo : 1, m_supports_jThreadsInfo : 1,
-      m_supports_jModulesInfo : 1;
+      m_supports_jModulesInfo : 1, m_supports_vFileSize : 1,
+      m_supports_vFileMode : 1, m_supports_vFileExists : 1,
+      m_supports_vRun : 1;
 
   /// Current gdb remote protocol process identifier for all other operations
   lldb::pid_t m_curr_pid = LLDB_INVALID_PROCESS_ID;

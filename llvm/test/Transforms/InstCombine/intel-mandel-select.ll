@@ -39,7 +39,7 @@ define void @_ZGVeN16uuuuu__ZTSN2cl4sycl6detail19__pf_kernel_wrapperI7manSYCLEE(
 ; CHECK-NEXT:    [[TMP22:%.*]] = icmp ne <16 x i32> [[BROADCAST_SPLATINSERT16_FR]], <i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000>
 ; CHECK-NEXT:    [[PREDBLEND20:%.*]] = select <16 x i1> [[TMP15:%.*]], <16 x i32> <i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000>, <16 x i32> [[BROADCAST_SPLAT19:%.*]]
 ; CHECK-NEXT:    [[TMP23:%.*]] = select <16 x i1> [[VEC_PHI6:%.*]], <16 x i32> [[PREDBLEND20]], <16 x i32> [[VEC_PHI7:%.*]]
-; CHECK-NEXT:    [[DOTNOT:%.*]] = shufflevector <16 x i1> [[TMP22]], <16 x i1> undef, <16 x i32> zeroinitializer
+; CHECK-NEXT:    [[DOTNOT:%.*]] = shufflevector <16 x i1> [[TMP22]], <16 x i1> poison, <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP24:%.*]] = and <16 x i1> [[TMP15]], [[DOTNOT]]
 ; CHECK-NEXT:    [[TMP25:%.*]] = bitcast <16 x i1> [[TMP24]] to i16
 ; CHECK-NEXT:    [[TMP26:%.*]] = icmp eq i16 [[TMP25]], 0

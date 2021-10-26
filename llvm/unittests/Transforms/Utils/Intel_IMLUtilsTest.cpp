@@ -21,13 +21,19 @@ using namespace llvm;
 namespace {
 
 class IMLUtilsTest : public testing::Test {
+public:
+  IMLUtilsTest() : testing::Test() {
+    Context.enableOpaquePointers();
+    HalfTy = Type::getHalfTy(Context);
+    FloatTy = Type::getFloatTy(Context);
+    DoubleTy = Type::getDoubleTy(Context);
+  }
 protected:
   LLVMContext Context;
 
-  Type *HalfTy = Type::getHalfTy(Context);
-  Type *FloatTy = Type::getFloatTy(Context);
-  Type *DoubleTy = Type::getDoubleTy(Context);
-
+  Type *HalfTy;
+  Type *FloatTy;
+  Type *DoubleTy;
 };
 
 TEST_F(IMLUtilsTest, DetermineOCLSVMLCallConv) {

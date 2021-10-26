@@ -1,8 +1,8 @@
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
 
-; RUN: opt -force-opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test checks if loops at add_neighbour() and remove_neighbour() functions inside cpu2017/541.leela/FastBoard.cpp get unrolled.
 
@@ -94,24 +94,24 @@
 ;
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:       %t40 = (%0)[0].12.0[0];
-; CHECK:       %t44 = (%0)[0].10.0[%t40 + %2];
-; CHECK:       (%0)[0].10.0[%t40 + %2] = %t44 + %t35;
-; CHECK:       %t48 = (%0)[0].7.0[%t40 + %2];
+; CHECK:       %t44 = (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%t40)];
+; CHECK:       (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%t40)] = %t44 + %t35;
+; CHECK:       %t48 = (%0)[0].7.0[sext.i32.i64(%2) + sext.i32.i64(%t40)];
 ; CHECK:       %t64 = (%0)[0].8.0[%t48];
 ; CHECK:       %mv = (%0)[0].12.0[1];
-; CHECK:       %mv4 = (%0)[0].10.0[%2 + %mv];
-; CHECK:       (%0)[0].10.0[%2 + %mv] = %t35 + %mv4;
-; CHECK:       %mv5 = (%0)[0].7.0[%2 + %mv];
+; CHECK:       %mv4 = (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%mv)];
+; CHECK:       (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%mv)] = %t35 + %mv4;
+; CHECK:       %mv5 = (%0)[0].7.0[sext.i32.i64(%2) + sext.i32.i64(%mv)];
 ; CHECK:       %mv6 = (%0)[0].8.0[%mv5];
 ; CHECK:       %mv7 = (%0)[0].12.0[2];
-; CHECK:       %mv8 = (%0)[0].10.0[%2 + %mv7];
-; CHECK:       (%0)[0].10.0[%2 + %mv7] = %t35 + %mv8;
-; CHECK:       %mv9 = (%0)[0].7.0[%2 + %mv7];
+; CHECK:       %mv8 = (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%mv7)];
+; CHECK:       (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%mv7)] = %t35 + %mv8;
+; CHECK:       %mv9 = (%0)[0].7.0[sext.i32.i64(%2) + sext.i32.i64(%mv7)];
 ; CHECK:       %mv10 = (%0)[0].8.0[%mv9];
 ; CHECK:       %mv11 = (%0)[0].12.0[3];
-; CHECK:       %mv12 = (%0)[0].10.0[%2 + %mv11];
-; CHECK:       (%0)[0].10.0[%2 + %mv11] = %t35 + %mv12;
-; CHECK:       %mv13 = (%0)[0].7.0[%2 + %mv11];
+; CHECK:       %mv12 = (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%mv11)];
+; CHECK:       (%0)[0].10.0[sext.i32.i64(%2) + sext.i32.i64(%mv11)] = %t35 + %mv12;
+; CHECK:       %mv13 = (%0)[0].7.0[sext.i32.i64(%2) + sext.i32.i64(%mv11)];
 ; CHECK:       %mv14 = (%0)[0].8.0[%mv13];
 ; CHECK:       (%0)[0].8.0[%t48] = %t64 + -1;
 ; CHECK:       (%0)[0].8.0[%mv5] = %mv6 + -1;
@@ -128,24 +128,24 @@
 ; CHECK:       |   @llvm.lifetime.start.p0{{.*}}(16,  &((%t474)[0]));
 ; CHECK:       |   %t490 = 0;
 ; CHECK:       |   %t492 = (%0)[0].12.0[0];
-; CHECK:       |   %t496 = (%0)[0].10.0[%t492 + %t484];
-; CHECK:       |   (%0)[0].10.0[%t492 + %t484] = %t496 + %t479;
-; CHECK:       |   %t500 = (%0)[0].7.0[%t492 + %t484];
+; CHECK:       |   %t496 = (%0)[0].10.0[sext.i32.i64(%t492) + sext.i32.i64(%t484)];
+; CHECK:       |   (%0)[0].10.0[sext.i32.i64(%t492) + sext.i32.i64(%t484)] = %t496 + %t479;
+; CHECK:       |   %t500 = (%0)[0].7.0[sext.i32.i64(%t492) + sext.i32.i64(%t484)];
 ; CHECK:       |   %t516 = (%0)[0].8.0[%t500];
 ; CHECK:       |   %mv15 = (%0)[0].12.0[1];
-; CHECK:       |   %mv16 = (%0)[0].10.0[%t484 + %mv15];
-; CHECK:       |   (%0)[0].10.0[%t484 + %mv15] = %t479 + %mv16;
-; CHECK:       |   %mv17 = (%0)[0].7.0[%t484 + %mv15];
+; CHECK:       |   %mv16 = (%0)[0].10.0[sext.i32.i64(%t484) + sext.i32.i64(%mv15)];
+; CHECK:       |   (%0)[0].10.0[sext.i32.i64(%t484) + sext.i32.i64(%mv15)] = %t479 + %mv16;
+; CHECK:       |   %mv17 = (%0)[0].7.0[sext.i32.i64(%t484) + sext.i32.i64(%mv15)];
 ; CHECK:       |   %mv18 = (%0)[0].8.0[%mv17];
 ; CHECK:       |   %mv19 = (%0)[0].12.0[2];
-; CHECK:       |   %mv20 = (%0)[0].10.0[%t484 + %mv19];
-; CHECK:       |   (%0)[0].10.0[%t484 + %mv19] = %t479 + %mv20;
-; CHECK:       |   %mv21 = (%0)[0].7.0[%t484 + %mv19];
+; CHECK:       |   %mv20 = (%0)[0].10.0[sext.i32.i64(%t484) + sext.i32.i64(%mv19)];
+; CHECK:       |   (%0)[0].10.0[sext.i32.i64(%t484) + sext.i32.i64(%mv19)] = %t479 + %mv20;
+; CHECK:       |   %mv21 = (%0)[0].7.0[sext.i32.i64(%t484) + sext.i32.i64(%mv19)];
 ; CHECK:       |   %mv22 = (%0)[0].8.0[%mv21];
 ; CHECK:       |   %mv23 = (%0)[0].12.0[3];
-; CHECK:       |   %mv24 = (%0)[0].10.0[%t484 + %mv23];
-; CHECK:       |   (%0)[0].10.0[%t484 + %mv23] = %t479 + %mv24;
-; CHECK:       |   %mv25 = (%0)[0].7.0[%t484 + %mv23];
+; CHECK:       |   %mv24 = (%0)[0].10.0[sext.i32.i64(%t484) + sext.i32.i64(%mv23)];
+; CHECK:       |   (%0)[0].10.0[sext.i32.i64(%t484) + sext.i32.i64(%mv23)] = %t479 + %mv24;
+; CHECK:       |   %mv25 = (%0)[0].7.0[sext.i32.i64(%t484) + sext.i32.i64(%mv23)];
 ; CHECK:       |   %mv26 = (%0)[0].8.0[%mv25];
 ; CHECK:       |   (%0)[0].8.0[%t500] = %t516 + 1;
 ; CHECK:       |   (%0)[0].8.0[%mv17] = %mv18 + 1;

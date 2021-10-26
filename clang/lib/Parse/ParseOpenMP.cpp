@@ -852,7 +852,7 @@ static StringRef stringLiteralParser(Parser &P) {
 
 static StringRef getNameFromIdOrString(Parser &P, Token &Tok,
                                        OMPContextLvl Lvl) {
-  if (Tok.is(tok::identifier)) {
+  if (Tok.is(tok::identifier) || Tok.is(tok::kw_for)) {
     llvm::SmallString<16> Buffer;
     StringRef Name = P.getPreprocessor().getSpelling(Tok, Buffer);
     (void)P.ConsumeToken();
@@ -1067,20 +1067,17 @@ void Parser::parseOMPTraitSelectorKind(OMPTraitSelector &TISelector,
   // Since the framework does not handle multi-word selectors check and set it
   // manually. Since 'target variant dispatch' will be added to OpenMP in the
   // future (possibly with a different name) this code is temporary.
-  if (Name == "target" && getPreprocessor().LookAhead(0).is(tok::identifier)) {
-    const Token &NextTok = getPreprocessor().LookAhead(0);
-    if (Tok.is(tok::identifier) && NextTok.is(tok::identifier) &&
-        Tok.getIdentifierInfo()->getName() == "variant" &&
-        NextTok.getIdentifierInfo()->getName() == "dispatch") {
-      TISelector.Kind = TraitSelector::construct_target_variant_dispatch;
-      ConsumeToken();
-      ConsumeToken();
-    }
+  const Token &NextTok = getPreprocessor().LookAhead(0);
+  if (Name == "target" && Tok.is(tok::identifier) &&
+      NextTok.is(tok::identifier) &&
+      Tok.getIdentifierInfo()->getName() == "variant" &&
+      NextTok.getIdentifierInfo()->getName() == "dispatch") {
+    TISelector.Kind = TraitSelector::construct_target_variant_dispatch;
+    ConsumeToken();
+    ConsumeToken();
   } else
-    TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
-#else
-  TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
 #endif // INTEL_COLLAB
+  TISelector.Kind = getOpenMPContextTraitSelectorKind(Name);
   if (TISelector.Kind != TraitSelector::invalid) {
     if (checkForDuplicates(*this, Name, NameLoc, Seen, CONTEXT_SELECTOR_LVL))
       TISelector.Kind = TraitSelector::invalid;
@@ -1763,7 +1760,7 @@ bool Parser::parseOMPDeclareVariantMatchClause(SourceLocation Loc,
 ///
 void Parser::ParseOpenMPAssumesDirective(OpenMPDirectiveKind DKind,
                                          SourceLocation Loc) {
-  SmallVector<StringRef, 4> Assumptions;
+  SmallVector<std::string, 4> Assumptions;
   bool SkippedClauses = false;
 
   auto SkipBraces = [&](llvm::StringRef Spelling, bool IssueNote) {
@@ -1830,9 +1827,11 @@ void Parser::ParseOpenMPAssumesDirective(OpenMPDirectiveKind DKind,
     }
 
     assert(II && "Expected an identifier clause!");
-    StringRef Assumption = II->getName();
+    std::string Assumption = II->getName().str();
     if (ACMI.StartsWith)
-      Assumption = Assumption.substr(ACMI.Identifier.size());
+      Assumption = "ompx_" + Assumption.substr(ACMI.Identifier.size());
+    else
+      Assumption = "omp_" + Assumption;
     Assumptions.push_back(Assumption);
   }
 
@@ -2359,8 +2358,10 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
       // improve the diagnostic location.
       Diag(Loc, diag::warn_unknown_begin_declare_variant_isa_trait) << ISATrait;
     };
-    TargetOMPContext OMPCtx(ASTCtx, std::move(DiagUnknownTrait),
-                            /* CurrentFunctionDecl */ nullptr);
+    TargetOMPContext OMPCtx(
+        ASTCtx, std::move(DiagUnknownTrait),
+        /* CurrentFunctionDecl */ nullptr,
+        /* ConstructTraits */ ArrayRef<llvm::omp::TraitProperty>());
 
     if (isVariantApplicableInContext(VMI, OMPCtx, /* DeviceSetOnly */ true)) {
       Actions.ActOnOpenMPBeginDeclareVariant(Loc, TI);
@@ -2575,6 +2576,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_teams_distribute_simd:
   case OMPD_dispatch:
   case OMPD_masked:
+  case OMPD_metadirective:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -2735,8 +2737,10 @@ bool Parser::isIgnoredOpenMPDirective() {
 ///
 StmtResult
 Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
-  assert(Tok.isOneOf(tok::annot_pragma_openmp, tok::annot_attr_openmp) &&
-         "Not an OpenMP directive!");
+  static bool ReadDirectiveWithinMetadirective = false;
+  if (!ReadDirectiveWithinMetadirective)
+    assert(Tok.isOneOf(tok::annot_pragma_openmp, tok::annot_attr_openmp) &&
+           "Not an OpenMP directive!");
   ParsingOpenMPDirectiveRAII DirScope(*this);
   ParenBraceBracketBalancer BalancerRAIIObj(*this);
   SmallVector<OMPClause *, 5> Clauses;
@@ -2745,8 +2749,15 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       FirstClauses(llvm::omp::Clause_enumSize + 1);
   unsigned ScopeFlags = Scope::FnScope | Scope::DeclScope |
                         Scope::CompoundStmtScope | Scope::OpenMPDirectiveScope;
-  SourceLocation Loc = ConsumeAnnotationToken(), EndLoc;
+  SourceLocation Loc = ReadDirectiveWithinMetadirective
+                           ? Tok.getLocation()
+                           : ConsumeAnnotationToken(),
+                 EndLoc;
   OpenMPDirectiveKind DKind = parseOpenMPDirectiveKind(*this);
+  if (ReadDirectiveWithinMetadirective && DKind == OMPD_unknown) {
+    Diag(Tok, diag::err_omp_unknown_directive);
+    return StmtError();
+  }
   OpenMPDirectiveKind CancelRegion = OMPD_unknown;
   // Name of critical directive.
   DeclarationNameInfo DirName;
@@ -2754,6 +2765,141 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   bool HasAssociatedStatement = true;
 
   switch (DKind) {
+  case OMPD_metadirective: {
+    ConsumeToken();
+    SmallVector<VariantMatchInfo, 4> VMIs;
+
+    // First iteration of parsing all clauses of metadirective.
+    // This iteration only parses and collects all context selector ignoring the
+    // associated directives.
+    TentativeParsingAction TPA(*this);
+    ASTContext &ASTContext = Actions.getASTContext();
+
+    BalancedDelimiterTracker T(*this, tok::l_paren,
+                               tok::annot_pragma_openmp_end);
+    while (Tok.isNot(tok::annot_pragma_openmp_end)) {
+      OpenMPClauseKind CKind = Tok.isAnnotation()
+                                   ? OMPC_unknown
+                                   : getOpenMPClauseKind(PP.getSpelling(Tok));
+      SourceLocation Loc = ConsumeToken();
+
+      // Parse '('.
+      if (T.expectAndConsume(diag::err_expected_lparen_after,
+                             getOpenMPClauseName(CKind).data()))
+        return Directive;
+
+      OMPTraitInfo &TI = Actions.getASTContext().getNewOMPTraitInfo();
+      if (CKind == OMPC_when) {
+        // parse and get OMPTraitInfo to pass to the When clause
+        parseOMPContextSelectors(Loc, TI);
+        if (TI.Sets.size() == 0) {
+          Diag(Tok, diag::err_omp_expected_context_selector) << "when clause";
+          TPA.Commit();
+          return Directive;
+        }
+
+        // Parse ':'
+        if (Tok.is(tok::colon))
+          ConsumeAnyToken();
+        else {
+          Diag(Tok, diag::err_omp_expected_colon) << "when clause";
+          TPA.Commit();
+          return Directive;
+        }
+      }
+      // Skip Directive for now. We will parse directive in the second iteration
+      int paren = 0;
+      while (Tok.isNot(tok::r_paren) || paren != 0) {
+        if (Tok.is(tok::l_paren))
+          paren++;
+        if (Tok.is(tok::r_paren))
+          paren--;
+        if (Tok.is(tok::annot_pragma_openmp_end)) {
+          Diag(Tok, diag::err_omp_expected_punc)
+              << getOpenMPClauseName(CKind) << 0;
+          TPA.Commit();
+          return Directive;
+        }
+        ConsumeAnyToken();
+      }
+      // Parse ')'
+      if (Tok.is(tok::r_paren))
+        T.consumeClose();
+
+      VariantMatchInfo VMI;
+      TI.getAsVariantMatchInfo(ASTContext, VMI);
+
+      VMIs.push_back(VMI);
+    }
+
+    TPA.Revert();
+    // End of the first iteration. Parser is reset to the start of metadirective
+
+    TargetOMPContext OMPCtx(ASTContext, /* DiagUnknownTrait */ nullptr,
+                            /* CurrentFunctionDecl */ nullptr,
+                            ArrayRef<llvm::omp::TraitProperty>());
+
+    // A single match is returned for OpenMP 5.0
+    int BestIdx = getBestVariantMatchForContext(VMIs, OMPCtx);
+
+    int Idx = 0;
+    // In OpenMP 5.0 metadirective is either replaced by another directive or
+    // ignored.
+    // TODO: In OpenMP 5.1 generate multiple directives based upon the matches
+    // found by getBestWhenMatchForContext.
+    while (Tok.isNot(tok::annot_pragma_openmp_end)) {
+      // OpenMP 5.0 implementation - Skip to the best index found.
+      if (Idx++ != BestIdx) {
+        ConsumeToken();  // Consume clause name
+        T.consumeOpen(); // Consume '('
+        int paren = 0;
+        // Skip everything inside the clause
+        while (Tok.isNot(tok::r_paren) || paren != 0) {
+          if (Tok.is(tok::l_paren))
+            paren++;
+          if (Tok.is(tok::r_paren))
+            paren--;
+          ConsumeAnyToken();
+        }
+        // Parse ')'
+        if (Tok.is(tok::r_paren))
+          T.consumeClose();
+        continue;
+      }
+
+      OpenMPClauseKind CKind = Tok.isAnnotation()
+                                   ? OMPC_unknown
+                                   : getOpenMPClauseKind(PP.getSpelling(Tok));
+      SourceLocation Loc = ConsumeToken();
+
+      // Parse '('.
+      T.consumeOpen();
+
+      // Skip ContextSelectors for when clause
+      if (CKind == OMPC_when) {
+        OMPTraitInfo &TI = Actions.getASTContext().getNewOMPTraitInfo();
+        // parse and skip the ContextSelectors
+        parseOMPContextSelectors(Loc, TI);
+
+        // Parse ':'
+        ConsumeAnyToken();
+      }
+
+      // If no directive is passed, skip in OpenMP 5.0.
+      // TODO: Generate nothing directive from OpenMP 5.1.
+      if (Tok.is(tok::r_paren)) {
+        SkipUntil(tok::annot_pragma_openmp_end);
+        break;
+      }
+
+      // Parse Directive
+      ReadDirectiveWithinMetadirective = true;
+      Directive = ParseOpenMPDeclarativeOrExecutableDirective(StmtCtx);
+      ReadDirectiveWithinMetadirective = false;
+      break;
+    }
+    break;
+  }
   case OMPD_threadprivate: {
     // FIXME: Should this be permitted in C++?
     if ((StmtCtx & ParsedStmtContext::AllowDeclarationsInC) ==
@@ -2966,6 +3112,13 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     Actions.StartOpenMPDSABlock(DKind, DirName, Actions.getCurScope(), Loc);
 
     while (Tok.isNot(tok::annot_pragma_openmp_end)) {
+      // If we are parsing for a directive within a metadirective, the directive
+      // ends with a ')'.
+      if (ReadDirectiveWithinMetadirective && Tok.is(tok::r_paren)) {
+        while (Tok.isNot(tok::annot_pragma_openmp_end))
+          ConsumeAnyToken();
+        break;
+      }
       bool HasImplicitClause = false;
       if (ImplicitClauseAllowed && Tok.is(tok::l_paren)) {
         HasImplicitClause = true;

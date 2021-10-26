@@ -1,5 +1,5 @@
-; RUN: opt -S -O2 -loopopt=0 -vplan-vec -vplan-build-vect-candidates=100000 %s > /dev/null
-; RUN: opt -S -loopopt=0 -passes="vplan-vec" -vplan-build-vect-candidates=100000 %s > /dev/null
+; RUN: opt -S -O2 -loopopt=0 -vplan-vec -vplan-build-vect-candidates=100000 -vplan-force-vf=4 %s > /dev/null
+; RUN: opt -S -loopopt=0 -passes="vplan-vec" -vplan-build-vect-candidates=100000 -vplan-force-vf=4 %s > /dev/null
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -90,10 +90,11 @@ for.body.i.prol:                                  ; preds = %for.body.i.prol, %f
   br i1 %prol.iter.cmp, label %for.body.i.prol.loopexit.unr-lcssa, label %for.body.i.prol, !llvm.loop !14
 
 for.body.i.prol.loopexit.unr-lcssa:               ; preds = %for.body.i.prol
+  %indvars.next = phi i64 [%indvars.iv.next.prol, %for.body.i.prol]
   br label %for.body.i.prol.loopexit
 
 for.body.i.prol.loopexit:                         ; preds = %for.body.i.lr.ph, %for.body.i.prol.loopexit.unr-lcssa
-  %indvars.iv.unr = phi i64 [ 0, %for.body.i.lr.ph ], [ %indvars.iv.next.prol, %for.body.i.prol.loopexit.unr-lcssa ]
+  %indvars.iv.unr = phi i64 [ 0, %for.body.i.lr.ph ], [ %indvars.next, %for.body.i.prol.loopexit.unr-lcssa ]
   %16 = icmp ult i64 %14, 7
   br i1 %16, label %for.body24.i.lr.ph, label %for.body.i.lr.ph.new
 

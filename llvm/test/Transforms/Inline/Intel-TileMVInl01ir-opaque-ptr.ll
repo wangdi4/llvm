@@ -1,5 +1,5 @@
-; RUN: opt -force-opaque-pointers < %s -S -tilemvinlmarker -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -tilemvinlmarker -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
 ; This is the same test as Intel-TileMVInl01-opaque-ptr.ll, but does not
 ; require asserts and checks the IR only.

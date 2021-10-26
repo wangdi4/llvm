@@ -31,3 +31,4 @@ entry:
 ; CHECK: !2 = distinct !{!2, !"foo"}
 ; CHECK: !3 = !{!4}
 ; CHECK: !4 = distinct !{!4, !2, !"foo: rp"}
+

@@ -130,6 +130,10 @@ public:
   bool getIsAlwaysInline() { return IsAlwaysInline; }
   void setIsAlwaysInline(bool AlwaysInline) { IsAlwaysInline = AlwaysInline; }
 #endif // INTEL_CUSTOMIZATION
+
+  void printPipeline(raw_ostream &OS,
+                     function_ref<StringRef(StringRef)> MapClassName2PassName);
+
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             FunctionAnalysisManager &FAM, Module &M);
@@ -166,6 +170,9 @@ public:
   template <class T> void addModulePass(T Pass) {
     MPM.addPass(std::move(Pass));
   }
+
+  void printPipeline(raw_ostream &OS,
+                     function_ref<StringRef(StringRef)> MapClassName2PassName);
 
 private:
   const InlineParams Params;

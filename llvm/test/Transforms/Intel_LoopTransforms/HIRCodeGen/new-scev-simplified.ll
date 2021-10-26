@@ -12,7 +12,7 @@
 
 ;
 ;          BEGIN REGION { }
-;<10>         + DO i1 = 0, (-1 * %row.031 + umax((4 + %row.031), ((4 * sext.i32.i64(%n1)) + %row.031)) + -1oou4, 1   <DO_LOOP>
+;<10>         + DO i1 = 0, (-1 * ptrtoint.float*.i64(%row.031) + umax((4 + ptrtoint.float*.i64(%row.031)), ((4 * sext.i32.i64(%n1)) + ptrtoint.float*.i64(%row.031))) + -1)/u4, 1   <DO_LOOP>
 ;<2>          |   %0 = (%row.031)[i1];
 ;<3>          |   %conv = fpext.float.double(%0);
 ;<4>          |   %sum.127 = %sum.127  +  %conv;
@@ -57,7 +57,7 @@
 ;(4 + %row.031)
 ;CHECK: [[ROW_SYM_LD2:%.*]] = load float*, float** [[ROW_SYM]]
 ;CHECK: [[ROW_SYM_LD2_INT:%.*]] = ptrtoint float* [[ROW_SYM_LD2]] to i64
-;CHECK: %{{.*}} = add nuw i64 [[ROW_SYM_LD2_INT]], 4
+;CHECK: %{{.*}} = add i64 [[ROW_SYM_LD2_INT]], 4
 
 ;Module Before HIR; ModuleID = 'short.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

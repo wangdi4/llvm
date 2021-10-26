@@ -138,11 +138,10 @@ void ASTStmtWriter::VisitIfStmt(IfStmt *S) {
   bool HasVar = S->getConditionVariableDeclStmt() != nullptr;
   bool HasInit = S->getInit() != nullptr;
 
-  Record.push_back(S->isConstexpr());
   Record.push_back(HasElse);
   Record.push_back(HasVar);
   Record.push_back(HasInit);
-
+  Record.push_back(static_cast<uint64_t>(S->getStatementKind()));
   Record.AddStmt(S->getCond());
   Record.AddStmt(S->getThen());
   if (HasElse)
@@ -2240,6 +2239,13 @@ void ASTStmtWriter::VisitOMPLoopBasedDirective(OMPLoopBasedDirective *D) {
 
 void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   VisitOMPLoopBasedDirective(D);
+}
+
+void ASTStmtWriter::VisitOMPMetaDirective(OMPMetaDirective *D) {
+  VisitStmt(D);
+  Record.push_back(D->getNumClauses());
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_META_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPParallelDirective(OMPParallelDirective *D) {

@@ -138,7 +138,6 @@ public:
     return TargetFeatures;
   }
   ArrayRef<wasm::WasmSignature> types() const { return Signatures; }
-  ArrayRef<uint32_t> functionTypes() const { return FunctionTypes; }
   ArrayRef<wasm::WasmImport> imports() const { return Imports; }
   ArrayRef<wasm::WasmTable> tables() const { return Tables; }
   ArrayRef<wasm::WasmLimits> memories() const { return Memories; }
@@ -260,6 +259,7 @@ private:
 
   // Custom section types
   Error parseDylinkSection(ReadContext &Ctx);
+  Error parseDylink0Section(ReadContext &Ctx);
   Error parseNameSection(ReadContext &Ctx);
   Error parseLinkingSection(ReadContext &Ctx);
   Error parseLinkingSectionSymtab(ReadContext &Ctx);

@@ -1,8 +1,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction -S | FileCheck %s
 
-; RUN: opt < %s -force-opaque-pointers -hir-ssa-deconstruction -S | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -passes=hir-ssa-deconstruction -S | FileCheck %s
+; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -S | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes=hir-ssa-deconstruction -S | FileCheck %s
 
 ; CHECK: a.addr.014
 ; CHECK-NEXT: a.addr.014.out

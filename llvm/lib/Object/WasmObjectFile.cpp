@@ -286,9 +286,9 @@ WasmObjectFile::WasmObjectFile(MemoryBufferRef Buffer, Error &Err)
     return;
   }
 
-  WasmSection Sec;
   WasmSectionOrderChecker Checker;
   while (Ctx.Ptr < Ctx.End) {
+    WasmSection Sec;
     if ((Err = readSection(Sec, Ctx, Checker)))
       return;
     if ((Err = parseSection(Sec)))
@@ -339,7 +339,8 @@ Error WasmObjectFile::parseSection(WasmSection &Sec) {
 }
 
 Error WasmObjectFile::parseDylinkSection(ReadContext &Ctx) {
-  // See https://github.com/WebAssembly/tool-conventions/blob/master/DynamicLinking.md
+  // Legacy "dylink" section support.
+  // See parseDylink0Section for the current "dylink.0" section parsing.
   HasDylinkSection = true;
   DylinkInfo.MemorySize = readVaruint32(Ctx);
   DylinkInfo.MemoryAlignment = readVaruint32(Ctx);
@@ -349,8 +350,60 @@ Error WasmObjectFile::parseDylinkSection(ReadContext &Ctx) {
   while (Count--) {
     DylinkInfo.Needed.push_back(readString(Ctx));
   }
+
   if (Ctx.Ptr != Ctx.End)
     return make_error<GenericBinaryError>("dylink section ended prematurely",
+                                          object_error::parse_failed);
+  return Error::success();
+}
+
+Error WasmObjectFile::parseDylink0Section(ReadContext &Ctx) {
+  // See
+  // https://github.com/WebAssembly/tool-conventions/blob/master/DynamicLinking.md
+  HasDylinkSection = true;
+
+  const uint8_t *OrigEnd = Ctx.End;
+  while (Ctx.Ptr < OrigEnd) {
+    Ctx.End = OrigEnd;
+    uint8_t Type = readUint8(Ctx);
+    uint32_t Size = readVaruint32(Ctx);
+    LLVM_DEBUG(dbgs() << "readSubsection type=" << int(Type) << " size=" << Size
+                      << "\n");
+    Ctx.End = Ctx.Ptr + Size;
+    uint32_t Count;
+    switch (Type) {
+    case wasm::WASM_DYLINK_MEM_INFO:
+      DylinkInfo.MemorySize = readVaruint32(Ctx);
+      DylinkInfo.MemoryAlignment = readVaruint32(Ctx);
+      DylinkInfo.TableSize = readVaruint32(Ctx);
+      DylinkInfo.TableAlignment = readVaruint32(Ctx);
+      break;
+    case wasm::WASM_DYLINK_NEEDED:
+      Count = readVaruint32(Ctx);
+      while (Count--) {
+        DylinkInfo.Needed.push_back(readString(Ctx));
+      }
+      break;
+    case wasm::WASM_DYLINK_EXPORT_INFO: {
+      uint32_t Count = readVaruint32(Ctx);
+      while (Count--) {
+        DylinkInfo.ExportInfo.push_back({readString(Ctx), readVaruint32(Ctx)});
+      }
+      break;
+    }
+    default:
+      LLVM_DEBUG(dbgs() << "unknown dylink.0 sub-section: " << Type << "\n");
+      Ctx.Ptr += Size;
+      break;
+    }
+    if (Ctx.Ptr != Ctx.End) {
+      return make_error<GenericBinaryError>(
+          "dylink.0 sub-section ended prematurely", object_error::parse_failed);
+    }
+  }
+
+  if (Ctx.Ptr != Ctx.End)
+    return make_error<GenericBinaryError>("dylink.0 section ended prematurely",
                                           object_error::parse_failed);
   return Error::success();
 }
@@ -359,7 +412,7 @@ Error WasmObjectFile::parseNameSection(ReadContext &Ctx) {
   llvm::DenseSet<uint64_t> SeenFunctions;
   llvm::DenseSet<uint64_t> SeenGlobals;
   llvm::DenseSet<uint64_t> SeenSegments;
-  if (FunctionTypes.size() && !SeenCodeSection) {
+  if (Functions.size() && !SeenCodeSection) {
     return make_error<GenericBinaryError>("names must come after code section",
                                           object_error::parse_failed);
   }
@@ -427,7 +480,7 @@ Error WasmObjectFile::parseNameSection(ReadContext &Ctx) {
 
 Error WasmObjectFile::parseLinkingSection(ReadContext &Ctx) {
   HasLinkingSection = true;
-  if (FunctionTypes.size() && !SeenCodeSection) {
+  if (Functions.size() && !SeenCodeSection) {
     return make_error<GenericBinaryError>(
         "linking data must come after code section",
         object_error::parse_failed);
@@ -545,8 +598,8 @@ Error WasmObjectFile::parseLinkingSectionSymtab(ReadContext &Ctx) {
       if (IsDefined) {
         Info.Name = readString(Ctx);
         unsigned FuncIndex = Info.ElementIndex - NumImportedFunctions;
-        Signature = &Signatures[FunctionTypes[FuncIndex]];
         wasm::WasmFunction &Function = Functions[FuncIndex];
+        Signature = &Signatures[Function.SigIndex];
         if (Function.SymbolName.empty())
           Function.SymbolName = Info.Name;
       } else {
@@ -984,6 +1037,9 @@ Error WasmObjectFile::parseCustomSection(WasmSection &Sec, ReadContext &Ctx) {
   if (Sec.Name == "dylink") {
     if (Error Err = parseDylinkSection(Ctx))
       return Err;
+  } else if (Sec.Name == "dylink.0") {
+    if (Error Err = parseDylink0Section(Ctx))
+      return Err;
   } else if (Sec.Name == "name") {
     if (Error Err = parseNameSection(Ctx))
       return Err;
@@ -1084,15 +1140,16 @@ Error WasmObjectFile::parseImportSection(ReadContext &Ctx) {
 
 Error WasmObjectFile::parseFunctionSection(ReadContext &Ctx) {
   uint32_t Count = readVaruint32(Ctx);
-  FunctionTypes.reserve(Count);
-  Functions.resize(Count);
+  Functions.reserve(Count);
   uint32_t NumTypes = Signatures.size();
   while (Count--) {
     uint32_t Type = readVaruint32(Ctx);
     if (Type >= NumTypes)
       return make_error<GenericBinaryError>("invalid function type",
                                             object_error::parse_failed);
-    FunctionTypes.push_back(Type);
+    wasm::WasmFunction F;
+    F.SigIndex = Type;
+    Functions.push_back(F);
   }
   if (Ctx.Ptr != Ctx.End)
     return make_error<GenericBinaryError>("function section ended prematurely",
@@ -1216,7 +1273,7 @@ Error WasmObjectFile::parseExportSection(ReadContext &Ctx) {
 }
 
 bool WasmObjectFile::isValidFunctionIndex(uint32_t Index) const {
-  return Index < NumImportedFunctions + FunctionTypes.size();
+  return Index < NumImportedFunctions + Functions.size();
 }
 
 bool WasmObjectFile::isDefinedFunctionIndex(uint32_t Index) const {
@@ -1304,7 +1361,7 @@ Error WasmObjectFile::parseCodeSection(ReadContext &Ctx) {
   SeenCodeSection = true;
   CodeSection = Sections.size();
   uint32_t FunctionCount = readVaruint32(Ctx);
-  if (FunctionCount != FunctionTypes.size()) {
+  if (FunctionCount != Functions.size()) {
     return make_error<GenericBinaryError>("invalid function count",
                                           object_error::parse_failed);
   }
@@ -1793,6 +1850,7 @@ int WasmSectionOrderChecker::getSectionOrder(unsigned ID,
   case wasm::WASM_SEC_CUSTOM:
     return StringSwitch<unsigned>(CustomSectionName)
         .Case("dylink", WASM_SEC_ORDER_DYLINK)
+        .Case("dylink.0", WASM_SEC_ORDER_DYLINK)
         .Case("linking", WASM_SEC_ORDER_LINKING)
         .StartsWith("reloc.", WASM_SEC_ORDER_RELOC)
         .Case("name", WASM_SEC_ORDER_NAME)

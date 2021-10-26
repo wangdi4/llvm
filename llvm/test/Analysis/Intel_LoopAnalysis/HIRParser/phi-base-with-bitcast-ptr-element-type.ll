@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; A test case where the parsing will be different with opaque ptrs.
 ; The store ref (%phi.ptr) will be parsed as something like: (ptr)(%ptr.init)[24 * i1 + 24]

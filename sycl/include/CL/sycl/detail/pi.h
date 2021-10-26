@@ -714,7 +714,10 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 #define __SYCL_PI_PROPERTY_SET_PROGRAM_METADATA "SYCL/program metadata"
 /// PropertySetRegistry::SYCL_MISC_PROP defined in PropertySetIO.h
 #define __SYCL_PI_PROPERTY_SET_SYCL_MISC_PROP "SYCL/misc properties"
+/// PropertySetRegistry::SYCL_ASSERT_USED defined in PropertySetIO.h
 #define __SYCL_PI_PROPERTY_SET_SYCL_ASSERT_USED "SYCL/assert used"
+/// PropertySetRegistry::SYCL_EXPORTED_SYMBOLS defined in PropertySetIO.h
+#define __SYCL_PI_PROPERTY_SET_SYCL_EXPORTED_SYMBOLS "SYCL/exported symbols"
 
 /// Program metadata tags recognized by the PI backends. For kernels the tag
 /// must appear after the kernel name.
@@ -1565,6 +1568,9 @@ typedef enum : pi_bitfield {
   PI_MEM_ALLOC_FLAGS = CL_MEM_ALLOC_FLAGS_INTEL
 } _pi_usm_mem_properties;
 
+// Flag is used for piProgramUSMEnqueuePrefetch. PI_USM_MIGRATION_TBD0 is a
+// placeholder for future developments and should not change the behaviour of
+// piProgramUSMEnqueuePrefetch
 typedef enum : pi_bitfield {
   PI_USM_MIGRATION_TBD0 = (1 << 0)
 } _pi_usm_migration_flags;

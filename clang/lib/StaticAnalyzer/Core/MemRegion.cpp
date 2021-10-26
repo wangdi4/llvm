@@ -789,12 +789,12 @@ DefinedOrUnknownSVal MemRegionManager::getStaticSize(const MemRegion *MR,
 
       if (const auto *CAT = dyn_cast<ConstantArrayType>(AT)) {
         const llvm::APInt &Size = CAT->getSize();
-        if (Size.isNullValue())
+        if (Size.isZero())
           return true;
 
         const AnalyzerOptions &Opts = SVB.getAnalyzerOptions();
         if (Opts.ShouldConsiderSingleElementArraysAsFlexibleArrayMembers &&
-            Size.isOneValue())
+            Size.isOne())
           return true;
       }
       return false;

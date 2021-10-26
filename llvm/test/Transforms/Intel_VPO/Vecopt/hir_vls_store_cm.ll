@@ -52,15 +52,15 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
-; HIRCHECK-NEXT:  BEGIN REGION { modified }
-; HIRCHECK-NEXT:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; HIRCHECK-NEXT:        |   [[DOTEXTENDED0:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; HIRCHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector undef,  [[DOTEXTENDED0]],  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
-; HIRCHECK-NEXT:        |   [[DOTEXTENDED10:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; HIRCHECK-NEXT:        |   [[SHUFFLE20:%.*]] = shufflevector [[SHUFFLE0]],  [[DOTEXTENDED10]],  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
-; HIRCHECK-NEXT:        |   (<8 x i64>*)([[ARR0:%.*]])[2 * i1] = [[SHUFFLE20]]
-; HIRCHECK-NEXT:        + END LOOP
-; HIRCHECK-NEXT:  END REGION
+; HIRCHECK-NEXT:  <0>          BEGIN REGION { modified }
+; HIRCHECK-NEXT:  <17>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; HIRCHECK-NEXT:  <22>               |   [[DOTEXTENDED0:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; HIRCHECK-NEXT:  <23>               |   [[SHUFFLE0:%.*]] = shufflevector undef,  [[DOTEXTENDED0]],  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
+; HIRCHECK-NEXT:  <24>               |   [[DOTEXTENDED10:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; HIRCHECK-NEXT:  <25>               |   [[SHUFFLE20:%.*]] = shufflevector [[SHUFFLE0]],  [[DOTEXTENDED10]],  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
+; HIRCHECK-NEXT:  <26>               |   (<8 x i64>*)([[ARR0:%.*]])[2 * i1] = [[SHUFFLE20]]
+; HIRCHECK-NEXT:  <17>               + END LOOP
+; HIRCHECK-NEXT:  <0>          END REGION
 ;
 entry:
   br label %for.body

@@ -22,6 +22,7 @@ endif()
 # end INTEL_CUSTOMIZATION
 add_subdirectory(queue)
 add_subdirectory(scheduler)
+add_subdirectory(stream)
 add_subdirectory(SYCL2020)
 add_subdirectory(thread_safety)
 add_subdirectory(program_manager)

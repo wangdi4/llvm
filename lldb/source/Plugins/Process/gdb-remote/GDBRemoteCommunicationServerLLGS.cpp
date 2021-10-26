@@ -183,6 +183,9 @@ void GDBRemoteCommunicationServerLLGS::RegisterPacketHandlers() {
       StringExtractorGDBRemote::eServerPacketType_vCont_actions,
       &GDBRemoteCommunicationServerLLGS::Handle_vCont_actions);
   RegisterMemberFunctionHandler(
+      StringExtractorGDBRemote::eServerPacketType_vRun,
+      &GDBRemoteCommunicationServerLLGS::Handle_vRun);
+  RegisterMemberFunctionHandler(
       StringExtractorGDBRemote::eServerPacketType_x,
       &GDBRemoteCommunicationServerLLGS::Handle_memory_read);
   RegisterMemberFunctionHandler(StringExtractorGDBRemote::eServerPacketType_Z,
@@ -3256,6 +3259,38 @@ GDBRemoteCommunicationServerLLGS::Handle_vAttachOrWait(
 }
 
 GDBRemoteCommunication::PacketResult
+GDBRemoteCommunicationServerLLGS::Handle_vRun(
+    StringExtractorGDBRemote &packet) {
+  Log *log(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS));
+
+  llvm::StringRef s = packet.GetStringRef();
+  if (!s.consume_front("vRun;"))
+    return SendErrorResponse(8);
+
+  llvm::SmallVector<llvm::StringRef, 16> argv;
+  s.split(argv, ';');
+
+  for (llvm::StringRef hex_arg : argv) {
+    StringExtractor arg_ext{hex_arg};
+    std::string arg;
+    arg_ext.GetHexByteString(arg);
+    m_process_launch_info.GetArguments().AppendArgument(arg);
+    LLDB_LOGF(log, "LLGSPacketHandler::%s added arg: \"%s\"", __FUNCTION__,
+              arg.c_str());
+  }
+
+  if (!argv.empty()) {
+    m_process_launch_info.GetExecutableFile().SetFile(
+        m_process_launch_info.GetArguments()[0].ref(), FileSpec::Style::native);
+    m_process_launch_error = LaunchProcess();
+    if (m_process_launch_error.Success())
+      return SendStopReasonForState(m_current_process->GetState());
+    LLDB_LOG(log, "failed to launch exe: {0}", m_process_launch_error);
+  }
+  return SendErrorResponse(8);
+}
+
+GDBRemoteCommunication::PacketResult
 GDBRemoteCommunicationServerLLGS::Handle_D(StringExtractorGDBRemote &packet) {
   StopSTDIOForwarding();
 
@@ -3621,10 +3656,7 @@ GDBRemoteCommunicationServerLLGS::Handle_qSaveCore(
   StringRef packet_str{packet.GetStringRef()};
   assert(packet_str.startswith("qSaveCore"));
   if (packet_str.consume_front("qSaveCore;")) {
-    llvm::SmallVector<llvm::StringRef, 2> fields;
-    packet_str.split(fields, ';');
-
-    for (auto x : fields) {
+    for (auto x : llvm::Split(packet_str, ';')) {
       if (x.consume_front("path-hint:"))
         StringExtractor(x).GetHexByteString(path_hint);
       else

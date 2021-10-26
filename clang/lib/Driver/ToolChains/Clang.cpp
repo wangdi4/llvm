@@ -23,6 +23,7 @@
 #include "MSP430.h"
 #include "PS4CPU.h"
 #include "SYCL.h"
+#include "clang/Basic/CLWarnings.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/LangOptions.h"
@@ -834,11 +835,6 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
   }
 
   if (TC.getTriple().isOSAIX()) {
-    if (PGOGenerateArg)
-      if (!D.isUsingLTO(false /*IsDeviceOffloadAction */) ||
-          D.getLTOMode() != LTOK_Full)
-        D.Diag(clang::diag::err_drv_argument_only_allowed_with)
-            << PGOGenerateArg->getSpelling() << "-flto";
     if (ProfileGenerateArg)
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << ProfileGenerateArg->getSpelling() << TC.getTriple().str();
@@ -4403,6 +4399,29 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
                                            options::OPT_gpubnames)
                             ? "-gpubnames"
                             : "-ggnu-pubnames");
+  const auto *SimpleTemplateNamesArg =
+      Args.getLastArg(options::OPT_gsimple_template_names, options::OPT_gno_simple_template_names,
+                      options::OPT_gsimple_template_names_EQ);
+  bool ForwardTemplateParams = DebuggerTuning == llvm::DebuggerKind::SCE;
+  if (SimpleTemplateNamesArg &&
+      checkDebugInfoOption(SimpleTemplateNamesArg, Args, D, TC)) {
+    const auto &Opt = SimpleTemplateNamesArg->getOption();
+    if (Opt.matches(options::OPT_gsimple_template_names)) {
+      ForwardTemplateParams = true;
+      CmdArgs.push_back("-gsimple-template-names=simple");
+    } else if (Opt.matches(options::OPT_gsimple_template_names_EQ)) {
+      ForwardTemplateParams = true;
+      StringRef Value = SimpleTemplateNamesArg->getValue();
+      if (Value == "simple") {
+        CmdArgs.push_back("-gsimple-template-names=simple");
+      } else if (Value == "mangled") {
+        CmdArgs.push_back("-gsimple-template-names=mangled");
+      } else {
+        D.Diag(diag::err_drv_unsupported_option_argument)
+            << Opt.getName() << SimpleTemplateNamesArg->getValue();
+      }
+    }
+  }
 
   if (Args.hasFlag(options::OPT_fdebug_ranges_base_address,
                    options::OPT_fno_debug_ranges_base_address, false)) {
@@ -4463,7 +4482,7 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
 
   // Decide how to render forward declarations of template instantiations.
   // SCE wants full descriptions, others just get them in the name.
-  if (DebuggerTuning == llvm::DebuggerKind::SCE)
+  if (ForwardTemplateParams)
     CmdArgs.push_back("-debug-forward-template-params");
 
   // Do we need to explicitly import anonymous namespaces into the parent
@@ -4905,7 +4924,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
 
     // Turn on Dead Parameter Elimination Optimization with early optimizations
-    if (!(RawTriple.isNVPTX() || RawTriple.isAMDGCN()) &&
+    if (!(RawTriple.isAMDGCN()) &&
         Args.hasFlag(options::OPT_fsycl_dead_args_optimization,
                      options::OPT_fno_sycl_dead_args_optimization, false))
       CmdArgs.push_back("-fenable-sycl-dae");
@@ -6003,16 +6022,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // This is a coarse approximation of what llvm-gcc actually does, both
   // -fasynchronous-unwind-tables and -fnon-call-exceptions interact in more
   // complicated ways.
-  bool UnwindTables =
+  bool AsyncUnwindTables =
       Args.hasFlag(options::OPT_fasynchronous_unwind_tables,
                    options::OPT_fno_asynchronous_unwind_tables,
                    (TC.IsUnwindTablesDefault(Args) ||
                     TC.getSanitizerArgs().needsUnwindTables()) &&
                        !Freestanding);
-  UnwindTables = Args.hasFlag(options::OPT_funwind_tables,
-                              options::OPT_fno_unwind_tables, UnwindTables);
-  if (UnwindTables)
-    CmdArgs.push_back("-munwind-tables");
+  bool UnwindTables = Args.hasFlag(options::OPT_funwind_tables,
+                                   options::OPT_fno_unwind_tables, false);
+  if (AsyncUnwindTables)
+    CmdArgs.push_back("-funwind-tables=2");
+  else if (UnwindTables)
+    CmdArgs.push_back("-funwind-tables=1");
 
   // Prepare `-aux-target-cpu` and `-aux-target-feature` unless
   // `--gpu-use-aux-triple-only` is specified.
@@ -6329,10 +6350,31 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddAllArgs(CmdArgs, options::OPT_R_Group);
 
-  Args.AddAllArgs(CmdArgs, options::OPT_W_Group);
+  for (const Arg *A :
+       Args.filtered(options::OPT_W_Group, options::OPT__SLASH_wd)) {
+    A->claim();
+    if (A->getOption().getID() == options::OPT__SLASH_wd) {
+      unsigned WarningNumber;
+      if (StringRef(A->getValue()).getAsInteger(10, WarningNumber)) {
+        D.Diag(diag::err_drv_invalid_int_value)
+            << A->getAsString(Args) << A->getValue();
+        continue;
+      }
+
+      if (auto Group = diagGroupFromCLWarningID(WarningNumber)) {
+        CmdArgs.push_back(Args.MakeArgString(
+            "-Wno-" + DiagnosticIDs::getWarningOptionForGroup(*Group)));
+      }
+      continue;
+    }
+    A->render(Args, CmdArgs);
+  }
+
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
       || Args.hasArg(options::OPT_strict_ansi))
+#else //INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false))
 #endif //INTEL_CUSTOMIZATION
     CmdArgs.push_back("-pedantic");
 
@@ -6806,6 +6848,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                        options::OPT_fno_openmp_cuda_mode, /*Default=*/false))
         CmdArgs.push_back("-fopenmp-cuda-mode");
 
+      // When in OpenMP offloading mode, enable or disable the new device
+      // runtime.
+      if (Args.hasFlag(options::OPT_fopenmp_target_new_runtime,
+                       options::OPT_fno_openmp_target_new_runtime,
+                       /*Default=*/false))
+        CmdArgs.push_back("-fopenmp-target-new-runtime");
+
+      // When in OpenMP offloading mode, enable debugging on the device.
+      Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_target_debug_EQ);
+      if (Args.hasFlag(options::OPT_fopenmp_target_debug,
+                       options::OPT_fno_openmp_target_debug, /*Default=*/false))
+        CmdArgs.push_back("-fopenmp-target-debug");
+
       // When in OpenMP offloading mode with NVPTX target, check if full runtime
       // is required.
       if (Args.hasFlag(options::OPT_fopenmp_cuda_force_full_runtime,
@@ -6956,6 +7011,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   RenderSSPOptions(D, TC, Args, CmdArgs, KernelOrKext);
   RenderSCPOptions(TC, Args, CmdArgs);
   RenderTrivialAutoVarInitOptions(D, TC, Args, CmdArgs);
+
+  Args.AddLastArg(CmdArgs, options::OPT_fswift_async_fp_EQ);
 
   // Translate -mstackrealign
   if (Args.hasFlag(options::OPT_mstackrealign, options::OPT_mno_stackrealign,
@@ -7807,7 +7864,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (IsHIP)
     CmdArgs.push_back("-fcuda-allow-variadic-functions");
 
-  if (IsCudaDevice || IsHIPDevice) {
+  if (IsCudaDevice || IsHIPDevice || IsSYCLOffloadDevice) {
     StringRef InlineThresh =
         Args.getLastArgValue(options::OPT_fgpu_inline_threshold_EQ);
     if (!InlineThresh.empty()) {
@@ -8093,7 +8150,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-faddrsig");
 
   if ((Triple.isOSBinFormatELF() || Triple.isOSBinFormatMachO()) &&
-      (EH || UnwindTables || DebugInfoKind != codegenoptions::NoDebugInfo))
+      (EH || AsyncUnwindTables || UnwindTables ||
+       DebugInfoKind != codegenoptions::NoDebugInfo))
     CmdArgs.push_back("-D__GCC_HAVE_DWARF2_CFI_ASM=1");
 
   if (Arg *A = Args.getLastArg(options::OPT_fsymbol_partition_EQ)) {
@@ -9096,7 +9154,7 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
     Triples += '-';
     Triples += CurTC->getTriple().normalize();
     if ((CurKind == Action::OFK_HIP || CurKind == Action::OFK_OpenMP ||
-         CurKind == Action::OFK_Cuda) &&
+         CurKind == Action::OFK_Cuda || CurKind == Action::OFK_SYCL) &&
         CurDep->getOffloadingArch()) {
       Triples += '-';
       Triples += CurDep->getOffloadingArch();
@@ -9254,7 +9312,8 @@ void OffloadBundler::ConstructJobMultipleOutputs(
     Triples += Dep.DependentToolChain->getTriple().normalize();
     if ((Dep.DependentOffloadKind == Action::OFK_HIP ||
          Dep.DependentOffloadKind == Action::OFK_OpenMP ||
-         Dep.DependentOffloadKind == Action::OFK_Cuda) &&
+         Dep.DependentOffloadKind == Action::OFK_Cuda ||
+         Dep.DependentOffloadKind == Action::OFK_SYCL) &&
         !Dep.DependentBoundArch.empty()) {
       Triples += '-';
       Triples += Dep.DependentBoundArch;
@@ -9456,9 +9515,10 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     if (PICLevel > 0 || TCArgs.hasArg(options::OPT_shared)) {
       LlcArgs.push_back("-relocation-model=pic");
     }
-    if (IsPIE) {
-      LlcArgs.push_back("-enable-pie");
-    }
+    if (Arg *A = C.getArgs().getLastArg(options::OPT_mcmodel_EQ))
+      LlcArgs.push_back(
+          TCArgs.MakeArgString(Twine("--code-model=") + A->getValue()));
+
     SmallString<128> LlcPath(C.getDriver().Dir);
     llvm::sys::path::append(LlcPath, "llc");
     const char *Llc = C.getArgs().MakeArgString(LlcPath);
@@ -9564,13 +9624,7 @@ void OffloadDeps::constructJob(Compilation &C, const JobAction &JA,
     if ((Dep.DependentOffloadKind == Action::OFK_HIP ||
          Dep.DependentOffloadKind == Action::OFK_SYCL) &&
         !Dep.DependentBoundArch.empty()) {
-      // If OffloadArch is present it can only appear as the 6th hyphen
-      // separated field of Bundle Entry ID. So, pad required number of
-      // hyphens in Triple.
-      // e.g. if NormalizedTriple is nvptx64-nvidia-cuda, 2 more - to
-      // generate nvptx64-nvidia-cuda--
-      for (int i = 4 - StringRef(NormalizedTriple).count("-"); i > 0; i--)
-        Targets += '-';
+      Targets += '-';
       Targets += Dep.DependentBoundArch;
     }
   }
@@ -9633,13 +9687,10 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||
       (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
        getToolChain().getTriple().isSPIR())) {
-#endif // INTEL_CUSTOMIZATION
+    // Workaround for old GPU driver version - bump up to 1.4 after uplift
     TranslatorArgs.push_back("-spirv-max-version=1.3");
-    // TODO: align debug info for FPGA H/W when its SPIR-V consumer is ready
-    if (C.getDriver().isFPGAEmulationMode())
-      TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
-    else
-      TranslatorArgs.push_back("-spirv-debug-info-version=legacy");
+#endif // INTEL_CUSTOMIZATION
+    TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
     // Prevent crash in the translator if input IR contains DIExpression
     // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
     TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
@@ -9869,26 +9920,26 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
                        getToolChain().getTriple().isSPIR();
+#endif // INTEL_CUSTOMIZATION
 
   // For OpenMP offload, -split=* should not be used
   if (!IsOpenMPSPIRV) {
     // See if device code splitting is requested
     if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ)) {
-      if (StringRef(A->getValue()) == "per_kernel")
+      auto CodeSplitValue = StringRef(A->getValue());
+      if (CodeSplitValue == "per_kernel")
         addArgs(CmdArgs, TCArgs, {"-split=kernel"});
-      else if (StringRef(A->getValue()) == "per_source")
+      else if (CodeSplitValue == "per_source")
         addArgs(CmdArgs, TCArgs, {"-split=source"});
-      else if (StringRef(A->getValue()) == "auto")
+      else if (CodeSplitValue == "auto")
         addArgs(CmdArgs, TCArgs, {"-split=auto"});
-      else
-        // split must be off
-        assert(StringRef(A->getValue()) == "off");
+      else { // Device code split is off
+      }
     } else {
       // auto is the default split mode
       addArgs(CmdArgs, TCArgs, {"-split=auto"});
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
   // On FPGA target we don't need non-kernel functions as entry points, because
   // it only increases amount of code for device compiler to handle, without any
@@ -9910,8 +9961,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #endif // INTEL_CUSTOMIZATION
   // Turn on Dead Parameter Elimination Optimization with early optimizations
-  if (!(getToolChain().getTriple().isNVPTX() ||
-        getToolChain().getTriple().isAMDGCN()) &&
+  if (!(getToolChain().getTriple().isAMDGCN()) &&
       TCArgs.hasFlag(options::OPT_fsycl_dead_args_optimization,
                      options::OPT_fno_sycl_dead_args_optimization, false))
     addArgs(CmdArgs, TCArgs, {"-emit-param-info"});
@@ -9928,6 +9978,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     // Symbol file and specialization constant info generation is mandatory -
     // add options unconditionally
     addArgs(CmdArgs, TCArgs, {"-symbols"});
+    addArgs(CmdArgs, TCArgs, {"-emit-exported-symbols"});
     addArgs(CmdArgs, TCArgs, {"-split-esimd"});
     addArgs(CmdArgs, TCArgs, {"-lower-esimd"});
   }

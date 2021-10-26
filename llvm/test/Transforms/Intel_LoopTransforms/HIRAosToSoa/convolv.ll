@@ -1,8 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
-; RUN: opt -force-opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-aos-to-soa -print-after=hir-aos-to-soa -hir-details < %s 2>&1 | FileCheck %s --check-prefix=DEFATLEV
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa"  -hir-details < %s 2>&1 | FileCheck %s --check-prefix=DEFATLEV

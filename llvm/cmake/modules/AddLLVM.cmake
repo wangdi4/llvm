@@ -193,7 +193,10 @@ if (NOT DEFINED LLVM_LINKER_DETECTED)
       OUTPUT_VARIABLE stdout
       ERROR_VARIABLE stderr
       )
-    if("${stdout}" MATCHES "GNU gold")
+    if("${stdout}" MATCHES "^mold")
+      set(LLVM_LINKER_DETECTED YES CACHE INTERNAL "")
+      message(STATUS "Linker detection: mold")
+    elseif("${stdout}" MATCHES "GNU gold")
       set(LLVM_LINKER_DETECTED YES CACHE INTERNAL "")
       set(LLVM_LINKER_IS_GOLD YES CACHE INTERNAL "")
       message(STATUS "Linker detection: GNU Gold")
@@ -453,7 +456,7 @@ endmacro()
 #   )
 function(llvm_add_library name)
   cmake_parse_arguments(ARG
-    "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER"
+    "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER;EXCLUDE_FROM_ALL"
 # INTEL_CUSTOMIZATION
     "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH;STDLIB"
 # end INTEL_CUSTOMIZATION
@@ -1733,7 +1736,7 @@ function(configure_lit_site_cfg site_in site_out)
     set(ENABLE_SHARED "0")
   endif()
 
-  if(LLVM_ENABLE_ASSERTIONS AND NOT MSVC_IDE)
+  if(LLVM_ENABLE_ASSERTIONS)
     set(ENABLE_ASSERTIONS "1")
   else()
     set(ENABLE_ASSERTIONS "0")

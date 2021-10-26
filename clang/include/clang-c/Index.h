@@ -2592,26 +2592,29 @@ enum CXCursorKind {
    */
   CXCursor_OMPUnrollDirective = 293,
 
+  /** OpenMP metadirective directive.
+   */
+  CXCursor_OMPMetaDirective = 294,
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 294,
-  CXCursor_OMPGenericLoopDirective = 295,
-  CXCursor_OMPTeamsGenericLoopDirective = 296,
-  CXCursor_OMPTargetTeamsGenericLoopDirective = 297,
-  CXCursor_OMPParallelGenericLoopDirective = 298,
-  CXCursor_OMPTargetParallelGenericLoopDirective = 299,
-  CXCursor_OMPPrefetchDirective = 300,
-  CXCursor_OMPScopeDirective = 301,
+  CXCursor_OMPTargetVariantDispatchDirective = 295,
+  CXCursor_OMPGenericLoopDirective = 296,
+  CXCursor_OMPTeamsGenericLoopDirective = 297,
+  CXCursor_OMPTargetTeamsGenericLoopDirective = 298,
+  CXCursor_OMPParallelGenericLoopDirective = 299,
+  CXCursor_OMPTargetParallelGenericLoopDirective = 300,
+  CXCursor_OMPPrefetchDirective = 301,
+  CXCursor_OMPScopeDirective = 302,
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPUnrollDirective,
+  CXCursor_LastStmt = CXCursor_OMPMetaDirective,
 #endif /* INTEL_COLLAB */
 
-  /**
-   * Cursor that represents the translation unit itself.
-   *
-   * The translation unit cursor exists primarily to act as the root
-   * cursor for traversing the contents of a translation unit.
-   */
+/**
+ * Cursor that represents the translation unit itself.
+ *
+ * The translation unit cursor exists primarily to act as the root
+ * cursor for traversing the contents of a translation unit.
+ */
 #if INTEL_COLLAB
   CXCursor_TranslationUnit = 350,
 #else /* INTEL_COLLAB */

@@ -127,8 +127,9 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPLoadStoreInst *Memref,
   auto AccessStep = AccessAddress.Step;
   assert(AccessSize == TypeSize::Fixed(AccessStep) &&
          "Non-unit stride memory access");
-  assert((InvariantBaseKnownBits.One & (MinAlign(0, AccessStep) - 1)) == 0 &&
-         "Misaligned memory access");
+  assert(
+    (this->InvariantBaseKnownBits.One & (MinAlign(0, AccessStep) - 1)) == 0 &&
+    "Misaligned memory access");
 #endif
 }
 

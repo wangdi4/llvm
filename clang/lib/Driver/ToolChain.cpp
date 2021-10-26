@@ -687,6 +687,8 @@ std::string ToolChain::GetLinkerPath(bool *LinkerIsLLD,
 
 std::string ToolChain::GetStaticLibToolPath() const {
   // TODO: Add support for static lib archiving on Windows
+  if (Triple.isOSDarwin())
+    return GetProgramPath("libtool");
   return GetProgramPath("llvm-ar");
 }
 
@@ -1495,7 +1497,7 @@ void ToolChain::AddCudaIncludeArgs(const ArgList &DriverArgs,
 void ToolChain::AddHIPIncludeArgs(const ArgList &DriverArgs,
                                   ArgStringList &CC1Args) const {}
 
-llvm::SmallVector<std::string, 12>
+llvm::SmallVector<ToolChain::BitCodeLibraryInfo, 12>
 ToolChain::getHIPDeviceLibs(const ArgList &DriverArgs) const {
   return {};
 }

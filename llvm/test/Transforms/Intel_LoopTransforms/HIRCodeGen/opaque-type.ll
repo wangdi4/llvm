@@ -2,7 +2,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" < %s -force-hir-cg -S 2>&1 | FileCheck %s
 
 ; This run command verifies that code generation is successful without compfails for opaque pinters.
-; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg
 
 ; Verify that CG can correctly handle opaque types. %3 is a pointer to an opaque type. Make sure &((%3)[0]) is lowered correctly to a pointer without a GEP.
 

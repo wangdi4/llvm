@@ -4,8 +4,8 @@
 
 ; RUN: opt -S < %s -dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -dtrans-soatoaosop-typename=noname -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -S < %s -passes=dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -dtrans-soatoaosop-typename=noname -disable-output 2>&1 | FileCheck %s
-; RUN: opt -S < %s -force-opaque-pointers -dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -dtrans-soatoaosop-typename=noname -disable-output 2>&1 | FileCheck %s
-; RUN: opt -S < %s -force-opaque-pointers -passes=dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -dtrans-soatoaosop-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt -S < %s -opaque-pointers -dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -dtrans-soatoaosop-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt -S < %s -opaque-pointers -passes=dtrans-soatoaosop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop -dtrans-soatoaosop-typename=noname -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK: Rejecting %class.test based on dtrans-soatoaosop-typename option.

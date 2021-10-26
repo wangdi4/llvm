@@ -70,8 +70,8 @@ static Value *SimplifyOrInst(Value *, Value *, const SimplifyQuery &, unsigned);
 static Value *SimplifyXorInst(Value *, Value *, const SimplifyQuery &, unsigned);
 static Value *SimplifyCastInst(unsigned, Value *, Type *,
                                const SimplifyQuery &, unsigned);
-static Value *SimplifyGEPInst(Type *, ArrayRef<Value *>, const SimplifyQuery &,
-                              unsigned);
+static Value *SimplifyGEPInst(Type *, ArrayRef<Value *>, bool,
+                              const SimplifyQuery &, unsigned);
 static Value *SimplifySelectInst(Value *, Value *, Value *,
                                  const SimplifyQuery &, unsigned);
 
@@ -742,7 +742,7 @@ static Constant *stripAndComputeConstantOffsets(const DataLayout &DL, Value *&V,
   assert(V->getType()->isPtrOrPtrVectorTy());
 
   Type *IntIdxTy = DL.getIndexType(V->getType())->getScalarType();
-  APInt Offset = APInt::getNullValue(IntIdxTy->getIntegerBitWidth());
+  APInt Offset = APInt::getZero(IntIdxTy->getIntegerBitWidth());
 
   V = V->stripAndAccumulateConstantOffsets(DL, Offset, AllowNonInbounds);
   // As that strip may trace through `addrspacecast`, need to sext or trunc
@@ -1472,9 +1472,11 @@ static Value *SimplifyAShrInst(Value *Op0, Value *Op1, bool isExact,
                                     MaxRecurse))
     return V;
 
-  // all ones >>a X -> -1
+  // -1 >>a X --> -1
+  // (-1 << X) a>> X --> -1
   // Do not return Op0 because it may contain undef elements if it's a vector.
-  if (match(Op0, m_AllOnes()))
+  if (match(Op0, m_AllOnes()) ||
+      match(Op0, m_Shl(m_AllOnes(), m_Specific(Op1))))
     return Constant::getAllOnesValue(Op0->getType());
 
   // (X << A) >> A -> X
@@ -1808,7 +1810,7 @@ static Value *simplifyAndOrOfICmpsWithLimitConst(ICmpInst *Cmp0, ICmpInst *Cmp1,
   if (match(Cmp0->getOperand(1), m_APInt(C)))
     MinMaxC = HasNotOp ? ~*C : *C;
   else if (isa<ConstantPointerNull>(Cmp0->getOperand(1)))
-    MinMaxC = APInt::getNullValue(8);
+    MinMaxC = APInt::getZero(8);
   else
     return nullptr;
 
@@ -2094,13 +2096,13 @@ static Value *SimplifyAndInst(Value *Op0, Value *Op1, const SimplifyQuery &Q,
     // If all bits in the inverted and shifted mask are clear:
     // and (shl X, ShAmt), Mask --> shl X, ShAmt
     if (match(Op0, m_Shl(m_Value(X), m_APInt(ShAmt))) &&
-        (~(*Mask)).lshr(*ShAmt).isNullValue())
+        (~(*Mask)).lshr(*ShAmt).isZero())
       return Op0;
 
     // If all bits in the inverted and shifted mask are clear:
     // and (lshr X, ShAmt), Mask --> lshr X, ShAmt
     if (match(Op0, m_LShr(m_Value(X), m_APInt(ShAmt))) &&
-        (~(*Mask)).shl(*ShAmt).isNullValue())
+        (~(*Mask)).shl(*ShAmt).isZero())
       return Op0;
   }
 
@@ -3150,7 +3152,7 @@ static Value *simplifyICmpWithBinOp(CmpInst::Predicate Pred, Value *LHS,
     // - C isn't zero.
     if (Q.IIQ.hasNoSignedWrap(cast<OverflowingBinaryOperator>(LBO)) ||
         Q.IIQ.hasNoUnsignedWrap(cast<OverflowingBinaryOperator>(LBO)) ||
-        match(LHS, m_Shl(m_One(), m_Value())) || !C->isNullValue()) {
+        match(LHS, m_Shl(m_One(), m_Value())) || !C->isZero()) {
       if (Pred == ICmpInst::ICMP_EQ)
         return ConstantInt::getFalse(GetCompareTy(RHS));
       if (Pred == ICmpInst::ICMP_NE)
@@ -4044,7 +4046,8 @@ static Value *simplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
 
     if (auto *GEP = dyn_cast<GetElementPtrInst>(I))
       return PreventSelfSimplify(SimplifyGEPInst(GEP->getSourceElementType(),
-                                                 NewOps, Q, MaxRecurse - 1));
+                                                 NewOps, GEP->isInBounds(), Q,
+                                                 MaxRecurse - 1));
 
     if (isa<SelectInst>(I))
       return PreventSelfSimplify(
@@ -4389,7 +4392,7 @@ Value *llvm::SimplifySelectInst(Value *Cond, Value *TrueVal, Value *FalseVal,
 
 /// Given operands for an GetElementPtrInst, see if we can fold the result.
 /// If not, this returns null.
-static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
+static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops, bool InBounds,
                               const SimplifyQuery &Q, unsigned) {
   // The type of the GEP pointer operand.
   unsigned AS =
@@ -4490,14 +4493,14 @@ static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
       // gep (gep V, C), (sub 0, V) -> C
       if (match(Ops.back(),
                 m_Sub(m_Zero(), m_PtrToInt(m_Specific(StrippedBasePtr)))) &&
-          !BasePtrOffset.isNullValue()) {
+          !BasePtrOffset.isZero()) {
         auto *CI = ConstantInt::get(GEPTy->getContext(), BasePtrOffset);
         return ConstantExpr::getIntToPtr(CI, GEPTy);
       }
       // gep (gep V, C), (xor V, -1) -> C-1
       if (match(Ops.back(),
                 m_Xor(m_PtrToInt(m_Specific(StrippedBasePtr)), m_AllOnes())) &&
-          !BasePtrOffset.isOneValue()) {
+          !BasePtrOffset.isOne()) {
         auto *CI = ConstantInt::get(GEPTy->getContext(), BasePtrOffset - 1);
         return ConstantExpr::getIntToPtr(CI, GEPTy);
       }
@@ -4509,13 +4512,13 @@ static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
     return nullptr;
 
   auto *CE = ConstantExpr::getGetElementPtr(SrcTy, cast<Constant>(Ops[0]),
-                                            Ops.slice(1));
+                                            Ops.slice(1), InBounds);
   return ConstantFoldConstant(CE, Q.DL);
 }
 
-Value *llvm::SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
+Value *llvm::SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops, bool InBounds,
                              const SimplifyQuery &Q) {
-  return ::SimplifyGEPInst(SrcTy, Ops, Q, RecursionLimit);
+  return ::SimplifyGEPInst(SrcTy, Ops, InBounds, Q, RecursionLimit);
 }
 
 /// Given operands for an InsertValueInst, see if we can fold the result.
@@ -5876,7 +5879,7 @@ static Value *simplifyBinaryIntrinsic(Function *F, Value *Op0, Value *Op1,
 
 static Value *simplifyIntrinsic(CallBase *Call, const SimplifyQuery &Q) {
 
-  unsigned NumOperands = Call->getNumArgOperands();
+  unsigned NumOperands = Call->arg_size();
   Function *F = cast<Function>(Call->getCalledFunction());
   Intrinsic::ID IID = F->getIntrinsicID();
 
@@ -5937,7 +5940,7 @@ static Value *simplifyIntrinsic(CallBase *Call, const SimplifyQuery &Q) {
     if (match(ShAmtArg, m_APInt(ShAmtC))) {
       // If there's effectively no shift, return the 1st arg or 2nd arg.
       APInt BitWidth = APInt(ShAmtC->getBitWidth(), ShAmtC->getBitWidth());
-      if (ShAmtC->urem(BitWidth).isNullValue())
+      if (ShAmtC->urem(BitWidth).isZero())
         return Call->getArgOperand(IID == Intrinsic::fshl ? 0 : 1);
     }
 
@@ -6071,7 +6074,7 @@ static Value *tryConstantFoldCall(CallBase *Call, const SimplifyQuery &Q) {
     return nullptr;
 
   SmallVector<Constant *, 4> ConstantArgs;
-  unsigned NumArgs = Call->getNumArgOperands();
+  unsigned NumArgs = Call->arg_size();
   ConstantArgs.reserve(NumArgs);
   for (auto &Arg : Call->args()) {
     Constant *C = dyn_cast<Constant>(&Arg);
@@ -6294,8 +6297,9 @@ static Value *simplifyInstructionWithOperands(Instruction *I,
     Result = SimplifySelectInst(NewOps[0], NewOps[1], NewOps[2], Q);
     break;
   case Instruction::GetElementPtr: {
-    Result = SimplifyGEPInst(cast<GetElementPtrInst>(I)->getSourceElementType(),
-                             NewOps, Q);
+    auto *GEPI = cast<GetElementPtrInst>(I);
+    Result = SimplifyGEPInst(GEPI->getSourceElementType(), NewOps,
+                             GEPI->isInBounds(), Q);
     break;
   }
   case Instruction::InsertValue: {

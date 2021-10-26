@@ -917,10 +917,9 @@ struct EpilogueLoopVectorizationInfo {
   Value *TripCount = nullptr;
   Value *VectorTripCount = nullptr;
 
-  EpilogueLoopVectorizationInfo(unsigned MVF, unsigned MUF, unsigned EVF,
-                                unsigned EUF)
-      : MainLoopVF(ElementCount::getFixed(MVF)), MainLoopUF(MUF),
-        EpilogueVF(ElementCount::getFixed(EVF)), EpilogueUF(EUF) {
+  EpilogueLoopVectorizationInfo(ElementCount MVF, unsigned MUF,
+                                ElementCount EVF, unsigned EUF)
+      : MainLoopVF(MVF), MainLoopUF(MUF), EpilogueVF(EVF), EpilogueUF(EUF) {
     assert(EUF == 1 &&
            "A high UF for the epilogue loop is likely not beneficial.");
   }
@@ -1500,14 +1499,14 @@ public:
   /// Returns true if the target machine supports masked store operation
   /// for the given \p DataType and kind of access to \p Ptr.
   bool isLegalMaskedStore(Type *DataType, Value *Ptr, Align Alignment) const {
-    return Legal->isConsecutivePtr(Ptr) &&
+    return Legal->isConsecutivePtr(DataType, Ptr) &&
            TTI.isLegalMaskedStore(DataType, Alignment);
   }
 
   /// Returns true if the target machine supports masked load operation
   /// for the given \p DataType and kind of access to \p Ptr.
   bool isLegalMaskedLoad(Type *DataType, Value *Ptr, Align Alignment) const {
-    return Legal->isConsecutivePtr(Ptr) &&
+    return Legal->isConsecutivePtr(DataType, Ptr) &&
            TTI.isLegalMaskedLoad(DataType, Alignment);
   }
 
@@ -3880,21 +3879,19 @@ struct CSEDenseMapInfo {
 static void cse(BasicBlock *BB) {
   // Perform simple cse.
   SmallDenseMap<Instruction *, Instruction *, 4, CSEDenseMapInfo> CSEMap;
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E;) {
-    Instruction *In = &*I++;
-
-    if (!CSEDenseMapInfo::canHandle(In))
+  for (Instruction &In : llvm::make_early_inc_range(*BB)) {
+    if (!CSEDenseMapInfo::canHandle(&In))
       continue;
 
     // Check if we can replace this instruction with any of the
     // visited instructions.
-    if (Instruction *V = CSEMap.lookup(In)) {
-      In->replaceAllUsesWith(V);
-      In->eraseFromParent();
+    if (Instruction *V = CSEMap.lookup(&In)) {
+      In.replaceAllUsesWith(V);
+      In.eraseFromParent();
       continue;
     }
 
-    CSEMap[In] = In;
+    CSEMap[&In] = &In;
   }
 }
 
@@ -3904,7 +3901,7 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI, ElementCount VF,
   Function *F = CI->getCalledFunction();
   Type *ScalarRetTy = CI->getType();
   SmallVector<Type *, 4> Tys, ScalarTys;
-  for (auto &ArgOp : CI->arg_operands())
+  for (auto &ArgOp : CI->args())
     ScalarTys.push_back(ArgOp->getType());
 
   // Estimate cost of scalarized vector call. The source operands are assumed
@@ -4788,6 +4785,14 @@ void InnerLoopVectorizer::widenPHIInstruction(Instruction *PN,
             Builder, ConstantInt::get(PtrInd->getType(), Part), VF);
 
         if (NeedsVectorIndex) {
+          // Here we cache the whole vector, which means we can support the
+          // extraction of any lane. However, in some cases the extractelement
+          // instruction that is generated for scalar uses of this vector (e.g.
+          // a load instruction) is not folded away. Therefore we still
+          // calculate values for the first n lanes to avoid redundant moves
+          // (when extracting the 0th element) and to produce scalar code (i.e.
+          // additional add/gep instructions instead of expensive extractelement
+          // instructions) when extracting higher-order elements.
           Value *PartStartSplat = Builder.CreateVectorSplat(VF, PartStart);
           Value *Indices = Builder.CreateAdd(PartStartSplat, UnitStepVec);
           Value *GlobalIndices = Builder.CreateAdd(PtrIndSplat, Indices);
@@ -4795,9 +4800,6 @@ void InnerLoopVectorizer::widenPHIInstruction(Instruction *PN,
               emitTransformedIndex(Builder, GlobalIndices, PSE.getSE(), DL, II);
           SclrGep->setName("next.gep");
           State.set(PhiR, SclrGep, Part);
-          // We've cached the whole vector, which means we can support the
-          // extraction of any lane.
-          continue;
         }
 
         for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
@@ -5000,7 +5002,7 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &I, VPValue *Def,
   auto *CI = cast<CallInst>(&I);
 
   SmallVector<Type *, 4> Tys;
-  for (Value *ArgOperand : CI->arg_operands())
+  for (Value *ArgOperand : CI->args())
     Tys.push_back(ToVectorTy(ArgOperand->getType(), VF.getKnownMinValue()));
 
   Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, TLI);
@@ -5328,7 +5330,7 @@ bool LoopVectorizationCostModel::interleavedAccessCanBeWidened(
   // (either a gap at the end of a load-access that may result in a speculative
   // load, or any gaps in a store-access).
   bool PredicatedAccessRequiresMasking =
-      Legal->blockNeedsPredication(I->getParent()) && Legal->isMaskRequired(I);
+      blockNeedsPredication(I->getParent()) && Legal->isMaskRequired(I);
   bool LoadAccessWithGapsRequiresEpilogMasking =
       isa<LoadInst>(I) && Group->requiresScalarEpilogue() &&
       !isScalarEpilogueAllowed();
@@ -5354,14 +5356,13 @@ bool LoopVectorizationCostModel::interleavedAccessCanBeWidened(
 bool LoopVectorizationCostModel::memoryInstructionCanBeWidened(
     Instruction *I, ElementCount VF) {
   // Get and ensure we have a valid memory instruction.
-  LoadInst *LI = dyn_cast<LoadInst>(I);
-  StoreInst *SI = dyn_cast<StoreInst>(I);
-  assert((LI || SI) && "Invalid memory instruction");
+  assert((isa<LoadInst, StoreInst>(I)) && "Invalid memory instruction");
 
   auto *Ptr = getLoadStorePointerOperand(I);
+  auto *ScalarTy = getLoadStoreType(I);
 
   // In order to be widened, the pointer should be consecutive, first of all.
-  if (!Legal->isConsecutivePtr(Ptr))
+  if (!Legal->isConsecutivePtr(ScalarTy, Ptr))
     return false;
 
   // If the instruction is a store located in a predicated block, it will be
@@ -5372,7 +5373,6 @@ bool LoopVectorizationCostModel::memoryInstructionCanBeWidened(
   // If the instruction's allocated size doesn't equal it's type size, it
   // requires padding and will be scalarized.
   auto &DL = I->getModule()->getDataLayout();
-  auto *ScalarTy = LI ? LI->getType() : SI->getValueOperand()->getType();
   if (hasIrregularType(ScalarTy, DL))
     return false;
 
@@ -6279,9 +6279,9 @@ LoopVectorizationCostModel::selectEpilogueVectorizationFactor(
 
   if (EpilogueVectorizationForceVF > 1) {
     LLVM_DEBUG(dbgs() << "LEV: Epilogue vectorization factor is forced.\n";);
-    if (LVP.hasPlanWithVFs(
-            {MainLoopVF, ElementCount::getFixed(EpilogueVectorizationForceVF)}))
-      return {ElementCount::getFixed(EpilogueVectorizationForceVF), 0};
+    ElementCount ForcedEC = ElementCount::getFixed(EpilogueVectorizationForceVF);
+    if (LVP.hasPlanWithVFs({MainLoopVF, ForcedEC}))
+      return {ForcedEC, 0};
     else {
       LLVM_DEBUG(
           dbgs()
@@ -6928,7 +6928,7 @@ int LoopVectorizationCostModel::computePredInstDiscount(
     if (isScalarWithPredication(I) && !I->getType()->isVoidTy()) {
       ScalarCost += TTI.getScalarizationOverhead(
           cast<VectorType>(ToVectorTy(I->getType(), VF)),
-          APInt::getAllOnesValue(VF.getFixedValue()), true, false);
+          APInt::getAllOnes(VF.getFixedValue()), true, false);
       ScalarCost +=
           VF.getFixedValue() *
           TTI.getCFInstrCost(Instruction::PHI, TTI::TCK_RecipThroughput);
@@ -6947,7 +6947,7 @@ int LoopVectorizationCostModel::computePredInstDiscount(
         else if (needsExtract(J, VF)) {
           ScalarCost += TTI.getScalarizationOverhead(
               cast<VectorType>(ToVectorTy(J->getType(), VF)),
-              APInt::getAllOnesValue(VF.getFixedValue()), false, true);
+              APInt::getAllOnes(VF.getFixedValue()), false, true);
         }
       }
 
@@ -7093,7 +7093,7 @@ LoopVectorizationCostModel::getMemInstScalarizationCost(Instruction *I,
     auto *Vec_i1Ty =
         VectorType::get(IntegerType::getInt1Ty(ValTy->getContext()), VF);
     Cost += TTI.getScalarizationOverhead(
-        Vec_i1Ty, APInt::getAllOnesValue(VF.getKnownMinValue()),
+        Vec_i1Ty, APInt::getAllOnes(VF.getKnownMinValue()),
         /*Insert=*/false, /*Extract=*/true);
     Cost += TTI.getCFInstrCost(Instruction::Br, TTI::TCK_RecipThroughput);
 
@@ -7113,7 +7113,7 @@ LoopVectorizationCostModel::getConsecutiveMemOpCost(Instruction *I,
   auto *VectorTy = cast<VectorType>(ToVectorTy(ValTy, VF));
   Value *Ptr = getLoadStorePointerOperand(I);
   unsigned AS = getLoadStoreAddressSpace(I);
-  int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
+  int ConsecutiveStride = Legal->isConsecutivePtr(ValTy, Ptr);
   enum TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
 
   assert((ConsecutiveStride == 1 || ConsecutiveStride == -1) &&
@@ -7435,8 +7435,8 @@ LoopVectorizationCostModel::getScalarizationOverhead(Instruction *I,
   if (!RetTy->isVoidTy() &&
       (!isa<LoadInst>(I) || !TTI.supportsEfficientVectorElementLoadStore()))
     Cost += TTI.getScalarizationOverhead(
-        cast<VectorType>(RetTy), APInt::getAllOnesValue(VF.getKnownMinValue()),
-        true, false);
+        cast<VectorType>(RetTy), APInt::getAllOnes(VF.getKnownMinValue()), true,
+        false);
 
   // Some targets keep addresses scalar.
   if (isa<LoadInst>(I) && !TTI.prefersVectorizedAddressing())
@@ -7448,7 +7448,7 @@ LoopVectorizationCostModel::getScalarizationOverhead(Instruction *I,
 
   // Collect operands to consider.
   CallInst *CI = dyn_cast<CallInst>(I);
-  Instruction::op_range Ops = CI ? CI->arg_operands() : I->operands();
+  Instruction::op_range Ops = CI ? CI->args() : I->operands();
 
   // Skip operands that do not require extraction/scalarization and do not incur
   // any overhead.
@@ -7499,8 +7499,8 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
       // We assume that widening is the best solution when possible.
       if (memoryInstructionCanBeWidened(&I, VF)) {
         InstructionCost Cost = getConsecutiveMemOpCost(&I, VF);
-        int ConsecutiveStride =
-               Legal->isConsecutivePtr(getLoadStorePointerOperand(&I));
+        int ConsecutiveStride = Legal->isConsecutivePtr(
+            getLoadStoreType(&I), getLoadStorePointerOperand(&I));
         assert((ConsecutiveStride == 1 || ConsecutiveStride == -1) &&
                "Expected consecutive stride.");
         InstWidening Decision =
@@ -7687,8 +7687,7 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I, ElementCount VF,
           VectorType::get(IntegerType::getInt1Ty(RetTy->getContext()), VF);
       return (
           TTI.getScalarizationOverhead(
-              Vec_i1Ty, APInt::getAllOnesValue(VF.getFixedValue()), false,
-              true) +
+              Vec_i1Ty, APInt::getAllOnes(VF.getFixedValue()), false, true) +
           (TTI.getCFInstrCost(Instruction::Br, CostKind) * VF.getFixedValue()));
     } else if (I->getParent() == TheLoop->getLoopLatch() || VF.isScalar())
       // The back-edge branch will remain, as will all scalar branches.
@@ -8001,7 +8000,7 @@ bool LoopVectorizationCostModel::isConsecutiveLoadOrStore(Instruction *Inst) {
   // Check if the pointer operand of a load or store instruction is
   // consecutive.
   if (auto *Ptr = getLoadStorePointerOperand(Inst))
-    return Legal->isConsecutivePtr(Ptr);
+    return Legal->isConsecutivePtr(getLoadStoreType(Inst), Ptr);
   return false;
 }
 
@@ -8480,9 +8479,9 @@ BasicBlock *EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton() {
 void EpilogueVectorizerMainLoop::printDebugTracesAtStart() {
   LLVM_DEBUG({
     dbgs() << "Create Skeleton for epilogue vectorized loop (first pass)\n"
-           << "Main Loop VF:" << EPI.MainLoopVF.getKnownMinValue()
+           << "Main Loop VF:" << EPI.MainLoopVF
            << ", Main Loop UF:" << EPI.MainLoopUF
-           << ", Epilogue Loop VF:" << EPI.EpilogueVF.getKnownMinValue()
+           << ", Epilogue Loop VF:" << EPI.EpilogueVF
            << ", Epilogue Loop UF:" << EPI.EpilogueUF << "\n";
   });
 }
@@ -8497,8 +8496,7 @@ BasicBlock *EpilogueVectorizerMainLoop::emitMinimumIterationCountCheck(
     Loop *L, BasicBlock *Bypass, bool ForEpilogue) {
   assert(L && "Expected valid Loop.");
   assert(Bypass && "Expected valid bypass basic block.");
-  unsigned VFactor =
-      ForEpilogue ? EPI.EpilogueVF.getKnownMinValue() : VF.getKnownMinValue();
+  ElementCount VFactor = ForEpilogue ? EPI.EpilogueVF : VF;
   unsigned UFactor = ForEpilogue ? EPI.EpilogueUF : UF;
   Value *Count = getOrCreateTripCount(L);
   // Reuse existing vector loop preheader for TC checks.
@@ -8512,7 +8510,7 @@ BasicBlock *EpilogueVectorizerMainLoop::emitMinimumIterationCountCheck(
       ICmpInst::ICMP_ULE : ICmpInst::ICMP_ULT;
 
   Value *CheckMinIters = Builder.CreateICmp(
-      P, Count, ConstantInt::get(Count->getType(), VFactor * UFactor),
+      P, Count, getRuntimeVF(Builder, Count->getType(), VFactor * UFactor),
       "min.iters.check");
 
   if (!ForEpilogue)
@@ -8666,8 +8664,7 @@ EpilogueVectorizerEpilogueLoop::emitMinimumVectorEpilogueIterCountCheck(
 
   Value *CheckMinIters = Builder.CreateICmp(
       P, Count,
-      ConstantInt::get(Count->getType(),
-                       EPI.EpilogueVF.getKnownMinValue() * EPI.EpilogueUF),
+      getRuntimeVF(Builder, Count->getType(), EPI.EpilogueVF * EPI.EpilogueUF),
       "min.epilog.iters.check");
 
   ReplaceInstWithInst(
@@ -8681,7 +8678,7 @@ EpilogueVectorizerEpilogueLoop::emitMinimumVectorEpilogueIterCountCheck(
 void EpilogueVectorizerEpilogueLoop::printDebugTracesAtStart() {
   LLVM_DEBUG({
     dbgs() << "Create Skeleton for epilogue vectorized loop (second pass)\n"
-           << "Epilogue Loop VF:" << EPI.EpilogueVF.getKnownMinValue()
+           << "Epilogue Loop VF:" << EPI.EpilogueVF
            << ", Epilogue Loop UF:" << EPI.EpilogueUF << "\n";
   });
 }
@@ -8980,7 +8977,7 @@ VPWidenCallRecipe *VPRecipeBuilder::tryToWidenCall(CallInst *CI,
   if (!LoopVectorizationPlanner::getDecisionAndClampRange(willWiden, Range))
     return nullptr;
 
-  ArrayRef<VPValue *> Ops = Operands.take_front(CI->getNumArgOperands());
+  ArrayRef<VPValue *> Ops = Operands.take_front(CI->arg_size());
   return new VPWidenCallRecipe(*CI, make_range(Ops.begin(), Ops.end()));
 }
 
@@ -10485,9 +10482,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
         // The first pass vectorizes the main loop and creates a scalar epilogue
         // to be vectorized by executing the plan (potentially with a different
         // factor) again shortly afterwards.
-        EpilogueLoopVectorizationInfo EPI(VF.Width.getKnownMinValue(), IC,
-                                          EpilogueVF.Width.getKnownMinValue(),
-                                          1);
+        EpilogueLoopVectorizationInfo EPI(VF.Width, IC, EpilogueVF.Width, 1);
         EpilogueVectorizerMainLoop MainILV(L, PSE, LI, DT, TLI, TTI, AC, ORE,
                                            EPI, &LVL, &CM, BFI, PSI, Checks);
 
@@ -10644,8 +10639,8 @@ PreservedAnalyses LoopVectorizePass::run(Function &F,
     auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
     std::function<const LoopAccessInfo &(Loop &)> GetLAA =
         [&](Loop &L) -> const LoopAccessInfo & {
-      LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,  SE,
-                                        TLI, TTI, nullptr, nullptr};
+      LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,      SE,
+                                        TLI, TTI, nullptr, nullptr, nullptr};
       return LAM.getResult<LoopAccessAnalysis>(L, AR);
     };
     auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
@@ -10668,4 +10663,15 @@ PreservedAnalyses LoopVectorizePass::run(Function &F,
     if (!Result.MadeCFGChange)
       PA.preserveSet<CFGAnalyses>();
     return PA;
+}
+
+void LoopVectorizePass::printPipeline(
+    raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
+  static_cast<PassInfoMixin<LoopVectorizePass> *>(this)->printPipeline(
+      OS, MapClassName2PassName);
+
+  OS << "<";
+  OS << (InterleaveOnlyWhenForced ? "" : "no-") << "interleave-forced-only;";
+  OS << (VectorizeOnlyWhenForced ? "" : "no-") << "vectorize-forced-only;";
+  OS << ">";
 }

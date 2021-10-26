@@ -74,6 +74,14 @@ struct ShiftOfShiftedLogic {
 
 using BuildFnTy = std::function<void(MachineIRBuilder &)>;
 
+struct MergeTruncStoresInfo {
+  SmallVector<GStore *> FoundStores;
+  GStore *LowestIdxStore = nullptr;
+  Register WideSrcVal;
+  bool NeedBSwap = false;
+  bool NeedRotate = false;
+};
+
 using OperandBuildSteps =
     SmallVector<std::function<void(MachineInstrBuilder &)>, 4>;
 struct InstructionBuildSteps {
@@ -163,6 +171,9 @@ public:
   bool tryCombineExtendingLoads(MachineInstr &MI);
   bool matchCombineExtendingLoads(MachineInstr &MI, PreferredTuple &MatchInfo);
   void applyCombineExtendingLoads(MachineInstr &MI, PreferredTuple &MatchInfo);
+
+  /// Match (and (load x), mask) -> zextload x
+  bool matchCombineLoadWithAndMask(MachineInstr &MI, BuildFnTy &MatchInfo);
 
   /// Combine \p MI into a pre-indexed or post-indexed load/store operation if
   /// legal and the surrounding code makes it useful.
@@ -361,6 +372,9 @@ public:
   bool matchCombineFAbsOfFAbs(MachineInstr &MI, Register &Src);
   void applyCombineFAbsOfFAbs(MachineInstr &MI, Register &Src);
 
+  /// Transform fabs(fneg(x)) to fabs(x).
+  bool matchCombineFAbsOfFNeg(MachineInstr &MI, BuildFnTy &MatchInfo);
+
   /// Transform trunc ([asz]ext x) to x or ([asz]ext x) or (trunc x).
   bool matchCombineTruncOfExt(MachineInstr &MI,
                               std::pair<Register, unsigned> &MatchInfo);
@@ -523,6 +537,9 @@ public:
   /// bswap.
   bool matchLoadOrCombine(MachineInstr &MI, BuildFnTy &MatchInfo);
 
+  bool matchTruncStoreMerge(MachineInstr &MI, MergeTruncStoresInfo &MatchInfo);
+  void applyTruncStoreMerge(MachineInstr &MI, MergeTruncStoresInfo &MatchInfo);
+
   bool matchExtendThroughPhis(MachineInstr &MI, MachineInstr *&ExtMI);
   void applyExtendThroughPhis(MachineInstr &MI, MachineInstr *&ExtMI);
 
@@ -566,6 +583,14 @@ public:
   /// Match: shr (shl x, n), k -> sbfx/ubfx x, pos, width
   bool matchBitfieldExtractFromShr(MachineInstr &MI, BuildFnTy &MatchInfo);
 
+  // Helpers for reassociation:
+  bool matchReassocConstantInnerRHS(GPtrAdd &MI, MachineInstr *RHS,
+                                    BuildFnTy &MatchInfo);
+  bool matchReassocFoldConstantsInSubTree(GPtrAdd &MI, MachineInstr *LHS,
+                                          MachineInstr *RHS,
+                                          BuildFnTy &MatchInfo);
+  bool matchReassocConstantInnerLHS(GPtrAdd &MI, MachineInstr *LHS,
+                                    MachineInstr *RHS, BuildFnTy &MatchInfo);
   /// Reassociate pointer calculations with G_ADD involved, to allow better
   /// addressing mode usage.
   bool matchReassocPtrAdd(MachineInstr &MI, BuildFnTy &MatchInfo);
@@ -586,6 +611,11 @@ public:
   /// TODO: implement dynamically sized inline memcpy,
   ///       and rename: s/bool tryEmit/void emit/
   bool tryEmitMemcpyInline(MachineInstr &MI);
+
+  /// Match:
+  ///   (G_UMULO x, 2) -> (G_UADDO x, x)
+  ///   (G_SMULO x, 2) -> (G_SADDO x, x)
+  bool matchMulOBy2(MachineInstr &MI, BuildFnTy &MatchInfo);
 
 private:
   /// Given a non-indexed load or store instruction \p MI, find an offset that

@@ -1,7 +1,7 @@
 ; RUN: opt -instcombine %s -S | FileCheck %s
 ; RUN: opt -passes=instcombine %s -S | FileCheck %s
-; RUN: opt -instcombine %s -force-opaque-pointers -S | FileCheck %s
-; RUN: opt -passes=instcombine %s -force-opaque-pointers -S | FileCheck %s
+; RUN: opt -instcombine %s -opaque-pointers -S | FileCheck %s
+; RUN: opt -passes=instcombine %s -opaque-pointers -S | FileCheck %s
 
 ; CHECK-NOT:    call void @llvm.memcpy.p0i8.p0i8.i64
 ; CHECK:  %1 = getelementptr inbounds [[STRUCT:.*]], [[STRUCT_PTR:[a-z.0-9%*]+]] %q, i64 0, i32 0

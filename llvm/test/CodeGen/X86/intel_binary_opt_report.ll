@@ -106,14 +106,14 @@ loop.105:                                         ; preds = %then.85, %loop.105
   %i1.i64.0 = phi i64 [ %nextivloop.105, %loop.105 ], [ 0, %then.85 ]
   %arrayIdx125 = getelementptr inbounds double, double* %x, i64 %i1.i64.0, !dbg !47
   %3 = bitcast double* %arrayIdx125 to <8 x double>*, !dbg !47
-  %gepload = load <8 x double>, <8 x double>* %3, align 8, !dbg !47, !tbaa !49, !alias.scope !51, !noalias !53
+  %gepload = load <8 x double>, <8 x double>* %3, align 8, !dbg !47, !tbaa !49, !alias.scope !951, !noalias !953
   %4 = fmul <8 x double> %gepload, %gepload, !dbg !46
   %5 = fmul <8 x double> %gepload, %4, !dbg !46
   %arrayIdx129 = getelementptr inbounds double, double* %0, i64 %i1.i64.0, !dbg !48
   %6 = bitcast double* %arrayIdx129 to <8 x double>*, !dbg !48
-  %gepload130 = load <8 x double>, <8 x double>* %6, align 8, !dbg !54, !tbaa !49, !alias.scope !53, !noalias !51
+  %gepload130 = load <8 x double>, <8 x double>* %6, align 8, !dbg !54, !tbaa !49, !alias.scope !953, !noalias !951
   %7 = fadd <8 x double> %gepload130, %5, !dbg !46
-  store <8 x double> %7, <8 x double>* %6, align 8, !dbg !54, !tbaa !49, !alias.scope !53, !noalias !51
+  store <8 x double> %7, <8 x double>* %6, align 8, !dbg !54, !tbaa !49, !alias.scope !953, !noalias !951
   %nextivloop.105 = add nuw nsw i64 %i1.i64.0, 8, !dbg !40
   %condloop.105 = icmp slt i64 %nextivloop.105, %2, !dbg !40
   br i1 %condloop.105, label %loop.105, label %ifmerge.106, !dbg !46, !llvm.loop !55
@@ -125,13 +125,13 @@ ifmerge.106:                                      ; preds = %loop.105, %then.85
 loop.72:                                          ; preds = %ifmerge.106, %loop.72
   %i1.i64.1 = phi i64 [ %nextivloop.72, %loop.72 ], [ %2, %ifmerge.106 ]
   %arrayIdx135 = getelementptr inbounds double, double* %x, i64 %i1.i64.1, !dbg !47
-  %gepload136 = load double, double* %arrayIdx135, align 8, !dbg !47, !tbaa !49, !alias.scope !51, !noalias !53
+  %gepload136 = load double, double* %arrayIdx135, align 8, !dbg !47, !tbaa !49, !alias.scope !951, !noalias !953
   %8 = fmul double %gepload136, %gepload136, !dbg !69
   %9 = fmul double %gepload136, %8, !dbg !70
   %arrayIdx140 = getelementptr inbounds double, double* %0, i64 %i1.i64.1, !dbg !48
-  %gepload141 = load double, double* %arrayIdx140, align 8, !dbg !54, !tbaa !49, !alias.scope !53, !noalias !51
+  %gepload141 = load double, double* %arrayIdx140, align 8, !dbg !54, !tbaa !49, !alias.scope !953, !noalias !951
   %10 = fadd double %gepload141, %9, !dbg !54
-  store double %10, double* %arrayIdx140, align 8, !dbg !54, !tbaa !49, !alias.scope !53, !noalias !51
+  store double %10, double* %arrayIdx140, align 8, !dbg !54, !tbaa !49, !alias.scope !953, !noalias !951
   %nextivloop.72 = add nuw nsw i64 %i1.i64.1, 1, !dbg !40
   %condloop.72 = icmp slt i64 %i1.i64.1, %1, !dbg !40
   br i1 %condloop.72, label %loop.72, label %region.18, !dbg !46, !llvm.loop !71
@@ -161,29 +161,29 @@ region.18:                                        ; preds = %loop.76, %loop.72, 
 
 loop.113:                                         ; preds = %region.18
   %14 = bitcast double* %x to <8 x double>*, !dbg !85
-  %gepload163 = load <8 x double>, <8 x double>* %14, align 8, !dbg !85, !tbaa !49, !alias.scope !88, !noalias !90
+  %gepload163 = load <8 x double>, <8 x double>* %14, align 8, !dbg !85, !tbaa !49, !alias.scope !988, !noalias !990
   %15 = fmul <8 x double> %gepload163, %gepload163, !dbg !46
   %16 = fmul <8 x double> %gepload163, %15, !dbg !46
   %17 = bitcast double* %0 to <8 x double>*, !dbg !87
-  %gepload168 = load <8 x double>, <8 x double>* %17, align 8, !dbg !91, !tbaa !49, !alias.scope !90, !noalias !88
+  %gepload168 = load <8 x double>, <8 x double>* %17, align 8, !dbg !91, !tbaa !49, !alias.scope !990, !noalias !988
   %18 = fadd <8 x double> %gepload168, %16, !dbg !46
-  store <8 x double> %18, <8 x double>* %17, align 8, !dbg !91, !tbaa !49, !alias.scope !90, !noalias !88
+  store <8 x double> %18, <8 x double>* %17, align 8, !dbg !91, !tbaa !49, !alias.scope !990, !noalias !988
   %arrayIdx171 = getelementptr inbounds double, double* %x, i64 8, !dbg !85
-  %gepload172 = load double, double* %arrayIdx171, align 8, !dbg !85, !tbaa !49, !alias.scope !88, !noalias !90
+  %gepload172 = load double, double* %arrayIdx171, align 8, !dbg !85, !tbaa !49, !alias.scope !988, !noalias !990
   %19 = fmul double %gepload172, %gepload172, !dbg !92
   %20 = fmul double %gepload172, %19, !dbg !93
   %arrayIdx176 = getelementptr inbounds double, double* %0, i64 8, !dbg !87
-  %gepload177 = load double, double* %arrayIdx176, align 8, !dbg !91, !tbaa !49, !alias.scope !90, !noalias !88
+  %gepload177 = load double, double* %arrayIdx176, align 8, !dbg !91, !tbaa !49, !alias.scope !990, !noalias !988
   %21 = fadd double %gepload177, %20, !dbg !91
-  store double %21, double* %arrayIdx176, align 8, !dbg !91, !tbaa !49, !alias.scope !90, !noalias !88
+  store double %21, double* %arrayIdx176, align 8, !dbg !91, !tbaa !49, !alias.scope !990, !noalias !988
   %arrayIdx171.1 = getelementptr inbounds double, double* %x, i64 9, !dbg !85
-  %gepload172.1 = load double, double* %arrayIdx171.1, align 8, !dbg !85, !tbaa !49, !alias.scope !88, !noalias !90
+  %gepload172.1 = load double, double* %arrayIdx171.1, align 8, !dbg !85, !tbaa !49, !alias.scope !988, !noalias !990
   %22 = fmul double %gepload172.1, %gepload172.1, !dbg !92
   %23 = fmul double %gepload172.1, %22, !dbg !93
   %arrayIdx176.1 = getelementptr inbounds double, double* %0, i64 9, !dbg !87
-  %gepload177.1 = load double, double* %arrayIdx176.1, align 8, !dbg !91, !tbaa !49, !alias.scope !90, !noalias !88
+  %gepload177.1 = load double, double* %arrayIdx176.1, align 8, !dbg !91, !tbaa !49, !alias.scope !990, !noalias !988
   %24 = fadd double %gepload177.1, %23, !dbg !91
-  store double %24, double* %arrayIdx176.1, align 8, !dbg !91, !tbaa !49, !alias.scope !90, !noalias !88
+  store double %24, double* %arrayIdx176.1, align 8, !dbg !91, !tbaa !49, !alias.scope !990, !noalias !988
   br label %loop.165.preheader, !dbg !94
 
 loop.86:                                          ; preds = %region.18, %loop.86
@@ -373,8 +373,10 @@ attributes #1 = { nounwind readnone speculatable }
 !48 = !DILocation(line: 11, column: 5, scope: !41)
 !49 = !{!50, !50, i64 0}
 !50 = !{!"double", !44, i64 0}
+!951 = !{!51}
 !51 = distinct !{!51, !52}
 !52 = distinct !{!52}
+!953 = !{!53}
 !53 = distinct !{!53, !52}
 !54 = !DILocation(line: 11, column: 12, scope: !41)
 !55 = distinct !{!55, !46, !56, !57, !58, !59, !60, !61}
@@ -410,8 +412,10 @@ attributes #1 = { nounwind readnone speculatable }
 !85 = !DILocation(line: 14, column: 15, scope: !86)
 !86 = distinct !DILexicalBlock(scope: !23, file: !3, line: 13, column: 3)
 !87 = !DILocation(line: 14, column: 5, scope: !86)
+!988 = !{!88}
 !88 = distinct !{!88, !89}
 !89 = distinct !{!89}
+!990 = !{!90}
 !90 = distinct !{!90, !89}
 !91 = !DILocation(line: 14, column: 12, scope: !86)
 !92 = !DILocation(line: 14, column: 20, scope: !86)

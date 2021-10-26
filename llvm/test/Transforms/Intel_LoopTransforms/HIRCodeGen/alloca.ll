@@ -1,6 +1,6 @@
 ;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
-;RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 
 ;          BEGIN REGION { }

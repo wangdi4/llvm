@@ -164,7 +164,7 @@ public:
 
   /// Wether CXXConstructExpr can be skipped when they are implicit.
   /// They will be reconstructed when used if needed.
-  /// This is usefull when the user that cause rebuilding of the
+  /// This is useful when the user that cause rebuilding of the
   /// CXXConstructExpr is outside of the expression at which the TreeTransform
   /// started.
   bool AllowSkippingCXXConstructExpr() { return true; }
@@ -527,7 +527,7 @@ public:
   ///
   /// By default, transforms the types of conversion function, constructor,
   /// and destructor names and then (if needed) rebuilds the declaration name.
-  /// Identifiers and selectors are returned unmodified. Sublcasses may
+  /// Identifiers and selectors are returned unmodified. Subclasses may
   /// override this function to provide alternate behavior.
   DeclarationNameInfo
   TransformDeclarationNameInfo(const DeclarationNameInfo &NameInfo);
@@ -1332,12 +1332,12 @@ public:
   ///
   /// By default, performs semantic analysis to build the new statement.
   /// Subclasses may override this routine to provide different behavior.
-  StmtResult RebuildIfStmt(SourceLocation IfLoc, bool IsConstexpr,
+  StmtResult RebuildIfStmt(SourceLocation IfLoc, IfStatementKind Kind,
                            SourceLocation LParenLoc, Sema::ConditionResult Cond,
                            SourceLocation RParenLoc, Stmt *Init, Stmt *Then,
                            SourceLocation ElseLoc, Stmt *Else) {
-    return getSema().ActOnIfStmt(IfLoc, IsConstexpr, LParenLoc, Init, Cond,
-                                 RParenLoc, Then, ElseLoc, Else);
+    return getSema().ActOnIfStmt(IfLoc, Kind, LParenLoc, Init, Cond, RParenLoc,
+                                 Then, ElseLoc, Else);
   }
 
   /// Start building a new switch statement.
@@ -4887,8 +4887,8 @@ QualType TreeTransform<Derived>::RebuildQualifiedType(QualType T,
   SourceLocation Loc = TL.getBeginLoc();
   Qualifiers Quals = TL.getType().getLocalQualifiers();
 
-  if (((T.getAddressSpace() != LangAS::Default &&
-        Quals.getAddressSpace() != LangAS::Default)) &&
+  if ((T.getAddressSpace() != LangAS::Default &&
+       Quals.getAddressSpace() != LangAS::Default) &&
       T.getAddressSpace() != Quals.getAddressSpace()) {
     SemaRef.Diag(Loc, diag::err_address_space_mismatch_templ_inst)
         << TL.getType() << T;
@@ -7538,13 +7538,16 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
   if (Init.isInvalid())
     return StmtError();
 
-  // Transform the condition
-  Sema::ConditionResult Cond = getDerived().TransformCondition(
-      S->getIfLoc(), S->getConditionVariable(), S->getCond(),
-      S->isConstexpr() ? Sema::ConditionKind::ConstexprIf
-                       : Sema::ConditionKind::Boolean);
-  if (Cond.isInvalid())
-    return StmtError();
+  Sema::ConditionResult Cond;
+  if (!S->isConsteval()) {
+    // Transform the condition
+    Cond = getDerived().TransformCondition(
+        S->getIfLoc(), S->getConditionVariable(), S->getCond(),
+        S->isConstexpr() ? Sema::ConditionKind::ConstexprIf
+                         : Sema::ConditionKind::Boolean);
+    if (Cond.isInvalid())
+      return StmtError();
+  }
 
   // If this is a constexpr if, determine which arm we should instantiate.
   llvm::Optional<bool> ConstexprConditionValue;
@@ -7577,7 +7580,7 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
     return S;
 
   return getDerived().RebuildIfStmt(
-      S->getIfLoc(), S->isConstexpr(), S->getLParenLoc(), Cond,
+      S->getIfLoc(), S->getStatementKind(), S->getLParenLoc(), Cond,
       S->getRParenLoc(), Init.get(), Then.get(), S->getElseLoc(), Else.get());
 }
 
@@ -8669,6 +8672,15 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
   return getDerived().RebuildOMPExecutableDirective(
       D->getDirectiveKind(), DirName, CancelRegion, TClauses,
       AssociatedStmt.get(), D->getBeginLoc(), D->getEndLoc());
+}
+
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPMetaDirective(OMPMetaDirective *D) {
+  // TODO: Fix This
+  SemaRef.Diag(D->getBeginLoc(), diag::err_omp_instantiation_not_supported)
+      << getOpenMPDirectiveName(D->getDirectiveKind());
+  return StmtError();
 }
 
 template <typename Derived>

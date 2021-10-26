@@ -266,6 +266,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #if INTEL_COLLAB
   case OMPC_append_args:
 #endif // INTEL_COLLAB
+  case OMPC_when:
     break;
   default:
     break;
@@ -573,6 +574,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #if INTEL_COLLAB
   case OMPC_append_args:
 #endif // INTEL_COLLAB
+  case OMPC_when:
     break;
   default:
     break;
@@ -764,6 +766,9 @@ void clang::getOpenMPCaptureRegions(
     OpenMPDirectiveKind DKind) {
   assert(unsigned(DKind) < llvm::omp::Directive_enumSize);
   switch (DKind) {
+  case OMPD_metadirective:
+    CaptureRegions.push_back(OMPD_metadirective);
+    break;
   case OMPD_parallel:
   case OMPD_parallel_for:
   case OMPD_parallel_for_simd:

@@ -18,7 +18,7 @@
 ; RUN:          -dtrans-soatoaosop-array-dtor=_ZN3ArrIPsED2Ev                                                             \
 ; RUN:       2>&1 | FileCheck  %s
 
-; RUN: opt < %s -force-opaque-pointers -whole-program-assume -disable-output                                              \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                              \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                      \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-struct-methods>)'   \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \

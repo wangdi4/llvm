@@ -440,11 +440,42 @@ static bool linkFiles(const char *argv0, LLVMContext &Context, Linker &L,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Return true if the option to support opaque pointers is enabled, else
+// return false.
+bool enableUseOpaquePointers(int argc, char **argv) {
+  if (!argv || argc == 0)
+    return false;
+
+  for (int i = 0; i < argc; i++) {
+    if (argv[i] == nullptr)
+      return false;
+
+    StringRef Arg(argv[i]);
+    if (Arg == "-opaque-pointers")
+      return true;
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
   ExitOnErr.setBanner(std::string(argv[0]) + ": ");
 
   LLVMContext Context;
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-32051: If the module has opaque pointers then it requires the
+  // flag -opaque-pointers (https://reviews.llvm.org/D109290). This flag
+  // doesn't work with llvm-link since it is a backend flag. The call to
+  // cl::HideUnrelatedOptions will remove the flag from the commands supported.
+  // The function enableUseOpaquePointers tries to recover "-opaque-pointers"
+  // from the arguments list, and if the option is available then enable
+  // the use of opaque pointers.
+  if (enableUseOpaquePointers(argc,argv))
+    Context.enableOpaquePointers();
+#endif // INTEL_CUSTOMIZATION
   Context.setDiagnosticHandler(std::make_unique<LLVMLinkDiagnosticHandler>(),
                                true);
   cl::HideUnrelatedOptions({&LinkCategory, &getColorCategory()});

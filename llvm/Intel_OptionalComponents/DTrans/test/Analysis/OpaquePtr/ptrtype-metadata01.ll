@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt < %s -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt < %s -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
-; RUN: opt < %s -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; This test verifies that a getelementptr instruction tagged with
 ; the dtrans-type metadata extracts the type from the metadata when

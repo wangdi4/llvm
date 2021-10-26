@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -force-opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-29047: Check that recursive progression cloning with debug info
 ; is performed without getting a seg fault.

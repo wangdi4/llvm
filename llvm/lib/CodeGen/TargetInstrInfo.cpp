@@ -921,14 +921,8 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
   const MachineRegisterInfo &MRI = MF.getRegInfo();
 
   // Remat clients assume operand 0 is the defined register.
-#if INTEL_CUSTOMIZATION
-  // FIXME: This is a one time workaround. Please revert this patch to fix
-  // pulldown conflict.
-  const TargetOptions &Options = MF.getTarget().Options;
-  if (!MI.getNumOperands() || !MI.getOperand(0).isReg() ||
-      (!Options.IntelAdvancedOptim && MI.getOperand(0).isTied()))
+  if (!MI.getNumOperands() || !MI.getOperand(0).isReg())
     return false;
-#endif // INTEL_CUSTOMIZATION
   Register DefReg = MI.getOperand(0).getReg();
 
   // A sub-register definition can only be rematerialized if the instruction
@@ -990,12 +984,11 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
     if (MO.isDef() && Reg != DefReg)
       return false;
 
-#if INTEL_CUSTOMIZATION
-    // FIXME: This is a one time workaround. Please revert this patch to fix
-    // pulldown conflict.
-    if (Options.IntelAdvancedOptim && MO.isUse())
+    // Don't allow any virtual-register uses. Rematting an instruction with
+    // virtual register uses would length the live ranges of the uses, which
+    // is not necessarily a good idea, certainly not "trivial".
+    if (MO.isUse())
       return false;
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Everything checked out.

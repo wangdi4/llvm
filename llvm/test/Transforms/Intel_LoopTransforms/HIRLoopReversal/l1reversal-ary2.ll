@@ -33,8 +33,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
-; RUN: opt -force-opaque-pointers -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |  FileCheck %s -check-prefix=AFTER
-; RUN: opt -force-opaque-pointers -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
+; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |  FileCheck %s -check-prefix=AFTER
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***

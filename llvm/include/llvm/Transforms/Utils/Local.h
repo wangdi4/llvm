@@ -80,7 +80,8 @@ bool ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions = false,
 //
 
 /// Return true if the result produced by the instruction is not used, and the
-/// instruction has no side effects.
+/// instruction will return. Certain side-effecting instructions are also
+/// considered dead if there are no uses of the instruction.
 bool isInstructionTriviallyDead(Instruction *I,
                                 const TargetLibraryInfo *TLI = nullptr);
 
@@ -428,6 +429,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
                        true, CI->isExact());
 }
 #endif // INTEL_CUSTOMIZATION
+
 ///===---------------------------------------------------------------------===//
 ///  Dbg Intrinsic utilities
 ///

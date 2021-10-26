@@ -297,14 +297,12 @@ define i32 @test_u32_to_u8_shift_sub(i32 %a, i32 %b, i32 %c) {
 ; Same as above with sub operands commuted
 define i32 @test_u32_to_u8_shift_sub2(i32 %a, i32 %b, i32 %c) {
 ; CHECK-LABEL: @test_u32_to_u8_shift_sub2(
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[F1:%.*]] = lshr i32 [[C:%.*]], 24
 ; CHECK-NEXT:    [[C2:%.*]] = sub i32 [[F1]], [[B:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[A:%.*]] to i8
 ; CHECK-NEXT:    [[TMP2:%.*]] = and i8 [[TMP1]], -84
 ; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[C2]] to i8
 ; CHECK-NEXT:    [[H:%.*]] = icmp uge i8 [[TMP2]], [[TMP3]]
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[H1:%.*]] = sext i1 [[H]] to i32
 ; CHECK-NEXT:    ret i32 [[H1]]
 ;
@@ -400,14 +398,12 @@ define i32 @test_s32_to_s8_ashift_sub(i32 %a, i32 %b, i32 %c) {
 ; Same as above with sub operands commuted
 define i32 @test_s32_to_s8_ashift_sub2(i32 %a, i32 %b, i32 %c) {
 ; CHECK-LABEL: @test_s32_to_s8_ashift_sub2(
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[F1:%.*]] = lshr i32 [[C:%.*]], 24
 ; CHECK-NEXT:    [[C2:%.*]] = sub i32 [[F1]], [[B:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[A:%.*]] to i8
 ; CHECK-NEXT:    [[TMP2:%.*]] = and i8 [[TMP1]], 62
 ; CHECK-NEXT:    [[TMP3:%.*]] = trunc i32 [[C2]] to i8
 ; CHECK-NEXT:    [[H:%.*]] = icmp sge i8 [[TMP2]], [[TMP3]]
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[H1:%.*]] = sext i1 [[H]] to i32
 ; CHECK-NEXT:    ret i32 [[H1]]
 ;
@@ -419,3 +415,4 @@ define i32 @test_s32_to_s8_ashift_sub2(i32 %a, i32 %b, i32 %c) {
   %h1 = sext i1 %h to i32
   ret i32 %h1
 }
+

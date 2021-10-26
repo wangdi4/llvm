@@ -85,7 +85,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; <9>                |   (%A)[%0 + 2] = %add3;
 ; <16>               + END LOOP
 
-; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM5:[0-9]+]]>          (%A)[%0 + 2] = %add3;
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM5:[0-9]+]]>          (%A)[sext.i32.i64(%0) + 2] = %add3;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM6:[0-9]+]]>          %0 = (%B)[i1];
 ; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
 

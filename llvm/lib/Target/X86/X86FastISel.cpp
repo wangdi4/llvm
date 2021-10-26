@@ -2760,9 +2760,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMCPY;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(II, libFn, II->arg_size() - 1);
 #else // INTEL_FEATURE_SW_ADVANCED
-    return lowerCallTo(II, "memcpy", II->getNumArgOperands() - 1);
+    return lowerCallTo(II, "memcpy", II->arg_size() - 1);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   }
@@ -2793,9 +2793,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMSET;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(II, libFn, II->arg_size() - 1);
 #else // INTEL_FEATURE_SW_ADVANCED
-    return lowerCallTo(II, "memset", II->getNumArgOperands() - 1);
+    return lowerCallTo(II, "memset", II->arg_size() - 1);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   }
@@ -3879,11 +3879,11 @@ unsigned X86FastISel::fastMaterializeConstant(const Constant *C) {
 
   if (const auto *CI = dyn_cast<ConstantInt>(C))
     return X86MaterializeInt(CI, VT);
-  else if (const ConstantFP *CFP = dyn_cast<ConstantFP>(C))
+  if (const auto *CFP = dyn_cast<ConstantFP>(C))
     return X86MaterializeFP(CFP, VT);
-  else if (const GlobalValue *GV = dyn_cast<GlobalValue>(C))
+  if (const auto *GV = dyn_cast<GlobalValue>(C))
     return X86MaterializeGV(GV, VT);
-  else if (isa<UndefValue>(C)) {
+  if (isa<UndefValue>(C)) {
     unsigned Opc = 0;
     switch (VT.SimpleTy) {
     default:

@@ -1217,8 +1217,20 @@ def ProcessorFeatures {
                                                   FeatureRDPID,
                                                   FeatureFSRM];
 #if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> ICLAdditionalTuning = [Tuning2KDSB];
-  list<SubtargetFeature> ICLTuning = !listconcat(CNLTuning, ICLAdditionalTuning);
+  list<SubtargetFeature> ICLTuning = [TuningFastGather,
+                                      TuningMacroFusion,
+                                      TuningSlow3OpsLEA,
+                                      TuningSlowDivide64,
+                                      TuningFastScalarFSQRT,
+                                      TuningFastVectorFSQRT,
+                                      TuningFastSHLDRotate,
+                                      TuningFast15ByteNOP,
+                                      TuningFastVariableCrossLaneShuffle,
+                                      TuningFastVariablePerLaneShuffle,
+                                      TuningPrefer256Bit,
+                                      TuningInsertVZEROUPPER];
+  list<SubtargetFeature> ICLAdditionalTuning = [Tuning2KDSB, TuningDSB];
+  list<SubtargetFeature> ICLTuning2 = !listconcat(ICLTuning, ICLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> ICLFeatures =
     !listconcat(CNLFeatures, ICLAdditionalFeatures);
@@ -1227,10 +1239,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> ICXAdditionalFeatures = [FeaturePCONFIG,
                                                   FeatureCLWB,
                                                   FeatureWBNOINVD];
-#if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> ICXAdditionalTuning = [Tuning2KDSB];
-  list<SubtargetFeature> ICXTuning = !listconcat(CNLTuning, ICXAdditionalTuning);
-#endif // INTEL_CUSTOMIZATION
+  list<SubtargetFeature> ICXTuning = ICLTuning2;
   list<SubtargetFeature> ICXFeatures =
     !listconcat(ICLFeatures, ICXAdditionalFeatures);
 
@@ -1241,9 +1250,7 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
-#if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> TGLTuning = ICLTuning;
-#endif // INTEL_CUSTOMIZATION
+  list<SubtargetFeature> TGLTuning = ICLTuning2;
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 

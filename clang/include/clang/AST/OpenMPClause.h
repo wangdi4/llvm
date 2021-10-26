@@ -9288,10 +9288,11 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const OMPTraitInfo *TI);
 
 /// Clang specific specialization of the OMPContext to lookup target features.
 struct TargetOMPContext final : public llvm::omp::OMPContext {
-
   TargetOMPContext(ASTContext &ASTCtx,
                    std::function<void(StringRef)> &&DiagUnknownTrait,
-                   const FunctionDecl *CurrentFunctionDecl);
+                   const FunctionDecl *CurrentFunctionDecl,
+                   ArrayRef<llvm::omp::TraitProperty> ConstructTraits);
+
   virtual ~TargetOMPContext() = default;
 
   /// See llvm::omp::OMPContext::matchesISATrait

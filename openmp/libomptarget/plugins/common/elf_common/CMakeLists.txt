@@ -19,6 +19,9 @@ endif(INTEL_COLLAB)
 set_property(TARGET elf_common PROPERTY POSITION_INDEPENDENT_CODE ON)
 llvm_update_compile_flags(elf_common)
 set(LINK_LLVM_LIBS LLVMBinaryFormat LLVMObject LLVMSupport)
+if (LLVM_LINK_LLVM_DYLIB)
+  set(LINK_LLVM_LIBS LLVM)
+endif()
 target_link_libraries(elf_common INTERFACE ${LINK_LLVM_LIBS})
 # INTEL_CUSTOMIZATION
   # Statically link C run-time library on Windows.

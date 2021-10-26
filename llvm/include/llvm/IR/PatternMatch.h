@@ -521,7 +521,7 @@ inline cst_pred_ty<is_any_apint> m_AnyIntegralConstant() {
 }
 
 struct is_all_ones {
-  bool isValue(const APInt &C) { return C.isAllOnesValue(); }
+  bool isValue(const APInt &C) { return C.isAllOnes(); }
 };
 /// Match an integer or vector with all bits set.
 /// For vectors, this includes constants with undefined elements.
@@ -589,7 +589,7 @@ inline cst_pred_ty<is_nonpositive> m_NonPositive() {
 inline api_pred_ty<is_nonpositive> m_NonPositive(const APInt *&V) { return V; }
 
 struct is_one {
-  bool isValue(const APInt &C) { return C.isOneValue(); }
+  bool isValue(const APInt &C) { return C.isOne(); }
 };
 /// Match an integer 1 or a vector with all elements equal to 1.
 /// For vectors, this includes constants with undefined elements.
@@ -598,7 +598,7 @@ inline cst_pred_ty<is_one> m_One() {
 }
 
 struct is_zero_int {
-  bool isValue(const APInt &C) { return C.isNullValue(); }
+  bool isValue(const APInt &C) { return C.isZero(); }
 };
 /// Match an integer 0 or a vector with all elements equal to 0.
 /// For vectors, this includes constants with undefined elements.

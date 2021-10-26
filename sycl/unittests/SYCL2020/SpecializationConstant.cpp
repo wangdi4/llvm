@@ -85,8 +85,8 @@ TEST(SpecializationConstant, DefaultValuesAreSet) {
     return;
   }
 
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cerr << "Test is not supported on ROCm platform, skipping\n";
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cerr << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 
@@ -130,8 +130,8 @@ TEST(SpecializationConstant, DefaultValuesAreOverriden) {
     return;
   }
 
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cerr << "Test is not supported on ROCm platform, skipping\n";
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cerr << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 
@@ -182,8 +182,8 @@ TEST(SpecializationConstant, SetSpecConstAfterUseKernelBundle) {
     return;
   }
 
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cerr << "Test is not supported on ROCm platform, skipping\n";
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cerr << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 
@@ -243,8 +243,8 @@ TEST(SpecializationConstant, GetSpecConstAfterUseKernelBundle) {
     return;
   }
 
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cerr << "Test is not supported on ROCm platform, skipping\n";
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cerr << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 
@@ -303,8 +303,8 @@ TEST(SpecializationConstant, UseKernelBundleAfterSetSpecConst) {
     return;
   }
 
-  if (Plt.get_backend() == sycl::backend::rocm) {
-    std::cerr << "Test is not supported on ROCm platform, skipping\n";
+  if (Plt.get_backend() == sycl::backend::hip) {
+    std::cerr << "Test is not supported on HIP platform, skipping\n";
     return;
   }
 

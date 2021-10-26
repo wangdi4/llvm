@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -force-opaque-pointers -vpo-cfg-restructuring -vpo-wrncollection -analyze -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-wrncollection -analyze -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S 2>&1 | FileCheck %s
 
 
 ; #include <omp.h>

@@ -165,8 +165,7 @@ void simplifyExternals(Module &M) {
   FunctionType *EmptyFT =
       FunctionType::get(Type::getVoidTy(M.getContext()), false);
 
-  for (auto I = M.begin(), E = M.end(); I != E;) {
-    Function &F = *I++;
+  for (Function &F : llvm::make_early_inc_range(M)) {
     if (F.isDeclaration() && F.use_empty()) {
       F.eraseFromParent();
       continue;
@@ -190,8 +189,7 @@ void simplifyExternals(Module &M) {
     F.eraseFromParent();
   }
 
-  for (auto I = M.global_begin(), E = M.global_end(); I != E;) {
-    GlobalVariable &GV = *I++;
+  for (GlobalVariable &GV : llvm::make_early_inc_range(M.globals())) {
     if (GV.isDeclaration() && GV.use_empty()) {
       GV.eraseFromParent();
       continue;

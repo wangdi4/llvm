@@ -1599,20 +1599,15 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
       AAMDNodes AANodes;
       Ref->getAAMetadata(AANodes);
 
-      AANodes.Scope = MDNode::concatenate(AANodes.Scope, NewScopes[ScopeId]);
+      MDNode *ScopeMD = MDNode::get(LLVMContext, NewScopes[ScopeId]);
+      AANodes.Scope = MDNode::concatenate(AANodes.Scope, ScopeMD);
 
       SmallVector<Metadata *, ExpectedNumberOfTests> NoAliasScopes;
       NoAliasScopes.reserve(Size - 1);
       NoAliasScopes.append(NewScopes.begin(), NewScopes.begin() + ScopeId);
       NoAliasScopes.append(NewScopes.begin() + ScopeId + 1, NewScopes.end());
 
-      MDNode *NoAliasScopesMD;
-      if (NoAliasScopes.size() == 1) {
-        NoAliasScopesMD = cast<MDNode>(NoAliasScopes.front());
-      } else {
-        NoAliasScopesMD = MDNode::get(LLVMContext, NoAliasScopes);
-      }
-
+      MDNode *NoAliasScopesMD = MDNode::get(LLVMContext, NoAliasScopes);
       AANodes.NoAlias = MDNode::concatenate(AANodes.NoAlias, NoAliasScopesMD);
 
       Ref->setAAMetadata(AANodes);

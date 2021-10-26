@@ -1,8 +1,8 @@
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -force-opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-temp-cleanup -tbaa -hir-pm-symbolic-tripcount-completeunroll -print-after=hir-pm-symbolic-tripcount-completeunroll -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; The input is very similar to pattern-match-1.ll, but slightly different in dealing with copy instructions (see copy inst 1 and 2 below).
 ; Make sure this alternative pattern is also matched by HIRSymbolicTripCountCompleteUnroll.
@@ -43,24 +43,24 @@
 ;
 ;CHECK:         BEGIN REGION { modified }
 ;CHECK:               %15 = (%0)[0].12.0[0];
-;CHECK:               %19 = (%0)[0].10.0[%15 + %1];
-;CHECK:               (%0)[0].10.0[%15 + %1] = %19 + trunc.i32.i16(%7) + -256;
-;CHECK:               %23 = (%0)[0].7.0[%15 + %1];
+;CHECK:               %19 = (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%15)];
+;CHECK:               (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%15)] = %19 + trunc.i32.i16(%7) + -256;
+;CHECK:               %23 = (%0)[0].7.0[sext.i32.i64(%1) + sext.i32.i64(%15)];
 ;CHECK:               %42 = (%0)[0].8.0[%23];
 ;CHECK:               %mv = (%0)[0].12.0[1];
-;CHECK:               %mv3 = (%0)[0].10.0[%1 + %mv];
-;CHECK:               (%0)[0].10.0[%1 + %mv] = trunc.i32.i16(%7) + %mv3 + -256;
-;CHECK:               %mv4 = (%0)[0].7.0[%1 + %mv];
+;CHECK:               %mv3 = (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%mv)];
+;CHECK:               (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%mv)] = trunc.i32.i16(%7) + %mv3 + -256;
+;CHECK:               %mv4 = (%0)[0].7.0[sext.i32.i64(%1) + sext.i32.i64(%mv)];
 ;CHECK:               %mv5 = (%0)[0].8.0[%mv4];
 ;CHECK:               %mv6 = (%0)[0].12.0[2];
-;CHECK:               %mv7 = (%0)[0].10.0[%1 + %mv6];
-;CHECK:               (%0)[0].10.0[%1 + %mv6] = trunc.i32.i16(%7) + %mv7 + -256;
-;CHECK:               %mv8 = (%0)[0].7.0[%1 + %mv6];
+;CHECK:               %mv7 = (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%mv6)];
+;CHECK:               (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%mv6)] = trunc.i32.i16(%7) + %mv7 + -256;
+;CHECK:               %mv8 = (%0)[0].7.0[sext.i32.i64(%1) + sext.i32.i64(%mv6)];
 ;CHECK:               %mv9 = (%0)[0].8.0[%mv8];
 ;CHECK:               %mv10 = (%0)[0].12.0[3];
-;CHECK:               %mv11 = (%0)[0].10.0[%1 + %mv10];
-;CHECK:               (%0)[0].10.0[%1 + %mv10] = trunc.i32.i16(%7) + %mv11 + -256;
-;CHECK:               %mv12 = (%0)[0].7.0[%1 + %mv10];
+;CHECK:               %mv11 = (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%mv10)];
+;CHECK:               (%0)[0].10.0[sext.i32.i64(%1) + sext.i32.i64(%mv10)] = trunc.i32.i16(%7) + %mv11 + -256;
+;CHECK:               %mv12 = (%0)[0].7.0[sext.i32.i64(%1) + sext.i32.i64(%mv10)];
 ;CHECK:               %mv13 = (%0)[0].8.0[%mv12];
 ;CHECK:               (%0)[0].8.0[%23] = %42 + -1;
 ;CHECK:               (%0)[0].8.0[%mv4] = %mv5 + -1;

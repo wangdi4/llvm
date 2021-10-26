@@ -5,8 +5,8 @@
 ; without requiring asserts.
 
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -force-opaque-pointers < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
 
 ; CHECK: define dso_local i32 @main
 ; CHECK: call i32 @goo

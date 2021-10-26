@@ -118,8 +118,8 @@ option(LIBCXX_ENABLE_LOCALIZATION
    will be completely unusable, and other parts may be only partly available." ON)
 option(LIBCXX_ENABLE_UNICODE
   "Whether to include support for Unicode in the library. Disabling Unicode can
-  be useful when porting to platforms that don't support UTF-8 encoding (e.g.
-  embedded)." ON)
+   be useful when porting to platforms that don't support UTF-8 encoding (e.g.
+   embedded)." ON)
 option(LIBCXX_ENABLE_VENDOR_AVAILABILITY_ANNOTATIONS
   "Whether to turn on vendor availability annotations on declarations that depend
    on definitions in a shared library. By default, we assume that we're not building
@@ -537,7 +537,7 @@ function(cxx_add_basic_build_flags target)
   # in the dylib. C++20 is needed to use char8_t.
   set_target_properties(${target} PROPERTIES
     CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED NO
+    CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO)
 
   # When building the dylib, don't warn for unavailable aligned allocation

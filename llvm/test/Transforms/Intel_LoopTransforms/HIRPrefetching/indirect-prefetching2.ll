@@ -17,7 +17,7 @@
 ;<34>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10000>
 ;<13>               |   %1 = (@B)[0][i1];
 ;<15>               |   %2 = (%M)[i1];
-;<19>               |   %3 = (@C)[0][%2 + 5];
+;<19>               |   %3 = (@C)[0][sext.i32.i64(%2) + 5];
 ;<22>               |   (@A)[0][i1] = %1 + %3;
 ;<34>               + END LOOP
 ;<34>
@@ -31,12 +31,12 @@
 ; CHECK-NEXT:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10000>
 ; CHECK-NEXT:           |   %1 = (@B)[0][i1];
 ; CHECK-NEXT:           |   %2 = (%M)[i1];
-; CHECK-NEXT:           |   %3 = (@C)[0][%2 + 5];
+; CHECK-NEXT:           |   %3 = (@C)[0][sext.i32.i64(%2) + 5];
 ; CHECK-NEXT:           |   (@A)[0][i1] = %1 + %3;
 ; CHECK-NEXT:           |   if (i1 + 30 <=u zext.i32.i64(%N) + -1)
 ; CHECK-NEXT:           |   {
 ; CHECK-NEXT:           |      %Load = (%M)[i1 + 30];
-; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load + 5]),  0,  0,  1);
+; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][sext.i32.i64(%Load) + 5]),  0,  0,  1);
 ; CHECK-NEXT:           |   }
 ; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40]),  0,  2,  1);
 ; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 31]),  0,  3,  1);

@@ -33,6 +33,10 @@ typedef struct __tile1024i_str {
 } __tile1024i;
 /* end INTEL_CUSTOMIZATION */
 
+#if !defined(__i386__) && !defined(__x86_64__)
+#error "This header is only meant to be used on x86 and x64 architecture"
+#endif
+
 #include <x86gprintrin.h>
 
 /* INTEL_CUSTOMIZATION */
