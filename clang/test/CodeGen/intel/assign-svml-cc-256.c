@@ -1,0 +1,35 @@
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// Check SVML calling conventions are assigned correctly when compiling 256-bit SVML functions.
+
+typedef long long __m128i __attribute__((__vector_size__(16), __aligned__(16)));
+typedef float __m256 __attribute__ ((__vector_size__ (32), __aligned__(32)));
+typedef long long __m256i __attribute__((__vector_size__(32), __aligned__(32)));
+
+__attribute__((intel_ocl_bicc))
+extern __m128i __svml_urem4(__m128i x, __m128i y );
+
+// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_urem8_e9(<4 x i64> %{{.*}}, <4 x i64> %{{.*}})
+// CHECK: declare svml_unified_cc <2 x i64> @__svml_urem4(<2 x i64>, <2 x i64>)
+__attribute__((intel_ocl_bicc))
+__m256i __svml_urem8_e9(__m256i x, __m256i y) {
+  __declspec(align(32)) __m128i x1[2];
+  __declspec(align(32)) __m128i y1[2];
+  __declspec(align(32)) __m128i r1[2];
+
+  __m256i dst;
+  *((__m256i *)x1) = x;
+  *((__m256i *)y1) = y;
+
+  r1[0] = __svml_urem4(x1[0], y1[0]);
+  r1[1] = __svml_urem4(x1[1], y1[1]);
+
+  dst = *((__m256i *)r1);
+  return dst;
+}
+
+// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_i64div4_l9(<4 x i64> %{{.*}}, <4 x i64> %{{.*}})
+__attribute__((intel_ocl_bicc))
+__m256i __svml_i64div4_l9(__m256i vas, __m256i vbs) {
+    return vas;
+}
