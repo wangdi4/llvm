@@ -2022,7 +2022,7 @@ lsc_flat_store2d(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
@@ -2058,7 +2058,7 @@ lsc_slm_atomic(simd<uint32_t, N> offsets, simd_mask<N> pred) {
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
@@ -2097,7 +2097,7 @@ lsc_slm_atomic(simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
@@ -2136,7 +2136,7 @@ lsc_slm_atomic(simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
@@ -2183,7 +2183,7 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
@@ -2231,7 +2231,7 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
@@ -2277,7 +2277,7 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
@@ -2317,7 +2317,7 @@ lsc_flat_atomic(T *p, simd<uint32_t, N> offsets, simd_mask<N> pred) {
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
@@ -2359,7 +2359,7 @@ lsc_flat_atomic(T *p, simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
 /// \param pred is predicates.
 ///
 /// \ingroup sycl_esimd
-template <typename T, EsimdAtomicOpType Op, uint8_t NElts = 1,
+template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
