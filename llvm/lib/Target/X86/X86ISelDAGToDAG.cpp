@@ -216,10 +216,15 @@ namespace {
     bool matchAdd(SDValue &N, X86ISelAddressMode &AM, unsigned Depth);
     bool matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
                                  unsigned Depth);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     bool matchVectorAddressRecursively(SDValue N, X86ISelAddressMode &AM,
                                        unsigned Depth);
 #endif // INTEL_CUSTOMIZATION
+=======
+    bool matchVectorAddressRecursively(SDValue N, X86ISelAddressMode &AM,
+                                       unsigned Depth);
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
     bool matchAddressBase(SDValue N, X86ISelAddressMode &AM);
     bool selectAddr(SDNode *Parent, SDValue N, SDValue &Base,
                     SDValue &Scale, SDValue &Index, SDValue &Disp,
@@ -2472,7 +2477,10 @@ bool X86DAGToDAGISel::matchAddressBase(SDValue N, X86ISelAddressMode &AM) {
   return false;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
 bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
                                                     X86ISelAddressMode &AM,
                                                     unsigned Depth) {
@@ -2497,6 +2505,7 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
     if (!matchWrapper(N, AM))
       return false;
     break;
+<<<<<<< HEAD
 
   case ISD::FrameIndex:
     if (AM.BaseType == X86ISelAddressMode::RegBase &&
@@ -2512,29 +2521,46 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
     if (!CurDAG->haveNoCommonBitsSet(N.getOperand(0), N.getOperand(1)))
       break;
     LLVM_FALLTHROUGH;
+=======
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
   case ISD::ADD: {
     // Add an artificial use to this node so that we can keep track of
     // it if it gets CSE'd with a different node.
     HandleSDNode Handle(N);
 
     X86ISelAddressMode Backup = AM;
+<<<<<<< HEAD
     if (!matchVectorAddressRecursively(N.getOperand(0), AM,
                                        Depth+1) &&
         !matchVectorAddressRecursively(Handle.getValue().getOperand(1), AM,
                                        Depth+1))
+=======
+    if (!matchVectorAddressRecursively(N.getOperand(0), AM, Depth + 1) &&
+        !matchVectorAddressRecursively(Handle.getValue().getOperand(1), AM,
+                                       Depth + 1))
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
       return false;
     AM = Backup;
 
     // Try again after commuting the operands.
     if (!matchVectorAddressRecursively(Handle.getValue().getOperand(1), AM,
+<<<<<<< HEAD
                                        Depth+1) &&
         !matchVectorAddressRecursively(Handle.getValue().getOperand(0), AM,
                                        Depth+1))
+=======
+                                       Depth + 1) &&
+        !matchVectorAddressRecursively(Handle.getValue().getOperand(0), AM,
+                                       Depth + 1))
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
       return false;
     AM = Backup;
 
     N = Handle.getValue();
+<<<<<<< HEAD
     break;
+=======
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
   }
   }
 
@@ -2542,12 +2568,19 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
 }
 
 /// Helper for selectVectorAddr. Handles things that can be folded into a
+<<<<<<< HEAD
 /// gather scatter address. The index register and scale should have already
+=======
+/// gather/scatter address. The index register and scale should have already
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
 /// been handled.
 bool X86DAGToDAGISel::matchVectorAddress(SDValue N, X86ISelAddressMode &AM) {
   return matchVectorAddressRecursively(N, AM, 0);
 }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
 
 bool X86DAGToDAGISel::selectVectorAddr(MemSDNode *Parent, SDValue BasePtr,
                                        SDValue IndexOp, SDValue ScaleOp,
