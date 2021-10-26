@@ -678,6 +678,8 @@ public:
     if (!AliasesToAggregatePointer)
       return nullptr;
     llvm::Type *DomTy = nullptr;
+    bool HaveMultipleAliases = false;
+    bool DomTyIsElementZeroAccess = false;
     for (auto *AliasTy : PointerTypeAliases) {
       llvm::Type *BaseTy = AliasTy;
       while (BaseTy->isPointerTy())
@@ -688,20 +690,76 @@ public:
         DomTy = AliasTy;
         continue;
       }
+      HaveMultipleAliases = true;
       // If this type can be an element zero access of DomTy,
       // DomTy is still dominant.
-      if (dtrans::isElementZeroAccess(DomTy, AliasTy))
+      if (dtrans::isElementZeroAccess(DomTy, AliasTy)) {
+        DomTyIsElementZeroAccess = true;
         continue;
+      }
       // If what we previously thought was the dominant type can be
       // an element zero access of the current alias, the current
       // alias becomes dominant.
       if (dtrans::isElementZeroAccess(AliasTy, DomTy)) {
+        DomTyIsElementZeroAccess = true;
         DomTy = AliasTy;
         continue;
       }
+
+      // Check whether the pending dominant type, DomTy, is a pointer-to-pointer
+      // type that may be equivalent to the alias type, AliasTy, based on the
+      // element zero types.
+      //
+      // For example, given the types:
+      //   %struct.outer = type { %struct.middle* }
+      //   %struct.middle = type { %struct.inner }
+      //   %struct.inner = type { i64 }
+      //
+      // With an the input alias set of:
+      //   %struct.outer*, %struct.middle**, and %struct.inner**
+      //
+      // The types %struct.middle** and %struct.inner** do not dominate each
+      // other, but can be used interchangeably.
+      //
+      // The above checks will choose %struct.outer* as being the dominant type
+      // of %struct.middle** and of %struct.inner**, if %struct.outer* is
+      // considered as the pending dominant type prior to testing against the
+      // other two types because the rule within the isElementZeroAccess that
+      // allows for a pointer-to-pointer type to succeed when the element zero
+      // type is a pointer type. However, we need to account for these aliases
+      // being evaluated in an arbitrary order. If the order of evaluation was
+      // chosen to test %struct.middle** and %struct.inner** as the types to
+      // evaluate as potential element zero access types, then neither will
+      // succeed because they are both pointer-to-pointer types. Here, we try to
+      // see whether removing one level of type dereferencing indicates that one
+      // of them is an element zero type of the other to determine whether the
+      // search for an element zero dominant type should continue. We only need
+      // to consider one level of dereferencing because isElementZeroAccess only
+      // permits the zeroth element to be an aggregate of one level pointer
+      // type.
+      if (!(DomTy->isPointerTy() &&
+            DomTy->getPointerElementType()->isPointerTy() &&
+            AliasTy->isPointerTy() &&
+            AliasTy->getPointerElementType()->isPointerTy()))
+        return nullptr;
+
+      llvm::Type *DomDerefTy = DomTy->getPointerElementType();
+      llvm::Type *AliasDerefTy = AliasTy->getPointerElementType();
+      if (dtrans::isElementZeroAccess(DomDerefTy, AliasDerefTy) ||
+          dtrans::isElementZeroAccess(AliasDerefTy, DomDerefTy))
+        continue;
+
       // Otherwise, there are conflicting aliases and nothing can be dominant.
       return nullptr;
     }
+    // If there was only one potential dominant type, return it.
+    // Otherwise, the dominant type must be an element zero accessible type from
+    // all the other types.
+    if (!HaveMultipleAliases)
+      return DomTy;
+    if (!DomTyIsElementZeroAccess)
+      return nullptr;
+
     return DomTy;
   }
 

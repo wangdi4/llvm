@@ -1271,7 +1271,7 @@ private:
       collectSpecialFreeArgs(cast<dtrans::FreeCallInfo>(Info)->getFreeKind(),
                              Inv, Args, TLI);
       assert(Args.size() == 1 && "Unexpected deallocation function");
-      Value *A = Inv->getArgOperand(0);
+      auto *A = *Args.begin();
       if (A->stripPointerCasts() != FreePtr->stripPointerCasts())
         return false;
 
