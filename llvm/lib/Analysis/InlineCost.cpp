@@ -1032,8 +1032,12 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     InlineReason Reason =
         IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
                      : bestInlineReason(NoReasonVector, NinlrNotProfitable);
-    if (!IgnoreThreshold)
+    if (!IgnoreThreshold) {
+      // Ensure that Cost < tested Threshold value so that the ! operator
+      // for InlineCost yields the correct result.
+      Threshold =  std::max(1, Threshold);
       DecidedByCostThreshold = true;
+    }
     if (!IsProfitable)
       return InlineResult::failure("not profitable").setIntelInlReason(Reason);
     return InlineResult::success().setIntelInlReason(Reason);
