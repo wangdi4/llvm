@@ -377,101 +377,83 @@ template <typename T, lsc_data_size DS> constexpr void check_lsc_data_size() {
                 "Unsupported data type");
 }
 
-template <EsimdAtomicOpType Op> constexpr void check_lsc_atomic_op() {
-  static_assert(Op == EsimdAtomicOpType::ATOMIC_ADD ||
-                    Op == EsimdAtomicOpType::ATOMIC_SUB ||
-                    Op == EsimdAtomicOpType::ATOMIC_INC ||
-                    Op == EsimdAtomicOpType::ATOMIC_DEC ||
-                    Op == EsimdAtomicOpType::ATOMIC_MIN ||
-                    Op == EsimdAtomicOpType::ATOMIC_MAX ||
-                    Op == EsimdAtomicOpType::ATOMIC_CMPXCHG ||
-                    Op == EsimdAtomicOpType::ATOMIC_AND ||
-                    Op == EsimdAtomicOpType::ATOMIC_OR ||
-                    Op == EsimdAtomicOpType::ATOMIC_XOR ||
-                    Op == EsimdAtomicOpType::ATOMIC_MINSINT ||
-                    Op == EsimdAtomicOpType::ATOMIC_MAXSINT ||
-                    Op == EsimdAtomicOpType::ATOMIC_FMAX ||
-                    Op == EsimdAtomicOpType::ATOMIC_FMIN ||
-                    Op == EsimdAtomicOpType::ATOMIC_FCMPWR ||
-                    Op == EsimdAtomicOpType::ATOMIC_FADD ||
-                    Op == EsimdAtomicOpType::ATOMIC_FSUB ||
-                    Op == EsimdAtomicOpType::ATOMIC_LOAD ||
-                    Op == EsimdAtomicOpType::ATOMIC_STORE,
+template <atomic_op Op> constexpr void check_lsc_atomic_op() {
+  static_assert(Op == atomic_op::add || Op == atomic_op::sub ||
+                    Op == atomic_op::inc || Op == atomic_op::dec ||
+                    Op == atomic_op::min || Op == atomic_op::max ||
+                    Op == atomic_op::cmpxchg || Op == atomic_op::bit_and ||
+                    Op == atomic_op::bit_or || Op == atomic_op::bit_xor ||
+                    Op == atomic_op::minsint || Op == atomic_op::maxsint ||
+                    Op == atomic_op::fmax || Op == atomic_op::fmin ||
+                    Op == atomic_op::fcmpwr || Op == atomic_op::fadd ||
+                    Op == atomic_op::fsub || Op == atomic_op::load ||
+                    Op == atomic_op::store,
                 "Unsupported operation for LSC atomics");
 }
 
 /// Check the legality of lsc xatomic call in terms of size and type.
 /// \ingroup sycl_esimd
-template <EsimdAtomicOpType Op, unsigned NumSrc>
+template <atomic_op Op, unsigned NumSrc>
 constexpr void check_lsc_atomic() {
   check_lsc_atomic_op<Op>();
-  if constexpr (Op == EsimdAtomicOpType::ATOMIC_INC ||
-                Op == EsimdAtomicOpType::ATOMIC_DEC ||
-                Op == EsimdAtomicOpType::ATOMIC_LOAD) {
+  if constexpr (Op == atomic_op::inc || Op == atomic_op::dec ||
+                Op == atomic_op::load) {
     static_assert(NumSrc == 0, "No source operands are expected");
   }
-  if constexpr (Op == EsimdAtomicOpType::ATOMIC_STORE ||
-                Op == EsimdAtomicOpType::ATOMIC_ADD ||
-                Op == EsimdAtomicOpType::ATOMIC_SUB ||
-                Op == EsimdAtomicOpType::ATOMIC_MINSINT ||
-                Op == EsimdAtomicOpType::ATOMIC_MAXSINT ||
-                Op == EsimdAtomicOpType::ATOMIC_MIN ||
-                Op == EsimdAtomicOpType::ATOMIC_MAX ||
-                Op == EsimdAtomicOpType::ATOMIC_FADD ||
-                Op == EsimdAtomicOpType::ATOMIC_FSUB ||
-                Op == EsimdAtomicOpType::ATOMIC_FMIN ||
-                Op == EsimdAtomicOpType::ATOMIC_FMAX ||
-                Op == EsimdAtomicOpType::ATOMIC_AND ||
-                Op == EsimdAtomicOpType::ATOMIC_OR ||
-                Op == EsimdAtomicOpType::ATOMIC_XOR) {
+  if constexpr (Op == atomic_op::store || Op == atomic_op::add ||
+                Op == atomic_op::sub || Op == atomic_op::minsint ||
+                Op == atomic_op::maxsint || Op == atomic_op::min ||
+                Op == atomic_op::max || Op == atomic_op::fadd ||
+                Op == atomic_op::fsub || Op == atomic_op::fmin ||
+                Op == atomic_op::fmax || Op == atomic_op::bit_and ||
+                Op == atomic_op::bit_or || Op == atomic_op::bit_xor) {
     static_assert(NumSrc == 1, "One source operand is expected");
   }
-  if constexpr (Op == EsimdAtomicOpType::ATOMIC_CMPXCHG ||
-                Op == EsimdAtomicOpType::ATOMIC_FCMPWR) {
+  if constexpr (Op == atomic_op::cmpxchg || Op == atomic_op::fcmpwr) {
     static_assert(NumSrc == 2, "Two source operands are expected");
   }
 }
 
-template <EsimdAtomicOpType Op> constexpr lsc_atomic_op to_lsc_atomic_op() {
+template <atomic_op Op> constexpr lsc_atomic_op to_lsc_atomic_op() {
   check_lsc_atomic_op<Op>();
   switch (Op) {
-  case EsimdAtomicOpType::ATOMIC_ADD:
+  case atomic_op::add:
     return lsc_atomic_op::iadd;
-  case EsimdAtomicOpType::ATOMIC_SUB:
+  case atomic_op::sub:
     return lsc_atomic_op::isub;
-  case EsimdAtomicOpType::ATOMIC_INC:
+  case atomic_op::inc:
     return lsc_atomic_op::iinc;
-  case EsimdAtomicOpType::ATOMIC_DEC:
+  case atomic_op::dec:
     return lsc_atomic_op::idec;
-  case EsimdAtomicOpType::ATOMIC_MIN:
+  case atomic_op::min:
     return lsc_atomic_op::umin;
-  case EsimdAtomicOpType::ATOMIC_MAX:
+  case atomic_op::max:
     return lsc_atomic_op::umax;
-  case EsimdAtomicOpType::ATOMIC_CMPXCHG:
+  case atomic_op::cmpxchg:
     return lsc_atomic_op::icas;
-  case EsimdAtomicOpType::ATOMIC_AND:
+  case atomic_op::bit_and:
     return lsc_atomic_op::bit_and;
-  case EsimdAtomicOpType::ATOMIC_OR:
+  case atomic_op::bit_or:
     return lsc_atomic_op::bit_or;
-  case EsimdAtomicOpType::ATOMIC_XOR:
+  case atomic_op::bit_xor:
     return lsc_atomic_op::bit_xor;
-  case EsimdAtomicOpType::ATOMIC_MINSINT:
+  case atomic_op::minsint:
     return lsc_atomic_op::smin;
-  case EsimdAtomicOpType::ATOMIC_MAXSINT:
+  case atomic_op::maxsint:
     return lsc_atomic_op::smax;
-  case EsimdAtomicOpType::ATOMIC_FMAX:
+  case atomic_op::fmax:
     return lsc_atomic_op::fmax;
-  case EsimdAtomicOpType::ATOMIC_FMIN:
+  case atomic_op::fmin:
     return lsc_atomic_op::fmin;
-  case EsimdAtomicOpType::ATOMIC_FCMPWR:
+  case atomic_op::fcmpwr:
     return lsc_atomic_op::fcas;
-  case EsimdAtomicOpType::ATOMIC_FADD:
+  case atomic_op::fadd:
     return lsc_atomic_op::fadd;
-  case EsimdAtomicOpType::ATOMIC_FSUB:
+  case atomic_op::fsub:
     return lsc_atomic_op::fsub;
-  case EsimdAtomicOpType::ATOMIC_LOAD:
+  case atomic_op::load:
     return lsc_atomic_op::load;
-  case EsimdAtomicOpType::ATOMIC_STORE:
+  case atomic_op::store:
     return lsc_atomic_op::store;
   default:
     return lsc_atomic_op::iinc;

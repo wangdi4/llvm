@@ -11232,7 +11232,7 @@ void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
 // Set the the operands V of OpenMP clauses in W to be empty.
 void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
                                                         Value *V) {
-  if (!V)
+  if (!V || isa<ConstantData>(V))
     return;
 
   // The WRegionNode::contains() method requires BBSet to be computed.

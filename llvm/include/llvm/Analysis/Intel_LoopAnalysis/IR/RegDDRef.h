@@ -212,7 +212,7 @@ private:
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
-    // Set to true for fake pointer DD ref which access type is known.  
+    // Set to true for fake pointer DD ref which access type is known.
     bool CanUsePointeeSize;
 
     // Stores trailing structure element offsets for each dimension of the ref.
@@ -1157,6 +1157,10 @@ public:
   /// instructions such as: t = i1 + 1, where 't' has a linear form.
   bool usesTempBlob(unsigned Index, bool *IsSelfBlob = nullptr,
                     bool AssumeLvalIfDetached = false) const;
+
+  /// Returns true if there is a use of a temp blob with \p Symbase.
+  /// Calls usesTempBlob (above).
+  bool usesSymbase(unsigned Symbase) const;
 
   /// Collects all the unique temp blobs present in the DDRef by visiting
   /// all the contained canon exprs.
