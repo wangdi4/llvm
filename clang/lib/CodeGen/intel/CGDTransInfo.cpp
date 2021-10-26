@@ -35,7 +35,7 @@ class DTransInfoGenerator {
   // Take a type that is suspected to be an array padding type and create a
   // corresponding clang-type from it so that we properly emit the metadata for
   // it later.
-  QualType FixupPaddingType(QualType ClangType, llvm::Type *LLVMType);
+  QualType FixupPaddingType(llvm::Type *LLVMType);
 
   // Create the metadata for an Array type, provides metadata at the same level
   // as CreateTypeMD.
@@ -295,12 +295,19 @@ llvm::MDNode *DTransInfoGenerator::AddType(const RecordDecl *RD,
   if (ST->getNumElements()) {
     const CGRecordLayout &Layout = CGM.getTypes().getCGRecordLayout(RD);
     if (RD->isUnion()) {
-      // Unions can have padding in the case of bitfields, and can end up
-      // being JUST an array with no real field, so we only fill it in if we
-      // know it.
-      if (const FieldDecl *UD = Layout.getUnionDecl())
+      // Unions can have padding, and can end up being JUST an array with no
+      // real field, so we only fill it in if we know it.
+      if (const FieldDecl *UD = Layout.getUnionDecl()) {
         MD.push_back(
             CreateTypeMD(UD->getType(), ST->getElementType(0), nullptr));
+
+        if (ST->getNumElements() == 2) {
+          llvm::Type *LLVMType = ST->getElementType(1);
+          QualType ClangType = FixupPaddingType(LLVMType);
+          MD.push_back(CreateTypeMD(ClangType, LLVMType, nullptr));
+        }
+
+      }
     } else {
       for (unsigned Idx = 0, E = ST->getNumElements(); Idx < E; ++Idx) {
         if (Layout.IsIdxVFPtr(Idx))
@@ -316,7 +323,7 @@ llvm::MDNode *DTransInfoGenerator::AddType(const RecordDecl *RD,
           // emitted otherwise. The integral case should just handle the
           // bitfields.
           if (ClangType.isNull())
-            ClangType = FixupPaddingType(ClangType, LLVMType);
+            ClangType = FixupPaddingType(LLVMType);
 
           MD.push_back(CreateTypeMD(ClangType, LLVMType, nullptr));
         }
@@ -324,6 +331,18 @@ llvm::MDNode *DTransInfoGenerator::AddType(const RecordDecl *RD,
     }
   }
 
+  // This assert is likely to cause a good amount of regressions, so allow the
+  // backend folks to disable it while doing their work so they aren't blocked
+  // during their testing.
+  if (!CGM.getCodeGenOpts().DisableDTransAsserts) {
+    // For these types, the format of the dtrans info is:
+    // "!{!"S", <struct zero init>, i32 <NumFields>, <List of field MD>}.
+    // We want to check that the number of metadata nodes generated for fields
+    // matches the number of elements in the struct, so we do num-elements + 3,
+    // since the 3 non-field metadata nodes shouldn't count against this limit.
+    assert(ST->getNumElements() + 3 == MD.size() &&
+           "Incorrect number of struct fields generated");
+  }
   return llvm::MDNode::get(Ctx, MD);
 }
 // The types for VFPtr and VBPtr are fixed, as you can see in
@@ -367,8 +386,7 @@ llvm::MDNode *DTransInfoGenerator::CreateVBPtr() {
 // Take a type that is suspected to be an array padding type and create a
 // corresponding clang-type from it so that we properly emit the metadata for
 // it later.
-QualType DTransInfoGenerator::FixupPaddingType(QualType ClangType,
-                                               llvm::Type *LLVMType) {
+QualType DTransInfoGenerator::FixupPaddingType(llvm::Type *LLVMType) {
   if (LLVMType->isIntegerTy()) {
     // Padding is just an integer, so we can just correct this to the right
     // sized unsigned type.  It doesn't matter if the size is different/wrong,
@@ -385,11 +403,8 @@ QualType DTransInfoGenerator::FixupPaddingType(QualType ClangType,
     return CGM.getContext().getConstantArrayType(
         ElemTy, llvm::APInt(64, LLVMType->getArrayNumElements()), nullptr,
         clang::ArrayType::Normal, 0);
-  } else {
-    CGM.getDiags().Report(SourceLocation{}, diag::err_dtrans_unsupported)
-        << "non integer/array padding type" << ClangType;
-    return {};
   }
+  llvm_unreachable("Unknown padding type");
 }
 
 // Create the metadata for a normal QualType/LLVMType, used particularly for
@@ -620,7 +635,7 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
 
       if (ST->getNumElements() == 2) {
         QualType PaddingTy =
-            FixupPaddingType(QualType{}, ST->getElementType(1));
+            FixupPaddingType(ST->getElementType(1));
         LitMD.push_back(
             CreateTypeMD(PaddingTy, ST->getElementType(1), nullptr));
       }
@@ -650,7 +665,7 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
             llvm::Type *LLVMPadding = ST->getElementType(Idx);
             assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
                    "Not bitfield leading padding?");
-            QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
+            QualType ClangPadding = FixupPaddingType(LLVMPadding);
             LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
             ++Idx;
           }
@@ -668,7 +683,7 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
             llvm::Type *LLVMPadding = ST->getElementType(Idx);
             if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, Idx, RD,
                                        ClangIdx)) {
-              QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
+              QualType ClangPadding = FixupPaddingType(LLVMPadding);
               LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
               ++Idx;
             }
@@ -687,7 +702,7 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
         llvm::Type *LLVMPadding = ST->getElementType(Idx);
         assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
                "Not bitfield leading padding?");
-        QualType ClangPadding = FixupPaddingType(ClangType, LLVMPadding);
+        QualType ClangPadding = FixupPaddingType(LLVMPadding);
         LitMD.push_back(
             CreateTypeMD(ClangPadding, ST->getElementType(Idx), nullptr));
       }

@@ -64,6 +64,7 @@ CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMC
 CODEGENOPT(DisableIntelProprietaryOpts, 1, 0)
 CODEGENOPT(IntelAdvancedOptim, 1, 0)
 CODEGENOPT(EmitDTransInfo, 1, 0)
+CODEGENOPT(DisableDTransAsserts, 1, 0)
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
