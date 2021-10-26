@@ -11475,8 +11475,8 @@ static bool tryToVectorizeHorReductionOrInstOperands(
   SmallPtrSet<Value *, 8> VisitedInstrs;
   SmallVector<WeakTrackingVH> PostponedInsts;
   bool Res = false;
-  auto &&TryToReduce = [TTI, &P,
 #if INTEL_CUSTOMIZATION
+  auto &&TryToReduce = [TTI, &P,
                         &R](Instruction *Inst, Value *&B0, Value *&B1,
                             SmallVectorImpl<Value *> &ReducedVals) -> Value * {
 #endif // INTEL_CUSTOMIZATION
@@ -11486,8 +11486,10 @@ static bool tryToVectorizeHorReductionOrInstOperands(
       HorizontalReduction HorRdx;
       if (HorRdx.matchAssociativeReduction(P, Inst))
         return HorRdx.tryToReduce(R, TTI);
+#if INTEL_CUSTOMIZATION
       ReducedVals.assign(HorRdx.getReducedVals().begin(),
                          HorRdx.getReducedVals().end());
+#endif // INTEL_CUSTOMIZATION
     }
     return nullptr;
   };
