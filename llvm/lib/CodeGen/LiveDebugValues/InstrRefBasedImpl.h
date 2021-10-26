@@ -889,6 +889,10 @@ private:
                          ValueIDNum **MOutLocs,
                          SmallVectorImpl<MLocTransferMap> &MLocTransfer);
 
+  /// Examine the stack indexes (i.e. offsets within the stack) to find the
+  /// basic units of interference -- like reg units, but for the stack.
+  void findStackIndexInterference(SmallVectorImpl<unsigned> &Slots);
+
   /// Install PHI values into the live-in array for each block, according to
   /// the IDF of each register.
   void placeMLocPHIs(MachineFunction &MF,
@@ -984,6 +988,21 @@ public:
   void dump_mloc_transfer(const MLocTransferMap &mloc_transfer) const;
 
   bool isCalleeSaved(LocIdx L) const;
+
+  bool hasFoldedStackStore(const MachineInstr &MI) {
+    // Instruction must have a memory operand that's a stack slot, and isn't
+    // aliased, meaning it's a spill from regalloc instead of a variable.
+    // If it's aliased, we can't guarantee its value.
+    if (!MI.hasOneMemOperand())
+      return false;
+    auto *MemOperand = *MI.memoperands_begin();
+    return MemOperand->isStore() &&
+           MemOperand->getPseudoValue() &&
+           MemOperand->getPseudoValue()->kind() == PseudoSourceValue::FixedStack
+           && !MemOperand->getPseudoValue()->isAliased(MFI);
+  }
+
+  Optional<LocIdx> findLocationForMemOperand(const MachineInstr &MI);
 };
 
 } // namespace LiveDebugValues
