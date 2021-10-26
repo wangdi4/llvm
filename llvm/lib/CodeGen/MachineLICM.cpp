@@ -784,6 +784,9 @@ void MachineLICMBase::HoistRegionPostRA() {
     MachineBasicBlock *MBB = HoistableLoad.MBB;
     MBB->insert(Pos, HoistableLoad.NewMIs[0]);
     MBB->insert(Pos, HoistableLoad.NewMIs[1]);
+    if (HoistableLoad.MI->shouldUpdateCallSiteInfo())
+      MBB->getParent()->moveCallSiteInfo(HoistableLoad.MI,
+                                         HoistableLoad.NewMIs[1]);
     HoistableLoad.MI->eraseFromParent();
     HoistPostRA(HoistableLoad.NewMIs[0], AllocReg);
   }

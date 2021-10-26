@@ -755,6 +755,15 @@ static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
       Args.MakeArgString(Twine("-intel-loop-optreport=") + ReportLevel));
   addllvmOption(
       Args.MakeArgString(Twine("-intel-ra-spillreport=") + ReportLevel));
+
+  // Inlining reports
+  unsigned int InlineLevel = 0x0019; // low = 0x19
+  if (ReportLevel.equals("medium") || ReportLevel.equals("high"))
+    InlineLevel |= 0x2800; // medium = 0x2819
+  if (ReportLevel.equals("high"))
+    InlineLevel |= 0xd040; // high = 0xf859
+  addllvmOption(Args.MakeArgString(Twine("-inline-report=0x") +
+                                   Twine::utohexstr(InlineLevel)));
 }
 
 void tools::addIntelOptimizationArgs(const ToolChain &TC,

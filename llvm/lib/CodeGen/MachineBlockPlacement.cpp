@@ -88,7 +88,23 @@ static cl::opt<unsigned> AlignAllBlock(
     cl::desc("Force the alignment of all blocks in the function in log2 format "
              "(e.g 4 means align on 16B boundaries)."),
     cl::init(0), cl::Hidden);
-
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> AlignSpecificBlock(
+    "align-specific-blocks",
+    cl::desc("Force the alignment of all blocks in the function in log2 format "
+             "(e.g 4 means align on 16B boundaries)."),
+    cl::init(4), cl::Hidden);
+static cl::opt<unsigned> OuterBlockSize(
+      "outer-blocks-size",
+      cl::desc("minimum instructions size of header blocks from outer loop"
+               "(e.g 8 instructions in head of outer loop)."),
+      cl::init(8), cl::Hidden);
+static cl::opt<unsigned> ShortInnerloopSize(
+      "short-innerloop-size",
+      cl::desc("maximum instructions size of short inner loop"
+               "(e.g 7 instructions in total of inner loop)."),
+      cl::init(7), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
 static cl::opt<unsigned> AlignAllNonFallThruBlocks(
     "align-all-nofallthru-blocks",
     cl::desc("Force the alignment of all blocks that have no fall-through "
@@ -2858,6 +2874,73 @@ void MachineBlockPlacement::optimizeBranches() {
         TII->removeBranch(*ChainBB);
         TII->insertBranch(*ChainBB, FBB, TBB, Cond, dl);
       }
+#if INTEL_CUSTOMIZATION
+      // When continous ChainBB, MBB and MBBNext are in the same MacineLoop, but
+      // actually ChainBB is in a "outer" loop, and its fall through MBB and
+      // MBBNext are a short "inner" loop. It means that both "outer" and "inner"
+      // loops have high probability to execute and ChainBB and its fall through
+      // MBB would have DSB conflict.
+      // Then adding a JMP between "outer" loop and "inner" loop,
+      // and aligning both of them, to make them allocate in different DSB set,
+      // could help to avoid DSB conflict and improve DSB hit.
+      // One condition of aligning head of "outer" loop is there is no BB fall
+      // through into the head BB.
+      // Adding a JMP would increase one instruction workload, so only if
+      // ChainBB has >= 8 instrs, to avoid too frequent branches penalty.
+      // Default alignment is 16 bytes, it is a tradeoff between DSB set and
+      // code size.
+      if (!F->getSubtarget().has2KDSB())
+        continue;
+      // ChainBB belongs to a "outer" loop.
+      MachineLoop *L = MLI->getLoopFor(ChainBB);
+      if (!L)
+        continue;
+
+      if (!FBB && !TBB && Cond.empty() && ChainBB->succ_size() == 1
+          && (*ChainBB->succ_begin())->pred_size() >= 2
+          && ChainBB->size() >= OuterBlockSize ) {
+        // When ChainBB has only one succ and the succ has more than 2 predecessor
+        // and size of ChainBB is >= 8 by default which is a tuned number to
+        // ensure perf improvement.
+        BlockChain &Chain = *BlockToChain[ChainBB];
+        BlockChain::iterator ChainBBIt = llvm::find(Chain, ChainBB);
+        //Find the next neighbouring MBB
+        BlockChain::iterator MBBIt = std::next(ChainBBIt);
+        if (!MBBIt)
+          continue;
+        BlockChain::iterator MBBItNext = std::next(MBBIt);
+        if (!MBBItNext || MBBItNext == Chain.end())
+          continue;
+        MachineBasicBlock *MBB = *MBBIt;
+        MachineBasicBlock *MBBNext = *MBBItNext;
+        if (!MBB || !MBBNext)
+          continue;
+        MachineLoop *LMBB = MLI->getLoopFor(MBB);
+        MachineLoop *LMBBNext = MLI->getLoopFor(MBBNext);
+        // Check if ChainBB, MBB and MBBNext are in the same loop
+        if (L != LMBB || LMBB != LMBBNext)
+          continue;
+        if ((MBB->size() + MBBNext->size() <= ShortInnerloopSize)
+            // MBB and MBBNext must be very short that total size of their
+            // instrs is less than 7 by default.
+            && (MBBNext->succ_size() > 0) // MBB must be a successor of MBBNext,
+            // so they are the "inner" loop
+            && MBBNext->isSuccessor(MBB)) {
+          DebugLoc dl;
+          TII->insertBranch(*ChainBB, MBB, nullptr, Cond, dl);
+          BlockChain::iterator ChainBBPreIt = std::prev(ChainBBIt);
+          MachineBasicBlock *ChainBBPre = *ChainBBPreIt;
+          // Only if there is no BB fall through into ChainBB, then align ChainBB.
+          if(!ChainBBPre->isSuccessor(ChainBB))
+            ChainBB->setAlignment(Align(1ULL << AlignSpecificBlock));
+          MBB->setAlignment(Align(1ULL << AlignSpecificBlock));
+          LLVM_DEBUG(dbgs() << "Align and add JMP between " << getBlockName(ChainBB)
+                     << " and " << getBlockName(MBB) << " to hep DSB hit\n");
+          continue;
+
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
     }
   }
 }
@@ -2917,6 +3000,8 @@ void MachineBlockPlacement::alignBlocks() {
     MachineBasicBlock *LayoutPred =
         &*std::prev(MachineFunction::iterator(ChainBB));
 
+    if (ChainBB->getAlignment() > Align) // INTEL
+      continue; // INTEL
     // Force alignment if all the predecessors are jumps. We already checked
     // that the block isn't cold above.
     if (!LayoutPred->isSuccessor(ChainBB)) {

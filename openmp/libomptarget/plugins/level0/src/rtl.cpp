@@ -109,6 +109,26 @@ do {                                                                           \
       : (Kind == TARGET_ALLOC_SHARED ? "shared memory"                         \
       : (Kind == TARGET_ALLOC_DEVICE ? "device memory" : "unknown memory")))
 
+#define LEVEL0_KERNEL_BEGIN(ID)                                                \
+  do {                                                                         \
+    if (DeviceInfo->KernelDynamicMemorySize > 0) {                             \
+      DeviceInfo->Mutexes[ID].lock();                                          \
+      DeviceInfo->NumActiveKernels[ID]++;                                      \
+      DeviceInfo->Mutexes[ID].unlock();                                        \
+    }                                                                          \
+  } while (0)
+
+#define LEVEL0_KERNEL_END(ID)                                                  \
+  do {                                                                         \
+    if (DeviceInfo->KernelDynamicMemorySize > 0) {                             \
+      DeviceInfo->Mutexes[ID].lock();                                          \
+      DeviceInfo->NumActiveKernels[ID]--;                                      \
+      if (DeviceInfo->NumActiveKernels[ID] == 0)                               \
+        DeviceInfo->resetProgramData(ID);                                      \
+      DeviceInfo->Mutexes[ID].unlock();                                        \
+    }                                                                          \
+  } while (0)
+
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
   DeviceArch_None   = 0,
@@ -785,8 +805,8 @@ struct FuncOrGblEntryTy {
   std::unordered_map<ze_kernel_handle_t, KernelInfoTy> KernelInfo;
 };
 
-/// Module data to be initialized by plugin
-struct ModuleDataTy {
+/// Program data to be initialized by plugin
+struct ProgramDataTy {
   int Initialized = 0;
   int NumDevices = 0;
   int DeviceNum = -1;
@@ -1548,6 +1568,12 @@ public:
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = 0; // Turned off by default
 
+  /// Number of active kernel launches for each device
+  std::vector<uint32_t> NumActiveKernels;
+
+  /// Cached target program data
+  std::vector<ProgramDataTy> ProgramData;
+
   /// Staging buffer size
   size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
 
@@ -2166,12 +2192,16 @@ public:
   /// Initialize program data on device
   int32_t initProgramData(int32_t DeviceId);
 
+  /// Reset program data
+  int32_t resetProgramData(int32_t DeviceId);
+
   /// Get kernel indirect access flags
   ze_kernel_indirect_access_flags_t getKernelIndirectAccessFlags(
       ze_kernel_handle_t Kernel, uint32_t DeviceId);
 
   /// Enqueue copy command
-  int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, void *Src, size_t Size);
+  int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, void *Src, size_t Size,
+                         bool Locked = false);
 
   /// Allocate memory from pool
   void *poolAlloc(int32_t DeviceId, size_t Size, int32_t Kind,
@@ -2757,10 +2787,14 @@ int32_t CommandBatchTy::commit(bool Always) {
 
   // Launch enqueued commands
   CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+  if (Kernel)
+    LEVEL0_KERNEL_BEGIN(DeviceId);
   CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
                        DeviceInfo->Mutexes[DeviceId], CmdQueue, 1,
                        &CmdList, nullptr);
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  if (Kernel)
+    LEVEL0_KERNEL_END(DeviceId);
   CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
 
   if (DeviceInfo->Flags.EnableProfile) {
@@ -2946,7 +2980,7 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
      PoolSizeMax);
 }
 
-/// Initialize module data
+/// Initialize program data
 int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   // Prepare host data to copy
   auto &P = DeviceProperties[DeviceId];
@@ -2964,7 +2998,7 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
     memUB = (uintptr_t)memLB + KernelDynamicMemorySize;
   }
 
-  ModuleDataTy hostData = {
+  ProgramDataTy hostData = {
     1,                   // Initialized
     (int32_t)NumDevices, // Number of devices
     DeviceId,            // Device ID
@@ -2975,15 +3009,31 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
     0                    // Device type (0 for GPU, 1 for CPU)
   };
 
+  ProgramData[DeviceId] = hostData;
+
   // Look up program data location on device
   void *dataPtr = getVarDeviceAddr(DeviceId, "__omp_spirv_program_data",
-                  sizeof(hostData));
+                                   sizeof(ProgramDataTy));
   if (!dataPtr) {
-    DP("Warning: cannot find module data location on device.\n");
+    DP("Warning: cannot find program data location on device.\n");
     return OFFLOAD_SUCCESS;
   }
 
   return enqueueMemCopy(DeviceId, dataPtr, &hostData, sizeof(hostData));
+}
+
+/// Reset target program data
+int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
+  // Look up program data location on device
+  void *DataPtr = getVarDeviceAddr(DeviceId, "__omp_spirv_program_data",
+                                   sizeof(ProgramDataTy));
+  if (!DataPtr) {
+    DP("Warning: cannot find program data location on device.\n");
+    return OFFLOAD_SUCCESS;
+  }
+
+  return enqueueMemCopy(DeviceId, DataPtr, &ProgramData[DeviceId],
+                        sizeof(ProgramDataTy), true /* Locked */);
 }
 
 /// Get kernel indirect access flags
@@ -3005,15 +3055,20 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
 
 /// Enqueue memory copy
 int32_t RTLDeviceInfoTy::enqueueMemCopy(
-    int32_t DeviceId, void *Dst, void *Src, size_t Size) {
+    int32_t DeviceId, void *Dst, void *Src, size_t Size, bool Locked) {
   auto cmdList = getLinkCopyCmdList(DeviceId);
   auto cmdQueue = getLinkCopyCmdQueue(DeviceId);
 
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dst, Src, Size,
                    nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-  CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
-                       Mutexes[DeviceId], cmdQueue, 1, &cmdList, nullptr);
+  if (Locked) {
+    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+                     nullptr);
+  } else {
+    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
+                         Mutexes[DeviceId], cmdQueue, 1, &cmdList, nullptr);
+  }
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
 
@@ -3662,6 +3717,8 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.init(DeviceInfo->Context);
   DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
+  DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumRootDevices, 0);
+  DeviceInfo->ProgramData.resize(DeviceInfo->NumRootDevices);
 
   DeviceInfo->Mutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
   DeviceInfo->DataMutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
@@ -5052,6 +5109,7 @@ static int32_t runTargetTeamRegionSub(
       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, event, 0, nullptr);
 
     CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    LEVEL0_KERNEL_BEGIN(rootId);
     CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
                          DeviceInfo->Mutexes[subId], cmdQueue, 1,
                          &cmdList, nullptr);
@@ -5064,6 +5122,7 @@ static int32_t runTargetTeamRegionSub(
   }
 
   CALL_ZE_RET_FAIL(zeEventHostSynchronize, usedEvents.back(), UINT64_MAX);
+  LEVEL0_KERNEL_END(rootId);
 
   if (DeviceInfo->Flags.EnableProfile && profileEvent)
     tmKernels.back().updateDeviceTime(profileEvent);
@@ -5206,10 +5265,12 @@ static int32_t runTargetTeamRegion(
                      &groupCounts, event, 0, nullptr);
     kernelLock.unlock();
     CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    LEVEL0_KERNEL_BEGIN(DeviceId);
     CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
                          DeviceInfo->Mutexes[DeviceId], cmdQueue, 1,
                          &cmdList, nullptr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+    LEVEL0_KERNEL_END(DeviceId);
     tmKernel.updateDeviceTime(event);
     // Make sure the command list is ready to accept next command
     CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
