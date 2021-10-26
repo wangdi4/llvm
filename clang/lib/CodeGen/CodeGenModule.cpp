@@ -73,6 +73,9 @@
 #endif  // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/X86TargetParser.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace CodeGen;
@@ -1662,6 +1665,18 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
                          /*AttrOnCallSite=*/false, IsThunk);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
+
+#if INTEL_CUSTOMIZATION
+  // For SVML functions, select a variant of SVML calling convention according
+  // to function name and type.
+  if (F->getCallingConv() == llvm::CallingConv::SVML_Unified) {
+    llvm::Optional<llvm::CallingConv::ID> CC =
+        llvm::getSVMLCallingConvByNameAndType(F->getName(),
+                                              F->getFunctionType());
+    if (CC.hasValue())
+      F->setCallingConv(CC.getValue());
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void removeImageAccessQualifier(std::string& TyName) {
