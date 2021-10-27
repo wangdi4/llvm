@@ -1,5 +1,5 @@
-# RUN: not --crash llc -mtriple=x86_64-- -start-after=codegenprepare -emit-call-site-info %s -o /dev/null 2>&1
-# Check llc crash.
+# RUN: llc -mtriple=x86_64-- -start-after=codegenprepare -emit-call-site-info %s -o /dev/null 2>&1
+# Check llc doesn't crash.
 # It's hard to create such a test. The crash only occurs when compiled by Clang with "-g".
 # It cannot be reproduced with emitted LLVM IR. If we stop just before "machinelicm" or passes
 # before it, we will meet an error due to IR has illegal debug info.

@@ -5918,6 +5918,11 @@ def disable_cpudispatch_ifuncs : Flag<["-"], "disable-cpudispatch-ifuncs">,
 def emit_dtrans_info : Flag<["-"], "emit-dtrans-info">,
   HelpText<"Causes the frontend to emit DTrans Type metadata">,
   MarshallingInfoFlag<CodeGenOpts<"EmitDTransInfo">>;
+def disable_dtrans_asserts
+    : Flag<["-"], "disable-dtrans-regressing-asserts">,
+      HelpText<"Disables assert checking for dtrans asserts that are suspected "
+               "to cause blocking regression">,
+      MarshallingInfoFlag<CodeGenOpts<"DisableDTransAsserts">>;
 // endif INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,

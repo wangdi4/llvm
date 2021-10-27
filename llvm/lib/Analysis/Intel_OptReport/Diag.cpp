@@ -94,8 +94,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
      "%s was not vectorized: vector dependence prevents vectorization%s"},
     {15345, "vector dependence: proven %s dependence between %.32s line %d, "
             "and %.32s line %d"},
-    {15346, "vector dependence: assumed %s dependence between %.32s line %s "
-            "and %.32s line %s"},
+    {15346, "vector dependence: %s"},
     {15347, "FUNCTION WAS VECTORIZED"},
     {15348, "function was not vectorized: data dependence(s) may exist"},
     {15349, "function was not vectorized: statement cannot be vectorized"},

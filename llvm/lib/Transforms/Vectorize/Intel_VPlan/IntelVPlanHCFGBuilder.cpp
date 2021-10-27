@@ -575,68 +575,32 @@ void PlainCFGBuilder::convertEntityDescriptors(
     VPOVectorizationLegality *Legal,
     ScalarEvolution *SE,
     VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts) {
+  auto RedCvt = std::make_unique<ReductionConverter>(Plan);
+  auto IndCvt = std::make_unique<InductionConverter>(Plan);
+  auto PrivCvt = std::make_unique<PrivatesConverter>(Plan);
 
-  using InductionList = VPOVectorizationLegality::InductionList;
-  using LinearListTy = VPOVectorizationLegality::LinearListTy;
-  using ReductionList = VPOVectorizationLegality::ReductionList;
-  using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
-  using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+  auto Bind = [](auto &&Range, auto &&Converter) {
+    return std::make_pair(std::ref(Range), std::move(Converter));
+  };
 
-  ReductionConverter *RedCvt = new ReductionConverter(Plan);
-  InductionConverter *IndCvt = new InductionConverter(Plan);
-  PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
+  // clang-format off
+  RedCvt->createDescrList(TheLoop,
+      Bind(*Legal->getReductionVars(),          ReductionListCvt{*this}),
+      Bind(*Legal->getExplicitReductionVars(),  ExplicitReductionListCvt{*this}),
+      Bind(*Legal->getInMemoryReductionVars(),  InMemoryReductionListCvt{*this}));
 
-  // TODO: create legality and import descriptors for all inner loops too.
+  IndCvt->createDescrList(TheLoop,
+      Bind(*Legal->getInductionVars(),          InductionListCvt{*this, Plan, SE}),
+      Bind(*Legal->getLinears(),                LinearListCvt{*this}));
 
-  const InductionList *IL = Legal->getInductionVars();
-  iterator_range<InductionList::const_iterator> InducRange(IL->begin(), IL->end());
-  InductionListCvt InducListCvt(*this, Plan, SE);
+  PrivCvt->createDescrList(TheLoop,
+      Bind(Legal->privates(),                   PrivatesListCvt{*this}));
 
-  const LinearListTy *LL = Legal->getLinears();
-  iterator_range<LinearListTy::const_iterator> LinearRange(LL->begin(), LL->end());
-  LinearListCvt LinListCvt(*this);
+  // clang-format on
 
-  const ReductionList *RL = Legal->getReductionVars();
-  iterator_range<ReductionList::const_iterator> ReducRange(RL->begin(), RL->end());
-  ReductionListCvt RedListCvt(*this);
-
-  const ExplicitReductionList *ERL = Legal->getExplicitReductionVars();
-  iterator_range<ExplicitReductionList::const_iterator> ExplicitReductionRange(
-      ERL->begin(), ERL->end());
-  ExplicitReductionListCvt ExpRLCvt(*this);
-
-  const InMemoryReductionList *IMRL = Legal->getInMemoryReductionVars();
-  iterator_range<InMemoryReductionList::const_iterator> InMemoryReductionRange(
-      IMRL->begin(), IMRL->end());
-  InMemoryReductionListCvt IMRLCvt(*this);
-  auto ReducPair = std::make_pair(ReducRange, RedListCvt);
-  auto ExplicitRedPair = std::make_pair(ExplicitReductionRange, ExpRLCvt);
-  auto InMemoryRedPair = std::make_pair(InMemoryReductionRange, IMRLCvt);
-
-  PrivatesListCvt PrivListCvt(*this);
-
-  // Create the iterator-range to the list of privates loop-entities.
-  // FIXME: Uses workaround approach because of known bug with reuse of
-  // map_range, currently used in VPOVectorizationLegality::privates().
-  // Should be simplified once community fix will be provided.
-  SmallVector<const VPOVectorizationLegality::PrivDescrTy *, 8> PvtRawPtrs =
-      llvm::to_vector<8>(Legal->privates());
-
-  RedCvt->createDescrList(TheLoop, ReducPair, ExplicitRedPair, InMemoryRedPair);
-
-  auto InducPair = std::make_pair(InducRange, InducListCvt);
-  auto LinearPair = std::make_pair(LinearRange, LinListCvt);
-
-  auto PrivatesPair = std::make_pair(
-      make_range(PvtRawPtrs.begin(), PvtRawPtrs.end()), PrivListCvt);
-
-  IndCvt->createDescrList(TheLoop, InducPair, LinearPair);
-
-  PrivCvt->createDescrList(TheLoop, PrivatesPair);
-
-  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
-  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
-  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
+  Cvts.push_back(std::move(RedCvt));
+  Cvts.push_back(std::move(IndCvt));
+  Cvts.push_back(std::move(PrivCvt));
 }
 
 bool VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
@@ -648,7 +612,7 @@ bool VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
 }
 
 void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
-  typedef VPLoopEntitiesConverterTempl<Loop2VPLoopMapper> BaseConverter;
+  using BaseConverter = VPLoopEntitiesConverterTempl<Loop2VPLoopMapper>;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (VPlanPrintLegality) {

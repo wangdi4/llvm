@@ -131,7 +131,7 @@ int main() {
   check_convert_from<int16_t>();
   check_convert_from<int32_t>();
   check_convert_from<int64_t>();
-  check_convert_from<half>();
+  check_convert_from<sycl::half>();
   check_convert_from<float>();
   check_convert_from<double>();
 

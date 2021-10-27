@@ -2934,6 +2934,16 @@ static Type *getBasePtrElementType(const GEPOrSubsOperator *GEPOp) {
   }
 }
 
+static Type *getResultElementType(const GEPOrSubsOperator *GEPOp) {
+
+  if (auto *GEP = dyn_cast<GEPOperator>(GEPOp)) {
+    return GEP->getResultElementType();
+  } else {
+    auto *Sub = cast<SubscriptInst>(GEPOp);
+    return Sub->getElementType();
+  }
+}
+
 // Populates \p IndexedTypes vector with types being indexed by the \p GEPOp.
 // ex.:
 //   -- gep [10 x { i8, float }]* %p, 0, i, 1
@@ -3332,7 +3342,8 @@ class HIRParser::GEPChain {
 
   // Return true if next information about indices may be merged into a single
   // chain.
-  bool isCompatible(const ArrayInfo &NextAI) const;
+  bool isCompatible(const ArrayInfo &NextAI,
+                    const GEPOrSubsOperator *NextGEPOp) const;
 
 public:
   using iterator = decltype(Arrays)::const_iterator;
@@ -3564,8 +3575,16 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
 //
 // However we may still represent it as (%p)[0:4000][i:40][j:4],
 // but we would loose type consistency between dimensions.
-bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
+bool HIRParser::GEPChain::isCompatible(
+    const ArrayInfo &NextArr, const GEPOrSubsOperator *NextGEPOp) const {
   const ArrayInfo &CurArr = Arrays.front();
+
+  // There is an implied bitcast between two GEPs. This can only happen with
+  // opaque pointers.
+  if (getResultElementType(NextGEPOp) !=
+      CurArr.getHighestDim().getElementType()) {
+    return false;
+  }
 
   // If NextArr has a struct offset and current first first index is not
   // zero then we have an unconventional structure access and the GEPs cannot
@@ -3646,7 +3665,7 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
 
   ArrayInfo &NextArr = NextArrays.back();
 
-  if (!isCompatible(NextArr)) {
+  if (!isCompatible(NextArr, GEPOp)) {
     return false;
   }
 

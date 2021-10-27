@@ -1241,6 +1241,10 @@ bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob,
   return false;
 }
 
+bool RegDDRef::usesSymbase(unsigned Symbase) const {
+  return usesTempBlob(getBlobUtils().findTempBlobIndex(Symbase));
+}
+
 RegDDRef::blob_iterator
 RegDDRef::getNonConstBlobIterator(const_blob_iterator CBlobI) {
   blob_iterator BlobI(blob_begin());

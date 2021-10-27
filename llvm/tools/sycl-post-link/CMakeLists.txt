@@ -33,7 +33,9 @@ include_directories(
   ${LLVMGenXIntrinsics_SOURCE_DIR}/GenXIntrinsics/include
   ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include)
 
-add_llvm_tool(sycl-post-link
+# INTEL_CUSTOMIZATION
+add_llvm_tool_in_bin(sycl-post-link
+# end INTEL_CUSTOMIZATION
   sycl-post-link.cpp
   SYCLKernelParamOptInfo.cpp
   SpecConstants.cpp

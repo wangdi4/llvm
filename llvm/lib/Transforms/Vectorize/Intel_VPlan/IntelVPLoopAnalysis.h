@@ -1300,10 +1300,11 @@ public:
 
   /// Gathering pass.
   template<typename... OtherItersT>
-  void createDescrList(LoopT *Loop, OtherItersT&... Args) {
+  void createDescrList(LoopT *Loop, OtherItersT&&... Args) {
     LoopList.emplace_back(Loop, DescrList());
     DescrList &Lst = LoopList.back().second;
-    processIterators(Lst, Args...);
+    // Expand the parameter pack.
+    (void)std::initializer_list<int>{(processIterator(Lst, std::move(Args)), 0)...};
   }
 
   /// Sending pass.
@@ -1323,25 +1324,17 @@ public:
   }
 
 private:
-  template <typename FirstIteratorT, typename... OtherItersT>
-  static void processIterators(DescrList &Lst, FirstIteratorT &FirstIter,
-                               OtherItersT &... Args) {
-    processIterators(Lst, FirstIter);
-    processIterators(Lst, Args...);
-  }
-
-  template <typename IteratorT>
-  static void processIterators(DescrList &Lst, IteratorT &Iterator) {
+  template <typename RangeTy, typename ConverterTy>
+  static void processIterator(DescrList &Lst,
+                              std::pair<RangeTy, ConverterTy> &&Iterator) {
     auto &ValRange = Iterator.first;
     auto &ConverterFunc = Iterator.second;
-    for (auto &Iter : ValRange) {
+    for (const auto &Iter : ValRange) {
       Lst.push_back(DescrT());
       auto &Item = Lst.back();
       ConverterFunc(Item, Iter);
     }
   }
-
-  void processIterators(DescrList &Lst) {}
 
   VPlanVector *Plan;
   LoopListT LoopList;

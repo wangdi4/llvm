@@ -13,7 +13,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-loop-optreport=medium -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -hir-cg -intel-loop-optreport=medium %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
-; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:     remark #15553: loop was not vectorized: outer loop is not an auto-vectorization candidate at -O2. Consider using -O3.{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT-NEXT:         remark #15305: vectorization support: vector length {{.*}}

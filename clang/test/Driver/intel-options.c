@@ -579,17 +579,20 @@
 // CHECK-OPT-REPORT: "-mllvm" "-enable-ra-report"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
+// CHECK-OPT-REPORT: "-mllvm" "-inline-report=0x2819"
 // CHECK-OPT-REPORT-NAME: "-opt-record-file" "intel-options-openmp-spir64.opt.yaml"
 
 // RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
 // RUN: %clang_cl -### -Qopt-report:min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
 // CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-loop-optreport=low"
 // CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-ra-spillreport=low"
+// CHECK-OPT-REPORT-MIN: "-mllvm" "-inline-report=0x19"
 
 // RUN: %clang -### -qopt-report=max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
 // RUN: %clang_cl -### -Qopt-report:max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-loop-optreport=high"
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"
+// CHECK-OPT-REPORT-MAX: "-mllvm" "-inline-report=0xf859"
 
 // RUN: %clang -### -O3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
 // RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s

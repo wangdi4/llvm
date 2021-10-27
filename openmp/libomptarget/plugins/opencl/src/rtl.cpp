@@ -54,6 +54,25 @@
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
 #endif // INTEL_CUSTOMIZATION
 
+#define OCL_KERNEL_BEGIN(ID)                                                   \
+  do {                                                                         \
+    if (DeviceInfo->KernelDynamicMemorySize > 0) {                             \
+      /* Already in critical section */                                        \
+      DeviceInfo->NumActiveKernels[ID]++;                                      \
+    }                                                                          \
+  } while (0)
+
+#define OCL_KERNEL_END(ID)                                                     \
+  do {                                                                         \
+    if (DeviceInfo->KernelDynamicMemorySize > 0) {                             \
+      DeviceInfo->Mutexes[ID].lock();                                          \
+      DeviceInfo->NumActiveKernels[ID]--;                                      \
+      if (DeviceInfo->NumActiveKernels[ID] == 0)                               \
+        DeviceInfo->resetProgramData(ID);                                      \
+      DeviceInfo->Mutexes[ID].unlock();                                        \
+    }                                                                          \
+  } while (0)
+
 /// Additional TARGET_ALLOC* definition for the plugin
 constexpr int32_t TARGET_ALLOC_SVM = INT32_MAX;
 
@@ -502,7 +521,7 @@ enum DataTransferMethodTy {
 
 /// Program data to be initialized.
 /// TODO: include other runtime parameters if necessary.
-struct ProgramData {
+struct ProgramDataTy {
   int Initialized = 0;
   int NumDevices = 0;
   int DeviceNum = -1;
@@ -822,6 +841,12 @@ public:
 
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = 0; // Turned off by default
+
+  /// Number of active kernel launches for each device
+  std::vector<uint32_t> NumActiveKernels;
+
+  /// Cached target program data
+  std::vector<ProgramDataTy> ProgramData;
 
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
@@ -1171,6 +1196,9 @@ public:
   /// Initialize program data on device
   int32_t initProgramData(int32_t DeviceId);
 
+  /// Reset program data
+  int32_t resetProgramData(int32_t DeviceId);
+
   /// Allocate cl_mem data
   void *allocDataClMem(int32_t DeviceId, size_t Size);
 
@@ -1485,7 +1513,7 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
 
   int DType = (DeviceType == CL_DEVICE_TYPE_GPU) ? 0 : 1;
 
-  ProgramData hostData = {
+  ProgramDataTy hostData = {
     1,                   // Initialized
     (int32_t)NumDevices, // Number of devices
     deviceId,            // Device ID
@@ -1496,23 +1524,29 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     DType                // Device type (0 for GPU, 1 for CPU)
   };
 
+  ProgramData[deviceId] = hostData;
+
+  return resetProgramData(deviceId);
+}
+
+int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
 #if INTEL_CUSTOMIZATION
   if (!isExtensionFunctionEnabled(
-        deviceId, clGetDeviceGlobalVariablePointerINTELId)) {
+        DeviceId, clGetDeviceGlobalVariablePointerINTELId)) {
     DP("Warning: cannot initialize program data on device.\n");
     return OFFLOAD_SUCCESS;
   }
 
-  void *dataPtr = getVarDeviceAddr(deviceId, "__omp_spirv_program_data",
-                                   sizeof(hostData));
-  if (!dataPtr) {
+  void *DataPtr = getVarDeviceAddr(DeviceId, "__omp_spirv_program_data",
+                                   sizeof(ProgramDataTy));
+  if (!DataPtr) {
     DP("Warning: cannot find program data location on device.\n");
     return OFFLOAD_SUCCESS;
   }
 
-  CALL_CL_EXT_RET_FAIL(deviceId, clEnqueueMemcpyINTEL, Queues[deviceId],
-                       CL_TRUE, dataPtr, &hostData, sizeof(hostData), 0,
-                       nullptr, nullptr);
+  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queues[DeviceId],
+                       CL_TRUE, DataPtr, &ProgramData[DeviceId],
+                       sizeof(ProgramDataTy), 0, nullptr, nullptr);
 #endif // INTEL_CUSTOMIZATION
 
   return OFFLOAD_SUCCESS;
@@ -2141,6 +2175,8 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
+  DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumDevices, 0);
+  DeviceInfo->ProgramData.resize(DeviceInfo->NumDevices);
 
   // Host allocation information needs one additional slot
   for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
@@ -4111,6 +4147,7 @@ static inline int32_t runTargetTeamNDRegion(
   }
 
   cl_event Event;
+  OCL_KERNEL_BEGIN(DeviceId);
   CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[DeviceId],
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
@@ -4132,6 +4169,7 @@ static inline int32_t runTargetTeamNDRegion(
     }
   } else {
     CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+    OCL_KERNEL_END(DeviceId);
     if (DeviceInfo->Flags.EnableProfile) {
       std::vector<char> Buf;
       size_t BufSize;

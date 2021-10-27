@@ -16,7 +16,7 @@ file(GLOB TARGET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
 set(AOCL_IOC64_PROJECT_NAME ioc64)
 
-add_llvm_tool(${AOCL_IOC64_PROJECT_NAME} ${TARGET_SOURCES} CUSTOM_WIN_VER)
+add_llvm_tool_in_bin(${AOCL_IOC64_PROJECT_NAME} ${TARGET_SOURCES} CUSTOM_WIN_VER)
 
 if(NOT MSVC)
   # FIXME: when built with icx it produces a warning.

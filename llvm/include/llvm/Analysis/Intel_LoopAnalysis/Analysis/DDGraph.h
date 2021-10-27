@@ -139,6 +139,8 @@ public:
     return out << s;
   }
 
+  std::string getOptReportStr() const;
+
   void print(raw_ostream &OS) const;
 
   void dump() const { print(dbgs()); }
