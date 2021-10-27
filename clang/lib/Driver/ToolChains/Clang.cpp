@@ -7784,7 +7784,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     // Do not allow for -loopopt to be passed along if -x<arg> isn't provided
     // Only do this check for the product release enabled builds.
     StringRef Str(A->getValue(0));
-    if (Str.equals("-loopopt")) {
+    if (Str.equals("-loopopt") || Str.startswith("-loopopt=")) {
       bool AddLoopOpt = false;
       auto CheckIntelArchOpt = [&AddLoopOpt](Arg *ArchArg, options::ID O) {
         if (ArchArg->getOption().matches(O))

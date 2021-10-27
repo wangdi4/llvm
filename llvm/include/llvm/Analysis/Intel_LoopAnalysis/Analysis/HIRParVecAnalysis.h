@@ -96,10 +96,10 @@ private:
   DebugLoc VecLoc;
 
   // DD Edges preventing parallelization
-  SmallVector<DDEdge *, 1> ParEdges;
+  SmallVector<const DDEdge *, 1> ParEdges;
 
   // DD Edges preventing vectorization
-  SmallVector<DDEdge *, 1> VecEdges;
+  SmallVector<const DDEdge *, 1> VecEdges;
 
   /// \brief Non-diagnostic strings. Analysis incomplete or
   /// diagnostic has to come from threadizer/vectorizer.
@@ -160,8 +160,15 @@ public:
     VecEdges.clear();
   };
 
-  void addParEdge(DDEdge *Edge) { ParEdges.push_back(Edge); };
-  void addVecEdge(DDEdge *Edge) { VecEdges.push_back(Edge); };
+  const SmallVectorImpl<const DDEdge *> &getParEdges() const {
+    return ParEdges;
+  }
+  const SmallVectorImpl<const DDEdge *> &getVecEdges() const {
+    return VecEdges;
+  }
+
+  void addParEdge(const DDEdge *Edge) { ParEdges.push_back(Edge); };
+  void addVecEdge(const DDEdge *Edge) { VecEdges.push_back(Edge); };
   bool isParallelMode() const { return isParallelMode(Mode); }
   bool isVectorMode() const { return isVectorMode(Mode); }
 

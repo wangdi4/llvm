@@ -125,8 +125,8 @@
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
 // CHECK-INTEL-LOOPOPT: "-mllvm" "-loopopt=0" "-floopopt-pipeline=none" "-mllvm" "-enable-lv"
 
-// RUN: %clang -### --intel -mllvm -loopopt=1 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
-// RUN: %clang_cl -### --intel -mllvm -loopopt=1 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
+// RUN: %clang -### --intel -mllvm -loopopt=1 -xAVX2 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
+// RUN: %clang_cl -### --intel -mllvm -loopopt=1 -QxAVX2 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
 // CHECK-INTEL-LOOPOPT1: "-mllvm" "-loopopt=1" {{.*}} "-floopopt-pipeline=light"
 // CHECK-INTEL-LOOPOPT1-NOT: "-mllvm" "-loopopt=0"
 // CHECK-INTEL-LOOPOPT1-NOT: floopopt-pipeline=none
