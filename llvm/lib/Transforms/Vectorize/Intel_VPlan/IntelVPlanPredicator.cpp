@@ -477,6 +477,7 @@ class LinearizationBlockOrdering {
     for (auto It = RPOTIt; It != RPOTEnd; ++It) {
       auto *BB = *It;
       auto *BBNode = DT->getNode(BB);
+      assert(BBNode && "Expected non-null BBNode for a basic block.");
       auto *BBIDom = BBNode->getIDom();
       if (BBIDom != DomBBNode)
         continue;
