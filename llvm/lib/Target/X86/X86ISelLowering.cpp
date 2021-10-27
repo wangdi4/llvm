@@ -53130,10 +53130,6 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
     }
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   EVT PtrVT = TLI.getPointerTy(DAG.getDataLayout());
   // Try to move splat constant adders from the index operand to the base
@@ -53159,11 +53155,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
         }
       }
 
-<<<<<<< HEAD
-      // It's also possible, base is just a constant. In that case case just
-=======
       // It's also possible base is just a constant. In that case, just
->>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
       // replace it with 0 and move the displacement into the index.
       if (BV->isConstant() && isa<ConstantSDNode>(Base) &&
           isOneConstant(Scale)) {
@@ -53180,7 +53172,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
     }
   }
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
   // If the index is a constant splat, we can fold it into the base. And change
   // the index to all zeroes. This can avoid a constant pool load.
   if (auto *BV = dyn_cast<BuildVectorSDNode>(Index)) {
@@ -53196,8 +53188,6 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
   }
 #endif
 
-=======
->>>>>>> 79f9dfef0da5fdabb16873726a1725e2b1c8c2c4
   if (DCI.isBeforeLegalizeOps()) {
     unsigned IndexWidth = Index.getScalarValueSizeInBits();
 
