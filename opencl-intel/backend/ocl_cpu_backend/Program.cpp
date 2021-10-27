@@ -23,6 +23,8 @@
 #include "cl_sys_defines.h"
 #include "exceptions.h"
 
+using namespace llvm;
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 Program::Program():
     m_pObjectCodeContainer(nullptr),
@@ -144,6 +146,27 @@ void Program::SetBitCodeContainer(BitCodeContainer* bitCodeContainer)
 {
     delete m_pIRCodeContainer;
     m_pIRCodeContainer = bitCodeContainer;
+}
+
+/// Currently the hash is computed from m_pIRCodeContainer.
+std::string Program::GenerateHash() {
+  if (!m_hash.empty())
+    return m_hash;
+
+  assert(m_pIRCodeContainer && "invalid IR code container");
+  const llvm::MemoryBuffer *Buf = m_pIRCodeContainer->GetMemoryBuffer();
+
+  // Compute hash.
+  MD5 Hash;
+  std::array<uint8_t, 16> Bytes = Hash.hash(ArrayRef<uint8_t>(
+      (const uint8_t *)Buf->getBufferStart(), Buf->getBufferSize()));
+  SmallString<16> Str;
+  raw_svector_ostream OS(Str);
+  for (int i = 0; i < 8; ++i)
+    OS << format("%.2x", Bytes[i] ^ Bytes[i + 8]);
+  m_hash = Str.str().str();
+
+  return m_hash;
 }
 
 void Program::SetBuildLog( const std::string& buildLog )

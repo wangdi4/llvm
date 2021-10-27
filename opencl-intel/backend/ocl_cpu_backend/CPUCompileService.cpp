@@ -31,8 +31,6 @@ using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-namespace Utils {
-
 static unsigned getAsmDumpFileId() {
   static std::atomic<unsigned> fileId(0);
   fileId++;
@@ -47,20 +45,6 @@ static unsigned getBinDumpFileId() {
   return fileId.load(std::memory_order_relaxed);
 }
 
-static std::string getDumpDefaultFilename(bool dumpBinary) {
-  std::string filename;
-  // Use default base filename
-  filename = SystemInfo::GetExecutableFilename();
-  if (filename.empty())
-    filename = "Program";
-
-  unsigned fileId = dumpBinary ? getBinDumpFileId() : getAsmDumpFileId();
-  std::string extension = dumpBinary ? ".bin" : ".asm";
-  return filename + std::to_string(fileId) + extension;
-}
-
-} // namespace Utils
-
 CPUCompileService::CPUCompileService(std::unique_ptr<ICompilerConfig> config)
     :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), std::move(config))
 {
@@ -70,13 +54,15 @@ CPUCompileService::CPUCompileService(std::unique_ptr<ICompilerConfig> config)
         m_programBuilder);
 }
 
-cl_dev_err_code CPUCompileService::DumpJITCodeContainer(
-    const ICLDevBackendCodeContainer *codeContainer,
-    const ICLDevBackendOptions *options, bool dumpBinary) const {
+cl_dev_err_code
+CPUCompileService::DumpJITCodeContainer(ICLDevBackendProgram_ *program,
+                                        const ICLDevBackendOptions *options,
+                                        bool dumpBinary) const {
   try {
     // Load object code from ObjectCodeContainer
     const ObjectCodeContainer *container =
-        static_cast<const ObjectCodeContainer *>(codeContainer);
+        static_cast<const ObjectCodeContainer *>(
+            program->GetProgramCodeContainer());
     if (!container)
       return CL_DEV_INVALID_PROGRAM_EXECUTABLE;
 
@@ -97,10 +83,13 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer(
     std::string filename;
     if (options) {
       filename = options->GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE, "");
-      assert(!filename.empty() && "Dump filename shouldn't be empty");
     } else {
-      filename = Utils::getDumpDefaultFilename(dumpBinary);
+      unsigned fileId = dumpBinary ? getBinDumpFileId() : getAsmDumpFileId();
+      std::string suffix = dumpBinary ? ".bin" : ".asm";
+      filename = m_programBuilder.generateDumpFilename(
+          static_cast<Program *>(program)->GenerateHash(), fileId, suffix);
     }
+    assert(!filename.empty() && "Dump filename shouldn't be empty");
 
     // Open file
     std::error_code ec;
