@@ -17,6 +17,8 @@
 #include "cl_sys_info.h"
 #include "cl_types.h"
 #include "cl_utils.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -27,6 +29,7 @@
 #include <sys/resource.h>
 #endif
 
+using namespace llvm;
 using namespace std;
 
 bool CheckCondition(const char * name, bool condition)
@@ -846,4 +849,29 @@ cl_ulong trySetStackSize(cl_ulong size)
 
 unsigned getMaxNumExternalThreads() {
   return std::min((unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors(), 10u);
+}
+
+bool fileContains(const std::string &Filename,
+                  const std::vector<std::string> &Patterns) {
+  std::ifstream IFS(Filename);
+  if (!IFS)
+    return false;
+  std::stringstream SS;
+  SS << IFS.rdbuf();
+  std::string Buffer = SS.str();
+  for (auto &Pattern : Patterns)
+    if (Buffer.find(Pattern) == std::string::npos)
+      return false;
+  return true;
+}
+
+std::string findFileInDir(const std::string &Dir, const Regex &R) {
+  std::error_code EC;
+  for (sys::fs::directory_iterator I(Dir, EC), E; I != E && !EC;
+       I.increment(EC)) {
+    StringRef FileName = sys::path::filename(I->path());
+    if (R.match(FileName))
+      return FileName.str();
+  }
+  return "";
 }

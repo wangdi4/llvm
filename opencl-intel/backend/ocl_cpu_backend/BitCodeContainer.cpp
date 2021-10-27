@@ -89,9 +89,8 @@ std::unique_ptr<llvm::Module> BitCodeContainer::GetModuleOwner()
     return std::move(m_M);
 }
 
-void* BitCodeContainer::GetMemoryBuffer() const
-{
-    return m_pBuffer.get();
+llvm::MemoryBuffer *BitCodeContainer::GetMemoryBuffer() const {
+  return m_pBuffer.get();
 }
 
 void BitCodeContainer::Release()

@@ -485,11 +485,6 @@ TEST(FrameWorkTestType, Test_cl20ExecutionModel)
     EXPECT_TRUE(cl20ExecutionModel());
 }
 
-TEST(FrameworkTestType, Test_GenStats)
-{
-    EXPECT_TRUE(cl_GenStats());
-}
-
 TEST(FrameworkTestType, Test_clDoNotVectorizeUnreachable)
 {
     EXPECT_TRUE(clDoNotVectorizeUnreachable());

@@ -476,8 +476,8 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         std::string filename = Utils::GetDataFilePath( pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
                                                        pOCLProgramConfig->GetBaseDirectory());
         ProgramJitDumpConfig dumpOptions(filename);
-        spCompileService->DumpJITCodeContainer(programHolder.getProgram()->GetProgramCodeContainer(),
-            &dumpOptions);
+        spCompileService->DumpJITCodeContainer(programHolder.getProgram(),
+                                               &dumpOptions);
     }
 
     if (pOCLRunConfig->GetValue<bool>(RC_BR_BUILD_ONLY, false))

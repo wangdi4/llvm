@@ -66,6 +66,10 @@ public:
     cl_dev_err_code BuildLibraryProgram(Program *Prog,
                                         std::string &KernelNames);
 
+    /// Generate IR/Asm/Bin dump filename.
+    std::string generateDumpFilename(const std::string &hash, unsigned fileId,
+                                     const std::string &suffix) const;
+
 protected:
 
     virtual Compiler* GetCompiler() = 0;
@@ -102,10 +106,11 @@ protected:
 
 private:
     /// @brief Dump stats collected for module if requested
-    void DumpModuleStats(llvm::Module* pModule, bool isEqualizerStats = false);
+    void DumpModuleStats(Program *program, llvm::Module *pModule,
+                         bool isEqualizerStats = false);
 
-    // base file name for stats
-    std::string m_statFileBaseName;
+    // Prefix of file name for IR/Asm/Bin dump.
+    std::string m_dumpFilenamePrefix;
     // Workload name for the stats
     std::string m_statWkldName;
 };

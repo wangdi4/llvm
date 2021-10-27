@@ -37,7 +37,7 @@ public:
     ProgramBuilder *GetProgramBuilder() override { return &m_programBuilder; }
 
     cl_dev_err_code
-    DumpJITCodeContainer(const ICLDevBackendCodeContainer *codeContainer,
+    DumpJITCodeContainer(ICLDevBackendProgram_ *program,
                          const ICLDevBackendOptions *options,
                          bool dumpBinary = false) const override;
 

@@ -203,9 +203,10 @@ void CompileService::Release()
 }
 
 // dump JIT'ed code as object binary or x86 assembly
-cl_dev_err_code CompileService::DumpJITCodeContainer(
-    const ICLDevBackendCodeContainer * /*codeContainer*/,
-    const ICLDevBackendOptions * /*options*/, bool /*dumpBinary*/) const {
+cl_dev_err_code
+CompileService::DumpJITCodeContainer(ICLDevBackendProgram_ * /*program*/,
+                                     const ICLDevBackendOptions * /*options*/,
+                                     bool /*dumpBinary*/) const {
   assert(false);
   return CL_DEV_NOT_SUPPORTED;
 }

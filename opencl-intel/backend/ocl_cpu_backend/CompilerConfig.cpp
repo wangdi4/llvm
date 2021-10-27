@@ -72,6 +72,13 @@ void GlobalCompilerConfig::LoadConfig()
                 intel::Statistic::setCurrentStatType(pEnv);
         }
     }
+    if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS")) {
+      if (pEnv[0] != 0) {
+        intel::Statistic::enableStats();
+        if (STRCASECMP("all", pEnv))
+          intel::Statistic::setCurrentStatType(pEnv);
+      }
+    }
 #endif // INTEL_PRODUCT_RELEASE
 
 // INTEL VPO BEGIN
@@ -218,10 +225,9 @@ void CompilerConfig::LoadConfig()
     }
 #endif // NDEBUG
 #ifndef INTEL_PRODUCT_RELEASE
-    if (const char *pEnv = getenv("VOLCANO_IR_FILE_BASE_NAME"))
-    {
-        // base name for stat files
-        m_statFileBaseName = pEnv;
+    if (const char *pEnv = getenv("CL_CONFIG_DUMP_FILE_NAME_PREFIX")) {
+      // base name for stat files
+      m_dumpFilenamePrefix = pEnv;
     }
 #endif // INTEL_PRODUCT_RELEASE
 }

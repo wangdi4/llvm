@@ -374,20 +374,19 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     {
         assert( pEntry->pProgram && "Program must be created already");
         ProgramDumpConfig dumpOptions(p);
-        m_pBackendCompiler->DumpJITCodeContainer(
-            pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
+        m_pBackendCompiler->DumpJITCodeContainer(pEntry->pProgram,
+                                                 &dumpOptions);
     }
 
     if (m_pCPUConfig->DumpAsm()) {
         assert( pEntry->pProgram && "Program must be created already");
-        m_pBackendCompiler->DumpJITCodeContainer(
-            pEntry->pProgram->GetProgramCodeContainer(), nullptr);
+        m_pBackendCompiler->DumpJITCodeContainer(pEntry->pProgram, nullptr);
     }
 
     if (m_pCPUConfig->DumpBin()) {
         assert(pEntry->pProgram && "Program must be created already");
-        m_pBackendCompiler->DumpJITCodeContainer(
-            pEntry->pProgram->GetProgramCodeContainer(), nullptr, true);
+        m_pBackendCompiler->DumpJITCodeContainer(pEntry->pProgram, nullptr,
+                                                 true);
     }
 
 #ifndef INTEL_PRODUCT_RELEASE
