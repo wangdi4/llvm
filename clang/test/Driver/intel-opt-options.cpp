@@ -187,3 +187,7 @@
 // RUN: %clangxx -mllvm -loopopt -xAVX2 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK_LOOPOPT %s
 // CHECK_LOOPOPT: "-mllvm" "-loopopt"
+
+// RUN: %clangxx -mllvm -loopopt=2 -xAVX2 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK_LOOPOPT2 %s
+// CHECK_LOOPOPT2: "-mllvm" "-loopopt=2"
