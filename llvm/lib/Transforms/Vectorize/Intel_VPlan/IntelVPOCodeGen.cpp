@@ -237,12 +237,12 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialInst = Builder.CreateExtractElement(Ops[0], Ops[1]);
   } else if (VPInst->getOpcode() == Instruction::Alloca) {
     assert(Ops.size() == 1 && "Alloca instruction should have one operand.");
-    auto *Ty = cast<PointerType>(VPInst->getType());
-    AllocaInst *SerialAlloca = Builder.CreateAlloca(
-        Ty->getElementType(), Ty->getAddressSpace(), Ops[0]);
     // TODO: We don't represent alloca attributes in VPInstruction, so
     // underlying instruction must exist!
     auto *OrigAlloca = cast<AllocaInst>(VPInst->getUnderlyingValue());
+    AllocaInst *SerialAlloca = Builder.CreateAlloca(
+        OrigAlloca->getAllocatedType(),
+        cast<PointerType>(VPInst->getType())->getAddressSpace(), Ops[0]);
     SerialAlloca->setAlignment(OrigAlloca->getAlign());
     SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
     SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());

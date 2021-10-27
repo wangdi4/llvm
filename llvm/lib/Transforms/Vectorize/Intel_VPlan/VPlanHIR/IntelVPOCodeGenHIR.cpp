@@ -2997,8 +2997,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                   NeedScalarRef ? 1 : VF);
   }
 
-  PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
-  Type *ValTy = PtrTy->getElementType();
+  Type *ValTy = VPLdSt->getValueType();
   if (!Lane0Value) {
     Type *VecValTy = getWidenedType(ValTy, VF);
 
@@ -3863,8 +3862,23 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
                                             RegDDRef *Mask, bool Widen,
                                             unsigned ScalarLaneID) {
-  auto RefDestTy = VPSubscript->getType();
-  auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
+  auto Dim0 = VPSubscript->dim(0);
+  Type *DestTy = Dim0.DimElementType;
+  for (uint64_t Idx : Dim0.StructOffsets)
+    DestTy = GetElementPtrInst::getTypeAtIndex(DestTy, Idx);
+  Type *ResultRefTy = DestTy;
+  if (Widen) {
+    // See documentation for
+    //
+    //   Type *BitCastDestVecOrElemTy;
+    //
+    // in loopopt::RegDDRef. For a vector of pointers they want that vector
+    // instead of element types as "an exception".
+    ResultRefTy = getWidenedType(
+        DestTy->getScalarType()->getPointerTo(
+            cast<PointerType>(VPSubscript->getType())->getAddressSpace()),
+        VF);
+  }
 
   RegDDRef *PointerRef = getOrCreateRefForVPVal(
       VPSubscript->getPointerOperand(), Widen, ScalarLaneID);
@@ -3875,13 +3889,11 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
     PointerRef = CopyInst->getLvalDDRef();
   }
 
-  auto *NewRef = DDRefUtilities.createAddressOfRef(PointerRef->getDestType()->getScalarType()->getPointerElementType(),
+  auto *NewRef = DDRefUtilities.createAddressOfRef(
+      VPSubscript->dim(VPSubscript->getNumDimensions() - 1).DimElementType,
       PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
   NewRef->setInBounds(VPSubscript->isInBounds());
-  auto *BitCastDestTy = isa<PointerType>(ResultRefTy)
-                            ? ResultRefTy->getPointerElementType()
-                            : ResultRefTy;
-  NewRef->setBitCastDestVecOrElemType(BitCastDestTy);
+  NewRef->setBitCastDestVecOrElemType(ResultRefTy);
   SmallVector<const RegDDRef *, 4> AuxRefs;
 
   // Utility to specially handle lower/stride fields of a subscript. We ensure
@@ -4743,6 +4755,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
 
   case Instruction::GetElementPtr: {
+    auto *GEP = cast<VPGEPInstruction>(VPInst);
     if (VPInst->getNumOperands() == 2) {
       // VPlan VLS transformation introduces this kind of GEPs:
       //   %base = ....
@@ -4782,8 +4795,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       addInstUnmasked(CopyInst);
       PointerRef = CopyInst->getLvalDDRef()->clone();
 
-      auto *NewRef = DDRefUtilities.createAddressOfRef(PointerRef->getDestType()->getPointerElementType(),
-          PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
+      auto *NewRef = DDRefUtilities.createAddressOfRef(
+          GEP->getSourceElementType(), PointerRef->getSelfBlobIndex(),
+          PointerRef->getDefinedAtLevel());
       RegDDRef *Idx = getOrCreateScalarRef(VPInst->getOperand(1), 0);
       NewRef->addDimension(Idx->getSingleCanonExpr());
       addVPValueScalRefMapping(VPInst, NewRef, 0);
