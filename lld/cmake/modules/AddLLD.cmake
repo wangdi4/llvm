@@ -46,7 +46,9 @@ macro(add_lld_tool name)
     get_target_export_arg(${name} LLD export_to_lldtargets)
     install(TARGETS ${name}
       ${export_to_lldtargets}
-      RUNTIME DESTINATION bin
+# INTEL_CUSTOMIZATION
+      RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
+# end INTEL_CUSTOMIZATION
       COMPONENT ${name})
 
     if(NOT CMAKE_CONFIGURATION_TYPES)
