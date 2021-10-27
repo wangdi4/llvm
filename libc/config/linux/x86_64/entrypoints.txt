@@ -36,6 +36,7 @@ set(TARGET_LIBC_ENTRYPOINTS
     libc.src.string.strcmp
     libc.src.string.strcpy
     libc.src.string.strcspn
+    libc.src.string.strdup
     libc.src.string.strlen
     libc.src.string.strncat
     libc.src.string.strncmp
@@ -225,6 +226,20 @@ if(LLVM_LIBC_FULL_BUILD)
 
     # unistd.h entrypoints
     libc.src.unistd.write
+  )
+endif()
+
+if(LLVM_LIBC_INCLUDE_SCUDO)
+  list(APPEND TARGET_LIBC_ENTRYPOINTS
+
+    # stdlib.h external entrypoints
+    libc.src.stdlib.malloc
+    libc.src.stdlib.calloc
+    libc.src.stdlib.realloc
+    libc.src.stdlib.free
+
+    # string.h entrypoints that depend on malloc
+    libc.src.string.strdup
   )
 endif()
 
