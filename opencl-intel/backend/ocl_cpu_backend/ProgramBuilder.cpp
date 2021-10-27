@@ -72,7 +72,7 @@ using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-static void BEFatalErrorHandler(void * /*user_data*/, const std::string &reason,
+static void BEFatalErrorHandler(void * /*user_data*/, const char *reason,
                                 bool /*gen_crash_diag*/) {
   errs()
       << "**Internal compiler error** " << reason << "\n"
@@ -80,7 +80,8 @@ static void BEFatalErrorHandler(void * /*user_data*/, const std::string &reason,
       << "https://software.intel.com/en-us/forums/opencl for assistance. \n ";
   // If the error is allocation memory failure, the info of big channel
   // will be shown as a hint for user.
-  if (reason.find("Unable to allocate section memory") != std::string::npos &&
+  std::string reasonStr(reason);
+  if (reasonStr.find("Unable to allocate section memory") != std::string::npos &&
       !Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.empty()) {
     errs()
         << "**The potential reason is the following big channel declaration:\n";
