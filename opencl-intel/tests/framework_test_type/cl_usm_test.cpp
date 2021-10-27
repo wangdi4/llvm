@@ -671,6 +671,7 @@ TEST_F(USMTest, setKernelArgMemPointer) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
+#ifndef _WIN32
 TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   // Build program.
   const char *source[] = {"__kernel void test(const __global int *data,\n"
@@ -696,6 +697,7 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   cl_int err = clReleaseProgram(program);
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
+#endif // _WIN32
 
 TEST_F(USMTest, setKernelExecInfo) {
   cl_int err;
