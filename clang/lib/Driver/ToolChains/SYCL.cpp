@@ -64,7 +64,12 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(
     CmdArgs.push_back("-o");
     CmdArgs.push_back(OutputFileName);
   } else {
+#if INTEL_CUSTOMIZATION
+    // Workaround for old GPU driver version
+    CmdArgs.push_back("-spirv-max-version=1.3");
+#else  // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-spirv-max-version=1.4");
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-spirv-ext=+all");
     CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
     CmdArgs.push_back("-spirv-allow-extra-diexpressions");

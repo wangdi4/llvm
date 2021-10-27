@@ -21,20 +21,36 @@
 @arr2 = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 
 define void @foo(i64 %n1, i64 %n2) {
-; CHECK-LABEL:  VPlan after importing plain CFG
-; CHECK-NEXT:  VPlan IR for: foo:HIR
+; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@arr2}
 ; CHECK-DAG:     [[VP1:%.*]] = {@arr}
 ; CHECK-DAG:     [[VP2:%.*]] = {(%n1 * %n2)<nsw>}
 ; CHECK-NEXT:  External Defs End:
-; CHECK:          i64 [[VP3:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP4:%.*]], {{.*}} ]
-; CHECK-NEXT:     i64* [[VP5:%.*]] = subscript inbounds [100 x i64]* @arr i64 0 i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = load i64* [[VP5]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP6]] i64 [[VP2]]
-; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP6]] i64 [[VP2]]
-; CHECK-NEXT:     i64* [[VP9:%.*]] = subscript inbounds [100 x i64]* @arr2 i64 0 i64 [[VP8]]
-; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP9]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
+; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x i64]* @arr i64 0 i64 [[VP3]]
+; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP_LOAD]] i64 [[VP2]]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP_LOAD]] i64 [[VP2]]
+; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x i64]* @arr2 i64 0 i64 [[VP6]]
+; CHECK-NEXT:     store i64 [[VP5]] i64* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
+; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp sle i64 [[VP4]] i64 99
+; CHECK-NEXT:     br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br <External Block>
 ;
 entry:
   %mul = mul nsw i64 %n2, %n1

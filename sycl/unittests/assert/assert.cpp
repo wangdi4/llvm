@@ -706,6 +706,7 @@ TEST(Assert, TestKernelFromSourceNegative) {
 
   EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
             KernelLaunchCounterBase + 1);
+<<<<<<< HEAD
 }
 
 TEST(Assert, TestAssertServiceKernelHidden) {
@@ -720,4 +721,6 @@ TEST(Assert, TestAssertServiceKernelHidden) {
       });
 
   EXPECT_TRUE(NoFoundServiceKernelID);
+=======
+>>>>>>> bac3b6719dbd010438ce6f2362ccd3e15489a8e1
 }
