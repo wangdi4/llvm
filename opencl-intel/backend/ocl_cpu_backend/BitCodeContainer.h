@@ -67,7 +67,7 @@ public:
     /**
      * Returns the serialized bitcode buffer as a plain pointer (convert to LLVM MemoryBuffer)
      */
-    void* GetMemoryBuffer() const;
+    llvm::MemoryBuffer *GetMemoryBuffer() const;
 
     /**
      * Releases the Bit Code Container

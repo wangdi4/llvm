@@ -14,14 +14,15 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-#include <exception>
-#include <iostream>
-#include <stdlib.h>
 #include "CL/cl.h"
 #include "cl_types.h"
 #include "cl_utils.h"
+#include "llvm/Support/Regex.h"
+#include <exception>
+#include <iostream>
+#include <stdlib.h>
+#include <string>
+#include <vector>
 
 bool CheckCondition(const char * name, bool condition);
 bool SilentCheckCondition(const char * name, bool condition);
@@ -147,3 +148,11 @@ cl_ulong trySetStackSize(cl_ulong size);
 /// Return the maximum number of external threads that are allowed in
 /// a test in which each thread launches a separate kernel.
 unsigned getMaxNumExternalThreads();
+
+/// Check whether the file contains all of the pattern strings.
+bool fileContains(const std::string &Filename,
+                  const std::vector<std::string> &Patterns);
+
+/// Find a file with name matching the regex in a directory.
+/// The first matching filename will be returned.
+std::string findFileInDir(const std::string &Dir, const llvm::Regex &R);

@@ -105,8 +105,8 @@ public:
 
     bool GetDumpHeuristicIRFlag() const override { return m_dumpHeuristicIR; }
 
-    const std::string &GetStatFileBaseName() const override {
-      return m_statFileBaseName;
+    const std::string &GetDumpFilenamePrefix() const override {
+      return m_dumpFilenamePrefix;
     }
 
     bool GetStreamingAlways() const override { return m_streamingAlways; }
@@ -132,7 +132,7 @@ protected:
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_dumpIRDir;
     bool m_dumpHeuristicIR;
-    std::string m_statFileBaseName;
+    std::string m_dumpFilenamePrefix;
     int m_forcedPrivateMemorySize;
     bool        m_useAutoMemory;
     bool        m_streamingAlways;

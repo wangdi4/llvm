@@ -124,13 +124,13 @@ public:
     /**
      * Dumps the JIT code
      *
-     * @param codeContainer Code container
+     * @param program pointer to the program.
      * @param options Pointer to the options object which may contain the dump
      *                settings. /see cl_dev_backend_dump_options
      * @param dumpBinary Dump code as ELF binary or disassembled x86 assembly
      */
     virtual cl_dev_err_code
-    DumpJITCodeContainer(const ICLDevBackendCodeContainer *codeContainer,
+    DumpJITCodeContainer(ICLDevBackendProgram_ *program,
                          const ICLDevBackendOptions *options,
                          bool dumpBinary = false) const = 0;
 };

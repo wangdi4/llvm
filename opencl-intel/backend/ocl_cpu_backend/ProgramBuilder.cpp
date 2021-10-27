@@ -68,6 +68,7 @@
 using std::string;
 using namespace DPCPPKernelMetadataAPI;
 using namespace intel;
+using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -95,14 +96,14 @@ static void BEFatalErrorHandler(void * /*user_data*/, const char *reason,
  */
 namespace Utils
 {
-static int getEqualizerDumpFileId() {
+static unsigned getEqualizerDumpFileId() {
   static std::atomic<unsigned> fileId(0);
   fileId++;
 
   return fileId.load(std::memory_order_relaxed);
 }
 
-static int getVolcanoDumpFileId() {
+static unsigned getVolcanoDumpFileId() {
   static std::atomic<unsigned> fileId(0);
   fileId++;
 
@@ -114,7 +115,7 @@ static llvm::MemoryBuffer *GetProgramMemoryBuffer(Program *pProgram) {
   const BitCodeContainer *pCodeContainer =
       static_cast<const BitCodeContainer *>(
           pProgram->GetProgramIRCodeContainer());
-  return (llvm::MemoryBuffer *)pCodeContainer->GetMemoryBuffer();
+  return pCodeContainer->GetMemoryBuffer();
 }
 
 /// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
@@ -132,71 +133,69 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
     : m_pBackendFactory(pBackendFactory), m_config(std::move(config)),
       m_targetDevice(m_config->TargetDevice()),
       m_forcedPrivateMemorySize(m_config->GetForcedPrivateMemorySize()),
-      m_statFileBaseName(m_config->GetStatFileBaseName()) {
-    if (m_forcedPrivateMemorySize == 0) {
-      if (m_targetDevice == FPGA_EMU_DEVICE && m_config->UseAutoMemory())
-        m_forcedPrivateMemorySize = FPGA_DEV_MAX_WG_PRIVATE_SIZE;
-      else
-        m_forcedPrivateMemorySize = CPU_DEV_MAX_WG_PRIVATE_SIZE;
-    }
-    // prepare default base file name for stat file in the following cases:
-    // stats are enabled but the user didn't set up the base file name
-    // the user set up as base file name only a directory name, i.e. it ends
-    // with \ or /
-    // the default file name is the running executable name
-    if ((m_statFileBaseName.empty() && intel::Statistic::isEnabled()) ||
-        (!m_statFileBaseName.empty() &&
-         llvm::sys::path::is_separator(*m_statFileBaseName.rbegin())))
-    {
-        std::string name = Utils::SystemInfo::GetExecutableFilename();
-        // if still no meaningful name just use "Program" as module name
-        if (name.empty())
-            name = "Program";
-
-        m_statFileBaseName += name;
-
-        if (intel::Statistic::isEnabled())
-          m_statWkldName = name;
-    }
+      m_dumpFilenamePrefix(m_config->GetDumpFilenamePrefix()) {
+  if (m_forcedPrivateMemorySize == 0) {
+    if (m_targetDevice == FPGA_EMU_DEVICE && m_config->UseAutoMemory())
+      m_forcedPrivateMemorySize = FPGA_DEV_MAX_WG_PRIVATE_SIZE;
+    else
+      m_forcedPrivateMemorySize = CPU_DEV_MAX_WG_PRIVATE_SIZE;
+  }
+  // prepare default base file name for stat file in the following cases:
+  // stats are enabled but the user didn't set up the base file name
+  // the user set up as base file name only a directory name, i.e. it ends
+  // with \ or /
+  // the default file name is the running executable name
+  if (m_dumpFilenamePrefix.empty() ||
+      llvm::sys::path::is_separator(*m_dumpFilenamePrefix.rbegin())) {
+    std::string name = Utils::SystemInfo::GetExecutableFilename();
+    // if still no meaningful name just use "Program" as module name
+    if (name.empty())
+      name = "Program";
+    m_dumpFilenamePrefix += name;
+    if (intel::Statistic::isEnabled())
+      m_statWkldName = name;
+  }
 }
 
 ProgramBuilder::~ProgramBuilder()
 {
 }
 
-void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStats)
-{
+std::string
+ProgramBuilder::generateDumpFilename(const std::string &hash, unsigned fileId,
+                                     const std::string &suffix) const {
+  return m_dumpFilenamePrefix + "_" + std::to_string(fileId) + "_" + hash +
+         suffix;
+}
+
+void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
+                                     bool isEqualizerStats) {
 #ifndef INTEL_PRODUCT_RELEASE
-    if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
-    {
-        // use sequential number to distinguish dumped files
-        std::string fileId;
-        if (isEqualizerStats)
-          fileId = std::to_string(Utils::getEqualizerDumpFileId());
-        else
-          fileId = std::to_string(Utils::getVolcanoDumpFileId());
+  if (!intel::Statistic::isEnabled())
+    return;
 
-        std::string fileName(m_statFileBaseName + fileId);
-        if (isEqualizerStats)
-          fileName += "_eq";
-        fileName += ".ll";
+  // use sequential number to distinguish dumped files
+  unsigned fileId = isEqualizerStats ? Utils::getEqualizerDumpFileId()
+                                     : Utils::getVolcanoDumpFileId();
+  std::string suffix = isEqualizerStats ? "_eq.ll" : ".ll";
+  std::string fileName =
+      generateDumpFilename(program->GenerateHash(), fileId, suffix);
 
-        // if stats are enabled dump module info
-        if (intel::Statistic::isEnabled())
-        {
-          intel::Statistic::setModuleStatInfo(pModule,
-              m_statWkldName.c_str(), // workload name
-              (m_statWkldName + fileId).c_str() // module name
-              );
-        }
-        // dump IR with stats
-        std::error_code ec;
-        raw_fd_ostream IRFD(fileName.c_str(), ec, llvm::sys::fs::FA_Write);
-        if (!ec)
-          pModule->print(IRFD, 0);
-        else
-          throw Exceptions::CompilerException(ec.message());
-    }
+  // if stats are enabled dump module info
+  if (intel::Statistic::isEnabled()) {
+    intel::Statistic::setModuleStatInfo(
+        pModule,
+        m_statWkldName.c_str(),                           // workload name
+        (m_statWkldName + std::to_string(fileId)).c_str() // module name
+    );
+  }
+  // dump IR with stats
+  std::error_code ec;
+  raw_fd_ostream IRFD(fileName.c_str(), ec, llvm::sys::fs::FA_Write);
+  if (!ec)
+    pModule->print(IRFD, 0);
+  else
+    throw Exceptions::CompilerException(ec.message());
 #endif // INTEL_PRODUCT_RELEASE
 }
 
@@ -246,7 +245,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         // non-empty string, then we dump IR before optimization.
         if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS")) {
             if (pEnv[0] != 0) {
-                DumpModuleStats(pModule, /*isEqualizerStats = */ true);
+              DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
             }
         }
 #endif // INTEL_PRODUCT_RELEASE
@@ -279,7 +278,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 
 #ifndef INTEL_PRODUCT_RELEASE
         // Dump module stats just before lowering if requested
-        DumpModuleStats(pModule, /*isEqualizerStats = */ false);
+        if (const char *pEnv = getenv("VOLCANO_STATS")) {
+          if (pEnv[0] != 0)
+            DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
+        }
 #endif // INTEL_PRODUCT_RELEASE
 
         PostOptimizationProcessing(pProgram);

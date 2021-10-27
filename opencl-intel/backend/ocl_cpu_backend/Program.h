@@ -190,6 +190,11 @@ public:
      */
     void SetBitCodeContainer(BitCodeContainer* bitCodeContainer);
 
+    /**
+     * Returns hash value of the program. The hash is used in dump filename.
+     */
+    std::string GenerateHash();
+
     /*
      * Program specific methods
      */
@@ -260,6 +265,7 @@ public:
 protected:
     ObjectCodeContainer* m_pObjectCodeContainer;
     BitCodeContainer* m_pIRCodeContainer;
+    std::string m_hash;
     std::string       m_buildLog;
     std::unique_ptr<KernelSet> m_kernels;
     /// Runtime service. Reference counted
