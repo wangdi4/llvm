@@ -1135,10 +1135,14 @@ Value *IRBuilderBase::CreateComplexDiv(Value *L, Value *R, bool CxLimitedRange,
 
 Value *IRBuilderBase::CreateSelect(Value *C, Value *True, Value *False,
                                    const Twine &Name, Instruction *MDFrom) {
-  if (auto *CC = dyn_cast<Constant>(C))
+  if (auto *CC = dyn_cast<ConstantInt>(C))
+    return CC->isOne() ? True : False;
+
+  if (auto *CC = dyn_cast<Constant>(C)) {
     if (auto *TC = dyn_cast<Constant>(True))
       if (auto *FC = dyn_cast<Constant>(False))
         return Insert(Folder.CreateSelect(CC, TC, FC), Name);
+  }
 
   SelectInst *Sel = SelectInst::Create(C, True, False);
   if (MDFrom) {
