@@ -707,3 +707,17 @@ TEST(Assert, TestKernelFromSourceNegative) {
   EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
             KernelLaunchCounterBase + 1);
 }
+
+TEST(Assert, TestAssertServiceKernelHidden) {
+  const char *AssertServiceKernelName = sycl::detail::KernelInfo<
+      sycl::detail::__sycl_service_kernel__::AssertInfoCopier>::getName();
+
+  std::vector<sycl::kernel_id> AllKernelIDs = sycl::get_kernel_ids();
+
+  auto NoFoundServiceKernelID = std::none_of(
+      AllKernelIDs.begin(), AllKernelIDs.end(), [=](sycl::kernel_id KernelID) {
+        return strcmp(KernelID.get_name(), AssertServiceKernelName) == 0;
+      });
+
+  EXPECT_TRUE(NoFoundServiceKernelID);
+}
