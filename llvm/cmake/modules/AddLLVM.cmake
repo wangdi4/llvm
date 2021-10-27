@@ -1539,7 +1539,9 @@ function(add_unittest test_suite test_name)
     list(APPEND LLVM_COMPILE_FLAGS "-Wno-gnu-zero-variadic-macro-arguments")
   endif()
 
-  set(LLVM_REQUIRES_RTTI OFF)
+  if (NOT DEFINED LLVM_REQUIRES_RTTI)
+    set(LLVM_REQUIRES_RTTI OFF)
+  endif()
 
   # INTEL_CUSTOMIZATION
   string(FIND "${test_suite}" "SYCL" IS_SYCL_TEST)
