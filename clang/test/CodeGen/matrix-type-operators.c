@@ -909,9 +909,9 @@ void insert_int_idx_expr(ix9x3_t a, int i) {
   // CHECK-LABEL: @insert_int_idx_expr(
   // CHECK:         [[I1:%.*]] = load i32, i32* %i.addr, align 4
   // CHECK-NEXT:    [[I2:%.*]] = load i32, i32* %i.addr, align 4
-  // CHECK-NEXT:    [[I2_ADD:%.*]] = add nsw i32 [[I2]], 4
+  // CHECK-NEXT:    [[I2_ADD:%.*]] = add nsw i32 4, [[I2]]
   // CHECK-NEXT:    [[ADD_EXT:%.*]] = sext i32 [[I2_ADD]] to i64
-  // CHECK-NEXT:    [[IDX2:%.*]] = add i64 [[ADD_EXT]], 18
+  // CHECK-NEXT:    [[IDX2:%.*]] = add i64 18, [[ADD_EXT]]
   // OPT-NEXT:      [[CMP:%.*]] = icmp ult i64 [[IDX2]], 27
   // OPT-NEXT:      call void @llvm.assume(i1 [[CMP]])
   // CHECK-NEXT:    [[MAT:%.*]] = load <27 x i32>, <27 x i32>* [[MAT_ADDR:%.*]], align 4
@@ -1004,7 +1004,7 @@ double test_extract_matrix_pointer1(dx3x2_t **ptr, unsigned j) {
   // CHECK-LABEL: @test_extract_matrix_pointer1(
   // CHECK:         [[J:%.*]] = load i32, i32* %j.addr, align 4
   // CHECK-NEXT:    [[J_EXT:%.*]] = zext i32 [[J]] to i64
-  // CHECK-NEXT:    [[IDX:%.*]] = add i64 [[J_EXT]], 3
+  // CHECK-NEXT:    [[IDX:%.*]] = add i64 3, [[J_EXT]]
   // OPT-NEXT:      [[CMP:%.*]] = icmp ult i64 [[IDX]], 6
   // OPT-NEXT:      call void @llvm.assume(i1 [[CMP]])
   // CHECK-NEXT:    [[PTR:%.*]] = load [6 x double]**, [6 x double]*** %ptr.addr, align 8
@@ -1039,10 +1039,11 @@ void insert_extract(dx5x5_t a, fx3x3_t b, unsigned long j, short k) {
   // CHECK:         [[K:%.*]] = load i16, i16* %k.addr, align 2
   // CHECK-NEXT:    [[K_EXT:%.*]] = sext i16 [[K]] to i64
   // CHECK-NEXT:    [[IDX1:%.*]] = mul i64 [[K_EXT]], 3
-  // OPT-NEXT:      [[CMP:%.*]] = icmp ult i64 [[IDX1]], 9
+  // CHECK-NEXT:    [[IDX2:%.*]] = add i64 [[IDX1]], 0
+  // OPT-NEXT:      [[CMP:%.*]] = icmp ult i64 [[IDX2]], 9
   // OPT-NEXT:      call void @llvm.assume(i1 [[CMP]])
   // CHECK-NEXT:    [[MAT:%.*]] = load <9 x float>, <9 x float>* [[MAT_ADDR:%.*]], align 4
-  // CHECK-NEXT:    [[MATEXT:%.*]] = extractelement <9 x float> [[MAT]], i64 [[IDX1]]
+  // CHECK-NEXT:    [[MATEXT:%.*]] = extractelement <9 x float> [[MAT]], i64 [[IDX2]]
   // CHECK-NEXT:    [[J:%.*]] = load i64, i64* %j.addr, align 8
   // CHECK-NEXT:    [[IDX3:%.*]] = mul i64 [[J]], 3
   // CHECK-NEXT:    [[IDX4:%.*]] = add i64 [[IDX3]], 2
