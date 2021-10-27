@@ -2969,6 +2969,12 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
             return replaceInstUsesWith(SI, V);
         }
       }
+
+#if INTEL_CUSTOMIZATION
+      if (enableFcmpMinMaxCombine())
+        if (Instruction *X = recognizeFCmpMinMaxIdiom(SI))
+          return X;
+#endif
     }
 
     // select (select a, true, b), c, false -> select a, c, false

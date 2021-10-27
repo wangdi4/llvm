@@ -3729,6 +3729,62 @@ Instruction *InstCombinerImpl::visitXor(BinaryOperator &I) {
 }
 
 #if INTEL_CUSTOMIZATION
+
+// If the select's semantic is equal to 'or' or 'and',
+// return the simplified opcode.
+// Example:
+//   %select = select i1 %cond, i1 1, i1 %false
+//   getOpcode(%select) ==> Or
+//
+//   %select = select i1 %cond, i1 %true, i1 0
+//   getOpcode(%select) ==> And
+static unsigned getOpcode(Instruction *I) {
+
+  if (auto SI = dyn_cast<SelectInst>(I)) {
+    Value *CondVal = SI->getCondition();
+    Value *TrueVal = SI->getTrueValue();
+    Value *FalseVal = SI->getFalseValue();
+    Type *SelType = SI->getType();
+
+    if (SelType->isIntegerTy(1) && !isa<Constant>(CondVal) &&
+      TrueVal->getType() == CondVal->getType()) {
+      if (auto TrueConst = dyn_cast<ConstantInt>(TrueVal))
+        if (TrueConst->isOne())
+          return Instruction::Or;
+
+      if (auto FalseConst = dyn_cast<ConstantInt>(FalseVal))
+        if (FalseConst->isZero())
+          return Instruction::And;
+    }
+  }
+
+  return I->getOpcode();
+}
+
+// If the select's semantic is equal to 'or' or 'and',
+// return the simplified operand.
+// Example:
+//   %select = select i1 %cond, i1 1, i1 %false
+//   getOperand(%select, 0) ==> %cond
+//   getOperand(%select, 1) ==> %false
+static Value* getOperand(Instruction &I, unsigned No) {
+
+  if (auto SI = dyn_cast<SelectInst>(&I)) {
+    Value *CondVal = SI->getCondition();
+    Value *TrueVal = SI->getTrueValue();
+    Type *SelType = SI->getType();
+
+    if (SelType->isIntegerTy(1) && !isa<Constant>(CondVal) &&
+      TrueVal->getType() == CondVal->getType()) {
+      if (auto TrueConst = dyn_cast<ConstantInt>(TrueVal))
+        if (TrueConst->isOne())
+          return I.getOperand(No == 1 ? 2 : No);
+    }
+  }
+
+  return I.getOperand(No);
+}
+
 /// Returns true if binary operation has FP min/max semantics:
 /// Example:
 ///  %cmp = fcmp nnan olt float %c, %a     <== %c is a common operand
@@ -3777,10 +3833,10 @@ static bool binOpMatchesFcmpMinMaxIdiom(Value *UOp0, Value *UOp1, Value *&A,
 ///  %cmp = fcmp nnan oge float %a, %b
 ///  %0 = select i1 %cmp, float %a, float %b
 ///  %res = fcmp nnan olt float %c, %0
-Instruction *InstCombinerImpl::combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A,
+Instruction *InstCombinerImpl::combineAndOrToFcmpMinMax(Instruction &I, Value *A,
                                                     Value *B, Value *C) {
-  Value *UOp0 = I.getOperand(0);
-  Value *UOp1 = I.getOperand(1);
+  Value *UOp0 = getOperand(I, 0);
+  Value *UOp1 = getOperand(I, 1);
 
   FCmpInst *Fcmp1 = cast<FCmpInst>(UOp0);
   FCmpInst *Fcmp2 = cast<FCmpInst>(UOp1);
@@ -3827,14 +3883,14 @@ Instruction *InstCombinerImpl::combineAndOrToFcmpMinMax(BinaryOperator &I, Value
     return combineToMinMax(MinMaxPred);
   };
 
-  if (I.getOpcode() == Instruction::Or) {
+  if (getOpcode(&I) == Instruction::Or) {
     if (ufmax_pred_ty::match(MaybeSwappedPred) ||
         ofmax_pred_ty::match(MaybeSwappedPred))
       return combineToMin();
     else if (ufmin_pred_ty::match(MaybeSwappedPred) ||
              ofmin_pred_ty::match(MaybeSwappedPred))
       return combineToMax();
-  } else if (I.getOpcode() == Instruction::And) {
+  } else if (getOpcode(&I) == Instruction::And) {
     if (ufmax_pred_ty::match(MaybeSwappedPred) ||
         ofmax_pred_ty::match(MaybeSwappedPred))
       return combineToMax();
@@ -3957,13 +4013,20 @@ Instruction *InstCombinerImpl::combineAndOrTreeToFcmpMinMax(BinaryOperator &I) {
 ///  (c > a | d < e) | c > b  =>
 ///  (c > a | c > b) | d < e  =>
 ///  c > min(a,b) | d < e
-Instruction *InstCombinerImpl::recognizeFCmpMinMaxIdiom(BinaryOperator &I) {
-  Value *UOp0 = I.getOperand(0);
-  Value *UOp1 = I.getOperand(1);
+Instruction *InstCombinerImpl::recognizeFCmpMinMaxIdiom(Instruction &I) {
+  Value *UOp0 = getOperand(I, 0);
+  Value *UOp1 = getOperand(I, 1);
   Value *A = nullptr, *B = nullptr, *C = nullptr;
+
+  if (getOpcode(&I) != Instruction::Or && getOpcode(&I) != Instruction::And)
+    return nullptr;
+
   if (binOpMatchesFcmpMinMaxIdiom(UOp0, UOp1, A, B, C))
     return combineAndOrToFcmpMinMax(I, A, B, C);
 
-  return combineAndOrTreeToFcmpMinMax(I);
+  if (auto BI = dyn_cast<BinaryOperator>(&I))
+    return combineAndOrTreeToFcmpMinMax(*BI);
+
+  return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
