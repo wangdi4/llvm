@@ -2531,13 +2531,7 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
     AM = Backup;
 
     N = Handle.getValue();
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
     break;
-#endif // INTEL_CUSTOMIZATION
-=======
-    break;
->>>>>>> eb55c1f1536e36f86d4f7ee34225f12ee2867bf5
   }
   }
 
