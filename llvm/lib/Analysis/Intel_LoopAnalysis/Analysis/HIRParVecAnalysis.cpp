@@ -426,6 +426,19 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
   Info->setParType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
+
+#ifndef NDEBUG
+  Info->addVecEdge(Edge);
+  Info->addParEdge(Edge);
+#else
+  // Some loops can have thousands of dependencies, need to limit them at least
+  // in release build.
+  const size_t OptReportDDEdgesUpperLimit = 100;
+  if (Info->getVecEdges().size() < OptReportDDEdgesUpperLimit)
+    Info->addVecEdge(Edge);
+  if (Info->getParEdges().size() < OptReportDDEdgesUpperLimit)
+    Info->addParEdge(Edge);
+#endif
 }
 
 void DDWalk::visit(HLDDNode *Node) {
