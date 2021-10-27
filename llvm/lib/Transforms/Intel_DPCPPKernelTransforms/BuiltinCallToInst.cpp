@@ -91,6 +91,8 @@ void BuiltinCallToInstPass::findBuiltinCallsToHandle(Function &F) {
       std::pair<CallInst *, BuiltinType> BuiltinCallPair =
           std::pair<CallInst *, BuiltinType>(CI, BuiltinTy);
       BuiltinCalls.push_back(BuiltinCallPair);
+      LLVM_DEBUG(dbgs() << "Add builtin call to be handled: " << *CI << ", "
+                        << BuiltinTy << "\n");
     }
   }
 }
@@ -118,7 +120,7 @@ bool BuiltinCallToInstPass::handleSupportedBuiltinCalls() {
       handleRelationalCalls(BuiltinCall, BuiltinTy);
       break;
     default:
-      assert(false && "Need to handle new supported built-in");
+      llvm_unreachable("Need to handle new supported built-in");
     }
   }
   return true;
@@ -247,6 +249,9 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
       FirstVec, SecondVec, NewMask, "newShuffle", ShuffleCall);
   NewShuffleInst->setDebugLoc(ShuffleCall->getDebugLoc());
 
+  LLVM_DEBUG(dbgs() << "Replace shufflevetor instruction: " << *ShuffleCall
+                    << "\n  with\n"
+                    << *NewShuffleInst << "\n");
   // Due to an optimization in clang, the return type of the original call may
   // be a longer vector than what the shuffle produces.
   if (NewShuffleInst->getType() != RetVal->getType())
@@ -291,11 +296,15 @@ void BuiltinCallToInstPass::handleRelationalCalls(CallInst *RelationalCall,
   }
 
   IRBuilder<> Builder(RelationalCall);
+  LLVM_DEBUG(dbgs() << "Replace relational call: " << *RelationalCall
+                    << "\n  with:\n");
   Value *NewRelationalInst = Builder.CreateFCmp(CmpOpcode, Op1, Op2);
+  LLVM_DEBUG(dbgs() << "  " << *NewRelationalInst << "\n");
   Type *RetTy = RelationalCall->getType();
   NewRelationalInst = RetTy->isVectorTy()
                           ? Builder.CreateSExt(NewRelationalInst, RetTy)
                           : Builder.CreateZExt(NewRelationalInst, RetTy);
+  LLVM_DEBUG(dbgs() << "  " << *NewRelationalInst << "\n");
 
   RelationalCall->replaceAllUsesWith(NewRelationalInst);
   // Remove origin relational call.
@@ -304,8 +313,11 @@ void BuiltinCallToInstPass::handleRelationalCalls(CallInst *RelationalCall,
 
 BuiltinCallToInstPass::BuiltinType
 BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
-  Function *CalledFunc = CI->getCalledFunction();
-  // In case of indirect function call.
+  Value *CalledOp = CI->getCalledOperand();
+  if (!CalledOp)
+    return BI_NOT_SUPPORTED;
+  Function *CalledFunc = dyn_cast<Function>(CalledOp->stripPointerCasts());
+  // Indirect function call is not supported now.
   if (!CalledFunc)
     return BI_NOT_SUPPORTED;
 
