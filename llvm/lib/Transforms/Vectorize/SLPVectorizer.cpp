@@ -11080,14 +11080,8 @@ public:
     while (i < NumReducedVals - ReduxWidth + 1 && ReduxWidth > 2) {
       ArrayRef<Value *> VL(&ReducedVals[i], ReduxWidth);
       V.buildTree(VL, IgnoreList);
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-      if (V.isTreeTinyAndNotFullyVectorizable())
-=======
       if (V.isTreeTinyAndNotFullyVectorizable(/*ForReduction=*/true))
->>>>>>> ce14d1b690d886ff6022a5cc0f2e40cc8ecb9a46
         break;
-#endif // INTEL_CUSTOMIZATION
       if (V.isLoadCombineReductionCandidate(RdxKind))
         break;
       V.reorderTopToBottom();
