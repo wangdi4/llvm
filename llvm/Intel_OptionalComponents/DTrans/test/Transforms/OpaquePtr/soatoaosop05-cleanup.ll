@@ -26,11 +26,11 @@
 ; RUN:          -dtrans-soatoaosop-array-dtor="ValueVectorOf<DatatypeValidator*>::~ValueVectorOf()"   \
 ; RUN:       | FileCheck --check-prefix=CHECK-MOD %s
 ;
-; RUN: opt < %s -force-opaque-pointers -whole-program-assume   \
+; RUN: opt < %s -opaque-pointers -whole-program-assume   \
 ; RUN:          -disable-output -debug-only=dtrans-soatoaosop-deps   \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)'            \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-OP-DEP %s
-; RUN: opt < %s -force-opaque-pointers -whole-program-assume -disable-output                        \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                        \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                              \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-struct-methods>)' \
 ; RUN:          -dtrans-soatoaosop-mem-off=3                                                      \
@@ -42,7 +42,7 @@
 ; RUN:          -dtrans-soatoaosop-array-dtor="ValueVectorOf<IC_Field*>::~ValueVectorOf()"            \
 ; RUN:          -dtrans-soatoaosop-array-dtor="ValueVectorOf<DatatypeValidator*>::~ValueVectorOf()"   \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-OP-TRANS %s
-; RUN: opt -S < %s -force-opaque-pointers -whole-program-assume                                   \
+; RUN: opt -S < %s -opaque-pointers -whole-program-assume                                   \
 ; RUN:          -passes=soatoaosop-struct-methods-transform                                       \
 ; RUN:          -dtrans-soatoaosop-mem-off=3                                                      \
 ; RUN:          -dtransop-optbase-process-function-declaration                                    \
