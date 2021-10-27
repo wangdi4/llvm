@@ -1605,26 +1605,16 @@ protected:
   DenseMap<const HLLoop *, const VPLoop *> LoopMap;
 };
 
-typedef VPLoopEntitiesConverter<ReductionDescr, HLLoop,
-                                HLLoop2VPLoopMapper> ReductionConverter;
-typedef VPLoopEntitiesConverter<InductionDescr, HLLoop,
-                                HLLoop2VPLoopMapper> InductionConverter;
-typedef VPLoopEntitiesConverter<PrivateDescr, HLLoop, HLLoop2VPLoopMapper>
-    PrivatesConverter;
+template <typename DescrType>
+using Converter =
+    VPLoopEntitiesConverter<DescrType, HLLoop, HLLoop2VPLoopMapper>;
 
 void PlainCFGBuilderHIR::convertEntityDescriptors(
     VPlanHCFGBuilder::VPLoopEntityConverterList &CvtVec) {
-
-  using InductionList = VPDecomposerHIR::VPInductionHIRList;
-  using LinearList = HIRVectorizationLegality::LinearListTy;
-  using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
-  using PrivatesList = HIRVectorizationLegality::PrivatesListTy;
-  using PrivatesNonPODList = HIRVectorizationLegality::PrivatesNonPODListTy;
-
-  ReductionConverter *RedCvt = new ReductionConverter(Plan);
-  InductionConverter *IndCvt = new InductionConverter(Plan);
-  PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
-  PrivatesConverter *PrivNonPODCvt = new PrivatesConverter(Plan);
+  auto RedCvt = std::make_unique<Converter<ReductionDescr>>(Plan);
+  auto IndCvt = std::make_unique<Converter<InductionDescr>>(Plan);
+  auto PrivCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
+  auto PrivNonPODCvt = std::make_unique<Converter<PrivateDescr>>(Plan);
 
   for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
        LoopDescr != End; ++LoopDescr) {
@@ -1644,65 +1634,41 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
           }
     );
 
-    const InductionList &IL = Decomposer.getInductions(HL);
-    iterator_range<InductionList::const_iterator> InducRange(IL.begin(),
-                                                             IL.end());
-    InductionListCvt InducListCvt(Decomposer);
-    auto InducPair = std::make_pair(InducRange, InducListCvt);
-
-    const LinearList &LL = Legal->getLinears();
-#if 1
-    // TODO: remove after correction of descriptor translation (see
-    iterator_range<LinearList::const_iterator> LinearRange(LL.end(), LL.end());
-#else
-    iterator_range<LinearList::const_iterator> LinearRange(LL->begin(),
-                                                           LL->end());
-#endif
-    LinearListCvt LinListCvt(Decomposer);
-    auto LinearPair = std::make_pair(LinearRange, LinListCvt);
-
-    iterator_range<ReductionInputIteratorHIR> ReducRange(
-        ReductionInputIteratorHIR(true, SRCL),
-        ReductionInputIteratorHIR(false, SRCL));
-    ReductionListCvt<ReductionInputIteratorHIR> RedListCvt(Decomposer);
-    auto ReducPair = std::make_pair(ReducRange, RedListCvt);
-
-    const ExplicitReductionList &ERL = Legal->getReductions();
-
-    iterator_range<ExplicitReductionList::const_iterator> ExplRedRange(
-        ERL.begin(), ERL.end());
-
-    ExplicitReductionListCvt ExplRedCvt(Decomposer);
-    auto ExplRedPair = std::make_pair(ExplRedRange, ExplRedCvt);
-
-    const PrivatesList &PL = Legal->getPrivates();
-    iterator_range<PrivatesList::const_iterator> PrivRange(PL.begin(),
-                                                           PL.end());
-    PrivatesListCvt PrivListCvt(Decomposer);
-    auto PrivatesPair = std::make_pair(PrivRange, PrivListCvt);
-
-    const PrivatesNonPODList &PNPL = Legal->getNonPODPrivates();
-    auto PrivNonPODRange = make_range(PNPL.begin(), PNPL.end());
-    PrivatesListCvt PrivNonPODListCvt(Decomposer);
-    auto PrivatesNonPODPair =
-        std::make_pair(PrivNonPODRange, PrivNonPODListCvt);
+    auto Bind = [](auto &&Range, auto &&Converter) {
+      return std::make_pair(std::ref(Range), std::move(Converter));
+    };
 
     const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
-    iterator_range<MinMaxIdiomsInputIteratorHIR> MinMaxIdiomRange(
-        MinMaxIdiomsInputIteratorHIR(true, *Idioms),
-        MinMaxIdiomsInputIteratorHIR(false, *Idioms));
-    ReductionListCvt<MinMaxIdiomsInputIteratorHIR> RedIdiomCvt(Decomposer);
-    auto RedIdiomPair = std::make_pair(MinMaxIdiomRange, RedIdiomCvt);
 
-    RedCvt->createDescrList(HL, ReducPair, ExplRedPair, RedIdiomPair);
-    IndCvt->createDescrList(HL, InducPair, LinearPair);
-    PrivCvt->createDescrList(HL, PrivatesPair);
-    PrivNonPODCvt->createDescrList(HL, PrivatesNonPODPair);
+    // clang-format off
+    RedCvt->createDescrList(HL,
+      Bind(make_range(ReductionInputIteratorHIR(true, SRCL),
+                      ReductionInputIteratorHIR(false, SRCL)),
+           ReductionListCvt<ReductionInputIteratorHIR>{Decomposer}),
+      Bind(Legal->getReductions(), ExplicitReductionListCvt{Decomposer}),
+      Bind(make_range(MinMaxIdiomsInputIteratorHIR(true, *Idioms),
+                      MinMaxIdiomsInputIteratorHIR(false, *Idioms)),
+           ReductionListCvt<MinMaxIdiomsInputIteratorHIR>{Decomposer}));
+
+    IndCvt->createDescrList(HL,
+      Bind(Decomposer.getInductions(HL), InductionListCvt{Decomposer}),
+      // TODO: ArrayRef-based empty slice here serves as a stub because
+      // LinearListCvt is not working correctly. Fix it when the converter
+      // is fixed.
+      Bind(makeArrayRef(Legal->getLinears()).take_front(0),
+           LinearListCvt{Decomposer}));
+
+    PrivCvt->createDescrList(HL,
+      Bind(Legal->getPrivates(), PrivatesListCvt{Decomposer}));
+
+    PrivNonPODCvt->createDescrList(HL,
+      Bind(Legal->getNonPODPrivates(), PrivatesListCvt{Decomposer}));
+    // clang-format on
   }
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
-  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivNonPODCvt));
+  CvtVec.emplace_back(std::move(RedCvt));
+  CvtVec.emplace_back(std::move(IndCvt));
+  CvtVec.emplace_back(std::move(PrivCvt));
+  CvtVec.emplace_back(std::move(PrivNonPODCvt));
 }
 
 bool VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
