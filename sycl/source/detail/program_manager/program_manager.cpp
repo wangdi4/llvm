@@ -1109,6 +1109,7 @@ void ProgramManager::addImages(pi_device_binaries DeviceBinary) {
             continue;
           }
 
+<<<<<<< HEAD
           // Skip creating unique kernel ID if it is an exported device
           // function. Exported device functions appear in the offload entries
           // among kernels, but are identifiable by being listed in properties.
@@ -1116,6 +1117,8 @@ void ProgramManager::addImages(pi_device_binaries DeviceBinary) {
               m_ExportedSymbols.end())
             continue;
 
+=======
+>>>>>>> 6ecac7aab31a18e45c7b3091ab56290e0d88a019
           // ... and create a unique kernel ID for the entry
           std::shared_ptr<detail::kernel_id_impl> KernelIDImpl =
               std::make_shared<detail::kernel_id_impl>(EntriesIt->name);
@@ -1415,11 +1418,17 @@ ProgramManager::getSYCLDeviceImagesWithCompatibleState(
           auto KernelID = m_KernelIDs.find(EntriesIt->name);
 
           if (KernelID == m_KernelIDs.end()) {
+<<<<<<< HEAD
             // Service kernels and exported symbols do not have kernel IDs
             assert((m_ServiceKernels.find(EntriesIt->name) !=
                         m_ServiceKernels.end() ||
                     m_ExportedSymbols.find(EntriesIt->name) !=
                         m_ExportedSymbols.end()) &&
+=======
+            // Service kernels do not have kernel IDs
+            assert(m_ServiceKernels.find(EntriesIt->name) !=
+                       m_ServiceKernels.end() &&
+>>>>>>> 6ecac7aab31a18e45c7b3091ab56290e0d88a019
                    "Kernel ID in device binary missing from cache");
             continue;
           }
