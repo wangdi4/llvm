@@ -1467,12 +1467,21 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #else
       auto PrivVal = PrivItem->getOrig();
 #endif
+      Type *PrivTy = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(PrivTy, NumElements, /* AddrSpace */ std::ignore) =
+        VPOParoptUtils::getItemInfo(PrivItem);
+      assert(PrivTy && "Don't expect PrivTy to be nullptr!");
+      // TODO: account for supporting having num elements > 1.
+      assert((!NumElements || cast<ConstantInt>(NumElements)->equalsInt(1) ||
+                              cast<ConstantInt>(NumElements)->equalsInt(0)) &&
+             "Unexpected number of elements");
       if (PrivItem->getIsNonPod())
-        LVL.addLoopPrivate(PrivVal, PrivItem->getConstructor(),
+        LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
                            PrivItem->getDestructor(), PrivItem->getCopyAssign(),
                            true /* IsLast */);
       else
-        LVL.addLoopPrivate(PrivVal, PrivItem->getIsF90DopeVector(),
+        LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getIsF90DopeVector(),
                            true /* IsLast */, PrivItem->getIsConditional());
     }
     PrivateClause &PrivateClause = WRLp->getPriv();
@@ -1482,12 +1491,21 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #else
       auto PrivVal = PrivItem->getOrig();
 #endif
+      Type *PrivTy = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(PrivTy, NumElements, /* AddrSpace */ std::ignore) =
+        VPOParoptUtils::getItemInfo(PrivItem);
+      assert(PrivTy && "Don't expect PrivTy to be nullptr!");
+      // TODO: account for supporting having num elements > 1.
+      assert((!NumElements || cast<ConstantInt>(NumElements)->equalsInt(1) ||
+                              cast<ConstantInt>(NumElements)->equalsInt(0)) &&
+             "Unexpected number of elements");
       if (PrivItem->getIsNonPod())
-        LVL.addLoopPrivate(PrivVal, PrivItem->getConstructor(),
+        LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
                            PrivItem->getDestructor(),
                            nullptr /* no CopyAssign for PrivateItem */);
       else
-        LVL.addLoopPrivate(PrivVal, PrivItem->getIsF90DopeVector());
+        LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getIsF90DopeVector());
     }
 
     // Add information about loop linears to Legality

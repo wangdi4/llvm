@@ -7,7 +7,7 @@
 ; CHECK-LABEL:  HIRLegality Descriptor Lists
 ; CHECK:       HIRLegality PrivatesList:
 ; CHECK-NEXT:  Ref: &(([[A20:%.*]])[0])  UpdateInstruction: <10>         ([[A20]])[0] = [[TMP0:%.*]]
-; CHECK-NEXT:  PrivDescr: {IsCond: 0, IsLast: 0}
+; CHECK-NEXT:  PrivDescr: {IsCond: 0, IsLast: 0, Type: i32}
 
 ; Check LoopEntities dump
 ; CHECK:       VPlan after importing plain CFG:

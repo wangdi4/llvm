@@ -3304,9 +3304,10 @@ private:
 // for arrays of a variable size.
 class VPAllocatePrivate : public VPInstruction {
 public:
-  VPAllocatePrivate(Type *Ty, Align OrigAlignment)
-      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}), IsSOASafe(false),
-        IsSOAProfitable(false), OrigAlignment(OrigAlignment) {}
+  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
+      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
+        AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
+        OrigAlignment(OrigAlignment) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -3341,10 +3342,13 @@ public:
   /// corresponds to.
   Align getOrigAlignment() const { return OrigAlignment; }
 
+  Type *getAllocatedType() const { return AllocatedTy; }
+
 protected:
 
   VPAllocatePrivate *cloneImpl() const override {
-    auto Ret = new VPAllocatePrivate(getType(), getOrigAlignment());
+    auto Ret = new VPAllocatePrivate(
+      getType(), getAllocatedType(), getOrigAlignment());
     if (isSOASafe())
       Ret->setSOASafe();
     if (isSOAProfitable())
@@ -3353,6 +3357,7 @@ protected:
   }
 
 private:
+  Type *AllocatedTy;
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;

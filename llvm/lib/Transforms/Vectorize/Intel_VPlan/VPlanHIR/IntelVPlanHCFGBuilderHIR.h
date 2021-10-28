@@ -153,7 +153,7 @@ public:
 
   // Add explicit private.
   // Add POD privates to PrivatesList
-  void addLoopPrivate(RegDDRef *PrivVal, bool IsF90DopeVector,
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, bool IsF90DopeVector,
                       bool IsLast = false, bool IsConditional = false) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivateKindTy Kind = PrivateKindTy::NonLast;
@@ -161,7 +161,7 @@ public:
       Kind = PrivateKindTy::Last;
     if (IsConditional)
       Kind = PrivateKindTy::Conditional;
-    PrivatesList.emplace_back(PrivVal, Kind);
+    PrivatesList.emplace_back(PrivVal, PrivTy, Kind);
 
     if (IsF90DopeVector)
       HasF90DopeVectorPrivate = true;
@@ -169,13 +169,13 @@ public:
 
   // Add non-POD privates to PrivatesList
   // TODO: Use Constr, Destr and CopyAssign for non-POD privates.
-  void addLoopPrivate(RegDDRef *PrivVal, Function *Constr, Function *Destr,
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr, Function *Destr,
                       Function *CopyAssign, bool IsLast = false) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
       Kind = PrivateKindTy::Last;
-    PrivatesNonPODList.emplace_back(PrivVal, Kind, Constr, Destr, CopyAssign);
+    PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign);
   }
 
   /// Register explicit reduction variables provided from outside.

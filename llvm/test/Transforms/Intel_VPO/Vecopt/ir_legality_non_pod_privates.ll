@@ -5,7 +5,7 @@
 
 ; LLVMIR: VPOLegality PrivateList:
 ; LLVMIR-NEXT: Ref:   %myPoint2.priv = alloca %struct.point2d, align 4
-; LLVMIR: PrivDescr: {IsCond: 0, IsLast: 0}
+; LLVMIR: PrivDescr: {IsCond: 0, IsLast: 0, Type: %struct.point2d = type { i32, i32 }}
 ; LLVMIR-NEXT: PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
 
 ; LLVMIR:       Private list
@@ -15,7 +15,7 @@
 ; LLVMIR-NEXT:   Memory: %struct.point2d* %myPoint2.priv
 
 ; HIR: HIRLegality PrivatesNonPODList:
-; HIR-NEXT: Ref: &((%myPoint2.priv)[0])  UpdateInstruction: PrivDescr: {IsCond: 0, IsLast: 0}
+; HIR-NEXT: Ref: &((%myPoint2.priv)[0])  UpdateInstruction: PrivDescr: {IsCond: 0, IsLast: 0, Type: %struct.point2d = type { i32, i32 }}
 ; HIR-NEXT: PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
 
 ; HIR:       Private list

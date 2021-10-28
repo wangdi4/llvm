@@ -357,6 +357,8 @@ protected:
            "Binary opcode should be specified for FP induction");
   }
 
+  Type *getInductionType() const { return StartValue->getType(); }
+
   /// Start value.
   ValueStorageTy StartValue;
 
