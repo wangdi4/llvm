@@ -35,20 +35,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   store i32 %v3, i32* %out3, align 4
 ; AVX512: LV: Found an estimated cost of 5 for VF 2 For instruction:   store i32 %v3, i32* %out3, align 4
 ; AVX512: LV: Found an estimated cost of 5 for VF 4 For instruction:   store i32 %v3, i32* %out3, align 4
-; INTEL_CUSTOMIZATION
-; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
-; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
-; Note that in this VF=64 does not even present in the dump.
-; LV does special processing of vector lengths which exceed register width for the target (for avx512 it is
-; 16 elements of float type). For each such VF it runs cost model and evaluates register pressure.
-; Due to mentioned TTI customization it selected gather/scatter over interleave and that effectively increased
-; the number of vector registers uses so that it tipped over the number of vector registers available in HW (32).
-; LV thus excluded that VF from further consideration.
-; AVX512: LV: Found an estimated cost of 8 for VF 8 For instruction:   store i32 %v3, i32* %out3, align 4
-; AVX512: LV: Found an estimated cost of 16 for VF 16 For instruction:   store i32 %v3, i32* %out3, align 4
-; AVX512: LV: Found an estimated cost of 32 for VF 32 For instruction:   store i32 %v3, i32* %out3, align 4
-; AVX512;: LV: Found an estimated cost of 88 for VF 64 For instruction:   store i32 %v3, i32* %out3, align 4
-; end INTEL_CUSTOMIZATION
+; AVX512: LV: Found an estimated cost of 11 for VF 8 For instruction:   store i32 %v3, i32* %out3, align 4
+; AVX512: LV: Found an estimated cost of 22 for VF 16 For instruction:   store i32 %v3, i32* %out3, align 4
+; AVX512: LV: Found an estimated cost of 44 for VF 32 For instruction:   store i32 %v3, i32* %out3, align 4
+; AVX512: LV: Found an estimated cost of 88 for VF 64 For instruction:   store i32 %v3, i32* %out3, align 4
 ;
 ; CHECK-NOT: LV: Found an estimated cost of {{[0-9]+}} for VF {{[0-9]+}} For instruction:   store i32 %v3, i32* %out3, align 4
 
