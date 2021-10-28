@@ -17,22 +17,8 @@
 #ifdef __SYCL_DEVICE_ONLY__
 #define SYCL_ESIMD_KERNEL __attribute__((sycl_explicit_simd))
 #define SYCL_ESIMD_FUNCTION __attribute__((sycl_explicit_simd))
-#else
-#define SYCL_ESIMD_KERNEL
-#define SYCL_ESIMD_FUNCTION
-#endif
 
-__SYCL_INLINE_NAMESPACE(cl) {
-namespace sycl {
-namespace ext {
-namespace intel {
-namespace experimental {
-namespace esimd {
-
-using uchar = unsigned char;
-using ushort = unsigned short;
-using uint = unsigned int;
-
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #ifdef __SYCL_DEVICE_ONLY__
@@ -49,6 +35,8 @@ using bfloat16 = uint16_t;
 /* end INTEL_CUSTOMIZATION */
 
 #ifdef __SYCL_DEVICE_ONLY__
+=======
+>>>>>>> 695e2cf34477aa526f243b961bd39811c087a26e
 // Mark a function being nodebug.
 #define ESIMD_NODEBUG __attribute__((nodebug))
 // Mark a "ESIMD global": accessible from all functions in current translation
@@ -58,14 +46,21 @@ using bfloat16 = uint16_t;
   __attribute__((opencl_private)) __attribute__((sycl_explicit_simd))
 // Bind a ESIMD global variable to a specific register.
 #define ESIMD_REGISTER(n) __attribute__((register_num(n)))
-#else
+
+#define __ESIMD_API ESIMD_NODEBUG ESIMD_INLINE
+#else // __SYCL_DEVICE_ONLY__
+#define SYCL_ESIMD_KERNEL
+#define SYCL_ESIMD_FUNCTION
+
 // TODO ESIMD define what this means on Windows host
 #define ESIMD_NODEBUG
 // On host device ESIMD global is a thread local static var. This assumes that
 // each work-item is mapped to a separate OS thread on host device.
 #define ESIMD_PRIVATE thread_local
 #define ESIMD_REGISTER(n)
-#endif
+
+#define __ESIMD_API ESIMD_INLINE
+#endif // __SYCL_DEVICE_ONLY__
 
 // Mark a function being noinline
 #define ESIMD_NOINLINE __attribute__((noinline))
@@ -84,6 +79,17 @@ using bfloat16 = uint16_t;
 // message printed out by the compiler.
 #define __ESIMD_DEPR_ENUM_V(old, new, t)                                       \
   old __ESIMD_DEPRECATED(new) = static_cast<t>(new)
+
+__SYCL_INLINE_NAMESPACE(cl) {
+namespace sycl {
+namespace ext {
+namespace intel {
+namespace experimental {
+namespace esimd {
+
+using uchar = unsigned char;
+using ushort = unsigned short;
+using uint = unsigned int;
 
 /// Gen hardware supports applying saturation to results of some operation.
 /// This enum allows to control this behavior.
@@ -553,8 +559,6 @@ enum class split_barrier_action : uint8_t {
 
 // For backward compatibility:
 using EsimdSbarrierType = split_barrier_action;
-
-#undef __ESIMD_DEPR_ENUM_V
 
 // Since EsimdSbarrierType values are deprecated, these macros will generate
 // deprecation message.
