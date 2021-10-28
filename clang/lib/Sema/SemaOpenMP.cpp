@@ -4934,8 +4934,8 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
     // OpenMP 5.0 [2.9.5 loop construct]
     // If a loop construct is not nested inside another OpenMP construct and
     // it appears in a procedure, the bind clause must be present.
-    if (CurrentRegion == OMPD_loop && ParentRegion == OMPD_unknown &&
-        !BindClause) {
+    if (SemaRef.LangOpts.OpenMPLateOutline && CurrentRegion == OMPD_loop &&
+        ParentRegion == OMPD_unknown && !BindClause) {
       SemaRef.Diag(StartLoc, diag::err_omp_loop_directive_without_bind);
       return true;
     }
@@ -4944,7 +4944,8 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
     // loop construct, the parallel construct, the simd construct, and
     // combined constructs for which the first construct is a parallel
     // construct.
-    if (isOpenMPGenericLoopDirective(ParentRegion)) {
+    if (SemaRef.LangOpts.OpenMPLateOutline &&
+        isOpenMPGenericLoopDirective(ParentRegion)) {
       if (CurrentRegion != OMPD_loop && CurrentRegion != OMPD_simd &&
           CurrentRegion != OMPD_atomic &&
           !isOpenMPParallelDirective(CurrentRegion)) {
@@ -5161,7 +5162,8 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       Recommend = ShouldBeInParallelRegion;
     }
 #if INTEL_COLLAB
-    if (!NestingProhibited && CurrentRegion == OMPD_loop) {
+    if (SemaRef.LangOpts.OpenMPLateOutline && !NestingProhibited &&
+        CurrentRegion == OMPD_loop) {
       // OpenMP 5.0 [2.9.5 loop construct]
       // If the bind clause is present and binding is teams, the loop region
       // corresponding to the loop construct must be strictly nested inside a
