@@ -4974,6 +4974,11 @@ void ModuleSlotTracker::collectMDNodes(MachineMDNodeListType &L, unsigned LB,
 //                       External Interface declarations
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+void BasicBlock::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW,
+                       bool ShouldPreserveUseListOrder, bool IsForDebug) const {
+}
+#endif // INTEL_CUSTOMIZATION
 void Function::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW,
                      bool ShouldPreserveUseListOrder,
                      bool IsForDebug) const {}
@@ -4994,6 +4999,11 @@ void Value::printAsOperand(raw_ostream &O, bool PrintType,
 void Metadata::printAsOperand(raw_ostream &OS, const Module *M) const {}
 void Metadata::printAsOperand(raw_ostream &OS, ModuleSlotTracker &MST,
                               const Module *M) const {}
+#if INTEL_CUSTOMIZATION
+void MDNode::printTree(raw_ostream &OS, const Module *M) const {}
+void MDNode::printTree(raw_ostream &OS, ModuleSlotTracker &MST,
+                       const Module *M) const {}
+#endif // INTEL_CUSTOMIZATION
 void Metadata::print(raw_ostream &OS, const Module *M,
                      bool /*IsForDebug*/) const {}
 void Metadata::print(raw_ostream &OS, ModuleSlotTracker &MST,

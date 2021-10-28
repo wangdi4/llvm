@@ -868,9 +868,6 @@ void IRChangedPrinter::generateIRRepresentation(Any, StringRef, std::string &) {
 void IRChangedPrinter::handleAfter(StringRef PassID, std::string &,
                                   const std::string &, const std::string &,
                                   Any) {}
-bool IRChangedPrinter::same(const std::string &, const std::string &) {
-  return true;
-}
 PrintIRInstrumentation::~PrintIRInstrumentation() {}
 void PrintIRInstrumentation::pushModuleDesc(StringRef, Any) {}
 PrintIRInstrumentation::PrintModuleDesc
