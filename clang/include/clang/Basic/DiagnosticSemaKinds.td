@@ -10955,10 +10955,6 @@ def err_omp_allocator_used_in_clauses : Error<
   "data-sharing or data-mapping attribute clauses">;
 def err_omp_allocator_not_in_uses_allocators : Error<
   "allocator must be specified in the 'uses_allocators' clause">;
-// INTEL_COLLAB
-def err_omp_lastprivate_loop_var_non_loop_iteration : Error<
-  "only loop iteration variables are allowed in 'lastprivate' clause in "
-  "loop directives">;
 def err_omp_loop_directive_without_bind : Error<
   "'loop' directive without 'bind' clause must be nested in another construct">;
 def warn_omp_static_duration_allocate_directive : Warning<
@@ -10970,6 +10966,9 @@ def note_omp_protected_structured_block
     : Note<"jump bypasses OpenMP structured block">;
 def note_omp_exits_structured_block
     : Note<"jump exits scope of OpenMP structured block">;
+def err_omp_lastprivate_loop_var_non_loop_iteration : Error<
+  "only loop iteration variables are allowed in 'lastprivate' clause in "
+  "'omp loop' directives">;
 def err_omp_interop_variable_expected : Error<
   "expected%select{| non-const}0 variable of type 'omp_interop_t'">;
 def err_omp_interop_variable_wrong_type : Error<

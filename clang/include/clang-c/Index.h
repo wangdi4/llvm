@@ -2595,9 +2595,12 @@ enum CXCursorKind {
   /** OpenMP metadirective directive.
    */
   CXCursor_OMPMetaDirective = 294,
+
+  /** OpenMP loop directive.
+   */
+  CXCursor_OMPGenericLoopDirective = 295,
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 295,
-  CXCursor_OMPGenericLoopDirective = 296,
+  CXCursor_OMPTargetVariantDispatchDirective = 296,
   CXCursor_OMPTeamsGenericLoopDirective = 297,
   CXCursor_OMPTargetTeamsGenericLoopDirective = 298,
   CXCursor_OMPParallelGenericLoopDirective = 299,
@@ -2606,7 +2609,7 @@ enum CXCursorKind {
   CXCursor_OMPScopeDirective = 302,
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPMetaDirective,
+  CXCursor_LastStmt = CXCursor_OMPGenericLoopDirective,
 #endif /* INTEL_COLLAB */
 
 /**

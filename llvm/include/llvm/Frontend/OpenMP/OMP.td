@@ -1835,16 +1835,6 @@ def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
     VersionedClause<OMPC_NoWait>
   ];
 }
-def OMP_loop : Directive<"loop"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_bind>,
-    VersionedClause<OMPC_Collapse>,
-    VersionedClause<OMPC_Order>,
-    VersionedClause<OMPC_Private>,
-    VersionedClause<OMPC_LastPrivate>,
-    VersionedClause<OMPC_Reduction>
-  ];
-}
 def OMP_teams_loop : Directive<"teams loop"> {
   let allowedClauses = [
     VersionedClause<OMPC_bind>,
@@ -2024,6 +2014,30 @@ def OMP_masked : Directive<"masked"> {
     VersionedClause<OMPC_Filter>
   ];
 }
+#if INTEL_COLLAB
+def OMP_loop : Directive<"loop"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_bind>,
+    VersionedClause<OMPC_Collapse>,
+    VersionedClause<OMPC_Order>,
+    VersionedClause<OMPC_Private>,
+    VersionedClause<OMPC_LastPrivate>,
+    VersionedClause<OMPC_Reduction>
+  ];
+}
+#else
+def OMP_loop : Directive<"loop"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_LastPrivate>,
+    VersionedClause<OMPC_Private>,
+    VersionedClause<OMPC_Reduction>,
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_Collapse>,
+    VersionedClause<OMPC_Order>,
+  ];
+}
+#endif // !INTEL_COLLAB
 def OMP_Metadirective : Directive<"metadirective"> {
   let allowedClauses = [VersionedClause<OMPC_When>];
   let allowedOnceClauses = [VersionedClause<OMPC_Default>];

@@ -1011,11 +1011,6 @@ void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
   VisitOMPExecutableDirective(S);
 }
 
-void StmtProfiler::VisitOMPGenericLoopDirective(
-    const OMPGenericLoopDirective *S) {
-  VisitOMPLoopDirective(S);
-}
-
 void StmtProfiler::VisitOMPTeamsGenericLoopDirective(
     const OMPTeamsGenericLoopDirective *S) {
   VisitOMPLoopDirective(S);
@@ -1289,6 +1284,11 @@ void StmtProfiler::VisitOMPDispatchDirective(const OMPDispatchDirective *S) {
 
 void StmtProfiler::VisitOMPMaskedDirective(const OMPMaskedDirective *S) {
   VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPGenericLoopDirective(
+    const OMPGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
 }
 
 void StmtProfiler::VisitExpr(const Expr *S) {
