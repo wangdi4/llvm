@@ -1048,6 +1048,11 @@ void StmtPrinter::VisitOMPMaskedDirective(OMPMaskedDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
+void StmtPrinter::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *Node) {
+  Indent() << "#pragma omp loop";
+  PrintOMPExecutableDirective(Node);
+}
+
 //===----------------------------------------------------------------------===//
 //  Expr printing methods.
 //===----------------------------------------------------------------------===//
