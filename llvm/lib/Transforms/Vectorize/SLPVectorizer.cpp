@@ -870,9 +870,10 @@ public:
 
   /// \returns the vectorization cost of the subtree that starts at \p VL.
   /// A negative number means that this is profitable.
-  InstructionCost getTreeCost(ArrayRef<Value *> VectorizedVals = None);
-
 #if INTEL_CUSTOMIZATION
+  InstructionCost getTreeCost(ArrayRef<Value *> VectorizedVals = None,
+                              bool ForReduction = false);
+
   /// Cleanup Multi-Node state once vectorization has succeeded.
   void cleanupMultiNodeReordering();
 
@@ -7491,7 +7492,10 @@ InstructionCost BoUpSLP::getSpillCost() const {
   return Cost;
 }
 
-InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
+#if INTEL_CUSTOMIZATION
+InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
+                                     bool ForReduction) {
+#endif // INTEL_CUSTOMIZATION
   InstructionCost Cost = 0;
   LLVM_DEBUG(dbgs() << "SLP: Calculating cost for tree of size "
                     << VectorizableTree.size() << ".\n");
@@ -7658,7 +7662,7 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
 
 #if INTEL_CUSTOMIZATION
   // Override Cost for tiny non-fully vectorizable trees.
-  if (isTreeTinyAndNotFullyVectorizable())
+  if (isTreeTinyAndNotFullyVectorizable(ForReduction))
     Cost = FORBIDEN_TINY_TREE;
 #endif // INTEL_CUSTOMIZATION
   return Cost;
@@ -11212,8 +11216,10 @@ public:
       V.computeMinimumValueSizes();
 
       // Estimate cost.
-      InstructionCost TreeCost =
-          V.getTreeCost(makeArrayRef(&ReducedVals[i], ReduxWidth));
+#if INTEL_CUSTOMIZATION
+      InstructionCost TreeCost = V.getTreeCost(
+          makeArrayRef(&ReducedVals[i], ReduxWidth), /*ForReduction=*/true);
+#endif // INTEL_CUSTOMIZATION
       InstructionCost ReductionCost =
           getReductionCost(TTI, ReducedVals[i], ReduxWidth, RdxFMF);
       InstructionCost Cost = TreeCost + ReductionCost;
