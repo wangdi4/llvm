@@ -9,7 +9,11 @@ define void @foo(<8 x i32>* %x, <8 x i1> %y) {
 ; CHECK-NEXT:    vpcmpeqd %ymm1, %ymm1, %ymm1
 ; CHECK-NEXT:    movq _global@GOTPCREL(%rip), %rax
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+<<<<<<< HEAD
 ; CHECK-NEXT:    vpxor   %xmm3, %xmm3, %xmm3                ;INTEL
+=======
+; CHECK-NEXT:    vpxor %xmm3, %xmm3, %xmm3
+>>>>>>> 2bc28c6f825ec7b33854288970c6646e17425d62
 ; CHECK-NEXT:    vpgatherdd %ymm1, (%rax,%ymm2), %ymm3
 ; CHECK-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; CHECK-NEXT:    vpslld $31, %ymm0, %ymm0

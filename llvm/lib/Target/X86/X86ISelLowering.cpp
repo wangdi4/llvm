@@ -31961,11 +31961,17 @@ static SDValue LowerMGATHER(SDValue Op, const X86Subtarget &Subtarget,
     Mask = ExtendToType(Mask, MaskVT, DAG, true);
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Break dependency on the data register.
   if (PassThru.isUndef())
     PassThru = getZeroVector(VT, Subtarget, DAG, dl);
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Break dependency on the data register.
+  if (PassThru.isUndef())
+    PassThru = getZeroVector(VT, Subtarget, DAG, dl);
+>>>>>>> 2bc28c6f825ec7b33854288970c6646e17425d62
 
   SDValue Ops[] = { N->getChain(), PassThru, Mask, N->getBasePtr(), Index,
                     N->getScale() };
