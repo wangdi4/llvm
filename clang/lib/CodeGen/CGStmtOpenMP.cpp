@@ -7420,7 +7420,6 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
   CGM.getOpenMPRuntime().emitTargetDataStandAloneCall(*this, S, IfCond, Device);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool CodeGenFunction::hasOMPSpirTarget() const {
   for (const llvm::Triple &T : getLangOpts().OMPTargetTriples) {
@@ -7914,7 +7913,6 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
 }
 #endif // INTEL_COLLAB
 
-=======
 void CodeGenFunction::EmitOMPGenericLoopDirective(
     const OMPGenericLoopDirective &S) {
   // Unimplemented, just inline the underlying statement for now.
@@ -7925,7 +7923,6 @@ void CodeGenFunction::EmitOMPGenericLoopDirective(
   CGM.getOpenMPRuntime().emitInlinedDirective(*this, OMPD_loop, CodeGen);
 }
 
->>>>>>> 6f9c25167d16acff3ff8e4f54a8c14a2a175fc59
 void CodeGenFunction::EmitSimpleOMPExecutableDirective(
     const OMPExecutableDirective &D) {
   if (const auto *SD = dyn_cast<OMPScanDirective>(&D)) {

@@ -5668,8 +5668,6 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
   case CXCursor_OMPSectionDirective:
     return cxstring::createRef("OMPSectionDirective");
 #if INTEL_COLLAB
-  case CXCursor_OMPGenericLoopDirective:
-    return cxstring::createRef("OMPGenericLoopDirective");
   case CXCursor_OMPTeamsGenericLoopDirective:
     return cxstring::createRef("OMPTeamsGenericLoopDirective");
   case CXCursor_OMPTargetTeamsGenericLoopDirective:

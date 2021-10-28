@@ -287,22 +287,12 @@ bool isOpenMPDistributeDirective(OpenMPDirectiveKind DKind);
 /// otherwise - false.
 bool isOpenMPNestingDistributeDirective(OpenMPDirectiveKind DKind);
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-/// Checks if the specified directive constitutes a loop directive in the
-// /outermost nest.  For example, 'omp teams loop' or 'omp loop'.
-=======
 /// Checks if the specified directive constitutes a 'loop' directive in the
 /// outermost nest.  For example, 'omp teams loop' or 'omp loop'.
->>>>>>> 6f9c25167d16acff3ff8e4f54a8c14a2a175fc59
 /// \param DKind Specified directive.
 /// \return true - the directive has loop on the outermost nest.
 /// otherwise - false.
 bool isOpenMPGenericLoopDirective(OpenMPDirectiveKind DKind);
-<<<<<<< HEAD
-#endif // INTEL_COLLAB
-=======
->>>>>>> 6f9c25167d16acff3ff8e4f54a8c14a2a175fc59
 
 /// Checks if the specified clause is one of private clauses like
 /// 'private', 'firstprivate', 'reduction' etc..
