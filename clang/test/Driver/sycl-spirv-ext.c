@@ -38,12 +38,8 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_blocking_pipes,+SPV_INTEL_function_pointers
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_kernel_attributes,+SPV_INTEL_io_pipes
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_inline_assembly,+SPV_INTEL_arbitrary_precision_integers
-<<<<<<< HEAD
 // COM: CHECK-DEFAULT-SAME:,+SPV_INTEL_optimization_hints,+SPV_INTEL_float_controls2 ;INTEL
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_float_controls2 ;INTEL
-=======
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_float_controls2
->>>>>>> 696ac39db3ff262c9ef0e796af1c2b78c060670a
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_vector_compute,+SPV_INTEL_fast_composite
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_buffer_location,+SPV_INTEL_joint_matrix ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arbitrary_precision_fixed_point
@@ -73,14 +69,9 @@
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_blocking_pipes,+SPV_INTEL_function_pointers
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_kernel_attributes,+SPV_INTEL_io_pipes
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_inline_assembly,+SPV_INTEL_arbitrary_precision_integers
-<<<<<<< HEAD
 // COM: CHECK-FPGA-HW-SAME:,+SPV_INTEL_optimization_hints,+SPV_INTEL_float_controls2, ;INTEL
-// CHECK-FPGA-HW-SAME:,+SPV_INTEL_float_controls2, ;INTEL
-// CHECK-FPGA-HW-SAME:+SPV_INTEL_vector_compute,+SPV_INTEL_fast_composite
-=======
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_float_controls2
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_vector_compute,+SPV_INTEL_fast_composite
->>>>>>> 696ac39db3ff262c9ef0e796af1c2b78c060670a
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_buffer_location
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_arbitrary_precision_fixed_point
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_arbitrary_precision_floating_point
