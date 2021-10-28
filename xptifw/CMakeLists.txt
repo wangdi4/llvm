@@ -62,7 +62,9 @@ add_subdirectory(src)
 
 add_custom_target(check-xptifw)
 
-add_subdirectory(unit_test)
+# INTEL_CUSTOMIZATION
+# add_subdirectory(unit_test)
+# end INTEL_CUSTOMIZATION
 if (XPTI_BUILD_SAMPLES)
   add_subdirectory(samples/basic_collector)
   add_subdirectory(samples/syclpi_collector)
