@@ -220,10 +220,12 @@ public:
   HLInst *extendVector(RegDDRef *Input, unsigned TargetLength);
 
   /// Helper method to replicate contents of \p Input vector by \p
-  /// ReplicationFactor number of times. This function mimics the equivalent
-  /// LLVM-IR version in VectorUtils.cpp. Example -
+  /// ReplicationFactor number of times. \p ReplNestingLvl provides the nesting
+  /// level at which replicate instruction is attached. This function mimics the
+  /// equivalent LLVM-IR version in VectorUtils.cpp. Example -
   /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v1, v2, v3, v0, v1, v2, v3 }
-  HLInst *replicateVector(RegDDRef *Input, unsigned ReplicationFactor);
+  HLInst *replicateVector(RegDDRef *Input, unsigned ReplicationFactor,
+                          unsigned ReplNestingLvl);
 
   /// Helper method to replicate each element of \p Input vector by \p
   /// ReplicationFactor number of times. This function mimics the equivalent
