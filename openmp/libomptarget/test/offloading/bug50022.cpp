@@ -1,4 +1,8 @@
-// RUN: %libomptarget-compilexx-and-run-generic
+// INTEL_CUSTOMIZATION
+// This test is still flaky on a heavily-loaded system.
+// Disabling run test until CMPLRLIBS-33596 is resolved.
+// RUN: %libomptarget-compilexx-generic
+// end INTEL_CUSTOMIZATION
 
 // UNSUPPORTED: amdgcn-amd-amdhsa
 
