@@ -1,12 +1,12 @@
-; RUN: opt < %s -force-opaque-pointers -hir-ssa-deconstruction -analyze -hir-framework  | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -analyze -hir-framework  | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that parser deduces an implied bitcast (type mismatch) between
 ; geps %base and %arrayidx and gives up on combining them. This is only
 ; possible with opaque pointers.
- 
+
 ; Previously, the store was incorrectly parsed like this-
-; (%p)[1].1[i1] 
+; (%p)[1].1[i1]
 
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   (%base)[0].1[i1] = i1;
