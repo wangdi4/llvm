@@ -81,9 +81,12 @@ public:
   // Build a set of COFF objects representing the combined contents of
   // BitcodeFiles and add them to the symbol table. Called after all files are
   // added and before the writer writes results to a file.
-  void addCombinedLTOObjects();
+  void compileBitcodeFiles();
+
 #if INTEL_CUSTOMIZATION
-  std::vector<StringRef> compileBitcodeFiles();
+  // Generate a set of COFF object files from Bitcode objects that will be
+  // passed to the MSVC linker. This is to support MSVC LTO.
+  std::vector<StringRef> compileBitcodeFilesForMSVCLinker();
 #endif // INTEL_CUSTOMIZATION
 
   // Creates an Undefined symbol for a given name.
