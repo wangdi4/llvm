@@ -1066,7 +1066,7 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
 
   std::vector<StringRef> objFiles;
   if (!ctx.bitcodeFileInstances.empty())
-    objFiles = ctx.symtab.compileBitcodeFiles();
+    objFiles = ctx.symtab.compileBitcodeFilesForMSVCLinker();
 
   runMSVCLinker(rsp, objFiles);
 
