@@ -226,31 +226,6 @@ int computeInterleaveFactor(OVLSMemref *Memref) {
 
   return InterleaveFactor;
 }
-
-Optional<std::tuple<OVLSGroup *, int, int>>
-getOptimizedVLSGroupData(const VPInstruction *VPInst,
-                         const VPlanVLSAnalysis *VLSA, const VPlan *Plan) {
-  if (!VLSA)
-    return None;
-
-  if (!VPInst->isUnderlyingIRValid())
-    return None;
-
-  auto *Group = VLSA->getGroupsFor(Plan, VPInst);
-  if (!Group)
-    return None;
-
-  if (!isTransformableVLSGroup(Group))
-    return None;
-
-  VPVLSClientMemref *VPInstMemref = cast<VPVLSClientMemref>(
-      *find_if(*Group, [VPInst](const OVLSMemref *Memref) {
-        return instruction(Memref) == VPInst;
-      }));
-  return std::make_tuple(Group, computeInterleaveFactor(VPInstMemref),
-                         computeInterleaveIndex(VPInstMemref, Group));
-}
-
 } // namespace vpo
 
 } // namespace llvm
