@@ -366,18 +366,14 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
 
   return Red;
 }
-VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
-                                            VPValue *Incoming,
-                                            InductionKind Kind, VPValue *Step,
-                                            VPValue *StartVal,
-                                            VPValue *EndVal,
-                                            VPInstruction *InductionOp,
-                                            unsigned int Opc, VPValue *AI,
-                                            bool ValidMemOnly) {
+VPInduction *VPLoopEntityList::addInduction(
+    VPInstruction *Start, VPValue *Incoming, InductionKind Kind, VPValue *Step,
+    VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
+    unsigned int Opc, VPValue *AI, bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
   VPInduction *Ind =
-      new VPInduction(Incoming, Kind, Step, StartVal, EndVal,
-                      InductionOp, ValidMemOnly, Opc);
+      new VPInduction(Incoming, Kind, Step, StartVal, EndVal, InductionOp,
+                      ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
   linkValue(InductionMap, Ind, Start);
   if (InductionOp) {
@@ -403,9 +399,11 @@ VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
 VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
-                                        VPValue *AI, bool ValidMemOnly) {
+                                        Type *AllocatedTy, VPValue *AI,
+                                        bool ValidMemOnly) {
   VPPrivate *Priv =
-      new VPPrivate(Tag, std::move(Aliases), K, Explicit, ValidMemOnly);
+      new VPPrivate(Tag, std::move(Aliases), K, Explicit,
+                    AllocatedTy, ValidMemOnly);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -414,9 +412,10 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
 
 VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
     VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
-    Function *Ctor, Function *Dtor, Function *CopyAssign, VPValue *AI) {
-  VPPrivateNonPOD *Priv = new VPPrivateNonPOD(std::move(Aliases), K, Explicit,
-                                              Ctor, Dtor, CopyAssign);
+    Function *Ctor, Function *Dtor, Function *CopyAssign, Type *AllocatedTy,
+    VPValue *AI) {
+  VPPrivateNonPOD *Priv = new VPPrivateNonPOD(
+    std::move(Aliases), K, Explicit, Ctor, Dtor, AllocatedTy, CopyAssign);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -616,12 +615,12 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
       OrigAlignment = OrigGlobal->getAlign().getValue();
   if (OrigAlignment == 1) {
     // Set default alignment.
-    Type *ElemTy = AI->getType()->getPointerElementType();
+    Type *ElemTy = E.getAllocatedType();
     OrigAlignment = Plan.getDataLayout()->getPrefTypeAlign(ElemTy);
   }
 
-  auto *Ret = Builder.create<VPAllocatePrivate>(AI->getName(), AI->getType(),
-                                                OrigAlignment);
+  auto *Ret = Builder.create<VPAllocatePrivate>(
+    AI->getName(), AI->getType(), E.getAllocatedType(), OrigAlignment);
   // We do not set debug location on allocates.
   Ret->setDebugLocation({});
   linkValue(&E, Ret);
@@ -1168,8 +1167,9 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
   Type *ElemTy = InductionHeaderPhi->getType();
   Builder.setInsertPoint(Preheader);
   // In preheader assign initial value.
+  // For inductions, the allocated type is same as ElemTy.
   VPValue *IdxMem = Builder.create<VPAllocatePrivate>(
-      "priv.idx.mem", PointerType::get(ElemTy, 0),
+      "priv.idx.mem", PointerType::get(ElemTy, 0), ElemTy,
       Plan.getDataLayout()->getPrefTypeAlign(ElemTy));
   Builder.createStore(IncomingVal, IdxMem);
 
@@ -1925,15 +1925,17 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   // If private has non-null constructor/destructor fields, then it is expected
   // to be of non-POD type. TODO: Add check for CopyAssign when support is added
   // to insertPrivateVPInstructions.
+  Type *AllocatedTy = getAllocatedType();
   if (Ctor || Dtor)
     LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
-                         AllocaInst);
+                         AllocatedTy, AllocaInst);
   else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
     LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocaInst,
                    isMemOnly());
   } else
-    LE->addPrivate(PTag, PtrAliases, K, IsExplicit, AllocaInst, isMemOnly());
+    LE->addPrivate(PTag, PtrAliases, K, IsExplicit, AllocatedTy, AllocaInst,
+                   isMemOnly());
 }
 
 void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
@@ -1956,8 +1958,8 @@ void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
     return;
   }
 
-  if (!isScalarTy(AllocaInst->getType()->getPointerElementType()) &&
-      !AllocaInst->getType()->getPointerElementType()->isVectorTy()) {
+  if (!isScalarTy(AllocatedType) &&
+      !AllocatedType->isVectorTy()) {
     PTag = VPPrivate::PrivateTag::PTArray;
     return;
   }
@@ -2221,8 +2223,8 @@ void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPInduction *VPInd =
-      LE->addInduction(StartPhi, Start, K, Step, StartVal, EndVal,
-                       InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
+      LE->addInduction(StartPhi, Start, K, Step, StartVal, EndVal, InductionOp,
+                       IndOpcode, AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
 }

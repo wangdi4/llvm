@@ -10,7 +10,7 @@ define dso_local float @test_post_exit_aliases() local_unnamed_addr {
 ; CHECK-NEXT:    UpdateInstruction:
 ; CHECK-NEXT:    AliasRef:   [[ADD70:%.*]] = sitofp i64 [[INDVARS_IV0:%.*]] to float
 ; CHECK-NEXT:      UpdateInstruction:
-; CHECK-NEXT:  PrivDescr: {IsCond: 0, IsLast: 1}
+; CHECK-NEXT:  PrivDescr: {IsCond: 0, IsLast: 1, Type: float}
 ;
 entry:
   %f.lpriv = alloca float, align 4

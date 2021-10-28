@@ -71,12 +71,10 @@ void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
 // Returns true if the pointee type of the alloca-inst is a scalar value.
 bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
 
-  Type *PointeeTy = Ty->getPointerElementType();
-
   // If it is an array-type, check the element-type and return true only for
   // scalar-type.
-  return (isa<ArrayType>(PointeeTy) &&
-          (isScalarTy(cast<ArrayType>(PointeeTy)->getElementType())));
+  return (isa<ArrayType>(Ty) &&
+          (isScalarTy(cast<ArrayType>(Ty)->getElementType())));
 }
 
 // Return true if \p UseInst is a safe cast instruction, i.e. it's a
@@ -184,12 +182,12 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
   // scalars is identical for both SOA and AOS, it's just vector of elements.
   assert(Alloca->getType()->isPointerTy() &&
          "Expect the 'alloca' to have a pointer-type.");
-  if (isScalarTy(Alloca->getType()->getPointerElementType()))
+  if (isScalarTy(Alloca->getAllocatedType()))
     return false;
 
   // Non-array aggregate types are currently not supported. Conservatively, just
   // return 'true', i.e., the memory escapes.
-  if (!isSOASupportedTy(Alloca->getType()))
+  if (!isSOASupportedTy(Alloca->getAllocatedType()))
     return true;
 
   // Initialize the WorkList with the memory-pointer.
@@ -373,7 +371,7 @@ bool VPSOAAnalysis::isSOAProfitable(VPAllocatePrivate *Alloca) {
   AccessProfitabilityInfo.clear();
 
   // If this is a scalar-private, it is always profitable.
-  if (isScalarTy(Alloca->getType()->getPointerElementType()))
+  if (isScalarTy(Alloca->getAllocatedType()))
     return true;
 
   // Algorithm: Collect all the loads and stores for the given alloca. Analyze

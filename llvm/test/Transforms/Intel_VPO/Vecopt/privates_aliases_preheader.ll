@@ -15,7 +15,7 @@ define dso_local double @test_preheader_aliases() local_unnamed_addr #3 {
 ; CHECK-NEXT:      UpdateInstruction:
 ; CHECK-NEXT:    AliasRef:   [[CONV735_LCSSA0:%.*]] = phi double [ [[CONV7350:%.*]], [[IF_END0:%.*]] ]
 ; CHECK-NEXT:      UpdateInstruction:
-; CHECK-NEXT:  PrivDescr: {IsCond: 1, IsLast: 1}
+; CHECK-NEXT:  PrivDescr: {IsCond: 1, IsLast: 1, Type: double}
 ;
 entry:
   %d.lpriv = alloca double, align 8

@@ -1555,6 +1555,7 @@ public:
     DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
     Descriptor.setAllocaInst(
         Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setAllocatedType(CurValue.getType());
     Descriptor.setIsConditional(CurValue.isCond());
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
@@ -1567,6 +1568,7 @@ public:
     DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
     Descriptor.setAllocaInst(
         Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setAllocatedType(CurValue.getType());
     Descriptor.setIsConditional(CurValue.isCond());
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setCtor(CurValue.getCtor());

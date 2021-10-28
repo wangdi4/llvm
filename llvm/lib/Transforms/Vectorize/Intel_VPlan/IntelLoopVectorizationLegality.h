@@ -210,27 +210,26 @@ public:
   void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
 
   /// Add an in memory non-POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Function *Constr, Function *Destr,
-                      Function *CopyAssign, bool IsLast = false) {
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
+                      Function *Destr, Function *CopyAssign,
+                      bool IsLast = false) {
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
       Kind = PrivateKindTy::Last;
-    std::unique_ptr<PrivDescrNonPODTy> PrivItem =
-        std::make_unique<PrivDescrNonPODTy>(PrivVal, Kind, Constr, Destr,
-                                            CopyAssign);
+    auto PrivItem = std::make_unique<PrivDescrNonPODTy>(
+          PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign);
     Privates.insert({PrivVal, std::move(PrivItem)});
   }
 
   /// Add an in memory POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, bool IsF90DopeVector, bool IsLast = false,
-                      bool IsConditional = false) {
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, bool IsF90DopeVector,
+                      bool IsLast = false, bool IsConditional = false) {
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
       Kind = PrivateKindTy::Last;
     if (IsConditional)
       Kind = PrivateKindTy::Conditional;
-    std::unique_ptr<PrivDescrTy> PrivItem =
-        std::make_unique<PrivDescrTy>(PrivVal, Kind);
+    auto PrivItem = std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind);
     Privates.insert({PrivVal, std::move(PrivItem)});
 
     if (IsF90DopeVector)

@@ -4530,12 +4530,7 @@ void Verifier::visitAliasScopeListMetadata(const MDNode *MD) {
   for (const MDOperand &Op : MD->operands()) {
     const MDNode *OpMD = dyn_cast<MDNode>(Op);
     Assert(OpMD != nullptr, "scope list must consist of MDNodes", MD);
-/******************************************************************************
- * Our intent is to re-enable this function, but for the time being we do not *
- * understand properly how this part of the verifier works and community      *
- * documentation is not very helpful.                                         *
- ******************************************************************************/
-//    visitAliasScopeMetadata(OpMD);
+    visitAliasScopeMetadata(OpMD);
   }
 }
 

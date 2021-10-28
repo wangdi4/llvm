@@ -2438,7 +2438,17 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   };
   const DataLayout &DL = F->getParent()->getDataLayout();
 
+  bool FoundProperItem = false;
+
   for (ReductionItem *RedI : RedClause.items()) {
+    if (RedI->getIsArraySection() || RedI->getType() == ReductionItem::WRNReductionUdr)
+      continue;
+#if INTEL_CUSTOMIZATION
+    if (RedI->getIsF90DopeVector())
+      continue;
+#endif // INTEL_CUSTOMIZATION
+    FoundProperItem = true;
+
     uint64_t Size = DL.getPointerSizeInBits() / 8;
     uint64_t MapType = TGT_MAP_PRIVATE;
     Value *MapTypeVal =
@@ -2460,6 +2470,9 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
     addMapForValue(NewBuf, MapType, MapTypeVal, MapSize);
   }
 
+  if (!FoundProperItem)
+    return false;
+
   uint64_t Size = DL.getPointerSizeInBits() / 8;
   uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_TO;
   Value *MapTypeVal =
@@ -2469,8 +2482,7 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   auto *GlobalCounter = new GlobalVariable(
       *(F->getParent()), Type::getInt32Ty(F->getContext()), false,
       GlobalValue::LinkageTypes::PrivateLinkage,
-      ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
-      "teams_counter",
+      ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), "teams_counter",
       nullptr, GlobalValue::NotThreadLocal, isTargetSPIRV() ? 1 : 0);
   GlobalCounter->addAttribute(VPOParoptAtomicFreeReduction::TeamsCounterAttr);
 

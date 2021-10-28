@@ -508,7 +508,8 @@ public:
   void operator()(PrivateDescr &Descriptor, const PrivDescrTy *CurValue) {
     Descriptor.clear();
     assertIsSingleElementAlloca(CurValue->getRef());
-    auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue->getRef());
+    auto *RefVal = CurValue->getRef();
+    auto *VPAllocaVal = Builder.getOrCreateVPOperand(RefVal);
 
     // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
@@ -521,6 +522,7 @@ public:
     Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
+    Descriptor.setAllocatedType(CurValue->getType());
     if (CurValue->isNonPOD()) {
       auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);
       Descriptor.setCtor(NonPODCurValue->getCtor());

@@ -24,6 +24,7 @@
 #include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "IntelVPlanVLSTransform.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Support/SaveAndRestore.h"
 
@@ -105,7 +106,14 @@ public:
 
   /// \Returns true if VPInst is part of an optimized VLS group.
   bool isOptimizedVLSGroupMember(const VPInstruction *VPInst) const {
-    return getOptimizedVLSGroupData(VPInst, VLSA, Plan).hasValue();
+    if (!VLSA)
+      return false;
+
+    auto *Group = VLSA->getGroupsFor(Plan, VPInst);
+    if (!Group)
+      return false;
+
+    return isTransformableVLSGroup(Group);
   }
 
   /// \Returns the cost of one operand or two operands arithmetics instructions.
