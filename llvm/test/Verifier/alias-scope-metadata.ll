@@ -1,3 +1,8 @@
+; INTEL_CUSTOMIZATION
+; Until CMPLRLLVM-32012 is resolved long-term and the verifier is
+; enabled back, XFAIL the test.
+; XFAIL: *
+; end INTEL_CUSTOMIZATION
 ; RUN: not llvm-as %s -o /dev/null 2>&1 | FileCheck %s
 
 define void @test(i8* %p) {

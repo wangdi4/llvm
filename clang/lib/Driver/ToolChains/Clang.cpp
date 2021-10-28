@@ -9767,8 +9767,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||
       (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
        getToolChain().getTriple().isSPIR())) {
+    // Workaround for old GPU driver version - bump up to 1.4 after uplift
+    TranslatorArgs.push_back("-spirv-max-version=1.3");
 #endif // INTEL_CUSTOMIZATION
-    TranslatorArgs.push_back("-spirv-max-version=1.4");
     TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
     // Prevent crash in the translator if input IR contains DIExpression
     // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
@@ -9999,6 +10000,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
                        getToolChain().getTriple().isSPIR();
+#endif // INTEL_CUSTOMIZATION
 
   // For OpenMP offload, -split=* should not be used
   if (!IsOpenMPSPIRV) {
@@ -10011,15 +10013,13 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
         addArgs(CmdArgs, TCArgs, {"-split=source"});
       else if (CodeSplitValue == "auto")
         addArgs(CmdArgs, TCArgs, {"-split=auto"});
-      else
-        // split must be off
-        assert(CodeSplitValue == "off");
+      else { // Device code split is off
+      }
     } else {
       // auto is the default split mode
       addArgs(CmdArgs, TCArgs, {"-split=auto"});
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
   // On FPGA target we don't need non-kernel functions as entry points, because
   // it only increases amount of code for device compiler to handle, without any

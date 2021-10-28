@@ -26,28 +26,44 @@
 @farr = common dso_local local_unnamed_addr global [100 x float] zeroinitializer, align 16
 
 define dso_local void @foo(i64 %n1, i64 %n2) {
-; CHECK-LABEL:  VPlan after importing plain CFG
-; CHECK-NEXT:  VPlan IR for: foo:HIR
+; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:   [[VP0:%.*]] = {(%n1 * %n2)<nsw>}
-; CHECK-DAG:   [[VP1:%.*]] = {%n1 + %n2}
-; CHECK-DAG:   [[VP2:%.*]] = {@farr2}
-; CHECK-DAG:   [[VP4:%.*]] = {@farr}
-; CHECK-DAG:   [[VP5:%.*]] = {@arr}
+; CHECK-DAG:     [[VP0:%.*]] = {%n1 + %n2}
+; CHECK-DAG:     [[VP1:%.*]] = {@arr}
+; CHECK-DAG:     [[VP2:%.*]] = {@farr2}
+; CHECK-DAG:     [[VP3:%.*]] = {(%n1 * %n2)<nsw>}
+; CHECK-DAG:     [[VP4:%.*]] = {@farr}
 ; CHECK-NEXT:  External Defs End:
-; CHECK:          i64 [[VP8:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP9:%.*]], {{.*}} ]
-; CHECK-NEXT:     i64* [[VP10:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP0]] i64 [[VP8]]
-; CHECK-NEXT:     store i64 111 i64* [[VP10]]
-; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP0]] i64 [[VP8]]
-; CHECK-NEXT:     float* [[VP12:%.*]] = subscript inbounds [100 x float]* @farr2 i64 0 i64 [[VP11]]
-; CHECK-NEXT:     float [[VP13:%.*]] = load float* [[VP12]]
-; CHECK-NEXT:     i64 [[VP14:%.*]] = add i64 [[VP1]] i64 [[VP8]]
-; CHECK-NEXT:     float* [[VP15:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP14]]
-; CHECK-NEXT:     float [[VP16:%.*]] = load float* [[VP15]]
-; CHECK-NEXT:     float [[VP17:%.*]] = fadd float [[VP13]] float [[VP16]]
-; CHECK-NEXT:     i64 [[VP18:%.*]] = add i64 [[VP1]] i64 [[VP8]]
-; CHECK-NEXT:     float* [[VP19:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP18]]
-; CHECK-NEXT:     store float [[VP17]] float* [[VP19]]
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP3]] i64 [[VP5]]
+; CHECK-NEXT:     store i64 111 i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP3]] i64 [[VP5]]
+; CHECK-NEXT:     float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x float]* @farr2 i64 0 i64 [[VP7]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP0]] i64 [[VP5]]
+; CHECK-NEXT:     float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP8]]
+; CHECK-NEXT:     float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     float [[VP9:%.*]] = fadd float [[VP_LOAD]] float [[VP_LOAD_1]]
+; CHECK-NEXT:     i64 [[VP10:%.*]] = add i64 [[VP0]] i64 [[VP5]]
+; CHECK-NEXT:     float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP10]]
+; CHECK-NEXT:     store float [[VP9]] float* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP6]] i64 99
+; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br <External Block>
 ;
 entry:
   %mul = mul nsw i64 %n2, %n1
