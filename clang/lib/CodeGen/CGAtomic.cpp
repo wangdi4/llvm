@@ -840,6 +840,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   case AtomicExpr::AO__atomic_nand_fetch:
     PostOp = llvm::Instruction::And; // the NOT is special cased below
     LLVM_FALLTHROUGH;
+  case AtomicExpr::AO__c11_atomic_fetch_nand:
   case AtomicExpr::AO__atomic_fetch_nand:
     Op = llvm::AtomicRMWInst::Nand;
     break;
@@ -1201,6 +1202,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   case AtomicExpr::AO__c11_atomic_fetch_and:
   case AtomicExpr::AO__c11_atomic_fetch_or:
   case AtomicExpr::AO__c11_atomic_fetch_xor:
+  case AtomicExpr::AO__c11_atomic_fetch_nand:
   case AtomicExpr::AO__c11_atomic_fetch_max:
   case AtomicExpr::AO__c11_atomic_fetch_min:
   case AtomicExpr::AO__opencl_atomic_fetch_and:
@@ -1341,6 +1343,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__c11_atomic_fetch_or:
     case AtomicExpr::AO__opencl_atomic_fetch_or:
     case AtomicExpr::AO__atomic_fetch_or:
+    case AtomicExpr::AO__c11_atomic_fetch_nand:
     case AtomicExpr::AO__atomic_fetch_nand:
     case AtomicExpr::AO__c11_atomic_fetch_sub:
     case AtomicExpr::AO__opencl_atomic_fetch_sub:
@@ -1738,6 +1741,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_nand_fetch:
       PostOp = llvm::Instruction::And; // the NOT is special cased below
       LLVM_FALLTHROUGH;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_nand_explicit:
     case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
@@ -1746,6 +1750,9 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
     case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
 #endif // INTEL_CUSTOMIZATION
+=======
+    case AtomicExpr::AO__c11_atomic_fetch_nand:
+>>>>>>> 6ea2431d3f109aefa31cd4d520cc234a5aa5484a
     case AtomicExpr::AO__atomic_fetch_nand:
       LibCallName = "__atomic_fetch_nand";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
