@@ -578,7 +578,7 @@ TEST(Assert, TestInteropKernelNegative) {
   /* INTEL_CUSTOMIZATION */
   /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
    * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::rocm ||
+  if (Backend == sycl::backend::cuda || Backend == sycl::backend::hip ||
       Backend == sycl::backend::level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
@@ -619,7 +619,7 @@ TEST(Assert, TestInteropKernelFromProgramNegative) {
   /* INTEL_CUSTOMIZATION */
   /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
    * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::rocm ||
+  if (Backend == sycl::backend::cuda || Backend == sycl::backend::hip ||
       Backend == sycl::backend::level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
@@ -662,7 +662,7 @@ TEST(Assert, TestKernelFromSourceNegative) {
   /* INTEL_CUSTOMIZATION */
   /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
    * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::rocm ||
+  if (Backend == sycl::backend::cuda || Backend == sycl::backend::hip ||
       Backend == sycl::backend::level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
@@ -706,18 +706,4 @@ TEST(Assert, TestKernelFromSourceNegative) {
 
   EXPECT_EQ(TestInteropKernel::KernelLaunchCounter,
             KernelLaunchCounterBase + 1);
-}
-
-TEST(Assert, TestAssertServiceKernelHidden) {
-  const char *AssertServiceKernelName = sycl::detail::KernelInfo<
-      sycl::detail::__sycl_service_kernel__::AssertInfoCopier>::getName();
-
-  std::vector<sycl::kernel_id> AllKernelIDs = sycl::get_kernel_ids();
-
-  auto NoFoundServiceKernelID = std::none_of(
-      AllKernelIDs.begin(), AllKernelIDs.end(), [=](sycl::kernel_id KernelID) {
-        return strcmp(KernelID.get_name(), AssertServiceKernelName) == 0;
-      });
-
-  EXPECT_TRUE(NoFoundServiceKernelID);
 }
