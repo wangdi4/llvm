@@ -1378,7 +1378,6 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX512F-NEXT:    vptestnmd %zmm0, %zmm0, %k0
 ; AVX512F-NEXT:    kshiftlw $8, %k0, %k0
 ; AVX512F-NEXT:    kshiftrw $8, %k0, %k1
-<<<<<<< HEAD
 ; AVX512F-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; AVX512F-NEXT:    kmovw %k1, %k2
@@ -1387,38 +1386,15 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX512F-NEXT:    vpgatherdd c+28(,%zmm0), %zmm2 {%k1}
 ; AVX512F-NEXT:    vpaddd %ymm2, %ymm2, %ymm0
 ; AVX512F-NEXT:    vpaddd %ymm0, %ymm1, %ymm0
-=======
-; AVX512F-NEXT:    vpbroadcastd {{.*#+}} zmm0 = [12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12]
-; AVX512F-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; AVX512F-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVX512F-NEXT:    kmovw %k1, %k2
-; AVX512F-NEXT:    vpgatherdd c(,%zmm0), %zmm2 {%k2}
-; AVX512F-NEXT:    vpbroadcastd {{.*#+}} zmm0 = [28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28]
-; AVX512F-NEXT:    vpgatherdd c(,%zmm0), %zmm1 {%k1}
-; AVX512F-NEXT:    vpaddd %ymm1, %ymm1, %ymm0
-; AVX512F-NEXT:    vpaddd %ymm0, %ymm2, %ymm0
->>>>>>> 2bc28c6f825ec7b33854288970c6646e17425d62
 ; AVX512F-NEXT:    retq
 ;
 ; AVX512VL-LABEL: gather_v8i32_v8i32:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vptestnmd %ymm0, %ymm0, %k1
-<<<<<<< HEAD
 ; AVX512VL-NEXT:    vpbroadcastd c+12(%rip), %ymm0 {%k1} {z}
 ; AVX512VL-NEXT:    vpbroadcastd c+28(%rip), %ymm1 {%k1} {z}
 ; AVX512VL-NEXT:    vpaddd %ymm1, %ymm1, %ymm1
 ; AVX512VL-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
-=======
-; AVX512VL-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; AVX512VL-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [12,12,12,12,12,12,12,12]
-; AVX512VL-NEXT:    kmovw %k1, %k2
-; AVX512VL-NEXT:    vpxor %xmm2, %xmm2, %xmm2
-; AVX512VL-NEXT:    vpgatherdd c(,%ymm1), %ymm2 {%k2}
-; AVX512VL-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [28,28,28,28,28,28,28,28]
-; AVX512VL-NEXT:    vpgatherdd c(,%ymm1), %ymm0 {%k1}
-; AVX512VL-NEXT:    vpaddd %ymm0, %ymm0, %ymm0
-; AVX512VL-NEXT:    vpaddd %ymm0, %ymm2, %ymm0
->>>>>>> 2bc28c6f825ec7b33854288970c6646e17425d62
 ; AVX512VL-NEXT:    retq
 ; end INTEL_CUSTOMIZATION
   %1 = icmp eq <8 x i32> %trigger, zeroinitializer
