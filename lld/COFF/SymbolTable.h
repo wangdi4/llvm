@@ -81,10 +81,14 @@ public:
   // Build a set of COFF objects representing the combined contents of
   // BitcodeFiles and add them to the symbol table. Called after all files are
   // added and before the writer writes results to a file.
+<<<<<<< HEAD
   void addCombinedLTOObjects();
 #if INTEL_CUSTOMIZATION
   std::vector<StringRef> compileBitcodeFiles();
 #endif // INTEL_CUSTOMIZATION
+=======
+  void compileBitcodeFiles();
+>>>>>>> 4da38c14d00cf7348e58e8222452038b1d5df84c
 
   // Creates an Undefined symbol for a given name.
   Symbol *addUndefined(StringRef name);
