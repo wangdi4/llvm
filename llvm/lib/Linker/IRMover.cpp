@@ -603,6 +603,8 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
       CurrPtr = TempPtr->getPointerElementType();
     }
 
+    assert(CurrPtr && "Null pointer element type from DTransPointerType");
+
     return dyn_cast<StructType>(CurrPtr->getLLVMType());
   };
 
