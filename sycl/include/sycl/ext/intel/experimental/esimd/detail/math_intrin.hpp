@@ -1639,7 +1639,4 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 /* end INTEL_CUSTOMIZATION */
 
 #endif // #ifdef __SYCL_DEVICE_ONLY__
-<<<<<<< HEAD
 
-=======
->>>>>>> bac3b6719dbd010438ce6f2362ccd3e15489a8e1

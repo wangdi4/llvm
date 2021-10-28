@@ -50,15 +50,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; AVX2-FASTGATHER: LV: Found an estimated cost of 448 for VF 32 For instruction:   store i64 %valB, i64* %out, align 8
 ;
 ; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   store i64 %valB, i64* %out, align 8
-<<<<<<< HEAD
 ; AVX512: LV: Found an estimated cost of 6 for VF 2 For instruction:   store i64 %valB, i64* %out, align 8
 ; AVX512: LV: Found an estimated cost of 16 for VF 4 For instruction:   store i64 %valB, i64* %out, align 8
-=======
-; INTEL_CUSTOMIZATION :: cost includes gathering pointers for scalarized gather/scatter
-; AVX512: LV: Found an estimated cost of 6 for VF 2 For instruction:   store i64 %valB, i64* %out, align 8
-; AVX512: LV: Found an estimated cost of 16 for VF 4 For instruction:   store i64 %valB, i64* %out, align 8
-; end INTEL_CUSTOMIZATION
->>>>>>> bac3b6719dbd010438ce6f2362ccd3e15489a8e1
 ; AVX512: LV: Found an estimated cost of 10 for VF 8 For instruction:   store i64 %valB, i64* %out, align 8
 ; AVX512: LV: Found an estimated cost of 20 for VF 16 For instruction:   store i64 %valB, i64* %out, align 8
 ; AVX512: LV: Found an estimated cost of 40 for VF 32 For instruction:   store i64 %valB, i64* %out, align 8

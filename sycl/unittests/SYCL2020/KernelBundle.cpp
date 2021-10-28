@@ -178,12 +178,9 @@ TEST(KernelBundle, EmptyKernelBundle) {
     std::cout << "Test is not supported on HIP platform, skipping\n";
     return;
   }
-<<<<<<< HEAD
 
   sycl::unittest::PiMock Mock{Plt};
   setupDefaultMockAPIs(Mock);
-=======
->>>>>>> bac3b6719dbd010438ce6f2362ccd3e15489a8e1
 
   const sycl::device Dev = Plt.get_devices()[0];
   sycl::queue Queue{Dev};

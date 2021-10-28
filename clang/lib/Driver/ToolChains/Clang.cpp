@@ -10000,10 +10000,7 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
                        getToolChain().getTriple().isSPIR();
-<<<<<<< HEAD
-=======
 #endif // INTEL_CUSTOMIZATION
->>>>>>> bac3b6719dbd010438ce6f2362ccd3e15489a8e1
 
   // For OpenMP offload, -split=* should not be used
   if (!IsOpenMPSPIRV) {
@@ -10016,14 +10013,8 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
         addArgs(CmdArgs, TCArgs, {"-split=source"});
       else if (CodeSplitValue == "auto")
         addArgs(CmdArgs, TCArgs, {"-split=auto"});
-<<<<<<< HEAD
-      else
-        // split must be off
-        assert(CodeSplitValue == "off");
-=======
       else { // Device code split is off
       }
->>>>>>> bac3b6719dbd010438ce6f2362ccd3e15489a8e1
     } else {
       // auto is the default split mode
       addArgs(CmdArgs, TCArgs, {"-split=auto"});

@@ -29,19 +29,11 @@ define dso_local void @foo(i64 %n1, i64 %n2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-<<<<<<< HEAD
-; CHECK-DAG:   [[VP0:%.*]] = {(%n1 * %n2)<nsw>}
-; CHECK-DAG:   [[VP1:%.*]] = {%n1 + %n2}
-; CHECK-DAG:   [[VP2:%.*]] = {@farr2}
-; CHECK-DAG:   [[VP4:%.*]] = {@farr}
-; CHECK-DAG:   [[VP5:%.*]] = {@arr}
-=======
 ; CHECK-DAG:     [[VP0:%.*]] = {%n1 + %n2}
 ; CHECK-DAG:     [[VP1:%.*]] = {@arr}
 ; CHECK-DAG:     [[VP2:%.*]] = {@farr2}
-; CHECK-DAG:     [[VP3:%.*]] = {(%n1 * %n2)}
+; CHECK-DAG:     [[VP3:%.*]] = {(%n1 * %n2)<nsw>}
 ; CHECK-DAG:     [[VP4:%.*]] = {@farr}
->>>>>>> bac3b6719dbd010438ce6f2362ccd3e15489a8e1
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
