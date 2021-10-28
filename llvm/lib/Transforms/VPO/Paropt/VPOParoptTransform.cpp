@@ -5019,34 +5019,35 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
           ((isa<WRNParallelNode>(W) || W->getIsParLoop()) || W->getIsTeams()) &&
           !AtomicFreeRedGlobalBufs.count(RedI)) {
-        auto *WTarget =
-            WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-        auto &MapClause = WTarget->getMap();
+        if (auto *WTarget =
+                WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
+          auto &MapClause = WTarget->getMap();
 
-        int CurBufIdx = 0;
-        bool Found = false;
-        for (auto &MItem : MapClause.items()) {
-          if (isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
-              cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
-                  ->hasAttribute(
-                      VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
-            if (CurBufIdx == ItemIndex) {
-              auto *GV = dyn_cast<GlobalVariable>(
-                  MItem->getMapChain()[0]->getBasePtr());
-              assert(GV);
-              AtomicFreeRedGlobalBufs[RedI] = GV;
-              Found = true;
-              break;
+          int CurBufIdx = 0;
+          bool Found = false;
+          for (auto &MItem : MapClause.items()) {
+            if (isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
+                cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
+                    ->hasAttribute(
+                        VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
+              if (CurBufIdx == ItemIndex) {
+                auto *GV = dyn_cast<GlobalVariable>(
+                    MItem->getMapChain()[0]->getBasePtr());
+                assert(GV);
+                AtomicFreeRedGlobalBufs[RedI] = GV;
+                Found = true;
+                break;
+              }
+              ++CurBufIdx;
             }
-            ++CurBufIdx;
           }
+          // we need to increment ItemIndex but need to ensure non-GPU
+          // FastReduction is disabled to prevent its failure due to the updated
+          // ItemIndex
+          assert(!Found || !FastReductionEnabled);
+          if (Found)
+            ItemIndex++;
         }
-        // we need to increment ItemIndex but need to ensure non-GPU
-        // FastReduction is disabled to prevent its failure due to the updated
-        // ItemIndex
-        assert(!Found || !FastReductionEnabled);
-        if (Found)
-          ItemIndex++;
       }
 
       RedInitEntryBB = createEmptyPrivInitBB(W);
