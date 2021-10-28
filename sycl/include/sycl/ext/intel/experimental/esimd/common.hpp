@@ -34,9 +34,6 @@ using bfloat16 = uint16_t;
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-#ifdef __SYCL_DEVICE_ONLY__
-=======
->>>>>>> 695e2cf34477aa526f243b961bd39811c087a26e
 // Mark a function being nodebug.
 #define ESIMD_NODEBUG __attribute__((nodebug))
 // Mark a "ESIMD global": accessible from all functions in current translation
