@@ -408,7 +408,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
   if (Arg *OldOpt = Args.getLastArg(options::OPT_device_math_lib_EQ,
                                     options::OPT_no_device_math_lib_EQ))
     Diag(clang::diag::warn_drv_deprecated_arg)
-        << OldOpt->getAsString(Args) << "-f[no-]openmp-device-lib";
+        << OldOpt->getAsString(Args) << true << "-f[no-]openmp-device-lib";
 
   // Add the math device libs if requested by the user or enabled by default.
   // This needs to be done on the linking phase.
@@ -1379,7 +1379,7 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
             } else if (TT.getVendor() != llvm::Triple::UnknownVendor)
               SuggestedTriple += Twine("-" + TT.getVendorName()).str();
             Diag(clang::diag::warn_drv_deprecated_arg)
-                << TT.str() << SuggestedTriple;
+                << TT.str() << true << SuggestedTriple;
             // Drop environment component.
             std::string EffectiveTriple =
                 Twine(TT.getArchName() + "-" + TT.getVendorName() + "-" +
