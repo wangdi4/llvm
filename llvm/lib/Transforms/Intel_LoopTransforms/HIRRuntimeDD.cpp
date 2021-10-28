@@ -1131,45 +1131,41 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   return OK;
 }
 
-// Update \p Lower and \p Upper address RegDDRefs types to be equal to \p
-// PtrType.
-// * If PtrType is null then smallest type between Lower and Upper is selected.
-// * If Upper type is larger than PtrType then non-linear address offset will be
-//   generated and added to \p Nodes to address the last word of larger type.
+// Update \p Lower and \p Upper address RegDDRefs element types to be equal to
+// \p PtrElementType.
+// * If PtrElementType is null then smallest type between Lower and Upper is
+// selected.
+// * If Upper type is larger than PtrElementType then non-linear address offset
+// will be generated and added to \p Nodes to address the last word of larger
+// type.
 static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
                               RegDDRef *&Lower, RegDDRef *&Upper,
-                              Type *PtrType) {
+                              Type *PtrElementType) {
   assert(Lower->isAddressOf() && Upper->isAddressOf() &&
          "Expected to be isAddressOf DDRefs");
 
   auto &DL = HNU.getDataLayout();
 
-  Type *LowerType = Lower->getDestType();
-  Type *UpperType = Upper->getDestType();
-
   Type *LowerElementType = Lower->getDereferencedType();
   Type *UpperElementType = Upper->getDereferencedType();
 
-  Type *PtrElementType = PtrType;
   // Determine smallest type.
-  if (!PtrType) {
+  if (!PtrElementType) {
     auto LowerSize = DL.getTypeSizeInBits(LowerElementType);
     auto UpperSize = DL.getTypeSizeInBits(UpperElementType);
 
     if (LowerSize < UpperSize) {
-      PtrType = LowerType;
       PtrElementType = LowerElementType;
     } else {
-      PtrType = UpperType;
       PtrElementType = UpperElementType;
     }
   }
 
-  if (LowerType != PtrType) {
+  if (LowerElementType != PtrElementType) {
     Lower->setBitCastDestVecOrElemType(PtrElementType);
   }
 
-  if (UpperType != PtrType) {
+  if (UpperElementType != PtrElementType) {
     Upper->setBitCastDestVecOrElemType(PtrElementType);
 
     auto UpperTypeSize = DL.getTypeSizeInBits(UpperElementType);
@@ -1243,12 +1239,11 @@ static Type *getMinimalElementSizeType(const DataLayout &DL,
 
   for (auto &Segment : Segments) {
     for (auto &Ref : {Segment.Lower, Segment.Upper}) {
-      Type *RefType = Ref->getDestType();
       Type *RefElementType = Ref->getDereferencedType();
       auto Size = DL.getTypeSizeInBits(RefElementType);
       if (Size < MinTypeSize) {
         MinTypeSize = Size;
-        MinType = RefType;
+        MinType = RefElementType;
       }
     }
   }
@@ -1278,8 +1273,11 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   auto &LLVMContext = HNU.getContext();
 
   Type *I8PtrType = Type::getInt8PtrTy(LLVMContext, 0);
-  Type *PtrType =
+  Type *PtrElementType =
       getMinimalElementSizeType(HNU.getDataLayout(), Context.SegmentList);
+
+  // TODO: bailout of library call logic if any ref is not in address space 0.
+  Type *PtrType = PointerType::get(PtrElementType, 0);
 
   // Create a type for [N * %mem_region_t]
   Type *SegmentRuntimeTy = StructType::get(PtrType, PtrType);
@@ -1312,7 +1310,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
     RegDDRef *UBDDRef = LBDDRef->clone();
     UBDDRef->setTrailingStructOffsets(1, 1);
 
-    normalizeRefTypes(HNU, Nodes, S.Lower, S.Upper, PtrType);
+    normalizeRefTypes(HNU, Nodes, S.Lower, S.Upper, PtrElementType);
     Nodes.push_back(*HNU.createStore(S.Lower, "lb", LBDDRef));
     Nodes.push_back(*HNU.createStore(S.Upper, "ub", UBDDRef));
 
