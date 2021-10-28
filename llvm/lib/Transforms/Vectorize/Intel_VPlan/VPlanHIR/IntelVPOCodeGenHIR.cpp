@@ -1614,7 +1614,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
             assert(WideRef->getSingleCanonExpr()->getSingleBlobIndex() == BI &&
                    "Unexpected RegDDRef/Blob for invariant vector blob");
             // Replicate invariant vector blob VF times.
-            HLInst *ReplBlobInst = replicateVector(WideRef, VF);
+            HLInst *ReplBlobInst =
+                replicateVector(WideRef, VF, NestingLevel - 1);
             // Insert the replicating instruction into preheader of vector loop.
             HLNodeUtils::insertBefore(MainLoop, ReplBlobInst);
             auto NewRef = ReplBlobInst->getLvalDDRef();
@@ -1655,7 +1656,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
         assert(WideRef->getDestType() != VecRefDestTy &&
                "Vector Blob was not scalarized.");
         // Replicate vector blob VF times.
-        HLInst *ReplBlobInst = replicateVector(WideRef, VF);
+        HLInst *ReplBlobInst = replicateVector(WideRef, VF, NestingLevel);
         // Insert the replicating instruction into vector loop.
         addInstUnmasked(ReplBlobInst);
         auto NewRef = ReplBlobInst->getLvalDDRef();
@@ -1983,7 +1984,8 @@ HLInst *VPOCodeGenHIR::extendVector(RegDDRef *Input, unsigned TargetLength) {
 }
 
 HLInst *VPOCodeGenHIR::replicateVector(RegDDRef *Input,
-                                       unsigned ReplicationFactor) {
+                                       unsigned ReplicationFactor,
+                                       unsigned ReplNestingLvl) {
   assert(ReplicationFactor > 1 && "Unexpected replication factor.");
   auto *OrigTy = cast<VectorType>(Input->getDestType());
   unsigned OrigNumElts = OrigTy->getNumElements();
@@ -1999,6 +2001,11 @@ HLInst *VPOCodeGenHIR::replicateVector(RegDDRef *Input,
   auto *ReplVecInst = createShuffleWithUndef(Input, ShuffleMask, ".replicated");
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] ReplVecInst: "; ReplVecInst->dump();
              dbgs() << "\n");
+
+  // Make the replicated sub-vector operand consistent based on nesting level
+  // where ReplVecInst will be attached.
+  RegDDRef *ReplOperand = ReplVecInst->getOperandDDRef(1);
+  ReplOperand->makeConsistent({}, ReplNestingLvl);
 
   return ReplVecInst;
 }
