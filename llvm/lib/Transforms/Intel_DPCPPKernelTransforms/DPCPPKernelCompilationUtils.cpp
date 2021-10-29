@@ -220,6 +220,26 @@ bool isGeneratedFromOCLCPP(const Module &M) {
   return false;
 }
 
+// TODO: use product solution for checking IR generated from OpenMP
+// offloading, instead of the hack (checking the global variable name).
+//
+// In most cases, of course, there will be at least one kernel, thus, at least
+// one OpenMP offload entries table entry, and, thus,
+// __omp_offloading_entries_table_size definition will be generated. But it is
+// possible that an OpenMP program just defines some non-kernel functions, and
+// OpenMP offload entries table is empty. This may be used for library-like
+// OpenMP offload code compilation. On the other hand, we do not support
+// runtime linking of such libraries currently.
+bool isGeneratedFromOMP(const Module &M) {
+  // If IR is generated from OpenMP offloading code, it has spirv source
+  // metadata (OpenCL CPP), and a global variable named as
+  // __omp_offloading_entries_table.
+  if (isGeneratedFromOCLCPP(M) &&
+      M.getGlobalVariable("__omp_offloading_entries_table"))
+    return true;
+  return false;
+}
+
 bool isImplicitGID(AllocaInst *AI) {
   StringRef Name = AI->getName();
   static const std::vector<StringRef> ImplicitGIDs = {

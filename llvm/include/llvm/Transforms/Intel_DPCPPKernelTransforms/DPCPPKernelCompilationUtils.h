@@ -163,6 +163,9 @@ bool isEnqueueKernelEventsLocalMem(StringRef S);
 /// from "!spirv.Source" named metadata
 bool isGeneratedFromOCLCPP(const Module &M);
 
+/// generatedFromOMP - check that IR was generated from OpenMP.
+bool isGeneratedFromOMP(const Module &M);
+
 /// Return true if string is plain or mangled get_enqueued_local_size.
 bool isGetEnqueuedLocalSize(StringRef S);
 
