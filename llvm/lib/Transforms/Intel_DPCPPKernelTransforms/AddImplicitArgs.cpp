@@ -161,6 +161,7 @@ bool AddImplicitArgsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
     CallInst *CI = It.first;
     Value **CallArgs = It.second;
 
+<<<<<<< HEAD
     // Create new call instruction with extended arguments.
     SmallVector<Value *, 16> NewArgs;
 
@@ -188,11 +189,15 @@ bool AddImplicitArgsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
     // Copy debug metadata to new function if available.
     if (CI->hasMetadata())
       NewCI->setDebugLoc(CI->getDebugLoc());
+=======
+    unsigned ImplicitArgStart =
+        CI->getNumArgOperands() - ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
+    for (unsigned i = ImplicitArgStart, j = 0;
+         j < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i, ++j)
+      CI->setArgOperand(i, CallArgs[j]);
+>>>>>>> 70a2ce7de2659ba8c72e7d0c66ed7cd46e5c1a65
 
     delete[] CallArgs;
-
-    CI->replaceAllUsesWith(NewCI);
-    CI->eraseFromParent();
   }
 
   return true;
