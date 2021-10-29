@@ -33,6 +33,9 @@
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/IR/IntrinsicsS390.h"
 #include "llvm/IR/Type.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm> // std::sort
 
@@ -134,6 +137,33 @@ static bool doOpenCLClassification(CGFunctionInfo &FI, ASTContext &Context) {
     Arg.info = classifyOpenCL(Arg.type, Context);
 
   return true;
+}
+
+// When an integer type appears in argument of an SVML function, it might be:
+//   a) An AVX512 mask (since the __mmask types are defined as aliases to
+//      integer types in headers), we need to convert it to <n x i1> type and
+//      pass in k registers.
+//   b) Part of input data (e.g. for div1), in this case we want to pass it
+//      directly in a GPR.
+// This function is used to distinguish the two cases for ArgType. Returns true
+// if it's a mask.
+static bool isSVMLIntArgumentMask(ASTContext &Context, QualType ArgType,
+                                  QualType ReturnType) {
+  // ArgType is a mask if ArgType is an unsigned integer and the function is a
+  // vector function, which can be checked by whether the return type is a
+  // scalar type.
+  const BuiltinType *BT = ArgType->getAs<BuiltinType>();
+  if (!BT || !BT->isUnsignedInteger())
+    return false;
+  if (ReturnType->isVectorType())
+    return true;
+  if (const RecordType *RT = ReturnType->getAs<RecordType>()) {
+    const RecordDecl *RD = RT->getDecl();
+    for (const FieldDecl *Field : RD->fields())
+      if (Field->getType()->isVectorType())
+        return true;
+  }
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3981,6 +4011,9 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   }
 
   bool IsRegCall = CallingConv == llvm::CallingConv::X86_RegCall;
+#if INTEL_CUSTOMIZATION
+  bool IsSVMLCall = CallingConv == llvm::CallingConv::SVML_Unified;
+#endif // INTEL_CUSTOMIZATION
 
   // Keep track of the number of assigned registers.
   unsigned FreeIntRegs = IsRegCall ? 11 : 6;
@@ -3988,7 +4021,10 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   unsigned NeededInt, NeededSSE;
 
   if (!::classifyReturnType(getCXXABI(), FI, *this)) {
-    if (IsRegCall && FI.getReturnType()->getTypePtr()->isRecordType() &&
+#if INTEL_CUSTOMIZATION
+    if ((IsSVMLCall || IsRegCall) &&
+        FI.getReturnType()->getTypePtr()->isRecordType() &&
+#endif // INTEL_CUSTOMIZATION
         !FI.getReturnType()->getTypePtr()->isUnionType()) {
       FI.getReturnInfo() =
           classifyRegCallStructType(FI.getReturnType(), NeededInt, NeededSSE);
@@ -4027,8 +4063,22 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
        it != ie; ++it, ++ArgNo) {
     bool IsNamedArg = ArgNo < NumRequiredArgs;
 
-    if (IsRegCall && it->type->isStructureOrClassType())
+#if INTEL_CUSTOMIZATION
+    if ((IsSVMLCall || IsRegCall) && it->type->isStructureOrClassType())
+#endif // INTEL_CUSTOMIZATION
       it->info = classifyRegCallStructType(it->type, NeededInt, NeededSSE);
+#if INTEL_CUSTOMIZATION
+    else if (IsSVMLCall &&
+             isSVMLIntArgumentMask(getContext(), it->type, FI.getReturnType())) {
+      // If the argument is an AVX512 mask in an SVML function, it should be
+      // casted to an i1 vector passed in k registers.
+      it->info = ABIArgInfo::getDirect(llvm::VectorType::get(
+          llvm::Type::getInt1Ty(CGT.getLLVMContext()),
+          llvm::ElementCount::getFixed(Context.getIntWidth(it->type))));
+      NeededInt = 0;
+      NeededSSE = 0;
+    }
+#endif // INTEL_CUSTOMIZATION
     else
       it->info = classifyArgumentType(it->type, FreeIntRegs, NeededInt,
                                       NeededSSE, IsNamedArg);
