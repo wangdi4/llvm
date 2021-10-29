@@ -3452,9 +3452,26 @@ static void handleReadWriteMode(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
     return;
   }
+<<<<<<< HEAD
 
   if (Str != "readonly" && Str != "writeonly" && Str != "readwrite") {
     S.Diag(Attr.getLoc(), diag::err_hls_readwrite_arg_invalid) << Attr;
+=======
+  Ty = getFunctionOrMethodResultType(D);
+  // replace instancetype with the class type
+  if (Ty.getTypePtr() == S.Context.getObjCInstanceTypeDecl()->getTypeForDecl())
+    if (auto *OMD = dyn_cast<ObjCMethodDecl>(D))
+      if (auto *Interface = OMD->getClassInterface())
+        Ty = S.Context.getObjCObjectPointerType(
+            QualType(Interface->getTypeForDecl(), 0));
+  if (!isNSStringType(Ty, S.Context, /*AllowNSAttributedString=*/true) &&
+      !isCFStringType(Ty, S.Context) &&
+      (!Ty->isPointerType() ||
+       !Ty->castAs<PointerType>()->getPointeeType()->isCharType())) {
+    S.Diag(AL.getLoc(), diag::err_format_attribute_result_not)
+        << (NotNSStringTy ? "string type" : "NSString")
+        << IdxExpr->getSourceRange() << getFunctionOrMethodParamRange(D, 0);
+>>>>>>> 6a5f7437720ea0fa184469584600c27a1a912a41
     return;
   }
 
