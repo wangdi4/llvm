@@ -401,8 +401,9 @@ define void @select_cond_poison_propagation(double* %p, i32 %x) nounwind {
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,-2147483648) S: [0,-2147483648) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.next = add nsw i32 %iv, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><%loop> U: [1,0) S: [1,0) Exits: <<Unknown>> LoopDispositions: { %loop: Computable }
+; INTEL: xmain computes improved ranges on this select
 ; CHECK-NEXT:    %sel = select i1 %cmp, i32 10, i32 20
-; CHECK-NEXT:    --> %sel U: [0,31) S: [0,31) Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
+; CHECK-NEXT:    --> %sel U: [10,21) S: [10,21) Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:    %cond = call i1 @cond()
 ; CHECK-NEXT:    --> %cond U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:  Determining loop execution counts for: @select_cond_poison_propagation
