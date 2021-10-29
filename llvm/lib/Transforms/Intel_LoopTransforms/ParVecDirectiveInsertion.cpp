@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ParVecDirectiveInsertion.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
@@ -30,6 +31,11 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+static cl::opt<size_t>
+    OptReportDDEdgesLimit("optreport-ddedges-limit", cl::init(10), cl::Hidden,
+                          cl::desc("Limit DD edges count for optreport level 3 "
+                                   "(limited to 1 for lower levels)"));
 
 bool ParVecDirectiveInsertion::runOnFunction(Function &Func, HIRFramework *HIRF,
                                              HIRParVecAnalysis *HPVA) {
@@ -64,6 +70,51 @@ void ParVecDirectiveInsertion::Visitor::visit(HLLoop *HLoop) {
     insertVecDirectives(HLoop, Info);
     return;
   }
+
+  // Add justification why can't vectorize.
+  OptReportBuilder &ORBuilder =
+      HLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
+  if (ORBuilder.isOptReportOn())
+    switch (Info->getVecType()) {
+    case ParVecInfo::NOVECTOR_PRAGMA_LOOP:
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15319u, "Loop");
+      break;
+    case ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE: {
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15344u, "Loop",
+                                  "");
+      auto &Edges = Info->getVecEdges();
+      size_t Limit = ORBuilder.getVerbosity() >= OptReportVerbosity::Medium
+                         ? OptReportDDEdgesLimit
+                         : 1;
+      for (size_t I = 0; I < Edges.size() && I < Limit; I++)
+        ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15346u,
+                                    Edges[I]->getOptReportStr());
+    } break;
+    case ParVecInfo::FE_DIAG_VEC_FAIL_EMPTY_LOOP:
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15414u, "Loop");
+      break;
+    case ParVecInfo::SWITCH_STMT:
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15535u, "Loop");
+      break;
+    case ParVecInfo::UNKNOWN_CALL:
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15527u, "Loop",
+                                  "");
+      break;
+    case ParVecInfo::NON_DO_LOOP:
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15521u, "Loop",
+                                  "");
+      break;
+    case ParVecInfo::UNROLL_PRAGMA_LOOP:
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15427u);
+      break;
+    case ParVecInfo::FE_DIAG_VEC_NOT_INNERMOST:
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15553u);
+      break;
+    default:
+      // No specific diagnostics.
+      break;
+    }
+
   // Insert parallelization directives?
   Insert = (Mode == ParVecInfo::ParallelForThreadizer &&
             Info->getVecType() == ParVecInfo::ParOkay);

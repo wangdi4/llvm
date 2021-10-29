@@ -701,6 +701,8 @@ public:
 
   // Wrapper method to return relevant debug location.
   const DebugLoc &getDebugLoc() const {
+    if (isTerminalRef())
+      return getSingleCanonExpr()->getDebugLoc();
     return isAddressOf() ? getGepDebugLoc() : getMemDebugLoc();
   }
 

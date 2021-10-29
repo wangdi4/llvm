@@ -49,6 +49,36 @@ bool DDEdge::isForwardDep() const {
   return (SrcTopSortNum < SinkTopSortNum);
 }
 
+std::string DDEdge::getOptReportStr() const {
+
+  // TODO: finally should return a string like
+  // assumed FLOW dependence between p1[i] (9:5) and p2[*(M+i*4)] (9:5)
+
+  std::string Str;
+  raw_string_ostream OS(Str);
+  OS << "assumed ";
+  OS << getEdgeType();
+  OS << " dependence";
+
+  auto GetLineAndCol = [](DDRef *Ref) {
+    if (RegDDRef *Reg = dyn_cast<RegDDRef>(Ref)) {
+      const DebugLoc &DbgLoc = Reg->getDebugLoc();
+      if (DbgLoc.get())
+        return "(" + std::to_string(DbgLoc.getLine()) + ":" +
+               std::to_string(DbgLoc.getCol()) + ")";
+    }
+    return std::string();
+  };
+
+  std::string SrcLoc = GetLineAndCol(Src);
+  std::string SinkLoc = GetLineAndCol(Sink);
+
+  if (!SrcLoc.empty() && !SinkLoc.empty())
+    OS << " between " << SrcLoc << " and " << SinkLoc;
+
+  return OS.str();
+}
+
 void DDEdge::print(raw_ostream &OS) const {
   formatted_raw_ostream FOS(OS);
   FOS << Src->getHLDDNode()->getNumber() << ":";
