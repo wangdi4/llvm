@@ -22,7 +22,6 @@
 #include "TestsHelpClasses.h"
 #include <CL/cl.h>
 #include <gtest/gtest.h>
-#include <tbb/global_control.h>
 #include <tbb/parallel_for.h>
 
 #include <thread>
@@ -671,7 +670,6 @@ TEST_F(USMTest, setKernelArgMemPointer) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
-#ifndef _WIN32
 TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   // Build program.
   const char *source[] = {"__kernel void test(const __global int *data,\n"
@@ -683,9 +681,7 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   ASSERT_NO_FATAL_FAILURE(
       BuildProgram(m_context, m_device, source, 1, program));
 
-  int numThreads = tbb::global_control::active_value(
-      tbb::global_control::max_allowed_parallelism);
-
+  int numThreads = getMaxNumExternalThreads();
   tbb::parallel_for(tbb::blocked_range<int>(0, numThreads * 10),
                     [&](tbb::blocked_range<int>(range)) {
                       for (int i = range.begin(); i < range.end(); ++i) {
@@ -697,7 +693,6 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   cl_int err = clReleaseProgram(program);
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
-#endif // _WIN32
 
 TEST_F(USMTest, setKernelExecInfo) {
   cl_int err;
