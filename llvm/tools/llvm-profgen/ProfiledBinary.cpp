@@ -10,7 +10,6 @@
 #include "ErrorHandling.h"
 #include "ProfileGenerator.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -354,7 +353,6 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
   };
 
   uint64_t Offset = StartOffset;
-  uint64_t EndOffset = 0;
   // Size of a consecutive invalid instruction range starting from Offset -1
   // backwards.
   uint64_t InvalidInstLength = 0;
@@ -402,8 +400,6 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
         CallAddrs.insert(Offset);
       else if (MCDesc.isReturn())
         RetAddrs.insert(Offset);
-
-      EndOffset = Offset;
 
       if (InvalidInstLength) {
         WarnInvalidInsts(Offset - InvalidInstLength, Offset - 1);
