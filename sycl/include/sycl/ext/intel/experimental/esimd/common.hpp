@@ -18,7 +18,6 @@
 #define SYCL_ESIMD_KERNEL __attribute__((sycl_explicit_simd))
 #define SYCL_ESIMD_FUNCTION __attribute__((sycl_explicit_simd))
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 #ifdef __SYCL_DEVICE_ONLY__
