@@ -1714,6 +1714,8 @@ __esimd_lsc_fence(__SEIEED::simd_mask_storage_t<N> pred)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
+#ifndef __SYCL_DEVICE_ONLY__
+
 // Wait for val to be ready
 inline void __esimd_wait(uint16_t val) {}
 
@@ -1731,6 +1733,8 @@ inline void __esimd_raw_send_nbarrier_signal(
     __SEIEED::vector_type_t<Ty, N> msg_var, uint16_t pred) {
   throw cl::sycl::feature_not_supported();
 }
+
+#endif // __SYCL_DEVICE_ONLY__
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
