@@ -1308,15 +1308,10 @@ Optional<InlineCost>
 SampleProfileLoader::getExternalInlineAdvisorCost(CallBase &CB) {
   std::unique_ptr<InlineAdvice> Advice = nullptr;
   if (ExternalInlineAdvisor) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     InlineCost *IC = nullptr;
-    Advice = ExternalInlineAdvisor->getAdvice(*Candidate.CallInstr, nullptr,
-        nullptr, &IC);
+    Advice = ExternalInlineAdvisor->getAdvice(CB, nullptr, nullptr, &IC);
 #endif // INTEL_CUSTOMIZATION
-=======
-    Advice = ExternalInlineAdvisor->getAdvice(CB);
->>>>>>> 51ce567b38ec92163ec05c9bef0bd0e2bd53c667
     if (Advice) {
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
