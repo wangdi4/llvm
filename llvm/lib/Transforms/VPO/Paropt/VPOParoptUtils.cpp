@@ -1824,8 +1824,8 @@ void VPOParoptUtils::buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
   DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
   DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
   BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
-  assert(NextBB && "Null Next BB.");
-  if (NextBB->getUniquePredecessor())
+
+  if (NextBB && NextBB->getUniquePredecessor())
     DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }
 
