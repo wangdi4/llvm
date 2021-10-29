@@ -32,7 +32,7 @@ L3:
   ret void
 ; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
-; CHECK: call void @foo(i32 0, [3 x i32]* %pLocalIds)
+; CHECK: call void @foo(i32 0, [3 x i32]* noalias %pLocalIds)
 ; CHECK: br label %
 ; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj

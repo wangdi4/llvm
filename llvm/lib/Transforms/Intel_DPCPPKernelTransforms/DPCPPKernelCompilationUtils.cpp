@@ -1128,6 +1128,7 @@ CallInst *AddMoreArgsToCall(CallInst *OldC, ArrayRef<Value *> NewArgs,
   // Replace the original function with a call
   CallInst *NewC = CallInst::Create(NewF, Args, "", OldC);
   NewC->setCallingConv(OldC->getCallingConv());
+  NewC->setAttributes(NewF->getAttributes());
 
   // Copy debug metadata to new function if available
   if (OldC->hasMetadata()) {
