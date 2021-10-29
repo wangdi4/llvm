@@ -6,15 +6,10 @@
 // RUN: %clang_cc1 -fno-legacy-pass-manager -O2 -o %t.o -flto=thin -triple x86_64-unknown-linux-gnu -emit-llvm-bc %s
 // RUN: llvm-lto -thinlto -o %t %t.o
 
-<<<<<<< HEAD
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fdebug-pass-manager 2>&1 | FileCheck %s --check-prefix=O2
+// RUN: %clang_cc1 -fno-legacy-pass-manager -triple x86_64-unknown-linux-gnu -emit-obj -O2 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fdebug-pass-manager 2>&1 | FileCheck %s --check-prefix=O2
 // INTEL_CUSTOMIZATION
 // O2: VPlan Vectorizer
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: %clang_cc1 -fno-legacy-pass-manager -triple x86_64-unknown-linux-gnu -emit-obj -O2 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fdebug-pass-manager 2>&1 | FileCheck %s --check-prefix=O2
-// O2: Running pass: LoopVectorizePass
->>>>>>> 7fac21021d303bcc836e1cf11b62f8efe4d1f7ba
 
 // RUN: %clang_cc1 -fno-legacy-pass-manager -O0 -o %t.o -flto=thin -triple x86_64-unknown-linux-gnu -emit-llvm-bc %s
 // RUN: llvm-lto -thinlto -o %t %t.o

@@ -431,11 +431,7 @@ void diagnostics()
 
   // Checking of different argument values.
   //CHECK: VarDecl{{.*}}bw_bw 'unsigned int[64]'
-<<<<<<< HEAD
   //CHECK:IntelFPGAMemoryAttr{{.*}}Implicit memory Default
-=======
-  //CHECK:IntelFPGAMemoryAttr{{.*}}Implicit Default
->>>>>>> 7fac21021d303bcc836e1cf11b62f8efe4d1f7ba
   //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
@@ -514,11 +510,7 @@ void diagnostics()
   unsigned int nb_reg[64];
 
   //CHECK: VarDecl{{.*}}nb_nb 'unsigned int[64]'
-<<<<<<< HEAD
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit memory Default
-=======
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit Default
->>>>>>> 7fac21021d303bcc836e1cf11b62f8efe4d1f7ba
   //CHECK:IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
