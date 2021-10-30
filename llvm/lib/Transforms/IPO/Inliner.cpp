@@ -1203,17 +1203,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         setInlineRemark(*CB, "recursive SCC split");
         continue;
       }
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
       InlineCost *IC = nullptr;
-      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &IC, OnlyMandatory);
-#endif // INTEL_CUSTOMIZATION
-=======
-
       std::unique_ptr<InlineAdvice> Advice =
-          Advisor.getAdvice(*CB, OnlyMandatory);
+          Advisor.getAdvice(*CB, ILIC, WPI, &IC, OnlyMandatory);
+#endif // INTEL_CUSTOMIZATION
 
->>>>>>> 5caad9b5d354ad85d8cbe8ed0e7992db07c29265
       // Check whether we want to inline this callsite.
       if (!Advice)
         continue;
