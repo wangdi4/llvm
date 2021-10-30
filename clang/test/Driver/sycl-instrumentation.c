@@ -1,5 +1,5 @@
 // INTEL_CUSTOMIZATION
-// XFAIL: win32
+// UNSUPPORTED: win32
 // end INTEL_CUSTOMIZATION
 
 /// Check if -fsycl-instrument-device-code is passed to device-side -cc1
