@@ -28,11 +28,8 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
-=======
 #include "llvm/CodeGen/Analysis.h"
->>>>>>> 25043c8276644e684f8d14cd4cadaa87a7e99b0e
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
