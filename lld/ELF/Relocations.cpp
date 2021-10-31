@@ -1095,19 +1095,10 @@ static void processRelocAux(InputSectionBase &sec, RelExpr expr, RelType type,
   }
 
   if (config->isPic) {
-    if (!canWrite && !isRelExpr(expr))
-      errorOrWarn(
-          "can't create dynamic relocation " + toString(type) + " against " +
-          (sym.getName().empty() ? "local symbol"
-                                 : "symbol: " + toString(sym)) +
-          " in readonly segment; recompile object files with -fPIC "
-          "or pass '-Wl,-z,notext' to allow text relocations in the output" +
-          getLocation(sec, sym, offset));
-    else
-      errorOrWarn(
-          "relocation " + toString(type) + " cannot be used against " +
-          (sym.getName().empty() ? "local symbol" : "symbol " + toString(sym)) +
-          "; recompile with -fPIC" + getLocation(sec, sym, offset));
+    errorOrWarn("relocation " + toString(type) + " cannot be used against " +
+                (sym.getName().empty() ? "local symbol"
+                                       : "symbol '" + toString(sym) + "'") +
+                "; recompile with -fPIC" + getLocation(sec, sym, offset));
     return;
   }
 
@@ -1288,9 +1279,9 @@ handleTlsRelocation(RelType type, Symbol &sym, InputSectionBase &c,
     } else if (expr != R_TLSIE_HINT) {
       if (!sym.isInGot())
         addTpOffsetGotEntry(sym);
-      // R_GOT may not be a link-time constant.
-      if (expr == R_GOT)
-        processRelocAux<ELFT>(c, expr, type, offset, sym, addend);
+      // R_GOT needs a relative relocation for PIC on i386 and Hexagon.
+      if (expr == R_GOT && config->isPic && !target->usesOnlyLowPageBits(type))
+        addRelativeReloc(&c, offset, sym, addend, expr, type);
       else
         c.relocations.push_back({expr, type, offset, addend, &sym});
     }
