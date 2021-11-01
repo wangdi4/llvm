@@ -7,9 +7,7 @@
 // RUN: llvm-lto -thinlto -o %t %t.o
 
 // RUN: %clang_cc1 -fno-legacy-pass-manager -triple x86_64-unknown-linux-gnu -emit-obj -O2 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fdebug-pass-manager 2>&1 | FileCheck %s --check-prefix=O2
-// INTEL_CUSTOMIZATION
-// O2: VPlan Vectorizer
-// end INTEL_CUSTOMIZATION
+// O2: Running pass: LoopVectorizePass
 
 // RUN: %clang_cc1 -fno-legacy-pass-manager -O0 -o %t.o -flto=thin -triple x86_64-unknown-linux-gnu -emit-llvm-bc %s
 // RUN: llvm-lto -thinlto -o %t %t.o
