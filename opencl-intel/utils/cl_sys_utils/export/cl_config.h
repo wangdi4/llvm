@@ -376,14 +376,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		// search first for environment variable
 		string strEnv;
 		// For some key, we only load value from config file.
-		if (loadEnvFirst)
-		{
-                    cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, key);
-                    if (CL_SUCCEEDED(clErr))
-		    {
-			return ConvertStringToType<T>( strEnv );
-		    }
-		}
+		if (loadEnvFirst && Intel::OpenCL::Utils::getEnvVar(strEnv, key))
+			return ConvertStringToType<T>(strEnv);
 
 		// Return the value corresponding to key or given default value
 		// if key is not found
@@ -402,10 +396,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		// search first for environment variable
 		bool bFound = true;
 		string strEnv;
-		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, strKey);
-		if (CL_SUCCEEDED(clErr))
-		{
-			returnedVar = ConvertStringToType<T>( strEnv );
+		if (Intel::OpenCL::Utils::getEnvVar(strEnv, strKey)) {
+			returnedVar = ConvertStringToType<T>(strEnv);
 			return bFound;
 		}
 
@@ -426,10 +418,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		// search first for environment variable
 		bool bFound = true;
 		string strEnv;
-		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, strKey);
-		if (CL_SUCCEEDED(clErr))
-		{
-			returnVar = ConvertStringToType<T>( strEnv );
+		if (Intel::OpenCL::Utils::getEnvVar(strEnv, strKey)) {
+			returnVar = ConvertStringToType<T>(strEnv);
 			return bFound;
 		}
 

@@ -108,9 +108,9 @@ bool CreateReleaseOOOQueueTest()
      * see: CSSD100013767 - [CI] FrameworkTestType_gpa: Test_CreateReleaseOOOQueueTest timeout
      */
     std::string strUseGPAVal;
-    Intel::OpenCL::Utils::GetEnvVar(strUseGPAVal, "CL_CONFIG_USE_GPA");
+    Intel::OpenCL::Utils::getEnvVar(strUseGPAVal, "CL_CONFIG_USE_GPA");
     bool bUseGPA = Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(strUseGPAVal);
-    Intel::OpenCL::Utils::GetEnvVar(strUseGPAVal, "CL_CONFIG_USE_ITT");
+    Intel::OpenCL::Utils::getEnvVar(strUseGPAVal, "CL_CONFIG_USE_ITT");
     bUseGPA |= Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(strUseGPAVal);
     if (bUseGPA) {
         numOfInterations = REDUCED_ITERATION_COUNT;        

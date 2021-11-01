@@ -487,9 +487,9 @@ static char safe_query_addr(uint64_t addr)
 bool DebuggingIsEnabled()
 {
     string val;
-    cl_err_code rc = Intel::OpenCL::Utils::GetEnvVar(val, "CL_CONFIG_DBG_ENABLE");
-    if (rc != CL_SUCCESS || val != "1")
-        return false;
+    if (!Intel::OpenCL::Utils::getEnvVar(val, "CL_CONFIG_DBG_ENABLE") ||
+        val != "1")
+      return false;
 
     // On Windows only, we also check in the registry. Either a PID-specific
     // or global key must exist, with value OCL_DBG_CFG_ENABLE=1.

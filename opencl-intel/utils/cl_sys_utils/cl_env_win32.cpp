@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,23 +18,23 @@ using namespace Intel::OpenCL::Utils;
 
 #include <windows.h>
 
-cl_err_code Intel::OpenCL::Utils::GetEnvVar(std::string & strVarValue, const std::string strVarName)
-{
-    // An environment variable has a maximum size limit of 32,767 characters,
-    // including the null-terminating character (MSDN).
-    DWORD szBufferSize = 32767 * sizeof(CHAR);
-    strVarValue.resize(szBufferSize);
-    DWORD szWritten =
-        GetEnvironmentVariableA(strVarName.c_str(),
-                                &strVarValue[0], szBufferSize);
-    // szWritten - number of characters stored in the buffer pointed to by the
-    // second argument of GetEnvironmentVariableA, not including the terminating
-    // null character (MSDN).
-    strVarValue.resize(szWritten);
-    if (szWritten == 0)
-    {
-        return CL_ERR_FAILURE;
-    }
+bool Intel::OpenCL::Utils::getEnvVar(std::string &EnvVal,
+                                     const std::string EnvName) {
+  // An environment variable has a maximum size limit of 32,767 characters,
+  // including the null-terminating character (MSDN).
+  DWORD BufferSize = 32767 * sizeof(CHAR);
+  EnvVal.resize(BufferSize);
+  DWORD SizeWritten =
+      GetEnvironmentVariableA(EnvName.c_str(), &EnvVal[0], BufferSize);
+  // SizeWritten - number of characters stored in the buffer pointed to by the
+  // second argument of GetEnvironmentVariableA, not including the terminating
+  // null character (MSDN).
+  EnvVal.resize(SizeWritten);
+  // If GetEnvironmentVariableA fails, the return value is zero. If the
+  // specified environment variable was not found in the environment block,
+  // GetLastError returns ERROR_ENVVAR_NOT_FOUND (MSDN).
+  if (SizeWritten == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND)
+    return false;
 
-    return CL_SUCCESS;
+  return true;
 }

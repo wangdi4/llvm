@@ -417,13 +417,11 @@ unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
   unsigned numWorkers;
 
   std::string strEnv;
-  cl_err_code err = GetEnvVar(strEnv, "DPCPP_CPU_NUM_CUS");
-  if (CL_SUCCEEDED(err))
+  if (getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS"))
     numWorkers = (unsigned)std::stoi(strEnv);
   else {
     // OCL_TBB_NUM_WORKERS is deprecated and should be removed.
-    err = GetEnvVar(strEnv, "OCL_TBB_NUM_WORKERS");
-    if (CL_SUCCEEDED(err))
+    if (getEnvVar(strEnv, "OCL_TBB_NUM_WORKERS"))
       numWorkers = (unsigned)std::stoi(strEnv);
     else {
       numWorkers = m_pConfigFile->Read<unsigned>(

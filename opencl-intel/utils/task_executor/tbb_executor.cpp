@@ -379,9 +379,8 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
 void TBBTaskExecutor::InitTBBNuma()
 {
     std::string envCPUPlaces;
-    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(envCPUPlaces,
-                                                      "DPCPP_CPU_PLACES");
-    if (CL_SUCCEEDED(err) && ("numa_domains" == envCPUPlaces)) {
+    if (Intel::OpenCL::Utils::getEnvVar(envCPUPlaces, "DPCPP_CPU_PLACES") &&
+        ("numa_domains" == envCPUPlaces)) {
       // Only call tbb::info::numa_nodes if env is set, otherwise there is perf
       // regression (CMPLRLLVM-20763) since this call take 45ms on 2-socket CLX.
       m_tbbNumaNodes = tbb::info::numa_nodes();
