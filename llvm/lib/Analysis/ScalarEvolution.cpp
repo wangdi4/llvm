@@ -7172,6 +7172,7 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   if (!Latch || !Predecessor)
     return ConstantRange::getFull(BitWidth);
 
+<<<<<<< HEAD
   // Get the range implied by the value before the loop starts, as well as the
   // number of times the loop could be executed. If we can't get any clues about
   // those values, bail out of this process.
@@ -7182,6 +7183,41 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
     return ConstantRange::getFull(BitWidth);
   MaxBECount = getTruncateOrZeroExtend(MaxBECount, SCEVPhi->getType());
   APInt MaxBECountValue = getUnsignedRangeMax(MaxBECount);
+=======
+/// Fills \p Ops with unique operands of \p S, if it has operands. If not,
+/// \p Ops remains unmodified.
+static void collectUniqueOps(const SCEV *S,
+                             SmallVectorImpl<const SCEV *> &Ops) {
+  SmallPtrSet<const SCEV *, 4> Unique;
+  auto InsertUnique = [&](const SCEV *S) {
+    if (Unique.insert(S).second)
+      Ops.push_back(S);
+  };
+  if (auto *S2 = dyn_cast<SCEVCastExpr>(S))
+    for (auto *Op : S2->operands())
+      InsertUnique(Op);
+  else if (auto *S2 = dyn_cast<SCEVNAryExpr>(S))
+    for (auto *Op : S2->operands())
+      InsertUnique(Op);
+  else if (auto *S2 = dyn_cast<SCEVUDivExpr>(S))
+    for (auto *Op : S2->operands())
+      InsertUnique(Op);
+}
+
+const Instruction *
+ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
+  // Do a bounded search of the def relation of the requested SCEVs.
+  SmallSet<const SCEV *, 16> Visited;
+  SmallVector<const SCEV *> Worklist;
+  auto pushOp = [&](const SCEV *S) {
+    if (!Visited.insert(S).second)
+      return;
+    // Threshold of 30 here is arbitrary.
+    if (Visited.size() > 30)
+      return;
+    Worklist.push_back(S);
+  };
+>>>>>>> e512c5b1664d6a5640ce92597d3fa0556a5dbdc3
 
   // Check if there is a PHI node in the loop body. If there isn't, then we bail
   // out of further analysis.
@@ -7190,6 +7226,7 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   if (!LatchValue || !PhiLoop->contains(LatchValue))
     return ConstantRange::getFull(BitWidth);
 
+<<<<<<< HEAD
   // Get a bound on the amount that this value could change over the course of a
   // loop iteration.
   ConstantRange IncSRange = ConstantRange::getEmpty(BitWidth);
@@ -7198,6 +7235,20 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
     const SCEV *Inc = getMinusSCEV(getSCEV(Op), SCEVPhi);
     IncSRange = IncSRange.unionWith(getRangeRef(Inc, HINT_RANGE_SIGNED));
     IncURange = IncURange.unionWith(getRangeRef(Inc, HINT_RANGE_UNSIGNED));
+=======
+  const Instruction *Bound = nullptr;
+  while (!Worklist.empty()) {
+    auto *S = Worklist.pop_back_val();
+    if (auto *DefI = getNonTrivialDefiningScopeBound(S)) {
+      if (!Bound || DT.dominates(Bound, DefI))
+        Bound = DefI;
+    } else {
+      SmallVector<const SCEV *, 4> Ops;
+      collectUniqueOps(S, Ops);
+      for (auto *Op : Ops)
+        pushOp(Op);
+    }
+>>>>>>> e512c5b1664d6a5640ce92597d3fa0556a5dbdc3
   }
 
   // Now we know the starting values, and bounds on the increment. Akin to the
@@ -14792,15 +14843,8 @@ void ScalarEvolution::verify() const {
 
   // Verify intergity of SCEV users.
   for (const auto &S : UniqueSCEVs) {
-    SmallPtrSet<const SCEV *, 4> Ops;
-    if (const auto *NS = dyn_cast<SCEVNAryExpr>(&S))
-      Ops.insert(NS->op_begin(), NS->op_end());
-    else if (const auto *CS = dyn_cast<SCEVCastExpr>(&S))
-      Ops.insert(CS->getOperand());
-    else if (const auto *DS = dyn_cast<SCEVUDivExpr>(&S)) {
-      Ops.insert(DS->getLHS());
-      Ops.insert(DS->getRHS());
-    }
+    SmallVector<const SCEV *, 4> Ops;
+    collectUniqueOps(&S, Ops);
     for (const auto *Op : Ops) {
       // We do not store dependencies of constants.
       if (isa<SCEVConstant>(Op))
