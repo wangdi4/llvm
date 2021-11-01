@@ -70,7 +70,7 @@ bool TargetRegisterInfo::shouldRegionSplitForVirtReg(
   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
   const MachineRegisterInfo &MRI = MF.getRegInfo();
   MachineInstr *MI = MRI.getUniqueVRegDef(VirtReg.reg());
-  if (MI && TII->isTriviallyReMaterializable(*MI) &&
+  if (MI && TII->isTriviallyReMaterializable(*MI, nullptr, false) && // INTEL
       VirtReg.size() > HugeSizeForSplit)
     return false;
   return true;

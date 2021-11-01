@@ -123,11 +123,12 @@ public:
   /// registers are allowed but it is caller's responsility to ensure these
   /// operands are valid at the point the instruction is beeing moved.
   bool isTriviallyReMaterializable(const MachineInstr &MI,
-                                   AAResults *AA = nullptr) const {
+                                   AAResults *AA = nullptr,
+                                   bool useVReg = true) const { // INTEL
     return MI.getOpcode() == TargetOpcode::IMPLICIT_DEF ||
            (MI.getDesc().isRematerializable() &&
             (isReallyTriviallyReMaterializable(MI, AA) ||
-             isReallyTriviallyReMaterializableGeneric(MI, AA)));
+             isReallyTriviallyReMaterializableGeneric(MI, AA, useVReg))); // INTEL
   }
 
   /// Given \p MO is a PhysReg use return if it can be ignored for the purpose
@@ -187,7 +188,8 @@ private:
   /// this function does target-independent tests to determine if the
   /// instruction is really trivially rematerializable.
   bool isReallyTriviallyReMaterializableGeneric(const MachineInstr &MI,
-                                                AAResults *AA) const;
+                                                AAResults *AA,       // INTEL
+                                                bool useVReg) const; // INTEL
 
 public:
   /// These methods return the opcode of the frame setup/destroy instructions

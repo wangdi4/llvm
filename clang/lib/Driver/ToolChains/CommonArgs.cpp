@@ -927,11 +927,13 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
               .Case("single-job", "1")
               .Case("multi-job", "2")
               .Default("");
-    if (Val.empty())
+    if (Val.empty()) {
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
           << A->getValue() << A->getOption().getName();
-    else
+    } else {
       addllvmOption(Args.MakeArgString(Twine("-throughput-opt=") + Val));
+      addllvmOption(Args.MakeArgString(Twine("-throughput-opt-tii=") + Val));
+    }
   }
 
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)

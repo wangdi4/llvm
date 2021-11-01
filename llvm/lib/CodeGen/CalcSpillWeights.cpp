@@ -120,7 +120,7 @@ static bool isRematerializable(const LiveInterval &LI, const LiveIntervals &LIS,
       assert(MI && "Dead valno in interval");
     }
 
-    if (!TII.isTriviallyReMaterializable(*MI, LIS.getAliasAnalysis()))
+    if (!TII.isTriviallyReMaterializable(*MI, LIS.getAliasAnalysis(), false)) // INTEL
       return false;
   }
   return true;

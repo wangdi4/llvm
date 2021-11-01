@@ -40,6 +40,20 @@ static cl::opt<bool> DisableHazardRecognizer(
   "disable-sched-hazard", cl::Hidden, cl::init(false),
   cl::desc("Disable hazard detection during preRA scheduling"));
 
+#if INTEL_CUSTOMIZATION
+enum class ThroughputMode { None, SingleJob, MultipleJob };
+static cl::opt<ThroughputMode> ThroughputModeOpt(
+    "throughput-opt-tii", cl::init(ThroughputMode::None), cl::Hidden,
+    cl::ValueOptional,
+    cl::desc(
+        "Specifies if compiler should optimize for throughput performance"),
+    cl::values(clEnumValN(ThroughputMode::None, "0", "No mode speficied"),
+               clEnumValN(ThroughputMode::SingleJob, "1",
+                          "Assume application will run a single copy"),
+               clEnumValN(ThroughputMode::MultipleJob, "2",
+                          "Assume application will run multiple copies")));
+#endif // INTEL_CUSTOMIZATION
+
 TargetInstrInfo::~TargetInstrInfo() {
 }
 
@@ -916,7 +930,7 @@ void TargetInstrInfo::genAlternativeCodeSequence(
 }
 
 bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
-    const MachineInstr &MI, AAResults *AA) const {
+    const MachineInstr &MI, AAResults *AA, bool useVReg) const { // INTEL
   const MachineFunction &MF = *MI.getMF();
   const MachineRegisterInfo &MRI = MF.getRegInfo();
 
@@ -956,6 +970,9 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
   if (MI.mayLoad() && !MI.isDereferenceableInvariantLoad(AA))
     return false;
 
+  if (ThroughputModeOpt == ThroughputMode::SingleJob) // INTEL
+    useVReg = true; // INTEL
+
   // If any of the registers accessed are non-constant, conservatively assume
   // the instruction is not rematerializable.
   for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
@@ -984,6 +1001,9 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
     // same virtual register, though.
     if (MO.isDef() && Reg != DefReg)
       return false;
+
+    if (MF.getTarget().Options.IntelAdvancedOptim && !useVReg && MO.isUse()) // INTEL
+      return false; // INTEL
   }
 
   // Everything checked out.
