@@ -115,12 +115,6 @@ llvm_config.feature_config(
 
 # Set a fake constant version so that we get consistent output.
 config.environment['LLD_VERSION'] = 'LLD 1.0'
-<<<<<<< HEAD
-config.environment['LLD_IN_TEST'] = '1'
-# INTEL_CUSTOMIZATION
-config.environment['INTEL_LLD_IN_TEST'] = '1'
-# end INTEL_CUSTOMIZATION
-=======
 
 # LLD_IN_TEST determines how many times `main` is run inside each process, which
 # lets us test that it's cleaning up after itself and resetting global state
@@ -137,7 +131,10 @@ else:
     # Some new Mach-O backend tests fail; give them a way to mark themselves
     # unsupported in this mode.
     config.available_features.add('main-run-twice')
->>>>>>> 7a4b27609d450d70fb072306446b1c0414066b74
+
+# INTEL_CUSTOMIZATION
+config.environment['INTEL_LLD_IN_TEST'] = '1'
+# end INTEL_CUSTOMIZATION
 
 # Indirectly check if the mt.exe Microsoft utility exists by searching for
 # cvtres, which always accompanies it.  Alternatively, check if we can use
