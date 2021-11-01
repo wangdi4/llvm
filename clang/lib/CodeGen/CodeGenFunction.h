@@ -998,6 +998,12 @@ public:
       MemoryInsts.push_back(MemInst);
     }
 
+    void removeMemInst(llvm::Instruction *MemInst) {
+      auto Itr = llvm::find(MemoryInsts, MemInst);
+      if (Itr != MemoryInsts.end())
+        MemoryInsts.erase(Itr);
+    }
+
     void addMemCpyInst(llvm::Instruction *MemCallInst) {
       assert(isa<llvm::MemTransferInst>(MemCallInst) && "Memcpy call expected");
       MemoryInsts.push_back(MemCallInst);
