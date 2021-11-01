@@ -659,10 +659,12 @@ static PlatformKind parsePlatformVersion(const ArgList &args) {
 // Has the side-effect of setting Config::target.
 static TargetInfo *createTargetInfo(InputArgList &args) {
   StringRef archName = args.getLastArgValue(OPT_arch);
-  if (archName.empty())
-    fatal("must specify -arch");
-  PlatformKind platform = parsePlatformVersion(args);
+  if (archName.empty()) {
+    error("must specify -arch");
+    return nullptr;
+  }
 
+  PlatformKind platform = parsePlatformVersion(args);
   config->platformInfo.target =
       MachO::Target(getArchitectureFromName(archName), platform);
 
@@ -680,7 +682,8 @@ static TargetInfo *createTargetInfo(InputArgList &args) {
   case CPU_TYPE_ARM:
     return createARMTargetInfo(cpuSubtype);
   default:
-    fatal("missing or unsupported -arch " + archName);
+    error("missing or unsupported -arch " + archName);
+    return nullptr;
   }
 }
 
@@ -1068,7 +1071,25 @@ bool macho::link(ArrayRef<const char *> argsArr, bool canExitEarly,
   lld::stdoutOS = &stdoutOS;
   lld::stderrOS = &stderrOS;
 
-  errorHandler().cleanupCallback = []() { freeArena(); };
+  errorHandler().cleanupCallback = []() {
+    freeArena();
+
+    concatOutputSections.clear();
+    inputFiles.clear();
+    inputSections.clear();
+    loadedArchives.clear();
+    syntheticSections.clear();
+    thunkMap.clear();
+
+    firstTLVDataSection = nullptr;
+    tar = nullptr;
+    memset(&in, 0, sizeof(in));
+
+    resetLoadedDylibs();
+    resetOutputSegments();
+    resetWriter();
+    InputFile::resetIdCount();
+  };
 
   errorHandler().logName = args::getFilenameWithoutExe(argsArr[0]);
   stderrOS.enable_colors(stderrOS.has_colors());
@@ -1100,6 +1121,8 @@ bool macho::link(ArrayRef<const char *> argsArr, bool canExitEarly,
   target = createTargetInfo(args);
   depTracker =
       make<DependencyTracker>(args.getLastArgValue(OPT_dependency_info));
+  if (errorCount())
+    return false;
 
   config->osoPrefix = args.getLastArgValue(OPT_oso_prefix);
   if (!config->osoPrefix.empty()) {
@@ -1392,6 +1415,8 @@ bool macho::link(ArrayRef<const char *> argsArr, bool canExitEarly,
         reexportHandler(arg, extensions);
     }
 
+    cl::ResetAllOptionOccurrences();
+
     // Parse LTO options.
     if (const Arg *arg = args.getLastArg(OPT_mcpu))
       parseClangOption(saver.save("-mcpu=" + StringRef(arg->getValue())),
@@ -1476,5 +1501,7 @@ bool macho::link(ArrayRef<const char *> argsArr, bool canExitEarly,
   if (canExitEarly)
     exitLld(errorCount() ? 1 : 0);
 
-  return !errorCount();
+  bool ret = errorCount() == 0;
+  errorHandler().reset();
+  return ret;
 }
