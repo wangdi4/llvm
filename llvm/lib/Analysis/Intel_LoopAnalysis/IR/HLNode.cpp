@@ -36,6 +36,11 @@ static cl::opt<bool> PrintLineNum("hir-details-line-num", cl::init(true),
                                   cl::Hidden,
                                   cl::desc("Print node origin line number"));
 
+static cl::opt<bool> SkipVerboseIndent(
+    "hir-details-no-verbose-indent", cl::init(false), cl::Hidden,
+    cl::desc("Do not print HLNode's unique number. To be used "
+             "for CHECKs generation."));
+
 HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
     : HNU(HNU), SubClassID(SCID), Parent(nullptr), TopSortNum(0),
       MaxTopSortNum(0), ProfileData(nullptr) {
@@ -80,23 +85,24 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 
   LoopIndentString.clear();
 
-  int Padding = 10;
-
-  OS << "<" << Number;
-  if (PrintTopSortNum) {
-    Padding += 3;
-    OS << ":" << TopSortNum << "(" << MaxTopSortNum << ")";
-  }
-
-  if (PrintLineNum) {
-    Padding += 3;
-    if (const DebugLoc Dbg = getDebugLoc()) {
-      OS << ":" << Dbg.getLine();
+  if (!SkipVerboseIndent) {
+    int Padding = 10;
+    OS << "<" << Number;
+    if (PrintTopSortNum) {
+      Padding += 3;
+      OS << ":" << TopSortNum << "(" << MaxTopSortNum << ")";
     }
-  }
 
-  OS << ">";
-  OS.PadToColumn(Padding);
+    if (PrintLineNum) {
+      Padding += 3;
+      if (const DebugLoc Dbg = getDebugLoc()) {
+        OS << ":" << Dbg.getLine();
+      }
+    }
+
+    OS << ">";
+    OS.PadToColumn(Padding);
+  }
 
   auto Parent = getParent();
 

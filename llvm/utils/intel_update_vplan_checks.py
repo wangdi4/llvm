@@ -405,7 +405,7 @@ def main():
         funcs.add(m.group(1))
 
     for prefixes, opt_args in prefix_list:
-      opt_args += " --vplan-enable-names"
+      opt_args += " --vplan-enable-names --hir-details-no-verbose-indent"
       if args.verbose:
         print >>sys.stderr, 'Extracted opt cmd: ' + opt_basename + ' ' + opt_args
         print >>sys.stderr, 'Extracted FileCheck prefixes: ' + str(prefixes)
