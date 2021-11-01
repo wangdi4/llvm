@@ -42,6 +42,32 @@ void foo() {
   //CHECK: "DIR.OMP.END.TARGET"()
 }
 
+struct SomeKernel {
+  int targetDev;
+  float* devPtr;
+  SomeKernel();
+  ~SomeKernel();
+
+  template<unsigned int nRHS>
+  void apply() {
+    #pragma omp target teams is_device_ptr(devPtr) device(targetDev)
+    {
+    }
+  }
+};
+
+//CHECK: define {{.*}}use_template
+void use_template() {
+  SomeKernel aKern;
+  aKern.apply<32>();
+}
+
+//CHECK: define {{.*}}ZN10SomeKernel5applyILj32EEEvv
+//CHECK: [[THIS:%this.*]] = load %struct.SomeKernel*, %struct.SomeKernel** %this.addr,
+//CHECK: [[DEVPTR:%devPtr.*]] = getelementptr inbounds %struct.SomeKernel, %struct.SomeKernel* [[THIS]], i32 0, i32 1
+//CHECK: "DIR.OMP.TARGET"()
+//CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float** [[DEVPTR]])
+
 //CHECK-LABEL: main
 int main() {
   float a = 0;
