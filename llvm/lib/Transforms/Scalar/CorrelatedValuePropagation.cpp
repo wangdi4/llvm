@@ -70,13 +70,10 @@ STATISTIC(NumUDivURemsNarrowed,
 STATISTIC(NumAShrs,     "Number of ashr converted to lshr");
 STATISTIC(NumSRems,     "Number of srem converted to urem");
 STATISTIC(NumSExt,      "Number of sext converted to zext");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 STATISTIC(NumFRem,      "Number of frem converted to srem");
 #endif // INTEL_CUSTOMIZATION
-=======
 STATISTIC(NumSICmps,    "Number of signed icmp preds simplified to unsigned");
->>>>>>> b554e41e2d15b78679231b390e543153e05c9efe
 STATISTIC(NumAnd,       "Number of ands removed");
 STATISTIC(NumNW,        "Number of no-wrap deductions");
 STATISTIC(NumNSW,       "Number of no-signed-wrap deductions");
