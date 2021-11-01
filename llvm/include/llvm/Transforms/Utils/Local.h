@@ -240,7 +240,10 @@ CallInst *createCallMatchingInvoke(InvokeInst *II);
 /// This function converts the specified invoek into a normall call.
 void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
 
-<<<<<<< HEAD
+/// This function removes the default destination from the specified switch.
+void createUnreachableSwitchDefault(SwitchInst *Switch,
+                                    DomTreeUpdater *DTU = nullptr);
+
 #if INTEL_CUSTOMIZATION
 namespace {
 
@@ -431,11 +434,6 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
                        true, CI->isExact());
 }
 #endif // INTEL_CUSTOMIZATION
-=======
-/// This function removes the default destination from the specified switch.
-void createUnreachableSwitchDefault(SwitchInst *Switch,
-                                    DomTreeUpdater *DTU = nullptr);
->>>>>>> c93f93b2e3f28997f794265089fb8138dd5b5f13
 
 ///===---------------------------------------------------------------------===//
 ///  Dbg Intrinsic utilities
