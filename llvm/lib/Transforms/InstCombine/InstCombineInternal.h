@@ -66,9 +66,9 @@ public:
   InstCombinerImpl(InstCombineWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
                    bool MinimizeSize, bool PreserveForDTrans,
-                   bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-                   bool EnableUpCasting, AAResults *AA,
-                   AssumptionCache &AC, TargetLibraryInfo &TLI,
+                   FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
+                   bool PreserveAddrCompute, bool EnableUpCasting,
+                   AAResults *AA, AssumptionCache &AC, TargetLibraryInfo &TLI,
                    TargetTransformInfo &TTI, DominatorTree &DT,
                    OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                    ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
@@ -380,10 +380,10 @@ private:
 
 #if INTEL_CUSTOMIZATION
   /// Recognize min/max semantics in (fcmp)&(fcmp) and (fcmp)|(fcmp).
-  Instruction *recognizeFCmpMinMaxIdiom(BinaryOperator &I);
+  Instruction *recognizeFCmpMinMaxIdiom(Instruction &I);
 
   /// Combines binary operator and 2 fcmp into FP min/max.
-  Instruction *combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A, Value *B,
+  Instruction *combineAndOrToFcmpMinMax(Instruction &I, Value *A, Value *B,
                                         Value *C);
 
   /// Combines trees of OR/AND with fcmp inside into FP min/max semantics.

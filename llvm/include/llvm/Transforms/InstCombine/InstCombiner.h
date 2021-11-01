@@ -60,7 +60,9 @@ public:
 
   bool preserveAddrCompute() const { return PreserveAddrCompute; }
 
-  bool enableFcmpMinMaxCombine() const { return EnableFcmpMinMaxCombine; }
+  bool enableFcmpMinMaxCombine(FcmpMinMaxCombineType Ty) const {
+    return (EnableFcmpMinMaxCombine & Ty) == Ty;
+  }
 
   bool enableUpCasting() const { return EnableUpCasting; }
 #endif // INTEL_CUSTOMIZATION
@@ -79,7 +81,7 @@ protected:
 
   /// Enable optimizations which recognize min/max semantics in (fcmp)&(fcmp)
   /// and (fcmp)|(fcmp).
-  const bool EnableFcmpMinMaxCombine;
+  const FcmpMinMaxCombineType EnableFcmpMinMaxCombine;
 
   /// If true, avoid doing transformations that significantly change address
   /// computation expressions for load and store instructions to preserve
@@ -115,12 +117,12 @@ public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
                bool MinimizeSize, bool PreserveForDTrans,
-               bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-               bool EnableUpCasting, AAResults *AA, AssumptionCache &AC,
-               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
-               DominatorTree &DT, OptimizationRemarkEmitter &ORE,
-               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               const DataLayout &DL, LoopInfo *LI)
+               FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
+               bool PreserveAddrCompute, bool EnableUpCasting, AAResults *AA,
+               AssumptionCache &AC, TargetLibraryInfo &TLI,
+               TargetTransformInfo &TTI, DominatorTree &DT,
+               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
+               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), PreserveForDTrans(PreserveForDTrans),
         EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),

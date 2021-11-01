@@ -27,18 +27,19 @@ class InstCombinePass : public PassInfoMixin<InstCombinePass> {
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
   const unsigned MaxIterations;
-  const bool EnableFcmpMinMaxCombine; // INTEL
+  const FcmpMinMaxCombineType EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting;   // INTEL
 
 public:
 #if INTEL_CUSTOMIZATION
   explicit InstCombinePass(bool PreserveForDTrans = false,
                            bool PreserveAddrCompute = false,
-                           bool EnableFcmpMinMaxCombine = true,
+                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine =
+                               EnableAllFcmpMinMaxCombine,
                            bool EnableUpCasting = true);
   explicit InstCombinePass(bool PreserveForDTrans, bool PreserveAddrCompute,
                            unsigned MaxIterations,
-                           bool EnableFcmpMinMaxCombine,
+                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
                            bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 
@@ -53,7 +54,7 @@ class InstructionCombiningPass : public FunctionPass {
   InstCombineWorklist Worklist;
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
-  const bool EnableFcmpMinMaxCombine; // INTEL
+  const FcmpMinMaxCombineType EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting; // INTEL
   const unsigned MaxIterations;
 
@@ -63,11 +64,12 @@ public:
 #if INTEL_CUSTOMIZATION
   InstructionCombiningPass(bool PreserveForDTrans = false,
                            bool PreserveAddrCompute = false,
-                           bool EnableFcmpMinMaxCombine = true,
+                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine =
+                               EnableAllFcmpMinMaxCombine,
                            bool EnableUpCasting = true);
   InstructionCombiningPass(bool PreserveForDTrans, bool PreserveAddrCompute,
                            unsigned MaxInterations,
-                           bool EnableFcmpMinMaxCombine,
+                           FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
                            bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 
@@ -91,13 +93,14 @@ public:
 FunctionPass *
 createInstructionCombiningPass(bool PreserveForDTrans = false,
                                bool PreserveAddrCompute = false,
-                               bool EnableFcmpMinMaxCombine = true,
+                               FcmpMinMaxCombineType EnableFcmpMinMaxCombine =
+                                   EnableAllFcmpMinMaxCombine,
                                bool EnableUpCasting = true);
 FunctionPass *
 createInstructionCombiningPass(bool PreserveForDTrans,
                                bool PreserveAddrCompute,
                                unsigned MaxIterations,
-                               bool EnableFcmpMinMaxCombine,
+                               FcmpMinMaxCombineType EnableFcmpMinMaxCombine,
                                bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 }

@@ -828,9 +828,19 @@ static void addAnnotationRemarksPass(ModulePassManager &MPM) {
 #if INTEL_CUSTOMIZATION
 void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
                                      bool EnableUpCasting) const {
-  // Enable it when SLP Vectorizer is off or after SLP Vectorizer pass.
-  bool EnableFcmpMinMaxCombine =
-      (!PrepareForLTO && !PTO.SLPVectorization) || AfterSLPVectorizer;
+  // Enable Bitwise FcmpMinMaxCombine when SLP Vectorizer is off or after SLP
+  // Vectorizer pass.
+  bool BitwiseFcmpMinMaxCombine =
+       (!PrepareForLTO && !PTO.SLPVectorization) || AfterSLPVectorizer;
+  bool SelectFcmpMinMaxCombine = BitwiseFcmpMinMaxCombine &&
+       (ThroughputModeOpt != ThroughputMode::SingleJob);
+
+  auto EnableFcmpMinMaxCombine = EnableNoneFcmpMinMaxCombine;
+  if (BitwiseFcmpMinMaxCombine)
+    EnableFcmpMinMaxCombine |= EnableBitwiseFcmpMinMaxCombine;
+  if (SelectFcmpMinMaxCombine)
+    EnableFcmpMinMaxCombine |= EnableSelectFcmpMinMaxCombine;
+
 #if INTEL_FEATURE_SW_DTRANS
   // Configure the instruction combining pass to avoid some transformations
   // that lose type information for DTrans.

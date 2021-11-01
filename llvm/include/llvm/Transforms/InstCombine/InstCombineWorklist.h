@@ -9,6 +9,7 @@
 #ifndef LLVM_TRANSFORMS_INSTCOMBINE_INSTCOMBINEWORKLIST_H
 #define LLVM_TRANSFORMS_INSTCOMBINE_INSTCOMBINEWORKLIST_H
 
+#include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
@@ -21,6 +22,16 @@
 #define DEBUG_TYPE "instcombine"
 
 namespace llvm {
+
+#if INTEL_CUSTOMIZATION
+enum FcmpMinMaxCombineType {
+  EnableNoneFcmpMinMaxCombine = 0x0,
+  EnableBitwiseFcmpMinMaxCombine = 0x1,
+  EnableSelectFcmpMinMaxCombine = 0x2,
+  EnableAllFcmpMinMaxCombine = 0x3,
+  LLVM_MARK_AS_BITMASK_ENUM(/* LargestValue = */ EnableAllFcmpMinMaxCombine)
+};
+#endif // INTEL_CUSTOMIZATION
 
 /// InstCombineWorklist - This is the worklist management logic for
 /// InstCombine.
