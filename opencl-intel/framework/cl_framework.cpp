@@ -417,13 +417,14 @@ cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platfo
     // the runtime only enable the correspondig device type.
     // Otherwise it will enable all supported devices.
     // This function is entry point after ICD loader loads the runtime so we check it here.
-    cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, "CL_CONFIG_DEVICES");
-    if (CL_SUCCEEDED(clErr)) {
-        // Read the value from cl.cfg. If it does not match env value, return CL_INVALID_VALUE value.
-        Intel::OpenCL::Utils::ConfigFile config(GetConfigFilePath());
-        if (config.Read<std::string>("CL_CONFIG_DEVICES", "", false).compare(strEnv) != 0) {
-            return CL_INVALID_VALUE;
-        }
+    if (Intel::OpenCL::Utils::getEnvVar(strEnv, "CL_CONFIG_DEVICES")) {
+      // Read the value from cl.cfg. If it does not match env value, return
+      // CL_INVALID_VALUE value.
+      Intel::OpenCL::Utils::ConfigFile config(GetConfigFilePath());
+      if (config.Read<std::string>("CL_CONFIG_DEVICES", "", false)
+              .compare(strEnv) != 0) {
+        return CL_INVALID_VALUE;
+      }
     }
 
     if (g_pUserLogger->IsApiLoggingEnabled())

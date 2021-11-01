@@ -19,6 +19,7 @@ File Name:  PluginsTest.cpp
 #define _POSIX_SOURCE
 
 #include "BackendWrapper.h"
+#include "cl_env.h"
 #include "common_utils.h"
 #include "plugin_manager.h"
 
@@ -87,28 +88,11 @@ TEST_F(BackEndTests_Plugins, PluginLoadWrongPath)
 TEST_F(BackEndTests_Plugins, PluginLoadEmptyPath)
 {
     // define the environment variable and leave it EMPTY
-    std::string envString("");
-#if defined(_WIN32)
-    // WORKAROUND: set environment variable to ' ' and then to empty string ( maybe this is unsafe, remove??)
-    // envString = "environmentname= "
-    envString = envString + PLUGIN_ENVIRONMENT_VAR + "= ";
-
-    ASSERT_EQ(putenv(&(envString[0])), 0);
-    char* env = getenv(PLUGIN_ENVIRONMENT_VAR);
-    ASSERT_TRUE(env);
-    ASSERT_TRUE(STRING_EQ(" ", env));
-    // setting the environment variable to empty string
-    env[0]='\0';
-    // reflecting also env change at OS level
-    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, env));
-#else
-    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=";
-    ASSERT_EQ(putenv(&(envString[0])), 0);
-#endif
+    ASSERT_TRUE(SETENV(PLUGIN_ENVIRONMENT_VAR, ""));
     // make sure the environment variable is defined but empty
-    char* env2 = getenv(PLUGIN_ENVIRONMENT_VAR);
-    ASSERT_TRUE(env2);
-    ASSERT_TRUE(STRING_EQ("", env2));
+    std::string Env;
+    ASSERT_TRUE(Intel::OpenCL::Utils::getEnvVar(Env, PLUGIN_ENVIRONMENT_VAR));
+    ASSERT_TRUE(STRING_EQ("", Env));
 
     // init the backend - should success
     Intel::OpenCL::PluginManager manager;
@@ -118,19 +102,10 @@ TEST_F(BackEndTests_Plugins, PluginLoadEmptyPath)
 TEST_F(BackEndTests_Plugins, PluginLoadSuccess2)
 {
     // ensure the environment variable is not defined
-#if defined(_WIN32)
-    std::string envString("");
-    // envString = "environmentname="
-    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=";
-    ASSERT_EQ(putenv(&(envString[0])), 0);
-    // reflecting also env change at OS level
-    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, NULL));
-#else
-    unsetenv(PLUGIN_ENVIRONMENT_VAR);
-#endif
+    ASSERT_TRUE(UNSETENV(PLUGIN_ENVIRONMENT_VAR));
 
-    char* env = getenv(PLUGIN_ENVIRONMENT_VAR);
-    ASSERT_FALSE(env);
+    std::string Env;
+    ASSERT_FALSE(Intel::OpenCL::Utils::getEnvVar(Env, PLUGIN_ENVIRONMENT_VAR));
 
     // init the backend - should success
     Intel::OpenCL::PluginManager manager;

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,17 +16,15 @@
 
 using namespace Intel::OpenCL::Utils;
 
-#include<cstdlib>
+#include <cstdlib>
 
-cl_err_code Intel::OpenCL::Utils::GetEnvVar(std::string & strVarValue, const std::string strVarName)
-{
-	char * pBuffer;
-	pBuffer = getenv(strVarName.c_str());
-	if (pBuffer == nullptr)
-	{
-        strVarValue = std::string("");
-		return CL_ERR_FAILURE;
-	}
-    strVarValue = std::string(pBuffer);
-	return CL_SUCCESS;
+bool Intel::OpenCL::Utils::getEnvVar(std::string &EnvVal,
+                                     const std::string EnvName) {
+  char *Buffer = getenv(EnvName.c_str());
+  if (Buffer == nullptr) {
+    EnvVal = std::string("");
+    return false;
+  }
+  EnvVal = std::string(Buffer);
+  return true;
 }

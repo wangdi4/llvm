@@ -377,14 +377,12 @@ TE_CMD_LIST_PREFERRED_SCHEDULING TaskDispatcher::getPreferredScheduling()
     //   affinity          : affinity_partitioner
     //   static            : static_partitioner
     std::string env_dpcpp_schedule;
-    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(env_dpcpp_schedule,
-                                                      "DPCPP_CPU_SCHEDULE");
-    if (!CL_FAILED(err))
-    {
-        if ("affinity" == env_dpcpp_schedule)
-            scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY;
-        else if ("static" == env_dpcpp_schedule)
-            scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_STATIC;
+    if (Intel::OpenCL::Utils::getEnvVar(env_dpcpp_schedule,
+                                        "DPCPP_CPU_SCHEDULE")) {
+      if ("affinity" == env_dpcpp_schedule)
+        scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY;
+      else if ("static" == env_dpcpp_schedule)
+        scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_STATIC;
     }
 
     return scheduling;
