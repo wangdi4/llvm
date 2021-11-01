@@ -1537,6 +1537,8 @@ llvm::Value *CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
   if (auto *LI = dyn_cast<llvm::LoadInst>(LV)) {
     if (llvm::MDNode *M = LI->getMetadata(llvm::LLVMContext::MD_tbaa))
       RetPtrMap[LI->getPointerOperand()] = M;
+
+    getCurNoAliasScope().removeMemInst(LI);
     LI->eraseFromParent();
   }
   return Des.getPointer(*this);
