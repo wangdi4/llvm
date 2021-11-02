@@ -1484,6 +1484,12 @@ void OpenMPLateOutliner::emitOMPNumThreadsClause(
   addArg(CGF.EmitScalarExpr(Cl->getNumThreads()));
 }
 
+void OpenMPLateOutliner::emitOMPFilterClause(const OMPFilterClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_filter);
+  addArg("QUAL.OMP.FILTER");
+  addArg(CGF.EmitScalarExpr(Cl->getThreadID()));
+}
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 void OpenMPLateOutliner::emitOMPDataflowClause(const OMPDataflowClause *Cl) {
@@ -2378,7 +2384,6 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
-void OpenMPLateOutliner::emitOMPFilterClause(const OMPFilterClause *C) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
@@ -2753,7 +2758,7 @@ void OpenMPLateOutliner::emitOMPMasterDirective() {
                              OMPD_master);
 }
 void OpenMPLateOutliner::emitOMPMaskedDirective() {
-  startDirectiveIntrinsicSet("DIR.OMP.MASTER", "DIR.OMP.END.MASTER",
+  startDirectiveIntrinsicSet("DIR.OMP.MASKED", "DIR.OMP.END.MASKED",
                              OMPD_masked);
 }
 void OpenMPLateOutliner::emitOMPCriticalDirective(const StringRef Name) {
