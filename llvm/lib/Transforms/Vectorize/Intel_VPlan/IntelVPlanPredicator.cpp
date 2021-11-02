@@ -30,6 +30,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 static LoopVPlanDumpControl
+    LinearizationDumpControl("linearization", "linearization");
+static LoopVPlanDumpControl
     PredicatesEmissionDumpControl("predicates-emission", "predicates emission");
 
 static cl::opt<bool> PreserveUniformCFG(
@@ -1173,6 +1175,8 @@ void VPlanPredicator::predicate() {
   //     algorithm as well and is another reason to separate the steps.
   if (!SearchLoopHack)
     linearizeRegion();
+
+  VPLAN_DUMP(LinearizationDumpControl, Plan);
 
   Plan.computeDT();
   Plan.computePDT();

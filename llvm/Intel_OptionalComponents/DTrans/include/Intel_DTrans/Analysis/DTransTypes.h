@@ -947,6 +947,27 @@ public:
   // types will be included in the vector returned.
   std::vector<DTransStructType *> getIdentifiedStructTypes() const;
 
+  // This type will store pointers to all the DTransType objects created, so
+  // that all of them can be easily visited using the dtrans_types() method.
+  using DTransTypesVector = std::vector<DTransType*>;
+
+  // Iterator for DTransTypesVector
+  struct dtrans_types_iterator
+    : public iterator_adaptor_base<
+    dtrans_types_iterator, DTransTypesVector::iterator,
+    std::forward_iterator_tag, DTransTypesVector::size_type> {
+    explicit dtrans_types_iterator(DTransTypesVector::iterator X)
+      : iterator_adaptor_base(X) {}
+
+    DTransTypesVector::value_type operator*() const { return *I; }
+    DTransTypesVector::value_type operator->() const { return operator*(); }
+  };
+
+  iterator_range<dtrans_types_iterator> dtrans_types() {
+    return make_range(dtrans_types_iterator(AllDTransTypes.begin()),
+      dtrans_types_iterator(AllDTransTypes.end()));
+  }
+
 private:
   void DeleteType(DTransType *DTTy);
 
@@ -991,6 +1012,13 @@ private:
   // DTransFunctionType objects referenced by the DTransFunctionTypeNode need to
   // be deallocated prior to the destruction of this set.
   FoldingSet<DTransFunctionTypeNode> FunctionTypeNodes;
+
+  // All the DTransType objects created.
+  // This contains the same pointers that are stored in the categorized
+  // maps/sets that are used when searching whether a specific type has been
+  // created yet or not: TypeInfoMap, StructTypeInfoMap, PointerTypeInfoMap,
+  // ArrayTypeInfoMap, VecTypeInfoMap, FunctionTypeNodes.
+  DTransTypesVector AllDTransTypes;
 };
 
 } // namespace dtransOP

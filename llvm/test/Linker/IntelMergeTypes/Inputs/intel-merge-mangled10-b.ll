@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 
-; Input file for test case intel-merge-mangled10.ll and
-; intel-merge-mangled10-debug.ll.
+; Input file for test case intel-merge-mangled10.ll,
+; intel-merge-mangled10-debug.ll and intel-merge-mangled10-debug-2.ll
 
 ; struct TestStruct {
 ;   int *i;

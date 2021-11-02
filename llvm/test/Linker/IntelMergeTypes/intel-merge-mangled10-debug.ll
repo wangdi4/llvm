@@ -31,7 +31,6 @@
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-mangled10-a.ll
 ; CHECK:   WARNING: DTrans metadata collected incorrectly from source
-; CHECK:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { i32*, i32* }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:

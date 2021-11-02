@@ -47,7 +47,6 @@
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: Inputs/intel-merge-mangled09-a.ll
-; CHECK:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { %union._ZTSN10TestStructUt_E.anon, %union._ZTSN10TestStructUt_E.anon.0 }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:

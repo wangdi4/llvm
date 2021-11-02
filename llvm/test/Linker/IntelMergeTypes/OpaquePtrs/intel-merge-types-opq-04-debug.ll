@@ -39,7 +39,6 @@
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-types-opq-04a.ll
-; CHECK:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { ptr, %struct._ZTSN10TestStructUt_E.anon }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:

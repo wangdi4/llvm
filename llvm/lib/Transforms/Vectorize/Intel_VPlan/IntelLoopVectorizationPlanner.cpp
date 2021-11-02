@@ -108,7 +108,7 @@ static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
 static LoopVPlanDumpControl
-    LinearizationDumpControl("linearization", "predication and linearization");
+    PredicatorDumpControl("predicator", "predicator");
 static LoopVPlanDumpControl
     AllZeroBypassDumpControl("all-zero-bypass", "all zero bypass insertion");
 
@@ -1053,7 +1053,7 @@ void LoopVectorizationPlanner::predicate() {
     // has some hacks for search loop processing inside it as well.
     VPlanPredicator VPP(*VPlan);
     VPP.predicate();
-    VPLAN_DUMP(LinearizationDumpControl, VPlan);
+    VPLAN_DUMP(PredicatorDumpControl, VPlan);
 
     PredicatedVPlans.insert(VPlan);
   };

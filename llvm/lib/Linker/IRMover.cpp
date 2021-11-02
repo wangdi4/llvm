@@ -38,6 +38,7 @@ using namespace llvm;
 using namespace dtransOP;
 
 #define DEBUG_MANGLED_NAMES "irmover-mangled-names"
+#define DEBUG_DTRANS_METADATA_LOSS "irmover-dtrans-metadata-loss"
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -53,13 +54,6 @@ static cl::opt<bool> TypeMerging(
     cl::desc("enable type merge in irmover for smaller IR"));
 
 #if INTEL_FEATURE_SW_DTRANS
-// Enable verifying that there is no repeated types or special empty structures
-// in the destination module. An assertion will be called if one of the
-// previous conditions happen. This should be used for testing purposes.
-static cl::opt<bool> EnableVerify(
-    "irmover-enable-module-verify", cl::Hidden, cl::init(false),
-    cl::desc("enable verifying destination module in irmover"));
-
 // Enable mapping the types from the source module to the destination module
 // using the mangled names information.
 static cl::opt<bool> EnableMergeByMangledNames(
@@ -89,6 +83,13 @@ static cl::opt<bool> EnableIncompleteDTransMetadata(
 static cl::opt<bool> EnableFullDTransTypesCheck(
     "irmover-enable-full-dtrans-types-check", cl::Hidden, cl::init(true),
     cl::desc("use the dtrans type check even if the pointers aren't opaque"));
+
+// Enable verifying that there is no repeated types or special empty structures
+// in the destination module. An assertion will be called if one of the
+// previous conditions happen. This should be used for testing purposes.
+static cl::opt<bool> EnableVerify(
+    "irmover-enable-module-verify", cl::Hidden, cl::init(false),
+    cl::desc("enable verifying destination module in irmover"));
 #endif // INTEL_FEATURE_SW_DTRANS
 
 // Normalizes struct name for type merging.
@@ -175,6 +176,13 @@ class TypeMapTy : public ValueMapTypeRemapper {
   // True if the conditions for using the mangled names type mapping are met,
   // else false.
   bool EnableMangledTypesMappingScheme = EnableMergeByMangledNames;
+
+  // True if the conditions for using incomplete metadata are met, else false
+  bool AllowsIncompleteMD = false;
+
+  // If true then we are going to use the DTrans metadata to do type merging
+  // even we have types pointers
+  bool AllowsFullDTransTypeCheck = false;
 
 /***************** Begin special functions ***************************/
   // Map the empty structure with the DTrans function type that will be used
@@ -274,6 +282,15 @@ private:
 DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD) {
   TM = new DTransTypeManager(M.getContext());
   DtransTypeMDReader = new TypeMetadataReader(*TM);
+
+  // We set the initializer false to prevent any assertion in the DTrans
+  // metadata reader. If we didn't collect the metadata correctly and
+  // incomplete metadata is not allowed then we won't generate the map.
+  // The result of not generating the map is that the type mapping using
+  // the DTrans metadata won't happen and we are going to use the
+  // traditional type mapping. Also the type mapping verification can't
+  // be used. Once we ensure that there is no metadata loss during the
+  // compile step then we can replace the 'false' with '!AllowsIncompleteMD'.
   MDReadCorrectly = DtransTypeMDReader->initialize(M, false);
 
   // If incomplete metadata is not allowed then there is no need to collect
@@ -289,6 +306,15 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD) {
       continue;
     DTransStructType *DTStruct = TM->getStructType(ST->getName());
     DTransSTMap.insert({ST, DTStruct});
+
+    DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+      if (DTStruct->getReconstructError()) {
+        dbgs() << "    llvm::Type: " << *ST << "\n";
+        dbgs() << "    DTransType: ";
+        DTStruct->dump();
+        dbgs() << "\n\n";
+      }
+    });
   }
 }
 
@@ -643,7 +669,8 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
     StructType *CurrStruct = nullptr;
     if (auto *Ptr = dyn_cast<PointerType>(Field)) {
       // If we have a pointer and it is opaque, or we are using DTrans metadata
-      // for non-opaque pointers, then get element type of the pointer.
+      // for non-opaque pointers, then get element type of the pointer from
+      // the DTrans metadata
       if (Ptr->isOpaque() || EnableFullDTransTypesCheck) {
         if (auto *DTStruct = DTransDstStructsMap->getDTransStructure(ST)) {
           auto *DTType = DTStruct->getFieldType(I);
@@ -715,25 +742,34 @@ void TypeMapTy::mapTypesByMangledNames(Module &SrcM, Module &DstM) {
 
   // Return true if the DTrans metadata was collected and initialized
   // for the input module, else return false.
-  auto BuildDTransStructures = [](Module &M, DTransStructsMap **DTMap,
-                                  bool IsSourceModule) -> bool {
+  auto BuildDTransStructures = [this](Module &M, DTransStructsMap **DTMap,
+                                      bool IsSourceModule) -> bool {
     assert(!(*DTMap) && "DTransStructsMap already allocated");
 
-    NamedMDNode *DTransMDTypes = M.getNamedMetadata("intel.dtrans.types");
-
-    // TODO: The following boolean needs to be updated as
-    // EnableIncompleteDTransMetadata && M.getContext().supportsTypedPointers()
-    // after pulldown. The reason is that incomplete metadata is only allowed
-    // when typed pointers are available since we can reconstruct the types
-    // information in that case.
-    bool AllowsIncompleteMD = EnableIncompleteDTransMetadata;
-
-    // destination module always starts with empty metadata
-    if (!DTransMDTypes && !IsSourceModule)
-      AllowsIncompleteMD = true;
+    DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
+      dbgs() << "  Checking for metadata loss in "
+             << (IsSourceModule ? "source" : "destination") << " module:\n");
 
     DTransStructsMap *DTNewMap = new DTransStructsMap(M, AllowsIncompleteMD);
     if (!(DTNewMap->isMDReadCorrectly())) {
+      NamedMDNode *DTransMDTypes = M.getNamedMetadata("intel.dtrans.types");
+
+      // Check if the module is empty (no functions, globals, aliases and
+      // ifuncs)
+      bool ModuleIsEmpty = !DTransMDTypes && M.empty() && M.global_empty() &&
+                           M.alias_empty() && M.ifunc_empty();
+
+      // destination module always starts with empty metadata
+      if (ModuleIsEmpty && !IsSourceModule) {
+        *DTMap = DTNewMap;
+        return true;
+      }
+
+      // If one of the following messages is printed then it means that there
+      // is some metadata loss when the module was created. Try using the
+      // following debug flag to identify which type is broken:
+      // -mllvm -debug-only=irmover-dtrans-metadata-loss .
+
       // If incomplete metadata is not allowed then we aren't going to merge
       // the types using the mangled names.
       if (!AllowsIncompleteMD) {
@@ -745,10 +781,6 @@ void TypeMapTy::mapTypesByMangledNames(Module &SrcM, Module &DstM) {
         return false;
       }
 
-      // NOTE: If the debug information is turned on, this message should be
-      // printed only once since the destination module won't have DTrans
-      // metadata in the first iteration. If the message is printed multiple
-      // times then it means that there might be incorrect metadata.
       DEBUG_WITH_TYPE(DEBUG_MANGLED_NAMES,
           dbgs() << "  WARNING: DTrans metadata collected incorrectly from "
                  << (IsSourceModule ? "source" : "destination") << "\n\n");
@@ -811,7 +843,27 @@ void TypeMapTy::mapTypesByMangledNames(Module &SrcM, Module &DstM) {
     return;
   }
 
+  assert((SrcM.getContext().supportsTypedPointers() ==
+          DstM.getContext().supportsTypedPointers()) &&
+          "Module mismatch for typed pointers support");
+
+  // Incomplete metadata is only allowed when typed pointers are available
+  // since we can reconstruct the types information in this case. If
+  // opaque pointers are available then we can't restore the types
+  // information.
+  AllowsIncompleteMD = EnableIncompleteDTransMetadata &&
+                       SrcM.getContext().supportsTypedPointers();
+
+  // We are going to use the DTrans metadata for opaque pointers or typed
+  // pointers if requested
+  AllowsFullDTransTypeCheck = !SrcM.getContext().supportsTypedPointers() ||
+                              EnableFullDTransTypesCheck;
+
   DEBUG_WITH_TYPE(DEBUG_MANGLED_NAMES,
+      dbgs() << "Merging types from source module: "
+             << SrcM.getName() << "\n\n");
+
+  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
       dbgs() << "Merging types from source module: "
              << SrcM.getName() << "\n\n");
 
@@ -976,6 +1028,11 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
     if (!EnableMangledTypesMappingScheme)
       return false;
 
+    // If there is no opaque pointers or the use of DTrans metadata is not
+    // allowed for typed pointers then we return.
+    if (!AllowsFullDTransTypeCheck)
+      return false;
+
     if (!SrcST || !DstST)
       return false;
 
@@ -989,12 +1046,9 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
 
     // If the DTrans metadata was constructed incorrectly then we can't query
     // it.
-    //
-    // TODO: Incomplete metadata is only allowed if the llvm:Context allows
-    // typed pointers.
     if (DTStructSrc->getReconstructError() ||
         DTStructDst->getReconstructError()) {
-      if (EnableIncompleteDTransMetadata)
+      if (AllowsIncompleteMD)
         return false;
       else
         llvm_unreachable("Collecting information from incomplete "
@@ -1011,18 +1065,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
       assert((PtrSrc->isOpaque() == PtrDst->isOpaque()) &&
              "Mapping between opaque pointers from/to non-opaque pointers "
              "isn't allowed");
-
-      // Return if using the DTrans pointer type is not allowed for non-opaque
-      // pointers
-      //
-      // TODO: The following condition needs to be updated after the pulldown.
-      // We are going to collect from the llvm::Context if typed pointers are
-      // supported and if EnableFullDTransTypesCheck is disabled. If these
-      // conditions are true then we don't need to enter in this function since
-      // it means that type merging using DTrans metadata is disabled for typed
-      // pointers.
-      if (!EnableFullDTransTypesCheck && !PtrSrc->isOpaque())
-        return false;
 
       auto *DTFieldPtrSrc =
           dyn_cast<DTransPointerType>(DTStructSrc->getFieldType(FieldNum));
@@ -1096,18 +1138,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
       assert((PtrSrc->isOpaque() == PtrDst->isOpaque()) &&
              "Mapping between opaque pointers from/to non-opaque pointers "
              "isn't allowed");
-
-      // Return if using the DTrans pointer type is not allowed for non-opaque
-      // pointers
-      //
-      // TODO: The following condition needs to be updated after the pulldown.
-      // We are going to collect from the llvm::Context if typed pointers are
-      // supported and if EnableFullDTransTypesCheck is disabled. If these
-      // conditions are true then we don't need to enter in this function since
-      // it means that type merging using DTrans metadata is disabled for typed
-      // pointers.
-      if (!EnableFullDTransTypesCheck && !PtrSrc->isOpaque())
-        return false;
 
       // Found that the type of the array or vector is a pointer, return the
       // information.
@@ -2321,12 +2351,24 @@ void IRLinker::verifyDestinationModule() {
     return;
   }
 
+  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
+      dbgs() << "  Checking for metadata loss in destination module "
+             << "verification:\n");
+
   // We need to create a new DTrans map since the destination module now
   // has new types.
-  //
-  // TODO: Incomplete metadata is only allowed if the llvm::Context allows
-  // it. This update will be done after the pulldown.
-  DTransStructsMap DTMap(DstM, true);
+  bool AllowsIncompleteMD = DstM.getContext().supportsTypedPointers() &&
+                            EnableIncompleteDTransMetadata;
+  DTransStructsMap DTMap(DstM, AllowsIncompleteMD);
+
+  // If the incomplete metadata can't be used then we can't do the verification
+  // in case of metadata loss.
+  if (!DTMap.isMDReadCorrectly() && !AllowsIncompleteMD) {
+    DEBUG_WITH_TYPE(DEBUG_MANGLED_NAMES,
+      dbgs() << "Verification couldn't be completed due to metadata loss\n");
+    return;
+  }
+
   DenseMap<StringRef, SetVector<StructType *>> UniqueTypesMap;
 
   std::vector<StructType *> Types = DstM.getIdentifiedStructTypes();
@@ -3271,6 +3313,9 @@ Error IRLinker::run() {
     verifyDestinationModule();
 
   DEBUG_WITH_TYPE(DEBUG_MANGLED_NAMES,
+      dbgs() << "\n-------------------------------------------------------\n");
+
+  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
       dbgs() << "\n-------------------------------------------------------\n");
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION

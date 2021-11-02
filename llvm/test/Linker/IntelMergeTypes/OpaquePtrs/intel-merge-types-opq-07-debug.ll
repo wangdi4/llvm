@@ -50,7 +50,6 @@
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-types-opq-07a.ll
-; CHECK:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { ptr }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:

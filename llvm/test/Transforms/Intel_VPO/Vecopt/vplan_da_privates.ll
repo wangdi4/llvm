@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return arr1[RetIdx];
 ;}
 
-; RUN: opt -vplan-enable-soa=false -vplan-vec -disable-output -vplan-dump-da -vplan-print-after-linearization -vplan-enable-cfg-merge=0 %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -vplan-vec -disable-output -vplan-dump-da -vplan-print-after-predicator -vplan-enable-cfg-merge=0 %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -51,7 +51,7 @@ define dso_local i32 @getElement(i32 %RetIdx) local_unnamed_addr {
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT3]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
 
-; CHECK: VPlan after predication and linearization
+; CHECK: VPlan after predicator
 ; CHECK:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
 ; CHECK-NEXT:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
 ; CHECK-NEXT:  [DA: Div] i32* [[GEP1:%.*]]  = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 0
@@ -176,7 +176,7 @@ define dso_local i32 @scalPrivate(i32 %RetIdx) local_unnamed_addr #0 {
 ; CHECK: Divergent: [Shape: Random] i32 [[H2:%.*]] = call i32* [[J]] i32 (i32*)* @helperPtr
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD2:%.*]] = add i32 [[H2]] i32 [[H1]]
 
-; CHECK: VPlan after predication and linearization
+; CHECK: VPlan after predicator
 ; CHECK:      [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
 ; CHECK-NEXT: [DA: Div] i32* [[L_PRIV:%.*]] = allocate-priv i32*
 

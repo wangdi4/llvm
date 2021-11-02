@@ -83,7 +83,6 @@
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-mangled04-a.ll
-; CHECK:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK:   Source type: %class._ZTS9TestClassIiE.TestClass = type { i32, %union._ZTSN9TestClassIiEUt_E.anon }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
