@@ -23,13 +23,15 @@
 
 ; CHECK-HIR-LABEL: Function: foo_int
 ; CHECK-HIR: if (0 <u 4 * [[UB:%.*]])
-; CHECK-HIR: [[RED_VAR:%.*]] = 0;
-; CHECK-HIR: [[RED_VAR]] = insertelement [[RED_VAR]],  [[RED_INIT:%.*]],  0;
+; CHECK-HIR: [[RED_INIT:%.*]] = 0;
+; CHECK-HIR: [[RED_INIT_INSERT:%.*]] = insertelement [[RED_INIT]],  [[INIT:%.*]],  0;
+; CHECK-HIR: [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]]
 ; CHECK-HIR: DO i1 = 0, 4 * [[UB]] + -1, 4   <DO_LOOP>
 ; CHECK-HIR: [[VEC_LD:%.*]] = (<4 x i32>*)(%ptr)
-; CHECK-HIR: [[RED_VAR]] = [[VEC_LD]]  +  [[RED_VAR]];
+; CHECK-HIR: [[RED_ADD:%.*]] = [[VEC_LD]]  +  [[PHI_TEMP]];
+; CHECK-HIR: [[PHI_TEMP]] = [[RED_ADD]]
 ; CHECK-HIR: END LOOP
-; CHECK-HIR: [[RED_INIT]] = @llvm.vector.reduce.add.v4i32([[RED_VAR]]);
+; CHECK-HIR: [[INIT]] = @llvm.vector.reduce.add.v4i32([[RED_ADD]]);
 
 
 ; Fully VPValue-based LLVM-IR codegen

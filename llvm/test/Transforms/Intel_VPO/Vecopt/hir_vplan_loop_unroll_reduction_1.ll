@@ -79,17 +79,19 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:                 [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u12
 ; VPVALCG-NEXT:                 if (0 <u 12 * [[TGU0]])
 ; VPVALCG-NEXT:                 {
-; VPVALCG-NEXT:                    [[RED_VAR0:%.*]] = 0
-; VPVALCG-NEXT:                    [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
+; VPVALCG-NEXT:                    [[RED_INIT:%.*]] = 0
+; VPVALCG-NEXT:                    [[RED_INIT_INSERT:%.*]] = insertelement [[RED_INIT]],  [[ACC_0190]],  0
+; VPVALCG-NEXT:                    [[PHI_TEMP:%.*]]  = [[RED_INIT_INSERT]]
 ; VPVALCG:                         + DO i1 = 0, 12 * [[TGU0]] + -1, 12 <DO_LOOP> <MAX_TC_EST = 178956970> <simd-vectorized> <nounroll> <novectorize>
 ; VPVALCG-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; VPVALCG-NEXT:                    |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:                    |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
 ; VPVALCG-NEXT:                    |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
 ; VPVALCG-NEXT:                    |   [[DOTVEC40:%.*]] = [[DOTVEC30]]  +  [[DOTVEC20]]
 ; VPVALCG-NEXT:                    |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; VPVALCG-NEXT:                    |   [[RED_VAR0]] = [[DOTVEC50]]  +  [[DOTVEC40]]
+; VPVALCG-NEXT:                    |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  +  [[DOTVEC40]]
+; VPVALCG-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC60]]
 ; VPVALCG-NEXT:                    + END LOOP
-; VPVALCG:                         [[ACC_0190]] = @llvm.vector.reduce.add.v4i32([[RED_VAR0]])
+; VPVALCG:                         [[ACC_0190]] = @llvm.vector.reduce.add.v4i32([[DOTVEC60]])
 ; VPVALCG-NEXT:                 }
 ; VPVALCG:                      + DO i1 = 12 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
 ; VPVALCG-NEXT:                 |   [[TMP1:%.*]] = ([[A0]])[i1]

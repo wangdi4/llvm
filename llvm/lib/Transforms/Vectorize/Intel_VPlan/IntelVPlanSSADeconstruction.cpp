@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanSSADeconstruction.h"
+#include "IntelVPlanDominatorTree.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #include "VPlanHIR/IntelVPlanBuilderHIR.h"
 #include "llvm/Support/CommandLine.h"
@@ -29,8 +30,28 @@ bool PrintAfterSSADeconstruction = false;
 } // namespace vpo
 } // namespace llvm
 
+// Validates an induction variable by asserting on following conditions -
+// 1. "next" value dominates latch
+// 2. "next" value has "correct" compute (same opcode as induction init, uniform
+//    2nd operand)
+static void validateInductionPHI(VPPHINode *Phi, VPLoop *VLp,
+                                 VPlanVector &Plan) {
+  unsigned InitOpNum = isa<VPInductionInit>(Phi->getOperand(0)) ? 0 : 1;
+  unsigned NextOpNum = 1 - InitOpNum;
+  auto *IVInit = cast<VPInductionInit>(Phi->getOperand(InitOpNum));
+  auto *IVNext = cast<VPInstruction>(Phi->getOperand(NextOpNum));
+  (void)IVInit;
+  (void)IVNext;
+
+  assert(Plan.getDT()->dominates(IVNext->getParent(), VLp->getLoopLatch()) &&
+         "IV's next instruction should dominate loop latch.");
+  assert(IVNext->getOpcode() == IVInit->getBinOpcode() &&
+         "Opcode of next and induction-init should match.");
+  assert(Plan.getVPlanDA()->isUniform(*IVNext->getOperand(1)) &&
+         "Second operand of IV next instruction should be uniform.");
+}
+
 void VPlanSSADeconstruction::run() {
-  assert(Plan.getVPLoopInfo()->size() == 1 && "Expected one loop");
   VPLoop *VLoop = *(Plan.getVPLoopInfo()->begin());
   // Can't handle search loops.
   if (VLoop->getUniqueExitBlock() == nullptr)
@@ -38,22 +59,22 @@ void VPlanSSADeconstruction::run() {
   VPBuilderHIR Builder;
   unsigned DeconstructedPhiId = 0;
   bool ResetSVA = false;
+  bool MainLoopIVFound = false;
 
   for (VPBasicBlock &VPBB : Plan) {
+    auto *CurrVLoop = Plan.getVPLoopInfo()->getLoopFor(&VPBB);
     for (VPPHINode &Phi : VPBB.getVPPhis()) {
-      if (&VPBB == VLoop->getHeader()) {
-        auto IsReductionOrInductionInit = [](VPValue *V) -> bool {
-          return isa<VPReductionInit>(V) || isa<VPInductionInit>(V);
-        };
-
-        // If outermost loop header PHI is either inductions or reductions (loop
-        // entities), then copies are not needed for them since they are
-        // processed specially in VPOCodeGenHIR::createAndMapLoopEntityRefs.
-        // TODO: Consider using this copy-based implementation for these loop
-        // entities too.
-        if (IsReductionOrInductionInit(Phi.getOperand(0)) ||
-            IsReductionOrInductionInit(Phi.getOperand(1)))
+      if (CurrVLoop && &VPBB == CurrVLoop->getHeader()) {
+        // If loop header PHI is an induction then copies are not needed for
+        // them since it represents main loop IV which is processed specially in
+        // HIR codegen.
+        if (isa<VPInductionInit>(Phi.getOperand(0)) ||
+            isa<VPInductionInit>(Phi.getOperand(1))) {
+          assert(!MainLoopIVFound && "Only one main loop IV is expected.");
+          validateInductionPHI(&Phi, CurrVLoop, Plan);
+          MainLoopIVFound = true;
           continue;
+        }
       }
 
       LLVM_DEBUG(dbgs() << "[SSADecons] Inserting copies for: "; Phi.dump());

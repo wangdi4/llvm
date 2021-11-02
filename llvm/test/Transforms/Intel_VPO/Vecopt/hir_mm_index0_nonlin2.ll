@@ -167,29 +167,37 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ;CHECK-NEXT:        %tgu = (sext.i32.i64(%m))/u4;
 ;CHECK-NEXT:        if (0 <u 4 * %tgu)
 ;CHECK-NEXT:        {
-;CHECK-NEXT:           %red.var = %best.023;
-;CHECK-NEXT:           %red.var1 = 9223372036854775807;
-;CHECK-NEXT:           %red.var2 = %tmp.024;
-;CHECK-NEXT:           %red.var3 = %val.025;
-;CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
+;CHECK-NEXT:           %red.init = %best.023;
+;CHECK-NEXT:           %red.init1 = 9223372036854775807;
+;CHECK-NEXT:           %red.init2 = %tmp.024;
+;CHECK-NEXT:           %red.init3 = %val.025;
+;CHECK-NEXT:           %phi.temp = %red.init3;
+;CHECK-NEXT:           %phi.temp4 = %red.init2;
+;CHECK-NEXT:           %phi.temp6 = %red.init;
+;CHECK-NEXT:           %phi.temp8 = %red.init1;
+;CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CHECK-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
-;CHECK-NEXT:           |   %.vec7 = %.vec > %red.var;
-;CHECK-NEXT:           |   %red.var1 = (%.vec > %red.var) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %red.var1;
-;CHECK-NEXT:           |   %red.var2 = (%.vec > %red.var) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %red.var2;
-;CHECK-NEXT:           |   %red.var3 = (%.vec > %red.var) ? %.vec + 2 : %red.var3;
-;CHECK-NEXT:           |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
+;CHECK-NEXT:           |   %.vec10 = %.vec > %phi.temp6;
+;CHECK-NEXT:           |   %.vec11 = (%.vec > %phi.temp6) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %phi.temp8;
+;CHECK-NEXT:           |   %.vec12 = (%.vec > %phi.temp6) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %phi.temp4;
+;CHECK-NEXT:           |   %.vec13 = (%.vec > %phi.temp6) ? %.vec + 2 : %phi.temp;
+;CHECK-NEXT:           |   %.vec14 = (%.vec > %phi.temp6) ? %.vec : %phi.temp6;
+;CHECK-NEXT:           |   %phi.temp = %.vec13;
+;CHECK-NEXT:           |   %phi.temp4 = %.vec12;
+;CHECK-NEXT:           |   %phi.temp6 = %.vec14;
+;CHECK-NEXT:           |   %phi.temp8 = %.vec11;
 ;CHECK-NEXT:           + END LOOP
-;CHECK:                %best.023 = @llvm.vector.reduce.smax.v4i32(%red.var);
-;CHECK-NEXT:           %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>;
-;CHECK-NEXT:           [[fake_lin_idx:%.*]] = @llvm.vector.reduce.smin.v4i64(%idx.blend);
-;CHECK-NEXT:           %mmidx.cmp. = [[fake_lin_idx]] == %red.var1;
+;CHECK:                %best.023 = @llvm.vector.reduce.smax.v4i32(%.vec14);
+;CHECK-NEXT:           %idx.blend = (%best.023 == %.vec14) ? %.vec11 : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>;
+;CHECK-NEXT:           %vec.reduce19 = @llvm.vector.reduce.smin.v4i64(%idx.blend);
+;CHECK-NEXT:           %mmidx.cmp. = %vec.reduce19 == %.vec11;
 ;CHECK-NEXT:           %bsfintmask = bitcast.<4 x i1>.i4(%mmidx.cmp.);
 ;CHECK-NEXT:           %bsf = @llvm.cttz.i4(%bsfintmask,  1);
-;CHECK-NEXT:           %tmp.024 = extractelement %red.var2,  %bsf;
-;CHECK-NEXT:           %mmidx.cmp.13 = [[fake_lin_idx]] == %red.var1;
-;CHECK-NEXT:           %bsfintmask14 = bitcast.<4 x i1>.i4(%mmidx.cmp.13);
-;CHECK-NEXT:           %bsf15 = @llvm.cttz.i4(%bsfintmask14,  1);
-;CHECK-NEXT:           %val.025 = extractelement %red.var3,  %bsf15;
+;CHECK-NEXT:           %tmp.024 = extractelement %.vec12,  %bsf;
+;CHECK-NEXT:           %mmidx.cmp.20 = %vec.reduce19 == %.vec11;
+;CHECK-NEXT:           %bsfintmask21 = bitcast.<4 x i1>.i4(%mmidx.cmp.20);
+;CHECK-NEXT:           %bsf22 = @llvm.cttz.i4(%bsfintmask21,  1);
+;CHECK-NEXT:           %val.025 = extractelement %.vec13,  %bsf22;
 ;CHECK-NEXT:        }
 ;CHECK:             + DO i1 = 4 * %tgu, sext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;CHECK-NEXT:        |   %0 = (%ordering)[i1];

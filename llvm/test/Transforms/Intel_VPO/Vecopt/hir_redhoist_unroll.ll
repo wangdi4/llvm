@@ -22,8 +22,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK-NEXT: %red.var = 0;
-; CHECK-NEXT: %red.var = insertelement %red.var, %i_sum.027, 0;
+; CHECK-NEXT: %red.init = 0;
+; CHECK-NEXT: %red.init.insert = insertelement %red.init, %i_sum.027, 0;
 ; CHECK: + DO i1
 ; CHECK-NOT: + DO i2
 ; CHECK: + END LOOP

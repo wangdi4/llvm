@@ -20,13 +20,14 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -S  -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; CHECK:      BEGIN REGION { modified }
-; CHECK-NEXT:  %red.var = 0;
-; CHECK-NEXT:  %red.var = insertelement %red.var,  %no.addr.022,  0;
+; CHECK-NEXT:  %red.init = 0;
+; CHECK-NEXT:  %red.init.insert = insertelement %red.init,  %no.addr.022,  0;
+; CHECK-NEXT:  %phi.temp = %red.init.insert;
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:   %.vec7 = undef;
 ; CHECK-NEXT:   %.vec = (<4 x i32>*)(@e2)[0][-1 * i1 + 97];
 ; CHECK-NEXT:   %reverse = shufflevector %.vec,  undef,  <i32 3, i32 2, i32 1, i32 0>;
-; CHECK-NEXT:   %red.var = %red.var  -  %reverse;
+; CHECK-NEXT:   %.vec1 = %phi.temp  -  %reverse;
 ; CHECK-NEXT:   %.vec2 = (<4 x i32>*)(@h)[0][-1 * i1 + 97];
 ; CHECK-NEXT:   %reverse3 = shufflevector %.vec2,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; CHECK-NEXT:   %.vec4 = (<4 x i32>*)(@ek)[0][-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3> + 101][%jo + 1];
@@ -37,8 +38,9 @@
 ; CHECK-NEXT:   %reverse9 = shufflevector %.vec5,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; CHECK-NEXT:   %reverse10 = shufflevector %reverse8,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; CHECK-NEXT:   (<4 x i32>*)(@d)[0][-1 * i1 + 97] = %reverse10; Mask = @{%reverse9}
+; CHECK-NEXT:   %phi.temp = %.vec1;
 ; CHECK-NEXT:  END LOOP
-; CHECK:       %no.addr.022 = @llvm.vector.reduce.add.v4i32(%red.var);
+; CHECK:       %no.addr.022 = @llvm.vector.reduce.add.v4i32(%.vec1);
 ; CHECK-NEXT: END REGION
 source_filename = "ts.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

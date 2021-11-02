@@ -21,19 +21,21 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -disable-output < %s 2>&1 | FileCheck %s
 
 
-; CHECK:            %red.var = 0;
-; CHECK-NEXT:       %red.var = insertelement %red.var,  %sum.022,  0;
+; CHECK:            %red.init = 0;
+; CHECK-NEXT:       %red.init.insert = insertelement %red.init,  %sum.022,  0;
+; CHECK-NEXT:       %phi.temp = %red.init.insert
 ; CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       |   %.vls.load = undef;
-; CHECK-NEXT:       |   %.copy = %red.var;
+; CHECK-NEXT:       |   %.copy1 = %phi.temp;
 ; CHECK-NEXT:       |   %.vls.load = (<16 x i32>*)(@arr1)[0][3 * i1]; Mask = @{<i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>}
 ; CHECK-NEXT:       |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 3, i32 6, i32 9>;
-; CHECK-NEXT:       |   %vls.extract1 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 4, i32 7, i32 10>;
-; CHECK-NEXT:       |   %vls.extract2 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 5, i32 8, i32 11>;
-; CHECK-NEXT:       |   %.vec = %vls.extract1 + %vls.extract2  +  %.copy;
-; CHECK-NEXT:       |   %red.var = %.vec  +  %vls.extract;
+; CHECK-NEXT:       |   %vls.extract2 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 4, i32 7, i32 10>;
+; CHECK-NEXT:       |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 5, i32 8, i32 11>;
+; CHECK-NEXT:       |   %.vec = %vls.extract2 + %vls.extract3  +  %.copy1;
+; CHECK-NEXT:       |   %.vec4 = %.vec  +  %vls.extract;
+; CHECK-NEXT:       |   %phi.temp = %.vec4
 ; CHECK-NEXT:       + END LOOP
-; CHECK:            %sum.022 = @llvm.vector.reduce.add.v4i32(%red.var);
+; CHECK:            %sum.022 = @llvm.vector.reduce.add.v4i32(%.vec4);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

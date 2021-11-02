@@ -9,13 +9,15 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 define double @foo(double* nocapture readonly %darr) #0 {
-; CHECK:      [[RED_VAR0:%.*]] = 0.000000e+00
+; CHECK:      [[RED_INIT:%.*]] = 0.000000e+00
+; CHECK:      [[PHI_TEMP:%.*]] = [[RED_INIT]]
 ; CHECK:    DO i64 i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:      [[DOTVEC0:%.*]] = (<4 x double>*)([[DARR0:%.*]])[i1]
 ; CHECK:      [[DOTVEC10:%.*]] = [[DOTVEC0]]  *  2.000000e+00; <fast>
-; CHECK:      [[RED_VAR0]] = [[DOTVEC10]]  +  [[RED_VAR0]]; <fast>
+; CHECK:      [[DOTVEC20:%.*]] = [[DOTVEC10]]  +  [[PHI_TEMP]]; <fast>
+; CHECK:      [[PHI_TEMP]] = [[DOTVEC20]]
 ; CHECK:    END LOOP
-; CHECK:      [[SUM_060:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_060]],  [[RED_VAR0]])
+; CHECK:      [[SUM_060:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_060]],  [[DOTVEC20]])
 ;
 entry:
   br label %for.body

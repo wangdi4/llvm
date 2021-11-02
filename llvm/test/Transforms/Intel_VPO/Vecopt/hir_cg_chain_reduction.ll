@@ -27,19 +27,21 @@
 ; TODO: Update test to check that other instructions of reduction chain are in LinkedVPValues.
 
 ; Check generated vector code.
-; CHECK:                     %red.var = 0.000000e+00;
+; CHECK:                     %red.init = 0.000000e+00;
+; CHECK:                     %phi.temp = %red.init;
 ; CHECK:                     + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                |   %.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK-NEXT:                |   %.vec1 = (<4 x float>*)(@b)[0][i1];
 ; CHECK-NEXT:                |   %.vec2 = %.vec1  *  %.vec;
-; CHECK-NEXT:                |   %.vec3 = %add4  +  %red.var;
+; CHECK-NEXT:                |   %.vec3 = %add4  +  %phi.temp;
 ; CHECK-NEXT:                |   %.vec4 = (<4 x float>*)(@a)[0][i1];
 ; CHECK-NEXT:                |   %.vec5 = %.vec3  +  %.vec4;
 ; CHECK-NEXT:                |   %.vec6 = (<4 x float>*)(@c)[0][i1];
 ; CHECK-NEXT:                |   %.vec7 = %.vec5  +  %.vec6;
-; CHECK-NEXT:                |   %red.var = %.vec7  +  %.vec2;
+; CHECK-NEXT:                |   %.vec8 = %.vec7  +  %.vec2;
+; CHECK-NEXT:                |   %phi.temp = %.vec8;
 ; CHECK-NEXT:                + END LOOP
-; CHECK:                     %sum.021 = @llvm.vector.reduce.fadd.v4f32(%sum.021,  %red.var);
+; CHECK:                     %sum.021 = @llvm.vector.reduce.fadd.v4f32(%sum.021,  %.vec8);
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
