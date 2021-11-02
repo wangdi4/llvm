@@ -2258,6 +2258,7 @@ template<typename T> static InstructionCost costAndCollectOperands(
                              CmpInst::BAD_ICMP_PREDICATE, CostKind);
   };
 
+  const SCEVConstant *Const = nullptr; // INTEL
   switch (S->getSCEVType()) {
   case scCouldNotCompute:
     llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
@@ -2291,7 +2292,18 @@ template<typename T> static InstructionCost costAndCollectOperands(
     // TODO: this is a very pessimistic cost modelling for Mul,
     // because of Bin Pow algorithm actually used by the expander,
     // see SCEVExpander::visitMulExpr(), ExpandOpBinPowN().
-    Cost = ArithCost(Instruction::Mul, S->getNumOperands() - 1);
+#if INTEL_CUSTOMIZATION
+    // If SCEVMulExpr's first operand is a power of 2, use Shl to evaluate first
+    // multiplication's cost as it is a cheaper operation.
+    Const = dyn_cast<SCEVConstant>(S->getOperand(0));
+    if (Const && Const->getAPInt().isPowerOf2())
+      Cost = ArithCost(Instruction::Shl, 1);
+    else
+      Cost = ArithCost(Instruction::Mul, 1);
+
+    if (S->getNumOperands() > 2)
+      Cost += ArithCost(Instruction::Mul, S->getNumOperands() - 2);
+#endif // INTEL_CUSTOMIZATION
     break;
   case scSMaxExpr:
   case scUMaxExpr:
