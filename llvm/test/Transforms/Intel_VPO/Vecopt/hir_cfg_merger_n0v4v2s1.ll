@@ -15,14 +15,14 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%sum.07}
-; CHECK-DAG:     [[VP1:%.*]] = {%A}
-; CHECK-DAG:     [[VP2:%.*]] = {%N + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%N + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
@@ -55,8 +55,8 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4.ScalarRemainder
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0]] = {%sum.07}
-; CHECK-DAG:     [[VP1]] = {%A}
-; CHECK-DAG:     [[VP2]] = {%N + -1}
+; CHECK-DAG:     [[VP1]] = {%N + -1}
+; CHECK-DAG:     [[VP2]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder-hir <HLLoop>, NeedsCloning: 0, TempInitMap:
@@ -78,35 +78,35 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4.cloned
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0]] = {%sum.07}
-; CHECK-DAG:     [[VP1]] = {%A}
-; CHECK-DAG:     [[VP2]] = {%N + -1}
+; CHECK-DAG:     [[VP1]] = {%N + -1}
+; CHECK-DAG:     [[VP2]] = {%A}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:    Cloned.[[BB6:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB7:BB[0-9]+]]
+; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB7]]: # preds: Cloned.[[BB6]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP9:%.*]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP9:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP11:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP12:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]], Cloned.[[BB8]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = phi  [ i32 [[VP10]], Cloned.[[BB7]] ],  [ i32 [[VP14:%.*]], Cloned.[[BB8]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP15:%.*]] = phi  [ i64 [[VP11]], Cloned.[[BB7]] ],  [ i64 [[VP16:%.*]], Cloned.[[BB8]] ]
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]], [[BB8]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = phi  [ i32 [[VP10]], [[BB7]] ],  [ i32 [[VP14:%.*]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP15:%.*]] = phi  [ i64 [[VP11]], [[BB7]] ],  [ i64 [[VP16:%.*]], [[BB8]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP17:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP15]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP18:%.*]] = load i32* [[VP17]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP14]] = add i32 [[VP18]] i32 [[VP13]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP16]] = add i64 [[VP15]] i64 [[VP12]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP19:%.*]] = icmp sle i64 [[VP16]] i64 [[VP9]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP19]], Cloned.[[BB8]], Cloned.[[BB9:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP19]], [[BB8]], [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB9]]: # preds: Cloned.[[BB8]]
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP20:%.*]] = reduction-final{u_add} i32 [[VP14]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP21:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB10:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -125,19 +125,19 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0]] = {%sum.07}
-; CHECK-DAG:     [[VP1]] = {%A}
-; CHECK-DAG:     [[VP2]] = {%N + -1}
+; CHECK-DAG:     [[VP1]] = {%N + -1}
+; CHECK-DAG:     [[VP2]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB11:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP22:%.*]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP22:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP22]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]]: # preds: [[BB11]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP23:%.*]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP23:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VEC_TC_CHECK_1:%.*]] = icmp eq i64 0 i64 [[VP23]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VEC_TC_CHECK_1]], [[MERGE_BLK1:merge.blk[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
@@ -146,7 +146,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:         [DA: Uni] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_RED_INIT]] = reduction-init i32 0 i32 [[SUM_070]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP__IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
@@ -173,7 +173,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB13]]: # preds: [[BB4]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:         [DA: Div] i64 [[VP24:%.*]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:         [DA: Div] i64 [[VP24:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] popvf
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP24]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK0]], [[MERGE_BLK1]]
@@ -181,43 +181,43 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB13]], [[BB12]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP25:%.*]] = phi-merge  [ i32 live-out0, [[BB13]] ],  [ i32 [[SUM_070]], [[BB12]] ]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP26:%.*]] = phi-merge  [ i64 live-out1, [[BB13]] ],  [ i64 0, [[BB12]] ]
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB6]]
+; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB6]]: # preds: [[MERGE_BLK1]]
+; CHECK-NEXT:      [[BB6]]: # preds: [[MERGE_BLK1]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB7]]
+; CHECK-NEXT:       [DA: Uni] br [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB7]]: # preds: Cloned.[[BB6]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP9]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:      [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP9]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:       [DA: Div] i32 [[VP10]] = reduction-init i32 0 i32 [[VP25]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP11]] = induction-init{add} i64 [[VP26]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP12]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB8]]
+; CHECK-NEXT:       [DA: Uni] br [[BB8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB8]]: # preds: Cloned.[[BB7]], Cloned.[[BB8]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP13]] = phi  [ i32 [[VP10]], Cloned.[[BB7]] ],  [ i32 [[VP14]], Cloned.[[BB8]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP15]] = phi  [ i64 [[VP11]], Cloned.[[BB7]] ],  [ i64 [[VP16]], Cloned.[[BB8]] ]
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]], [[BB8]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP13]] = phi  [ i32 [[VP10]], [[BB7]] ],  [ i32 [[VP14]], [[BB8]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP15]] = phi  [ i64 [[VP11]], [[BB7]] ],  [ i64 [[VP16]], [[BB8]] ]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP17]] = subscript inbounds i32* [[A0]] i64 [[VP15]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP18]] = load i32* [[VP17]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP14]] = add i32 [[VP18]] i32 [[VP13]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP16]] = add i64 [[VP15]] i64 [[VP12]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP19]] = icmp sle i64 [[VP16]] i64 [[VP9]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP19]], Cloned.[[BB8]], Cloned.[[BB9]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP19]], [[BB8]], [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB9]]: # preds: Cloned.[[BB8]]
+; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP20]] = reduction-final{u_add} i32 [[VP14]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP21]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB10]]
+; CHECK-NEXT:       [DA: Uni] br [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
+; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:       [DA: Uni] popvf
 ; CHECK-NEXT:       [DA: Uni] br [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB14]]: # preds: Cloned.[[BB10]]
+; CHECK-NEXT:      [[BB14]]: # preds: [[BB10]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Div] i64 [[VP27:%.*]] = vector-trip-count i64 [[VP2]], UF = 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP27:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
 ; CHECK-NEXT:       [DA: Uni] popvf
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1:%.*]] = icmp eq i64 [[VP2]] i64 [[VP27]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1:%.*]] = icmp eq i64 [[VP1]] i64 [[VP27]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB14]], [[BB13]], [[BB11]]

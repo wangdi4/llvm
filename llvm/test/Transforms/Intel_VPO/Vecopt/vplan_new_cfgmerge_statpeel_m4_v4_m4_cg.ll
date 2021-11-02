@@ -90,8 +90,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP16:%.*]] = add <4 x i64> [[UNI_PHI19IND_START_BCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    br label [[VPLANNEDBB22:%.*]]
 ; CHECK:       VPlannedBB22:
-; CHECK-NEXT:    [[UNI_PHI23:%.*]] = phi i64 [ [[UNI_PHI19]], [[VPLANNEDBB21]] ], [ [[TMP22:%.*]], [[CLONED_NEW_LATCH17:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI24:%.*]] = phi <4 x i64> [ [[TMP16]], [[VPLANNEDBB21]] ], [ [[TMP21:%.*]], [[CLONED_NEW_LATCH17]] ]
+; CHECK-NEXT:    [[UNI_PHI23:%.*]] = phi i64 [ [[UNI_PHI19]], [[VPLANNEDBB21]] ], [ [[TMP22:%.*]], [[NEW_LATCH17:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI24:%.*]] = phi <4 x i64> [ [[TMP16]], [[VPLANNEDBB21]] ], [ [[TMP21:%.*]], [[NEW_LATCH17]] ]
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult <4 x i64> [[VEC_PHI24]], <i64 1024, i64 1024, i64 1024, i64 1024>
 ; CHECK-NEXT:    br label [[VPLANNEDBB25:%.*]]
 ; CHECK:       VPlannedBB25:
@@ -100,8 +100,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP19:%.*]] = add <4 x i64> [[TMP18]], [[VEC_PHI24]]
 ; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i64* [[SCALAR_GEP26]] to <4 x i64>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[TMP19]], <4 x i64>* [[TMP20]], i32 8, <4 x i1> [[TMP17]])
-; CHECK-NEXT:    br label [[CLONED_NEW_LATCH17]]
-; CHECK:       Cloned.new_latch17:
+; CHECK-NEXT:    br label [[NEW_LATCH17]]
+; CHECK:       new_latch17:
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw <4 x i64> [[VEC_PHI24]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI23]], 4
 ; CHECK-NEXT:    [[TMP23:%.*]] = icmp ult <4 x i64> [[TMP21]], <i64 1024, i64 1024, i64 1024, i64 1024>
