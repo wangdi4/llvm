@@ -178,6 +178,11 @@ static cl::opt<bool> CollapseAlways(
     cl::desc("Always collapse loop nests with collapse clause. "
              "This overrides default collapse behavior for some targets."));
 
+static cl::opt<bool> AssumeNonNegativeIV(
+    "vpo-paropt-assume-nonegative-iv", cl::Hidden, cl::init(false),
+    cl::desc("Add llvm.assume call to parallel loops on SPIR-V target which "
+             "tells that signed IV is non-negative."));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -1244,6 +1249,23 @@ bool VPOParoptTransform::genOCLParallelLoop(
     DoNotPartition = true;
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
+
+    if (AssumeNonNegativeIV) {
+      // Add assumption that IV is non-negative. It helps IGC to generate more
+      // efficient code is some cases.
+      Loop *L = W->getWRNLoopInfo().getLoop(I - 1);
+      assert(L && "genOCLParallelLoop: Expect non-empty loop.");
+      if (ICmpInst *BT = WRegionUtils::getOmpLoopBottomTest(L))
+        if (BT->isSigned()) {
+          PHINode *IV = WRegionUtils::getOmpCanonicalInductionVariable(L);
+          IRBuilder<> Builder(L->getHeader(),
+                              L->getHeader()->getFirstInsertionPt());
+          Value *Cmp = Builder.CreateICmpSGE(
+              IV, ConstantInt::get(IV->getType(), 0, true));
+          CallInst *Call = Builder.CreateAssumption(Cmp);
+          AC->registerAssumption(cast<AssumeInst>(Call));
+        }
+    }
 
     if (DoNotPartition) {
       Value *IsLastLoc = AllocaBuilder.CreateAlloca(

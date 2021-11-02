@@ -61,30 +61,30 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after creation during merge:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}.cloned
-; CHECK-NEXT:    Cloned.[[BB6:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB7:BB[0-9]+]]
+; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB7]]: # preds: Cloned.[[BB6]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]], Cloned.[[BB8]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_1:%.*]] = phi  [ i64 [[VP0]], Cloned.[[BB7]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1:%.*]], Cloned.[[BB8]] ]
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]], [[BB8]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_1:%.*]] = phi  [ i64 [[VP0]], [[BB7]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1:%.*]], [[BB8]] ]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR_1:%.*]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV_1]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC_1:%.*]] = sext i32 [[C0]] to i64
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD_1:%.*]] = add i64 [[VP_CC_1]] i64 [[VP_INDVARS_IV_1]]
 ; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], Cloned.[[BB8]], Cloned.[[BB9:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], [[BB8]], [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB9]]: # preds: Cloned.[[BB8]]
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB10:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -230,37 +230,37 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB13]], [[BB12]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP8]] = phi-merge  [ i64 live-out0, [[BB13]] ],  [ i64 0, [[BB12]] ]
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB6]]
+; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB6]]: # preds: [[MERGE_BLK1]]
+; CHECK-NEXT:      [[BB6]]: # preds: [[MERGE_BLK1]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB7]]
+; CHECK-NEXT:       [DA: Uni] br [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB7]]: # preds: Cloned.[[BB6]]
+; CHECK-NEXT:      [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP0]] = induction-init{add} i64 [[VP8]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP1]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP2]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB8]]
+; CHECK-NEXT:       [DA: Uni] br [[BB8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB8]]: # preds: Cloned.[[BB7]], Cloned.[[BB8]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_1]] = phi  [ i64 [[VP0]], Cloned.[[BB7]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1]], Cloned.[[BB8]] ]
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]], [[BB8]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_1]] = phi  [ i64 [[VP0]], [[BB7]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1]], [[BB8]] ]
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_PTR_1]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV_1]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_CC_1]] = sext i32 [[C0]] to i64
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD_1]] = add i64 [[VP_CC_1]] i64 [[VP_INDVARS_IV_1]]
 ; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP1]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP3]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP2]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP3]], Cloned.[[BB8]], Cloned.[[BB9]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP3]], [[BB8]], [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB9]]: # preds: Cloned.[[BB8]]
+; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP4]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB10]]
+; CHECK-NEXT:       [DA: Uni] br [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
+; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:       [DA: Uni] popvf
 ; CHECK-NEXT:       [DA: Uni] br [[BB15]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB15]]: # preds: Cloned.[[BB10]]
+; CHECK-NEXT:      [[BB15]]: # preds: [[BB10]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
 ; CHECK-NEXT:       [DA: Div] i64 [[VP9]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:       [DA: Uni] popvf

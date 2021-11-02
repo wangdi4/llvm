@@ -1616,7 +1616,7 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
   VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
-                                 nullptr, "Cloned.", TargetPlan);
+                                 nullptr, "", TargetPlan);
 
   // Clone live in and live out values.
   VPValueMapper Mapper(OrigClonedValuesMap);
