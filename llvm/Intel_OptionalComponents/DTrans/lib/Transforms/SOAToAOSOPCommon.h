@@ -27,6 +27,7 @@
 #include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "SOAToAOSOPEffects.h"
 
@@ -390,6 +391,21 @@ inline bool isSafeCallForAppend(Function *F, DTransSafetyInfo *DTInfo,
       return false;
   }
   return true;
+}
+
+// Replace CallInsts of OrigFunc in CallInfo with CallInsts of cloned
+// function using NewVMap.
+inline void fixCallInfo(Function &OrigFunc, DTransSafetyInfo *DTInfo,
+                        ValueToValueMapTy &NewVMap) {
+  SmallPtrSet<dtrans::CallInfo *, 8> CallInfoSet;
+  for (auto *CInfo : DTInfo->call_info_entries()) {
+    if (&OrigFunc != CInfo->getInstruction()->getFunction())
+      continue;
+    CallInfoSet.insert(CInfo);
+  }
+  for (auto *CInfo : CallInfoSet)
+    DTInfo->replaceCallInfoInstruction(
+        CInfo, cast<Instruction>(NewVMap[CInfo->getInstruction()]));
 }
 
 // Replace OrigFunc's body with Cloned's body and remove Cloned function.

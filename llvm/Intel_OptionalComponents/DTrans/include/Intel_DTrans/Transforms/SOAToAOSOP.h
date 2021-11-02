@@ -26,6 +26,7 @@
 namespace llvm {
 class Module;
 class WholeProgramInfo;
+class TargetLibraryInfo;
 
 namespace dtransOP {
 class DTransSafetyInfo;
@@ -36,7 +37,9 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransSafetyInfo &DTInfo, WholeProgramInfo &WPInfo);
+  bool
+  runImpl(Module &M, DTransSafetyInfo &DTInfo, WholeProgramInfo &WPInfo,
+          std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
