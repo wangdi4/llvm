@@ -529,6 +529,7 @@ DTransTypeManager::~DTransTypeManager() {
   for (auto &P : StructTypeInfoMap)
     delete P.second;
   StructTypeInfoMap.clear();
+  AllDTransTypes.clear();
 }
 
 // Invoke the appropriate delete method based on the object type.
@@ -561,6 +562,7 @@ DTransAtomicType *DTransTypeManager::getOrCreateAtomicType(llvm::Type *Ty) {
 
   auto *DTType = new DTransAtomicType(Ty);
   TypeInfoMap.insert(std::make_pair(Ty, DTType));
+  AllDTransTypes.push_back(DTType);
   return DTType;
 }
 
@@ -574,6 +576,7 @@ DTransTypeManager::getOrCreatePointerType(DTransType *PointeeTy) {
 
   auto DTPtrTy = new DTransPointerType(PointeeTy->getContext(), PointeeTy);
   PointerTypeInfoMap.insert(std::make_pair(PointeeTy, DTPtrTy));
+  AllDTransTypes.push_back(DTPtrTy);
   return DTPtrTy;
 }
 
@@ -592,7 +595,7 @@ DTransTypeManager::getOrCreateStructType(llvm::StructType *StTy) {
         StTy->getContext(), StTy, std::string(StTy->getName()), 0,
         /*IsOpaque=*/true);
     StructTypeInfoMap.insert(std::make_pair(StTy->getName(), DTransStTy));
-
+    AllDTransTypes.push_back(DTransStTy);
     return DTransStTy;
   }
 
@@ -604,6 +607,7 @@ DTransTypeManager::getOrCreateStructType(llvm::StructType *StTy) {
 
   DTransStructType *DTransStTy = new DTransStructType(StTy, Fields);
   StructTypeInfoMap.insert(std::make_pair(StTy->getName(), DTransStTy));
+  AllDTransTypes.push_back(DTransStTy);
   return DTransStTy;
 }
 
@@ -631,6 +635,7 @@ DTransStructType *DTransTypeManager::getOrCreateLiteralStructType(
 
   auto *NewTy = DTransLitTy.release();
   LitStructTypeVec.push_back(NewTy);
+  AllDTransTypes.push_back(NewTy);
   return NewTy;
 }
 
@@ -644,6 +649,7 @@ DTransArrayType *DTransTypeManager::getOrCreateArrayType(DTransType *ElemType,
   auto *DTArrTy = new DTransArrayType(ElemType->getContext(), ElemType, Num);
   ArrayTypeInfoMap.insert(
       std::make_pair(std::make_pair(ElemType, Num), DTArrTy));
+  AllDTransTypes.push_back(DTArrTy);
   return DTArrTy;
 }
 
@@ -656,6 +662,7 @@ DTransVectorType *DTransTypeManager::getOrCreateVectorType(DTransType *ElemType,
 
   auto *DTVecTy = new DTransVectorType(ElemType->getContext(), ElemType, Num);
   VecTypeInfoMap.insert(std::make_pair(std::make_pair(ElemType, Num), DTVecTy));
+  AllDTransTypes.push_back(DTVecTy);
   return DTVecTy;
 }
 
@@ -680,6 +687,7 @@ DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
   DTransFunctionTypeNode *NewN =
       new (Allocator) DTransFunctionTypeNode(NewDTFnTy);
   FunctionTypeNodes.InsertNode(NewN, IP);
+  AllDTransTypes.push_back(NewDTFnTy);
   return NewDTFnTy;
 }
 

@@ -250,27 +250,17 @@ public:
     FNFilter.reset();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-    for (StructType *Ty : M.getIdentifiedStructTypes())
-      if (auto *DTStructType = TM.getStructType(Ty->getStructName()))
-        DTInfo.getOrCreateTypeInfo(DTStructType);
-
-    // Before visiting each Function, ensure that the types of all of the
-    // Function arguments which are Types of interest are in the
-    // type_info_entries. This is needed so we can determine if any
-    // actual argument of an indirect or external call could be subject
-    // to an AddressTaken safety violation due to an actual/formal argument
-    // mismatch.
-    for (auto &F : M.functions()) { 
-      DTransType *FormalType = MDReader.getDTransTypeFromMD(&F);
-      if (!FormalType)
-       continue;
-      auto FormalFType = cast<DTransFunctionType>(FormalType);
-      for (unsigned ArgNo = 0; ArgNo < F.arg_size(); ++ArgNo) {
-        DTransType *FArgType = FormalFType->getArgType(ArgNo);
-        if (isTypeOfInterest(FArgType))
-          (void)DTInfo.getOrCreateTypeInfo(FArgType);
-      }
-    }
+    // Before visiting each Function, ensure that the DTransTypes seen from the
+    // PtrTypeAnalyzer are in the type_info_entries, so that remaing visit*
+    // functions are just looking up types and not creating new TypeInfo
+    // objects. This is absolutely needed so we can determine if any actual
+    // argument of an indirect or external call could be subject to an
+    // AddressTaken safety violation due to an actual/formal argument mismatch,
+    // otherwise we would need to walk all the IR now looking for indirect
+    // function calls to create types for all the type aliases that may be
+    // passed.
+    for (auto* DPTy : TM.dtrans_types())
+      (void)DTInfo.getOrCreateTypeInfo(DPTy);
 
     // Analyze definitions of the StructInfo types collected.
     for (dtrans::TypeInfo *TI : DTInfo.type_info_entries())
@@ -331,7 +321,9 @@ public:
                                << "  child : " << *UnderlyingType << "\n");
 
         StructInfo->setSafetyData(dtrans::ContainsNestedStruct);
-        dtrans::TypeInfo *ContainedStInfo = DTInfo.getOrCreateTypeInfo(StTy);
+        dtrans::TypeInfo *ContainedStInfo = DTInfo.getTypeInfo(StTy);
+        assert(ContainedStInfo &&
+               "visitModule() should create all TypeInfo objects");
         ContainedStInfo->setSafetyData(dtrans::NestedStruct);
       }
 
@@ -475,10 +467,10 @@ public:
         return true;
 
       if (auto *DTransStTy = dyn_cast<DTransStructType>(DTy)) {
-        auto *StInfo =
-            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(DTransStTy));
+        dtrans::TypeInfo *TI = DTInfo.getTypeInfo(DTransStTy);
+        assert(TI && "visitModule() should create all TypeInfo objects");
+        auto *StInfo = cast<dtrans::StructInfo>(TI);
         unsigned NumFields = StInfo->getNumFields();
-
         if (!isa<ConstantAggregateZero>(Init) &&
             NumFields != Init->getNumOperands())
           return false;
@@ -869,8 +861,9 @@ public:
         for (auto &PointeePair : Pointees) {
           DTransType *ParentTy = PointeePair.first;
           if (ParentTy->isStructTy() && PointeePair.second.isField()) {
-            auto *ParentStInfo =
-                cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
+            dtrans::TypeInfo *TI = DTInfo.getTypeInfo(ParentTy);
+            assert(TI && "visitModule() should create all TypeInfo objects");
+            auto *ParentStInfo = cast<dtrans::StructInfo>(TI);
             dtrans::FieldInfo &FI =
                 ParentStInfo->getField(PointeePair.second.getElementNum());
             FI.setComplexUse(true);
@@ -1172,8 +1165,9 @@ public:
       // is not for a pointer-to-pointer access.
       if (auto *StructTy =
               dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
-        dtrans::StructInfo *SI =
-            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
+        dtrans::TypeInfo *TI = DTInfo.getTypeInfo(StructTy);
+        assert(TI && "visitModule() should create all TypeInfo objects");
+        dtrans::StructInfo *SI = cast<dtrans::StructInfo>(TI);
         if (SI->getNumFields() != 0) {
           collectReadInfo(I, SI, /*FieldNum=*/0, IsWholeStructureRead,
                           /*ForElementZeroAccess=*/true);
@@ -1420,8 +1414,9 @@ public:
     if (PtrDomTy && !isPtrToPtr(PtrDomTy))
       if (auto *StructTy =
               dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
-        dtrans::StructInfo *SI =
-            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
+        dtrans::TypeInfo *TI = DTInfo.getTypeInfo(StructTy);
+        assert(TI && "visitModule() should create all TypeInfo objects");
+        dtrans::StructInfo *SI = cast<dtrans::StructInfo>(TI);
         if (SI->getNumFields() != 0) {
           collectWriteInfo(I, SI, /*FieldNum=*/0, Val, IsWholeStructureWrite,
                            /*ForElementZeroAccess=*/true);
@@ -1515,8 +1510,9 @@ public:
         // Note: For whole structure reference, DTrans does not fill in all the
         // field info details for each field, such as frequency or single value
         // because we do not have any transforms that can handle them.
-        dtrans::StructInfo *IndexedStTI =
-            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(IndexedType));
+        dtrans::TypeInfo *IndexedTI = DTInfo.getTypeInfo(IndexedType);
+        assert(IndexedTI && "visitModule() should create all TypeInfo objects");
+        dtrans::StructInfo *IndexedStTI = cast<dtrans::StructInfo>(IndexedTI);
         for (auto &FI : IndexedStTI->getFields()) {
           if (IsLoad) {
             FI.setRead(I);
@@ -1529,8 +1525,10 @@ public:
       }
 
       if (auto *StTy = dyn_cast<DTransStructType>(ParentTy)) {
-        auto *ParentStInfo =
-            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StTy));
+        dtrans::TypeInfo *ParentInfo = DTInfo.getTypeInfo(StTy);
+        assert(ParentInfo &&
+               "visitModule() should create all TypeInfo objects");
+        auto *ParentStInfo = cast<dtrans::StructInfo>(ParentInfo);
         // Update the read/write info for structure FieldInfo objects. If it is
         // a whole structure reference, don't descend into the nested elements,
         // otherwise walk the nested types to find the actual field being
@@ -1834,8 +1832,8 @@ public:
                                        DTransType *AccessTy,
                                        unsigned int ElementNum,
                                        Instruction &I) {
-    auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
-
+    auto *TI = DTInfo.getTypeInfo(ParentTy);
+    assert(TI && "visitModule() should create all TypeInfo objects");
     if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
@@ -1924,8 +1922,8 @@ public:
 
     for (auto &PointeePair :
          Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-      dtrans::TypeInfo *ParentTI =
-          DTInfo.getOrCreateTypeInfo(PointeePair.first);
+      dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair.first);
+      assert(ParentTI && "visitModule() should create all TypeInfo objects");
       if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
         MarkStructField(ParentStInfo, PointeePair.second.getElementNum());
         continue;
@@ -1941,7 +1939,9 @@ public:
            PointeePair.second.isUnknownOffset()))
         for (auto &ElementOfPair : ElementOfTypes) {
           dtrans::TypeInfo *ElementOfTI =
-              DTInfo.getOrCreateTypeInfo(ElementOfPair.first);
+              DTInfo.getTypeInfo(ElementOfPair.first);
+          assert(ElementOfTI &&
+                 "visitModule() should create all TypeInfo objects");
           if (auto *ElementStInfo = dyn_cast<dtrans::StructInfo>(ElementOfTI)) {
             MarkStructField(ElementStInfo, ElementOfPair.second);
             // We only mark field address taken on the closest structure that
@@ -2133,7 +2133,9 @@ public:
         // The address of Field 1 of %struct.A is also the address of the 'i32'
         // within %struct.B
         FieldNum = 0;
-        StInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StElemTy));
+        dtrans::TypeInfo *TI = DTInfo.getTypeInfo(StElemTy);
+        assert(TI && "visitModule() should create all TypeInfo objects");
+        StInfo = cast<dtrans::StructInfo>(TI);
         ElemTy = StInfo->getField(FieldNum).getDTransType();
         *Descended = true;
       } else if (auto *ArElemTy = dyn_cast<DTransArrayType>(ElemTy)) {
@@ -2651,7 +2653,8 @@ public:
   // that all Types against which we test it have TypeInfos created for
   // them.  This is done in analyzeModule().
   bool mayHaveDistinctCompatibleCType(DTransType *T) {
-    dtrans::TypeInfo *TIN = DTInfo.getOrCreateTypeInfo(T);
+    dtrans::TypeInfo *TIN = DTInfo.getTypeInfo(T);
+    assert(TIN && "visitModule() should create all TypeInfo objects");
     switch (TIN->getCRuleTypeKind()) {
     case dtrans::CRT_False:
       return false;
@@ -3145,7 +3148,8 @@ public:
           continue;
 
         DTransType *ElemTy = Ty->getPointerElementType();
-        dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(ElemTy);
+        dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(ElemTy);
+        assert(ParentTI && "visitModule() should create all TypeInfo objects");
         markAllFieldsWritten(ParentTI, *Call, FWT_ZeroValue);
       }
 
@@ -3279,9 +3283,8 @@ public:
         if (!Ty->isPointerTy())
           continue;
 
-        DTransType *ElemTy = Ty->getPointerElementType();
         // Add this to our type info list.
-        (void)DTInfo.getOrCreateTypeInfo(ElemTy);
+        DTransType *ElemTy = Ty->getPointerElementType();
         if (isTypeOfInterest(ElemTy))
           CI->addElemType(ElemTy);
       }
@@ -3449,6 +3452,7 @@ public:
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      assert(ParentTI && "visitModule() should create all TypeInfo objects");
       markAllFieldsWritten(
           ParentTI, I, IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue);
       dtrans::MemfuncRegion RegionDesc;
@@ -3606,7 +3610,9 @@ public:
               RegionDesc.IsCompleteAggregate = true;
               createMemcpyOrMemmoveCallInfo(I, ElemTy, Kind, RegionDesc,
                                             RegionDesc);
-              auto *ElemInfo = DTInfo.getOrCreateTypeInfo(ElemTy);
+              auto *ElemInfo = DTInfo.getTypeInfo(ElemTy);
+              assert(ElemInfo &&
+                     "visitModule() should create all TypeInfo objects");
               markAllFieldsWritten(ElemInfo, I, FWT_ExistingValue);
               return;
             }
@@ -3758,6 +3764,7 @@ public:
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
+      assert(ParentTI && "visitModule() should create all TypeInfo objects");
       // The call is safe, and is using the entire structure
       markAllFieldsWritten(ParentTI, I, FWT_ExistingValue);
       dtrans::MemfuncRegion RegionDesc;
@@ -3915,7 +3922,8 @@ public:
                                           Value *SetSize,
                                           dtrans::MemfuncRegion &RegionDesc,
                                           FieldWriteType WriteType) {
-    auto *ParentTI = DTInfo.getTypeInfo(StructTy);
+    dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(StructTy);
+    assert(ParentTI && "visitModule() should create all TypeInfo objects");
     llvm::StructType *LLVMTy = cast<llvm::StructType>(StructTy->getLLVMType());
 
     // Try to determine if a set of fields in a structure is being written.
@@ -3950,7 +3958,8 @@ public:
   // need to be relaxed for some cases in the future with an approach that only
   // marks selected fields that are impacted by the call as 'incomplete'
   void processBadMemFuncSize(Instruction &I, DTransType *Ty) {
-    dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Ty);
+    dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(Ty);
+    assert(ParentTI && "visitModule() should create all TypeInfo objects");
     markAllFieldsWritten(ParentTI, I, FWT_NonZeroValue);
   }
 
@@ -4040,8 +4049,8 @@ public:
       bool MismatchedType = false;
       for (auto PointeePair :
            Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-        dtrans::TypeInfo *ParentTI =
-            DTInfo.getOrCreateTypeInfo(PointeePair.first);
+        dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair.first);
+        assert(ParentTI && "visitModule() should create all TypeInfo objects");
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
           assert(PointeePair.second.isField() &&
                  "Unexpected use of non-field offset");
@@ -4651,7 +4660,8 @@ private:
     if (!BaseTy->isAggregateType())
       return;
 
-    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
+    dtrans::TypeInfo *TI = DTInfo.getTypeInfo(BaseTy);
+    assert(TI && "visitModule() should create all TypeInfo objects");
     TI->setSafetyData(Data);
     Log.log(TriggerValue,
             SafetyInfoLog(BaseTy, Data, ForCascade, ForPtrCarried));
@@ -4689,7 +4699,8 @@ private:
         DTransType *FieldBaseTy = FieldTy;
         while (FieldBaseTy->isPointerTy())
           FieldBaseTy = FieldBaseTy->getPointerElementType();
-        dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
+        dtrans::TypeInfo *FieldTI = DTInfo.getTypeInfo(FieldBaseTy);
+        assert(FieldTI && "visitModule() should create all TypeInfo objects");
         if (!FieldTI->testSafetyData(Data)) {
           (void)BaseTy;
           DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
@@ -4743,6 +4754,8 @@ private:
 
         // TODO: Update frequency count for field info
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
+        assert(ComponentTI &&
+               "visitModule() should create all TypeInfo objects");
         markAllFieldsWritten(ComponentTI, I, WriteType);
       }
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
@@ -4758,11 +4771,13 @@ private:
       if (AliasTy->isPointerTy()) {
         dtrans::TypeInfo *TI =
             DTInfo.getTypeInfo(AliasTy->getPointerElementType());
+        assert(TI && "visitModule() should create all TypeInfo objects");
         markAllFieldsWritten(TI, I, FWT_NonZeroValue);
       }
     for (auto &PointeePair :
          Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
       dtrans::TypeInfo *TI = DTInfo.getTypeInfo(PointeePair.first);
+      assert(TI && "visitModule() should create all TypeInfo objects");
       markAllFieldsWritten(TI, I, FWT_NonZeroValue);
     }
   }
@@ -4793,6 +4808,7 @@ private:
 
       // TODO: Update frequency count for field info
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
+      assert(ComponentTI && "visitModule() should create all TypeInfo objects");
       markAllFieldsWritten(ComponentTI, I, WriteType);
     }
   }
@@ -4802,7 +4818,6 @@ private:
   void createMemsetCallInfo(Instruction &I, DTransType *ElemTy,
                             dtrans::MemfuncRegion &RegionDesc) {
     // Add this to our type info list.
-    (void)DTInfo.getOrCreateTypeInfo(ElemTy);
     dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
         &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
     MCI->setAliasesToAggregateType(true);
@@ -4823,7 +4838,6 @@ private:
                                      dtrans::MemfuncRegion &RegionDescDest,
                                      dtrans::MemfuncRegion &RegionDescSrc) {
     // Add this to our type info list.
-    (void)DTInfo.getOrCreateTypeInfo(ElemTy);
     dtrans::MemfuncCallInfo *MCI =
         DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
     MCI->setAliasesToAggregateType(true);
@@ -4840,11 +4854,14 @@ private:
 
   // Set the ComplexUse member for the fields from 'First' to 'Last' inclusive
   // on 'AggType' if it is a structure type.
-  void markFieldsComplexUse(DTransType *AggType, unsigned First, unsigned Last) {
-    if (auto *StInfo =
-            dyn_cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(AggType)))
+  void markFieldsComplexUse(DTransType *AggType, unsigned First,
+                            unsigned Last) {
+    dtrans::TypeInfo *TI = DTInfo.getTypeInfo(AggType);
+    assert(TI && "visitModule() should create all TypeInfo objects");
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       for (auto I = First, E = Last + 1; I != E; ++I)
         StInfo->getField(I).setComplexUse(true);
+    }
   }
 
   // Return 'true' if the DTransType is something that may require safety data
@@ -5114,7 +5131,7 @@ void DTransSafetyInfo::checkLanguages(Module &M) {
 
 dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   // If we already have this type in our map, just return it.
-  auto *TI = getTypeInfo(Ty);
+  dtrans::TypeInfo *TI = getTypeInfo(Ty);
   if (TI)
     return TI;
 
@@ -5170,7 +5187,9 @@ DTransSafetyInfo::getStructInfo(llvm::StructType *STy) const {
   assert(!STy->isLiteral() && "Literal types not supported");
   dtransOP::DTransStructType *DTy = TM->getStructType(STy->getName());
   assert(DTy && "Expected existing structure type");
-  auto *StInfo = cast<dtrans::StructInfo>(getTypeInfo(DTy));
+  dtrans::TypeInfo *TI = getTypeInfo(DTy);
+  assert(TI && "visitModule() should create all TypeInfo objects");
+  auto *StInfo = cast<dtrans::StructInfo>(TI);
   assert(StInfo && "Expected safety analyzer to create TypeInfo");
   return StInfo;
 }
