@@ -582,8 +582,8 @@ bool HIRRegionIdentification::containsUnsupportedTy(
   }
 
   auto *GEPOp = cast<GEPOperator>(GEPOrSubs);
-
-  for (unsigned I = 0, NumOp = GEPOp->getNumOperands(); I < NumOp; ++I) {
+  unsigned NumOps = GEPOp->getNumOperands();
+  for (unsigned I = 0; I < NumOps; ++I) {
     if (!isSupported(GEPOp->getOperand(I)->getType(), true, Lp)) {
       return true;
     }
@@ -591,10 +591,38 @@ bool HIRRegionIdentification::containsUnsupportedTy(
 
   // We need to check 'indexed' types as well as they can contain vector types
   // even if indices don't. This is possible when indexing structures which
-  // contain vector elements.
-  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
-    if (!isSupported(I.getIndexedType(), true, Lp)) {
+  // contain vector elements. Also check constant indexes of the array indexed
+  // types. Return true if index goes outside of the array more than 1 element.
+
+  unsigned OperandNum = 2;
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E;
+       ++I, ++OperandNum) {
+    auto *IType = I.getIndexedType();
+    assert(IType && "Indexed type is missing");
+
+    if (!isSupported(IType, true, Lp)) {
       return true;
+    }
+
+    // Check that constant array index is less than array size.
+    if (auto *ArrType = dyn_cast<ArrayType>(IType)) {
+      int64_t ArraySize = ArrType->getArrayNumElements();
+
+      // Bail out for arrays with unknown size or if the corresponding index is
+      // missing.
+      if ((ArraySize == 0) || (OperandNum >= NumOps))
+        continue;
+
+      auto *CurrIdxOperand = GEPOp->getOperand(OperandNum);
+      if (auto *CurrIntIdxOp = dyn_cast<ConstantInt>(CurrIdxOperand)) {
+        int64_t CurrIdxVal = CurrIntIdxOp->getSExtValue();
+
+        // If index is outside of array more than one element return true.
+        if (CurrIdxVal > ArraySize) {
+          printOptReportRemark(Lp, "Constant array access goes out of range.");
+          return true;
+        }
+      }
     }
   }
 

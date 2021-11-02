@@ -900,8 +900,10 @@ private:
       auto *Info2 = PTA.getValueTypeInfo(Call2, ArgIdx);
       assert(Info1 && "Expected PointerTypeAnalyzer to collect type");
       assert(Info2 && "Expected PointerTypeAnalyzer to collect type");
-      DTransType *T1 = PTA.getDominantAggregateUsageType(*Info1);
-      DTransType *T2 = PTA.getDominantAggregateUsageType(*Info2);
+      DTransType *T1 = PTA.getDominantType(*Info1, ValueTypeInfo::VAT_Use);
+      DTransType *T2 = PTA.getDominantType(*Info2, ValueTypeInfo::VAT_Use);
+      if (!T1 || !T2)
+        return false;
 
       bool IsElemA1 = T1 == ElementType1;
       bool IsElemA2 = T2 == ElementType2;
@@ -910,7 +912,6 @@ private:
       if (IsElemA1)
         continue;
 
-      assert(T1 && T2 && "Expected non-NULL types");
       if (!isa<DTransPointerType>(T1) || !isa<DTransPointerType>(T2))
         return false;
 
@@ -2192,8 +2193,8 @@ public:
         auto *BasePtrType = StrType->getFieldType(BasePointerOffset);
         auto *Info = PTA.getValueTypeInfo(Call);
         assert(Info && "Expected PointerTypeAnalyzer to collect type");
-        DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
-        if (BasePtrType != Ty)
+        DTransType *Ty = PTA.getDominantType(*Info, ValueTypeInfo::VAT_Use);
+        if (!Ty || BasePtrType != Ty)
           continue;
 
         DEBUG_WITH_TYPE(DTRANS_SOASTR,
@@ -2249,11 +2250,11 @@ class StructMethodTransformation {
 
 public:
   StructMethodTransformation(
-      const DataLayout &DL, DTransSafetyInfo &DTInfo, ValueToValueMapTy &VMap,
+      DTransSafetyInfo &DTInfo, ValueToValueMapTy &VMap,
       const CallSiteComparator::CallSitesInfo &CSInfo,
       const StructureMethodAnalysis::TransformationData &InstsToTransform,
       LLVMContext &Context)
-      : DL(DL), DTInfo(DTInfo), VMap(VMap), CSInfo(CSInfo),
+      : DTInfo(DTInfo), VMap(VMap), CSInfo(CSInfo),
         InstsToTransform(InstsToTransform), Context(Context) {}
 
   void updateReferences(DTransStructType *OldDTStruct,
@@ -2273,7 +2274,8 @@ public:
           OldPtr = SI->getPointerOperand();
 
         if (auto *BC = dyn_cast<BitCastInst>(OldPtr)) {
-          assert(isSafeBitCast(DL, OldPtr, DTInfo.getPtrTypeAnalyzer()) &&
+          assert(isSafeBitCast(I->getFunction()->getParent()->getDataLayout(),
+                               OldPtr, DTInfo.getPtrTypeAnalyzer()) &&
                  "Unexpected store address");
           OldPtr = BC->getOperand(0);
         }
@@ -2471,7 +2473,6 @@ private:
     }
   }
 
-  const DataLayout &DL;
   DTransSafetyInfo &DTInfo;
   ValueToValueMapTy &VMap;
   const CallSiteComparator::CallSitesInfo &CSInfo;

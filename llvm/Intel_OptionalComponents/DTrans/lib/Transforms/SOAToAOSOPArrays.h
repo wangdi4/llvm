@@ -1353,10 +1353,9 @@ public:
       const TargetLibraryInfo &TLI, ValueToValueMapTy &VMap,
       const ComputeArrayMethodClassification::TransformationData
           &InstsToTransform,
-      LLVMContext &Context, bool IsCloned)
+      LLVMContext &Context)
       : DL(DL), DTInfo(DTInfo), TLI(TLI), VMap(VMap),
-        InstsToTransform(InstsToTransform), Context(Context),
-        IsCloned(IsCloned) {}
+        InstsToTransform(InstsToTransform), Context(Context) {}
 
   using OrigToCopyTy = DenseMap<Value *, Value *>;
 
@@ -1397,11 +1396,12 @@ public:
         cast<PointerType>(PDTNewBaseType->getLLVMType());
 
     auto &LDL = DL;
-    auto GetGEP = [this, &LDL](Value *V, bool &BC) -> GetElementPtrInst * {
+    auto GetGEP = [this, &LDL](Value *V, bool &BC,
+                               const Value *OldV) -> GetElementPtrInst * {
       BC = false;
       if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
         return GEP;
-      if (isSafeBitCast(LDL, V, DTInfo.getPtrTypeAnalyzer())) {
+      if (isSafeBitCast(LDL, OldV, DTInfo.getPtrTypeAnalyzer())) {
         BC = true;
         return cast<GetElementPtrInst>(cast<BitCastInst>(V)->getOperand(0));
       }
@@ -1422,7 +1422,8 @@ public:
         // %i8ptr = bitcast %pelem** %base_off to i8**
         // %i8base = load i8*, i8** %i8ptr
         bool BC = false;
-        auto *Addr = GetGEP(NewLoad->getPointerOperand(), BC);
+        auto *Addr = GetGEP(NewLoad->getPointerOperand(), BC,
+                            cast<LoadInst>(I)->getPointerOperand());
         Addr->mutateType(PNewBaseType);
         Addr->setResultElementType(NewBaseType);
         // No need to make type consistent if load has non-specific type.
@@ -1440,7 +1441,8 @@ public:
         // %new_mem  = bitbast %i8 %alloc to %pelem*
         // store %pelem* %newmem, %pelem** %base_off
         bool BC = false;
-        auto *Addr = GetGEP(NewStore->getPointerOperand(), BC);
+        auto *Addr = GetGEP(NewStore->getPointerOperand(), BC,
+                            cast<StoreInst>(I)->getPointerOperand());
         Addr->mutateType(PNewBaseType);
         Addr->setResultElementType(NewBaseType);
         // No need to make type consistent if load has non-specific type.
@@ -1454,7 +1456,7 @@ public:
             Val->mutateType(NewBaseType);
         }
       } else if (auto *Call = dyn_cast<CallBase>(NewI)) {
-        auto *Info = DTInfo.getCallInfo(IsCloned ? NewI : I);
+        auto *Info = DTInfo.getCallInfo(NewI);
         assert(
             (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) &&
             "Incorrect analysis");
@@ -1879,7 +1881,6 @@ private:
   ValueToValueMapTy &VMap;
   const ComputeArrayMethodClassification::TransformationData &InstsToTransform;
   LLVMContext &Context;
-  bool IsCloned;
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

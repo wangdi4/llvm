@@ -213,15 +213,16 @@ public:
     // and then move the modified instructions to the OrigFunc. Cloned
     // routine will be deleted at end of this routine.
     Function *Clone;
-    if (!isCloned)
+    if (!isCloned) {
       Clone = CloneFunction(&OrigFunc, NewVMap);
+      fixCallInfo(OrigFunc, DTInfo, NewVMap);
+    }
     const TargetLibraryInfo &TLI = GetTLI(isCloned ? OrigFunc : *Clone);
     // InstsToTransform contains all needed information.
     // New instructions after cloning are obtained using VMap or NewVMap
     // depending whether it is using temporary Clone or not.
     ArrayMethodTransformation AMT(DL, *DTInfo, TLI, isCloned ? VMap : NewVMap,
-                                  InstsToTransform, OrigFunc.getContext(),
-                                  isCloned);
+                                  InstsToTransform, OrigFunc.getContext());
 
     bool CopyElemInsts =
         InstsToTransform.MK == MK_Realloc || InstsToTransform.MK == MK_Append ||

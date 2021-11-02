@@ -61,7 +61,7 @@ static cl::list<std::string>
 
 // Returns true if F is in list of ignored functions for SOAToAOSOP.
 static bool isFunctionIgnoredForSOAToAOSOP(Function &F) {
-  for (auto FName : DTransSOAToAOSOPIgnoreFuncs)
+  for (auto &FName : DTransSOAToAOSOPIgnoreFuncs)
     if (FName == F.getName())
       return true;
   return false;
@@ -266,7 +266,7 @@ namespace {
 class SOAStructMethodReplacement : public DTransOPOptBase {
 public:
   SOAStructMethodReplacement(
-      DTransSafetyInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
+      DTransSafetyInfo &DTInfo, LLVMContext &Context,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       const SummaryForIdiom &S,
       const SmallVectorImpl<DTransStructType *> &Arrays,
@@ -277,7 +277,7 @@ public:
                         DTInfo.getPtrTypeAnalyzer().sawOpaquePointer(),
                         DepTypePrefix),
         InstsToTransform(InstsToTransform), S(S), Arrays(Arrays),
-        Offsets(Offsets), DL(DL) {}
+        Offsets(Offsets) {}
 
   bool prepareTypes(Module &M) override {
     LLVMContext &Context = M.getContext();
@@ -404,9 +404,11 @@ public:
     ValueToValueMapTy NewVMap;
     // InstsToTransform contains all needed information.
     // New instructions after cloning are obtained using VMap.
-    if (!isCloned)
+    if (!isCloned) {
       Clone = CloneFunction(&OrigFunc, NewVMap);
-    StructMethodTransformation SMT(DL, *DTInfo, isCloned ? VMap : NewVMap,
+      fixCallInfo(OrigFunc, DTInfo, NewVMap);
+    }
+    StructMethodTransformation SMT(*DTInfo, isCloned ? VMap : NewVMap,
                                    InstsToTransform /* CallSiteComparator */,
                                    InstsToTransform /*TransformationData*/,
                                    OrigFunc.getContext());
@@ -435,7 +437,6 @@ private:
   DTransStructType *NewDTStruct = nullptr;
   // Offset of array-of-structure in NewStruct.
   unsigned AOSOffset = -1U;
-  const DataLayout &DL;
 };
 } // namespace
 
@@ -478,9 +479,9 @@ SOAToAOSStructMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   auto &InstsToTransformPtr =
       FAM.getResult<SOAToAOSOPStructMethodsCheckDebug>(*MethodToTest);
 
-  SOAStructMethodReplacement Transformer(
-      DTInfo, M.getContext(), M.getDataLayout(), GetTLI, S, P.first, P.second,
-      *InstsToTransformPtr.get(), "__SOA_");
+  SOAStructMethodReplacement Transformer(DTInfo, M.getContext(), GetTLI, S,
+                                         P.first, P.second,
+                                         *InstsToTransformPtr.get(), "__SOA_");
 
   bool Changed = Transformer.run(M);
   if (!Changed)
