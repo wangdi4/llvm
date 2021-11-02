@@ -3,12 +3,14 @@
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:  %sum.red.promoted = (%sum.red)[0];
 ; CHECK-NEXT:  %1 = %sum.red.promoted;
-; CHECK:       %red.var = 0.000000e+00;
+; CHECK:       %red.init = 0.000000e+00;
+; CHECK:       %phi.temp = %red.init
 ; CHECK:       DO i1 = 0, 1023, 8   <DO_LOOP> <simd-vectorized> <novectorize> <ivdep>
 ; CHECK-NEXT:   %.vec = (<8 x float>*)(@arr)[0][i1];
-; CHECK-NEXT:   %red.var = %red.var  +  %.vec;
+; CHECK-NEXT:   %.vec2 = %phi.temp  +  %.vec;
+; CHECK-NEXT:   %phi.temp = %.vec2
 ; CHECK-NEXT:  END LOOP
-; CHECK:       %1 = @llvm.vector.reduce.fadd.v8f32(%1,  %red.var);
+; CHECK:       %1 = @llvm.vector.reduce.fadd.v8f32(%1,  %.vec2);
 ; CHECK-NEXT: END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

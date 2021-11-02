@@ -20,7 +20,8 @@
 ; CHECK: |   %.vec3 = %.vec2  *  -1;
 ; CHECK: |   %.vec4 = %.vec  +  %.vec3;
 ; CHECK: |   %.vec5 = (%.vec4 < 0) ? -1 * %.vec4 : %.vec4;
-; CHECK: |   %red.var = %.vec5  +  %red.var;
+; CHECK: |   %.vec6 = %.vec5  +  %phi.temp;
+; CHECK: |   %phi.temp = %.vec6
 ; CHECK: + END LOOP
 
 ; CHECK: Function: x264_pixel_sad_16x16

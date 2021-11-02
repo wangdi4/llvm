@@ -897,7 +897,7 @@ void VPOCodeGenHIR::setRednHoistPtForVectorLoop() {
   // If loop has any reductions then find appropriate HLLoop that reduction
   // init/finalize can be hoisted out to. If loop has no reductions then hoist
   // loop is set to current loop being vectorized.
-  if (!ReductionRefs.empty())
+  if (!ReductionVPInsts.empty())
     RednHoistLp = findRednHoistInsertionPoint(OrigLoop);
   else
     RednHoistLp = OrigLoop;
@@ -3121,24 +3121,11 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
     BlendVal = BlendInst->getLvalDDRef()->clone();
   }
 
-  // If the blend instruction has an associated reduction ref, the blendval
-  // needs to be copied to the same. The reduction ref becomes the blend result.
-  BlendVal = createCopyForRednRef(Blend, BlendVal, Mask);
   addVPValueWideRefMapping(Blend, BlendVal);
 }
 
 // Widen PHI instruction.
 void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
-  // A phi can correspond to a reduction. This can either be a phi in the loop
-  // header which is not deconstructed. It can also be a phi at a merge point
-  // of uniform control flow within the loop. In case of a non-deconstructed PHI
-  // corresponding to a reduction, just use the corresponding reduction ref as
-  // its widened ref.
-  if (!isDeconstructedPhi(VPPhi) && ReductionRefs.count(VPPhi)) {
-    addVPValueWideRefMapping(VPPhi, ReductionRefs[VPPhi]);
-    return;
-  }
-
   // Check if  PHI is the main loop IV and widen it by generating the ref i1 +
   // <0, 1, 2, .. VF-1>. TODO: Need to handle all IVs in general here, for now
   // HIR is expected to have main loop IV only.
@@ -3165,9 +3152,6 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   RegDDRef *PhiTemp = getLValTempForPhiId(OriginPhiId);
   assert(PhiTemp && "Deconstructed PHI does not have a LVal temp.");
 
-  // If the phi instruction has an associated reduction ref, PhiTemp needs to be
-  // copied to the same. The reduction ref becomes the Phi result.
-  PhiTemp = createCopyForRednRef(VPPhi, PhiTemp->clone(), Mask);
   addVPValueWideRefMapping(VPPhi, PhiTemp);
 }
 
@@ -3395,15 +3379,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case VPInstruction::ReductionInit: {
     const VPReductionInit *RedInit = cast<VPReductionInit>(VPInst);
-    assert(
-        ReductionRefs.count(RedInit) &&
-        "Reduction init instruction does not have a corresponding RegDDRef.");
     HLContainerTy RedInitHLInsts;
-    RegDDRef *RedRef = ReductionRefs[RedInit];
     RegDDRef *IdentityRef = widenRef(RedInit->getIdentityOperand(), getVF());
-    // Write the widened identity value into the reduction ref
-    HLInst *CopyInst =
-        HLNodeUtilities.createCopyInst(IdentityRef, "red.init", RedRef);
+    // Create a copy for the widened identity value.
+    HLInst *CopyInst = HLNodeUtilities.createCopyInst(IdentityRef, "red.init");
     WInst = CopyInst;
     RedInitHLInsts.push_back(*CopyInst);
 
@@ -3414,25 +3393,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // Insert start value into lane 0 of identity vector
       HLInst *InsertElementInst = HLNodeUtilities.createInsertElementInst(
           CopyInst->getLvalDDRef()->clone(), getUniformScalarRef(StartVPVal), 0,
-          "red.init.insert", RedRef->clone());
+          "red.init.insert");
       WInst = InsertElementInst;
       RedInitHLInsts.push_back(*InsertElementInst);
     }
     insertReductionInit(&RedInitHLInsts);
-
-    // Add the reduction init ref as a live-in for each loop up to and including
-    // the hoist loop starting from MainLoop's parent loop. The livein/liveout
-    // information for MainLoop will be added by setupLiveInLiveOut call.
-    // TODO: The same ref should also be LiveOut, so that can also be done here
-    // only. Any exceptions?
-    auto LvalSymbase = WInst->getLvalDDRef()->getSymbase();
-    HLLoop *ThisLoop = MainLoop->getParentLoop();
-    while (ThisLoop != RednHoistLp->getParentLoop()) {
-      ThisLoop->addLiveInTemp(LvalSymbase);
-      ThisLoop->addLiveOutTemp(LvalSymbase);
-      ThisLoop = ThisLoop->getParentLoop();
-    }
-
     addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
     return;
   }
@@ -3442,6 +3407,18 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     HLContainerTy RedTail;
 
     RegDDRef *VecRef = widenRef(RedFinal->getReducingOperand(), getVF());
+
+    // Add the reduction final vector ref as a live-out for each loop up to and
+    // including the hoist loop starting from MainLoop's parent loop. The
+    // liveout information for MainLoop will be added by setupLiveInLiveOut
+    // call.
+    auto RvalSymbase = VecRef->getSymbase();
+    HLLoop *ThisLoop = MainLoop->getParentLoop();
+    while (ThisLoop != RednHoistLp->getParentLoop()) {
+      ThisLoop->addLiveOutTemp(RvalSymbase);
+      ThisLoop = ThisLoop->getParentLoop();
+    }
+
     Type *ElType = RedFinal->getReducingOperand()->getType();
     if (isa<VectorType>(ElType)) {
       // Incoming vector types is not supported for HIR
@@ -4446,12 +4423,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
 
     bool HasNUW = false, HasNSW = false;
-    RegDDRef *RedRef = nullptr;
-    getOverflowFlagsAndRednRef(VPInst, HasNUW, HasNSW, RedRef);
+    getOverflowFlags(VPInst, HasNUW, HasNSW);
 
     NewInst = HLNodeUtilities.createOverflowingBinOp(
-        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec",
-        RedRef ? RedRef->clone() : nullptr);
+        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec");
     break;
   }
 
@@ -4534,12 +4509,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
 
     bool HasNUW = false, HasNSW = false;
-    RegDDRef *RedRef = nullptr;
-    getOverflowFlagsAndRednRef(VPInst, HasNUW, HasNSW, RedRef);
+    getOverflowFlags(VPInst, HasNUW, HasNSW);
 
     NewInst = HLNodeUtilities.createOverflowingBinOp(
-        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec",
-        RedRef ? RedRef->clone() : nullptr);
+        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec");
     break;
   }
 
@@ -4558,24 +4531,21 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::Or:
   case Instruction::Xor: {
     bool HasNUW = false, HasNSW = false;
-    RegDDRef *RedRef = nullptr;
-    getOverflowFlagsAndRednRef(VPInst, HasNUW, HasNSW, RedRef);
+    getOverflowFlags(VPInst, HasNUW, HasNSW);
 
     if (VPInst->hasFastMathFlags()) {
       NewInst = HLNodeUtilities.createFPMathBinOp(
           VPInst->getOpcode(), RefOp0, RefOp1, VPInst->getFastMathFlags(),
-          InstName, RedRef ? RedRef->clone() : nullptr);
+          InstName);
     } else if (HasNUW || HasNSW) {
       NewInst = HLNodeUtilities.createOverflowingBinOp(
           VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, InstName);
     } else if (VPInst->isExact()) {
       NewInst = HLNodeUtilities.createPossiblyExactBinOp(
-          VPInst->getOpcode(), RefOp0, RefOp1, VPInst->isExact(), InstName,
-          RedRef ? RedRef->clone() : nullptr);
+          VPInst->getOpcode(), RefOp0, RefOp1, VPInst->isExact(), InstName);
     } else {
-      NewInst = HLNodeUtilities.createBinaryHLInst(
-          VPInst->getOpcode(), RefOp0, RefOp1, InstName,
-          RedRef ? RedRef->clone() : nullptr);
+      NewInst = HLNodeUtilities.createBinaryHLInst(VPInst->getOpcode(), RefOp0,
+                                                   RefOp1, InstName);
     }
     break;
   }
@@ -4627,11 +4597,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       Pred = CmpInst::ICMP_EQ;
     }
 
-    // If this select instruction corresponds to a reduction (min/max), then we
-    // need to write the result back to the corresponding reduction variable.
-    RegDDRef *RedRef = nullptr;
-    if (ReductionRefs.count(VPInst))
-      RedRef = ReductionRefs[VPInst];
     FastMathFlags FMF = VPInst->hasFastMathFlags() ? VPInst->getFastMathFlags()
                                                    : FastMathFlags();
 
@@ -4644,7 +4609,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
             : 0;
     NewInst =
         createSelectHelper(Pred, Pred0, Pred1, RefOp0, RefOp1, ReplicateFactor,
-                           InstName, RedRef ? RedRef->clone() : nullptr, FMF);
+                           InstName, nullptr /*LVal*/, FMF);
     break;
   }
 
@@ -5031,6 +4996,33 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     NewInst = HLNodeUtilities.createCopyInst(RefOp0, ".copy", LValTmp);
+
+    // If this is a copy of reduction-init value then it should be inserted
+    // along with other reduction initialization related instructions i.e based
+    // on hoist loop. We also conservatively mark the copy's temp as live-in for
+    // loop nest.
+    if (isa<VPReductionInit>(VPInst->getOperand(0))) {
+      HLContainerTy RedInitCopy;
+      RedInitCopy.push_back(*NewInst);
+      insertReductionInit(&RedInitCopy);
+
+      // Add the reduction init ref as a live-in for each loop up to and
+      // including the hoist loop starting from MainLoop's parent loop. The
+      // livein information for MainLoop will be added by setupLiveInLiveOut
+      // call.
+      auto LvalSymbase = NewInst->getLvalDDRef()->getSymbase();
+      assert(LValTmp && LValTmp->getSymbase() == LvalSymbase &&
+             "Inconsistent lval/symbase used for copies.");
+      HLLoop *ThisLoop = MainLoop->getParentLoop();
+      while (ThisLoop != RednHoistLp->getParentLoop()) {
+        ThisLoop->addLiveInTemp(LvalSymbase);
+        ThisLoop = ThisLoop->getParentLoop();
+      }
+
+      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+      return;
+    }
+
     // TODO: Dirty hack to handle copy instructions outside the loop region.
     // These are generated for conditional last private recurrent PHIs.
     if (VPInst->getParent() == getVPLoop()->getLoopPreheader()) {
@@ -5209,7 +5201,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
     generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
 }
 
-void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
+void VPOCodeGenHIR::collectLoopEntityInsts() {
   // Collect set of VPInstructions that are involved in a reduction. This set
   // is used to avoid folding instructions involved in reductions. This is
   // done by recursively collecting relevant instructions via def-use chains,
@@ -5236,86 +5228,57 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
         }
       };
 
-  // Process reductions. For each reduction variable in the loop we create a new
-  // RegDDRef to represent it. Next, we map the corresponding ReductionInit
-  // user(PHI), and the PHI operands to the same RegDDRef. As part of mapping
-  // the PHI operands, corresponding ReductionInit will also get mapped to the
-  // same RegDDRef.
-  std::function<void(VPReductionInit *, RegDDRef *)> mapRednToRednRef =
-      [&](VPReductionInit *RedInit, RegDDRef *Ref) {
-        assert(RedInit->getNumUsers() == 1 &&
-               "Expected single user of reduction init");
-        auto *RedPHI = cast<VPPHINode>(*(RedInit->users().begin()));
-        ReductionRefs[RedPHI] = Ref;
-        LLVM_DEBUG(dbgs() << "VPInst: "; RedPHI->dump();
-                   dbgs() << " has the underlying reduction ref: ";
-                   Ref->dump(true); dbgs() << "\n");
+  // Capture main loop IV instructions.
+  auto captureMainLoopIVInsts = [&](VPBasicBlock *LpPreheader) {
+    bool MainLoopIVCaptured = false;
+    for (VPInstruction &Inst : *LpPreheader) {
+      if (!isa<VPInductionInit>(&Inst))
+        continue;
 
-        for (const VPValue *Operand : RedPHI->operands()) {
-          auto *PhiOpInst = cast<VPInstruction>(Operand);
+      auto *IndInit = cast<VPInductionInit>(&Inst);
+      if (MainLoopIVCaptured)
+        report_fatal_error(
+            "HIR is expected to have only one loop induction variable.");
+      MainLoopIVCaptured = true;
 
-          LLVM_DEBUG(dbgs() << "VPInst: "; PhiOpInst->dump();
-                     dbgs() << " has the underlying reduction ref: ";
-                     Ref->dump(true); dbgs() << "\n");
-          ReductionRefs[PhiOpInst] = Ref;
-        }
-      };
+      std::function<void(VPInstruction *)> CaptureIVUpdates =
+          [&](VPInstruction *Inst) {
+            assert(Inst->getOpcode() == Instruction::Add &&
+                   "Invalid induction variable.");
+            assert(isa<VPInductionInitStep>(Inst->getOperand(0)) ||
+                   isa<VPInductionInitStep>(Inst->getOperand(1)) &&
+                       "One of the operands of IV update should be IV step.");
+            MainLoopIVInsts.insert(Inst);
+            for (auto *Op : Inst->operands()) {
+              if (isa<VPPHINode>(Op) || isa<VPInductionInitStep>(Op)) {
+                // Ignore IV step and PHI operands.
+                continue;
+              } else {
+                CaptureIVUpdates(cast<VPInstruction>(Op));
+              }
+            }
+          };
+
+      assert(IndInit->getNumUsers() == 1 && "Invalid induction variable.");
+      auto *User = *(IndInit->users().begin());
+      VPPHINode *IndPHI = cast<VPPHINode>(User);
+      MainLoopIVInsts.insert(IndPHI);
+      VPInstruction *LastUpdate = cast<VPInstruction>(
+          IndPHI->getOperand(0) == IndInit ? IndPHI->getOperand(1)
+                                           : IndPHI->getOperand(0));
+      CaptureIVUpdates(LastUpdate);
+    }
+  };
 
   auto *VPLI = Plan->getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-         "Expected single outermost loop!");
-  VPLoop *OuterMostVPLoop = *VPLI->begin();
-
-  VPBasicBlock *OuterMostLpPreheader =
-      cast<VPBasicBlock>(OuterMostVPLoop->getLoopPreheader());
-
-  for (VPInstruction &Inst : *OuterMostLpPreheader) {
-    if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
-      RegDDRef *RednRef = HLNodeUtilities.createTemp(
-          getWidenedType(RedInit->getType(), VF), "red.var");
-      mapRednToRednRef(RedInit, RednRef);
-      collectRednVPInsts(RedInit);
+  for (auto *Lp : *VPLI) {
+    VPBasicBlock *LpPreheader = cast<VPBasicBlock>(Lp->getLoopPreheader());
+    for (VPInstruction &Inst : *LpPreheader) {
+      if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
+        collectRednVPInsts(RedInit);
+      }
     }
-  }
-
-  // Capture main loop IV instructions.
-  bool MainLoopIVCaptured = false;
-  for (VPInstruction &Inst : *OuterMostLpPreheader) {
-    if (!isa<VPInductionInit>(&Inst))
-      continue;
-
-    auto *IndInit = cast<VPInductionInit>(&Inst);
-    if (MainLoopIVCaptured)
-      report_fatal_error(
-          "HIR is expected to have only one loop induction variable.");
-    MainLoopIVCaptured = true;
-
-    std::function<void(VPInstruction *)> CaptureIVUpdates =
-        [&](VPInstruction *Inst) {
-          assert(Inst->getOpcode() == Instruction::Add &&
-                 "Invalid induction variable.");
-          assert(isa<VPInductionInitStep>(Inst->getOperand(0)) ||
-                 isa<VPInductionInitStep>(Inst->getOperand(1)) &&
-                     "One of the operands of IV update should be IV step.");
-          MainLoopIVInsts.insert(Inst);
-          for (auto *Op : Inst->operands()) {
-            if (isa<VPPHINode>(Op) || isa<VPInductionInitStep>(Op)) {
-              // Ignore IV step and PHI operands.
-              continue;
-            } else {
-              CaptureIVUpdates(cast<VPInstruction>(Op));
-            }
-          }
-        };
-
-    assert(IndInit->getNumUsers() == 1 && "Invalid induction variable.");
-    auto *User = *(IndInit->users().begin());
-    VPPHINode *IndPHI = cast<VPPHINode>(User);
-    MainLoopIVInsts.insert(IndPHI);
-    VPInstruction *LastUpdate = cast<VPInstruction>(
-        IndPHI->getOperand(0) == IndInit ? IndPHI->getOperand(1)
-                                         : IndPHI->getOperand(0));
-    CaptureIVUpdates(LastUpdate);
+    captureMainLoopIVInsts(LpPreheader);
   }
 
   for (auto *V : MainLoopIVInsts) {

@@ -58,8 +58,9 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
 
   applyVLSTransform(*Plan, *VLSA, BestVF);
 
-  // Process all loop entities and create refs for them if needed.
-  CG->createAndMapLoopEntityRefs(BestVF);
+  // Process all loop entities and collect instructions participating in them if
+  // needed.
+  CG->collectLoopEntityInsts();
   // Set hoist loop for reductions.
   CG->setRednHoistPtForVectorLoop();
 

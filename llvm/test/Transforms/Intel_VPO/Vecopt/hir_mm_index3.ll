@@ -54,15 +54,19 @@
 ;CGCHECK-NEXT:        %tgu = (%m)/u4;
 ;CGCHECK-NEXT:        if (0 <u 4 * %tgu)
 ;CGCHECK-NEXT:        {
-;CGCHECK-NEXT:           %red.var = %best.023;
-;CGCHECK-NEXT:           %red.var1 = %tmp.024;
+;CGCHECK-NEXT:           %red.init = %best.023;
+;CGCHECK-NEXT:           %red.init1 = %tmp.024;
+;CGCHECK-NEXT:           %phi.temp = %red.init1;
+;CGCHECK-NEXT:           %phi.temp2 = %red.init;
 ;CGCHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CGCHECK-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
-;CGCHECK-NEXT:           |   %red.var1 = (%.vec >= %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
-;CGCHECK-NEXT:           |   %red.var = (%.vec >= %red.var) ? %.vec : %red.var;
+;CGCHECK-NEXT:           |   %.vec4 = (%.vec >= %phi.temp2) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %phi.temp;
+;CGCHECK-NEXT:           |   %.vec5 = (%.vec >= %phi.temp2) ? %.vec : %phi.temp2;
+;CGCHECK-NEXT:           |   %phi.temp = %.vec4;
+;CGCHECK-NEXT:           |   %phi.temp2 = %.vec5;
 ;CGCHECK-NEXT:           + END LOOP
-;CGCHECK:                %best.023 = @llvm.vector.reduce.smax.v4i32(%red.var);
-;CGCHECK-NEXT:           %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>;
+;CGCHECK:                %best.023 = @llvm.vector.reduce.smax.v4i32(%.vec5);
+;CGCHECK-NEXT:           %idx.blend = (%best.023 == %.vec5) ? %.vec4 : <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>;
 ;CGCHECK-NEXT:           %tmp.024 = @llvm.vector.reduce.smax.v4i32(%idx.blend);
 ;CGCHECK-NEXT:        }
 ;CGCHECK:              + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>

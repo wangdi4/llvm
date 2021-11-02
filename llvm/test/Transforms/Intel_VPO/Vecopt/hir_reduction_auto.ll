@@ -15,15 +15,17 @@
 ;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=8 -hir-vplan-vec -hir-cg -mem2reg -print-after=hir-vplan-vec -S %s 2>&1 | FileCheck %s
 ;
 ; CHECK:           BEGIN REGION { modified }
-; CHECK:           %red.var = 0;
-; CHECK:           %red.var = insertelement %red.var,  %sum.07,  0;
+; CHECK:           %red.init = 0;
+; CHECK:           %red.init.insert = insertelement %red.init,  %sum.07,  0;
+; CHECK:           %phi.temp = %red.init.insert
 
 ; CHECK:           + DO i1 = 0, 1023, 8   <DO_LOOP>
 ; CHECK:           |   %.vec = (<8 x i32>*)(@arr)[0][i1];
-; CHECK:           |   %red.var = %.vec  +  %red.var;
+; CHECK:           |   %.vec1 = %.vec  +  %phi.temp;
+; CHECK:           |   %phi.temp = %.vec1
 ; CHECK:           + END LOOP
 
-; CHECK:           %sum.07 = @llvm.vector.reduce.add.v8i32(%red.var);
+; CHECK:           %sum.07 = @llvm.vector.reduce.add.v8i32(%.vec1);
 ; CHECK:           END REGION
 
 ; CHECK: loop

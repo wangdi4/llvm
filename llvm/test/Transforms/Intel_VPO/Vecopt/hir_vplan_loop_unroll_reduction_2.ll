@@ -97,17 +97,19 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:                 [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u12
 ; CGCHECK-NEXT:                 if (0 <u 12 * [[TGU0]])
 ; CGCHECK-NEXT:                 {
-; CGCHECK-NEXT:                    [[RED_VAR0:%.*]] = 0
-; CGCHECK-NEXT:                    [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
+; CGCHECK-NEXT:                    [[RED_INIT:%.*]] = 0
+; CGCHECK-NEXT:                    [[RED_INIT_INSERT:%.*]] = insertelement [[RED_INIT]],  [[ACC_080:%.*]],  0
+; CGCHECK-NEXT:                    [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]]
 ; CGCHECK:                         + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 178956970> <auto-vectorized> <nounroll> <novectorize>
 ; CGCHECK-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
 ; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
 ; CGCHECK-NEXT:                    |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[DOTVEC10]]
 ; CGCHECK-NEXT:                    |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; CGCHECK-NEXT:                    |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[DOTVEC30]]
+; CGCHECK-NEXT:                    |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  +  [[DOTVEC30]]
+; CGCHECK-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC50]]
 ; CGCHECK-NEXT:                    + END LOOP
-; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[RED_VAR0]])
+; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[DOTVEC50]])
 ; CGCHECK-NEXT:                 }
 ; CGCHECK:                      + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
 ; CGCHECK-NEXT:                  |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]

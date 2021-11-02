@@ -54,15 +54,14 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlanVector *Plan, Function &Fn, HLLoop *Loop,
-                OptReportBuilder &ORB, const VPLoopEntityList *VPLoopEntities,
+                OptReportBuilder &ORB,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
                 const RegDDRef *SearchLoopPeelArrayRef, bool IsOmpSIMD)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), UF(1), ORBuilder(ORB),
-        VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
+        TripCount(0), VF(0), UF(1), ORBuilder(ORB), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
         BlobUtilities(Loop->getBlobUtils()),
@@ -492,11 +491,11 @@ public:
     addInsertRegion(If);
   }
 
-  // Create a new temp ref to represent VPLoopEntities inside the generated
-  // vector loop. Type of this temp ref is VF x Entity's type. Additionally we
-  // map instructions linked to a LoopEntity, to the new ref which will be used
-  // during CG.
-  void createAndMapLoopEntityRefs(unsigned VF);
+  // Utility that walks over final CFG before codegen and collects lists of
+  // instructions that either participate in reductions or are associated with
+  // main loop IV. These lists are later used by CG to avoid folding or
+  // filtering out.
+  void collectLoopEntityInsts();
 
   // Utility to check if target being compiled for has AVX512 Intel
   // optimizations.
@@ -642,10 +641,6 @@ private:
   HLNode *RednInitInsertPoint = nullptr;
   HLNode *RednFinalInsertPoint = nullptr;
 
-  // VPEntities present in current loop being vectorized. These include
-  // reductions, inductions and privates.
-  const VPLoopEntityList *VPLoopEntities;
-
   // HIR vectorization legality which contains reductions, inductions and
   // privates coming from SIMD clause descriptors.
   const HIRVectorizationLegality *HIRLegality;
@@ -669,10 +664,6 @@ private:
   // Set of VPInsts involved in a reduction - used to avoid folding of
   // operations.
   SmallPtrSet<const VPInstruction *, 4> ReductionVPInsts;
-
-  // Map of VPValues(reduction PHI and its operands) and their corresponding HIR
-  // reduction variable(RegDDRef) used inside the generated vector loop.
-  DenseMap<const VPValue *, RegDDRef *> ReductionRefs;
 
   // Collection of VPInstructions inside the loop that correspond to main loop
   // IV. This is expected to contain the PHI and incrementing add
@@ -963,41 +954,15 @@ private:
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           &RTChecks);
 
-  // If VPInst has a corresponding reduction ref, create a copy instruction
-  // copying RValRef to the same with given Mask and return LvalRef of the copy
-  // instruction. Return RValRef otherwise.
-  RegDDRef *createCopyForRednRef(const VPInstruction *VPInst, RegDDRef *RvalRef,
-                                 RegDDRef *Mask) {
-    auto Itr = ReductionRefs.find(VPInst);
-    if (Itr == ReductionRefs.end())
-      return RvalRef;
-    auto *RedRef = Itr->second;
-    HLInst *CopyInst =
-        HLNodeUtilities.createCopyInst(RvalRef, "redval.copy", RedRef->clone());
-    addInst(CopyInst, Mask);
-    return CopyInst->getLvalDDRef();
-  }
-
   // Internal helper utility to get operator overflow flags (nuw/nsw) for a
-  // VPInstruction and the reduction ref if it participates in reduction
-  // sequence.
-  void getOverflowFlagsAndRednRef(const VPInstruction *VPInst, bool &HasNUW,
-                                  bool &HasNSW, RegDDRef *&RedRef) {
+  // VPInstruction.
+  void getOverflowFlags(const VPInstruction *VPInst, bool &HasNUW,
+                        bool &HasNSW) {
     // Overflow flags should be preserved only for instructions that don't
     // participate in reduction sequence.
     bool PreserveOverflowFlags = ReductionVPInsts.count(VPInst) == 0;
     HasNUW = PreserveOverflowFlags && VPInst->hasNoUnsignedWrap();
     HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
-
-    // If binop instruction corresponds to a reduction, then we need to write
-    // the result back to the corresponding reduction variable. Overflow flags
-    // should not be preserved for this instruction.
-    RedRef = nullptr;
-    if (ReductionRefs.count(VPInst)) {
-      assert(!PreserveOverflowFlags &&
-             "Overflow flags cannot be preserved for reduction instruction.");
-      RedRef = ReductionRefs[VPInst];
-    }
   }
 
   void makeSymLiveInForParentLoops(unsigned Sym) {

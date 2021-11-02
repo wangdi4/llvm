@@ -1409,14 +1409,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
-    VPLoop *OuterMostVPLoop = Plan->getMainLoop(true);
-    const VPLoopEntityList *Entities =
-        Plan->getLoopEntities(OuterMostVPLoop);
     RegDDRef *PeelArrayRef = nullptr;
     VPlanIdioms::Opcode SearchLoopOpcode =
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
-                           ORBuilder, Entities, &HIRVecLegal, SearchLoopOpcode,
+                           ORBuilder, &HIRVecLegal, SearchLoopOpcode,
                            PeelArrayRef, isOmpSIMDLoop);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
