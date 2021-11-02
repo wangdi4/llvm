@@ -1,6 +1,8 @@
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-array-transpose -print-before=hir-array-transpose -print-after=hir-array-transpose -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-array-transpose,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
+; RUN: opt -xmain-opt-level=3 -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-array-transpose,print<hir>" -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+
 ; Verify that array transpose kicks in when this sequence-
 
 ; %intptr = ptrtoint.i8*.i64(&((%call)[8]));
@@ -41,6 +43,12 @@
 ; CHECK: ret ;
 ; CHECK: END REGION
 
+; Verify that transformation is triggered with opaque pointers
+
+; CHECK-OPAQUE: BEGIN REGION { modified }
+; CHECK-OPAQUE: + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK-OPAQUE: |   (%base)[0][i1 + -4] = i1;
+; CHECK-OPAQUE: + END LOOP
 
 ;Module Before HIR; ModuleID = 'transpose.c'
 source_filename = "transpose.c"
