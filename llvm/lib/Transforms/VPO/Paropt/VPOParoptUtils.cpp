@@ -5101,18 +5101,16 @@ Value *VPOParoptUtils::computeOmpUpperBound(
   IRBuilder<> Builder(InsertPt);
   auto &RegionInfo = W->getWRNLoopInfo();
   auto *NormUB = RegionInfo.getNormUB(Idx);
+  auto *NormUBTy = RegionInfo.getNormUBElemTy(Idx);
 
   assert(NormUB && GeneralUtils::isOMPItemLocalVAR(NormUB) &&
          "computeOmpUpperBound: Expect isOMPItemLocalVAR().");
 
   auto *NormUBAlloca = cast<Instruction>(NormUB);
-  assert(isa<PointerType>(NormUBAlloca->getType()) &&
-         NormUBAlloca->getType()->getPointerElementType()->isIntegerTy() &&
+  assert(NormUBTy->isIntegerTy() &&
          "Normalized upper bound must have an integer type.");
 
-  return Builder.CreateLoad(
-      NormUBAlloca->getType()->getPointerElementType(), NormUBAlloca,
-      ".norm.ub" + Name);
+  return Builder.CreateLoad(NormUBTy, NormUBAlloca, ".norm.ub" + Name);
 }
 
 // Returns the predicate which includes equal for the zero trip test.

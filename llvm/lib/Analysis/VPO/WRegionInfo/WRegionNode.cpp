@@ -1898,11 +1898,23 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     }
     break;
   case QUAL_OMP_OFFLOAD_NDRANGE: {
-    SmallVector<Value *, 3> NDRange;
-    for (unsigned I = 0; I < NumArgs; ++I) {
-      NDRange.push_back(Args[I]);
+    SmallVector<Value *, 3> NDRangeDims;
+    SmallVector<Type *, 3> NDRangeTypes;
+    assert((NumArgs % 2) == 0 &&
+           "OFFLOAD_NDRANGE clause must have even number of arguments.");
+    // The clause arguments are the pointers to the normalized UB variables
+    // with their types specified with getNullValue() values, e.g.:
+    //   "QUAL.OMP.OFFLOAD.NDRANGE"(i64* %ub, i64 0)
+    //   "QUAL.OMP.OFFLOAD.NDRANGE"(i32* %ub1, i32 0, i64* %ub2, i64 0)
+    for (unsigned I = 0; I < NumArgs / 2; ++I) {
+      NDRangeDims.push_back(Args[2 * I]);
+      Type *ValTy = Args[2 * I + 1]->getType();
+      assert(ValTy->isIntegerTy() &&
+             "OFFLOAD_NDRANGE variable must have integer type.");
+      NDRangeTypes.push_back(ValTy);
     }
-    setUncollapsedNDRangeDimensions(NDRange);
+    setUncollapsedNDRangeDimensions(NDRangeDims);
+    setUncollapsedNDRangeTypes(NDRangeTypes);
     break;
   }
   case QUAL_OMP_JUMP_TO_END_IF:
