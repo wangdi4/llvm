@@ -272,6 +272,10 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   (void)Ret;
   assert(Ret && "Temp blob was not replaced!");
 
+  // Sometimes blob can get cancelled with substitution.
+  // Refer to blob-cancellation-with-substitution.ll
+  UseRef->makeConsistent();
+
   auto *UseNode = UseRef->getHLDDNode();
   auto *LvalRef = UseNode->getLvalDDRef();
 
@@ -279,6 +283,7 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   // it there as well.
   if (LvalRef && LvalRef->isTerminalRef()) {
     LvalRef->replaceTempBlob(LvalBlobIndex, RvalBlobIndex);
+    LvalRef->makeConsistent();
   }
 
   // Replace lval symbase by rval symbase as livein.

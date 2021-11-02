@@ -2260,7 +2260,8 @@ private:
   /// clause for \p WT listing the known tripcount(s), and also sets
   /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE for \p WL.
   void setNDRangeClause(
-      WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims) const;
+      WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims,
+      ArrayRef<Type *> NDRangeTypes) const;
 
   /// Checks if the given OpenMP loop region may use SPIR paritioning
   /// with known loop(s) bounds and if it is profitable.

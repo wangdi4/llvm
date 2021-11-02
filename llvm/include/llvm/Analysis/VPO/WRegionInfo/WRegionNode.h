@@ -534,10 +534,18 @@ public:
   virtual void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) {
     WRNERROR("OFFLOAD_NDRANGE");
   }
-  virtual const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
+  virtual void setUncollapsedNDRangeTypes(ArrayRef<Type *> Types) {
     WRNERROR("OFFLOAD_NDRANGE");
   }
-  virtual void resetUncollapsedNDRangeDimensions() {
+  virtual const SmallVectorImpl<Value *> &
+      getUncollapsedNDRangeDimensions() const {
+    WRNERROR("OFFLOAD_NDRANGE");
+  }
+  virtual const SmallVectorImpl<Type *> &
+      getUncollapsedNDRangeTypes() const {
+    WRNERROR("OFFLOAD_NDRANGE");
+  }
+  virtual void resetUncollapsedNDRange() {
     WRNERROR("OFFLOAD_NDRANGE");
   }
   virtual void setNDRangeDistributeDim(uint8_t Dim) {

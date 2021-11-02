@@ -11882,7 +11882,8 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         else
           LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. " <<
                      "ND-range parallelization will be applied.\n");
-        setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
+        setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
+                         W->getWRNLoopInfo().getNormUBElemTys());
         return Exiter(true);
       }
 
@@ -11896,7 +11897,8 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   if (NumLoops == 1) {
     LLVM_DEBUG(dbgs() << "No loop nest to collapse.  Exiting.\n");
     if (SetNDRange)
-      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
+      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
+                       W->getWRNLoopInfo().getNormUBElemTys());
     return Exiter(true);
   }
 
@@ -12493,23 +12495,32 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       // because the ND-range parallelization will kick in just
       // by the fact that the combined UB is rematerializable before
       // the target region. Just add it for consistency.
-      setNDRangeClause(WTarget, W, {NewUBPtrDef});
+      setNDRangeClause(WTarget, W, {NewUBPtrDef}, {CombinedUBType});
     } else
       // Add the original loops' upper bounds to OFFLOAD.NDRANGE clause.
-      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
+      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
+                       W->getWRNLoopInfo().getNormUBElemTys());
   }
   return Exiter(true);
 }
 
 void VPOParoptTransform::setNDRangeClause(
-    WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims) const {
+    WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims,
+    ArrayRef<Type *> NDRangeTypes) const {
   assert(!NDRangeDims.empty() && NDRangeDims.size() <= 3 &&
          "Invalid number of ND-range dimensions.");
+  assert(NDRangeDims.size() == NDRangeTypes.size() &&
+         "Invalid number of ND-range dimensions and types.");
   CallInst *EntryCI = cast<CallInst>(WT->getEntryDirective());
   StringRef Clause =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
 
-  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, NDRangeDims}});
+  SmallVector<Value *, 6> ClauseArgs;
+  for (size_t I = 0, E = NDRangeDims.size(); I != E; ++I) {
+    ClauseArgs.push_back(NDRangeDims[I]);
+    ClauseArgs.push_back(Constant::getNullValue(NDRangeTypes[I]));
+  }
+  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, ClauseArgs}});
   WT->setEntryDirective(EntryCI);
 
   // The region's loop(s) now have its tripcounts in the NDRANGE clause
@@ -12650,7 +12661,7 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   ClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
   EntryCI = VPOUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
   WTarget->setEntryDirective(EntryCI);
-  WTarget->resetUncollapsedNDRangeDimensions();
+  WTarget->resetUncollapsedNDRange();
 
   return true;
 }

@@ -2012,17 +2012,18 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 //     TgtLoopDescTy Levels[3]; // Up to 3 loops
 //   } TgtNDRangeDescTy;
 AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
-  auto &UncollapsedNDRange = W->getUncollapsedNDRange();
+  auto &UncollapsedNDRangeDims = W->getUncollapsedNDRangeDimensions();
+  auto &UncollapsedNDRangeTypes = W->getUncollapsedNDRangeTypes();
   uint8_t DistributeDim = W->getNDRangeDistributeDim();
 
-  if (UncollapsedNDRange.empty())
+  if (UncollapsedNDRangeDims.empty())
     return nullptr;
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
 
-  unsigned NumLoops = UncollapsedNDRange.size();
+  unsigned NumLoops = UncollapsedNDRangeDims.size();
   NumLoops += DistributeDim;
   assert(NumLoops <= 3 && "Max 3 dimensions for ND-range execution.");
 
@@ -2076,9 +2077,8 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
     if (I < DistributeDim)
       CloneUB = Builder.getInt64(0);
     else
-      CloneUB = Builder.CreateLoad(
-          UncollapsedNDRange[Idx]->getType()->getPointerElementType(),
-          UncollapsedNDRange[Idx]);
+      CloneUB = Builder.CreateLoad(UncollapsedNDRangeTypes[Idx],
+                                   UncollapsedNDRangeDims[Idx]);
 
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
