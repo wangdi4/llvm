@@ -43,7 +43,6 @@
 
 ; CHECK-AB: Merging types from source module:
 ; CHECK-AB-SAME:  intel-merge-types-opq-03a.ll
-; CHECK-AB:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK-AB:   Source type: %struct._ZTS11TestStructA.TestStructA = type { ptr }
 ; CHECK-AB:     Destination type: None
 ; CHECK-AB:     Fields that will be repaired:
@@ -82,7 +81,6 @@
 
 ; CHECK-BA: Merging types from source module:
 ; CHECK-BA-SAME:  intel-merge-types-opq-03b.ll
-; CHECK-BA:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK-BA:   Source type: %struct._ZTS11TestStructA.TestStructA = type { ptr }
 ; CHECK-BA:     Destination type: None
 ; CHECK-BA:     Fields that will be repaired:

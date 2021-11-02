@@ -66,7 +66,6 @@
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-types-opq-02a.ll
-; CHECK:   WARNING: DTrans metadata collected incorrectly from destination
 ; CHECK:   Source type: %class._ZTS9TestClassIiE.TestClass = type { ptr }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
