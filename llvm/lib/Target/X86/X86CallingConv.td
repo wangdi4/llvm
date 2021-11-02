@@ -1112,13 +1112,13 @@ def CC_X86_32_HiPE : CallingConv<[
 def CC_SVML : CallingConv<[
 
   CCIfType<[f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
-           CCAssignToReg<[XMM0, XMM1, XMM2]>>,
+           CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5]>>,
   
   CCIfType<[v16f16, v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
-           CCAssignToReg<[YMM0, YMM1, YMM2]>>,
+           CCAssignToReg<[YMM0, YMM1, YMM2, YMM3, YMM4, YMM5]>>,
 
   CCIfType<[v32f16, v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
-           CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>,
+           CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, ZMM4, ZMM5]>>,
 
   CCIfType<[v2i1, v4i1, v8i1, v16i1, v32i1],
            CCCustom<"CC_SVML_Mask">>
