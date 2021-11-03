@@ -2074,15 +2074,26 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   for (auto &C : VectorizerStartEPCallbacks)
     C(OptimizePM, Level);
 
+  LoopPassManager LPM;
   // First rotate loops that may have been un-rotated by prior passes.
   // Disable header duplication at -Oz.
+  LPM.addPass(LoopRotatePass(Level != OptimizationLevel::Oz, LTOPreLink));
+  // Some loops may have become dead by now. Try to delete them.
+  // FIXME: see disscussion in https://reviews.llvm.org/D112851
+  //        this may need to be revisited once GVN is more powerful.
+  LPM.addPass(LoopDeletionPass());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
+<<<<<<< HEAD
       LoopRotatePass(Level != OptimizationLevel::Oz, LTOPreLink),
       /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/false));
 #if INTEL_CUSTOMIZATION
   if (!PrepareForLTO)
     addLoopOptAndAssociatedVPOPasses(MPM, OptimizePM, Level, false);
 #endif // INTEL_CUSTOMIZATION
+=======
+      std::move(LPM), /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/false));
+
+>>>>>>> 9c2469c1ddb34517de8dafd83d1940deada3fc22
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.  This is
   // currently only performed for loops marked with the metadata
