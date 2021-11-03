@@ -243,10 +243,11 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 #ifndef INTEL_PRODUCT_RELEASE
         // If environment variable VOLCANO_EQUALIZER_STATS is set to any
         // non-empty string, then we dump IR before optimization.
-        if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS")) {
-            if (pEnv[0] != 0) {
-              DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
-            }
+        std::string Env;
+        if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS")) {
+          if (!Env.empty()) {
+            DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
+          }
         }
 #endif // INTEL_PRODUCT_RELEASE
 
@@ -278,8 +279,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 
 #ifndef INTEL_PRODUCT_RELEASE
         // Dump module stats just before lowering if requested
-        if (const char *pEnv = getenv("VOLCANO_STATS")) {
-          if (pEnv[0] != 0)
+        if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS")) {
+          if (!Env.empty())
             DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
         }
 #endif // INTEL_PRODUCT_RELEASE

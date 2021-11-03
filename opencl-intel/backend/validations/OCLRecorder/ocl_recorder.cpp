@@ -13,12 +13,12 @@
 // License.
 
 #include "ocl_recorder.h"
-#include "cl_device_api.h"
-#include "cl_device_api.h"
-#include "IBufferContainerList.h"
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
 #include "BufferDesc.h"
+#include "IBufferContainerList.h"
+#include "cl_device_api.h"
+#include "cl_env.h"
 
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Casting.h"
@@ -529,14 +529,16 @@ namespace Validation
       const MD5Code& code,
       OUT Frontend::SourceFile* pSourceFile) const
     {
-        if ( NULL == m_pSourceRecorder || NULL != getenv("OCL_DISABLE_SOURCE_RECORDER") )
-          return false;
-        FileIter fileIter = m_pSourceRecorder->begin(code);
-        if (fileIter == m_pSourceRecorder->end())
-          return false;
-        Frontend::SourceFile sourceFile = *fileIter;
-        *pSourceFile = sourceFile;
-        return true;
+      std::string Env;
+      if (NULL == m_pSourceRecorder ||
+          Intel::OpenCL::Utils::getEnvVar(Env, "OCL_DISABLE_SOURCE_RECORDER"))
+        return false;
+      FileIter fileIter = m_pSourceRecorder->begin(code);
+      if (fileIter == m_pSourceRecorder->end())
+        return false;
+      Frontend::SourceFile sourceFile = *fileIter;
+      *pSourceFile = sourceFile;
+      return true;
     }
 
     void OCLRecorder::OnCreateBinary(const ICLDevBackendKernel_* pKernel,
@@ -941,11 +943,12 @@ namespace Validation
                 std::lock_guard<llvm::sys::Mutex> mutex(lock);
                 if (pOclRecorder)
                     return pOclRecorder;
-                char* sz_logdir = getenv("OCLRECORDER_LOGDIR");
-                char* sz_dumpprefix = getenv("OCLRECORDER_DUMPPREFIX");
+                std::string LogDir, DumpPrefix;
 
                 llvm::SmallString<MAX_LOG_PATH> logpath;
-                if (sz_logdir) logpath = sz_logdir;
+                if (Intel::OpenCL::Utils::getEnvVar(LogDir,
+                                                    "OCLRECORDER_LOGDIR"))
+                  logpath = LogDir;
                 else llvm::sys::fs::current_path(logpath);
 
                 char argv0[MAX_LOG_PATH];
@@ -953,9 +956,13 @@ namespace Validation
                 llvm::SmallString<MAX_LOG_PATH> fileName;
                 fileName = llvm::sys::path::stem(llvm::sys::fs::getMainExecutable(argv0, &addr));
 
-                std::string prefix = (NULL == sz_dumpprefix) ? std::string(Validation::FILE_PREFIX): sz_dumpprefix;
+                if (!Intel::OpenCL::Utils::getEnvVar(DumpPrefix,
+                                                     "OCLRECORDER_DUMPPREFIX"))
+                  DumpPrefix = std::string(Validation::FILE_PREFIX);
 
-                fileName = fileName.empty() ? prefix : std::string(fileName.c_str()) + "." + prefix;
+                fileName = fileName.empty() ? DumpPrefix
+                                            : std::string(fileName.c_str()) +
+                                                  "." + DumpPrefix;
 
                 llvm::sys::fs::make_absolute(logpath);
                 pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), std::string(fileName));

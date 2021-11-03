@@ -12,6 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "cl_env.h"
 #define DEBUG_TYPE "Vectorizer"
 
 #include "ChooseVectorizationDimension.h"
@@ -255,12 +256,11 @@ static PreferredOption getPreferredOption(
 
 void ChooseVectorizationDimensionImpl::setFinalDecision(int dim, bool canUniteWorkGroups) {
 #ifndef INTEL_PRODUCT_RELEASE
-  if (getenv("DONT_SWITCH_DIM")) {
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "DONT_SWITCH_DIM"))
     dim = 0;
-  }
-  if (getenv("DONT_UNITE_WORKGROUPS")) {
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "DONT_UNITE_WORKGROUPS"))
     canUniteWorkGroups = false;
-  }
 #endif // INTEL_PRODUCT_RELEASE
   OCLSTAT_GATHER_CHECK(Chosen_Vectorization_Dim = dim);
   m_vectorizationDim = dim;

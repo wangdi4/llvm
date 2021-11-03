@@ -25,16 +25,16 @@ namespace intel {
 DebuggingServiceType getUserDefinedDebuggingServiceType() {
   DebuggingServiceType serviceType = None;
   using Intel::OpenCL::Utils::ConfigFile;
+  std::string var;
 #if _WIN32
   // User can set environment variable to define the service type.
-  const char *var = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
-  if (var)
+  if (Intel::OpenCL::Utils::getEnvVar(var, "CL_CONFIG_USE_NATIVE_DEBUGGER"))
     serviceType =
         ConfigFile::ConvertStringToType<bool>(var) ? Native : Simulator;
 #else
   // CL_CONFIG_DBG_ENABLE == True implies Simulator debugging.
-  const char *var = getenv("CL_CONFIG_DBG_ENABLE");
-  if (var && ConfigFile::ConvertStringToType<bool>(var))
+  if (Intel::OpenCL::Utils::getEnvVar(var, "CL_CONFIG_USE_NATIVE_DEBUGGER") &&
+      ConfigFile::ConvertStringToType<bool>(var))
     serviceType = Simulator;
 #endif
   return serviceType;

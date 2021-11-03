@@ -13,19 +13,20 @@
 // License.
 
 #include "PrintfAdder.h"
+#include "cl_env.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace intel {
 
-int PrintfAdder::getIntEnvVarVal (const char *varName, int defVal) {
-  char *envVar;
-  envVar = getenv(varName);
-  if (!envVar) return defVal;
-  return atoi(envVar);
+int PrintfAdder::getIntEnvVarVal(const char *VarName, int DefVal) {
+  std::string EnvVar;
+  if (!Intel::OpenCL::Utils::getEnvVar(EnvVar, VarName))
+    return DefVal;
+  return atoi(EnvVar.c_str());
 }
-    
+
 void PrintfAdder::getConditionalGIDs(Function *F) {
   unsigned numDim = 0;
   for (inst_iterator sI = inst_begin(F); sI != inst_end(F); ++sI) {

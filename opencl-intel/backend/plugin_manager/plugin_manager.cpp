@@ -13,10 +13,11 @@
 // License.
 
 #include "plugin_manager.h"
+#include "cl_env.h"
+#include "cl_synch_objects.h"
+#include "cl_utils.h"
 #include "plugin_interface.h"
 #include <BE_DynamicLib.h>
-#include "cl_utils.h"
-#include "cl_synch_objects.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -79,20 +80,11 @@ void PluginManager::LoadPlugins()
         return;
 
     typedef std::vector<std::string> DllNamesVector;
-#ifdef WIN32
-    char buffer[MAX_PATH];
-    const char *dlls = buffer;
-    int len = GetEnvironmentVariableA("OCLBACKEND_PLUGINS", buffer, MAX_PATH);
-    if (len == 0 || len >= MAX_PATH) {
-        dlls = nullptr;
-    }
-#else
-    const char *dlls = getenv("OCLBACKEND_PLUGINS");
-#endif
-    if (nullptr == dlls || (std::string)dlls == "")
-        return;
+    std::string namesEnv;
+    if (!Intel::OpenCL::Utils::getEnvVar(namesEnv, "OCLBACKEND_PLUGINS") ||
+        namesEnv.empty())
+      return;
     DllNamesVector namesVector;
-    std::string namesEnv(dlls);
     SplitString(namesEnv, ',', namesVector);
     PluginsList plugins;
     for( DllNamesVector::iterator it = namesVector.begin(); it != namesVector.end(); ++it)

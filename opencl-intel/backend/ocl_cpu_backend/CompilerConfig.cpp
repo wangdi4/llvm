@@ -16,12 +16,12 @@
 #include "OclTune.h"
 #include "PipeCommon.h"
 #include "cl_config.h"
+#include "cl_env.h"
 #include "cl_sys_defines.h"
 #include "cl_utils.h"
 #include "llvm/Support/Debug.h"
 
 #include <sstream>
-#include <stdlib.h> // getenv
 #include <string.h>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -40,20 +40,15 @@ void GlobalCompilerConfig::LoadDefaults()
 
 void GlobalCompilerConfig::LoadConfig()
 {
+  std::string Env;
 #ifndef NDEBUG
-    if (const char *pEnv = getenv("VOLCANO_ENABLE_TIMING"))
-    {
-        m_enableTiming = !strcmp(pEnv, "TRUE");
-    }
-    if (const char *pEnv = getenv("VOLCANO_INFO_OUTPUT_FILE"))
-    {
-        m_infoOutputFile = pEnv;
-    }
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_ENABLE_TIMING"))
+    m_enableTiming = ConfigFile::ConvertStringToType<bool>(Env);
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_INFO_OUTPUT_FILE"))
+    m_infoOutputFile = Env;
 #endif // NDEBUG
-    if (const char *pEnv = getenv("CL_DISABLE_STACK_TRACE"))
-    {
-      m_disableStackDump = ConfigFile::ConvertStringToType<bool>(pEnv);
-    }
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_DISABLE_STACK_TRACE"))
+    m_disableStackDump = ConfigFile::ConvertStringToType<bool>(Env);
 #ifndef INTEL_PRODUCT_RELEASE
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
@@ -64,20 +59,16 @@ void GlobalCompilerConfig::LoadConfig()
     // If the environment variable is set to 'all' (case-insensitive), all
     // statistic will be dumped, otherwise, only statistic with specified type
     // will be dumped.
-    if (const char *pEnv = getenv("VOLCANO_STATS"))
-    {
-        if (pEnv[0] != 0) {
-            intel::Statistic::enableStats();
-            if (STRCASECMP("all", pEnv))
-                intel::Statistic::setCurrentStatType(pEnv);
-        }
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS") && !Env.empty()) {
+      intel::Statistic::enableStats();
+      if (STRCASECMP("all", Env.c_str()))
+        intel::Statistic::setCurrentStatType(Env.c_str());
     }
-    if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS")) {
-      if (pEnv[0] != 0) {
-        intel::Statistic::enableStats();
-        if (STRCASECMP("all", pEnv))
-          intel::Statistic::setCurrentStatType(pEnv);
-      }
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS") &&
+        !Env.empty()) {
+      intel::Statistic::enableStats();
+      if (STRCASECMP("all", Env.c_str()))
+        intel::Statistic::setCurrentStatType(Env.c_str());
     }
 #endif // INTEL_PRODUCT_RELEASE
 
@@ -85,15 +76,13 @@ void GlobalCompilerConfig::LoadConfig()
     m_LLVMOptions = "-vector-library=SVML ";
 // INTEL VPO END
 
-    if (const char *pEnv = getenv("VOLCANO_LLVM_OPTIONS"))
-    {
-        m_LLVMOptions += pEnv;
-    }
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_LLVM_OPTIONS"))
+      m_LLVMOptions += Env;
 
-    if (const char *pEnv = getenv("CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE"))
-    {
-        m_LLVMOptions += "-reqd-sub-group-size=";
-        m_LLVMOptions += pEnv;
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE")) {
+      m_LLVMOptions += "-reqd-sub-group-size=";
+      m_LLVMOptions += Env;
     }
 }
 
@@ -193,42 +182,36 @@ void CompilerConfig::LoadDefaults()
 
 void CompilerConfig::LoadConfig()
 {
-    //TODO: Add validation code
-    if (const char *pEnv = getenv("CL_CONFIG_CPU_TARGET_ARCH"))
-    {
-        m_cpuArch = pEnv;
-    }
+  std::string Env;
+  // TODO: Add validation code
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_TARGET_ARCH"))
+    m_cpuArch = Env;
 
-    if (const char *pEnv = getenv("CL_CONFIG_CPU_VECTORIZER_MODE"))
-    {
-        unsigned int size;
-        if ((std::stringstream(pEnv) >> size).fail())
-        {
-            throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
-        }
-        m_transposeSize = ETransposeSize(size);
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_VECTORIZER_MODE")) {
+    unsigned int size;
+    if ((std::stringstream(Env) >> size).fail()) {
+      throw Exceptions::BadConfigException(
+          "Failed to load the transpose size from environment");
     }
+    m_transposeSize = ETransposeSize(size);
+  }
 #ifndef NDEBUG
-    if (const char *pEnv = getenv("VOLCANO_CPU_FEATURES"))
-    {
-        // The validity of the cpud features are checked upon parsing of optimizer options
-        m_cpuFeatures = pEnv;
-    }
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_CPU_FEATURES")) {
+    // The validity of the cpud features are checked upon parsing of optimizer
+    // options
+    m_cpuFeatures = Env;
+  }
 
-    if (getenv("VOLCANO_DEBUG"))
-    {
-      llvm::DebugFlag = true;
-    }
-    if (const char *pEnv = getenv("VOLCANO_DEBUG_ONLY"))
-    {
-      llvm::setCurrentDebugType(pEnv);
-    }
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_DEBUG"))
+    llvm::DebugFlag = true;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_DEBUG_ONLY"))
+    llvm::setCurrentDebugType(Env.c_str());
 #endif // NDEBUG
 #ifndef INTEL_PRODUCT_RELEASE
-    if (const char *pEnv = getenv("CL_CONFIG_DUMP_FILE_NAME_PREFIX")) {
-      // base name for stat files
-      m_dumpFilenamePrefix = pEnv;
-    }
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DUMP_FILE_NAME_PREFIX")) {
+    // base name for stat files
+    m_dumpFilenamePrefix = Env;
+  }
 #endif // INTEL_PRODUCT_RELEASE
 }
 

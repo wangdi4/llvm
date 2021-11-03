@@ -20,7 +20,7 @@
 
 using namespace std;
 
-extern const char* getWorkitemFocus();
+extern std::string getWorkitemFocus();
 
 // Run two NDrange instances. One with the given kernel, another with an
 // extra kernel read from a file provided as the first extra argument.
@@ -59,11 +59,11 @@ static void host_multi_ndrange_internal(
     try {
         vector<cl::Device> devices(1, device);
         string build_flags = "-g -cl-opt-disable ";
-        const char* gworkitem = getWorkitemFocus();
-        if (gworkitem) {
-            build_flags += "-gworkitem=";
-            build_flags += gworkitem;
-            build_flags += " ";
+        string gworkitem = getWorkitemFocus();
+        if (!gworkitem.empty()) {
+          build_flags += "-gworkitem=";
+          build_flags += gworkitem;
+          build_flags += " ";
         }
         build_flags += string("-s \"") + extra_args[0] + "\"";
         prog.build(devices, build_flags.c_str());

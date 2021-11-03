@@ -14,12 +14,13 @@
 
 #define DEBUG_TYPE "AutoPrefetcher"
 
-#include "OCLAddressSpace.h"
 #include "Prefetch.h"
-#include "OCLPassSupport.h"
-#include "mic_dev_limits.h"
-#include "OclTune.h"
 #include "InitializePasses.h"
+#include "OCLAddressSpace.h"
+#include "OCLPassSupport.h"
+#include "OclTune.h"
+#include "cl_env.h"
+#include "mic_dev_limits.h"
 
 #include "llvm/InitializePasses.h"
 #include "llvm/IR/InstIterator.h"
@@ -207,34 +208,34 @@ PrefetchStats::PrefetchStats(Statistic::ActiveStatsT &statList) :
 
 
 void Prefetch::init() {
-  const char *val;
+  std::string val;
   int ival;
 
-  if ((val = getenv("PFL1DIST")) != nullptr) {
-    std::istringstream(std::string(val)) >> ival;
+  if (Intel::OpenCL::Utils::getEnvVar(val, "PFL1DIST")) {
+    std::istringstream(val) >> ival;
     PFL1Distance = ival;
   }
-  if ((val = getenv("PFL2DIST")) != nullptr) {
-    std::istringstream(std::string(val)) >> ival;
+  if (Intel::OpenCL::Utils::getEnvVar(val, "PFL2DIST")) {
+    std::istringstream(val) >> ival;
     PFL2Distance = ival;
   }
-  if ((val = getenv("PFL1TYPE")) != nullptr) {
-    std::istringstream(std::string(val)) >> ival;
+  if (Intel::OpenCL::Utils::getEnvVar(val, "PFL1TYPE")) {
+    std::istringstream(val) >> ival;
     PFL1Type = ival;
   }
-  if ((val = getenv("PFL2TYPE")) != nullptr) {
-    std::istringstream(std::string(val)) >> ival;
+  if (Intel::OpenCL::Utils::getEnvVar(val, "PFL2TYPE")) {
+    std::istringstream(val) >> ival;
     PFL2Type = ival;
   }
 
   m_disableAPF = false;
-  if (getenv("DISAPF")) {
+  if (Intel::OpenCL::Utils::getEnvVar(val, "DISAPF")) {
     m_disableAPF = true;
   }
 
   m_disableAPFGS = false;
   m_disableAPFGSTune = false;
-  if (getenv("DISAPFGS")) {
+  if (Intel::OpenCL::Utils::getEnvVar(val, "DISAPFGS")) {
     m_disableAPFGS = true;
     // if stats are disabled for this module disable stat collection
     // for DISAPFGS
@@ -242,8 +243,8 @@ void Prefetch::init() {
       m_disableAPFGSTune = true;
   }
 
-  m_calcFactor = getenv("APFDISSMALL") == nullptr;
-  m_prefetchScalarCode = getenv("APFSCALAR") != nullptr;
+  m_calcFactor = !Intel::OpenCL::Utils::getEnvVar(val, "APFDISSMALL");
+  m_prefetchScalarCode = Intel::OpenCL::Utils::getEnvVar(val, "APFSCALAR");
 }
 
 // getConstStep - calculate loop step.
