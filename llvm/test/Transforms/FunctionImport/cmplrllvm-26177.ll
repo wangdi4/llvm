@@ -17,7 +17,7 @@ entry:
   ret i32 (...)* bitcast (i32 ()* @myfunc1 to i32 (...)*)
 }
 
-@myifunc = dso_local ifunc i32 (...), bitcast (i32 (...)* ()* @mydispatch to i32 (...)*)
+@myifunc = dso_local ifunc i32 (...), i32 (...)* ()* @mydispatch
 
 define dso_local i32 @myfunc1() {
 entry:
