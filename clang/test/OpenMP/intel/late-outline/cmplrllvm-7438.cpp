@@ -1,7 +1,7 @@
 // INTEL_COLLAB
 // Check target code generation. Need to create host IR.
-// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
-// RUN: %clang_cc1 -verify -triple x86_64-pc-linux-gnu -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
+// RUN: %clang_cc1 -verify -triple x86_64-pc-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | FileCheck %s
 //
 // expected-no-diagnostics
 

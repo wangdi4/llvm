@@ -4,7 +4,7 @@
 //       #if guard above.  We have to live with this, until driver
 //       starts defining the proper INTEL_FEATURE macros.
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility \
-// RUN:   -fintel-openmp-region -triple csa \
+// RUN:   -fopenmp-late-outline -triple csa \
 // RUN:   | FileCheck %s
 // REQUIRES: csa-registered-target
 

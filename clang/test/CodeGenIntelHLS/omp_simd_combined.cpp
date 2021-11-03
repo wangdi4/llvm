@@ -1,5 +1,5 @@
-//RUN: %clang_cc1 -fhls -fopenmp -fintel-compatibility -fintel-openmp-region -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -fhls -fopenmp -fintel-compatibility -fintel-openmp-region -debug-info-kind=limited -emit-llvm -o %t %s
+//RUN: %clang_cc1 -fhls -fopenmp -fintel-compatibility -fopenmp-late-outline -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -fopenmp -fintel-compatibility -fopenmp-late-outline -debug-info-kind=limited -emit-llvm -o %t %s
 
 // There is no clear specification yet which of our added loop pragmas
 // should be allowed on OpenMP pragmas. At least unroll and ivdep seem

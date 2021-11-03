@@ -4203,12 +4203,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   Opts.OpenMPLateOutline =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_late_outline);
 #endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-  // Allow this spelling until removed from icx driver.
-  if (!Opts.OpenMPLateOutline)
-    Opts.OpenMPLateOutline =
-        Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
-#endif // INTEL_CUSTOMIZATION
 
   // Check if -fopenmp-simd is specified.
   bool IsSimdSpecified =

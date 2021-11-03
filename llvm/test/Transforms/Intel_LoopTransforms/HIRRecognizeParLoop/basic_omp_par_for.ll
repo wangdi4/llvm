@@ -13,7 +13,7 @@
 ; --- Host compilation:
 ; clang -cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc \
 ;   -fintel-compatibility -fopenmp -fopenmp-targets=x86_64 -target-cpu x86-64 \
-;   -O2 -fno-intel-openmp-offload -mllvm -paropt=31 -fintel-openmp-region \
+;   -O2 -fno-intel-openmp-offload -mllvm -paropt=31 -fopenmp-late-outline \
 ;   -o src.bc src.cpp
 ; INTEL_FEATURE_CSA
 ; --- Device compilation:
@@ -21,7 +21,7 @@
 ;   -fopenmp-targets=x86_64 -fopenmp-is-device \
 ;   -fopenmp-host-ir-file-path src.bc -O2 -fno-intel-openmp-offload \
 ;   -mllvm -paropt=31 -mllvm -disable-hir-vec-dir-insert \
-;   -mllvm -disable-hir-general-unroll -fintel-openmp-region \
+;   -mllvm -disable-hir-general-unroll -fopenmp-late-outline \
 ;   -mllvm -hir-recognize-par-loop src.cpp
 ; end INTEL_FEATURE_CSA
 ;

@@ -3,7 +3,7 @@
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fintel-ms-compatibility \
 //RUN: -fopenmp -fopenmp-targets=spir64 -target-cpu \
-//RUN: x86-64 -fintel-openmp-region \
+//RUN: x86-64 -fopenmp-late-outline \
 //RUN: -o %t_host.bc %s
 
 //RUN: %clang_cc1 -triple x86_64-pc-windows-msvc \
@@ -11,7 +11,7 @@
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fintel-ms-compatibility \
 //RUN: -fopenmp -fopenmp-targets=spir64 -target-cpu \
-//RUN: x86-64 -fintel-openmp-region \
+//RUN: x86-64 -fopenmp-late-outline \
 //RUN: -o %t_host.bc -o - %s \
 //RUN: | FileCheck %s --check-prefix=Check-HOST
 
@@ -21,7 +21,7 @@
 //RUN: -fms-extensions -fintel-ms-compatibility \
 //RUN: -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device \
 //RUN: -fopenmp-host-ir-file-path %t_host.bc \
-//RUN: -fintel-openmp-region \
+//RUN: -fopenmp-late-outline \
 //RUN: -o %t_targ.bc %s
 
 //RUN: %clang_cc1 -triple spir64 -aux-triple \
@@ -31,7 +31,7 @@
 //RUN: -fms-extensions -fintel-ms-compatibility \
 //RUN: -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device \
 //RUN: -fopenmp-host-ir-file-path %t_host.bc \
-//RUN: -fintel-openmp-region \
+//RUN: -fopenmp-late-outline \
 //RUN: -o %t_targ.bc -o - %s \
 //RUN: | FileCheck %s --check-prefix=Check-TARG
 
