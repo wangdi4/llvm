@@ -28,7 +28,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
   endif()
 
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
-<<<<<<< HEAD
 
     set( LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource )
     set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
@@ -62,15 +61,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
     include(FetchContent)
     FetchContent_Declare(vc-intrinsics
       GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO} #INTEL_CUSTOMIZATION
-=======
-    set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    set(LLVMGenXIntrinsics_GIT_TAG dpcpp_staging)
-
-    message(STATUS "vc-intrinsics repo is missing. Will try to download it from ${LLVMGenXIntrinsics_GIT_REPO}")
-    include(FetchContent)
-    FetchContent_Declare(vc-intrinsics
-      GIT_REPOSITORY ${LLVMGenXIntrinsics_GIT_REPO}
->>>>>>> 35ccdd5a6b3c467cd39bfb14f0abc7ef2bc20667
       GIT_TAG        ${LLVMGenXIntrinsics_GIT_TAG}
     )
     FetchContent_MakeAvailable(vc-intrinsics)
