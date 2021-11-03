@@ -76,6 +76,7 @@ class LLDJIT : public llvm::ExecutionEngine {
     const std::string &FileName() { return Name; }
     llvm::raw_fd_ostream &OS() { return File->os(); }
     void keep() { File->keep(); }
+    void close();
   };
 
 private:
@@ -196,8 +197,6 @@ private:
   llvm::SmallVector<llvm::JITEventListener *, 1> EventListeners;
   llvm::SmallVector<std::string, 2> LoadedObjects;
   llvm::SmallVector<TmpFile, 4> OwnedTempFiles;
-  /// Temp files that should be deleted in destructor.
-  llvm::SmallVector<std::string, 2> OwnedTempFileNames;
   std::string DLLPath;
   void *DLLHandle;
   OwningModuleContainer OwnedModules;

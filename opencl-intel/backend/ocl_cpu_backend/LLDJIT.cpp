@@ -109,12 +109,7 @@ LLDJIT::~LLDJIT() {
   DeleteTempFiles();
 }
 
-void LLDJIT::DeleteTempFiles() {
-  OwnedTempFiles.clear();
-  for (auto &FileName : OwnedTempFileNames) {
-    sys::fs::remove(FileName);
-  }
-}
+void LLDJIT::DeleteTempFiles() { OwnedTempFiles.clear(); }
 
 void LLDJIT::DeleteTempFiles(
     const llvm::SmallVectorImpl<std::string> &FilesToDelete) {
@@ -280,19 +275,13 @@ std::string LLDJIT::emitObject(Module *M) {
   // Initialize passes.
   PM.run(*M);
 
-  // Flush object bytes to disk
+  // Write object bytes to disk
   ObjFile.OS() << ObjBufferSV;
-  ObjFile.OS().flush();
+  // Close manually to to avoid _open_osfhandle failure due to too many files
+  // being open in some cases that LLDJIT dtor is not called.
+  ObjFile.close();
 
-  // Close file descriptor immediately when ObjFile is out of scope, in order
-  // to avoid too many files being open and cause _open_osfhandle failure.
-  //
-  // An alternative approach is move dll/pdb generation from LoadDLL to
-  // generateCodeForModule, however, it signicantly increases program build time
-  // if application has many programs which don't contain kernel, while current
-  // implementation won't build them into dll/pdb.
-  ObjFile.keep();
-  OwnedTempFileNames.emplace_back(ObjFile.FileName());
+  OwnedTempFiles.emplace_back(std::move(ObjFile));
 
   // If we have an object cache, tell it about the new object.
   if (ObjCache) {
@@ -301,7 +290,7 @@ std::string LLDJIT::emitObject(Module *M) {
     ObjCache->notifyObjectCompiled(M, MB);
   }
 
-  return ObjFile.FileName();
+  return OwnedTempFiles.back().FileName();
 }
 
 void LLDJIT::generateCodeForModule(Module *M) {
@@ -344,7 +333,7 @@ void LLDJIT::generateCodeForModule(Module *M) {
                            M->getContext(), ObjFile.FileName().c_str(), true));
       ObjFile.OS().write(ObjectInCache->getBufferStart(),
                          ObjectInCache->getBufferSize());
-      ObjFile.OS().flush();
+      ObjFile.close();
       OwnedTempFiles.emplace_back(std::move(ObjFile));
       ObjectToLoad = OwnedTempFiles.back().FileName();
     }
@@ -365,6 +354,9 @@ void LLDJIT::LoadDLL() {
   buildDllFromObjs(LoadedObjects, DLLFile.FileName(), PDBFile.FileName());
   DLLPath = DLLFile.FileName();
   this->DeleteTempFiles(LoadedObjects);
+
+  DLLFile.close();
+  PDBFile.close();
 
   // keep *.dll & *.pdb for use by vtune.
   DLLFile.keep();
@@ -906,6 +898,13 @@ LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
                        " on the system: " + EC.message());
   File = std::make_unique<llvm::ToolOutputFile>(ResultPath, FD);
   Name = std::string(ResultPath);
+}
+
+void LLDJIT::TmpFile::close() {
+  OS().close();
+  if (std::error_code EC = OS().error())
+    report_fatal_error("IO failure on file " + FileName() + ": " +
+                       EC.message());
 }
 
 void LLDJIT::notifyObjectLoaded(const object::ObjectFile &Obj,
