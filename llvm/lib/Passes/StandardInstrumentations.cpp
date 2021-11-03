@@ -44,10 +44,11 @@ using namespace llvm;
 cl::opt<bool> PreservedCFGCheckerInstrumentation::VerifyPreservedCFG(
     "verify-cfg-preserved", cl::Hidden,
 #ifdef NDEBUG
-    cl::init(false));
+    cl::init(false)
 #else
-    cl::init(true));
+    cl::init(true)
 #endif
+    );
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 // An option that prints out the IR after passes, similar to
