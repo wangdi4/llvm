@@ -937,8 +937,10 @@ void CodeGenModule::Release() {
   if (llvm::StringRef(TheModule.getTargetTriple()).startswith("spir"))
     addSPIRMetadata(TheModule, getLangOpts().OpenCLVersion,
                     getCodeGenOpts().SPIRCompileOptions);
+#if INTEL_FEATURE_SW_DTRANS
   if (getCodeGenOpts().EmitDTransInfo)
     EmitIntelDTransMetadata();
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   if (getCodeGenOpts().EmitVersionIdentMetadata)
@@ -4243,10 +4245,12 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     if ((!ForVTable || IsForDefinition) && isa<llvm::Function>(Entry) &&
         isa<llvm::FunctionType>(Ty) && Entry->getValueType() == Ty)
       Entry = addDTransInfoToFunc(GD, MangledName, cast<llvm::FunctionType>(Ty),
                                   cast<llvm::Function>(Entry));
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
     if ((isa<llvm::Function>(Entry) || isa<llvm::GlobalAlias>(Entry)) &&
@@ -4312,8 +4316,10 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
   }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   if (!ForVTable || IsForDefinition)
     F = addDTransInfoToFunc(GD, MangledName, FTy, F);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   if (!DontDefer) {
     // All MSVC dtors other than the base dtor are linkonce_odr and delegate to
@@ -4704,7 +4710,11 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
     }
 
     setGVProperties(GV, D);
-    addDTransInfoToGlobal(D, GV, Ty); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    addDTransInfoToGlobal(D, GV, Ty);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     // If required by the ABI, treat declarations of static data members with
     // inline initializers as definitions.

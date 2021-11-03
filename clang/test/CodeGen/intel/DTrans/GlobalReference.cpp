@@ -1,3 +1,4 @@
+// REQUIRES: intel_feature_sw_dtrans
 // RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-LINUX
 // RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-WINDOWS
 

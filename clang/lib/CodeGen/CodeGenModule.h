@@ -343,11 +343,13 @@ private:
   // translation unit has any target code.
   bool HasTargetCode = false;
 
+#if INTEL_FEATURE_SW_DTRANS
   /// List of types used in the application, used later to generate DTrans
   /// metadata. Some RecordDecl's can be emitted as a base class, so they can
   /// have 2 representations, so we store/generate both.
   llvm::MapVector<const RecordDecl *, llvm::SmallVector<llvm::StructType *, 2>>
       DTransTypes;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   /// Non-zero if emitting code from a target region, including functions
@@ -1267,6 +1269,7 @@ public:
 
   void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
 
+#if INTEL_FEATURE_SW_DTRANS
   void addDTransType(const RecordDecl *RD, llvm::StructType *STy) {
     if (getCodeGenOpts().EmitDTransInfo) {
       RD = cast<RecordDecl>(RD->getCanonicalDecl());
@@ -1289,6 +1292,7 @@ public:
                     const SmallVectorImpl<llvm::Constant *> &Fields);
   llvm::CallBase *addDTransIndirectCallInfo(llvm::CallBase *CI,
                                             const CGFunctionInfo &CallInfo);
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -1792,8 +1796,10 @@ private:
   /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
   void EmitMSDebugInfoMetadata();
 
+#if INTEL_FEATURE_SW_DTRANS
   /// Emit the Intel DTrans type/function metadata.
   void EmitIntelDTransMetadata();
+#endif // INTEL_FEATURE_SW_DTRANS
 
   /// Emit compiler options as llvm.ident metadata.
   void EmitSoxIdentMetadata();
