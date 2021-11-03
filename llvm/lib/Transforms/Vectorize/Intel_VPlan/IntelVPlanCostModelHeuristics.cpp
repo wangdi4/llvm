@@ -1076,7 +1076,7 @@ void HeuristicOVLSMember::apply(
             ->getAddressSpace();
     int InterleaveFactor =
         std::abs(computeInterleaveFactor(Group->getInsertPoint()));
-    auto *WideVecTy = FixedVectorType::get(ValTy, VF * InterleaveFactor);
+    auto *WideVecTy = getWidenedType(ValTy, VF * InterleaveFactor);
 
     // Holds the indices of existing members in an interleaved load group.
     // Currently we only support accesses with no gaps and hence all indices
