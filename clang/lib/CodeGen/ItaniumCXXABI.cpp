@@ -1971,7 +1971,11 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
     }
   }
   CGM.setGVProperties(VTable, RD);
-  CGM.addDTransVTableInfo(VTable, VTLayout); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  CGM.addDTransVTableInfo(VTable, VTLayout);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
   if (CGM.getLangOpts().OpenMPLateOutline && CGM.inTargetRegion())
@@ -4010,7 +4014,11 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 
   TypeName->setPartition(CGM.getCodeGenOpts().SymbolPartition);
   GV->setPartition(CGM.getCodeGenOpts().SymbolPartition);
-  GV = CGM.addDTransTypeInfo(GV, Fields); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  GV = CGM.addDTransTypeInfo(GV, Fields); 
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(

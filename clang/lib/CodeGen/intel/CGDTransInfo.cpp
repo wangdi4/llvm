@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_DTRANS
 //==--- CGDTransInfo.cpp - DTrans Type Info Codegen ------------*- C++ -*---==//
 //
 // Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
@@ -1006,3 +1007,4 @@ llvm::MDNode *DTransInfoGenerator::AddVTable(const VTableLayout &Layout) {
 }
 
 } // namespace
+#endif // INTEL_FEATURE_SW_DTRANS

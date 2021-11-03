@@ -922,7 +922,11 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
       BaseTy = llvm::StructType::create(
           getLLVMContext(), BaseBuilder.FieldTypes, "", BaseBuilder.Packed);
       addRecordTypeName(D, BaseTy, ".base");
-      CGM.addDTransType(D, BaseTy); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+      CGM.addDTransType(D, BaseTy);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
       // BaseTy and Ty must agree on their packedness for getLLVMFieldNo to work
       // on both of them with the same index.
       assert(Builder.Packed == BaseBuilder.Packed &&

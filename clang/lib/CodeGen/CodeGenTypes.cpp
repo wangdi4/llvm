@@ -60,10 +60,14 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   // For SYCL, the mangled type name is attached, so it can be
   // reflown to proper name later.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // For DTrans info emission, these mangling names are useful for merging
   // struct types, so do it for DTrans Info emission as well.
   if (getContext().getLangOpts().SYCLIsDevice ||
       getCodeGenOpts().EmitDTransInfo) {
+#else // INTEL_FEATURE_SW_DTRANS
+  if (getContext().getLangOpts().SYCLIsDevice) {
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     std::unique_ptr<MangleContext> MC(getContext().createMangleContext());
     auto RDT = getContext().getRecordType(RD);
@@ -399,12 +403,14 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   if (FunctionsBeingProcessed.count(FI)) {
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     if (getCodeGenOpts().EmitDTransInfo)
       ResultType =
           llvm::StructType::create(getLLVMContext(), "__Intel$Empty$Struct");
     else
-      ResultType = llvm::StructType::get(getLLVMContext());
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+    ResultType = llvm::StructType::get(getLLVMContext());
     SkippedLayout = true;
   } else {
 
@@ -868,7 +874,11 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   if (!Entry) {
     Entry = llvm::StructType::create(getLLVMContext());
     addRecordTypeName(RD, Entry, "");
-    CGM.addDTransType(RD, Entry); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    CGM.addDTransType(RD, Entry);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   }
   llvm::StructType *Ty = Entry;
 
