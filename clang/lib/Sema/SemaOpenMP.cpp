@@ -23384,12 +23384,12 @@ OMPClause *Sema::ActOnOpenMPIsDevicePtrClause(ArrayRef<Expr *> VarList,
 
     // Record the expression we've just processed.
 #if INTEL_COLLAB
-    if (LangOpts.OpenMPLateOutline) {
-      DeclRefExpr *Ref = nullptr;
-      auto *VD = dyn_cast<VarDecl>(D);
-      if (!VD && !CurContext->isDependentContext())
-        Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/false);
-      MVLI.ProcessedVarList.push_back(VD ? SimpleRefExpr : Ref);
+    if (LangOpts.OpenMPLateOutline && !isa<VarDecl>(D) &&
+        !CurContext->isDependentContext()) {
+      DeclRefExpr *Ref =
+          buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/false);
+      assert(Ref && "is_device_ptr capture failed");
+      MVLI.ProcessedVarList.push_back(Ref);
     } else
 #endif  // INTEL_COLLAB
     MVLI.ProcessedVarList.push_back(SimpleRefExpr);
