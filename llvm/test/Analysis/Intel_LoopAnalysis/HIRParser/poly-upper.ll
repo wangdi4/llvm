@@ -9,7 +9,7 @@
 ; CHECK: |   |   (%A)[i2] = i2;
 ; CHECK: |   + END LOOP
 ; CHECK: |
-; CHECK: |   %indvars.iv.next24 = %indvars.iv23  +  i1 + 1;
+; CHECK: |   %indvars.iv.next24 = %add  +  i1 + 1;
 ; CHECK: |   %indvars.iv23 = %indvars.iv.next24;
 ; CHECK: |   %k.020 = %add;
 ; CHECK: + END LOOP
