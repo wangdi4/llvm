@@ -100,7 +100,6 @@
 // RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
 // CHECK-QOPENMP-WIN: "--dependent-lib=libiomp5md"
 // CHECK-QOPENMP: "-fopenmp-late-outline"
-// CHECK-QOPENMP: "-fintel-openmp-region"
 // CHECK-QOPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP: "-fopenmp"
 // CHECK-QOPENMP: "-mllvm" "-paropt=31"
@@ -357,7 +356,7 @@
 // RUN: %clang_cl -### /Qiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
 // CHECK-QOPENMP-THREADPRIVATE: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP-COMPAT: "-fopenmp-late-outline"
-// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fintel-openmp-region" "-fopenmp-threadprivate-legacy"
+// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fopenmp-threadprivate-legacy"
 
 // RUN: %clang -### -qopt-mem-layout-trans=4 -flto -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s
 // RUN: %clang_cl -### /Qopt-mem-layout-trans:4 -Qipo -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s

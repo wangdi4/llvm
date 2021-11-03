@@ -6782,7 +6782,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false)) {
     CmdArgs.push_back("-fopenmp-late-outline");
 #if INTEL_CUSTOMIZATION
-    CmdArgs.push_back("-fintel-openmp-region");
     if (Arg *A = Args.getLastArg(options::OPT_qopenmp_threadprivate_EQ)) {
       StringRef Value = A->getValue();
       if (Value != "compat")

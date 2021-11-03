@@ -5,11 +5,11 @@
 
 //REQUIRES: csa-registered-target
 //RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
-//RUN:   -fintel-openmp-region -triple csa %s \
+//RUN:   -fopenmp-late-outline -triple csa %s \
 //RUN:   | FileCheck %s
 
 //RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
-//RUN:   -fintel-openmp-region -fno-intel-openmp-offload -triple csa %s \
+//RUN:   -fopenmp-late-outline -fno-intel-openmp-offload -triple csa %s \
 //RUN:   | FileCheck %s -check-prefix=CHECK-FEOUTLINE
 
 int glob = 1;
