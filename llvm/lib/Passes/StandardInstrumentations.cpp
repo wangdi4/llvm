@@ -2233,16 +2233,13 @@ StandardInstrumentations::StandardInstrumentations(
               PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose,
           PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose ||
               PrintChanged == ChangePrinter::PrintChangedColourDiffQuiet),
-<<<<<<< HEAD
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       PrintChangedIR(false),
       PrintChangedDiff(false, false),
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
-=======
       WebsiteChangeReporter(PrintChanged ==
                             ChangePrinter::PrintChangedDotCfgVerbose),
->>>>>>> 816761f04484bc7096755e8351a1ff46a3594398
       Verify(DebugLogging), VerifyEach(VerifyEach) {}
 
 void StandardInstrumentations::registerCallbacks(

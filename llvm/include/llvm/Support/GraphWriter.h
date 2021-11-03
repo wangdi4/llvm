@@ -183,12 +183,6 @@ public:
       O << "record,";
 
     if (!NodeAttributes.empty()) O << NodeAttributes << ",";
-<<<<<<< HEAD
-    O << "label=\"{";
-#if INTEL_CUSTOMIZATION
-    if (!DTraits.renderGraphFromBottomUp() && DTraits.hasEdgeDestLabels()) {
-      O << "{";
-=======
     O << "label=";
 
     if (RenderUsingHTML) {
@@ -207,22 +201,25 @@ public:
       O << "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\""
         << " cellpadding=\"0\"><tr><td align=\"text\" colspan=\"" << ColSpan
         << "\">";
-    } else
+    } else {
       O << "\"{";
->>>>>>> 816761f04484bc7096755e8351a1ff46a3594398
+#if INTEL_CUSTOMIZATION
+      if (!DTraits.renderGraphFromBottomUp() && DTraits.hasEdgeDestLabels()) {
+        O << "{";
 
-      unsigned i = 0, e = DTraits.numEdgeDestLabels(Node);
-      for (; i != e && i != 64; ++i) {
-        if (i) O << "|";
-        O << "<d" << i << ">"
-          << DOT::EscapeString(DTraits.getEdgeDestLabel(Node, i));
+        unsigned i = 0, e = DTraits.numEdgeDestLabels(Node);
+        for (; i != e && i != 64; ++i) {
+          if (i) O << "|";
+          O << "<d" << i << ">"
+            << DOT::EscapeString(DTraits.getEdgeDestLabel(Node, i));
+        }
+
+        if (i != e)
+          O << "|<d64>truncated...";
+        O << "}|";
       }
-
-      if (i != e)
-        O << "|<d64>truncated...";
-      O << "}|";
-    }
 #endif  // INTEL_CUSTOMIZATION
+    }
     if (!DTraits.renderGraphFromBottomUp()) {
       if (RenderUsingHTML)
         O << DTraits.getNodeLabel(Node, G) << "</td>";
