@@ -27,6 +27,7 @@
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
 #include "OclTune.h"
+#include "cl_env.h"
 
 #include <sstream>
 #include <string>
@@ -60,8 +61,8 @@ namespace intel {
 
 
   bool RemovePrefetch::runOnModule(Module &M) {
-
-    bool removePF = getenv("DISMPF") != nullptr;
+    std::string val;
+    bool removePF = Intel::OpenCL::Utils::getEnvVar(val, "DISMPF");
 
     // do not execute this pass unless the user asked to remove manual
     // prefetches or the user is collecting stats for this pass

@@ -16,6 +16,7 @@
 
 #include "CompilationUtils.h"
 #include "OCLPassSupport.h"
+#include "cl_env.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -42,8 +43,9 @@ ChannelsUsageAnalysis::ChannelsUsageAnalysis() : ModulePass(ID) {}
 
 bool ChannelsUsageAnalysis::runOnModule(Module &M) {
 #ifndef INTEL_PRODUCT_RELEASE
-  const char *GraphFilename = getenv("VOLCANO_CHANNELS_USAGE_GRAPH");
-  if (GraphFilename) {
+  std::string GraphFilename;
+  if (Intel::OpenCL::Utils::getEnvVar(GraphFilename,
+                                      "VOLCANO_CHANNELS_USAGE_GRAPH")) {
     std::error_code ErrCode;
     raw_fd_ostream FStream(GraphFilename, ErrCode);
     if (ErrCode) {

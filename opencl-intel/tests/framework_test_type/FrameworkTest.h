@@ -166,9 +166,7 @@ bool clTracingFunctionsDisabledCheckTest();
 void globalVariableSizeQueryTest();
 void enqueueBlockProfilingTest();
 void clGetCommandQueueInfo();
-#ifndef _WIN32
 void passBuildOptionByEnvTest();
-#endif
 void UniformWorkGroupTest();
 void clKernelLocalMemSizeQueryTest();
 #ifdef _WIN32

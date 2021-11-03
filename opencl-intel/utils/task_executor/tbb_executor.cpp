@@ -527,10 +527,9 @@ bool TBBTaskExecutor::LoadTBBLibrary()
     m_err = m_dllTBBLib.Load(modulePath.c_str());
     if (m_err != 0) {
       // Load TBB from full path defiend by TBB_DLL_PATH env variable.
-      const char *tbbLocation = getenv("TBB_DLL_PATH");
-      if (tbbLocation) {
-        std::string tbbFullPath =
-            std::string(tbbLocation) + "/" + tbbPath.c_str();
+      std::string TBBLocation;
+      if (Intel::OpenCL::Utils::getEnvVar(TBBLocation, "TBB_DLL_PATH")) {
+        std::string tbbFullPath = TBBLocation + "/" + tbbPath;
 
         m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
 

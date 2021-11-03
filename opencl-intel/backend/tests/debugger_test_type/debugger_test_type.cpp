@@ -12,12 +12,13 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "host_program_common.h"
-#include "test_utils.h"
 #include "cl_config.h"
-#include "cl_utils.h"
-#include "test_pipe_thread.h"
+#include "cl_env.h"
 #include "cl_user_logger.h"
+#include "cl_utils.h"
+#include "host_program_common.h"
+#include "test_pipe_thread.h"
+#include "test_utils.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -154,37 +155,32 @@ HostProgramFunc get_host_program_by_name(string name)
     throw runtime_error("Unknown host program: '" + name + "'");
 }
 #ifdef _WIN32
-volatile char cdbGWorkitemInjectionBuffer[128] = { 0 };
-
 // This is required, because CDB doesn't provide a facility
 // to change the environment variables, like gdb.
 // This function will return the injected string from cdbGWorkitemInjectionBuffer.
-const char* cdbInjectWorkitemFocus()
-{
-    string gworkitem;
-    stringstream filename;
-    filename << "workitemfocus_inject_" << GetCurrentProcessId() << ".tmp";
-    ifstream injectionfile(filename.str());
-    if (injectionfile.is_open())
-    {
-        getline(injectionfile, gworkitem);
-        strcpy((char*)cdbGWorkitemInjectionBuffer, gworkitem.c_str());
-    }
+std::string cdbInjectWorkitemFocus() {
+  string gworkitem;
+  stringstream filename;
+  filename << "workitemfocus_inject_" << GetCurrentProcessId() << ".tmp";
+  ifstream injectionfile(filename.str());
+  if (injectionfile.is_open())
+    getline(injectionfile, gworkitem);
 
-    if (cdbGWorkitemInjectionBuffer[0] == '(')
-        return (const char*)cdbGWorkitemInjectionBuffer;
-    else
-        return "";
+  if (gworkitem[0] == '(')
+    return gworkitem;
+  else
+    return "";
 }
 #endif
-const char* getWorkitemFocus()
-{
+std::string getWorkitemFocus() {
 #ifdef _WIN32
-    const char* envValCdb = cdbInjectWorkitemFocus();
-    if (envValCdb[0] != 0)
-        return envValCdb;
+  std::string EnvValCdb = cdbInjectWorkitemFocus();
+  if (!EnvValCdb.empty())
+    return EnvValCdb;
 #endif
-    return getenv("GWORKITEM");
+  std::string Env;
+  Intel::OpenCL::Utils::getEnvVar(Env, "GWORKITEM");
+  return Env;
 }
 
 int main(int argc, char** argv)
@@ -194,7 +190,8 @@ int main(int argc, char** argv)
     DTT_LOG("Starting debug_test_type");
 
 #ifdef _WIN32
-    const char *envVar = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
+    std::string envVar;
+    Intel::OpenCL::Utils::getEnvVar(envVar, "CL_CONFIG_USE_NATIVE_DEBUGGER");
     bool useNativeDebugger =
         Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(envVar);
     NamedPipeThread *thread = nullptr;
@@ -248,10 +245,9 @@ int main(int argc, char** argv)
         cl::Platform::get(&platforms);
 
         unsigned cl_platform_index = 0;
-        char *envIndex = getenv("CL_PLATFORM_INDEX");
-        if (envIndex) {
-            cl_platform_index = atoi(envIndex);
-        }
+        std::string envIndex;
+        if (Intel::OpenCL::Utils::getEnvVar(envIndex, "CL_PLATFORM_INDEX"))
+          cl_platform_index = atoi(envIndex.c_str());
 
         if (platforms.size() == 0)
             throw runtime_error("0 platforms found");
@@ -311,11 +307,11 @@ int main(int argc, char** argv)
         try {
             // Make possible to pass any build options to tests
             string build_flags = options.get("build_opts") + " ";
-            const char* gworkitem = getWorkitemFocus();
-            if (gworkitem) {
-                build_flags += "-gworkitem=";
-                build_flags += gworkitem;
-                build_flags += " ";
+            string gworkitem = getWorkitemFocus();
+            if (!gworkitem.empty()) {
+              build_flags += "-gworkitem=";
+              build_flags += gworkitem;
+              build_flags += " ";
             }
             // As debug and optimization flag decoupled, we need to pass
             // both "-g" and "-cl-opt-disable" to get complete debug info

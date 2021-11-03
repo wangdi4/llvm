@@ -21,13 +21,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 
-//unsigned counter = 0;
-//int getIntEnvVarVal (const char *varName){
-//  char *envVar;
-//  envVar = getenv(varName);
-//  return atoi(envVar);
-//}
-
 #define DEBUG_TYPE "cl-loop-stride"
 
 namespace intel {

@@ -264,10 +264,10 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   }
 
 #ifndef INTEL_PRODUCT_RELEASE
-  llvm::StringRef intermediateType(getenv("OCL_INTERMEDIATE"));
-  if (intermediateType.equals("SPIRV")) {
+  std::string IntermediateType;
+  Intel::OpenCL::Utils::getEnvVar(IntermediateType, "OCL_INTERMEDIATE");
+  if (IntermediateType == "SPIRV")
     optionsEx << " -emit-spirv";
-  }
 #endif // INTEL_PRODUCT_RELEASE
 
   // Reallocate headers to include another one
@@ -301,7 +301,9 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
                       spBinaryResult.getOutPtr());
 
 #ifdef OCLFRONTEND_PLUGINS
-  if (getenv("OCLBACKEND_PLUGINS") && getenv("OCL_DISABLE_SOURCE_RECORDER")) {
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "OCLBACKEND_PLUGINS") &&
+      Intel::OpenCL::Utils::getEnvVar(Env, "OCL_DISABLE_SOURCE_RECORDER")) {
     Intel::OpenCL::Frontend::CompileData compileData;
     Intel::OpenCL::Frontend::SourceFile sourceFile =
         createSourceFile(m_pProgDesc->pProgramSource, m_pProgDesc->pszOptions,

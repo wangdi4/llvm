@@ -15,6 +15,7 @@
 #ifdef _WIN32
 
 #include "test_pipe_thread.h"
+#include "cl_env.h"
 #include "host_program_common.h"
 
 NamedPipeThread::NamedPipeThread()
@@ -22,11 +23,10 @@ NamedPipeThread::NamedPipeThread()
     pipe = NULL;
 
     // Read Port string
-    portNumber = getenv ("CL_CONFIG_DBG_PORT_NUMBER");
-    if (portNumber == NULL)
-    {
-        DTT_LOG("failed to read the port number from the environment variable, the test will probably fail");
-    }
+    if (!Intel::OpenCL::Utils::getEnvVar(portNumber,
+                                         "CL_CONFIG_DBG_PORT_NUMBER"))
+      DTT_LOG("failed to read the port number from the environment variable, "
+              "the test will probably fail");
 
     wstring pipeNameString(L"\\\\.\\pipe\\INTEL_OCL_DBG_PIPE" + to_wstring(GetCurrentProcessId()));
 
@@ -63,8 +63,7 @@ RETURN_TYPE_ENTRY_POINT NamedPipeThread::Run()
     }
 
     // Create the data string
-    string portString(portNumber);
-    string dataString = "1;" + portString;
+    string dataString = "1;" + portNumber;
 
     // This call blocks until a client process reads all the data
     DWORD numBytesWritten = 0;

@@ -660,15 +660,9 @@ TEST(FrameworkTestType, Test_clGetCommandQueueInfo)
     clGetCommandQueueInfo();
 }
 
-#ifndef _WIN32
-// For windows, framework_test_type is directly linked against intelocl*.dll,
-// setenv in tests application has no effect on intelocl*.dll. This will cause
-// this test to fail again and again. So, we need to disable this test on
-// windows.
 TEST(FrameworkTestType, Test_passBuildOptionByEnvTest) {
     passBuildOptionByEnvTest();
 }
-#endif
 
 TEST(FrameworkTestType, Test_UniformWorkGroupTest)
 {

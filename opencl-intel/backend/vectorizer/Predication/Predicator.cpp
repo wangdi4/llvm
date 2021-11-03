@@ -15,14 +15,15 @@
 #define DEBUG_TYPE "predicate"
 #include "Predicator.h"
 #include "CompilationUtils.h"
-#include "VectorizerUtils.h"
-#include "Specializer.h"
-#include "Linearizer.h"
-#include "Mangler.h"
-#include "Logger.h"
-#include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "Linearizer.h"
+#include "Logger.h"
+#include "Mangler.h"
 #include "OCLAddressSpace.h"
+#include "OCLPassSupport.h"
+#include "Specializer.h"
+#include "VectorizerUtils.h"
+#include "cl_env.h"
 
 #include "llvm/Pass.h"
 #include "llvm/InitializePasses.h"
@@ -3188,7 +3189,9 @@ bool Predicator::blockHasLoadStore(BasicBlock* BB) {
 void Predicator::calculateHeuristic(Function* F) {
 #ifndef NDEBUG
   // if desired, turn off allones by not marking any blocks to be bypassed.
-  if (getenv("all-ones-off") || getenv("all_ones_off")) {
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "all-ones-off") ||
+      Intel::OpenCL::Utils::getEnvVar(Env, "all_ones_off")) {
     return;
   }
 #endif

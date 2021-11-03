@@ -1440,9 +1440,11 @@ cl_int CL_API_CALL clBuildProgram(cl_program           program,
 					  void *               user_data)
 {
     std::string Options(options ? options : "");
-    if (const char *env = getenv("OPENCL_PROGRAM_COMPILE_OPTIONS")) {
-        Options += ' ';
-        Options += env;
+    std::string Env;
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "OPENCL_PROGRAM_COMPILE_OPTIONS")) {
+      Options += ' ';
+      Options += Env;
     }
     const char* BuildOptions = Options.c_str();
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -2744,9 +2746,11 @@ cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     void *user_data)
 {
     std::string Options(options ? options : "");
-    if (const char *env = getenv("OPENCL_PROGRAM_COMPILE_OPTIONS")) {
-        Options += ' ';
-        Options += env;
+    std::string Env;
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "OPENCL_PROGRAM_COMPILE_OPTIONS")) {
+      Options += ' ';
+      Options += Env;
     }
     const char* BuildOptions = Options.c_str();
     if (g_pUserLogger->IsApiLoggingEnabled())

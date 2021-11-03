@@ -21,6 +21,7 @@
 #include "OptimizerLTOLegacyPM.h"
 #include "VecConfig.h"
 #include "cl_config.h"
+#include "cl_env.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "exceptions.h"
@@ -304,15 +305,16 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
+    std::string Env;
 #ifndef NDEBUG
-    if (getenv("VOLCANO_COMPILER_DEBUG")) {
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_COMPILER_DEBUG")) {
       args.push_back("-print-after-all");
       args.push_back("-print-before-all");
       args.push_back("-debug");
     }
 #endif
 
-    if (!getenv("DISABLE_INFER_AS")) {
+    if (!Intel::OpenCL::Utils::getEnvVar(Env, "DISABLE_INFER_AS")) {
       args.push_back("-override-flat-addr-space=4");
       args.push_back("-infer-as-rewrite-opencl-bis");
     }

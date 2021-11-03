@@ -26,7 +26,7 @@ class NamedPipeThread: public OclThread
 {
 public:
     HANDLE pipe;
-    char* portNumber;
+    std::string portNumber;
 
     NamedPipeThread();
 

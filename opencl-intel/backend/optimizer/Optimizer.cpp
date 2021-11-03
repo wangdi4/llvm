@@ -406,7 +406,9 @@ static void populatePassesPreFailCheck(
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
   }
-  if (getenv("DISMPF") != nullptr || intel::Statistic::isEnabled())
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "DISMPF") ||
+      intel::Statistic::isEnabled())
     PM.add(createRemovePrefetchPass());
 
   PM.add(llvm::createBuiltinCallToInstLegacyPass());
@@ -509,7 +511,8 @@ static void populatePassesPostFailCheck(
   // engine of LLDJIT from MCJIT to LLJIT, or when Advisor can happily work
   // with MCJIT.
 #ifdef _WIN32
-  const char *NoDbgCbkEnv = getenv("CL_CONFIG_CPU_NO_DBG_CBK");
+  std::string NoDbgCbkEnv;
+  Intel::OpenCL::Utils::getEnvVar(NoDbgCbkEnv, "CL_CONFIG_CPU_NO_DBG_CBK");
   bool NoDbgCbk =
       Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(NoDbgCbkEnv);
 #else

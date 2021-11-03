@@ -34,6 +34,7 @@
 #include <cassert>
 
 #include "OpenCLStamp.h"
+#include "cl_env.h"
 
 using namespace Validation;
 using std::string;
@@ -201,10 +202,10 @@ void SATest::ValidateEnvironment()
     // fail if environment variable OCLBACKEND_PLUGINS is enabled
     // this will cause improper functionality of Volcano backend 
     // Variable string is defined in trunk/src/backend/ocl_cpu_backend/plugin_manager.cpp
-    if(NULL != getenv("OCLBACKEND_PLUGINS"))
-    {
-        throw Exception::InvalidArgument(
-            "Environment variable OCLBACKEND_PLUGINS exists. "
-            "For correct SATest functionality please remove it.");
+    std::string Env;
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "OCLBACKEND_PLUGINS")) {
+      throw Exception::InvalidArgument(
+          "Environment variable OCLBACKEND_PLUGINS exists. "
+          "For correct SATest functionality please remove it.");
     }
 }

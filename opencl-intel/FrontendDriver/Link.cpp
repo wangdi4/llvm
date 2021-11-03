@@ -12,10 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "cache_binary_handler.h"
-#include "elf_binary.h"
-#include "FrontendResultImpl.h"
 #include "Link.h"
+#include "FrontendResultImpl.h"
+#include "cache_binary_handler.h"
+#include "cl_env.h"
+#include "elf_binary.h"
 
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -358,7 +359,9 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
   }
 
 #ifdef OCLFRONTEND_PLUGINS
-  if (getenv("OCLBACKEND_PLUGINS") && getenv("OCL_DISABLE_SOURCE_RECORDER")) {
+  std::string Env;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "OCLBACKEND_PLUGINS") &&
+      Intel::OpenCL::Utils::getEnvVar(Env, "OCL_DISABLE_SOURCE_RECORDER")) {
     Intel::OpenCL::Frontend::LinkData linkData;
 
     for (unsigned int i = 0; i < m_Binaries.size(); ++i) {
