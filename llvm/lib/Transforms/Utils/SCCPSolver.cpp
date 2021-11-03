@@ -1069,7 +1069,7 @@ static ArrayType *getArrayFromPointerCast(Value *VPtr) {
 
   PointerType *ArrPtr =
       dyn_cast<PointerType>(VPtr->stripPointerCasts()->getType());
-  if (!ArrPtr)
+  if (!ArrPtr || ArrPtr->isOpaque())
     return nullptr;
 
   return dyn_cast<ArrayType>(ArrPtr->getElementType());
@@ -1096,7 +1096,7 @@ static bool isCastingNeeded(Value *ArrayVal, Value *PtrVal) {
     return false;
 
   auto *PtrTy = dyn_cast<PointerType>(PtrValTy);
-  if (!PtrTy)
+  if (!PtrTy || PtrTy->isOpaque())
     return false;
 
   auto *ElemType = PtrTy->getElementType();
