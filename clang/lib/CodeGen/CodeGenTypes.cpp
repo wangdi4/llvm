@@ -51,23 +51,20 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   SmallString<256> TypeName;
   llvm::raw_svector_ostream OS(TypeName);
   OS << RD->getKindName() << '.';
-  // NOTE: The following block of code is copied from CLANG-3.6 with
-  // support of OpenCLCPlusPlus. It is rather the temporary solution
-  // that is going to be used until the general solution is ported/developed
-  // in the latest llvm trunk.
-  //
-  // For SYCL, the mangled type name is attached, so it can be
-  // reflown to proper name later.
+
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // For DTrans info emission, these mangling names are useful for merging
-  // struct types, so do it for DTrans Info emission as well.
+  // struct types, so emit these as a part of the struct name.
   if (getCodeGenOpts().EmitDTransInfo) {
-#endif // INTEL_CUSTOMIZATION
     std::unique_ptr<MangleContext> MC(getContext().createMangleContext());
     auto RDT = getContext().getRecordType(RD);
     MC->mangleCXXRTTIName(RDT, OS);
     OS << ".";
   }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // FIXME: We probably want to make more tweaks to the printing policy. For
   // example, we should probably enable PrintCanonicalTypes and
   // FullyQualifiedNames.
@@ -396,12 +393,14 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   if (FunctionsBeingProcessed.count(FI)) {
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     if (getCodeGenOpts().EmitDTransInfo)
       ResultType =
           llvm::StructType::create(getLLVMContext(), "__Intel$Empty$Struct");
     else
-      ResultType = llvm::StructType::get(getLLVMContext());
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+    ResultType = llvm::StructType::get(getLLVMContext());
     SkippedLayout = true;
   } else {
 
@@ -865,7 +864,11 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   if (!Entry) {
     Entry = llvm::StructType::create(getLLVMContext());
     addRecordTypeName(RD, Entry, "");
-    CGM.addDTransType(RD, Entry); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    CGM.addDTransType(RD, Entry);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   }
   llvm::StructType *Ty = Entry;
 

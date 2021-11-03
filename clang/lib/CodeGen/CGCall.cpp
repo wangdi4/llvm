@@ -1615,6 +1615,7 @@ bool CodeGenModule::ReturnTypeUsesFP2Ret(QualType ResultType) {
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 // Helper function to figure out the types for a struct or union passed via
 // llvm types.  Figures out the 'Effective Types", that is, ones from the
 // clang-type that end up getting translated to the IR type.
@@ -1902,6 +1903,14 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(GlobalDecl GD,
 }
 llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
                                                   DTransFuncInfo *DFI) {
+#else // INTEL_FEATURE_SW_DTRANS
+llvm::FunctionType *CodeGenTypes::GetFunctionType(GlobalDecl GD) {
+  const CGFunctionInfo &FI = arrangeGlobalDeclaration(GD);
+  return GetFunctionType(FI);
+}
+
+llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   bool Inserted = FunctionsBeingProcessed.insert(&FI).second;
@@ -1942,7 +1951,9 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
     break;
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   addToDTransFuncInfo(*this, CGM, DFI, resultType, FI.getReturnType(), retAI);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI, true);
@@ -1957,9 +1968,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
         llvm::PointerType::get(Ty, AddressSpace);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     addSRetToDTransFuncInfo(*this, DFI, Ret,
                             ArgTypes[IRFunctionArgs.getSRetArgNo()],
                             IRFunctionArgs.getSRetArgNo());
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1969,10 +1982,12 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
     assert(ArgStruct);
     ArgTypes[IRFunctionArgs.getInallocaArgNo()] = ArgStruct->getPointerTo();
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     QualType Ret = FI.getReturnType();
     addInallocaToDTransFuncInfo(*this, CGM, DFI, ArgStruct,
                                 ArgTypes[IRFunctionArgs.getInallocaArgNo()],
                                 IRFunctionArgs.getInallocaArgNo(), Ret);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -2008,9 +2023,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
           CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2019,9 +2036,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
       llvm::Type *LTy = ConvertTypeForMem(it->type);
       ArgTypes[FirstIRArg] = LTy->getPointerTo(ArgInfo.getIndirectAddrSpace());
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2040,8 +2059,10 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
         ArgTypes[FirstIRArg] = argType;
       }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type, argType, ArgTypes,
                           FirstIRArg, NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2053,9 +2074,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
       }
       assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -2065,9 +2088,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI,
       getExpandedTypes(it->type, ArgTypesIter);
       assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
                           ArgTypes[FirstIRArg], ArgTypes, FirstIRArg,
                           NumIRArgs);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
     }
@@ -5868,8 +5893,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                     llvm::MDNode::get(getLLVMContext(), ArgsNoAliasScopes));
   }
 
+#if INTEL_FEATURE_SW_DTRANS
   if (!CI->getCalledFunction())
     CI = CGM.addDTransIndirectCallInfo(CI, CallInfo);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // 4. Finish the call.

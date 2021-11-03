@@ -292,7 +292,11 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
     setTLSMode(GV, D);
 
   setGVProperties(GV, &D);
-  GV = addDTransInfoToGlobal(&D, GV, LTy); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  GV = addDTransInfoToGlobal(&D, GV, LTy);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Make sure the result is of the correct type.
   LangAS ExpectedAS = Ty.getAddressSpace();
@@ -1201,7 +1205,11 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
         Constant, Name, InsertBefore, llvm::GlobalValue::NotThreadLocal, AS);
     GV->setAlignment(Align.getAsAlign());
     GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-    GV = addDTransInfoToGlobal(&D, GV, Ty); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    GV = addDTransInfoToGlobal(&D, GV, Ty);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     CacheEntry = GV;
   } else if (CacheEntry->getAlignment() < uint64_t(Align.getQuantity())) {
     CacheEntry->setAlignment(Align.getAsAlign());
@@ -1660,7 +1668,11 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   }
 
   setAddrOfLocalVar(&D, address);
-  address = CGM.addDTransInfoToMemTemp(Ty, address); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  address = CGM.addDTransInfoToMemTemp(Ty, address);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   emission.Addr = address;
   emission.AllocaAddr = AllocaAddr;
 

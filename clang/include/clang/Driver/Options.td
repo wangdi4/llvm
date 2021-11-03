@@ -5927,7 +5927,7 @@ def fuse_ctor_homing: Flag<["-"], "fuse-ctor-homing">,
     HelpText<"Use constructor homing if we are using limited debug info already">;
 }
 
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def disable_intel_proprietary_opts : Flag<["-"],
   "disable-intel-proprietary-opts">,
   HelpText<"Disable Intel proprietary optimizations">,
@@ -5936,6 +5936,7 @@ def disable_cpudispatch_ifuncs : Flag<["-"], "disable-cpudispatch-ifuncs">,
   HelpText<"Forces cpu_dispatch resolver generation to not use ifuncs on ELF "
            "systems">,
   MarshallingInfoFlag<CodeGenOpts<"DisableCpuDispatchIFuncs">>;
+#if INTEL_FEATURE_SW_DTRANS
 def emit_dtrans_info : Flag<["-"], "emit-dtrans-info">,
   HelpText<"Causes the frontend to emit DTrans Type metadata">,
   MarshallingInfoFlag<CodeGenOpts<"EmitDTransInfo">>;
@@ -5944,7 +5945,8 @@ def disable_dtrans_asserts
       HelpText<"Disables assert checking for dtrans asserts that are suspected "
                "to cause blocking regression">,
       MarshallingInfoFlag<CodeGenOpts<"DisableDTransAsserts">>;
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
   HelpText<"Don't run the LLVM IR verifier pass">,
