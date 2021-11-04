@@ -1037,6 +1037,14 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       C.back()->setIsByRef(true);
     if (IsConditional)
       C.back()->setIsConditional(true);
+#if INTEL_CUSTOMIZATION
+    if (!CurrentBundleDDRefs.empty() &&
+        WRegionUtils::supportsRegDDRefs(ClauseID))
+      C.back()->setHOrig(CurrentBundleDDRefs[0]);
+    if (ClauseInfo.getIsF90DopeVector())
+      C.back()->setIsF90DopeVector(true);
+    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
+#endif // INTEL_CUSTOMIZATION
   } else { // non-Typed PODs
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
