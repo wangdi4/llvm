@@ -27,6 +27,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h" // INTEL
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
@@ -347,16 +348,38 @@ unsigned Clusterify(CaseVector &Cases, SwitchInst *SI) {
 /// insts in a balanced binary search.
 void ProcessSwitchInst(SwitchInst *SI,
                        SmallPtrSetImpl<BasicBlock *> &DeleteList,
-                       AssumptionCache *AC, LazyValueInfo *LVI) {
+                       AssumptionCache *AC, LazyValueInfo *LVI,
+                       DominatorTree *DT) { // INTEL
   BasicBlock *OrigBlock = SI->getParent();
   Function *F = OrigBlock->getParent();
   Value *Val = SI->getCondition();  // The value we are switching on...
   BasicBlock* Default = SI->getDefaultDest();
+#if INTEL_CUSTOMIZATION
+  // The basic blocks dominated by the original default block won't change.
+  // So we query the descendants of the default block in the dominator tree
+  // before processing the switch instruction.
+  SmallVector<BasicBlock *, 2> BBDominatedByOrigDefault;
+  DT->getDescendants(Default, BBDominatedByOrigDefault);
+
+  // This helper function is supposed to be called after switch processing is
+  // done.
+  // 1. The SwitchInst SI will be erased.
+  // 2. DT will be rebuilt to check whether the original default block become
+  //    unreachable from entry. If so, add the OrigDefault and its dominatees
+  //    to the DeleteList.
+  auto EraseSwitchInstAndDeleteOrigDefaultIfUnreachable = [&]() {
+    BasicBlock *OrigDefault = SI->getDefaultDest();
+    SI->eraseFromParent();
+    DT->recalculate(*OrigBlock->getParent());
+    if (!DT->isReachableFromEntry(OrigDefault))
+      DeleteList.insert(BBDominatedByOrigDefault.begin(),
+                        BBDominatedByOrigDefault.end());
+  };
+#endif // INTEL_CUSTOMIZATION
 
   // Don't handle unreachable blocks. If there are successors with phis, this
   // would leave them behind with missing predecessors.
-  if ((OrigBlock != &F->getEntryBlock() && pred_empty(OrigBlock)) ||
-      OrigBlock->getSinglePredecessor() == OrigBlock) {
+  if (!DT->isReachableFromEntry(OrigBlock)) { // INTEL
     DeleteList.insert(OrigBlock);
     return;
   }
@@ -483,11 +506,13 @@ void ProcessSwitchInst(SwitchInst *SI,
     // If there are no cases left, just branch.
     if (Cases.empty()) {
       BranchInst::Create(Default, OrigBlock);
-      SI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
       // As all the cases have been replaced with a single branch, only keep
       // one entry in the PHI nodes.
       for (unsigned I = 0 ; I < (MaxPop - 1) ; ++I)
         PopSucc->removePredecessor(OrigBlock);
+      EraseSwitchInstAndDeleteOrigDefaultIfUnreachable();
+#endif // INTEL_CUSTOMIZATION
       return;
     }
 
@@ -515,15 +540,13 @@ void ProcessSwitchInst(SwitchInst *SI,
   BranchInst::Create(SwitchBlock, OrigBlock);
 
   // We are now done with the switch instruction, delete it.
-  BasicBlock *OldDefault = SI->getDefaultDest();
-  OrigBlock->getInstList().erase(SI);
-
-  // If the Default block has no more predecessors just add it to DeleteList.
-  if (pred_empty(OldDefault))
-    DeleteList.insert(OldDefault);
+#if INTEL_CUSTOMIZATION
+  EraseSwitchInstAndDeleteOrigDefaultIfUnreachable();
+#endif // INTEL_CUSTOMIZATION
 }
 
-bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC) {
+bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC,
+                 DominatorTree *DT) { // INTEL
   bool Changed = false;
   SmallPtrSet<BasicBlock *, 8> DeleteList;
 
@@ -536,19 +559,15 @@ bool LowerSwitch(Function &F, LazyValueInfo *LVI, AssumptionCache *AC) {
 
     if (SwitchInst *SI = dyn_cast<SwitchInst>(Cur.getTerminator())) {
       Changed = true;
-      ProcessSwitchInst(SI, DeleteList, AC, LVI);
+      ProcessSwitchInst(SI, DeleteList, AC, LVI, DT); // INTEL
     }
   }
 
-  for (BasicBlock *BB : DeleteList) {
-    LVI->eraseBlock(BB);
-    DeleteDeadBlock(BB);
-  }
-
 #if INTEL_CUSTOMIZATION
-// Quick fix for the urgent issue CMPLRLLVM-32098.
-// The issue and final solution should be discussed later in the community.
-  Changed |= EliminateUnreachableBlocks(F);
+  for (auto *BB : DeleteList)
+    LVI->eraseBlock(BB);
+  SmallVector<BasicBlock *, 8> BBVec(DeleteList.begin(), DeleteList.end());
+  DeleteDeadBlocks(BBVec);
 #endif // INTEL_CUSTOMIZATION
 
   return Changed;
@@ -578,8 +597,11 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LazyValueInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<LazyValueInfoWrapperPass>();
 #endif // INTEL_CUSTOMIZATION
   }
 };
@@ -594,6 +616,7 @@ char &llvm::LowerSwitchID = LowerSwitchLegacyPass::ID;
 INITIALIZE_PASS_BEGIN(LowerSwitchLegacyPass, "lowerswitch",
                       "Lower SwitchInst's to branches", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
 INITIALIZE_PASS_END(LowerSwitchLegacyPass, "lowerswitch",
                     "Lower SwitchInst's to branches", false, false)
@@ -623,6 +646,7 @@ bool LowerSwitchLegacyPass::runOnFunction(Function &F) {
   auto *ACT = getAnalysisIfAvailable<AssumptionCacheTracker>();
   AssumptionCache *AC = ACT ? &ACT->getAssumptionCache(F) : nullptr;
 #if INTEL_CUSTOMIZATION
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   if (FnWithSIMDLoopOnly) {
     LLVM_DEBUG(dbgs() << "LowerSwitch: Required to run pass only for functions "
                          "with SIMD loops.\n");
@@ -631,8 +655,8 @@ bool LowerSwitchLegacyPass::runOnFunction(Function &F) {
     LLVM_DEBUG(
         dbgs() << "LowerSwitch: Function has SIMD loops, executing pass.\n");
   }
+  return LowerSwitch(F, LVI, AC, DT);
 #endif // INTEL_CUSTOMIZATION
-  return LowerSwitch(F, LVI, AC);
 }
 
 PreservedAnalyses LowerSwitchPass::run(Function &F,
@@ -640,6 +664,7 @@ PreservedAnalyses LowerSwitchPass::run(Function &F,
   LazyValueInfo *LVI = &AM.getResult<LazyValueAnalysis>(F);
   AssumptionCache *AC = AM.getCachedResult<AssumptionAnalysis>(F);
 #if INTEL_CUSTOMIZATION
+  DominatorTree *DT = &AM.getResult<DominatorTreeAnalysis>(F);
   if (FnWithSIMDLoopOnly) {
     LLVM_DEBUG(dbgs() << "LowerSwitch: Required to run pass only for functions "
                          "with SIMD loops.\n");
@@ -648,7 +673,11 @@ PreservedAnalyses LowerSwitchPass::run(Function &F,
     LLVM_DEBUG(
         dbgs() << "LowerSwitch: Function has SIMD loops, executing pass.\n");
   }
+  if (!LowerSwitch(F, LVI, AC, DT))
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<LazyValueAnalysis>();
+  return PA;
 #endif // INTEL_CUSTOMIZATION
-  return LowerSwitch(F, LVI, AC) ? PreservedAnalyses::none()
-                                 : PreservedAnalyses::all();
 }
