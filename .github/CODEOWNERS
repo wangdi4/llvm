@@ -201,27 +201,89 @@
 /llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
 
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
-/llvm/docs/Intel/VPO/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/include/llvm/Analysis/Intel_VectorVariant.h @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/include/llvm/Transforms/Vectorize/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/lib/Analysis/Intel_VectorVariant.cpp @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.cpp @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.cpp @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Utils/Intel_VecClone.cpp @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/lib/Transforms/Vectorize/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/test/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/test/Transforms/Intel_VecClone/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/test/Transforms/LoopVectorize/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/test/Transforms/Reassociate/Intel_addsub* @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/test/Transforms/SLPVectorizer/ @sguggill @hidekisaito @skozhukh @alexey-bataev
-/llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @hidekisaito @skozhukh @alexey-bataev
+/llvm/docs/Intel/VPO/ @sguggill @skozhukh @alexey-bataev
+/llvm/include/llvm/Analysis/Intel_VectorVariant.h @sguggill @skozhukh @alexey-bataev
+/llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh @alexey-bataev
+/llvm/lib/Analysis/Intel_VectorVariant.cpp @sguggill @skozhukh @alexey-bataev
+/llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh @alexey-bataev
+/llvm/lib/Transforms/Vectorize/ @sguggill @skozhukh @alexey-bataev
+/llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh @alexey-bataev
+/llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh @alexey-bataev
+/llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @skozhukh @alexey-bataev
+
+# VPO vectorizer file based code owner overrides
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVolcanoOpenCL.h @turinevgeny @kmitropo
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp @skozhukh @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.h @skozhukh @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAllZeroBypass.cpp @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAllZeroBypass.h @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCallVecDecisions.cpp @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCallVecDecisions.h @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCFGMerger.cpp @skozhukh @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.cpp @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.cpp @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.h @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDivergenceAnalysis.h @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanEvaluator.cpp @skozhukh @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanEvaluator.h @skozhukh @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanFunctionVectorizer.cpp @aelovikov-intel @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLCSSA.cpp @aelovikov-intel @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLCSSA.h @aelovikov-intel @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.cpp @mamasten @kmitropo
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.h @mamasten @kmitropo
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp @kmitropo @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.h @kmitropo @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.cpp @ivankelarev @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.h @ivankelarev @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.cpp @kmitropo @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.h @kmitropo @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.h @karthik-senthil @ivankelarev
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.inc @karthik-senthil @ivankelarev
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp @kmitropo @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.cpp @aelovikov-intel @mamasten @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.h @aelovikov-intel @mamasten @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.cpp @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.h @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.cpp @karthik-senthil @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.h @karthik-senthil @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSyncDependenceAnalysis.h @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanTTIWrapper.cpp @offsake @turinevgeny
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanTTIWrapper.h @offsake @turinevgeny
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVConflictTransformation.cpp @kmitropo @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVConflictTransformation.h @kmitropo @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp @ivankelarev @kmitropo @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.h @ivankelarev @kmitropo @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorShape.cpp @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorShape.h @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSAnalysis.cpp @aelovikov-intel @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSAnalysis.h @aelovikov-intel @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.cpp @aelovikov-intel @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.h @aelovikov-intel @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.cpp @aelovikov-intel @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.h @aelovikov-intel @skozhukh @sguggill @karthik-senthil
+
+/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h @mamasten @kmitropo @turinevgeny @skozhukh
+/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h @mamasten @kmitropo @turinevgeny @skozhukh
+/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.cpp @mamasten @kmitropo @turinevgeny @skozhukh
+/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.cpp @mamasten @kmitropo @turinevgeny @skozhukh
+/llvm/test/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone/ @mamasten @kmitropo @turinevgeny @skozhukh
+
+/llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @mamasten @kmitropo @turinevgeny @skozhukh
+/llvm/lib/Transforms/Utils/Intel_VecClone.cpp @mamasten @kmitropo @turinevgeny @skozhukh
+/llvm/test/Transforms/Intel_VecClone/ @mamasten @kmitropo @turinevgeny @skozhukh
+
+/llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @alexey-bataev @valerydmit
+/llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @alexey-bataev @valerydmit
+/llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp @alexey-bataev @valerydmit
+/llvm/include/llvm/Transforms/Vectorize/SLPVectorizer.h @alexey-bataev @valerydmit
+/llvm/test/Transforms/SLPVectorizer/ @alexey-bataev @valerydmit
+/llvm/test/Transforms/Reassociate/Intel_addsub* @alexey-bataev @valerydmit
+
+/llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil 
+/llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 
 # JIRA: CMPLRLLVM->Cmake
 **/CMakeLists.txt* @tcreech-intel @vzakhari
