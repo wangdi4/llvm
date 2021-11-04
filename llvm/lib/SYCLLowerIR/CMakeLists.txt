@@ -19,7 +19,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
     #     Wrap arg_size for call instructions
     set(LLVMGenXIntrinsics_GIT_TAG 6a7e93d3d90638b6565d97cef96ffaf0f77d688c)
 
-<<<<<<< HEAD
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
       # GIT_REPO_PATH and GIT_REPO_TAG set independently depending on build
@@ -38,13 +37,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
-=======
-    set( LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource )
-    set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
-    set( LLVMGenXIntrinsics_GIT_TAG dpcpp_staging )
-
-    if( INTEL_CUSTOMIZATION )
->>>>>>> 6f51184e77e683a7beb09502f9ce069ece159b51
 # INTEL_FEATURE_ESIMD_EMBARGO
       is_intel_feature_enabled(IS_INTERNAL_ESIMD_BUILD ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
 
