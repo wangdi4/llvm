@@ -73,8 +73,10 @@ endif()
 # end INTEL_CUSTOMIZATION
 
 target_link_libraries(XPTIFWUnitTests PRIVATE
-  # gtest INTEL_CUSTOMIZATION
-  # gtest_main INTEL_CUSTOMIZATION
+  gtest
+  LLVMSupport # INTEL
+  gtest_main
+
   xptifw
   ${SUPPORT_LIB}
 )
