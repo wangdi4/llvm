@@ -59,10 +59,6 @@ target_link_libraries(XPTIFWUnitTests PRIVATE
   gtest
   LLVMSupport # INTEL
   gtest_main
-<<<<<<< HEAD
-
-=======
->>>>>>> c35dbbfc2146df3bb6a5c5f22f9fa966e963ca1f
   xptifw
   ${SUPPORT_LIB}
 )
