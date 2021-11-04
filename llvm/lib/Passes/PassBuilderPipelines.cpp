@@ -2083,17 +2083,12 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   //        this may need to be revisited once GVN is more powerful.
   LPM.addPass(LoopDeletionPass());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
-<<<<<<< HEAD
-      LoopRotatePass(Level != OptimizationLevel::Oz, LTOPreLink),
-      /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/false));
+      std::move(LPM), /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/false));
 #if INTEL_CUSTOMIZATION
   if (!PrepareForLTO)
     addLoopOptAndAssociatedVPOPasses(MPM, OptimizePM, Level, false);
 #endif // INTEL_CUSTOMIZATION
-=======
-      std::move(LPM), /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/false));
 
->>>>>>> 9c2469c1ddb34517de8dafd83d1940deada3fc22
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.  This is
   // currently only performed for loops marked with the metadata
