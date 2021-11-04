@@ -3002,11 +3002,16 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
 
   int64_t OrigDenom = IndexCE->getDenominator();
 
-  *ElemTy = RI.findPhiElementType(Phi);
+  auto *FoundElemTy = RI.findPhiElementType(Phi);
 
-  if (!*ElemTy) {
+  // Give up if there is a mismatch between known element type passed in by the
+  // caller and element type found by tracing phi operands. This can happen with
+  // opaque ptrs.
+  if (!FoundElemTy || (*ElemTy && (*ElemTy != FoundElemTy))) {
     return nullptr;
   }
+
+  *ElemTy = FoundElemTy;
 
   unsigned ElementSize = getCanonExprUtils().getTypeSizeInBytes(*ElemTy);
 
@@ -3967,8 +3972,9 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   do {
     const GEPOrSubsOperator *InitGEPOp = nullptr;
     CanonExpr *IndexCE = nullptr;
-    Type *ElemTy = nullptr;
     unsigned ElementSize = 0;
+    Type *ElemTy = GEPOp ? getBasePtrElementType(getBaseGEPOp(GEPOp)) : nullptr;
+
     auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
 
     if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
