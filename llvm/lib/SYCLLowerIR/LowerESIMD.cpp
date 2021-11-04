@@ -1443,7 +1443,7 @@ static void translateESIMDIntrinsicCall(CallInst &CI) {
                                                  GenXOverloadedTypes);
   }
 
-  Instruction *NewCI = CallInst::Create(
+  Instruction *NewCI = IntrinsicInst::Create(
       NewFDecl, GenXArgs,
       NewFDecl->getReturnType()->isVoidTy() ? "" : CI.getName() + ".esimd",
       &CI);
@@ -1696,7 +1696,7 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
 #if INTEL_FEATURE_ESIMD_EMBARGO
       if (Name.startswith("__esimd_nbarrier_init")) {
         translateNbarrierInit(*CI);
-        ESIMDToErases.push_back(CI);
+        ToErase.push_back(CI);
         continue;
       }
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
@@ -1762,7 +1762,7 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
 
       // Translate all uses of the load instruction from SPIRV builtin global.
       // Replaces the original global load and it is uses and stores the old
-      // instructions to ESIMDToErases.
+      // instructions to ToErase.
       translateSpirvGlobalUses(LI, SpirvGlobal->getName().drop_front(PrefLen),
                                ToErase);
     }
