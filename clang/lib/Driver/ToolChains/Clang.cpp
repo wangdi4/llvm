@@ -5174,7 +5174,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                 << A->getAsString(Args) << Value;
         }
         CmdArgs.push_back("-mllvm");
-        CmdArgs.push_back(Args.MakeArgString("-vplan-force-vf=" + Twine(SIMDLen)));
+        CmdArgs.push_back(Args.MakeArgString("-vplan-target-vf=" + Twine(SIMDLen)));
       }
       if (Args.hasArg(options::OPT_fopenmp_target_fast_atomics)) {
         CmdArgs.push_back("-mllvm");
