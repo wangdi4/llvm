@@ -52,8 +52,13 @@ static cl::opt<unsigned> VecThreshold(
     cl::init(100));
 #endif // INTEL_CUSTOMIZATION
 
-static cl::opt<unsigned> VPlanForceVF("vplan-force-vf", cl::init(0),
-                                      cl::desc("Force VPlan to use given VF"));
+static cl::opt<unsigned> VPlanForceVF(
+    "vplan-force-vf", cl::init(0),
+    cl::desc("Force VPlan to use given VF, for experimental purposes only."));
+
+static cl::opt<unsigned> VPlanTargetVF(
+    "vplan-target-vf", cl::init(0),
+    cl::desc("When simdlen is not set force VPlan to use given VF"));
 
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
@@ -239,7 +244,7 @@ unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
 
   if (VPlanForceVF)
     return VPlanForceVF;
-  return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : 0;
+  return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : VPlanTargetVF;
 }
 
 #if INTEL_CUSTOMIZATION
