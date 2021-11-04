@@ -28,15 +28,12 @@ if (NOT TARGET LLVMGenXIntrinsics)
   endif()
 
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
-<<<<<<< HEAD
-=======
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
 
     # Author: Aleksander Us <aleksander.us@intel.com>
     # Date:   Mon Oct 18 18:03:24 2021 +0000
     #     Wrap arg_size for call instructions
     set(LLVMGenXIntrinsics_GIT_TAG 6a7e93d3d90638b6565d97cef96ffaf0f77d688c)
->>>>>>> d6a6401366413769f0446736b3a4ebbe6c3d77b7
 
     set( LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource )
     set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
