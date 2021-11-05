@@ -12,15 +12,16 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "ImageCallbackLibrary.h"
 #include "BitCodeContainer.h"
 #include "CompilationUtils.h"
 #include "Compiler.h"
-#include "exceptions.h"
-#include "ImageCallbackLibrary.h"
 #include "LibraryProgramManager.h"
 #include "Program.h"
-#include "SystemInfo.h"
 #include "ServiceFactory.h"
+#include "SystemInfo.h"
+#include "cl_sys_info.h"
+#include "exceptions.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -135,7 +136,7 @@ std::string ImageCallbackLibrary::getLibraryBasename()
 {
     char szModuleName[MAX_PATH];
 
-    Utils::SystemInfo::GetModuleDirectory(szModuleName, MAX_PATH);
+    Intel::OpenCL::Utils::GetModuleDirectory(szModuleName, MAX_PATH);
 
     //Klocwork warning - false alarm the Id is always in correct bounds
     const char *pCPUPrefix = m_CpuId->GetCPUPrefix();

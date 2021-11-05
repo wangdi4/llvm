@@ -27,7 +27,6 @@ public:
   ~SystemInfo(void);
 
   static unsigned long long HostTime();
-  static void GetModuleDirectory(char* szModuleDir, size_t strLen);
 
   /// Get executable filename.
   static std::string GetExecutableFilename();

@@ -14,27 +14,28 @@
 
 #define NOMINMAX
 
-#include "cl_types.h"
-#include "cl_cpu_detect.h"
-#include "cpu_dev_limits.h"
-#include "Compiler.h"
 #include "ProgramBuilder.h"
-#include "Optimizer.h"
-#include "VecConfig.h"
-#include "Program.h"
+#include "BackendConfiguration.h"
+#include "BitCodeContainer.h"
+#include "BuiltinModuleManager.h"
+#include "BuiltinModules.h"
+#include "ChannelPipeUtils.h"
+#include "CompilationUtils.h"
+#include "Compiler.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "BuiltinModules.h"
-#include "exceptions.h"
-#include "BackendConfiguration.h"
-#include "BuiltinModuleManager.h"
-#include "BitCodeContainer.h"
-#include "CompilationUtils.h"
-#include "ObjectCodeContainer.h"
 #include "ObjectCodeCache.h"
+#include "ObjectCodeContainer.h"
 #include "OclTune.h"
-#include "ChannelPipeUtils.h"
+#include "Optimizer.h"
+#include "Program.h"
 #include "SystemInfo.h"
+#include "VecConfig.h"
+#include "cl_cpu_detect.h"
+#include "cl_sys_info.h"
+#include "cl_types.h"
+#include "cpu_dev_limits.h"
+#include "exceptions.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -581,7 +582,7 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
     Compiler *Cmplr = GetCompiler();
 
     char ModuleName[MAX_PATH];
-    Utils::SystemInfo::GetModuleDirectory(ModuleName, MAX_PATH);
+    Intel::OpenCL::Utils::GetModuleDirectory(ModuleName, MAX_PATH);
     std::string BaseName = std::string(ModuleName) + OCL_LIBRARY_TARGET_NAME;
     std::string CPUPrefix = Cmplr->GetCpuId()->GetCPUPrefix();
     std::string RtlFilePath = BaseName + OCL_OUTPUT_EXTENSION;

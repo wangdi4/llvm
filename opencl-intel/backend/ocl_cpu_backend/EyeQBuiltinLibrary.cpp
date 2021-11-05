@@ -13,8 +13,9 @@
 // License.
 
 #include "EyeQBuiltinLibrary.h"
-#include "exceptions.h"
 #include "SystemInfo.h"
+#include "cl_sys_info.h"
+#include "exceptions.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #if defined(_WIN32)
@@ -30,7 +31,7 @@ using namespace llvm;
 
 void EyeQBuiltinLibrary::Load() {
   char Path[MAX_PATH];
-  Utils::SystemInfo::GetModuleDirectory(Path, MAX_PATH);
+  Intel::OpenCL::Utils::GetModuleDirectory(Path, MAX_PATH);
   std::string PathStr(Path);
   PathStr += "eyeq_builtins";
 #if defined(_WIN32)

@@ -13,10 +13,11 @@
 // License.
 
 #include "CPUBuiltinLibrary.h"
-#include "exceptions.h"
 #include "SystemInfo.h"
-#include "llvm/Support/MemoryBuffer.h"
+#include "cl_sys_info.h"
+#include "exceptions.h"
 #include "llvm/Support/DynamicLibrary.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -33,7 +34,7 @@ using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 void CPUBuiltinLibrary::Load() {
   char Path[MAX_PATH];
-  Utils::SystemInfo::GetModuleDirectory(Path, MAX_PATH);
+  Intel::OpenCL::Utils::GetModuleDirectory(Path, MAX_PATH);
 
   // Klocwork warning - false alarm the Id is always in correct bounds
   const char *CPUPrefix = m_cpuId->GetCPUPrefix();
