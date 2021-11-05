@@ -14,7 +14,9 @@
 
 #include "BreakpointPrinter.h"
 #include "InitializeOCLPasses.hpp"
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_FEATURE_SW_DTRANS
 #include "NewPMDriver.h"
 #include "PassPrinters.h"
 #include "llvm/ADT/Triple.h"
