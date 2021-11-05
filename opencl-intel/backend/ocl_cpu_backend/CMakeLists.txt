@@ -271,7 +271,7 @@ set(LINK_LIBS
     CacheBinaryHandler
     CLElfLib
     emutls
-    fp_extend_trunc
+    soft_math
     ObjDump
     LLVMSPIRVLib
 )

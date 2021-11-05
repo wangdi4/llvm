@@ -1,4 +1,4 @@
-set(TARGET_NAME fp_extend_trunc)
+set(TARGET_NAME soft_math)
 
 set(TARGET_INCLUDE_FILES
   fp_extend.h
