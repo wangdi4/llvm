@@ -6093,12 +6093,6 @@ void OMPClauseWriter::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
-void OMPClauseWriter::VisitOMPBindClause(OMPBindClause *C) {
-  Record.push_back(unsigned(C->getBindKind()));
-  Record.AddSourceLocation(C->getLParenLoc());
-  Record.AddSourceLocation(C->getBindKindKwLoc());
-}
-
 void OMPClauseWriter::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   Record.AddStmt(C->getLevel());
@@ -6801,6 +6795,12 @@ void OMPClauseWriter::VisitOMPAffinityClause(OMPAffinityClause *C) {
   Record.AddSourceLocation(C->getColonLoc());
   for (Expr *E : C->varlists())
     Record.AddStmt(E);
+}
+
+void OMPClauseWriter::VisitOMPBindClause(OMPBindClause *C) {
+  Record.writeEnum(C->getBindKind());
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddSourceLocation(C->getBindKindLoc());
 }
 
 void ASTRecordWriter::writeOMPTraitInfo(const OMPTraitInfo *TI) {

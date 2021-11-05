@@ -1619,18 +1619,6 @@ public:
   }
 
 #if INTEL_COLLAB
-  /// Build a new OpenMP 'bind' clause.
-  ///
-  /// By default, performs semantic analysis to build the new OpenMP clause.
-  /// Subclasses may override this routine to provide different behavior.
-  OMPClause *RebuildOMPBindClause(BindKind Kind, SourceLocation KindKwLoc,
-                                  SourceLocation StartLoc,
-                                  SourceLocation LParenLoc,
-                                  SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPBindClause(Kind, KindKwLoc, StartLoc, LParenLoc,
-                                           EndLoc);
-  }
-
   /// Build a new OpenMP 'subdevice' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -2371,6 +2359,18 @@ public:
                                            EndLoc);
   }
 #endif // INTEL_COLLAB
+  /// Build a new OpenMP 'bind' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPBindClause(OpenMPBindClauseKind Kind,
+                                  SourceLocation KindLoc,
+                                  SourceLocation StartLoc,
+                                  SourceLocation LParenLoc,
+                                  SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPBindClause(Kind, KindLoc, StartLoc, LParenLoc,
+                                           EndLoc);
+  }
 
   /// Rebuild the operand to an Objective-C \@synchronized statement.
   ///
@@ -9468,14 +9468,6 @@ TreeTransform<Derived>::TransformOMPNumThreadsClause(OMPNumThreadsClause *C) {
 #if INTEL_COLLAB
 template <typename Derived>
 OMPClause *
-TreeTransform<Derived>::TransformOMPBindClause(OMPBindClause *C) {
-  return getDerived().RebuildOMPBindClause(
-      C->getBindKind(), C->getBindKindKwLoc(), C->getBeginLoc(),
-      C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
 TreeTransform<Derived>::TransformOMPSubdeviceClause(OMPSubdeviceClause *C) {
   ExprResult Level = getDerived().TransformExpr(C->getLevel());
   ExprResult Start = getDerived().TransformExpr(C->getStart());
@@ -10616,6 +10608,13 @@ OMPClause *TreeTransform<Derived>::TransformOMPOrderClause(OMPOrderClause *C) {
   return getDerived().RebuildOMPOrderClause(C->getKind(), C->getKindKwLoc(),
                                             C->getBeginLoc(), C->getLParenLoc(),
                                             C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *TreeTransform<Derived>::TransformOMPBindClause(OMPBindClause *C) {
+  return getDerived().RebuildOMPBindClause(
+      C->getBindKind(), C->getBindKindLoc(), C->getBeginLoc(),
+      C->getLParenLoc(), C->getEndLoc());
 }
 
 //===----------------------------------------------------------------------===//

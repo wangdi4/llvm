@@ -11741,9 +11741,6 @@ OMPClause *OMPClauseReader::readClause() {
     C = new (Context) OMPNumThreadsClause();
     break;
 #if INTEL_COLLAB
-  case llvm::omp::OMPC_bind:
-    C = new (Context) OMPBindClause();
-    break;
   case llvm::omp::OMPC_subdevice:
     C = new (Context) OMPSubdeviceClause();
     break;
@@ -12038,6 +12035,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_filter:
     C = new (Context) OMPFilterClause();
     break;
+  case llvm::omp::OMPC_bind:
+    C = OMPBindClause::CreateEmpty(Context);
+    break;
 #define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
   case llvm::omp::Enum:                                                        \
     break;
@@ -12086,12 +12086,6 @@ void OMPClauseReader::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
-void OMPClauseReader::VisitOMPBindClause(OMPBindClause *C) {
-  C->setBindKind(static_cast<llvm::omp::BindKind>(Record.readInt()));
-  C->setLParenLoc(Record.readSourceLocation());
-  C->setBindKindKwLoc(Record.readSourceLocation());
-}
-
 void OMPClauseReader::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   C->setLevel(Record.readSubExpr());
@@ -13078,6 +13072,12 @@ void OMPClauseReader::VisitOMPFilterClause(OMPFilterClause *C) {
   VisitOMPClauseWithPreInit(C);
   C->setThreadID(Record.readSubExpr());
   C->setLParenLoc(Record.readSourceLocation());
+}
+
+void OMPClauseReader::VisitOMPBindClause(OMPBindClause *C) {
+  C->setBindKind(Record.readEnum<OpenMPBindClauseKind>());
+  C->setLParenLoc(Record.readSourceLocation());
+  C->setBindKindLoc(Record.readSourceLocation());
 }
 
 OMPTraitInfo *ASTRecordReader::readOMPTraitInfo() {

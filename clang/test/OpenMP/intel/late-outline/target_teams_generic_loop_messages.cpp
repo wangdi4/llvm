@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline %s -Wuninitialized -verify
+// RUN: %clang_cc1 -fopenmp -fopenmp-version=50 -fopenmp-late-outline %s -Wuninitialized -verify
 
 int arr[100];
 void bar();
@@ -17,19 +17,5 @@ void foo()
   #pragma omp target teams loop bind(thread) lastprivate(z)
   for (i=0; i<1000; ++i) {
     z = i+11;
-  }
-
-  // The only constructs that may be nested inside a loop region are the loop
-  // construct, the parallel construct, the simd construct, and combined
-  // constructs for which the first construct is a parallel construct.
-
-  #pragma omp target teams loop bind(teams)
-  for (i=0; i<10; ++i) {
-
-    // expected-error@+1 {{region cannot be nested inside 'target teams loop' region}}
-    #pragma omp task
-    {
-      arr[i] = i+11;
-    }
   }
 }

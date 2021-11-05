@@ -334,9 +334,6 @@ def OMPC_UseDeviceAddr : Clause<"use_device_addr"> {
   let clangClass = "OMPUseDeviceAddrClause";
 }
 #if INTEL_COLLAB
-def OMPC_bind : Clause<"bind"> {
-  let clangClass = "OMPBindClause";
-}
 def OMPC_Subdevice : Clause<"subdevice"> {
   let clangClass = "OMPSubdeviceClause";
 }
@@ -395,6 +392,10 @@ def OMPC_Filter : Clause<"filter"> {
   let flangClass = "ScalarIntExpr";
 }
 def OMPC_When: Clause<"when"> {}
+
+def OMPC_Bind : Clause<"bind"> {
+  let clangClass = "OMPBindClause";
+}
 
 //===----------------------------------------------------------------------===//
 // Definition of OpenMP directives
@@ -1837,7 +1838,7 @@ def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
 }
 def OMP_teams_loop : Directive<"teams loop"> {
   let allowedClauses = [
-    VersionedClause<OMPC_bind>,
+    VersionedClause<OMPC_Bind>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_Private>,
@@ -1853,7 +1854,7 @@ def OMP_teams_loop : Directive<"teams loop"> {
 }
 def OMP_target_teams_loop : Directive<"target teams loop"> {
   let allowedClauses = [
-    VersionedClause<OMPC_bind>,
+    VersionedClause<OMPC_Bind>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_Private>,
@@ -1886,7 +1887,7 @@ def OMP_parallel_loop : Directive<"parallel loop"> {
     VersionedClause<OMPC_NumThreads>,
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_ProcBind>,
-    VersionedClause<OMPC_bind>,
+    VersionedClause<OMPC_Bind>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_Private>,
@@ -1907,7 +1908,7 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
     VersionedClause<OMPC_NumThreads>,
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_ProcBind>,
-    VersionedClause<OMPC_bind>,
+    VersionedClause<OMPC_Bind>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Order>,
     VersionedClause<OMPC_Private>,
@@ -1924,7 +1925,8 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
     VersionedClause<OMPC_NoWait>,
     VersionedClause<OMPC_Depend>,
     VersionedClause<OMPC_DefaultMap>,
-    VersionedClause<OMPC_IsDevicePtr>
+    VersionedClause<OMPC_IsDevicePtr>,
+    VersionedClause<OMPC_UsesAllocators, 50>
   ];
 }
 def OMP_prefetch : Directive<"prefetch"> {
@@ -2014,18 +2016,6 @@ def OMP_masked : Directive<"masked"> {
     VersionedClause<OMPC_Filter>
   ];
 }
-#if INTEL_COLLAB
-def OMP_loop : Directive<"loop"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_bind>,
-    VersionedClause<OMPC_Collapse>,
-    VersionedClause<OMPC_Order>,
-    VersionedClause<OMPC_Private>,
-    VersionedClause<OMPC_LastPrivate>,
-    VersionedClause<OMPC_Reduction>
-  ];
-}
-#else
 def OMP_loop : Directive<"loop"> {
   let allowedClauses = [
     VersionedClause<OMPC_LastPrivate>,
@@ -2033,11 +2023,11 @@ def OMP_loop : Directive<"loop"> {
     VersionedClause<OMPC_Reduction>,
   ];
   let allowedOnceClauses = [
+    VersionedClause<OMPC_Bind, 50>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Order>,
   ];
 }
-#endif // !INTEL_COLLAB
 def OMP_Metadirective : Directive<"metadirective"> {
   let allowedClauses = [VersionedClause<OMPC_When>];
   let allowedOnceClauses = [VersionedClause<OMPC_Default>];

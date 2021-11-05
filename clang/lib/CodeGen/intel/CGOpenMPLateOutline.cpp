@@ -2203,16 +2203,16 @@ void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
 void OpenMPLateOutliner::emitOMPBindClause(const OMPBindClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_bind);
   switch (Cl->getBindKind()) {
-  case OMP_BIND_teams:
+  case OMPC_BIND_teams:
     addArg("QUAL.OMP.BIND.TEAMS");
     break;
-  case OMP_BIND_parallel:
+  case OMPC_BIND_parallel:
     addArg("QUAL.OMP.BIND.PARALLEL");
     break;
-  case OMP_BIND_thread:
+  case OMPC_BIND_thread:
     addArg("QUAL.OMP.BIND.THREAD");
     break;
-  case OMP_BIND_unknown:
+  case OMPC_BIND_unknown:
     llvm_unreachable("Unknown bind clause");
   }
 }

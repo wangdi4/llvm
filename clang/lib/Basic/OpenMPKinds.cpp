@@ -64,13 +64,6 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OMP_DEFAULT_KIND(Enum, Name) .Case(Name, unsigned(Enum))
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
         .Default(unsigned(llvm::omp::OMP_DEFAULT_unknown));
-#if INTEL_COLLAB
-  case OMPC_bind:
-    return llvm::StringSwitch<unsigned>(Str)
-#define OMP_BIND_KIND(Enum, Name) .Case(Name, unsigned(Enum))
-#include "llvm/Frontend/OpenMP/OMPKinds.def"
-        .Default(unsigned(llvm::omp::OMP_BIND_unknown));
-#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     return llvm::StringSwitch<unsigned>(Str)
 #define OMP_PROC_BIND_KIND(Enum, Name, Value) .Case(Name, Value)
@@ -183,6 +176,11 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_ADJUST_ARGS_KIND(Name) .Case(#Name, OMPC_ADJUST_ARGS_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ADJUST_ARGS_unknown);
+  case OMPC_bind:
+    return llvm::StringSwitch<unsigned>(Str)
+#define OPENMP_BIND_KIND(Name) .Case(#Name, OMPC_BIND_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_BIND_unknown);
 #if INTEL_COLLAB
   case OMPC_ompx_places:
     return llvm::StringSwitch<OpenMPOmpxPlacesClauseModifier>(Str)
@@ -283,16 +281,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'default' clause type");
-#if INTEL_COLLAB
-  case OMPC_bind:
-    switch (llvm::omp::BindKind(Type)) {
-#define OMP_BIND_KIND(Enum, Name)                                              \
-  case Enum:                                                                   \
-    return Name;
-#include "llvm/Frontend/OpenMP/OMPKinds.def"
-    }
-    llvm_unreachable("Invalid OpenMP 'bind' clause type");
-#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     switch (Type) {
 #define OMP_PROC_BIND_KIND(Enum, Name, Value)                                  \
@@ -482,6 +470,16 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'adjust_args' clause kind");
+  case OMPC_bind:
+    switch (Type) {
+    case OMPC_BIND_unknown:
+      return "unknown";
+#define OPENMP_BIND_KIND(Name)                                                 \
+  case OMPC_BIND_##Name:                                                       \
+    return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'bind' clause type");
 #if INTEL_COLLAB
   case OMPC_ompx_places:
     switch (Type) {

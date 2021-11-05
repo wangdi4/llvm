@@ -1,13 +1,13 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=45 \
+// RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
 
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
-// RUN:  -include-pch %t -verify -fopenmp-version=45 \
+// RUN:  -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
-//RUN:  -emit-llvm-bc -disable-llvm-passes -fopenmp-version=45 \
+//RUN:  -emit-llvm-bc -disable-llvm-passes -fopenmp-version=50 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
@@ -16,7 +16,7 @@
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-version=45 \
+//RUN:  -fopenmp-late-outline -fopenmp-version=50 \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s -check-prefix TARG
@@ -87,6 +87,7 @@ void foo1() {
 
   #pragma omp target teams loop bind(teams) order(concurrent) private(z) \
                          num_teams(8) thread_limit(4)                    \
+                         uses_allocators(omp_default_mem_alloc)          \
                          shared(aaa) allocate(omp_default_mem_alloc:z)   \
                          if(1) device(0) map(tofrom:pr)                  \
                          lastprivate(i,j) collapse(2) reduction(+:x)

@@ -2227,8 +2227,6 @@ void OMPClauseEnqueue::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
-void OMPClauseEnqueue::VisitOMPBindClause(const OMPBindClause *C) {}
-
 void OMPClauseEnqueue::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getStart());
@@ -2641,6 +2639,8 @@ void OMPClauseEnqueue::VisitOMPAffinityClause(const OMPAffinityClause *C) {
   for (const Expr *E : C->varlists())
     Visitor->AddStmt(E);
 }
+void OMPClauseEnqueue::VisitOMPBindClause(const OMPBindClause *C) {}
+
 } // namespace
 
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {

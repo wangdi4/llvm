@@ -3138,11 +3138,6 @@ RecursiveASTVisitor<Derived>::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 
 #if INTEL_COLLAB
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPBindClause(OMPBindClause *C) {
-  return true;
-}
-
-template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   TRY_TO(VisitOMPClauseWithPreInit(C));
@@ -3787,6 +3782,11 @@ template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPFilterClause(OMPFilterClause *C) {
   TRY_TO(VisitOMPClauseWithPreInit(C));
   TRY_TO(TraverseStmt(C->getThreadID()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPBindClause(OMPBindClause *C) {
   return true;
 }
 

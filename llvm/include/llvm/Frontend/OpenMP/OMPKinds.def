@@ -1085,26 +1085,6 @@ __OMP_DEFAULT_KIND(unknown)
 ///}
 
 #if INTEL_COLLAB
-/// Bind kinds
-///
-///{
-
-#ifndef OMP_BIND_KIND
-#define OMP_BIND_KIND(Enum, Str)
-#endif
-
-#define __OMP_BIND_KIND(Name) OMP_BIND_KIND(OMP_BIND_##Name, #Name)
-
-__OMP_BIND_KIND(teams)
-__OMP_BIND_KIND(parallel)
-__OMP_BIND_KIND(thread)
-__OMP_BIND_KIND(unknown)
-
-#undef __OMP_BIND_KIND
-#undef OMP_BIND_KIND
-
-///}
-
 /// Supported Foreign Runtime Ids
 ///
 ///{
