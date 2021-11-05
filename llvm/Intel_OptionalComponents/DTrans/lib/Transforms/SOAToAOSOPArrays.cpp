@@ -171,6 +171,7 @@ public:
     size_t NumFields = S.StrType->getNumFields();
     for (size_t Idx = 0; Idx < NumFields; ++Idx) {
       DTransType *T = S.StrType->getFieldType(Idx);
+      assert(T && "Invalid DTrans structure type");
       if (auto *PT = dyn_cast<DTransPointerType>(T))
         if (PT->getPointerElementType() == S.ElementType) {
           // Replace base pointer
