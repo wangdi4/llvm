@@ -38,6 +38,9 @@
 // structures.
 #define SAFETY_VALUES "dtrans-safetyanalyzer-values"
 
+// Debug type for verbose field single alloc function analysis output.
+#define SAFETY_FSAF "dtrans-safety-analyzer-fsaf"
+
 using namespace llvm;
 using namespace dtransOP;
 
@@ -483,6 +486,14 @@ public:
           } else {
             updateFieldValueTracking(*StInfo, FI, I, ConstVal, &GV);
             CheckInitializerCompatibility(GV, FI.getDTransType(), ConstVal);
+          }
+          if (!isa<ConstantPointerNull>(ConstVal)) {
+            DEBUG_WITH_TYPE(SAFETY_FSAF, {
+              if (!FI.isBottomAllocFunction())
+                dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                       << I << "] <BOTTOM>\n";
+            });
+            FI.setBottomAllocFunction();
           }
         }
       } else if (auto *DTransArTy = dyn_cast<DTransArrayType>(DTy)) {
@@ -1452,8 +1463,10 @@ public:
 
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
-  void analyzeElementLoadOrStore(Instruction &I, ValueTypeInfo &PtrInfo,
+  void analyzeElementLoadOrStore(Instruction &I,
+                                 ValueTypeInfo &PtrInfo,
                                  ValueTypeInfo *ValInfo) {
+
     bool IsLoad = isa<LoadInst>(&I);
     Value *PtrOp = IsLoad ? cast<LoadInst>(&I)->getPointerOperand()
                           : cast<StoreInst>(&I)->getPointerOperand();
@@ -1523,7 +1536,6 @@ public:
           updateFieldFrequency(FI, I);
         }
       }
-
       if (auto *StTy = dyn_cast<DTransStructType>(ParentTy)) {
         dtrans::TypeInfo *ParentInfo = DTInfo.getTypeInfo(StTy);
         assert(ParentInfo &&
@@ -2024,6 +2036,21 @@ public:
       updateFieldValueTracking(StInfo, FI, FieldNum, ConstVal, &I);
     };
 
+    // Set FI to bottom alloc function if 'FI' is being assigned a constant
+    // value other than nullptr.
+    auto CheckWriteValue = [](Constant *ConstVal, dtrans::FieldInfo &FI,
+                              size_t FieldNum,
+                              dtrans::StructInfo *ParentStInfo) {
+      if (!isa<ConstantPointerNull>(ConstVal)) {
+        DEBUG_WITH_TYPE(SAFETY_FSAF, {
+          if (!FI.isBottomAllocFunction())
+            dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType()) << " ["
+                   << FieldNum << "] <BOTTOM>\n";
+        });
+        FI.setBottomAllocFunction();
+      }
+    };
+
     if (IsWholeStructure) {
       // Note: For a whole structure reference, DTrans does not fill in all
       // the field values for each field because we do not have any transforms
@@ -2057,7 +2084,39 @@ public:
     if (Descended || ForElementZeroAccess)
       FI.setNonGEPAccess();
 
-    // TODO: Update field single allocation function info, if needed
+    // Update field single allocation function info
+    if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
+      CheckWriteValue(ConstVal, FI, FieldNum, WrittenStInfo);
+    } else if (auto *Call = dyn_cast<CallBase>(WriteVal)) {
+      if (PTA.getAllocationCallKind(Call) != dtrans::AK_NotAlloc) {
+        Function *Callee = Call->getCalledFunction();
+        if (FI.processNewSingleAllocFunction(Callee)) {
+          DEBUG_WITH_TYPE(SAFETY_FSAF, {
+            dbgs() << "dtrans-fsaf: " << *(WrittenStInfo->getLLVMType())
+                   << " [" << FieldNum << "] ";
+            if (FI.isSingleAllocFunction())
+              Callee->printAsOperand(dbgs());
+            else
+              dbgs() << "<BOTTOM>";
+            dbgs() << "\n";
+          });
+        }
+      } else {
+        DEBUG_WITH_TYPE(SAFETY_FSAF, {
+          if (!FI.isBottomAllocFunction())
+            dbgs() << "dtrans-fsaf: " << *(WrittenStInfo->getLLVMType())
+                   << " [" << FieldNum << "] <BOTTOM>\n";
+        });
+        FI.setBottomAllocFunction();
+      }
+    } else {
+      DEBUG_WITH_TYPE(SAFETY_FSAF, {
+        if (!FI.isBottomAllocFunction())
+          dbgs() << "dtrans-fsaf: " << *(WrittenStInfo->getLLVMType())
+                 << " [" << FieldNum << "] <BOTTOM>\n";
+      });
+      FI.setBottomAllocFunction();
+    }
   }
 
   // If C is a Constant, add it to the list of values tracked for a field.
@@ -4745,6 +4804,12 @@ private:
         size_t Idx = Field.index();
         FI.setWritten(I);
         updateFieldFrequency(FI, I);
+        DEBUG_WITH_TYPE(SAFETY_FSAF, {
+          if (!FI.isBottomAllocFunction())
+            dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                   << Idx << "] <BOTTOM>\n";
+        });
+        FI.setBottomAllocFunction();
         if (WriteType != FWT_ExistingValue) {
           Constant *C = (WriteType == FWT_ZeroValue)
                             ? Constant::getNullValue(FI.getLLVMType())
@@ -5194,25 +5259,87 @@ DTransSafetyInfo::getStructInfo(llvm::StructType *STy) const {
   return StInfo;
 }
 
-bool DTransSafetyInfo::isPtrToStruct(Value *V) {
+DTransStructType *DTransSafetyInfo::getPtrToStructTy(Value *V) {
   auto *Info = getPtrTypeAnalyzer().getValueTypeInfo(V);
   if (!Info)
-    return false;
+    return nullptr;
   PtrTypeAnalyzer &PTA = getPtrTypeAnalyzer();
   DTransType* DTransTy = PTA.getDominantAggregateUsageType(*Info);
   if (!DTransTy || !DTransTy->isPointerTy())
-    return false;
-  return DTransTy->getPointerElementType()->isStructTy();
+    return nullptr;
+  return dyn_cast<DTransStructType>(DTransTy->getPointerElementType());
+}
+
+bool DTransSafetyInfo::isPtrToStruct(Value *V) {
+  return getPtrToStructTy(V);
+}
+
+DTransType *DTransSafetyInfo::getFieldTy(StructType *STy, unsigned Idx) {
+  if (Idx >= STy->getNumElements())
+    return nullptr;
+  dtrans::StructInfo *StInfo = getStructInfo(STy);
+  dtrans::FieldInfo &FI = StInfo->getField(Idx);
+  return FI.getDTransType();
+}
+
+DTransType *DTransSafetyInfo::getFieldPETy(StructType *STy, unsigned Idx) {
+  DTransType *DTFTy = getFieldTy(STy, Idx);
+  if (!DTFTy || !DTFTy->isPointerTy())
+    return nullptr;
+  return DTFTy->getPointerElementType();
 }
 
 bool DTransSafetyInfo::isFunctionPtr(StructType *STy, unsigned Idx) {
-  dtrans::StructInfo *StInfo = getStructInfo(STy);
-  dtrans::FieldInfo &FI = StInfo->getField(Idx);
-  DTransType *FTy = FI.getDTransType();
-  if (!FTy->isPointerTy())
+  DTransType *DTFPETy = getFieldPETy(STy, Idx);
+  return DTFPETy && DTFPETy->isFunctionTy();
+} 
+
+StructType *DTransSafetyInfo::getPtrToStructElementType(Value *V) {
+  DTransStructType *DTSTy = getPtrToStructTy(V);
+  if (!DTSTy)
+    return nullptr;
+  return dyn_cast_or_null<StructType>(DTSTy->getLLVMType());
+} 
+
+bool DTransSafetyInfo::isPtrToStructWithI8StarFieldAt(Value *V,
+                                                      unsigned StructIndex) {
+  DTransStructType *DTSTy = getPtrToStructTy(V);
+  if (!DTSTy || StructIndex >= DTSTy->getNumFields())
     return false;
-  DTransType *PEFTy = FTy->getPointerElementType();
-  return PEFTy->isFunctionTy();
+  DTransType *DTSFTy = DTSTy->getFieldType(StructIndex);
+  if (!DTSFTy || !DTSFTy->isPointerTy())
+    return false;
+  DTransType *DTSFPETy = DTSFTy->getPointerElementType();
+  if (!DTSFPETy || !DTSFPETy->isIntegerTy())
+    return false;
+  return DTSFPETy->getLLVMType()->isIntegerTy(8);
+}
+
+bool DTransSafetyInfo::isPtrToIntOrFloat(Value *V) {
+  PtrTypeAnalyzer &PTA = getPtrTypeAnalyzer();
+  auto *Info = PTA.getValueTypeInfo(V);
+  if (!Info)
+    return false;
+  return PTA.isPtrToIntOrFloat(*Info);
+}
+
+bool DTransSafetyInfo::hasPtrToIntOrFloatReturnType(Function *F) {
+  DTransType *FnTy = MDReader->getDTransTypeFromMD(F);
+  if (!FnTy)
+    return false;   
+  DTransType *DTy = cast<DTransFunctionType>(FnTy)->getReturnType();
+  if (!DTy || !DTy->isPointerTy())
+    return false;
+  DTransType *DPETy = DTy->getPointerElementType();
+  return DPETy && (DPETy->isIntegerTy() || DPETy->isFloatingPointTy());
+}
+
+bool DTransSafetyInfo::isPtrToIntOrFloat(dtrans::FieldInfo &FI) {
+  DTransType *DTy = FI.getDTransType();
+  if (!DTy || !DTy->isPointerTy())
+    return false;
+  DTransType *DPETy = DTy->getPointerElementType();
+  return DPETy && (DPETy->isIntegerTy() || DPETy->isFloatingPointTy());
 }
 
 void DTransSafetyInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
@@ -5477,11 +5604,22 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
     // - The type is an aggregate type. We keep values for individual fields,
     //   but not for an array or structure element as a whole.
     bool FSV_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleValue);
-    for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
+    bool FSAF_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction);
+    for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
       if (FSV_Unsafe ||
           (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()) ||
           StInfo->getField(I).getLLVMType()->isAggregateType())
         StInfo->getField(I).setMultipleValue();
+      if (FSAF_Unsafe ||
+          (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken())) {
+        DEBUG_WITH_TYPE(SAFETY_FSAF, {
+          if (!StInfo->getField(I).isBottomAllocFunction())
+            dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                   << I << "] <BOTTOM>\n";
+        });
+        StInfo->getField(I).setBottomAllocFunction();
+      }
+    }
   }
 }
 

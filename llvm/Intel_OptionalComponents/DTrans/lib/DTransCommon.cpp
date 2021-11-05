@@ -199,7 +199,9 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransSafetyAnalyzerWrapperPass(PR);
   initializeDTransImmutableAnalysisWrapperPass(PR);
   initializeDTransPaddedMallocWrapperPass(PR);
+  initializeDTransPaddedMallocOPWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
+  initializePaddedPtrPropOPWrapperPass(PR);
   initializeDTransResolveTypesWrapperPass(PR);
   initializeDTransSOAToAOSPrepareWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
@@ -357,8 +359,12 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
 
   if (!DTransOpaquePointerPipeline) {
     if (EnablePaddedPtrProp)
-      MPM.addPass(llvm::PaddedPtrPropPass());
+      MPM.addPass(dtrans::PaddedPtrPropPass());
     MPM.addPass(dtrans::PaddedMallocPass());
+  } else {
+    if (EnablePaddedPtrProp)
+      MPM.addPass(dtransOP::PaddedPtrPropOPPass());
+    MPM.addPass(dtransOP::PaddedMallocOPPass());
   }
 
   if (hasDumpModuleAfterDTransValue(late))
@@ -373,6 +379,10 @@ void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
     if (EnablePaddedPtrProp)
       PM.add(createPaddedPtrPropWrapperPass());
     PM.add(createDTransPaddedMallocWrapperPass());
+  } else {
+    if (EnablePaddedPtrProp)
+      PM.add(createPaddedPtrPropOPWrapperPass());
+    PM.add(createDTransPaddedMallocOPWrapperPass());
   }
 
   if (hasDumpModuleAfterDTransValue(late))
@@ -389,9 +399,11 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransAnnotatorCleanerWrapperPass();
   (void)llvm::createDTransReorderFieldsWrapperPass();
   (void)llvm::createDTransPaddedMallocWrapperPass();
+  (void)llvm::createDTransPaddedMallocOPWrapperPass();
   (void)llvm::createDTransEliminateROFieldAccessWrapperPass();
   (void)llvm::createDTransEliminateROFieldAccessOPWrapperPass();
   (void)llvm::createPaddedPtrPropWrapperPass();
+  (void)llvm::createPaddedPtrPropOPWrapperPass();
   (void)llvm::createDTransSOAToAOSPrepareWrapperPass();
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransSOAToAOSOPWrapperPass();

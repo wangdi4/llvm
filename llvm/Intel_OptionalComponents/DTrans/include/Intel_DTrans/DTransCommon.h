@@ -42,12 +42,14 @@ void initializeDTransAOSToSOAOPWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldOPWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
+void initializeDTransPaddedMallocOPWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
 void initializeDTransResolveTypesWrapperPass(PassRegistry&);
 // Pass for elimination of unreachable access to field which is only read.
 void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
 void initializeDTransEliminateROFieldAccessOPWrapperPass(PassRegistry&);
 void initializePaddedPtrPropWrapperPass(PassRegistry&);
+void initializePaddedPtrPropOPWrapperPass(PassRegistry&);
 void initializeDTransDynCloneWrapperPass(PassRegistry&);
 void initializeDTransDynCloneOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSWrapperPass(PassRegistry&);

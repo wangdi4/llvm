@@ -471,6 +471,8 @@ public:
   // Returns 'true' if the dominant type is a pointer-to-pointer type.
   bool isPtrToPtr(ValueTypeInfo &Info) const;
 
+  bool isPtrToIntOrFloat(ValueTypeInfo &Info) const;
+
   // This function is called to determine if 'DestTy' could be used to access
   // element 0 of 'SrcTy'. If 'DestTy' is a pointer type whose element type is
   // the same as the type of element zero of the aggregate pointed to by the

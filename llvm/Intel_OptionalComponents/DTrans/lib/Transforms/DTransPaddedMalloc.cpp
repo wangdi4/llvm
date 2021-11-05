@@ -13,6 +13,7 @@
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -71,7 +72,6 @@ public:
 
   // Run the implementation
   bool runOnModule(Module &M) override {
-
     if (skipModule(M))
       return false;
 
@@ -86,7 +86,7 @@ public:
         getAnalysis<WholeProgramWrapperPass>().getResult();
 
     // Lambda function to find the LoopInfo related to an input function
-    dtrans::PaddedMallocPass::LoopInfoFuncType GetLI =
+    dtrans::LoopInfoFuncType GetLI =
         [this](Function &F) -> LoopInfo & {
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
@@ -95,14 +95,136 @@ public:
   }
 };
 
+class DTransPaddedMallocOPWrapper : public ModulePass {
+private:
+  dtransOP::PaddedMallocOPPass Impl;
+
+public:
+  static char ID;
+
+  DTransPaddedMallocOPWrapper() : ModulePass(ID) {
+    initializeDTransPaddedMallocOPWrapperPass(*PassRegistry::getPassRegistry());
+  }
+
+  // Analyses needed
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
+    AU.addPreserved<dtransOP::DTransSafetyAnalyzerWrapper>();
+  }
+
+  // Run the implementation
+  bool runOnModule(Module &M) override {
+    if (skipModule(M))
+      return false;
+
+    auto &DTAnalysisWrapper =
+        getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
+    dtransOP::DTransSafetyInfo &DTInfo =
+        DTAnalysisWrapper.getDTransSafetyInfo(M);
+
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
+
+    // Lambda function to find the LoopInfo related to an input function
+    dtrans::LoopInfoFuncType GetLI =
+        [this](Function &F) -> LoopInfo & {
+      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    };
+
+    return Impl.runImpl(M, DTInfo, GetLI, GetTLI, WPInfo);
+  }
+};
+
+template <class InfoClass>
+class PaddedMallocImpl {
+public:
+  PaddedMallocImpl(InfoClass &DTInfo) : PaddedMallocData(DTInfo),
+                                        DTInfo(DTInfo) {};
+
+  bool run(Module &M, dtrans::LoopInfoFuncType &GetLI,
+           std::function<const TargetLibraryInfo & (Function &)> GetTLI,
+           WholeProgramInfo &WPInfo);
+
+private:
+  dtrans::PaddedMallocGlobals<InfoClass> PaddedMallocData;
+
+  // Apply the padded malloc optimization to the functions stored in
+  // PaddedMallocFuncs.
+  bool applyPaddedMalloc(std::vector<dtrans::PaddedMallocFunc>
+                         &PaddedMallocVect, GlobalVariable *globCounter,
+                         Function *PMFunc, Module *M,
+                         const TargetLibraryInfo &TLInfo);
+
+  // Return true if the input Instruction will be used in the input BranchInst,
+  // else return false.
+  bool checkDependence(Instruction *CheckInst, BranchInst *Branch);
+
+  // Set true on each entry of PaddedMallocVect that is inside an OpenMP region
+  void checkForParallelRegion(
+      Module &M, std::vector<dtrans::PaddedMallocFunc> &PaddedMallocVect);
+
+  // Return true if the input BasicBlock is a comparison between
+  // two pointer/array/vector entries in order to exit a loop.
+  // Else, return false.
+  bool exitDueToSearch(BasicBlock &BB);
+
+  // Traverse through each field of the structures stored in DTInfo and check
+  // if the memory allocation for each field only happens in one function. If
+  // so, then collect that function and store it in PaddedMallocVect.
+  bool findFieldSingleValueFuncs(std::vector<dtrans::PaddedMallocFunc>
+                                     &PaddedMallocVect);
+
+  // Return true if at least one Function in the input Module has a
+  // search loop
+  bool findSearchLoops(Module &M, dtrans::LoopInfoFuncType &GetLI);
+
+  // Return true if there is a search loop in the input Function,
+  // else return false.
+  bool funcHasSearchLoop(Function &Fn, dtrans::LoopInfoFuncType &GetLI);
+
+  // Return true if Fn is being called from an OpenMP region,
+  // else return false.
+  bool insideParallelRegion(Function *Fn,
+                            SmallPtrSet<Function *, 10> &VisitedFuncs);
+
+  // Return true if at least one successor of the input BasicBlock will
+  // exit the input Loop, else return false.
+  bool isExitLoop(Loop *LoopData, BasicBlock *BB);
+
+  // Return true if the input Function is an OpenMP outline function,
+  // else return false
+  bool isOutlineFunction(Function *F);
+
+  // Return true if the input GetElementPtrInst is valid to consider as a
+  // an array, vector or a pointer memory space allocated.
+  bool isValidType(GetElementPtrInst *ElemInst);
+
+  // Return true if the padded malloc was applied in the input BasicBlock
+  // that corresponds to the input Function. Else return false.
+  bool updateBasicBlock(BasicBlock &BB, Function *F,
+                        GlobalVariable *GlobalCounter,
+                        const TargetLibraryInfo &TLInfo, Module *M,
+                        bool UseOpenMP);
+
+  InfoClass &DTInfo;
+};
 } // end of anonymous namespace
 
 // Traverse through each Function stored in PaddedMallocFuncs and
 // apply the padded malloc optimization.
-bool dtrans::PaddedMallocPass::applyPaddedMalloc(
-    std::vector<PaddedMallocFunc> &PaddedMallocVect,
+template<class InfoClass>
+bool PaddedMallocImpl<InfoClass>::applyPaddedMalloc(
+    std::vector<dtrans::PaddedMallocFunc> &PaddedMallocVect,
     GlobalVariable *GlobalCounter, Function *PMFunc, Module *M,
-    const TargetLibraryInfo &TLInfo, DTransAnalysisInfo &DTInfo) {
+    const TargetLibraryInfo &TLInfo) {
 
   bool FuncMod = false;
 
@@ -142,8 +264,9 @@ bool dtrans::PaddedMallocPass::applyPaddedMalloc(
 // Here, the Instruction %12 will be the starting point to check if it ends
 // in the branch. The Users of %12 will be %13. Then, the User of %13 is %14.
 // The User of %14 is the branch, therefore it return true.
-bool dtrans::PaddedMallocPass::checkDependence(Instruction *CheckInst,
-                                               BranchInst *Branch) {
+template<class InfoClass>
+bool PaddedMallocImpl<InfoClass>::checkDependence(Instruction *CheckInst,
+                                                  BranchInst *Branch) {
 
   if (!CheckInst)
     return false;
@@ -180,8 +303,9 @@ bool dtrans::PaddedMallocPass::checkDependence(Instruction *CheckInst,
 
 // Traverse through the PaddedMallocVect and identify which functions are used
 // inside a parallel region.
-void dtrans::PaddedMallocPass::checkForParallelRegion(
-    Module &M, std::vector<PaddedMallocFunc> &PaddedMallocVect) {
+template<class InfoClass>
+void PaddedMallocImpl<InfoClass>::checkForParallelRegion(
+    Module &M, std::vector<dtrans::PaddedMallocFunc> &PaddedMallocVect) {
 
   // Note: There are two types of OpenMP outlining:
   //  a) -fopenmp:  OpenMP outlining is done by CFE (frontend)
@@ -256,7 +380,8 @@ void dtrans::PaddedMallocPass::checkForParallelRegion(
 // %7) and then compared (%9). The branching will be used to
 // continue the search (BasicBlock 3) or to step out and do
 // something else (BasicBlock 11).
-bool dtrans::PaddedMallocPass::exitDueToSearch(BasicBlock &BB) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::exitDueToSearch(BasicBlock &BB) {
 
   BranchInst *EndBranch = dyn_cast<BranchInst>(BB.getTerminator());
   if (!EndBranch)
@@ -288,9 +413,9 @@ bool dtrans::PaddedMallocPass::exitDueToSearch(BasicBlock &BB) {
 // if the memory allocation for that field only happens in one Function. If
 // so, then collect that Function and store it in PaddedMallocFuncs. Return
 // true if at least one Function was collected, else return false.
-bool dtrans::PaddedMallocPass::findFieldSingleValueFuncs(
-    DTransAnalysisInfo &DTInfo,
-    std::vector<PaddedMallocFunc> &PaddedMallocVect) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::findFieldSingleValueFuncs(
+    std::vector<dtrans::PaddedMallocFunc> &PaddedMallocVect) {
 
   LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Identifying alloc functions\n");
 
@@ -323,8 +448,9 @@ bool dtrans::PaddedMallocPass::findFieldSingleValueFuncs(
 // Return true if at least one Function in the input Module contains
 // a search loop. The input function GetLI is used to collect the loops
 // within each function.
-bool dtrans::PaddedMallocPass::findSearchLoops(Module &M,
-                                               LoopInfoFuncType &GetLI) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::findSearchLoops(Module &M,
+                                      dtrans::LoopInfoFuncType &GetLI) {
 
   LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Identifying search loops\n");
 
@@ -340,8 +466,9 @@ bool dtrans::PaddedMallocPass::findSearchLoops(Module &M,
 
 // Return true if the input Function contains a search loop. The function
 // GetLI is used to collect the LoopInfo analysis related to the Function.
-bool dtrans::PaddedMallocPass::funcHasSearchLoop(Function &Fn,
-                                                 LoopInfoFuncType &GetLI) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::funcHasSearchLoop(Function &Fn,
+                                      dtrans::LoopInfoFuncType &GetLI) {
 
   if (Fn.isDeclaration())
     return false;
@@ -372,7 +499,8 @@ bool dtrans::PaddedMallocPass::funcHasSearchLoop(Function &Fn,
 
 // Return true if Fn is being called from an OpenMP region,
 // else return false.
-bool dtrans::PaddedMallocPass::insideParallelRegion(
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::insideParallelRegion(
     Function *Fn, SmallPtrSet<Function *, 10> &VisitedFuncs) {
 
   if (!Fn)
@@ -408,7 +536,9 @@ bool dtrans::PaddedMallocPass::insideParallelRegion(
 
 // Return true if at least one of the BasicBlock's successors goes
 // out of the loop.
-bool dtrans::PaddedMallocPass::isExitLoop(Loop *LoopData, BasicBlock *BB) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::isExitLoop(Loop *LoopData,
+                                             BasicBlock *BB) {
 
   if (!LoopData)
     return false;
@@ -423,7 +553,8 @@ bool dtrans::PaddedMallocPass::isExitLoop(Loop *LoopData, BasicBlock *BB) {
 
 // Return true if the input Function is an OpenMP outline function,
 // else return false
-bool dtrans::PaddedMallocPass::isOutlineFunction(Function *F) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::isOutlineFunction(Function *F) {
 
   AttributeList FnAttr = F->getAttributes();
 
@@ -440,19 +571,16 @@ bool dtrans::PaddedMallocPass::isOutlineFunction(Function *F) {
 // (e.g. p[i]), an array, vector, struct or even a class. This function will
 // return true if the input GetElementPtr references to a memory space, array
 // or vector. Else, return false.
-bool dtrans::PaddedMallocPass::isValidType(GetElementPtrInst *ElemInst) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::isValidType(GetElementPtrInst *ElemInst) {
 
   if (!ElemInst->hasIndices())
     return false;
 
-  Type *Type = ElemInst->getPointerOperandType();
-
-  if (Type->isPointerTy()) {
-    Type = Type->getPointerElementType();
-    // pointer to an integer or floating point
-    if (Type->isIntegerTy() || Type->isFloatingPointTy())
-      return true;
-  }
+  Type *Type = ElemInst->getSourceElementType();
+  // pointer to an integer or floating point
+  if (Type->isIntegerTy() || Type->isFloatingPointTy())
+    return true;
 
   // An array of integers or floating point
   if (Type->isArrayTy() && (Type->getArrayElementType()->isIntegerTy() ||
@@ -471,10 +599,11 @@ bool dtrans::PaddedMallocPass::isValidType(GetElementPtrInst *ElemInst) {
 
 // If the BasicBlock contains a malloc call, then apply the padded
 // malloc optimization.
-bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
-                                                GlobalVariable *GlobalCounter,
-                                                const TargetLibraryInfo &TLInfo,
-                                                Module *M, bool UseOpenMP) {
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::updateBasicBlock(BasicBlock &BB, Function *F,
+                                      GlobalVariable *GlobalCounter,
+                                      const TargetLibraryInfo &TLInfo,
+                                      Module *M, bool UseOpenMP) {
 
   // Traverse the instructions in the BasicBlock
   for (Instruction &Inst : BB) {
@@ -624,24 +753,34 @@ ModulePass *llvm::createDTransPaddedMallocWrapperPass() {
   return new DTransPaddedMallocWrapper();
 }
 
+char DTransPaddedMallocOPWrapper::ID = 0;
+INITIALIZE_PASS_BEGIN(DTransPaddedMallocOPWrapper, "dtrans-paddedmallocop",
+                      "DTrans padded malloc with opaque pointer support",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(DTransPaddedMallocOPWrapper, "dtrans-paddedmallocop",
+                    "DTrans padded malloc with opaque pointer support",
+                    false, false)
+
+ModulePass *llvm::createDTransPaddedMallocOPWrapperPass() {
+  return new DTransPaddedMallocOPWrapper();
+}
+
 unsigned llvm::getPaddedMallocLimit() {
   return DTransPaddedMallocLimit;
 }
 
-// Actual implementation of padded malloc
-bool dtrans::PaddedMallocPass::runImpl(
-    Module &M, DTransAnalysisInfo &DTInfo, LoopInfoFuncType &GetLI,
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-    WholeProgramInfo &WPInfo) {
-
+template <class InfoClass>
+bool PaddedMallocImpl<InfoClass>::run(Module &M,
+                                      dtrans::LoopInfoFuncType &GetLI,
+                                      std::function<const TargetLibraryInfo &
+                                          (Function &)> GetTLI,
+                                      WholeProgramInfo &WPInfo) {
   if (!WPInfo.isWholeProgramSafe())
     return false;
-
-  if (!DTInfo.useDTransAnalysis())
-    return false;
-
-  // TODO: Guard the optimization with -memory-layout-trans=3 when
-  // support is available.
 
   LLVM_DEBUG(dbgs() << "dtrans-paddedmalloc: Trace for DTrans Padded Malloc"
                     << "\n");
@@ -674,8 +813,8 @@ bool dtrans::PaddedMallocPass::runImpl(
   }
 
   // Collect the functions that padded malloc can be applied
-  std::vector<PaddedMallocFunc> PaddedMallocVect;
-  if (!findFieldSingleValueFuncs(DTInfo, PaddedMallocVect)) {
+  std::vector<dtrans::PaddedMallocFunc> PaddedMallocVect;
+  if (!findFieldSingleValueFuncs(PaddedMallocVect)) {
     PaddedMallocData.destroyGlobalsInfo(M);
     return false;
   }
@@ -702,12 +841,28 @@ bool dtrans::PaddedMallocPass::runImpl(
 
   const TargetLibraryInfo &TLIInfo = GetTLI(*PMFunc);
 
-  return applyPaddedMalloc(PaddedMallocVect, GlobalCounter, PMFunc, &M, TLIInfo,
-                           DTInfo);
+  return applyPaddedMalloc(PaddedMallocVect, GlobalCounter, PMFunc, &M,
+                           TLIInfo);
 }
 
-PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
-                                                ModuleAnalysisManager &AM) {
+namespace llvm {
+
+namespace dtrans { 
+
+bool PaddedMallocPass::runImpl(
+    Module &M, DTransAnalysisInfo &DTInfo, dtrans::LoopInfoFuncType &GetLI,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
+
+  if (!DTInfo.useDTransAnalysis())
+    return false;
+  dtrans::DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
+  PaddedMallocImpl<DTransAnalysisInfoAdapter> PaddedMallocI(AIAdaptor);
+  return PaddedMallocI.run(M, GetLI, GetTLI, WPInfo);
+} 
+
+PreservedAnalyses PaddedMallocPass::run(Module &M,
+                                        ModuleAnalysisManager &AM) {
 
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
@@ -715,7 +870,7 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
   FunctionAnalysisManager &FAM =
       AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-  LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
+  dtrans::LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);
   };
 
@@ -733,11 +888,59 @@ PreservedAnalyses dtrans::PaddedMallocPass::run(Module &M,
   return PA;
 }
 
+} // namespace dtrans
+
+namespace dtransOP { 
+
+bool PaddedMallocOPPass::runImpl(
+    Module &M, DTransSafetyInfo &DTInfo, dtrans::LoopInfoFuncType &GetLI,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+    WholeProgramInfo &WPInfo) {
+
+  if (!DTInfo.useDTransSafetyAnalysis())
+    return false;
+  DTransSafetyInfoAdapter AIAdaptor(DTInfo);
+  PaddedMallocImpl<DTransSafetyInfoAdapter> PaddedMallocI(AIAdaptor);
+  return PaddedMallocI.run(M, GetLI, GetTLI, WPInfo);
+} 
+
+PreservedAnalyses PaddedMallocOPPass::run(Module &M,
+                                          ModuleAnalysisManager &AM) {
+
+  auto &DTransInfo = AM.getResult<DTransSafetyAnalyzer>(M);
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  dtrans::LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
+
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  if (!runImpl(M, DTransInfo, GetLI, GetTLI, WPInfo))
+    return PreservedAnalyses::all();
+
+  // TODO: Mark the actual preserved analyses.
+  PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();
+  PA.preserve<DTransAnalysis>();
+  return PA;
+}
+
+} // namespace dtransOP
+
+} // namespace llvm
+
 // Implementation of the PaddedMallocGlobals class
 
 // Build the global variable and interface that will be used for
 // padded malloc
-void dtrans::PaddedMallocGlobals::buildGlobalsInfo(Module &M) {
+template <class InfoClass>
+void dtrans::PaddedMallocGlobals<InfoClass>::buildGlobalsInfo(Module &M) {
 
   buildGlobalVariableCounter(M);
   buildInterfaceFunction(M);
@@ -760,10 +963,17 @@ void dtrans::PaddedMallocGlobals::buildGlobalsInfo(Module &M) {
   PaddedMallocFunc->setMetadata("dtrans.paddedmallocsize", Node);
 }
 
+template void dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
+    buildGlobalsInfo(Module&);
+template void dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
+    buildGlobalsInfo(Module&);
+
 // Build the global variable related to padded malloc in the input Module and
 // return it. This variable is a counter that identifies if the padded malloc
 // will be used or not.
-void dtrans::PaddedMallocGlobals::buildGlobalVariableCounter(Module &M) {
+template <class InfoClass>
+void dtrans::PaddedMallocGlobals<InfoClass>::buildGlobalVariableCounter(
+    Module &M) {
 
   GlobalVariable *PaddedMallocVar = M.getGlobalVariable(
       "__Intel_PaddedMallocCounter", true /*AllowInternal*/);
@@ -796,7 +1006,8 @@ void dtrans::PaddedMallocGlobals::buildGlobalVariableCounter(Module &M) {
 //
 // The function pmCounterCheck will return true if _pm_counter is
 // lower that the limit (250 in this case), else return false.
-void dtrans::PaddedMallocGlobals::buildInterfaceFunction(Module &M) {
+template <class InfoClass>
+void dtrans::PaddedMallocGlobals<InfoClass>::buildInterfaceFunction(Module &M) {
 
   Function *PMFunction = M.getFunction("__Intel_PaddedMallocInterface");
 
@@ -850,7 +1061,8 @@ void dtrans::PaddedMallocGlobals::buildInterfaceFunction(Module &M) {
 //
 //  bb3:
 //    <original entry block>
-bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
+template <class InfoClass>
+bool dtrans::PaddedMallocGlobals<InfoClass>::buildFuncBadCastValidation(
     Function *Func, unsigned ArgumentIndex, unsigned StructIndex) {
   LLVM_DEBUG(
       dbgs() << "dtrans-paddedmalloc: Building runtime safety check for Func: "
@@ -858,32 +1070,17 @@ bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
 
   // Validate function signature against ArgumentIndex and StructIndex.
   Argument *Arg = Func->arg_begin() + ArgumentIndex;
-  Type *ArgType = Arg->getType();
 
-  // Argument with ArgumentIndex should be a pointer...
-  if (!ArgType->isPointerTy()) {
-    LLVM_DEBUG(dbgs() << "dtrans-paddedmalloc: Arg not a pointer\n");
-    return false;
-  }
-
-  // ... to a structure ...
-  StructType *ArgSType = dyn_cast<StructType>(ArgType->getPointerElementType());
-  if (!ArgSType) {
-    LLVM_DEBUG(dbgs() << "dtrans-paddedmalloc: Arg not a struct\n");
-    return false;
-  }
-
-  // ... where StructIndex field should be an i8*.
-  Type *ElemType = ArgSType->getElementType(StructIndex);
-  if (!ElemType->isPointerTy() ||
-      !ElemType->getPointerElementType()->isIntegerTy(8)) {
-    LLVM_DEBUG(dbgs() << "dtrans-paddedmalloc: Arg:StructIndex not an i8*\n");
+  if (!DTransInfo.isPtrToStructWithI8StarFieldAt(Arg, StructIndex)) {
+     LLVM_DEBUG(
+         dbgs() << "dtrans-paddedmalloc: Arg is not ptr to struct "
+                   "with I8* at StructIndex\n");
     return false;
   }
 
   // Now build the runtime check.
   Type *OffsetType = Func->getParent()->getDataLayout().getIntPtrType(
-      Func->getContext(), ArgType->getPointerAddressSpace());
+      Func->getContext());
 
   IRBuilder<> Builder(Func->getContext());
 
@@ -896,10 +1093,12 @@ bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
 
   // Construct BB with a check
   Builder.SetInsertPoint(CheckBB);
-  Value *GEP = Builder.CreateGEP(
-      ArgType->getPointerElementType(), Arg,
+  StructType *STy = DTransInfo.getPtrToStructElementType(Arg);
+  assert(STy && "Expected to find StructType");
+  Value *GEP = Builder.CreateGEP(STy, Arg,
       {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
-  Value *Load = Builder.CreateLoad(ElemType, GEP);
+  
+  Value *Load = Builder.CreateLoad(Type::getInt8PtrTy(Func->getContext()), GEP);
   Value *IsNotNull = Builder.CreateIsNotNull(Load);
   Builder.CreateCondBr(IsNotNull, SetBB, EntryBB);
 
@@ -921,7 +1120,8 @@ bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
 
 // Remove from the IR the global counter and interface that was generated for
 // padded malloc.
-void dtrans::PaddedMallocGlobals::destroyGlobalsInfo(Module &M) {
+template <class InfoClass>
+void dtrans::PaddedMallocGlobals<InfoClass>::destroyGlobalsInfo(Module &M) {
 
   Function *PMFunc = getPaddedMallocInterface(M);
   GlobalVariable *GlobalCounter = getPaddedMallocVariable(M);
@@ -939,6 +1139,11 @@ void dtrans::PaddedMallocGlobals::destroyGlobalsInfo(Module &M) {
   BadCastValidatedFuncs.clear();
 }
 
+template void dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
+    destroyGlobalsInfo(Module &M);
+template void dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
+    destroyGlobalsInfo(Module &M);
+
 // Common function to be used both by the PaddedMallocGlobals class and
 // by external function PaddedMallocIsActive().
 static Function *getPaddedMallocInterface(Module &M) {
@@ -950,7 +1155,9 @@ extern bool PaddedMallocIsActive(Module &M) {
 }
 
 // Return the interface generated by padded malloc optimization
-Function *dtrans::PaddedMallocGlobals::getPaddedMallocInterface(Module &M) {
+template <class InfoClass>
+Function *dtrans::PaddedMallocGlobals<InfoClass>::getPaddedMallocInterface(
+    Module &M) {
 
   Function *PaddedMallocInterface = ::getPaddedMallocInterface(M);
 
@@ -958,8 +1165,9 @@ Function *dtrans::PaddedMallocGlobals::getPaddedMallocInterface(Module &M) {
 }
 
 // Return the global variable generated by padded malloc optimization
+template <class InfoClass>
 GlobalVariable *
-dtrans::PaddedMallocGlobals::getPaddedMallocVariable(Module &M) {
+dtrans::PaddedMallocGlobals<InfoClass>::getPaddedMallocVariable(Module &M) {
 
   GlobalVariable *PaddedMallocVariable = M.getGlobalVariable(
       "__Intel_PaddedMallocCounter", true /*AllowInternal*/);
@@ -967,8 +1175,17 @@ dtrans::PaddedMallocGlobals::getPaddedMallocVariable(Module &M) {
   return PaddedMallocVariable;
 }
 
-// Return the size used in the padded malloc optimizaton
-unsigned dtrans::PaddedMallocGlobals::getPaddedMallocSize(Module &M) {
+template unsigned
+dtrans::PaddedMallocGlobals<dtrans::DTransAnalysisInfoAdapter>::
+    getPaddedMallocSize(Module &M);
+template unsigned
+dtrans::PaddedMallocGlobals<dtransOP::DTransSafetyInfoAdapter>::
+    getPaddedMallocSize(Module &M);
+
+// Return the size used in the padded malloc optimization
+template <class InfoClass>
+unsigned dtrans::PaddedMallocGlobals<InfoClass>::getPaddedMallocSize(
+                                                     Module &M) {
 
   Function *PaddedMallocFunc = M.getFunction("__Intel_PaddedMallocInterface");
 
@@ -995,7 +1212,9 @@ unsigned dtrans::PaddedMallocGlobals::getPaddedMallocSize(Module &M) {
 }
 
 // Return true if all the data for padded malloc is set correctly.
-bool dtrans::PaddedMallocGlobals::isPaddedMallocDataAvailable(Module &M) {
+template <class InfoClass>
+bool dtrans::PaddedMallocGlobals<InfoClass>::isPaddedMallocDataAvailable(
+    Module &M) {
   return (getPaddedMallocSize(M) > 0 && getPaddedMallocVariable(M) &&
           getPaddedMallocInterface(M));
 }
