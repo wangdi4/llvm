@@ -767,13 +767,10 @@ TEST_F(FileSystemTest, RealPath) {
   // This can fail if $HOME is not set and getpwuid fails.
   bool Result = llvm::sys::path::home_directory(HomeDir);
   if (Result) {
-<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
 // INTEL: It was discovered that the alloy test environment breaks this test,
 // captured in defect: CMPLRS-43178.
-=======
     checkSeparators(HomeDir);
->>>>>>> f4d83c56c99deb52769aab12bbd22b9bfeb0c617
     ASSERT_NO_ERROR(fs::real_path(HomeDir, Expected));
     checkSeparators(Expected);
     ASSERT_NO_ERROR(fs::real_path("~", Actual, true));
