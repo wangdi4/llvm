@@ -1849,9 +1849,6 @@ public:
 
     auto *NewDTFuncTy =
         DTransFunctionType::get(TM, DTFuncTy->getReturnType(), Params, false);
-    TypeRemapper->addTypeMapping(DTFuncTy->getLLVMType(),
-                                 NewDTFuncTy->getLLVMType(), DTFuncTy,
-                                 NewDTFuncTy);
     return NewDTFuncTy;
   }
 

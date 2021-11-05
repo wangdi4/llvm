@@ -393,6 +393,29 @@ inline bool isSafeCallForAppend(Function *F, DTransSafetyInfo *DTInfo,
   return true;
 }
 
+// Create new function declaration with “NewDTFunctionTy” and then map it to
+// “F” so that OptBase will clone this function.
+inline void createAndMapNewAppendFunc(
+    Function *F, Module &M, DTransFunctionType *NewDTFunctionTy,
+    ValueToValueMapTy &VMap,
+    DenseMap<Function *, Function *> &OrigFuncToCloneFuncMap,
+    DenseMap<Function *, Function *> &CloneFuncToOrigFuncMap,
+    SmallDenseMap<Function *, DTransFunctionType *> &AppendsFuncToDTransTyMap) {
+  Function *NewF =
+      Function::Create(cast<FunctionType>(NewDTFunctionTy->getLLVMType()),
+                       F->getLinkage(), F->getName(), &M);
+  NewF->copyAttributesFrom(F);
+  VMap[F] = NewF;
+  OrigFuncToCloneFuncMap[F] = NewF;
+  CloneFuncToOrigFuncMap[NewF] = F;
+  Function::arg_iterator DestI = NewF->arg_begin();
+  for (Argument &I : F->args()) {
+    DestI->setName(I.getName());
+    VMap[&I] = &*DestI++;
+  }
+  AppendsFuncToDTransTyMap[NewF] = NewDTFunctionTy;
+}
+
 // Replace CallInsts of OrigFunc in CallInfo with CallInsts of cloned
 // function using NewVMap.
 inline void fixCallInfo(Function &OrigFunc, DTransSafetyInfo *DTInfo,

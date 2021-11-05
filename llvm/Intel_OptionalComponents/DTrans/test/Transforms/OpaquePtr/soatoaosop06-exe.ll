@@ -14,6 +14,15 @@
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | %lli
+;
+; RUN: opt < %s -S -opaque-pointers -whole-program-assume -dtrans-soatoaosop                                        \
+; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
+; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
+; RUN:       | FileCheck --check-prefix=CHECK-OP %s
+; RUN: opt < %s -S -opaque-pointers -whole-program-assume -passes=dtrans-soatoaosop                                \
+; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
+; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
+; RUN:       | FileCheck --check-prefix=CHECK-OP %s
 ; REQUIRES: x86_64-linux
 
 ; -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays,dtrans-soatoaosop-struct
@@ -176,6 +185,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-DAG: %__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64,  %struct.Mem* }
 ; CHECK-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, %__SOADT_EL_class.F*, i32, %struct.Mem* }
 ; CHECK-DAG: %__SOADT_EL_class.F = type { i32*, float* }
+
+; CHECK-OP-DAG: %__SOADT_class.F = type { ptr, i64, ptr }
+; CHECK-OP-DAG: %__SOADT_AR_struct.Arr = type { i8, i32, ptr, i32, ptr }
+; CHECK-OP-DAG: %__SOADT_EL_class.F = type { ptr, ptr }
 
 @v1 = global i32 20, align 4, !dbg !0
 @v2 = global i32 30, align 4, !dbg !13

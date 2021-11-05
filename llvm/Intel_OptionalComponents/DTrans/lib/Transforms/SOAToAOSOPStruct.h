@@ -2253,9 +2253,11 @@ public:
       DTransSafetyInfo &DTInfo, ValueToValueMapTy &VMap,
       const CallSiteComparator::CallSitesInfo &CSInfo,
       const StructureMethodAnalysis::TransformationData &InstsToTransform,
-      LLVMContext &Context)
+      LLVMContext &Context, bool IsCloned,
+      DenseMap<Function *, Function *> &ReverseVMap)
       : DTInfo(DTInfo), VMap(VMap), CSInfo(CSInfo),
-        InstsToTransform(InstsToTransform), Context(Context) {}
+        InstsToTransform(InstsToTransform), Context(Context),
+        IsCloned(IsCloned), ReverseVMap(ReverseVMap) {}
 
   void updateReferences(DTransStructType *OldDTStruct,
                         DTransStructType *NewDTArray,
@@ -2316,8 +2318,12 @@ public:
         bool ToRemove = getOPStructTypeOfMethod(FCalled, &DTInfo) !=
                         getOPSOAArrayType(OldDTStruct, AOSOff);
 
-        if (std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
-                      OldCall->getCalledFunction()) != CSInfo.Appends.end())
+        // When routine is not cloned, original "Append" call is replaced
+        // by new "Append" function. ReverseVMap is used to get original
+        // "Append" function.
+        Function *OrgF = IsCloned ? FCalled : ReverseVMap[FCalled];
+        if (OrgF && std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
+                              OrgF) != CSInfo.Appends.end())
           // See compareAllAppendCallSites, appends should be in a single
           // BasicBlock and CallInst.
           OldAppends.push_back(cast<CallInst>(I));
@@ -2410,14 +2416,21 @@ private:
     SmallVector<const CallInst *, MaxNumFieldCandidates> SortedAppends(
         Arrays.size(), nullptr);
     for (auto *CI : OldAppends) {
-      auto *ArrayTy = getOPStructTypeOfMethod(CI->getCalledFunction(), &DTInfo);
+      // When routine is not cloned, original "Append" call is replaced
+      // by new "Append" function. ReverseVMap is used to get original
+      // "Append" function.
+      auto *Func = IsCloned ? CI->getCalledFunction()
+                            : ReverseVMap[CI->getCalledFunction()];
+      auto *ArrayTy = getOPStructTypeOfMethod(Func, &DTInfo);
 
       auto It = std::find(Arrays.begin(), Arrays.end(), ArrayTy);
       assert(It != Arrays.end() && "Incorrect append method");
       SortedAppends[It - Arrays.begin()] = CI;
     }
 
-    auto *FCalled = SortedAppends[0]->getCalledFunction();
+    auto *FCalled = IsCloned
+                        ? SortedAppends[0]->getCalledFunction()
+                        : ReverseVMap[SortedAppends[0]->getCalledFunction()];
     assert(FCalled && "Expected direct call");
     auto *OldFunctionTy = dyn_cast_or_null<DTransFunctionType>(
         DTInfo.getTypeMetadataReader().getDTransTypeFromMD(FCalled));
@@ -2478,6 +2491,8 @@ private:
   const CallSiteComparator::CallSitesInfo &CSInfo;
   const StructureMethodAnalysis::TransformationData &InstsToTransform;
   LLVMContext &Context;
+  bool IsCloned;
+  DenseMap<Function *, Function *> &ReverseVMap;
 };
 } // namespace soatoaosOP
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

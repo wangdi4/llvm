@@ -2658,6 +2658,7 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
       F->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   if (getLangOpts().isIntelCompat(LangOptions::IntelMempoolCtorDtor) &&
       getCodeGenOpts().WholeProgramVTables &&
       getCodeGenOpts().PrepareForLTO && getCodeGenOpts().LTOUnit) {
@@ -2666,6 +2667,7 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
     else if (isa<CXXDestructorDecl>(FD))
       F->addFnAttr("intel-mempool-destructor");
   }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Don't emit entries for function declarations in the cross-DSO mode. This

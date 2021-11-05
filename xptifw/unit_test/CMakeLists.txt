@@ -51,14 +51,30 @@ target_include_directories(XPTIFWUnitTests SYSTEM PRIVATE
   ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
 )
 
-if (TARGET LLVMSupport)
-  set(SUPPORT_LIB LLVMSupport)
+# INTEL_CUSTOMIZATION
+
+# This piece is replaced with logic below
+# if (TARGET LLVMSupport)
+#   set(SUPPORT_LIB LLVMSupport)
+# endif()
+
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+  set(SUPPORT_LIB LLVMSupport_stdcpp LLVMTestingSupport_stdcpp gtest_stdcpp gtest_main_stdcpp)
+elseif(WIN32)
+  set(SUPPORT_LIB LLVMSupport_dyn LLVMTestingSupport_dyn gtest_dyn gtest_main_dyn)
+  if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(XPTIFWUnitTests PRIVATE "/MDd")
+  else()
+    target_compile_options(XPTIFWUnitTests PRIVATE "/MD")
+  endif()
+else()
+  set(SUPPORT_LIB LLVMSupport LLVMTestingSupport gtest gtest_main)
 endif()
+# end INTEL_CUSTOMIZATION
 
 target_link_libraries(XPTIFWUnitTests PRIVATE
-  gtest
-  LLVMSupport # INTEL
-  gtest_main
+  # gtest INTEL_CUSTOMIZATION
+  # gtest_main INTEL_CUSTOMIZATION
   xptifw
   ${SUPPORT_LIB}
 )

@@ -18,12 +18,42 @@
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
 ; RUN:          -debug-only=dtrans-soatoaosop-deps                                                    \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-DEP-WF %s
+;
+; RUN: opt < %S/soatoaosop06-exe.ll -S -opaque-pointers -whole-program-assume \
+; RUN:          -dtrans-soatoaosop -disable-output         \
+; RUN:          -dtrans-soatoaosop-size-heuristic=false                       \
+; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
+; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays,dtrans-soatoaosop-struct           \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK %s
+; RUN: opt < %S/soatoaosop06-exe.ll -S -opaque-pointers -whole-program-assume \
+; RUN:          -dtrans-soatoaosop -disable-output         \
+; RUN:          -dtrans-soatoaosop-size-heuristic=false                       \
+; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
+; RUN:          -debug-only=dtrans-soatoaosop-deps                                                    \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK-OP-DEP-WF %s
+; RUN: opt < %S/soatoaosop06-exe.ll -S -opaque-pointers -whole-program-assume\
+; RUN:          -passes=dtrans-soatoaosop -disable-output  \
+; RUN:          -dtrans-soatoaosop-size-heuristic=false                       \
+; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
+; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays,dtrans-soatoaosop-struct           \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK %s
+; RUN: opt < %S/soatoaosop06-exe.ll -S -opaque-pointers -whole-program-assume \
+; RUN:          -passes=dtrans-soatoaosop -disable-output  \
+; RUN:          -dtrans-soatoaosop-size-heuristic=false                       \
+; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                            \
+; RUN:          -debug-only=dtrans-soatoaosop-deps                                                    \
+; RUN:  2>&1 | FileCheck --check-prefix=CHECK-OP-DEP-WF %s
 ; REQUIRES: asserts
 
 ; Check that approximations work as expected.
 ; CHECK-DEP-WF-NOT: ; {{.*}}Unknown{{.*}}Dep
 ; There should be no unknown GEP
 ; CHECK-DEP-WF-NOT: ; Func(GEP
+
+; Check that approximations work as expected.
+; CHECK-OP-DEP-WF-NOT: ; {{.*}}Unknown{{.*}}Dep
+; There should be no unknown GEP
+; CHECK-OP-DEP-WF-NOT: ; Func(GEP
 
 ; CHECK:        ; Struct's class.F methods:
 ; CHECK-NEXT:    ; check1(F*)
@@ -131,4 +161,3 @@
 ; CHECK-NEXT: ; Seen dtor.
 ; CHECK-NEXT: ; Array call sites analysis result: required call sites can be merged in F::~F()
 ; CHECK-NEXT:   ; SOA-to-AOS possible for %class.F.
-

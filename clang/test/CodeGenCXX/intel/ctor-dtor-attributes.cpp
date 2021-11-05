@@ -1,3 +1,5 @@
+// INTEL_FEATURE_SW_DTRANS
+// REQUIRES: intel_feature_sw_dtrans
 // RUN: %clang_cc1 -flto -flto-unit -fwhole-program-vtables \
 // RUN:  -fintel-compatibility-enable=IntelMempoolCtorDtor \
 // RUN:  -triple x86_64-unknown-linux -emit-llvm -o - %s \
@@ -50,3 +52,4 @@ A a;
 
 // CHECK-DISABLE-BOTH-NOT: attributes [[ATTR0]] = { {{.*}}"intel-mempool-constructor"
 // CHECK-DISABLE-BOTH-NOT: attributes [[ATTR1]] = { {{.*}}"intel-mempool-destructor"
+// end INTEL_FEATURE_SW_DTRANS
