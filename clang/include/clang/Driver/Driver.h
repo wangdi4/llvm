@@ -675,7 +675,7 @@ private:
   /// Specific to DPC++, specialization function for setting the option flags
   /// to handle dpcpp behaviors on Windows.
   std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksDpcpp(
-      bool IsClCompatMode, bool AllowLinux) const;
+      bool IsClCompatMode, bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building
