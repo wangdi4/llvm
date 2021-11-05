@@ -78,6 +78,7 @@ private:
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
+  void prepareModule(Module &M) override;
   void postprocessFunction(Function &OrigFunc, bool isCloned) override;
 
   // Relatively heavy weight checks to classify methods, see MethodKind.
@@ -127,7 +128,6 @@ private:
     void prepareTypes(SOAToAOSOPTransformImpl &Impl, Module &M) {
       LLVMContext &Context = M.getContext();
 
-      auto &MD = Impl.DTInfo->getTypeMetadataReader();
       auto &TM = Impl.DTInfo->getTypeManager();
 
       NewLLVMStruct = StructType::create(
@@ -150,32 +150,6 @@ private:
       for (auto *Fld : fields())
         Impl.TypeRemapper.addTypeMapping(Fld->getLLVMType(), NewLLVMArray, Fld,
                                          NewDTArray);
-
-      // TODO: This code has an issue in opaque pointers. Mapping of
-      // FunctionType doesn't work with opaque pointers. Will fix it next
-      // changeset.
-      DTransFunctionType *NewDTFunctionTy = nullptr;
-      for (auto *Method : CSInfo.Appends) {
-        if (!NewDTFunctionTy) {
-          SmallVector<DTransPointerType *, MaxNumFieldCandidates> Elems;
-          for (auto *Elem : elements())
-            Elems.push_back(Elem);
-
-          auto *ArrType = getOPStructTypeOfMethod(
-              const_cast<Function *>(Method), Impl.DTInfo);
-          assert(ArrType && "Expected class type for array method");
-          NewDTFunctionTy = ArrayMethodTransformation::mapNewAppendType(
-              *Method, getOPSOAElementType(ArrType, BasePointerOffset), Elems,
-              ArrType, &Impl.TypeRemapper, AppendMethodElemParamOffset, MD, TM);
-        } else {
-          auto *DTFuncTy = dyn_cast_or_null<DTransFunctionType>(
-              MD.getDTransTypeFromMD(Method));
-          assert(DTFuncTy && "Must have type if function is being transformed");
-          Impl.TypeRemapper.addTypeMapping(DTFuncTy->getLLVMType(),
-                                           NewDTFunctionTy->getLLVMType(),
-                                           DTFuncTy, NewDTFunctionTy);
-        }
-      }
     }
 
     void populateTypes(SOAToAOSOPTransformImpl &Impl, Module &M) {
@@ -263,19 +237,55 @@ private:
 
       StructMethodTransformation SMT(*Impl.DTInfo,
                                      IsCloned ? Impl.VMap : NewVMap, CSInfo, TI,
-                                     OrigFunc.getParent()->getContext());
+                                     OrigFunc.getParent()->getContext(),
+                                     IsCloned, Impl.CloneFuncToOrigFuncMap);
 
       SMT.updateReferences(DStruct, NewDTArray, Fields, AOSOffset,
                            BasePointerOffset);
       if (!IsCloned)
         replaceOrigFuncBodyWithClonedFuncBody(OrigFunc, *Clone);
     }
+
+    // For “Append” member function, new parameters are added during the
+    // transformation. Earlier, old function types of “Append” member function
+    // were mapped to new function types in “prepareTypes” so that OptBase class
+    // does the conversion from old types to the new types. But, that doesn’t
+    // work with opaque pointers since all “Append” member functions have same
+    // function type. New “Append” functions are created here and then mapped
+    // to the old “Append” member functions in VMap so that OptBase class
+    // clones new “Append” member functions and replaces old “Append” member
+    // functions with new “Append” member functions in entire Module.
+    void prepareModule(SOAToAOSOPTransformImpl &Impl, Module &M) {
+      auto &MD = Impl.DTInfo->getTypeMetadataReader();
+      auto &TM = Impl.DTInfo->getTypeManager();
+      DTransFunctionType *NewDTFunctionTy = nullptr;
+      for (auto *Method : CSInfo.Appends) {
+        if (!NewDTFunctionTy) {
+          SmallVector<DTransPointerType *, MaxNumFieldCandidates> Elems;
+          for (auto *Elem : elements())
+            Elems.push_back(Elem);
+
+          auto *ArrType = getOPStructTypeOfMethod(
+              const_cast<Function *>(Method), Impl.DTInfo);
+          assert(ArrType && "Expected class type for array method");
+          NewDTFunctionTy = ArrayMethodTransformation::mapNewAppendType(
+              *Method, getOPSOAElementType(ArrType, BasePointerOffset), Elems,
+              ArrType, &Impl.TypeRemapper, AppendMethodElemParamOffset, MD, TM);
+        }
+        createAndMapNewAppendFunc(
+            const_cast<llvm::Function *>(Method), M, NewDTFunctionTy,
+            Impl.VMap, Impl.OrigFuncToCloneFuncMap,
+            Impl.CloneFuncToOrigFuncMap, AppendsFuncToDTransTyMap);
+      }
+    }
+
     void postprocessArrayMethod(
         SOAToAOSOPTransformImpl &Impl, Function &OrigFunc,
         const ComputeArrayMethodClassification::TransformationData &TI,
         bool IsCloned) {
 
       auto &TM = Impl.DTInfo->getTypeManager();
+      auto &MD = Impl.DTInfo->getTypeMetadataReader();
       auto *ArrType = getOPStructTypeOfMethod(&OrigFunc, Impl.DTInfo);
       assert(ArrType && "Expected class type for array method");
       auto *CurrElem = getOPSOAElementType(ArrType, BasePointerOffset);
@@ -396,6 +406,12 @@ private:
         DTransAnnotator::createDTransSOAToAOSTypeAnnotation(*NewFunc,
                                                             NewLLVMElement, 1);
       }
+      // Fix DTransFunctionType of new “Append” member function.
+      auto *NewFunc =
+          IsCloned ? Impl.OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
+      auto *AppendFuncDTy = AppendsFuncToDTransTyMap[NewFunc];
+      if (AppendFuncDTy)
+        MD.setDTransFuncMetadata(NewFunc, AppendFuncDTy);
     }
 
     void postprocessFunction(SOAToAOSOPTransformImpl &Impl, Function &OrigFunc,
@@ -435,6 +451,9 @@ private:
     // Offset of the first element parameter for MK_Append method.
     // Element parameters are arranged in order of NewElement.
     unsigned AppendMethodElemParamOffset = -1U;
+
+    // Mapping between new “Append” member functions and DTransFunctionTypes.
+    SmallDenseMap<Function *, DTransFunctionType *> AppendsFuncToDTransTyMap;
   };
 
   constexpr static int MaxNumStructCandidates = 1;
@@ -779,6 +798,11 @@ bool SOAToAOSOPTransformImpl::prepareTypes(Module &M) {
 void SOAToAOSOPTransformImpl::populateTypes(Module &M) {
   for_each(Candidates,
            [this, &M](CandidateInfo *C) { C->populateTypes(*this, M); });
+}
+
+void SOAToAOSOPTransformImpl::prepareModule(Module &M) {
+  for_each(Candidates,
+           [this, &M](CandidateInfo *C) { C->prepareModule(*this, M); });
 }
 
 void SOAToAOSOPTransformImpl::postprocessFunction(Function &OrigFunc,

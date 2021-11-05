@@ -295,40 +295,9 @@ public:
         Context, (Twine(DepTypePrefix) + "EL_" + S.StrType->getName()).str());
     NewDTElement = TM.getOrCreateStructType(NewLLVMElement);
 
-    auto &MD = DTInfo->getTypeMetadataReader();
-    auto &TM = DTInfo->getTypeManager();
     for (auto *Fld : Arrays)
       TypeRemapper.addTypeMapping(Fld->getLLVMType(), NewLLVMArray, Fld,
                                   NewDTArray);
-
-    DTransFunctionType *NewDTFunctionTy = nullptr;
-    for (auto *Method : InstsToTransform.Appends) {
-      if (!NewDTFunctionTy) {
-        SmallVector<DTransPointerType *, 3> Elems;
-        for (auto *ArrType : Arrays)
-          Elems.push_back(
-              getOPSOAElementType(ArrType, DTransSOAToAOSOPBasePtrOff));
-
-        // updateAppends in StructMethodTransformation computes necessary
-        // offset during CallSite creation.
-        unsigned IgnoreElemOffset = 0;
-        auto *StType =
-            getOPStructTypeOfMethod(const_cast<Function *>(Method), DTInfo);
-        assert(StType && "Expected class type for struct method");
-        NewDTFunctionTy = ArrayMethodTransformation::mapNewAppendType(
-            *Method, getOPSOAElementType(StType, DTransSOAToAOSOPBasePtrOff),
-            Elems, StType, &TypeRemapper, IgnoreElemOffset, MD, TM);
-      } else {
-        auto *DTFuncTy = dyn_cast_or_null<DTransFunctionType>(
-            MD.getDTransTypeFromMD(Method));
-        assert(DTFuncTy && "Must have type if function is being transformed");
-
-        TypeRemapper.addTypeMapping(DTFuncTy->getLLVMType(),
-                                    NewDTFunctionTy->getLLVMType(), DTFuncTy,
-                                    NewDTFunctionTy);
-      }
-    }
-
     return true;
   }
 
@@ -386,6 +355,43 @@ public:
     }
   }
 
+  // For “Append” member function, new parameters are added during the
+  // transformation. Earlier, old function types of “Append” member function
+  // were mapped to new function type in “prepareTypes” so that OptBase class
+  // does the conversion from old types to the new types. But, that doesn’t work
+  // with opaque pointers since all “Append” member functions have same function
+  // type. New “Append” functions are created here and then mapped to the
+  // old “Append” member functions in VMap so that OptBase class clones new
+  // “Append” member functions and replaces old “Append” member functions with
+  // new “Append” member functions in entire Module.
+  void prepareModule(Module &M) override {
+    auto &MD = DTInfo->getTypeMetadataReader();
+    auto &TM = DTInfo->getTypeManager();
+    DTransFunctionType *NewDTFunctionTy = nullptr;
+    for (auto *Method : InstsToTransform.Appends) {
+      if (!NewDTFunctionTy) {
+        SmallVector<DTransPointerType *, 3> Elems;
+        for (auto *ArrType : Arrays)
+          Elems.push_back(
+              getOPSOAElementType(ArrType, DTransSOAToAOSOPBasePtrOff));
+
+        // updateAppends in StructMethodTransformation computes necessary
+        // offset during CallSite creation.
+        unsigned IgnoreElemOffset = 0;
+        auto *StType =
+            getOPStructTypeOfMethod(const_cast<Function *>(Method), DTInfo);
+        assert(StType && "Expected class type for struct method");
+        NewDTFunctionTy = ArrayMethodTransformation::mapNewAppendType(
+            *Method, getOPSOAElementType(StType, DTransSOAToAOSOPBasePtrOff),
+            Elems, StType, &TypeRemapper, IgnoreElemOffset, MD, TM);
+      }
+      createAndMapNewAppendFunc(const_cast<llvm::Function *>(Method), M,
+                                NewDTFunctionTy, VMap, OrigFuncToCloneFuncMap,
+                                CloneFuncToOrigFuncMap,
+                                AppendsFuncToDTransTyMap);
+    }
+  }
+
   void postprocessFunction(Function &OrigFunc, bool isCloned) override {
     if (isFunctionIgnoredForSOAToAOSOP(OrigFunc))
       return;
@@ -411,13 +417,21 @@ public:
     StructMethodTransformation SMT(*DTInfo, isCloned ? VMap : NewVMap,
                                    InstsToTransform /* CallSiteComparator */,
                                    InstsToTransform /*TransformationData*/,
-                                   OrigFunc.getContext());
+                                   OrigFunc.getContext(), isCloned,
+                                   CloneFuncToOrigFuncMap);
 
     SMT.updateReferences(S.StrType, NewDTArray, Arrays, AOSOffset,
                          DTransSOAToAOSOPBasePtrOff);
 
     if (!isCloned)
       replaceOrigFuncBodyWithClonedFuncBody(OrigFunc, *Clone);
+
+    // Fix DTransFunctionType of new “Append” member function.
+    auto *NewFunc = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
+    auto *AppendFuncDTy = AppendsFuncToDTransTyMap[NewFunc];
+    auto &MD = DTInfo->getTypeMetadataReader();
+    if (AppendFuncDTy)
+      MD.setDTransFuncMetadata(NewFunc, AppendFuncDTy);
   }
 
 private:
@@ -437,6 +451,9 @@ private:
   DTransStructType *NewDTStruct = nullptr;
   // Offset of array-of-structure in NewStruct.
   unsigned AOSOffset = -1U;
+
+  // Mapping between new “Append” member functions and DTransFunctionTypes.
+  SmallDenseMap<Function *, DTransFunctionType *> AppendsFuncToDTransTyMap;
 };
 } // namespace
 

@@ -153,18 +153,6 @@ public:
     PLLVMFloat = Type::getFloatTy(Context)->getPointerTo(0);
     PFloat = TM.getOrCreatePointerType(DTFPType);
 
-    auto *ArrType =
-        getOPStructTypeOfMethod(const_cast<Function *>(S.Method), S.DTInfo);
-    if (InstsToTransform.MK == MK_Append) {
-      SmallVector<DTransPointerType *, 2> Elems;
-      Elems.push_back(S.ElementType);
-      Elems.push_back(PFloat);
-
-      ArrayMethodTransformation::mapNewAppendType(
-          *S.Method, S.ElementType, Elems, ArrType, &TypeRemapper,
-          AppendMethodElemParamOffset, DTInfo->getTypeMetadataReader(),
-          DTInfo->getTypeManager());
-    }
     return true;
   }
 
@@ -195,6 +183,34 @@ public:
     }
     NewLLVMArray->setBody(DataTypes, S.StrType->isPacked());
     NewDTArray->setBody(DTElemDataTypes);
+  }
+
+  // For “Append” member function, new parameters are added during the
+  // transformation. Earlier, old function types of “Append” member function
+  // were mapped to new function types in “prepareTypes” so that OptBase class
+  // does the conversion from old types to the new types. But, that doesn’t work
+  // with opaque pointers since all “Append” member functions have same function
+  // type. New “Append” functions are created here and then mapped to the
+  // old “Append” member functions in VMap so that OptBase class clones new
+  // “Append” member functions and replaces old “Append” member functions with
+  // new “Append” member functions in entire Module.
+  void prepareModule(Module &M) override {
+    auto *ArrType =
+        getOPStructTypeOfMethod(const_cast<Function *>(S.Method), S.DTInfo);
+    if (InstsToTransform.MK == MK_Append) {
+      SmallVector<DTransPointerType *, 2> Elems;
+      Elems.push_back(S.ElementType);
+      Elems.push_back(PFloat);
+
+      auto *NewDTFunctionTy = ArrayMethodTransformation::mapNewAppendType(
+          *S.Method, S.ElementType, Elems, ArrType, &TypeRemapper,
+          AppendMethodElemParamOffset, DTInfo->getTypeMetadataReader(),
+          DTInfo->getTypeManager());
+      createAndMapNewAppendFunc(const_cast<llvm::Function *>(S.Method), M,
+                                NewDTFunctionTy, VMap, OrigFuncToCloneFuncMap,
+                                CloneFuncToOrigFuncMap,
+                                AppendsFuncToDTransTyMap);
+    }
   }
 
   void postprocessFunction(Function &OrigFunc, bool isCloned) override {
@@ -264,6 +280,13 @@ public:
     if (!isCloned)
       replaceOrigFuncBodyWithClonedFuncBody(OrigFunc, *Clone);
 
+    // Fix DTransFunctionType of new “Append” member function.
+    auto *NewFunc = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
+    auto *AppendFuncDTy = AppendsFuncToDTransTyMap[NewFunc];
+    auto &MD = DTInfo->getTypeMetadataReader();
+    if (AppendFuncDTy)
+      MD.setDTransFuncMetadata(NewFunc, AppendFuncDTy);
+
     // TODO: Remove unnecessary BitCast instructions that convert from
     // pointer to pointer.
   }
@@ -289,6 +312,9 @@ private:
   unsigned AppendMethodElemParamOffset = -1U;
   const DataLayout &DL;
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
+
+  // Mapping between new “Append” member functions and DTransFunctionTypes.
+  SmallDenseMap<Function *, DTransFunctionType *> AppendsFuncToDTransTyMap;
 };
 } // namespace
 
