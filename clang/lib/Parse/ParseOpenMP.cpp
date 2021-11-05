@@ -3534,10 +3534,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     Clause = ParseOpenMPSimpleClause(CKind, WrongDirective);
     break;
 #if INTEL_COLLAB
-    case OMPC_bind:
-    // 5.0 Spec doesn't specify if multiple bind clauses are allowed.
-    Clause = ParseOpenMPSimpleClause(CKind, WrongDirective);
-    break;
     case OMPC_data:
       Clause = ParseOpenMPDataClause(WrongDirective);
       break;

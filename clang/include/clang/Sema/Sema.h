@@ -11595,12 +11595,6 @@ public:
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
 #if INTEL_COLLAB
-  /// Called on a well-formed 'bind' clause.
-  OMPClause *ActOnOpenMPBindClause(llvm::omp::BindKind Kind,
-                                   SourceLocation KindLoc,
-                                   SourceLocation StartLoc,
-                                   SourceLocation LParenLoc,
-                                   SourceLocation EndLoc);
   /// Called on well-formed 'subdevice' clause.
   OMPClause *ActOnOpenMPSubdeviceClause(Expr *Level,
                                         Expr *Start,

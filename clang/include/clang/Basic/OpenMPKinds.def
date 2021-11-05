@@ -69,7 +69,9 @@
 #ifndef OPENMP_ADJUST_ARGS_KIND
 #define OPENMP_ADJUST_ARGS_KIND(Name)
 #endif
-<<<<<<< HEAD
+#ifndef OPENMP_BIND_KIND
+#define OPENMP_BIND_KIND(Name)
+#endif
 #if INTEL_COLLAB
 #ifndef OPENMP_ALLOCATE_MODIFIER
 #define OPENMP_ALLOCATE_MODIFIER(Name)
@@ -151,11 +153,6 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(target_parallel_loop)
 OPENMP_DIRECTIVE_SPIR_SUBSET(allocate)
 OPENMP_DIRECTIVE_SPIR_SUBSET(prefetch)
 #endif // INTEL_CUSTOMIZATION
-=======
-#ifndef OPENMP_BIND_KIND
-#define OPENMP_BIND_KIND(Name)
-#endif
->>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
 
 // Static attributes for 'schedule' clause.
 OPENMP_SCHEDULE_KIND(static)
@@ -259,7 +256,11 @@ OPENMP_REDUCTION_MODIFIER(task)
 OPENMP_ADJUST_ARGS_KIND(nothing)
 OPENMP_ADJUST_ARGS_KIND(need_device_ptr)
 
-<<<<<<< HEAD
+// Binding kinds for the 'bind' clause.
+OPENMP_BIND_KIND(teams)
+OPENMP_BIND_KIND(parallel)
+OPENMP_BIND_KIND(thread)
+
 #if INTEL_COLLAB
 // Modifiers for 'allocate' clause.
 OPENMP_ALLOCATE_MODIFIER(allocator)
@@ -272,14 +273,8 @@ OPENMP_OMPX_PLACES_MODIFIER(subnuma_domain)
 #undef OPENMP_ALLOCATE_MODIFIER
 #undef OPENMP_OMPX_PLACES_MODIFIER
 #endif // INTEL_COLLAB
-=======
-// Binding kinds for the 'bind' clause.
-OPENMP_BIND_KIND(teams)
-OPENMP_BIND_KIND(parallel)
-OPENMP_BIND_KIND(thread)
 
 #undef OPENMP_BIND_KIND
->>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
 #undef OPENMP_ADJUST_ARGS_KIND
 #undef OPENMP_REDUCTION_MODIFIER
 #undef OPENMP_DEVICE_MODIFIER

@@ -11741,9 +11741,6 @@ OMPClause *OMPClauseReader::readClause() {
     C = new (Context) OMPNumThreadsClause();
     break;
 #if INTEL_COLLAB
-  case llvm::omp::OMPC_bind:
-    C = new (Context) OMPBindClause();
-    break;
   case llvm::omp::OMPC_subdevice:
     C = new (Context) OMPSubdeviceClause();
     break;
@@ -12089,12 +12086,6 @@ void OMPClauseReader::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
-void OMPClauseReader::VisitOMPBindClause(OMPBindClause *C) {
-  C->setBindKind(static_cast<llvm::omp::BindKind>(Record.readInt()));
-  C->setLParenLoc(Record.readSourceLocation());
-  C->setBindKindKwLoc(Record.readSourceLocation());
-}
-
 void OMPClauseReader::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
   C->setLevel(Record.readSubExpr());

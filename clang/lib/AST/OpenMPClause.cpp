@@ -123,7 +123,6 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_allocate:
   case OMPC_collapse:
 #if INTEL_COLLAB
-  case OMPC_bind:
   case OMPC_data:
 #endif // INTEL_COLLAB`
   case OMPC_tile:  // INTEL
@@ -282,9 +281,6 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif //INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -1737,12 +1733,6 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
 }
 
 #if INTEL_COLLAB
-void OMPClausePrinter::VisitOMPBindClause(OMPBindClause *Node) {
-  OS << "bind("
-     << getOpenMPSimpleClauseTypeName(OMPC_bind, unsigned(Node->getBindKind()))
-     << ")";
-}
-
 void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   OS << "subdevice(";
   if (auto *E = Node->getLevel()) {

@@ -1619,18 +1619,6 @@ public:
   }
 
 #if INTEL_COLLAB
-  /// Build a new OpenMP 'bind' clause.
-  ///
-  /// By default, performs semantic analysis to build the new OpenMP clause.
-  /// Subclasses may override this routine to provide different behavior.
-  OMPClause *RebuildOMPBindClause(BindKind Kind, SourceLocation KindKwLoc,
-                                  SourceLocation StartLoc,
-                                  SourceLocation LParenLoc,
-                                  SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPBindClause(Kind, KindKwLoc, StartLoc, LParenLoc,
-                                           EndLoc);
-  }
-
   /// Build a new OpenMP 'subdevice' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -2357,7 +2345,6 @@ public:
                                              EndLoc);
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Build a new OpenMP 'data' clause.
   ///
@@ -2372,7 +2359,6 @@ public:
                                            EndLoc);
   }
 #endif // INTEL_COLLAB
-=======
   /// Build a new OpenMP 'bind' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -2385,7 +2371,6 @@ public:
     return getSema().ActOnOpenMPBindClause(Kind, KindLoc, StartLoc, LParenLoc,
                                            EndLoc);
   }
->>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
 
   /// Rebuild the operand to an Objective-C \@synchronized statement.
   ///
@@ -9481,14 +9466,6 @@ TreeTransform<Derived>::TransformOMPNumThreadsClause(OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPBindClause(OMPBindClause *C) {
-  return getDerived().RebuildOMPBindClause(
-      C->getBindKind(), C->getBindKindKwLoc(), C->getBeginLoc(),
-      C->getLParenLoc(), C->getEndLoc());
-}
-
 template <typename Derived>
 OMPClause *
 TreeTransform<Derived>::TransformOMPSubdeviceClause(OMPSubdeviceClause *C) {

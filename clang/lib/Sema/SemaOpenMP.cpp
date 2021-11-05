@@ -4912,13 +4912,7 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
                                   OpenMPDirectiveKind CurrentRegion,
                                   const DeclarationNameInfo &CurrentName,
                                   OpenMPDirectiveKind CancelRegion,
-<<<<<<< HEAD
-#if INTEL_COLLAB
-                                  const OMPBindClause *BindClause,
-#endif // INTEL_COLLAB
-=======
                                   OpenMPBindClauseKind BindKind,
->>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
                                   SourceLocation StartLoc) {
   if (Stack->getCurScope()) {
     OpenMPDirectiveKind ParentRegion = Stack->getParentDirective();
@@ -4934,31 +4928,6 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       ShouldBeInTeamsRegion,
       ShouldBeInLoopSimdRegion,
     } Recommend = NoRecommend;
-#if INTEL_COLLAB
-    // OpenMP 5.0 [2.9.5 loop construct]
-    // If a loop construct is not nested inside another OpenMP construct and
-    // it appears in a procedure, the bind clause must be present.
-    if (SemaRef.LangOpts.OpenMPLateOutline && CurrentRegion == OMPD_loop &&
-        ParentRegion == OMPD_unknown && !BindClause) {
-      SemaRef.Diag(StartLoc, diag::err_omp_loop_directive_without_bind);
-      return true;
-    }
-    // OpenMP 5.0 [2.9.5 loop construct]
-    // The only constructs that may be nested inside a loop region are the
-    // loop construct, the parallel construct, the simd construct, and
-    // combined constructs for which the first construct is a parallel
-    // construct.
-    if (SemaRef.LangOpts.OpenMPLateOutline &&
-        isOpenMPGenericLoopDirective(ParentRegion)) {
-      if (CurrentRegion != OMPD_loop && CurrentRegion != OMPD_simd &&
-          CurrentRegion != OMPD_atomic &&
-          !isOpenMPParallelDirective(CurrentRegion)) {
-        SemaRef.Diag(StartLoc, diag::err_omp_prohibited_region)
-          << 0 << getOpenMPDirectiveName(ParentRegion) << 0;
-        return true;
-      }
-    }
-#endif // INTEL_COLLAB
     if (isOpenMPSimdDirective(ParentRegion) &&
         ((SemaRef.LangOpts.OpenMP <= 45 && CurrentRegion != OMPD_ordered) ||
          (SemaRef.LangOpts.OpenMP >= 50 && CurrentRegion != OMPD_ordered &&
@@ -5165,21 +5134,6 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
                           CurrentRegion != OMPD_loop;
       Recommend = ShouldBeInParallelRegion;
     }
-<<<<<<< HEAD
-#if INTEL_COLLAB
-    if (SemaRef.LangOpts.OpenMPLateOutline && !NestingProhibited &&
-        CurrentRegion == OMPD_loop) {
-      // OpenMP 5.0 [2.9.5 loop construct]
-      // If the bind clause is present and binding is teams, the loop region
-      // corresponding to the loop construct must be strictly nested inside a
-      // teams region.
-      NestingProhibited =
-          BindClause && BindClause->getBindKind() == OMP_BIND_teams &&
-          ParentRegion != OMPD_teams && ParentRegion != OMPD_target_teams;
-      Recommend = ShouldBeInTeamsRegion;
-    }
-#endif // INTEL_COLLAB
-=======
     if (!NestingProhibited && CurrentRegion == OMPD_loop) {
       // OpenMP [5.1, 2.11.7, loop Construct, Restrictions]
       // If the bind clause is present on the loop construct and binding is
@@ -5190,7 +5144,6 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
                           ParentRegion != OMPD_target_teams;
       Recommend = ShouldBeInTeamsRegion;
     }
->>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
     if (!NestingProhibited &&
         isOpenMPNestingDistributeDirective(CurrentRegion)) {
       // OpenMP 4.5 [2.17 Nesting of Regions]
@@ -6067,23 +6020,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
     Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc) {
   StmtResult Res = StmtError();
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  const OMPBindClause *BindClause = nullptr;
-  for (auto *BC :
-       OMPExecutableDirective::getClausesOfKind<OMPBindClause>(Clauses)) {
-    BindClause = BC;
-    break;
-  }
-#endif // INTEL_COLLAB
-  // First check CancelRegion which is then used in checkNestingOfRegions.
-  if (checkCancelRegion(*this, Kind, CancelRegion, StartLoc) ||
-      checkNestingOfRegions(*this, DSAStack, Kind, DirName, CancelRegion,
-#if INTEL_COLLAB
-      BindClause,
-#endif // INTEL_COLLAB
-                            StartLoc))
-=======
   OpenMPBindClauseKind BindKind = OMPC_BIND_unknown;
   if (const OMPBindClause *BC =
           OMPExecutableDirective::getSingleClause<OMPBindClause>(Clauses))
@@ -6092,7 +6028,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   if (checkCancelRegion(*this, Kind, CancelRegion, StartLoc) ||
       checkNestingOfRegions(*this, DSAStack, Kind, DirName, CancelRegion,
                             BindKind, StartLoc))
->>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
     return StmtError();
 
   llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
@@ -6741,9 +6676,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_inclusive:
       case OMPC_exclusive:
       case OMPC_uses_allocators:
-#if INTEL_COLLAB
-      case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -15313,9 +15245,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -16434,9 +16363,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_simdlen:
   case OMPC_sizes:
   case OMPC_allocator:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
   case OMPC_tile:      // INTEL
   case OMPC_collapse:
   case OMPC_private:
@@ -16919,12 +16845,6 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
     Res = ActOnOpenMPDefaultClause(static_cast<DefaultKind>(Argument),
                                    ArgumentLoc, StartLoc, LParenLoc, EndLoc);
     break;
-#if INTEL_COLLAB
-  case OMPC_bind:
-    Res = ActOnOpenMPBindClause(static_cast<BindKind>(Argument), ArgumentLoc,
-                                StartLoc, LParenLoc, EndLoc);
-    break;
-#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     Res = ActOnOpenMPProcBindClause(static_cast<ProcBindKind>(Argument),
                                     ArgumentLoc, StartLoc, LParenLoc, EndLoc);
@@ -17316,9 +17236,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -18149,9 +18066,6 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_nocontext:
   case OMPC_detach:
   case OMPC_uses_allocators:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -23629,22 +23543,6 @@ OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
 }
 
 #if INTEL_COLLAB
-OMPClause *Sema::ActOnOpenMPBindClause(BindKind Kind, SourceLocation KindKwLoc,
-                                       SourceLocation StartLoc,
-                                       SourceLocation LParenLoc,
-                                       SourceLocation EndLoc) {
-  if (Kind == OMP_BIND_unknown) {
-    Diag(KindKwLoc, diag::err_omp_unexpected_clause_value)
-        << getListOfPossibleValues(OMPC_bind, /*First=*/0,
-                                   /*Last=*/unsigned(OMP_BIND_unknown))
-        << getOpenMPClauseName(OMPC_bind);
-    return nullptr;
-  }
-
-  return new (Context)
-      OMPBindClause(Kind, KindKwLoc, StartLoc, LParenLoc, EndLoc);
-}
-
 OMPClause *Sema::ActOnOpenMPSubdeviceClause(Expr *Level,
                                             Expr *Start,
                                             Expr *Length,
