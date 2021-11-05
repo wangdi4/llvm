@@ -5907,6 +5907,11 @@ static void genPrivatizationDebug(WRegionNode *W,
 
     if (auto *GV = dyn_cast_or_null<GlobalVariable>(
           NewPrivValue->stripPointerCasts())) {
+      // Locate the compilation unit where the global variables are stored.
+      // The CU must be valid unless the IR is malformed.
+      CU = Variable->getScope()->getSubprogram()->getUnit();
+      if (!CU)
+        continue;
       auto *NewGVE = DIB.createGlobalVariableExpression(
           RegionScope->getFile(),
           Variable->getName(),
@@ -5920,13 +5925,14 @@ static void genPrivatizationDebug(WRegionNode *W,
           /* Decl = */ nullptr,
           /* TemplateParams = */ nullptr,
           /* AlignInBits = */ 0);
+      if (!NewGVE)
+        continue;
       LLVM_DEBUG(dbgs() << "[DEBUG] Created Expression: " << *NewGVE<< "\n");
       LLVM_DEBUG(dbgs() << "[DEBUG] Created Global:     "
                         << *(NewGVE->getVariable())
                         << "\n");
       GV->addDebugInfo(NewGVE);
       LLVM_DEBUG(dbgs() << "[DEBUG]   Assigned To:      " << *GV << "\n");
-      CU = Variable->getScope()->getSubprogram()->getUnit();
       DIGlobalVariableExpressionArray OldGVEs = CU->getGlobalVariables();
       SmallVector<Metadata *, 4> NewGVEs;
       NewGVEs.append(OldGVEs.begin(), OldGVEs.end());
