@@ -205,7 +205,7 @@ BitcodeCompiler::compile(COFFLinkerContext &ctx,
   // The /lldltocache option specifies the path to a directory in which to cache
   // native object files for ThinLTO incremental builds. If a path was
   // specified, configure LTO to use it as the cache directory.
-  NativeObjectCache cache;
+  FileCache cache;
   if (!config->ltoCache.empty())
     cache =
         check(localCache("ThinLTO", "Thin", config->ltoCache,
@@ -215,7 +215,7 @@ BitcodeCompiler::compile(COFFLinkerContext &ctx,
 
   checkError(ltoObj->run(
       [&](size_t task) {
-        return std::make_unique<NativeObjectStream>(
+        return std::make_unique<CachedFileStream>(
             std::make_unique<raw_svector_ostream>(buf[task]));
       },
       cache));
