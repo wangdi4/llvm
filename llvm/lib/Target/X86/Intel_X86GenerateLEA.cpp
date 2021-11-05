@@ -19,14 +19,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Intel_X86MemOpKey.h"
 #include "MCTargetDesc/X86BaseInfo.h"
 #include "X86.h"
 #include "X86InstrInfo.h"
 #include "X86Subtarget.h"
-#include "Intel_X86MemOpKey.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -73,8 +72,9 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   static char ID;
+
 private:
-  using MemOpMap = DenseMap<MemOpKey, SmallVector<MachineInstr *, 16>>;
+  using MemOpMap = MapVector<MemOpKey, SmallVector<MachineInstr *, 16>>;
 
   /// Collect potential instructions in each set.
   void collectPotentialInst(MachineBasicBlock &MBB, MemOpMap &MemOp2MIs);

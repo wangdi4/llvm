@@ -360,16 +360,17 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
       for (auto Prev = StepBegin; Prev != Cand; ++Prev) {
         auto CandBase = Cand->accessAddress().InvariantBase;
         auto PrevBase = Prev->accessAddress().InvariantBase;
+        // If bases are the same, then no need to record this in
+        // CongruentMemrefs. Also, attempting to propagate alignment will
+        // cause an assert in Align() constructor because Diff KnownBits
+        // Zero will be all ones and the shift will result in Align(0).
+       if (CandBase == PrevBase)
+         continue;
         auto Diff = VPSE->getMinusExpr(CandBase, PrevBase);
         if (!Diff)
           continue;
-       // If bases are the same, then no need to record this in
-       // CongruentMemrefs. Also, attempting to propagate alignment will
-       // cause an assert in Align() constructor because KnownBits will
-       // be identical and the shift will result in Align(0).
-       if (CandBase == PrevBase)
-         continue;
         auto KB = VPVT->getKnownBits(Diff, nullptr);
+        assert(!KB.isZero() && "Comparing same address?");
         // "Alignment" of the pointer difference determines how much alignment
         // can be transferred from one memref to another. That is, as long as
         // alignment of Mrf1 is not greater than A, alignment of Mrf2 is going

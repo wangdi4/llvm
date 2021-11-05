@@ -1170,6 +1170,16 @@ private:
         PTA.setSawNonOpaquePointer();
     }
 
+    // We need to disable caching of the intermediate inferred results used
+    // during the computation of an inferred result when analyzeValue gets
+    // re-entered. This is necessary because the intermediate value sets that
+    // are generated may be incomplete because they require the complete results
+    // of the Value that triggered the initial inference process.
+    if (isInferInProgress())
+      ReenteredAnalyze = true;
+    else
+      ReenteredAnalyze = false;
+
     // Check for the special DTrans type metadata, !dtrans-type, used to
     // communicate type information between DTrans passes because of IR
     // produced by a DTrans transformation, that is not easily recoverable from
@@ -1352,8 +1362,12 @@ private:
   // Update the ResultInfo usage type alias set for ValueToInfer by looking at
   // all the users of the ValueToInfer to determine its type.
   void inferTypeFromUse(Value *ValueToInfer, ValueTypeInfo *ResultInfo) {
+    if (!InferVisited.insert(ValueToInfer).second)
+      return;
+
     ValueTypeInfo *PtrInfo = PTA.getOrCreateValueTypeInfo(ValueToInfer);
-    if (PtrInfo->getIsPartialPointerUse())
+    if (PtrInfo->getIsPartialPointerUse() || PtrInfo->isCompletelyAnalyzed() ||
+        PtrInfo->getUnhandled())
       return;
 
     // Don't start another inference triggered by an analyze routine when
@@ -1363,25 +1377,56 @@ private:
 
     // If the type has already been inferred, we will use the previously
     // collected results, rather than examining the uses again.
-    auto It = ValueToInferredTypes.find(ValueToInfer);
-    if (It == ValueToInferredTypes.end()) {
-
-      // Try to infer types for the value.
-      inferTypeFromUseImpl(ValueToInfer);
-      It = ValueToInferredTypes.find(ValueToInfer);
+    auto It = CachedValueToInferredTypes.find(ValueToInfer);
+    if (It != CachedValueToInferredTypes.end()) {
+      for (auto Ty : It->second)
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
+      return;
     }
 
-    if (It == ValueToInferredTypes.end())
-      return;
+    // Try to infer types for the value.
+    inferTypeFromUseImpl(ValueToInfer);
+    It = PendingValueToInferredTypes.find(ValueToInfer);
+    if (It != PendingValueToInferredTypes.end())
+      for (auto Ty : It->second)
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
 
-    for (auto Ty : It->second)
-      ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
+    // When all the infer calls are completed, if the analyze method was not
+    // reentered, save all cached results.
+    // Otherwise, only save the results of the Value being inferred because
+    // other Values may depend on it.
+    if (!isInferInProgress()) {
+      if (!ReenteredAnalyze) {
+        for (auto &KV : PendingValueToInferredTypes) {
+          auto &Dest = CachedValueToInferredTypes[KV.first];
+          for (auto *Ty : KV.second)
+            Dest.insert(Ty);
+        }
+      } else {
+        if (It != PendingValueToInferredTypes.end()) {
+          auto &Dest = CachedValueToInferredTypes[ValueToInfer];
+          for (auto *Ty : It->second)
+            Dest.insert(Ty);
+        }
+      }
+
+      // The final infer is complete, clear the saved state set to prepare for
+      // the start of the next infer run.
+      InferVisited.clear();
+      PendingValueToInferredTypes.clear();
+    }
   }
 
-  // Walk all the users of \p ValueToInfer, updating the ValueToInferredTypes
+  // Walk all the users of \p ValueToInfer, updating the PendingValueToInferredTypes
   // mapping with types that ValueToInfer is used as.
   void inferTypeFromUseImpl(Value *ValueToInfer) {
     ValueTypeInfo *PtrInfo = PTA.getOrCreateValueTypeInfo(ValueToInfer);
+
+    // If the Value has been analyzed as much as possible by AnalyzeValue(),
+    // then there is no need to look ahead at the users.
+    if (PtrInfo->isCompletelyAnalyzed() || PtrInfo->getUnhandled())
+      return;
+
     if (PtrInfo->getIsPartialPointerUse()) {
       // When an instruction has been tagged as being a partial pointer use, it
       // indicates the user of the Value is going to be using the pointer in a
@@ -1480,7 +1525,6 @@ private:
     DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
                       dbgs() << "    End infer for: " << *ValueToInfer << "\n");
 
-    return;
   }
 
   // Try to determine the type of the GEP pointer operand.
@@ -1754,8 +1798,8 @@ private:
   // Helper function to copy inferred types associated with one Value to
   // another, with an optional change in the level of indirection.
   void propagateInferenceSet(Value *From, Value *To, DerefType DerefLevel) {
-    auto It = ValueToInferredTypes.find(From);
-    if (It == ValueToInferredTypes.end())
+    auto It = PendingValueToInferredTypes.find(From);
+    if (It == PendingValueToInferredTypes.end())
       return;
 
     for (auto Ty : It->second)
@@ -1770,7 +1814,7 @@ private:
 
   // Add a type to the inferred set for the Value.
   void addInferredType(Value *V, DTransType *DType) {
-    if (ValueToInferredTypes[V].insert(DType).second)
+    if (PendingValueToInferredTypes[V].insert(DType).second)
       DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
         dbgs() << "    - Inferred: ";
         printValue(dbgs(), V);
@@ -2069,8 +2113,8 @@ private:
 
       // Track the VAT_Decl type of the allocation as the type the
       // object gets used as.
-      auto It = ValueToInferredTypes.find(Call);
-      if (It != ValueToInferredTypes.end())
+      auto It = CachedValueToInferredTypes.find(Call);
+      if (It != CachedValueToInferredTypes.end())
         for (auto Ty : It->second)
           ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
     } else if (OptRetType.second &&
@@ -3066,7 +3110,8 @@ private:
     // These cases may result in the DTransSafetyAnalyzer marking the type as
     // unhandled use or bad casting when it processes the IR.
     inferTypeFromUse(ITP, ResultInfo);
-    if (ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
+    if (!isInferInProgress() &&
+        ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
       ResultInfo->setUnhandled();
   }
 
@@ -3433,8 +3478,11 @@ private:
   // Keep a mapping of a set of types that are inferred for a Value that is
   // constructed when a type needs to be inferred by doing a look-ahead walk of
   // the users of the value.
-  std::map<Value *, SmallPtrSet<DTransType *, 4>> ValueToInferredTypes;
-  SmallPtrSet<Value *, 8> InferInProgress;
+  std::map<Value *, SmallPtrSet<DTransType *, 4>> CachedValueToInferredTypes;
+  std::map<Value *, SmallPtrSet<DTransType *, 4>> PendingValueToInferredTypes;
+  bool ReenteredAnalyze = false;
+  SmallPtrSet<Value *, 32> InferInProgress;
+  SmallPtrSet<Value *, 32> InferVisited;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
