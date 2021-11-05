@@ -412,6 +412,10 @@ static cl::opt<bool> EnableO3NonTrivialUnswitching(
     "enable-npm-O3-nontrivial-unswitch", cl::init(true), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable non-trivial loop unswitching for -O3"));
 
+static cl::opt<bool> EnableEagerlyInvalidateAnalyses(
+    "eagerly-invalidate-analyses", cl::init(false), cl::Hidden,
+    cl::desc("Eagerly invalidate more analyses in default pipelines"));
+
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
   LoopVectorization = true;
@@ -422,6 +426,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   LicmMssaNoAccForPromotionCap = SetLicmMssaNoAccForPromotionCap;
   CallGraphProfile = true;
   MergeFunctions = false;
+  EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
 }
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> ConvertToSubs;
@@ -1029,7 +1034,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
 #endif // INTEL_CUSTOMIZATION
     invokePeepholeEPCallbacks(FPM, Level);
 
-    CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(std::move(FPM)));
+    CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+        std::move(FPM), PTO.EagerlyInvalidateAnalyses));
 
     MPM.addPass(std::move(MIWP));
 
@@ -1056,7 +1062,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
   FPM.addPass(createFunctionToLoopPassAdaptor(
       LoopRotatePass(Level != OptimizationLevel::Oz), /*UseMemorySSA=*/false,
       /*UseBlockFrequencyInfo=*/false));
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM),
+                                                PTO.EagerlyInvalidateAnalyses));
 
   // Add the profile lowering pass.
   InstrProfOptions Options;
@@ -1190,7 +1197,8 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // Lastly, add the core function simplification pipeline nested inside the
   // CGSCC walk.
   MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-      buildFunctionSimplificationPipeline(Level, Phase)));
+      buildFunctionSimplificationPipeline(Level, Phase),
+      PTO.EagerlyInvalidateAnalyses));
 
   MainCGPipeline.addPass(CoroSplitPass(Level != OptimizationLevel::O0));
 
@@ -1289,8 +1297,14 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // https://research.google.com/pubs/pub45290.html
   // FIXME: revisit how SampleProfileLoad/Inliner/ICP is structured.
   if (LoadSampleProfile)
+<<<<<<< HEAD
     addInstCombinePass(EarlyFPM, !DTransEnabled); // INTEL
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
+=======
+    EarlyFPM.addPass(InstCombinePass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM),
+                                                PTO.EagerlyInvalidateAnalyses));
+>>>>>>> 7175886a0f612aded1430ae240ca7ffd53d260dd
 
   if (LoadSampleProfile) {
     // Annotate sample profile right after early FPM to ensure freshness of
@@ -1368,7 +1382,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
 
   GlobalCleanupPM.addPass(SimplifyCFGPass());
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM),
+                                                PTO.EagerlyInvalidateAnalyses));
 
   // Add all the requested passes for instrumentation PGO, if requested.
   if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
@@ -2139,7 +2154,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(CoroCleanupPass());
 
   // Add the core optimizing pipeline.
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM),
+                                                PTO.EagerlyInvalidateAnalyses));
 
   for (auto &C : OptimizerLastEPCallbacks)
     C(MPM, Level);
@@ -2505,11 +2521,16 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (Level.getSpeedupLevel() > 1) {
     FunctionPassManager EarlyFPM;
     EarlyFPM.addPass(CallSiteSplittingPass());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Collect the information from the loops and insert the attributes
     EarlyFPM.addPass(IntelLoopAttrsPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
+=======
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
+>>>>>>> 7175886a0f612aded1430ae240ca7ffd53d260dd
 
     // Indirect call promotion. This should promote all the targets that are
     // left by the earlier promotion pass that promotes intra-module targets.
@@ -2616,7 +2637,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   addInstCombinePass(PeepholeFPM, !DTransEnabled); // INTEL
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(PeepholeFPM)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(PeepholeFPM),
+                                                PTO.EagerlyInvalidateAnalyses));
 
 #if INTEL_CUSTOMIZATION
 
@@ -2752,7 +2774,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driver optimizations here and now to cleanup the code.
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM),
+                                                PTO.EagerlyInvalidateAnalyses));
 
   MPM.addPass(
       createModuleToPostOrderCGSCCPassAdaptor(PostOrderFunctionAttrsPass()));
@@ -2820,7 +2843,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM),
+                                                PTO.EagerlyInvalidateAnalyses));
 
   // Lower type metadata and the type.test intrinsic. This pass supports
   // clang's control flow integrity mechanisms (-fsanitize=cfi*) and needs
