@@ -773,6 +773,7 @@ private:
 
     PtrTypeAnalyzer &PTA = S.DTInfo->getPtrTypeAnalyzer();
     auto *Info = PTA.getValueTypeInfo(Address);
+    assert(Info && "Expected PTA to get info for all pointers");
     DTransType *DTy = PTA.getDominantType(*Info, ValueTypeInfo::VAT_Use);
     auto *PTy = dyn_cast_or_null<DTransPointerType>(DTy);
 
