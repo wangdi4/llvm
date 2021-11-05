@@ -104,7 +104,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
       m_LLVMOptions += " -debug-pass=" + debugPassManager;
 
-    // Non-spirv command line options.
+    // C++ pipeline command line options.
     m_LLVMOptions += " -enable-vec-clone=false";
     ETransposeSize TransposeSize =
         (ETransposeSize)pBackendOptions->GetIntValue(
@@ -112,6 +112,10 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
             TRANSPOSE_SIZE_NOT_SET);
     if (TRANSPOSE_SIZE_1 == TransposeSize)
       m_LLVMOptions += " -vplan-driver=false";
+
+    if (TRANSPOSE_SIZE_AUTO != TransposeSize &&
+        TRANSPOSE_SIZE_NOT_SET != TransposeSize)
+      m_LLVMOptions += " -dpcpp-force-vf=" + std::to_string((int)TransposeSize);
 
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
