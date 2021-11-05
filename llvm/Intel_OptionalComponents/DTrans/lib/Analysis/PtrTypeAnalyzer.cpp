@@ -349,6 +349,8 @@ public:
   // Returns 'true' if the dominant type is a pointer-to-pointer type.
   bool isPtrToPtr(ValueTypeInfo &Info) const;
 
+  bool isPtrToIntOrFloat(ValueTypeInfo &Info) const;
+
   // Return 'true' if the dominant type is a array of 'i8' elements, or pointer
   // to array of 'i8' elements. If 'AggArType' is supplied, populate it with
   // the actual array type.
@@ -4054,6 +4056,16 @@ bool PtrTypeAnalyzerImpl::isPtrToPtr(ValueTypeInfo &Info) const {
   return true;
 }
 
+bool PtrTypeAnalyzerImpl::isPtrToIntOrFloat(ValueTypeInfo &Info) const {
+  DTransType *DomTy = getDominantAggregateUsageType(Info);
+  if (!DomTy)
+    return false;
+  if (!DomTy->isPointerTy())
+    return false;
+  DTransType *PETy = DomTy->getPointerElementType();
+  return PETy && (PETy->isIntegerTy() || PETy->isFloatingPointTy());
+}
+
 bool PtrTypeAnalyzerImpl::isPtrToCharArray(ValueTypeInfo &Info,
                                            DTransArrayType **AggArType) const {
   DTransType *DomTy = getDominantAggregateUsageType(Info);
@@ -4317,6 +4329,10 @@ PtrTypeAnalyzer::getDominantType(ValueTypeInfo &Info,
 
 bool PtrTypeAnalyzer::isPtrToPtr(ValueTypeInfo &Info) const {
   return Impl->isPtrToPtr(Info);
+}
+
+bool PtrTypeAnalyzer::isPtrToIntOrFloat(ValueTypeInfo &Info) const {
+  return Impl->isPtrToIntOrFloat(Info);
 }
 
 std::pair<DTransType *, size_t>

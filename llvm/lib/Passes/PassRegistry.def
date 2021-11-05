@@ -133,8 +133,10 @@ MODULE_PASS("dtrans-soatoaos-prepare", dtrans::SOAToAOSPreparePass()) // INTEL
 MODULE_PASS("dtrans-soatoaos", dtrans::SOAToAOSPass())           // INTEL
 MODULE_PASS("dtrans-soatoaosop", dtransOP::SOAToAOSOPPass())     // INTEL
 MODULE_PASS("dtrans-weakalign", dtrans::WeakAlignPass())         // INTEL
-MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
-MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass())          // INTEL
+MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())       // INTEL
+MODULE_PASS("dtrans-paddedmallocop", dtransOP::PaddedMallocOPPass()) // INTEL
+MODULE_PASS("padded-pointer-prop", dtrans::PaddedPtrPropPass())        // INTEL
+MODULE_PASS("padded-pointer-prop-op", dtransOP::PaddedPtrPropOPPass()) // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
             dtrans::EliminateROFieldAccessPass())                // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access-op",                    // INTEL
