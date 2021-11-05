@@ -1290,7 +1290,6 @@ llvm::DIType *CGDebugInfo::CreateType(const TemplateSpecializationType *Ty,
 
 llvm::DIType *CGDebugInfo::CreateType(const TypedefType *Ty,
                                       llvm::DIFile *Unit) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Map OpenCL scalar/vector type aliases to DWARF builtin types.
   if (CGM.getLangOpts().OpenCL &&
@@ -1306,11 +1305,6 @@ llvm::DIType *CGDebugInfo::CreateType(const TypedefType *Ty,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  TypeLoc TL;
-  if (const TypeSourceInfo *TSI = Ty->getDecl()->getTypeSourceInfo())
-    TL = TSI->getTypeLoc();
-=======
->>>>>>> f95bd18b5faa6a5af4b5786312c373c5b2dce687
   llvm::DIType *Underlying =
       getOrCreateType(Ty->getDecl()->getUnderlyingType(), Unit);
 
