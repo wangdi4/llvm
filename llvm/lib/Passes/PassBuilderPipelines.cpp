@@ -1297,14 +1297,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // https://research.google.com/pubs/pub45290.html
   // FIXME: revisit how SampleProfileLoad/Inliner/ICP is structured.
   if (LoadSampleProfile)
-<<<<<<< HEAD
     addInstCombinePass(EarlyFPM, !DTransEnabled); // INTEL
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
-=======
-    EarlyFPM.addPass(InstCombinePass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM),
                                                 PTO.EagerlyInvalidateAnalyses));
->>>>>>> 7175886a0f612aded1430ae240ca7ffd53d260dd
 
   if (LoadSampleProfile) {
     // Annotate sample profile right after early FPM to ensure freshness of
@@ -2521,16 +2516,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (Level.getSpeedupLevel() > 1) {
     FunctionPassManager EarlyFPM;
     EarlyFPM.addPass(CallSiteSplittingPass());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Collect the information from the loops and insert the attributes
     EarlyFPM.addPass(IntelLoopAttrsPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
-    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
-=======
     MPM.addPass(createModuleToFunctionPassAdaptor(
         std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
->>>>>>> 7175886a0f612aded1430ae240ca7ffd53d260dd
 
     // Indirect call promotion. This should promote all the targets that are
     // left by the earlier promotion pass that promotes intra-module targets.
