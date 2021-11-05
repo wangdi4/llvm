@@ -660,6 +660,10 @@ def ccc_ : Joined<["-"], "ccc-">, Group<internal_Group>, Flags<[Unsupported]>;
 def i_no_use_libirc : Flag<["-"], "i_no-use-libirc">,
   Group<internal_driver_Group>, Flags<[NoXarchOption, HelpHidden]>,
   HelpText<"Disable usage of libirc.">;
+def i_allow_all_opts : Flag<["-"], "i_allow-all-opts">,
+  Group<internal_driver_Group>, Flags<[NoXarchOption, HelpHidden]>,
+  HelpText<"Allow for all options to be enabled when using the DPC++ enabled "
+  "driver">;
 // Add -ax so it does not error out.
 // TODO - there is some usage of this option even though it isn't supported.
 // we are accepting it so we can get around these usages for now.
@@ -7348,7 +7352,7 @@ def _SLASH_Q_no_use_libirc : CLFlag<"Q_no-use-libirc">, Alias<i_no_use_libirc>,
 def _SLASH_Q_save_temps : CLFlag<"Q_save-temps">, Alias<save_temps_EQ>,
   AliasArgs<["cwd"]>;
 def _SLASH_Q_allow_linux : Option<["/", "-"], "Q_allow-linux", KIND_FLAG>,
-  Flags<[CLOption, HelpHidden]>, HelpText<"Allow for Linux options to be "
+  Alias<i_allow_all_opts>, HelpText<"Allow for all options to be "
   "enabled when using the DPC++ enabled MSVC driver.">;
 // Intel specific options (Intel only)
 def : CLJoinedOrSeparate<"constexpr:steps">, Alias<fconstexpr_steps_EQ>;

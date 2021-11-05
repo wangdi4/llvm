@@ -291,8 +291,7 @@ public:
 
   // Return the iterator-range to the list of privates loop-entities values.
   inline decltype(auto) privateVals() const {
-    return map_range(make_range(Privates.begin(), Privates.end()),
-                     [](auto &PrivatePair) { return PrivatePair.first; });
+    return make_first_range(Privates);
   }
 
   // Return the iterator-range to the list of explicit reduction variables which
@@ -309,15 +308,12 @@ public:
 
   // Return the iterator-range to the list of in-memory reduction variables.
   inline decltype(auto) inMemoryReductionVals() const {
-    return map_range(
-        make_range(InMemoryReductions.begin(), InMemoryReductions.end()),
-        [](auto &ValRecDesc) { return ValRecDesc.first; });
+    return make_first_range(InMemoryReductions);
   }
 
   // Return the iterator-range to the list of 'linear' variables.
   inline decltype(auto) linearVals() const {
-    return map_range(make_range(Linears.begin(), Linears.end()),
-                     [](auto &LinearStepPair) { return LinearStepPair.first; });
+    return make_first_range(Linears);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
