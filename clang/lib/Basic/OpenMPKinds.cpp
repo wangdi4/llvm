@@ -183,6 +183,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_ADJUST_ARGS_KIND(Name) .Case(#Name, OMPC_ADJUST_ARGS_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ADJUST_ARGS_unknown);
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_ompx_places:
     return llvm::StringSwitch<OpenMPOmpxPlacesClauseModifier>(Str)
@@ -190,6 +191,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_OMPX_PLACES_unknown);
 #endif // INTEL_COLLAB
+=======
+  case OMPC_bind:
+    return llvm::StringSwitch<unsigned>(Str)
+#define OPENMP_BIND_KIND(Name) .Case(#Name, OMPC_BIND_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_BIND_unknown);
+>>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
   case OMPC_unknown:
 #if INTEL_COLLAB
   case OMPC_subdevice:
@@ -482,6 +490,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'adjust_args' clause kind");
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_ompx_places:
     switch (Type) {
@@ -494,6 +503,18 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     }
     llvm_unreachable("Invalid OpenMP 'ompx_places' clause modifier");
 #endif // INTEL_COLLAB
+=======
+  case OMPC_bind:
+    switch (Type) {
+    case OMPC_BIND_unknown:
+      return "unknown";
+#define OPENMP_BIND_KIND(Name)                                                 \
+  case OMPC_BIND_##Name:                                                       \
+    return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'bind' clause type");
+>>>>>>> 4eac7bcf1af1a94d76aec8d54f4a0f0014dd121c
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:

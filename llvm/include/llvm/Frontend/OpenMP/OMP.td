@@ -396,6 +396,10 @@ def OMPC_Filter : Clause<"filter"> {
 }
 def OMPC_When: Clause<"when"> {}
 
+def OMPC_Bind : Clause<"bind"> {
+  let clangClass = "OMPBindClause";
+}
+
 //===----------------------------------------------------------------------===//
 // Definition of OpenMP directives
 //===----------------------------------------------------------------------===//
@@ -2033,6 +2037,7 @@ def OMP_loop : Directive<"loop"> {
     VersionedClause<OMPC_Reduction>,
   ];
   let allowedOnceClauses = [
+    VersionedClause<OMPC_Bind, 50>,
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_Order>,
   ];
