@@ -2206,6 +2206,7 @@ llvm.ldexp.* intrinsics instead of the equivalent math library routines.
   }];
 }
 
+#if INTEL_FEATURE_SW_DTRANS
 def IntelMempoolCtorDtorDocs : Documentation {
   let Category = DocCatIntelOptimization;
   let Option = "IntelCompat";
@@ -2249,6 +2250,7 @@ LTO transformations use these attributes to identify constructor and
 destructor member functions.
   }];
 }
+#endif // INTEL_FEATURE_SW_DTRANS
 
 def PredeclareAlignValTDocs : Documentation {
   let Category = DocCatIntelCompat;
