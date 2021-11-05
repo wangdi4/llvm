@@ -279,8 +279,9 @@
 /llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @alexey-bataev @valerydmit
 /llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp @alexey-bataev @valerydmit
 /llvm/include/llvm/Transforms/Vectorize/SLPVectorizer.h @alexey-bataev @valerydmit
-/llvm/test/Transforms/SLPVectorizer/ @alexey-bataev @valerydmit
+/llvm/test/Transforms/Intel_VPO/Vecopt/slp/ @alexey-bataev @valerydmit
 /llvm/test/Transforms/Reassociate/Intel_addsub* @alexey-bataev @valerydmit
+/llvm/test/Transforms/SLPVectorizer/ @alexey-bataev @valerydmit
 
 /llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil 
 /llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
