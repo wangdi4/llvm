@@ -2648,8 +2648,7 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
       V = ConstantInt::get(Builder.getInt8Ty(), 0);
       const DataLayout &DL =
           Builder.GetInsertBlock()->getModule()->getDataLayout();
-      uint64_t Size = DL.getTypeAllocSize(
-          ReductionValueLoc->getType()->getPointerElementType());
+      uint64_t Size = DL.getTypeAllocSize(ScalarTy);
       unsigned Alignment = 0;
       if (auto *AI = dyn_cast<AllocaInst>(RedI->getNew()->stripPointerCasts()))
         Alignment = AI->getAlignment();
@@ -3306,13 +3305,9 @@ bool VPOParoptTransform::genReductionScalarFini(
     }
     return Res;
   };
-  auto *Rhs2 = Builder.CreateLoad(
-      ReductionValueLoc->getType()->getPointerElementType(), ReductionValueLoc);
-  auto *Rhs1 =
-      UseGlobalUpdates
-          ? cast<Instruction>(SumPhi)
-          : Builder.CreateLoad(ReductionVar->getType()->getPointerElementType(),
-                               ReductionVar);
+  auto *Rhs2 = Builder.CreateLoad(ScalarTy, ReductionValueLoc);
+  auto *Rhs1 = UseGlobalUpdates
+      ? cast<Instruction>(SumPhi) : Builder.CreateLoad(ScalarTy, ReductionVar);
   auto *Res = GenerateRedOp(Rhs1, Rhs2);
   auto *Tmp0 = Builder.CreateStore(Res, ReductionVar);
 
@@ -3417,8 +3412,8 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
                                           Value *OldV, Instruction *InsertPt,
                                           DominatorTree *DT,
                                           bool NoNeedToOffsetOrDerefOldV) {
-  Type *AllocaTy;
-  Value *NumElements;
+  Type *AllocaTy = nullptr;
+  Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) =
       VPOParoptUtils::getItemInfo(RedI);
 
@@ -3458,10 +3453,10 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
         auto *GroupId0 = VPOParoptUtils::genOCLGenericCall(
             "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
             Builder.getInt32(0), InsertPt);
-        OldV = Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
+        OldV = Builder.CreateGEP(GlobalBuf->getValueType(),
                                  GlobalBuf, GroupId0);
       } else {
-        NewV = Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
+        NewV = Builder.CreateGEP(GlobalBuf->getValueType(),
                                  GlobalBuf, Builder.getInt32(0));
       }
     }
@@ -3671,22 +3666,27 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
   if (!AI)
     AI = dyn_cast<AllocaInst>(From);
 
+  Type *AllocaTy = nullptr;
+  std::tie(AllocaTy, std::ignore, std::ignore) =
+      VPOParoptUtils::getItemInfo(I);
+
   // For by-refs, do a pointer dereference to reach the actual operand.
-  if (IsByRef)
-    From = Builder.CreateLoad(From->getType()->getPointerElementType(), From);
+  if (IsByRef) {
+    Type *RefTy = AllocaTy->getPointerTo(
+        VPOParoptUtils::getDefaultAS(InsertPt->getModule()));
+    From = Builder.CreateLoad(RefTy, From);
+  }
   assert(From->getType()->isPointerTy() && To->getType()->isPointerTy());
-  Type *ObjType = AI ? AI->getAllocatedType()
-                     : From->getType()->getPointerElementType();
+  Type *ObjType = AI ? AI->getAllocatedType() : AllocaTy;
   if (Cctor) {
     genPrivatizationInitOrFini(I, Cctor, FK_CopyCtor, To, From, InsertPt, DT);
   } else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
              (AI && AI->isArrayAllocation())) {
     unsigned Alignment = DL.getABITypeAlignment(ObjType);
-    uint64_t Size = DL.getTypeAllocSize(To->getType()->getPointerElementType());
+    uint64_t Size = DL.getTypeAllocSize(AllocaTy);
     VPOUtils::genMemcpy(To, From, Size, Alignment, Builder);
   } else {
-    Builder.CreateStore(
-        Builder.CreateLoad(From->getType()->getPointerElementType(), From), To);
+    Builder.CreateStore(Builder.CreateLoad(AllocaTy, From), To);
   }
 }
 
@@ -3999,6 +3999,10 @@ void VPOParoptTransform::genConditionalLPCode(
   assert(OMPLBForChunk && "Null OMP LB for per chunk init code.");
   assert(ConditionalLPBarrier && "Null conditional lastprivate barrier.");
 
+  Type *ItemElemTy = nullptr;
+  std::tie(ItemElemTy, std::ignore, std::ignore) =
+      VPOParoptUtils::getItemInfo(LprivI);
+
   StringRef NamePrefix = LprivI->getOrig()->getName();
   Loop *L = W->getWRNLoopInfo().getLoop();
   Instruction *LoopIdx = WRegionUtils::getOmpCanonicalInductionVariable(L);
@@ -4078,7 +4082,7 @@ void VPOParoptTransform::genConditionalLPCode(
                                 ModifiedByCurrentThread);          // (48)
     ModifiedBuilder.CreateStore(OMPLBForChunk, MaxLocalIndex);     // (49)
     auto *ValueInChunk = ModifiedBuilder.CreateLoad(
-        LprivINew->getType()->getPointerElementType(), LprivINew); // (50)
+        ItemElemTy, LprivINew); //                                    (50)
     ModifiedBuilder.CreateStore(ValueInChunk, ValInMaxLocalIndex); // (51)
   }
 
@@ -4165,8 +4169,7 @@ void VPOParoptTransform::genConditionalLPCode(
     // Do copyout using ValInMaxLocalIndex instead of LprivINew.
     IRBuilder<> CopyoutBuilder(IfShouldDoCopyoutThen);
     auto *ValInMaxLocalIndexLoad = CopyoutBuilder.CreateLoad(
-        ValInMaxLocalIndex->getType()->getPointerElementType(),
-        ValInMaxLocalIndex); //                                       (68)
+        ItemElemTy, ValInMaxLocalIndex); //                           (68)
     CopyoutBuilder.CreateStore(ValInMaxLocalIndexLoad, LprivINew); // (69)
   }
 
@@ -4197,8 +4200,8 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           ReductionItem *RedI,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
-  Type *AllocaTy;
-  Value *NumElements;
+  Type *AllocaTy = nullptr;
+  Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) =
       VPOParoptUtils::getItemInfo(RedI);
 
@@ -4357,7 +4360,7 @@ int VPOParoptTransform::checkFastReduction(WRegionNode *W) {
           break;
         }
         // if type of reduction variable is not supported, atomic cannot be used
-        Type *AllocaTy;
+        Type *AllocaTy = nullptr;
         std::tie(AllocaTy, std::ignore, std::ignore) =
             VPOParoptUtils::getItemInfo(RedI);
         if (!(AllocaTy->isIntegerTy() || AllocaTy->isFloatTy() ||
@@ -4729,47 +4732,48 @@ void VPOParoptTransform::genFastRedAggregateCopy(
 
   // Create copy loop to update variable for fast reduction
   auto DestEnd = Builder.CreateGEP(DestElementTy, DestBegin,
-                                   NumElements); //                         (5)
+                                   NumElements); //                          (5)
   auto IsEmpty =
       Builder.CreateICmpEQ(DestBegin, DestEnd, "fastred.update.isempty"); // (6)
 
   auto BodyBB = SplitBlock(EntryBB, InsertPt, DT, LI);
-  BodyBB->setName("fastred.update.body"); //                                (9)
+  BodyBB->setName("fastred.update.body"); //                                 (9)
 
   auto DoneBB = SplitBlock(BodyBB, BodyBB->getTerminator(), DT, LI);
-  DoneBB->setName("fastred.update.done"); //                                (8)
+  DoneBB->setName("fastred.update.done"); //                                 (8)
 
   EntryBB->getTerminator()->eraseFromParent();
   Builder.SetInsertPoint(EntryBB);
-  Builder.CreateCondBr(IsEmpty, DoneBB, BodyBB); //                         (7)
+  Builder.CreateCondBr(IsEmpty, DoneBB, BodyBB); //                          (7)
 
   Builder.SetInsertPoint(BodyBB);
   BodyBB->getTerminator()->eraseFromParent();
   PHINode *DestElementPHI = Builder.CreatePHI(DestBegin->getType(), 2,
-                                              "fastred.cpy.dest.ptr"); // (10)
+                                              "fastred.cpy.dest.ptr"); //   (10)
   DestElementPHI->addIncoming(DestBegin, EntryBB);
 
   PHINode *SrcElementPHI = nullptr;
   if (SrcBegin != nullptr) {
     SrcElementPHI = Builder.CreatePHI(SrcBegin->getType(), 2,
-                                      "fastred.cpy.src.ptr"); // (11)
+                                      "fastred.cpy.src.ptr"); //            (11)
     SrcElementPHI->addIncoming(SrcBegin, EntryBB);
   }
 
-  genFastRedScalarCopy(DestElementPHI, SrcElementPHI, Builder); //       (12~13)
+  genFastRedScalarCopy(DestElementPHI, SrcElementPHI,
+                       DestElementTy, Builder); //                       (12~13)
 
   auto DestElementNext = Builder.CreateConstGEP1_32(
-      DestElementTy, DestElementPHI, 1, "fastred.cpy.dest.inc"); //      (14)
+      DestElementTy, DestElementPHI, 1, "fastred.cpy.dest.inc"); //         (14)
   Value *SrcElementNext = nullptr;
   if (SrcElementPHI != nullptr)
     SrcElementNext = Builder.CreateConstGEP1_32(DestElementTy, SrcElementPHI, 1,
-                                                "fastred.cpy.src.inc"); // (15)
+                                                "fastred.cpy.src.inc"); //  (15)
 
   auto Done = Builder.CreateICmpEQ(DestElementNext, DestEnd,
-                                   "fastred.cpy.done"); // (16)
+                                   "fastred.cpy.done"); //                  (16)
 
   Builder.CreateCondBr(Done, DoneBB,
-                        BodyBB); //                             (17)
+                        BodyBB); //                                         (17)
   DestElementPHI->addIncoming(DestElementNext, Builder.GetInsertBlock());
   if (SrcElementPHI != nullptr)
     SrcElementPHI->addIncoming(SrcElementNext, Builder.GetInsertBlock());
@@ -4782,8 +4786,9 @@ void VPOParoptTransform::genFastRedAggregateCopy(
 
 /// Generate copy code for scalar type (only used by fast reduction).
 void VPOParoptTransform::genFastRedScalarCopy(Value *Dst, Value *Src,
+                                              Type *ElemTy,
                                               IRBuilder<> &Builder) {
-  Value *V = Builder.CreateLoad(Src->getType()->getPointerElementType(), Src);
+  Value *V = Builder.CreateLoad(ElemTy, Src);
   Builder.CreateStore(V, Dst);
 }
 
@@ -4796,8 +4801,8 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
   // Src is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(Src) &&
          "genFastRedCopy: Expect isOMPItemLocalVAR().");
-  Type *AllocaTy;
-  Value *NumElements;
+  Type *AllocaTy = nullptr;
+  Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) =
       VPOParoptUtils::getItemInfo(RedI);
   assert(AllocaTy && "genFastRedCopy: item type cannot be deduced.");
@@ -4831,7 +4836,7 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
     return;
   }
 
-  genFastRedScalarCopy(Dst, Src, Builder);
+  genFastRedScalarCopy(Dst, Src, AllocaTy, Builder);
 }
 
 /// Generate private reduction variable for fast reduction.
@@ -4917,7 +4922,7 @@ void VPOParoptTransform::genFastReduceBB(WRegionNode *W,
       assert(AtomicCall != nullptr &&
              "No atomic call is generated for fast reduction.");
 
-      Type *AllocaTy;
+      Type *AllocaTy = nullptr;
       std::tie(AllocaTy, std::ignore, std::ignore) =
           VPOParoptUtils::getItemInfo(RedI);
 
@@ -8311,7 +8316,7 @@ bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
         ->getArraySectionInfo()
         .isVariableLengthArraySection();
 
-  Value *NumElements;
+  Value *NumElements = nullptr;
   std::tie(std::ignore, NumElements, std::ignore) =
       VPOParoptUtils::getItemInfo(I);
   if (!NumElements)
@@ -9951,17 +9956,19 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
            CopyinEndBB->getTerminator(), IdentTy, true);
       }
 
-      Type *CType = C->getIsTyped() ?
-          C->getOrigItemElementTypeFromIR() :
-          C->getOrig()->getType()->getPointerElementType();
-      uint64_t Size = NDL.getTypeAllocSize(CType);
+      Type *ElementType = nullptr;
+      std::tie(ElementType, std::ignore, std::ignore) =
+          VPOParoptUtils::getItemInfo(C);
+
+      uint64_t Size = NDL.getTypeAllocSize(ElementType);
       VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, Size,
                           getAlignmentCopyIn(C->getOrig(), NDL),
                           Term->getParent());
       if (C->getIsTyped()) {
         LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Copyin for '";
                    C->getOrig()->printAsOperand(dbgs()); dbgs() << "' (Typed)";
-                   dbgs() << ":: Type: "; CType->print(dbgs()); dbgs() << "\n");
+                   dbgs() << ":: Type: "; ElementType->print(dbgs());
+                   dbgs() << "\n");
       }
 
       ++NewArgI;
