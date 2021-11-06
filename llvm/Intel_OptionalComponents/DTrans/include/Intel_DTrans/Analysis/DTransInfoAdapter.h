@@ -137,7 +137,7 @@ public:
     return DTInfo.getStructField(GEP);
   }
 
-  bool requiresBadCastValidation(SmallPtrSetImpl<Function *> &Funcs,
+  bool requiresBadCastValidation(SetVector<Function *> &Funcs,
                                  unsigned &ArgumentIndex,
                                  unsigned &StructIndex) {
     return DTInfo.requiresBadCastValidation(Funcs, ArgumentIndex, StructIndex);
@@ -269,7 +269,7 @@ public:
     return DTInfo.getStructField(GEP);
   }
 
-  bool requiresBadCastValidation(SmallPtrSetImpl<Function *> &Funcs,
+  bool requiresBadCastValidation(SetVector<Function *> &Funcs,
                                  unsigned &ArgumentIndex,
                                  unsigned &StructIndex) {
     // TODO: Implementation required here.
