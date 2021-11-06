@@ -692,8 +692,11 @@ private:
                       Instruction *InsertPt, DominatorTree *DT,
                       bool NoNeedToOffsetOrDerefOldV = false);
 
-  /// Generate copy code for scalar type.
-  void genFastRedScalarCopy(Value *Dst, Value *Src, IRBuilder<> &Builder);
+  /// Generate copy code for scalar type \p ElemTy.
+  /// Copy from \p Src address to \p Dst address.
+  /// New instructions are inserted using \p Builder.
+  void genFastRedScalarCopy(Value *Dst, Value *Src, Type *ElemTy,
+                            IRBuilder<> &Builder);
 
   /// Generate copy code for aggregate type.
   void genFastRedAggregateCopy(ReductionItem *RedI, Value *Src, Value *Dst,

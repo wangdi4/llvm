@@ -2125,6 +2125,11 @@ public:
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
   static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
+
+  /// Return default address space for the current target.
+  /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
+  /// \p M is used to identify the current target.
+  static unsigned getDefaultAS(const Module *M);
 };
 
 } // namespace vpo

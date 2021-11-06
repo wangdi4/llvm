@@ -47,7 +47,7 @@ AllocaInst *VPOAnalysisUtils::findAllocaInst(Value *V) {
 }
 
 /// \brief Returns true if we are compiling for SPIRV target.
-bool VPOAnalysisUtils::isTargetSPIRV(Module *M) {
+bool VPOAnalysisUtils::isTargetSPIRV(const Module *M) {
   Triple TargetTriple(M->getTargetTriple());
   return TargetTriple.getArch() == Triple::ArchType::spir ||
          TargetTriple.getArch() == Triple::ArchType::spir64;
