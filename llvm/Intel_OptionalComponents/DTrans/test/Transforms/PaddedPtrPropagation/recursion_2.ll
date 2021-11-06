@@ -23,8 +23,8 @@
 ;CHECK-NEXT:   Arguments' Padding:
 ;CHECK-NEXT:     i32* %P : 0
 ;CHECK-NEXT:   Value paddings:
-;CHECK-DAG:      i32* %P :: 0
-;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 16
+;CHECK:      i32* %P :: 0
+;CHECK:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 16
 ;CHECK:      Function info(baz):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1
@@ -39,8 +39,8 @@
 ;CHECK-NEXT:   Arguments' Padding:
 ;CHECK-NEXT:     i32* %P : 0
 ;CHECK-NEXT:   Value paddings:
-;CHECK-DAG:      i32* %P :: 0
-;CHECK-DAG:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 16
+;CHECK-NEXT:      i32* %P :: 0
+;CHECK-NEXT:      %0 = tail call i32* @llvm.ptr.annotation.p0i32(i32* %call, i8* getelementptr inbounds ([16 x i8], [16 x i8]* @1, i64 0, i64 0), i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 8, i8* null) :: 16
 ;CHECK:      Function info(baz):
 ;CHECK-NEXT:   HasUnknownCallSites: 0
 ;CHECK-NEXT:   Return Padding: -1

@@ -796,7 +796,7 @@ bool PaddedMallocImpl<InfoClass>::run(Module &M,
   }
 
   // Check if the module requires runtime safety checks
-  SmallPtrSet<Function *, 16> Funcs;
+  SetVector<Function *> Funcs;
   unsigned ArgumentIndex;
   unsigned StructIndex;
   if (DTInfo.requiresBadCastValidation(Funcs, ArgumentIndex, StructIndex)) {

@@ -2359,7 +2359,7 @@ private:
   // pointer value and can be assigned to the candidate field.  The bool
   // indicates whether the store was conditional. The Type is the type of
   // the pointer to the structure which is stored.
-  std::map<StoreInst *, std::pair<bool, llvm::Type *>> AllocStores;
+  MapVector<StoreInst *, std::pair<bool, llvm::Type *>> AllocStores;
   // A set of stores which may be eventually proved to be "alloc stores".
   // After having visited all stores, all of the pending stores need to
   // be proved to be "alloc stores", or we assume a potential violation has
@@ -2372,7 +2372,7 @@ private:
   std::map<StoreInst *, llvm::Type *> UnsafePtrStores;
   // Functions which must have conditionals inserted to avoid bad casting
   // on loads in those Functions.
-  SmallPtrSet<Function *, 10> CondLoadFunctions;
+  SetVector<Function *> CondLoadFunctions;
   // Member functions
   // For all but the most trivial, these are documented in the lines above
   // the function definitions.
@@ -2410,7 +2410,7 @@ private:
                                    dtrans::SafetyData ReplaceByCondition);
 
 public:
-  void getConditionalFunctions(std::set<Function *> &Funcs) const;
+  void getConditionalFunctions(SetVector<Function *> &Funcs) const;
 };
 
 //
@@ -3478,8 +3478,10 @@ bool DTransBadCastingAnalyzer::analyzeLoad(dtrans::FieldInfo &FI,
 // in the Function 'F'.
 //
 void DTransBadCastingAnalyzer::pruneCondLoadFunctions() {
-  for (auto &IT : AllocStores)
-    CondLoadFunctions.erase(IT.first->getFunction());
+  for (auto &IT : AllocStores) {
+    Function *MyF = IT.first->getFunction();
+    CondLoadFunctions.remove_if([&](Function *F) { return F == MyF; });
+  }
 }
 
 //
@@ -3776,7 +3778,7 @@ void DTransBadCastingAnalyzer::setSawUnsafePointerStore(StoreInst *SI,
 }
 
 void DTransBadCastingAnalyzer::getConditionalFunctions(
-    std::set<Function *> &Funcs) const {
+    SetVector<Function *> &Funcs) const {
   Funcs.clear();
 
   for (auto *F : CondLoadFunctions) {
@@ -10877,7 +10879,7 @@ bool DTransAnalysisInfo::getDTransUseCRuleCompat() {
 }
 
 bool DTransAnalysisInfo::requiresBadCastValidation(
-    SmallPtrSetImpl<Function *> &Func, unsigned &ArgumentIndex,
+    SetVector<Function *> &Func, unsigned &ArgumentIndex,
     unsigned &StructIndex) const {
   Func.clear();
   Func.insert(FunctionsRequireBadCastValidation.begin(),

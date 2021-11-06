@@ -218,9 +218,9 @@ int getMergedValue(initializer_list<Value *> &&IList, PGetter &PG) {
 template <class InfoClass>
 struct FuncPadInfo final {
   const Function *Func;
-  SmallDenseMap<Value *, int> ValuePaddingMap;
-  SmallDenseSet<Argument *> PotentiallyPaddedParams;
-  SmallDenseSet<Value *> ReturnedValues;
+  MapVector<Value *, int> ValuePaddingMap;
+  SetVector<Argument *> PotentiallyPaddedParams;
+  SetVector<Value *> ReturnedValues;
 
   int ReturnPadding = -1;
 
@@ -273,13 +273,13 @@ struct FuncPadInfo final {
 
   void setReturnPadding(int RP) { ReturnPadding = RP; }
 
-  SmallDenseSet<Value *> &getReturnedValues() { return ReturnedValues; }
+  SetVector<Value *> &getReturnedValues() { return ReturnedValues; }
 
-  SmallDenseSet<Argument *> &getPotentiallyPaddedParams() {
+  SetVector<Argument *> &getPotentiallyPaddedParams() {
     return PotentiallyPaddedParams;
   }
 
-  int getPaddingForValue(const Value *V) const {
+  int getPaddingForValue(Value *V) const {
     auto IT = ValuePaddingMap.find(V);
     if (IT == ValuePaddingMap.end())
       return -1;
@@ -455,14 +455,13 @@ public:
 
 template <class InfoClass>
 class PaddedPtrPropImpl {
-  using FuncPadInfoMapTy = SmallDenseMap<Function *, 
-                                         FuncPadInfo<InfoClass> *>;
+  using FuncPadInfoMapTy = MapVector<Function *, FuncPadInfo<InfoClass> *>;
 
   InfoClass &DTInfo;
   FuncPadInfoMapTy FuncPadInfoMap;
   dtrans::PaddedMallocGlobals<InfoClass> PaddedMallocData;
   FuncPadInfo<InfoClass> &getFuncPadInfo(Function *F);
-  void propagateInFunction(Function *F, SmallDenseSet<Function *> &ImpactedFns);
+  void propagateInFunction(Function *F, SetVector<Function *> &ImpactedFns);
   bool emit();
 
   void collectSingleAllocsForType(dtrans::TypeInfo *TyInfo,
@@ -532,7 +531,7 @@ private:
 // functions
 template <class InfoClass>
 void PaddedPtrPropImpl<InfoClass>::propagateInFunction(
-    Function *F, SmallDenseSet<Function *> &ImpactedFns) {
+    Function *F, SetVector<Function *> &ImpactedFns) {
   auto &FPInfo = getFuncPadInfo(F);
 
   // Evaluate padding for function argument if it isn't set yet
@@ -571,7 +570,7 @@ void PaddedPtrPropImpl<InfoClass>::propagateInFunction(
 
   // Build initial workset from the consumers of values having known padding
   // If the user has padding already assigned to it, skip it.
-  SmallDenseSet<Value *> WorkSet;
+  SetVector<Value *> WorkSet;
   for (auto PMEntry : FPInfo.ValuePaddingMap) {
     assert(PMEntry.second >= 0 && "Negative padding value is not allowed");
     for (auto *U : PMEntry.first->users()) {
@@ -926,7 +925,7 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
 
   bool Modified = placeInitialAnnotations(M);
 
-  SmallDenseSet<Function *> WorkSet;
+  SetVector<Function *> WorkSet;
 
   // Find all the functions which have pointer annotations inside and
   // include them into initial work set
@@ -969,7 +968,7 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
     auto F = *FIter;
     WorkSet.erase(FIter);
 
-    SmallDenseSet<Function *> Impacted;
+    SetVector<Function *> Impacted;
     propagateInFunction(F, Impacted);
     WorkSet.insert(Impacted.begin(), Impacted.end());
   }
