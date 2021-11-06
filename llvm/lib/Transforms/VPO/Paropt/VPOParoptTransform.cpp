@@ -2324,6 +2324,7 @@ bool VPOParoptTransform::paroptTransforms() {
             if (!SkipTargetCodeGenForRegion) {
               SmallVector<Value *, 3> IsLastLocs;
               BasicBlock *IfLastIterBB = nullptr;
+              Changed |= setInsertionPtForVlaAllocas(W);
               Changed |= genOCLParallelLoop(W, IsLastLocs);
               Changed |= genPrivatizationCode(W);
               Changed |= genLastIterationCheck(W, IsLastLocs, IfLastIterBB);
@@ -2350,6 +2351,7 @@ bool VPOParoptTransform::paroptTransforms() {
                 Changed |= genBarrier(W, /*Explicit=*/false, IsTargetSPIRV,
                                       InsertBefore);
               }
+              Changed |= insertStackSaveRestore(W);
             }
           } else {
 #if INTEL_CUSTOMIZATION
@@ -4596,13 +4598,13 @@ VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
         RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
     MaxAlignment = max(OrigAlignment, MaxAlignment);
 
-    computeArraySectionTypeOffsetSize(W, *RedI, InsertPt);
-
     if ((isa<WRNVecLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
         getIsVlaOrVlaSection(RedI)) {
       InsertPt = W->getVlaAllocaInsertPt();
       Builder.SetInsertPoint(InsertPt);
     }
+
+    computeArraySectionTypeOffsetSize(W, *RedI, InsertPt);
 
     if (RedI->getIsArraySection()) {
       ArraySectionInfo *ArrSecInfo = &RedI->getArraySectionInfo();
@@ -5561,7 +5563,8 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   if (ArraySectionDims.empty())
     return;
 
-  if (isa<WRNVecLoopNode>(W) && ArrSecInfo.isVariableLengthArraySection()) {
+  if (isa<WRNVecLoopNode>(W) &&
+      ArrSecInfo.isVLAOrArraySectionWithVariableLengthOrOffset()) {
     assert(W->getVlaAllocaInsertPt() &&
            "SIMD constructs with variable size array section should have Vla "
            "Alloca Insertion point set.");
@@ -8314,7 +8317,7 @@ bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
   if (isa<ReductionItem>(I) && cast<ReductionItem>(I)->getIsArraySection())
     return cast<ReductionItem>(I)
         ->getArraySectionInfo()
-        .isVariableLengthArraySection();
+        .isVLAOrArraySectionWithVariableLengthOrOffset();
 
   Value *NumElements = nullptr;
   std::tie(std::ignore, NumElements, std::ignore) =

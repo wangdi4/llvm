@@ -726,6 +726,8 @@ public:
   GlobalVariable *getGVSize() const { return GVSize; }
   void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
   bool isVariableLengthArraySection() const;
+  bool hasVariableStartingOffset() const;
+  bool isVLAOrArraySectionWithVariableLengthOrOffset() const;
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const;
   void print(raw_ostream &OS, bool PrintType = true) const;

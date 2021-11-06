@@ -267,6 +267,21 @@ bool ArraySectionInfo::isVariableLengthArraySection() const {
   return false;
 }
 
+bool ArraySectionInfo::hasVariableStartingOffset() const {
+  const int NumDims = ArraySectionDims.size();
+  for (int I = NumDims - 1; I >= 0; --I) {
+    auto const &Dim = ArraySectionDims[I];
+    Value *SectionLB = std::get<0>(Dim);
+    if (SectionLB && !isa<ConstantInt>(SectionLB))
+      return true;
+  }
+  return false;
+}
+
+bool ArraySectionInfo::isVLAOrArraySectionWithVariableLengthOrOffset() const {
+  return hasVariableStartingOffset() || isVariableLengthArraySection();
+}
+
 // This routine populates PreferList from the Args.
 void InteropItem::populatePreferList(const Use *Args, unsigned NumArgs) {
   setIsPrefer();
