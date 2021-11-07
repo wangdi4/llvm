@@ -3708,6 +3708,7 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
                                          CRHS->getPointerOperand(), Q))
           return C;
 
+<<<<<<< HEAD
   if (GetElementPtrInst *GLHS = dyn_cast<GetElementPtrInst>(LHS)) {
     if (GEPOperator *GRHS = dyn_cast<GEPOperator>(RHS)) {
       if (GLHS->getPointerOperand() == GRHS->getPointerOperand() &&
@@ -3741,6 +3742,8 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       return V;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> e3cec17b2db292227a2b92d46e653372dad711af
   // If the comparison is with the result of a select instruction, check whether
   // comparing with either branch of the select always yields the same value.
   if (isa<SelectInst>(LHS) || isa<SelectInst>(RHS))
