@@ -8,7 +8,8 @@
 ; unsigned number into a large one, which may be trivially > X.
 
 ; RUN: opt -indvars -S %s | FileCheck %s
-; CHECK: %cmp10 = icmp ult i64 %indvars.iv1, 4 // INTEL
+; INTEL
+; CHECK: %cmp10 = icmp ult i64 %indvars.iv1, 4
 ; CHECK: br i1 %cmp10, label %for.body11, label %for.cond8.for.end_crit_edge
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
