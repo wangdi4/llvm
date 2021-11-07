@@ -47,7 +47,7 @@ struct B : virtual A , public C
 // CHECK: [[VTABLE1:%vtable1]] = load i32 (%struct.A addrspace(4)*, i32)* addrspace(4)*, i32 (%struct.A addrspace(4)*, i32)* addrspace(4)* addrspace(4)*
 // CHECK: [[VFN:%vfn]] =  getelementptr inbounds i32 (%struct.A addrspace(4)*, i32)*, i32 (%struct.A addrspace(4)*, i32)* addrspace(4)* [[VTABLE1]]
 // CHECK: [[L:%.*]] = load i32 (%struct.A addrspace(4)*, i32)*, i32 (%struct.A addrspace(4)*, i32)* addrspace(4)* [[VFN]]
-// CHECK: call spir_func i32 [[L]]
+// CHECK: call spir_func noundef i32 [[L]]
 // CHECK: "DIR.OMP.END.TARGET"
 // CHECK: ret void
 B::B() {}
@@ -78,7 +78,7 @@ B::B() {}
 // CHECK: [[L10:%[^)]*]] = bitcast i8 addrspace(4)* [[L5]] to i32 (...)* addrspace(4)*
 // CHECK: store i32 (...)* addrspace(4)* %10, i32 (...)* addrspace(4)* addrspace(4)* [[L9]]
 // CHECK: ret void
-// CHECK: define{{.*}}spir_func void @_ZN1BC1Ev(%struct.B addrspace(4)* align 8 dereferenceable_or_null(8) [[THIS:[^)]*]])
+// CHECK: define{{.*}}spir_func void @_ZN1BC1Ev(%struct.B addrspace(4)* noundef [[THIS:[^)]*]])
 // CHECK: [[THIS_ADDR:%[^)]*]] = alloca %struct.B addrspace(4)*
 // CHECK: [[THIS_ADDR_ASCAST:%[^)]*]] = addrspacecast %struct.B addrspace(4)** [[THIS_ADDR]] to %struct.B addrspace(4)* addrspace(4)*
 // CHECK: store %struct.B addrspace(4)* [[THIS]],  %struct.B addrspace(4)* addrspace(4)* [[THIS_ADDR_ASCAST]]
@@ -104,10 +104,10 @@ void test() {
   #pragma omp target
   x->foo(i);
 }
-// CHECK: define{{.*}}spir_func i32 @_ZN1B3fooEi
-// CHECK: define{{.*}}spir_func i32 @_ZN1B3fooEPi
-// CHECK: define{{.*}}spir_func i32 @_ZTv0_n24_N1B3fooEPi
-// CHECK: define{{.*}}spir_func i32 @_ZTv0_n32_N1B3fooEi
-// CHECK: define{{.*}}spir_func i32 @_ZN1A3fooEPi
-// CHECK: define{{.*}}spir_func i32 @_ZN1A3fooEi
+// CHECK: define{{.*}}spir_func noundef i32 @_ZN1B3fooEi
+// CHECK: define{{.*}}spir_func noundef i32 @_ZN1B3fooEPi
+// CHECK: define{{.*}}spir_func noundef i32 @_ZTv0_n24_N1B3fooEPi
+// CHECK: define{{.*}}spir_func noundef i32 @_ZTv0_n32_N1B3fooEi
+// CHECK: define{{.*}}spir_func noundef i32 @_ZN1A3fooEPi
+// CHECK: define{{.*}}spir_func noundef i32 @_ZN1A3fooEi
 // INTEL_COLLAB

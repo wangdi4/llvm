@@ -11,8 +11,8 @@ class __declspec(dllexport) foo {
 template <>
 foo<int>::foo(int a) {}
 
-// CHECK: define weak_odr dso_local dllexport nonnull align 1 dereferenceable(1) %class.foo* @"??4?$foo@H@@QEAAAEAV0@AEBV0@@Z"
-// CHECK: define dso_local dllexport %class.foo* @"??0?$foo@H@@AEAA@H@Z"
+// CHECK: define weak_odr dso_local dllexport noundef nonnull align 1 dereferenceable(1) %class.foo* @"??4?$foo@H@@QEAAAEAV0@AEBV0@@Z"
+// CHECK: define dso_local dllexport noundef %class.foo* @"??0?$foo@H@@AEAA@H@Z"
 // CHECK: define weak_odr dso_local dllexport void @"??_F?$foo@H@@AEAAXXZ"
 
 template <typename>
@@ -23,5 +23,5 @@ template<>
 goo<int>::goo(const goo&, int) {};
 
 
-// CHECK: define weak_odr dso_local dllexport nonnull align 1 dereferenceable(1) %class.goo* @"??4?$goo@H@@QEAAAEAV0@AEBV0@@Z"
-// CHECK: define dso_local dllexport %class.goo* @"??0?$goo@H@@AEAA@AEBV0@H@Z"
+// CHECK: define weak_odr dso_local dllexport noundef nonnull align 1 dereferenceable(1) %class.goo* @"??4?$goo@H@@QEAAAEAV0@AEBV0@@Z"
+// CHECK: define dso_local dllexport noundef %class.goo* @"??0?$goo@H@@AEAA@AEBV0@H@Z"

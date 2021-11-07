@@ -84,7 +84,7 @@ void body(int);
 // CHECK-NEXT:    [[ADD12:%.*]] = add i32 [[TMP15]], [[MUL]]
 // CHECK-NEXT:    store i32 [[ADD12]], i32* [[I]], align 4
 // CHECK-NEXT:    [[TMP18:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-NEXT:    call void @_Z4bodyi(i32 [[TMP18]])
+// CHECK-NEXT:    call void @_Z4bodyi(i32 noundef [[TMP18]])
 // CHECK-NEXT:    br label [[FOR_INC:%.*]]
 // CHECK:       for.inc:
 // CHECK-NEXT:    [[TMP19:%.*]] = load i32, i32* [[DOTTILE_0_IV_I]], align 4
@@ -183,7 +183,7 @@ void foo1(int start, int end, int step) {
 // CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[I]], align 4
 // CHECK-NEXT:    [[TMP13:%.*]] = load i32, i32* [[J]], align 4
 // CHECK-NEXT:    [[ADD22:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
-// CHECK-NEXT:    call void @_Z4bodyi(i32 [[ADD22]])
+// CHECK-NEXT:    call void @_Z4bodyi(i32 noundef [[ADD22]])
 // CHECK-NEXT:    br label [[FOR_INC:%.*]]
 // CHECK:       for.inc:
 // CHECK-NEXT:    [[TMP14:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
@@ -296,7 +296,7 @@ void foo2() {
 // CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[I]], align 4
 // CHECK-NEXT:    [[TMP13:%.*]] = load i32, i32* [[J]], align 4
 // CHECK-NEXT:    [[ADD22:%.*]] = add nsw i32 [[TMP12]], [[TMP13]]
-// CHECK-NEXT:    call void @_Z4bodyi(i32 [[ADD22]])
+// CHECK-NEXT:    call void @_Z4bodyi(i32 noundef [[ADD22]])
 // CHECK-NEXT:    br label [[FOR_INC:%.*]]
 // CHECK:       for.inc:
 // CHECK-NEXT:    [[TMP14:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
@@ -422,7 +422,7 @@ void foo3() {
 // CHECK-NEXT:    [[TMP16:%.*]] = load i32, i32* [[I]], align 4
 // CHECK-NEXT:    [[TMP17:%.*]] = load i32, i32* [[J]], align 4
 // CHECK-NEXT:    [[ADD22:%.*]] = add nsw i32 [[TMP16]], [[TMP17]]
-// CHECK-NEXT:    call void @_Z4bodyi(i32 [[ADD22]]) #[[ATTR3:[0-9]+]]
+// CHECK-NEXT:    call void @_Z4bodyi(i32 noundef [[ADD22]]) #[[ATTR3:[0-9]+]]
 // CHECK-NEXT:    br label [[FOR_INC:%.*]]
 // CHECK:       for.inc:
 // CHECK-NEXT:    [[TMP18:%.*]] = load i32, i32* [[DOTTILE_1_IV_J]], align 4
