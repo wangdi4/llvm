@@ -10,10 +10,10 @@ void check() {
   int offset1, offset2;
   int *arg3;
 
-  // CHECK: call void @foo1(i32* %{{.+}}, i32* %{{.+}})
+  // CHECK: call void @foo1(i32* noundef %{{.+}}, i32* noundef %{{.+}})
   foo1(a1 + offset1, a2 + offset2, &arg3);
 
-  // CHECK: call i32 @foo2(i32 %{{.+}}, i32 %{{.+}}, i32* %{{.+}})
+  // CHECK: call i32 @foo2(i32 noundef %{{.+}}, i32 noundef %{{.+}}, i32* noundef %{{.+}})
   foo2(offset1, offset2, a1, a2);
 
   // CHECK: call float @foo3()

@@ -412,13 +412,13 @@ int main(int argc, char **argv) {
 // CHECK: [[SECT1ATV:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL
 // CHECK: [[SECT1BTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTIONS{{.*}}NOWAIT{{.*}}PRIVATE{{.*}}sect1{{.*}}FIRSTPRIVATE{{.*}}sect2{{.*}}LASTPRIVATE{{.*}}sect3{{.*}}REDUCTION.ADD{{.*}}sect4
 // CHECK: [[SECT1CTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK: {{call|invoke}}{{.*}}bari(i32 1)
+// CHECK: {{call|invoke}}{{.*}}bari(i32 noundef 1)
 // CHECK: region.exit(token [[SECT1CTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK: [[SECT1DTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK: {{call|invoke}}{{.*}}bari(i32 2)
+// CHECK: {{call|invoke}}{{.*}}bari(i32 noundef 2)
 // CHECK: region.exit(token [[SECT1DTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK: [[SECT1ETV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK: {{call|invoke}}{{.*}}bari(i32 3)
+// CHECK: {{call|invoke}}{{.*}}bari(i32 noundef 3)
 // CHECK: region.exit(token [[SECT1ETV]]) [ "DIR.OMP.END.SECTION"
 // CHECK: region.exit(token [[SECT1BTV]]) [ "DIR.OMP.END.SECTIONS"
 // CHECK: region.exit(token [[SECT1ATV]]) [ "DIR.OMP.END.PARALLEL"
@@ -446,13 +446,13 @@ int main(int argc, char **argv) {
   }
 // CHECK: [[SECT2BTV:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL.SECTIONS{{.*}}PRIVATE{{.*}}sect1{{.*}}FIRSTPRIVATE{{.*}}sect2{{.*}}LASTPRIVATE{{.*}}sect3{{.*}}REDUCTION.ADD{{.*}}sect4
 // CHECK: [[SECT2CTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK: {{call|invoke}}{{.*}}bari(i32 1)
+// CHECK: {{call|invoke}}{{.*}}bari(i32 noundef 1)
 // CHECK: region.exit(token [[SECT2CTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK: [[SECT2DTV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK: {{call|invoke}}{{.*}}bari(i32 2)
+// CHECK: {{call|invoke}}{{.*}}bari(i32 noundef 2)
 // CHECK: region.exit(token [[SECT2DTV]]) [ "DIR.OMP.END.SECTION"
 // CHECK: [[SECT2ETV:%[0-9]+]] = call token{{.*}}DIR.OMP.SECTION
-// CHECK: {{call|invoke}}{{.*}}bari(i32 3)
+// CHECK: {{call|invoke}}{{.*}}bari(i32 noundef 3)
 // CHECK: region.exit(token [[SECT2ETV]]) [ "DIR.OMP.END.SECTION"
 // CHECK: region.exit(token [[SECT2BTV]]) [ "DIR.OMP.END.PARALLEL.SECTIONS"
   {
@@ -489,7 +489,7 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-// CHECK: define internal %struct.S1* @_ZTS2S1.omp.def_constr(%struct.S1* %0)
+// CHECK: define internal noundef %struct.S1* @_ZTS2S1.omp.def_constr(%struct.S1* noundef %0)
 // CHECK: alloca %struct.S1*,
 // CHECK-NEXT: alloca %struct.S1*,
 // CHECK-NEXT:  store %struct.S1* %{{.+}}, %struct.S1** %
@@ -497,7 +497,7 @@ int main(int argc, char **argv) {
 // CHECK-NEXT:  ret %struct.S1* %
 // CHECK-NEXT: }
 
-// CHECK: define internal void @_ZTS2S1.omp.destr(%struct.S1* %0)
+// CHECK: define internal void @_ZTS2S1.omp.destr(%struct.S1* noundef %0)
 // CHECK: alloca %struct.S1*,
 // CHECK-NEXT: store %struct.S1* %{{.+}}, %struct.S1** %
 // CHECK-NEXT: load %struct.S1*, %struct.S1** %
@@ -505,7 +505,7 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 
-// CHECK: define internal %struct.S2* @_ZTS2S2.omp.def_constr(%struct.S2* %0)
+// CHECK: define internal noundef %struct.S2* @_ZTS2S2.omp.def_constr(%struct.S2* noundef %0)
 // CHECK: alloca %struct.S2*,
 // CHECK-NEXT: store %struct.S2* %{{.+}}, %struct.S2** %
 // CHECK-NEXT: load %struct.S2*, %struct.S2** %
@@ -513,7 +513,7 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: ret %struct.S2* %
 // CHECK-NEXT: }
 
-// CHECK: define internal void @_ZTS2S2.omp.destr(%struct.S2* %0)
+// CHECK: define internal void @_ZTS2S2.omp.destr(%struct.S2* noundef %0)
 // CHECK: alloca %struct.S2*,
 // CHECK-NEXT: store %struct.S2* %{{.+}}, %struct.S2** %
 // CHECK-NEXT: ret void

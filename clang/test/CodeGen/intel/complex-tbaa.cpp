@@ -35,7 +35,7 @@ void foo(complex<float> *dest, complex<float> *src1, complex<float> *src2) {
 
   // PATH: define {{.*}}@_ZNSt7complexIfEpLIfEERS0_RKS_IT_E{{.*}}
   // PATH: {{.*}} = load float, {{.*}} !tbaa [[TAG_float_field:!.*]]
-  // PATH: {{.*}} = call float @_ZNKSt7complexIfE4imagEv{{.*}}
+  // PATH: {{.*}} = call noundef float @_ZNKSt7complexIfE4imagEv{{.*}}
   // PATH: {{.*}} = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"{{.*}} i32 0, !intel-tbaa [[TAG_scomplex:!.*]]
   // CHECK: {{.*}} = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"{{.*}} i32 0
 }

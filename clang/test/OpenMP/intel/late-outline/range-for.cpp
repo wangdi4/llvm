@@ -124,19 +124,19 @@ int test2() {
   // CHECK: store i32 0, i32* %sum, align 4
   // CHECK-NEXT: store %struct.A* %avar, %struct.A** [[RANGE1]], align 8
   // CHECK-NEXT: [[LD0:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE1]], align 8
-  // CHECK-NEXT: [[CALL1:%call[0-9]*]] = call i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} [[LD0]])
+  // CHECK-NEXT: [[CALL1:%call[0-9]*]] = call noundef i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} [[LD0]])
   // CHECK-NEXT: store i32* [[CALL1]], i32** [[END1]], align 8
   // CHECK-NEXT: store %struct.A* %avar2, %struct.A** [[RANGE2]], align 8
   // CHECK-NEXT: [[LD1:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE2]], align 8
-  // CHECK-NEXT: [[CALL2:%call[0-9]*]] = call i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} [[LD1]])
+  // CHECK-NEXT: [[CALL2:%call[0-9]*]] = call noundef i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} [[LD1]])
   // CHECK-NEXT: store i32* [[CALL2]], i32** [[END2]], align 8
   // CHECK-NEXT: [[LD2:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE1]], align 8
-  // CHECK-NEXT: [[CALL3:%call[0-9]*]] = call i32*  @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD2]])
+  // CHECK-NEXT: [[CALL3:%call[0-9]*]] = call noundef i32*  @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD2]])
   // CHECK-NEXT: store i32* [[CALL3]], i32** [[CE0]], align 8
   // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32*, i32** [[END1]], align 8
   // CHECK-NEXT: store i32* [[LD3]], i32** [[CE1]], align 8
   // CHECK-NEXT: [[LD4:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE2]], align 8
-  // CHECK-NEXT: [[CALL4:%call[0-9]*]] = call i32*  @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD4]])
+  // CHECK-NEXT: [[CALL4:%call[0-9]*]] = call noundef i32*  @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD4]])
   // CHECK-NEXT: store i32* [[CALL4]], i32** [[CE2]], align 8
   // CHECK-NEXT: [[LD5:%[0-9]+]] = load i32*, i32** [[END2]], align 8
   // CHECK-NEXT: store i32* [[LD5]], i32** [[CE3]], align 8
@@ -317,10 +317,10 @@ int test3() {
   // CHECK-NEXT: store i32 0, i32* %sum, align 4
   // CHECK-NEXT: store %struct.A* %avar3, %struct.A** [[RANGE1]], align 8
   // CHECK-NEXT: [[LD0:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE1]], align 8
-  // CHECK-NEXT: [[CALL:%call[0-9]*]] = call i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} %0)
+  // CHECK-NEXT: [[CALL:%call[0-9]*]] = call noundef i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} %0)
   // CHECK-NEXT: store i32* [[CALL]], i32** [[END1]], align 8
   // CHECK-NEXT: [[LD1:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE1]], align 8
-  // CHECK-NEXT: [[CALL:%call[0-9]+]] = call i32* @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD1]])
+  // CHECK-NEXT: [[CALL:%call[0-9]+]] = call noundef i32* @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD1]])
   // CHECK-NEXT: store i32* [[CALL]], i32** [[CE]], align 8
   // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32*, i32** [[END1]], align 8
   // CHECK-NEXT: store i32* [[LD2]], i32** [[CE3]], align 8
@@ -441,11 +441,11 @@ int test4() {
   // CHECK-NEXT: [[BEGIN2:%__begin[0-9]*]] = alloca i32*, align 8
   // CHECK: store %struct.A* %avar5, %struct.A** [[RANGE2]], align 8
   // CHECK-NEXT: [[LD0:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE2]], align 8
-  // CHECK-NEXT: [[CALL1:%call[0-9]*]] = call i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} [[LD0]])
+  // CHECK-NEXT: [[CALL1:%call[0-9]*]] = call noundef i32* @_ZN1A3endEv(%struct.A* {{[^,]*}} [[LD0]])
   // CHECK-NEXT: store i32* [[CALL1]], i32** [[END2]], align 8
   //
   // CHECK-NEXT: [[LD1:%[0-9]+]] = load %struct.A*, %struct.A** [[RANGE2]], align 8
-  // CHECK-NEXT: [[CALL2:%call[0-9]*]] = call i32* @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD1]])
+  // CHECK-NEXT: [[CALL2:%call[0-9]*]] = call noundef i32* @_ZN1A5beginEv(%struct.A* {{[^,]*}} [[LD1]])
   // CHECK-NEXT: store i32* [[CALL2]], i32** [[CE0]], align 8
   // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32*, i32** [[END2]], align 8
   // CHECK-NEXT: store i32* [[LD2]], i32** [[CE1]], align 8

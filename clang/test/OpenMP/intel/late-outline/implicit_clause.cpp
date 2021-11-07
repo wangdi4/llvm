@@ -219,8 +219,8 @@ void MyClass2::execute_offload() {
   #pragma omp target map(from: _dst_[0:sz])
   #pragma omp parallel for
   for (int y = 0 ; y < 10 ; y++) {
-    //CHECK: call {{.*}}(%struct.vec2* {{[^,]*}} [[RESOLUTION]], float 2.000000e+00)
-    //CHECK: call {{.*}}(%struct.vec2* {{[^,]*}} [[REF_TMP]], float 1.000000e+00)
+    //CHECK: call {{.*}}(%struct.vec2* noundef [[RESOLUTION]], float noundef 2.000000e+00)
+    //CHECK: call {{.*}}(%struct.vec2* noundef [[REF_TMP]], float noundef 1.000000e+00)
     vec2 resolution(2.0f);
     vec2 vPos (1.0f * resolution);
     _dst_[ 5 ] = 1234;

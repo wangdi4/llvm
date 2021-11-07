@@ -12,7 +12,7 @@ void foo(int *p, int *q) {
 // CHECK: %rq = alloca i32*
 
     bar(rp, rq);
-// CHECK: call void @bar(i32* %4, i32* %5), !intel.args.alias.scope [[SCOPE_LIST:!.*]]
+// CHECK: call void @bar(i32* noundef %4, i32* noundef %5), !intel.args.alias.scope [[SCOPE_LIST:!.*]]
   }
 }
 

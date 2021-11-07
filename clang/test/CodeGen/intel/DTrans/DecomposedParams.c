@@ -6,7 +6,7 @@ typedef struct { void * PTR; void * PTR2; } B;
 typedef struct { void * PTR; void * PTR2; void* Ptr3;} C;
 typedef union { void * PTR; unsigned long LL; } D;
 
-// CHECK: define dso_local void @foo(i8* "intel_dtrans_func_index"="1" %{{.+}}, i8* "intel_dtrans_func_index"="2" %{{.+}}, i8* "intel_dtrans_func_index"="3" %{{.+}}, %struct._ZTS1C.C* byval(%struct._ZTS1C.C) align 8 "intel_dtrans_func_index"="4" %{{.+}}, i8* "intel_dtrans_func_index"="5" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
+// CHECK: define dso_local void @foo(i8* "intel_dtrans_func_index"="1" %{{.+}}, i8* "intel_dtrans_func_index"="2" %{{.+}}, i8* "intel_dtrans_func_index"="3" %{{.+}}, %struct._ZTS1C.C* noundef byval(%struct._ZTS1C.C) align 8 "intel_dtrans_func_index"="4" %{{.+}}, i8* "intel_dtrans_func_index"="5" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
 void foo(A a, B b, C c, D d){}
 
 // CHECK: intel.dtrans.types = !{![[A:[0-9]+]], ![[B:[0-9]+]], ![[D:[0-9]+]], ![[C:[0-9]+]]}

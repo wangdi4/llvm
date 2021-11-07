@@ -3,7 +3,7 @@
 
 int G1, G2;
 
-// CHECK: define dso_local i32 @_Z3barRiOi(i32* nonnull align 4 dereferenceable(4) "intel_dtrans_func_index"="1" %A, i32* nonnull align 4 dereferenceable(4) "intel_dtrans_func_index"="2" %B) {{.*}}!intel.dtrans.func.type ![[BAR_MD:[0-9]+]]
+// CHECK: define dso_local noundef i32 @_Z3barRiOi(i32* noundef nonnull align 4 dereferenceable(4) "intel_dtrans_func_index"="1" %A, i32* noundef nonnull align 4 dereferenceable(4) "intel_dtrans_func_index"="2" %B) {{.*}}!intel.dtrans.func.type ![[BAR_MD:[0-9]+]]
 int bar(int &A, int &&B) {
 // CHECK: alloca i32*, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
 // CHECK: alloca i32*, align 8, !intel_dtrans_type ![[INT_PTR]]
@@ -11,14 +11,14 @@ int bar(int &A, int &&B) {
 }
 
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" i32* @_Z3fooRKPiS1_(i32** nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %A, i32** nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="3" %B) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
+// CHECK: define dso_local noundef "intel_dtrans_func_index"="1" i32* @_Z3fooRKPiS1_(i32** noundef nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %A, i32** noundef nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="3" %B) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
 int *foo(int *const &A, int *const &B) {
 // CHECK: alloca i32**, align 8, !intel_dtrans_type ![[INT_PTR_PTR:[0-9]+]]
 // CHECK: alloca i32**, align 8, !intel_dtrans_type ![[INT_PTR_PTR]]
   return (int*)0;
 }
 
-// CHECK: define dso_local i32 @main
+// CHECK: define dso_local noundef i32 @main
 int main() {
 // CHECK: alloca i32*, align 8, !intel_dtrans_type ![[INT_PTR]]
 // CHECK: alloca i32*, align 8, !intel_dtrans_type ![[INT_PTR]]

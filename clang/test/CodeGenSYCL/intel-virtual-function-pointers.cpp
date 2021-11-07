@@ -68,13 +68,13 @@ int main() {
 }
 
 // CHECK: define internal spir_func {{.+}}main{{.+}}
-// CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 10000)
+// CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 noundef 10000)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 2)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 3)
 // CHECK: ret void
 
 // CHECK: define dso_local spir_func void{{.+}}aoo{{.+}}
-// CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 10)
+// CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 noundef 10)
 // CHECK: ret void
 
 // CHECK: define dso_local spir_func void {{.+}}bar{{.+}}
