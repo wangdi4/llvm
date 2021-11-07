@@ -2209,6 +2209,7 @@ bool IROutliner::run(Module &M) {
 }
 
 // Pass Manager Boilerplate
+namespace {
 class IROutlinerLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -2224,6 +2225,7 @@ public:
 
   bool runOnModule(Module &M) override;
 };
+} // namespace
 
 bool IROutlinerLegacyPass::runOnModule(Module &M) {
   if (skipModule(M))
