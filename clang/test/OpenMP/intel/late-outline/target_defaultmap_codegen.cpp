@@ -456,6 +456,14 @@ void explicit_maps_single_5 (int ii){
   {
    a++;
   }
+
+// CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE"()
+// CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target defaultmap(none)
+  {
+   int loc = 1;
+  }
 }
 
 extern int x;

@@ -1136,8 +1136,8 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
     Builder.setInsertPoint(PostExit);
     VPValue *Exit = Private.getIsMemOnly()
                         ? cast<VPValue>(Builder.createLoad(
-                              PrivateMem->getType()->getPointerElementType(),
-                              PrivateMem, nullptr, "loaded.priv"))
+                              Private.getAllocatedType(), PrivateMem, nullptr,
+                              "loaded.priv"))
                         : cast<VPValue>(ExitPhi);
     StringRef ExitName = ExitPhi ? ExitPhi->getName() : "";
     Twine Name = ExitName + ".priv.final";
@@ -1175,8 +1175,8 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
 
   Builder.setInsertPoint(PostExit);
   VPValue *Exit =
-      Builder.createLoad(PrivateMem->getType()->getPointerElementType(),
-                         PrivateMem, nullptr, "loaded.priv");
+      Builder.createLoad(Private.getAllocatedType(), PrivateMem, nullptr,
+                         "loaded.priv");
   auto IdxLoad = Builder.createLoad(ElemTy, IdxMem, nullptr, "loaded.priv.idx");
   VPInstruction *Final =
       Builder.create<VPPrivateFinalCondMem>(".priv.final", Exit, IdxLoad, AI);
@@ -1305,8 +1305,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       Builder.setInsertPoint(PostExit);
       VPValue *Exit =
           Private->getIsMemOnly()
-              ? Builder.createLoad(
-                    PrivateMem->getType()->getPointerElementType(), PrivateMem)
+              ? Builder.createLoad(Private->getAllocatedType(), PrivateMem)
               : Private->getExitInst();
       StringRef Name = Private->hasExitInstr()
                            ? Private->getExitInst()->getName()

@@ -977,6 +977,16 @@ public:
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
+  unsigned getInterleavePragmaCount() const {
+    auto *MD = getLoopStringMetadata("llvm.loop.interleave.count");
+
+    if (!MD) {
+      return 0;
+    }
+
+    return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+  }
+
   /// Returns true if loop has pragma to enable unroll & jam.
   bool hasUnrollAndJamEnablingPragma() const {
     if (getLoopStringMetadata("llvm.loop.unroll_and_jam.enable")) {

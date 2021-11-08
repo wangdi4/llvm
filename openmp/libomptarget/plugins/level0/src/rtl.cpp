@@ -109,6 +109,11 @@ do {                                                                           \
       : (Kind == TARGET_ALLOC_SHARED ? "shared memory"                         \
       : (Kind == TARGET_ALLOC_DEVICE ? "device memory" : "unknown memory")))
 
+#ifdef _WIN32
+// TODO: enable again if XDEPS-3027 is resolved
+#define LEVEL0_KERNEL_BEGIN(ID)
+#define LEVEL0_KERNEL_END(ID)
+#else // _WIN32
 #define LEVEL0_KERNEL_BEGIN(ID)                                                \
   do {                                                                         \
     if (DeviceInfo->KernelDynamicMemorySize > 0) {                             \
@@ -128,6 +133,7 @@ do {                                                                           \
       DeviceInfo->Mutexes[ID].unlock();                                        \
     }                                                                          \
   } while (0)
+#endif // _WIN32
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -2793,9 +2799,9 @@ int32_t CommandBatchTy::commit(bool Always) {
                        DeviceInfo->Mutexes[DeviceId], CmdQueue, 1,
                        &CmdList, nullptr);
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
   if (Kernel)
     LEVEL0_KERNEL_END(DeviceId);
-  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
 
   if (DeviceInfo->Flags.EnableProfile) {
     BatchTime = omp_get_wtime() - BatchTime;
@@ -5122,7 +5128,6 @@ static int32_t runTargetTeamRegionSub(
   }
 
   CALL_ZE_RET_FAIL(zeEventHostSynchronize, usedEvents.back(), UINT64_MAX);
-  LEVEL0_KERNEL_END(rootId);
 
   if (DeviceInfo->Flags.EnableProfile && profileEvent)
     tmKernels.back().updateDeviceTime(profileEvent);
@@ -5131,6 +5136,8 @@ static int32_t runTargetTeamRegionSub(
     CALL_ZE_RET_FAIL(zeCommandListReset, usedCmdLists[i]);
     CALL_ZE_RET_FAIL(zeEventHostReset, usedEvents[i]);
   }
+
+  LEVEL0_KERNEL_END(rootId);
 
   DP("Executed kernel entry " DPxMOD " on subdevices\n", DPxPTR(TgtEntryPtr));
   return OFFLOAD_SUCCESS;
@@ -5270,10 +5277,10 @@ static int32_t runTargetTeamRegion(
                          DeviceInfo->Mutexes[DeviceId], cmdQueue, 1,
                          &cmdList, nullptr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-    LEVEL0_KERNEL_END(DeviceId);
     tmKernel.updateDeviceTime(event);
     // Make sure the command list is ready to accept next command
     CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+    LEVEL0_KERNEL_END(DeviceId);
   }
 
   DP("Executed a kernel " DPxMOD "\n", DPxPTR(TgtEntryPtr));
