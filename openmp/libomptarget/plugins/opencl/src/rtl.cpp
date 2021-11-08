@@ -551,8 +551,9 @@ struct RTLFlagsTy {
   uint64_t UseBuffer : 1;
   uint64_t UseSingleContext : 1;
   uint64_t UseImageOptions : 1;
+  uint64_t ShowBuildLog : 1;
   // Add new flags here
-  uint64_t Reserved : 53;
+  uint64_t Reserved : 52;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -565,6 +566,7 @@ struct RTLFlagsTy {
       UseBuffer(0),
       UseSingleContext(0),
       UseImageOptions(1),
+      ShowBuildLog(0),
       Reserved(0) {}
 };
 
@@ -1086,6 +1088,12 @@ public:
         Flags.UseImageOptions = 1;
       else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
         Flags.UseImageOptions = 0;
+    }
+    if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_SHOW_BUILD_LOG"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.ShowBuildLog = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.ShowBuildLog = 0;
     }
   }
 
@@ -2351,25 +2359,26 @@ static void dumpImageToFile(
 }
 
 static void debugPrintBuildLog(cl_program program, cl_device_id did) {
-#if INTEL_CUSTOMIZATION
-  if (DebugLevel <= 0)
+  if (DebugLevel <= 0 && !DeviceInfo->Flags.ShowBuildLog)
     return;
 
   size_t len = 0;
   CALL_CL_RET_VOID(clGetProgramBuildInfo, program, did, CL_PROGRAM_BUILD_LOG, 0,
                    nullptr, &len);
+  // The len must actually be bigger than 0 always, because the log string
+  // is null-terminated.
   if (len == 0)
     return;
+
   std::vector<char> buffer(len);
   CALL_CL_RET_VOID(clGetProgramBuildInfo, program, did, CL_PROGRAM_BUILD_LOG,
                    len, buffer.data(), nullptr);
-  const char *buildLog = buffer.data() ? buffer.data() : "empty";
-  DP("Target build log:\n");
+  const char *buildLog = (len > 1) ? buffer.data() : "<empty>";
+  MESSAGE0("Target build log:");
   std::stringstream Str(buildLog);
   std::string Line;
   while(std::getline(Str, Line, '\n'))
-    DP("  %s\n", Line.c_str());
-#endif // INTEL_CUSTOMIZATION
+    MESSAGE("  %s", Line.c_str());
 }
 
 static cl_program createProgramFromFile(
@@ -2404,10 +2413,12 @@ static cl_program createProgramFromFile(
 
     CALL_CL(status, clCompileProgram, program, 0, nullptr, options.c_str(), 0,
             nullptr, nullptr, nullptr, nullptr);
-    if (status != CL_SUCCESS) {
+    if (status != CL_SUCCESS || DeviceInfo->Flags.ShowBuildLog) {
       debugPrintBuildLog(program, DeviceInfo->Devices[device_id]);
-      DP("Error: Failed to compile program: %d\n", status);
-      return nullptr;
+      if (status != CL_SUCCESS) {
+        DP("Error: Failed to compile program: %d\n", status);
+        return nullptr;
+      }
     }
 
     return program;
@@ -2435,10 +2446,12 @@ static cl_program getOpenCLProgramForImage(int32_t DeviceId,
     CALL_CL_RVRC(Program, clCreateProgramWithIL, Status,
                  DeviceInfo->getContext(DeviceId),
                  ImgBegin, ImgSize);
-    if (Status != CL_SUCCESS) {
+    if (Status != CL_SUCCESS || DeviceInfo->Flags.ShowBuildLog) {
       debugPrintBuildLog(Program, DeviceInfo->Devices[DeviceId]);
-      DP("Error: Failed to create program: %d\n", Status);
-      return nullptr;
+      if (Status != CL_SUCCESS) {
+        DP("Error: Failed to create program: %d\n", Status);
+        return nullptr;
+      }
     }
 
     return Program;
@@ -2587,11 +2600,13 @@ static cl_program getOpenCLProgramForImage(int32_t DeviceId,
       continue;
     }
 
-    if (Status != CL_SUCCESS) {
+    if (Status != CL_SUCCESS || DeviceInfo->Flags.ShowBuildLog) {
       debugPrintBuildLog(Program, DeviceInfo->Devices[DeviceId]);
-      DP("Warning: failed to create program from %s (%" PRIu64 "): %d\n",
-         IsBinary ? "binary" : "SPIR-V", Idx, Status);
-      continue;
+      if (Status != CL_SUCCESS) {
+        DP("Warning: failed to create program from %s (%" PRIu64 "): %d\n",
+           IsBinary ? "binary" : "SPIR-V", Idx, Status);
+        continue;
+      }
     }
 
     DP("Created offload program from image #%" PRIu64 ".\n", Idx);
@@ -2683,10 +2698,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     // Programs created from binary must still be built.
     CALL_CL(status, clBuildProgram, program, 0, nullptr,
       (CompilationOptions + " " + LinkingOptions).c_str(), nullptr, nullptr);
-    if (status != CL_SUCCESS) {
+    if (status != CL_SUCCESS || DeviceInfo->Flags.ShowBuildLog) {
       debugPrintBuildLog(program, DeviceInfo->Devices[device_id]);
-      DP("Error: Failed to build program: %d\n", status);
-      return NULL;
+      if (status != CL_SUCCESS) {
+        DP("Error: Failed to build program: %d\n", status);
+        return NULL;
+      }
     }
     linked_program = program;
     FuncGblEntries.Program = linked_program;
@@ -2694,10 +2711,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   } else {
     CALL_CL(status, clCompileProgram, program, 0, nullptr,
       CompilationOptions.c_str(), 0, nullptr, nullptr, nullptr, nullptr);
-    if (status != CL_SUCCESS) {
+    if (status != CL_SUCCESS || DeviceInfo->Flags.ShowBuildLog) {
       debugPrintBuildLog(program, DeviceInfo->Devices[device_id]);
-      DP("Error: Failed to compile program: %d\n", status);
-      return NULL;
+      if (status != CL_SUCCESS) {
+        DP("Error: Failed to compile program: %d\n", status);
+        return NULL;
+      }
     }
     programs.push_back(program);
 
@@ -2731,10 +2750,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
         DeviceInfo->getContext(device_id), 1, &DeviceInfo->Devices[device_id],
         LinkingOptions.c_str(), programs.size(), programs.data(), nullptr,
         nullptr);
-    if (status != CL_SUCCESS) {
+    if (status != CL_SUCCESS || DeviceInfo->Flags.ShowBuildLog) {
       debugPrintBuildLog(linked_program, DeviceInfo->Devices[device_id]);
-      DP("Error: Failed to link program: %d\n", status);
-      return NULL;
+      if (status != CL_SUCCESS) {
+        DP("Error: Failed to link program: %d\n", status);
+        return NULL;
+      }
     } else {
       DP("Successfully linked program.\n");
     }
