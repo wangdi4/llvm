@@ -453,7 +453,7 @@ class HIRParser {
   /// as the base of the Ref formed using the header phi. A null value indicates
   /// that the phi cannot be decomposed into intial and stride. It also returns
   /// the GEPOrSubsOperator associated with the initial value, if applicable.
-  const Value *getValidPhiBaseVal(const Value *PhiInitVal,
+  const Value *getValidPhiBaseVal(const Value *PhiInitVal, Type *ResultElemTy,
                                   const GEPOrSubsOperator **InitGEPOp) const;
 
   /// Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
