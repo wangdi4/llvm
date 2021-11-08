@@ -32,12 +32,7 @@ private:
 public:
   void test() {
     cl::sycl::queue q;
-<<<<<<< HEAD
-
-    // expected-error@#KernelSingleTask {{'InvalidKernelName1' should be globally visible}}
-=======
     // expected-error@#KernelSingleTask {{'InvalidKernelName1' is invalid; kernel name should be forward declarable at namespace scope}}
->>>>>>> 455dce89e3f0bb9859d27552442436f9a76d08ed
     // expected-note@+3{{in instantiation of function template specialization}}
     class InvalidKernelName1 {};
     q.submit([&](cl::sycl::handler &h) {
