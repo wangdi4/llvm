@@ -298,7 +298,35 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
         llvm_unreachable("unexpected ConstantAggregate user");
       C->replaceAllUsesWith(NewC);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      replaceCallInst(CI, NewTypes, NewF);
+      Value *Callee = CI->getCalledOperand();
+      if (Callee == F)
+        replaceCallInst(CI, NewTypes, NewF);
+      else {
+        // The function is used as an argument.
+        auto *Cast = CastInst::CreatePointerCast(NewF, F->getType(), "", CI);
+        Cast->setDebugLoc(CI->getDebugLoc());
+        CI->replaceUsesOfWith(F, Cast);
+#ifndef NDEBUG
+        // FIXME:
+        // The only case that a function ptr is passed as an argument is in
+        // task_sequence, and in such case, we assume the passed function won't
+        // be called directly inside the task_sequence, so we don't do extra
+        // work except bitcast'ing the argument's pointer type. We add an
+        // assert here to assure it won't be called. If the passed function ptr
+        // is called inside the function in the future, we need to fix call
+        // instructions in the function.
+        auto *CalledF = dyn_cast<Function>(Callee);
+        if (!CalledF)
+          continue;
+        for (int i = 0, e = CI->arg_size(); i < e; ++i) {
+          if (CI->getArgOperand(i) != Cast)
+            continue;
+          assert(llvm::all_of(CalledF->getArg(i)->users(),
+                              [](User *U) { return !isa<CallBase>(U); }) &&
+                 "Calling a function pointer from argument isn't implemented.");
+        }
+#endif
+      }
     } else if (auto *CI = dyn_cast<CastInst>(U)) {
       assert((isa<BitCastInst, AddrSpaceCastInst, PtrToIntInst>(CI)) &&
              "Only expect bitcast, addrspacecast or ptrtoint cast instruction "
