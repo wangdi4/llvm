@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=16 \
@@ -71,3 +73,4 @@ declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token) #1
 
 attributes #1 = { nounwind }
+; end INTEL_FEATURE_SW_ADVANCED

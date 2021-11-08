@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ;RUN: opt < %s -vplan-vec -S | FileCheck %s
 ;RUN: opt < %s -passes="vplan-vec" -S | FileCheck %s
 
@@ -95,3 +97,4 @@ declare void @llvm.directive.region.exit(token) #1
 !4 = !{!"float", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C/C++ TBAA"}
+; end INTEL_FEATURE_SW_ADVANCED
