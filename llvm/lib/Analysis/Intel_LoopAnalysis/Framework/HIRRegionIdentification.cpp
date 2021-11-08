@@ -1333,6 +1333,12 @@ static bool isUnrollMetadata(MDNode *Node) {
   return Str && Str->getString().startswith("llvm.loop.unroll");
 }
 
+static bool isInterleaveMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().startswith("llvm.loop.interleave");
+}
+
 static bool isFusionMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
@@ -1380,10 +1386,11 @@ static bool isMustProgressMetadata(MDNode *Node) {
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
-      isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
-      isLoopCountMetadata(Node) || OptReport::isOptReportMetadata(Node) ||
-      isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
-      isMustProgressMetadata(Node) || isIntelVectorizeMetadata(Node)) {
+      isInterleaveMetadata(Node) || isDistributeMetadata(Node) ||
+      isVectorizeMetadata(Node) || isLoopCountMetadata(Node) ||
+      OptReport::isOptReportMetadata(Node) || isFusionMetadata(Node) ||
+      isParallelAccessMetadata(Node) || isMustProgressMetadata(Node) ||
+      isIntelVectorizeMetadata(Node)) {
     return true;
   }
 

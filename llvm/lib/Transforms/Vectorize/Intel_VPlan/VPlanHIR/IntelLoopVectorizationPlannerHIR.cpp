@@ -199,14 +199,20 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
     if (UF > 0)
       ForcedValue = true;
     else {
-      // getUnrollPragmaCount() returns negative value, which means no
-      // #pragma unroll N is specified for TheLoop.  Leave ForcedValue
-      // to be false then.
-      // Capture UF that could be specified internally by other LoopOpt
-      // transforms.
-      UF = TheLoop->getForcedVectorUnrollFactor();
-      if (UF == 0)
-        UF = 1;
+      UF = TheLoop->getInterleavePragmaCount();
+
+      if (UF > 0)
+        ForcedValue = true;
+      else {
+        // getUnrollPragmaCount() returns negative value, which means no
+        // #pragma unroll N is specified for TheLoop.  Leave ForcedValue
+        // to be false then.
+        // Capture UF that could be specified internally by other LoopOpt
+        // transforms.
+        UF = TheLoop->getForcedVectorUnrollFactor();
+        if (UF == 0)
+          UF = 1;
+      }
     }
   }
 
