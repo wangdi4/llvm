@@ -230,13 +230,12 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
   EXPECT_EQ(Triple::UnknownOS, T.getOS());
 
-<<<<<<< HEAD
   T = Triple("spir64-unknown-unknown-inteleyeq");
   EXPECT_EQ(Triple::spir64, T.getArch());
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
   EXPECT_EQ(Triple::UnknownOS, T.getOS());
   EXPECT_TRUE(T.isINTELEyeQEnvironment());
-=======
+
   T = Triple("spirv32-unknown-unknown");
   EXPECT_EQ(Triple::spirv32, T.getArch());
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
@@ -246,7 +245,6 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::spirv64, T.getArch());
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
   EXPECT_EQ(Triple::UnknownOS, T.getOS());
->>>>>>> 64b16f6ff10f45c55899670059e8515b40097614
 
   T = Triple("x86_64-unknown-ananas");
   EXPECT_EQ(Triple::x86_64, T.getArch());

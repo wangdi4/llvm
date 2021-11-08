@@ -674,8 +674,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 #endif // INTEL_CUSTOMIZATION
     }
   }
-<<<<<<< HEAD
-=======
 
   case llvm::Triple::spirv32: {
     if (os != llvm::Triple::UnknownOS ||
@@ -690,7 +688,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     return new SPIRV64TargetInfo(Triple, Opts);
   }
 
->>>>>>> 64b16f6ff10f45c55899670059e8515b40097614
   case llvm::Triple::wasm32:
     if (Triple.getSubArch() != llvm::Triple::NoSubArch ||
         Triple.getVendor() != llvm::Triple::UnknownVendor ||

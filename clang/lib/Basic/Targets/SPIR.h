@@ -387,8 +387,6 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
-<<<<<<< HEAD
-=======
 class LLVM_LIBRARY_VISIBILITY SPIRVTargetInfo : public BaseSPIRTargetInfo {
 public:
   SPIRVTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
@@ -437,7 +435,6 @@ public:
                         MacroBuilder &Builder) const override;
 };
 
->>>>>>> 64b16f6ff10f45c55899670059e8515b40097614
 } // namespace targets
 } // namespace clang
 #endif // LLVM_CLANG_LIB_BASIC_TARGETS_SPIR_H

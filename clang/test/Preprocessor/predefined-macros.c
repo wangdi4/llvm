@@ -229,15 +229,12 @@
 // CHECK-SPIR64-DAG: #define __SPIR64__ 1
 // CHECK-SPIR64-NOT: #define __SPIR32__ 1
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown-intelfpga \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FPGA
 // CHECK-INTEL-FPGA-NOT: #define __IMAGE_SUPPORT__ 1
 // end INTEL_CUSTOMIZATION
 
-// RUN: %clang_cc1 %s -E -dM -o - -x hip -triple amdgcn-amd-amdhsa \
-=======
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spirv32-unknown-unknown \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-SPIRV32
 // CHECK-SPIRV32-DAG: #define __IMAGE_SUPPORT__ 1
@@ -253,7 +250,6 @@
 // CHECK-SPIRV64-NOT: #define __SPIRV32__ 1
 
 // RUN: %clang_cc1 %s -E -dM -o - -x hip -triple amdgcn-amd-amdhsa      \
->>>>>>> 64b16f6ff10f45c55899670059e8515b40097614
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-HIP
 // CHECK-HIP-NOT: #define __CUDA_ARCH__
 // CHECK-HIP: #define __HIPCC__ 1

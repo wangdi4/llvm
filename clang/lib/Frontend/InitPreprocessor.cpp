@@ -1261,14 +1261,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.OpenCL) {
     InitializeOpenCLFeatureTestMacros(TI, LangOpts, Builder);
 
-<<<<<<< HEAD
-    if (TI.getTriple().isSPIR())
+    if (TI.getTriple().isSPIR() || TI.getTriple().isSPIRV())
 #if INTEL_CUSTOMIZATION
       if (TI.getTriple().getEnvironment() != llvm::Triple::IntelFPGA)
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (TI.getTriple().isSPIR() || TI.getTriple().isSPIRV())
->>>>>>> 64b16f6ff10f45c55899670059e8515b40097614
       Builder.defineMacro("__IMAGE_SUPPORT__");
   }
 
