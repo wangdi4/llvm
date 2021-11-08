@@ -455,8 +455,29 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   assert(!VFs.empty() && "The vector with VFs should have at least one value.");
 
   // TODO: Insert initial run of SVA here for any new users before CM & CG.
-  for (unsigned TmpVF : VFs)
-    VPlans[TmpVF] = {Plan, nullptr};
+
+  // Need to create multiple VPlans with different VFs to hit the non-masked
+  // remainder vectorization when simdlen(n) is specified. Those VPlans will be
+  // used only during remainder vectorization, so main loop will be vectorized
+  // with one VF specified in simdlen(n)
+  bool CanRemainderBeVectorized =
+      !isVecRemainderDisabled() &&
+      (isVecRemainderEnforced() || EnableNonMaskedVectorizedRemainder);
+  unsigned VFUF = VPlanForceUF ? VPlanForceUF * VFs[0] : VFs[0];
+
+  if (WRLp && VFs.size() == 1 && WRLp->getSimdlen() &&
+      CanRemainderBeVectorized &&
+      (MainLoop->getTripCountInfo().IsEstimated ||
+       (isDynAlignEnabled() &&
+        MainLoop->getTripCountInfo().TripCount != VFUF) ||
+       MainLoop->getTripCountInfo().TripCount % VFUF != 0)) {
+    for (unsigned TmpVF = 1; TmpVF <= VFs[0]; TmpVF = TmpVF * 2) {
+      VPlans[TmpVF] = {Plan, nullptr};
+    }
+  } else {
+    for (unsigned TmpVF : VFs)
+      VPlans[TmpVF] = {Plan, nullptr};
+  }
 
   // Always capture scalar VPlan to handle cases where vectorization
   // is not possible with VF > 1 (such as when forced VF greater than TC).
