@@ -639,6 +639,10 @@ Optional<unsigned> TargetTransformInfo::getMaxVScale() const {
   return TTIImpl->getMaxVScale();
 }
 
+Optional<unsigned> TargetTransformInfo::getVScaleForTuning() const {
+  return TTIImpl->getVScaleForTuning();
+}
+
 bool TargetTransformInfo::shouldMaximizeVectorBandwidth() const {
   return TTIImpl->shouldMaximizeVectorBandwidth();
 }
