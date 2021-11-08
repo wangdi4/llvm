@@ -1407,7 +1407,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
     const VPAllocatePrivate *AI) {
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
-  Type *PointeeTy = cast<PointerType>(AI->getType())->getPointerElementType();
+  Type *PointeeTy = AI->getAllocatedType();
 
   // Check for SOA-layout.
   if (AI->isSOALayout() && isa<ArrayType>(PointeeTy)) {

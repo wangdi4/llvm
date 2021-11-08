@@ -2293,8 +2293,8 @@ Value *VPOCodeGen::createVectorPrivatePtrs(VPAllocatePrivate *V) {
 
   auto Base =
       Builder.CreateBitCast(PtrToVec, PrivTy, PtrToVec->getName() + ".bc");
-  return Builder.CreateGEP(PrivTy->getScalarType()->getPointerElementType(),
-                           Base, Cv, PtrToVec->getName() + ".base.addr");
+  return Builder.CreateGEP(V->getAllocatedType(), Base, Cv,
+                           PtrToVec->getName() + ".base.addr");
 }
 
 template <typename CastInstTy>
@@ -4135,7 +4135,7 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
 void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // Private memory is a pointer. We need to get element type
   // and allocate VF elements.
-  Type *OrigTy = V->getType()->getPointerElementType();
+  Type *OrigTy = V->getAllocatedType();
 
   Type *VecTyForAlloca;
   std::string VarName = Twine(V->getOrigName() + ".vec").str();
