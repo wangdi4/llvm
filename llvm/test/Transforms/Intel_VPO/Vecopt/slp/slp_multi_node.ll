@@ -48,4 +48,51 @@ entry:
   ret i32 %hor.red
 }
 
+; CMPLRLLVM-31486
+define i32 @negative_different_sign_reorder(i32 *%a, i32 *%b) #0 {
+; CHECK-LABEL: @negative_different_sign_reorder(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
+; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
+; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
+; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
+; FIXME: This reorder is incorrect.
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP1]], [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> <i32 42, i32 43>, [[TMP4]]
+; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <2 x i32> [[TMP5]], i32 0
+; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <2 x i32> [[TMP5]], i32 1
+; CHECK-NEXT:    [[HOR_RED:%.*]] = add i32 [[TMP6]], [[TMP7]]
+; CHECK-NEXT:    ret i32 [[HOR_RED]]
+;
+entry:
+  %gep.a0 = getelementptr i32, i32 *%a, i32 0
+  %gep.a1 = getelementptr i32, i32 *%a, i32 1
+  %gep.b0 = getelementptr i32, i32 *%b, i32 0
+  %gep.b1 = getelementptr i32, i32 *%b, i32 1
+  %a0 = load i32, i32 *%gep.a0
+  %a1 = load i32, i32 *%gep.a1
+  %b0 = load i32, i32 *%gep.b0
+  %b1 = load i32, i32 *%gep.b1
+
+;    A0  B0  C1  A1
+;     \ /     \ /
+; C0   +   B1  +
+;   \ /      \ /
+;    -        -
+; MultiNode must not reorder B0<->C0.
+  %lane0.add = add i32 %a0, %b0
+  %lane0.sub = sub i32 42, %lane0.add
+
+  %lane1.add = add i32 43, %a1
+  %lane1.sub = sub i32 %b1, %lane1.add
+
+; Horizontal reduction as a seed to trigger SLP
+  %hor.red = add i32 %lane0.sub, %lane1.sub
+  ret i32 %hor.red
+}
+
 attributes #0 = { "target-features"="+avx2" }
