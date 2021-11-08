@@ -193,26 +193,6 @@ bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
   return false;
 }
 
-bool HIRSCCFormation::usedInHeaderPhi(const PHINode *Phi) const {
-  assert(!RI.isHeaderPhi(Phi) && "Header phi not expected!");
-
-  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
-    auto UserPhi = dyn_cast<PHINode>(*I);
-
-    if (!UserPhi || !RI.isHeaderPhi(UserPhi)) {
-      continue;
-    }
-
-    if (!CurLoop->contains(UserPhi->getParent())) {
-      continue;
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
 class BasicBlockPhiFinder {
   const PHINode *BBPhi;
   bool Found;
@@ -366,7 +346,7 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node,
   // If phi has a predecessor which is an early exit from an inner loop, then it
   // gets complicated to preserve loop simplify form if we want to split this
   // edge during SSA deconstruction so we suppress the SCC formation.
-  return (usedInHeaderPhi(Phi) && !hasEarlyExitPredecessor(Phi));
+  return !hasEarlyExitPredecessor(Phi);
 }
 
 HIRSCCFormation::NodeTy::user_iterator
@@ -490,29 +470,6 @@ void HIRSCCFormation::setRegion(HIRRegionIdentification::const_iterator RegIt) {
   IsNewRegion = true;
 }
 
-bool HIRSCCFormation::isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC) {
-  bool UsedInPhi = false;
-
-  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
-    auto UserPhi = dyn_cast<PHINode>(*I);
-
-    if (!UserPhi) {
-      continue;
-    }
-
-    if (CurSCC.contains(UserPhi)) {
-      UsedInPhi = true;
-      break;
-    }
-  }
-
-  if (!UsedInPhi) {
-    return false;
-  }
-
-  return true;
-}
-
 bool HIRSCCFormation::isRegionLiveOut(
     HIRRegionIdentification::const_iterator RegIt, const Instruction *Inst) {
   for (auto UserIt = Inst->user_begin(), EndIt = Inst->user_end();
@@ -615,6 +572,10 @@ bool HIRSCCFormation::isProfitableSCC(const SCC &CurSCC) const {
       // liveout copies makes HIR any cleaner than not forming the SCC at all.
       // Thus, this is more of a cost-model decision.
       if (LiveoutValueFound) {
+        LLVM_DEBUG(dbgs() << "SCC with root node ";
+                   CurSCC.getRoot()->printAsOperand(dbgs(), false);
+                   dbgs() << " considered non-profitable due multiple region "
+                             "liveout nodes.\n");
         return false;
       }
 
@@ -739,12 +700,19 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
 
         if (foundIntermediateSCCNode(UserPhi->getIncomingBlock(I), nullptr,
                                      Node, CurSCC, VisitedBBs)) {
+          LLVM_DEBUG(dbgs() << "Invalidating SCC due to live range overlap of ";
+                     Node->printAsOperand(dbgs(), false);
+                     dbgs() << " at use inst ";
+                     UserInst->printAsOperand(dbgs(), false); dbgs() << "\n");
           return true;
         }
       }
 
     } else if (foundIntermediateSCCNode(UserInst->getParent(), UserInst, Node,
                                         CurSCC, VisitedBBs)) {
+      LLVM_DEBUG(dbgs() << "Invalidating SCC due to live range overlap of ";
+                 Node->printAsOperand(dbgs(), false); dbgs() << " at use inst ";
+                 UserInst->printAsOperand(dbgs(), false); dbgs() << "\n");
       return true;
     }
   }
@@ -906,15 +874,11 @@ bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
 
     BBlocks.insert(ParentBB);
 
-    if (RI.isHeaderPhi(Phi)) {
-      if (hasLoopLiveoutUseInSCC(Phi, CurSCC)) {
-        return false;
-      } else {
-        continue;
-      }
-    }
-
-    if (!isUsedInSCCPhi(Phi, CurSCC)) {
+    if (RI.isHeaderPhi(Phi) && hasLoopLiveoutUseInSCC(Phi, CurSCC)) {
+      LLVM_DEBUG(
+          dbgs() << "Invalidating SCC due to loop liveout use of header phi ";
+          Phi->printAsOperand(dbgs(), false);
+          dbgs() << " in another SCC node\n");
       return false;
     }
   }
@@ -962,6 +926,9 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
   auto Ret = VisitedNodes.insert(std::make_pair(Node, Index));
   (void)Ret;
   assert((Ret.second == true) && "Node has already been visited!");
+
+  LLVM_DEBUG(dbgs() << "Visiting node: "; Node->printAsOperand(dbgs(), false);
+             dbgs() << "\n");
 
   for (auto SuccIter = getFirstSucc(Node); SuccIter != getLastSucc(Node);
        SuccIter = getNextSucc(Node, SuccIter)) {

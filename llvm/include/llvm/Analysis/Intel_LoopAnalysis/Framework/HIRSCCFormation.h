@@ -123,9 +123,6 @@ private:
   /// Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
 
-  /// Returns true if \p Phi is used in a header phi contained in CurLoop.
-  bool usedInHeaderPhi(const PHINode *Phi) const;
-
   /// Returns true if \p Inst is used outside the loop it is defined in.
   bool isLoopLiveOut(const Instruction *Inst) const;
 
@@ -198,9 +195,6 @@ private:
   /// Checks the validity of an SCC w.r.t assigning the same symbase to all its
   /// nodes.
   bool isValidSCC(const SCC &CurSCC) const;
-
-  /// Checks that Phi is used in another phi in the SCC.
-  static bool isUsedInSCCPhi(PHINode *Phi, const SCC &CurSCC);
 
   /// Used to set the outermost loop header phi amongst the nodes as the root
   /// node.

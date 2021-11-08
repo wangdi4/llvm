@@ -344,7 +344,10 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
     HLLoop *DefLoop = getDefLoop();
 
     for (auto UseRef : InnerLoopUses) {
-      HLLoop *UseLoop = UseRef->getLexicalParentLoop();
+
+      auto *UseNode = UseRef->getHLDDNode();
+      HLLoop *UseLoop = isa<HLLoop>(UseNode) ? cast<HLLoop>(UseNode)
+                                             : UseNode->getLexicalParentLoop();
 
       if (HLNodeUtils::getLowestCommonAncestorLoop(InvalidatingLoop, UseLoop) ==
           DefLoop) {

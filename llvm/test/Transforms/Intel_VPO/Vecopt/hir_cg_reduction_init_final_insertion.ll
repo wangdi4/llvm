@@ -1,24 +1,19 @@
-; Check HIR vectorizer codegen inserts reduction init and final at appropriate
-; locations in reduction hoist loop's preheader and postexit respectively. For
-; example, in the HIR below for reduction variable %sum.135 -
-; 1. Init should be emitted after <12> (last node of i2 loop's PH)
-; 2. Final should be emitted before <38> (first node of i2 loop's PE)
+; Check HIR vectorizer codegen inserts reduction init and final for reduction
+; temp %sum.039 in loop's preheader and postexit respectively.
 
 ; <0>          BEGIN REGION { }
 ; <50>               + DO i1 = 0, 9, 1   <DO_LOOP>
 ; <4>                |   %div = %X.addr.036  /  3;
 ; <51>               |
-; <12>               |      %sum.135 = %sum.039;
 ; <51>               |   + DO i2 = 0, zext.i32.i64(%div) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 9>
 ; <53>               |   |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ; <52>               |   |
 ; <52>               |   |   + DO i3 = 0, 19, 1   <DO_LOOP>
-; <22>               |   |   |   %sum.135 = (@A)[0][i1][10 * i2 + i3]  +  %sum.135; <Safe Reduction>
+; <22>               |   |   |   %sum.039 = (@A)[0][i1][10 * i2 + i3]  +  %sum.039; <Safe Reduction>
 ; <52>               |   |   + END LOOP
 ; <52>               |   |
 ; <54>               |   |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <51>               |   + END LOOP
-; <38>               |      %sum.039 = %sum.135;
 ; <51>               |
 ; <42>               |   %div13 = %X.addr.036  /  2;
 ; <43>               |   %X.addr.036 = %div13  +  3;
@@ -34,19 +29,17 @@
 ; CHECK-NEXT:           + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK-NEXT:           |   %div = %X.addr.036  /  3;
 ; CHECK-NEXT:           |
-; CHECK-NEXT:           |      %sum.135 = %sum.039;
 ; CHECK-NEXT:           |      %red.init = 0;
-; CHECK-NEXT:           |      %red.init.insert = insertelement %red.init,  %sum.135,  0;
+; CHECK-NEXT:           |      %red.init.insert = insertelement %red.init,  %sum.039,  0;
 ; CHECK-NEXT:           |      %phi.temp = %red.init.insert;
 ; CHECK:                |   + DO i2 = 0, zext.i32.i64(%div) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 9>
 ; CHECK:                |   |   + DO i3 = 0, 19, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:           |   |   |   %.vec = (<4 x i32>*)(@A)[0][i1][10 * i2 + i3];
-; CHECK-NEXT:           |   |   |   %.vec4 = %.vec  +  %phi.temp;
-; CHECK-NEXT:           |   |   |   %phi.temp = %.vec4;
+; CHECK-NEXT:           |   |   |   %.vec3 = %.vec  +  %phi.temp;
+; CHECK-NEXT:           |   |   |   %phi.temp = %.vec3;
 ; CHECK-NEXT:           |   |   + END LOOP
 ; CHECK-NEXT:           |   + END LOOP
-; CHECK:                |      %sum.135 = @llvm.vector.reduce.add.v4i32(%.vec4);
-; CHECK-NEXT:           |      %sum.039 = %sum.135;
+; CHECK:                |      %sum.039 = @llvm.vector.reduce.add.v4i32(%.vec3);
 ; CHECK-NEXT:           |
 ; CHECK-NEXT:           |   %div13 = %X.addr.036  /  2;
 ; CHECK-NEXT:           |   %X.addr.036 = %div13  +  3;

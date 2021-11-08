@@ -6,29 +6,27 @@
 ;Inside the conditional for b == 47 we have a goto alter bblock
 ;          BEGIN REGION { }
 ; + DO i1 = 0, 63, 1   <DO_LOOP>
+; |   %b.addr.015.out = %b.addr.015;
+; |   %out.016 = %out.016  +  1;
 ; |   if (%b.addr.015 == i1)
 ; |   {
-; |      %b.addr.1 = %b.addr.015 + -1;
-; |      %out.1 = %out.016 + 1;
+; |      %b.addr.015 = %b.addr.015  +  -1;
 ; |   }
 ; |   else
 ; |   {
-; |      %b.addr.2 = 47;
-; |      %out.2 = %out.016 + 1;
-; |      if (%b.addr.015 == 47)
+; |      if (%b.addr.015.out == 47)
 ; |      {
+; |         %b.addr.015 = 47;
 ; |         goto alter;
 ; |      }
 ; |      %1 = (%a)[i1];
-; |      %b.addr.1 = %b.addr.015;
-; |      %out.1 = %1;
+; |      %out.016 = %1;
 ; |   }
-; |   %b.addr.2 = %b.addr.1;
-; |   %out.2 = %out.1 + 1;
+; |   %out.016 = %out.016  +  1;
 ; |   alter:
-; |   %dec = %out.2  +  -1;
-; |   %out.016 = %out.2 + -1;
-; |   %b.addr.015 = %b.addr.2;
+; |   %out.016 = %out.016  +  -1;
+; |   %out.016.out = %out.016;
+; + END LOOP
 ; + END LOOP
 ;          END REGION
 
@@ -39,8 +37,9 @@
 ;CHECK-NEXT: br i1 %hir.cmp{{.*}}, label %[[T_BLOCK:then.[0-9]+]], label
 
 ;Block contains only a jump to hir version of alter bblock
-;CHECK: [[T_BLOCK]]:
-;CHECK-NEXT: br label %hir.L.31
+; CHECK: [[T_BLOCK]]:
+; CHECK-NEXT: store i32 47
+; CHECK-NEXT: br label %hir.L.{{[0-9]+}}
 
 ;Alter bblock will contain decrement of out
 ;CHECK: add{{.*}}, -1
