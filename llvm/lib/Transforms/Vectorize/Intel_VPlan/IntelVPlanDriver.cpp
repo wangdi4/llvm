@@ -141,12 +141,17 @@ static cl::opt<bool> VPlanPrintAfterSingleTripCountOpt(
     cl::desc("Print after backedge branch rewrite for single trip count vector "
              "loop"));
 
+static cl::opt<bool> VPlanPrintAfterFinalCondTransform(
+    "vplan-print-after-final-cond-transform", cl::init(false),
+    cl::desc("Print after private finalization instructions transformation"));
+
 static cl::opt<bool> PrintHIRBeforeVPlan(
     "print-hir-before-vplan", cl::init(false),
     cl::desc("Print HLLoop which we attempt to vectorize via VPlanDriverHIR"));
 #else
 static constexpr bool VPlanPrintInit = false;
 static constexpr bool VPlanPrintAfterSingleTripCountOpt = false;
+static constexpr bool VPlanPrintAfterFinalCondTransform = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
@@ -269,6 +274,78 @@ static bool canProcessMaskedVariant(const VPlan &P) {
       return false;
     }
   return true;
+}
+
+static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
+
+  VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
+
+  // For conditional privates it is possible that the condition will be always
+  // false and the value will not be calculated during the loop iterations.
+  // So we need to skip conditional private finalization instructions in case if
+  // there is no valid last index value for it.
+  const auto &VPInstRange = map_range(
+      make_filter_range(vpinstructions(Plan),
+                        [](const VPInstruction &VPInst) {
+                          return VPInst.getOpcode() ==
+                                     VPInstruction::PrivateFinalCond ||
+                                 VPInst.getOpcode() ==
+                                     VPInstruction::PrivateFinalCondMem;
+                        }),
+      [](VPInstruction &VPInst) { return &VPInst; });
+
+  SmallVector<VPInstruction *, 2> FinalVPInst(VPInstRange.begin(),
+                                              VPInstRange.end());
+  for (VPInstruction *VPInst : FinalVPInst) {
+
+    VPBuilder Builder;
+    VPBasicBlock *VPBB = VPInst->getParent();
+    VPBasicBlock *VPBBTrue = VPBlockUtils::splitBlock(
+        VPBB, VPInst->getIterator(), Plan->getVPLoopInfo());
+    VPBasicBlock *VPBBFalse;
+    VPInstruction *NextInst = &*std::next(VPInst->getIterator());
+
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalCondMem) {
+
+      assert(VPInst->getNumUsers() == 1 &&
+             "Expected exactly one user of memory private finalization "
+             "instruction");
+      assert(*VPInst->user_begin() == NextInst &&
+             isa<VPLoadStoreInst>(NextInst) &&
+             "Expected a store instruction next after memory private "
+             "finalization instruction");
+      VPBBFalse = VPBlockUtils::splitBlock(
+          VPBBTrue, std::next(NextInst->getIterator()), Plan->getVPLoopInfo());
+
+    } else {
+
+      VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
+                                           Plan->getVPLoopInfo());
+      Builder.setInsertPoint(&*VPBBFalse->begin());
+      VPPHINode *Phi = Builder.createPhiInstruction(VPInst->getType());
+      VPInst->replaceAllUsesWith(Phi);
+      Phi->addIncoming(VPInst->getOperand(2), VPBB);
+      Phi->addIncoming(VPInst, VPBBTrue);
+      DA->updateDivergence(*Phi);
+    }
+
+    Builder.setInsertPoint(VPBB);
+    VPValue *LastIndex = VPInst->getOperand(1);
+    VPCmpInst *CmpInst = Builder.createCmpInst(
+        CmpInst::ICMP_NE, LastIndex,
+        Plan->getVPConstant(ConstantInt::get(LastIndex->getType(), -1)));
+    DA->updateDivergence(*CmpInst);
+
+    VPValue *AllZeroCheck = Builder.createAllZeroCheck(CmpInst);
+    DA->updateDivergence(*AllZeroCheck);
+    VPBB->setTerminator(VPBBFalse, VPBBTrue, AllZeroCheck);
+  }
+
+  if (!FinalVPInst.empty())
+    Plan->invalidateAnalyses({VPAnalysisID::SVA});
+
+  VPLAN_DUMP(VPlanPrintAfterFinalCondTransform,
+             "private finalization instructions transformation", Plan);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -506,6 +583,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     }
     LVP.emitPeelRemainderVPLoops(VF, UF);
   }
+
+  preprocessPrivateFinalCondInstructions(Plan);
 
   if (DisableCodeGen)
     return false;

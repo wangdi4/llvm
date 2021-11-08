@@ -1166,7 +1166,8 @@ struct RTLFlagsTy {
   uint64_t UseDriverGroupSizes : 1;
   uint64_t UseImageOptions : 1;
   uint64_t UseMultipleComputeQueues : 1;
-  uint64_t Reserved : 55;
+  uint64_t ShowBuildLog : 1;
+  uint64_t Reserved : 54;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -1177,6 +1178,7 @@ struct RTLFlagsTy {
       UseDriverGroupSizes(0),
       UseImageOptions(1),
       UseMultipleComputeQueues(0),
+      ShowBuildLog(0),
       Reserved(0) {}
 };
 
@@ -2029,6 +2031,13 @@ public:
         DP("Disabled using multiple compute queues.\n");
       }
     }
+
+    if (char *env = readEnvVar("LIBOMPTARGET_ONEAPI_SHOW_BUILD_LOG")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.ShowBuildLog = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.ShowBuildLog = 0;
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -2296,26 +2305,33 @@ static ze_module_handle_t createModule(
   ze_result_t rc;
   CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
              &buildLog);
-  if (rc != ZE_RESULT_SUCCESS) {
-    DP("Warning: module creation failed\n");
-    if (DebugLevel > 0) {
+  bool buildFailed = (rc != ZE_RESULT_SUCCESS);
+  bool showBuildLog = DeviceInfo->Flags.ShowBuildLog;
+  if (buildFailed || showBuildLog) {
+    if (buildFailed)
+      DP("Warning: module creation failed\n");
+    if (DebugLevel > 0 || showBuildLog) {
       size_t logSize = 0;
       CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
-      DP("Target build log:\n");
-      if (logSize > 0) {
+      MESSAGE0("Target build log:");
+      // The build log is a null-terminated string, so it must be
+      // longer than 1-character string to be non-empty.
+      if (logSize > 1) {
         std::vector<char> logString(logSize);
         CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
                          logString.data());
         std::stringstream Str(logString.data());
         std::string Line;
         while (std::getline(Str, Line, '\n'))
-          DP("  %s\n", Line.c_str());
+          MESSAGE("  '%s'", Line.c_str());
       } else {
-        DP("  empty\n");
+        MESSAGE0("  <empty>");
       }
     }
-    CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
-    return nullptr;
+    if (buildFailed) {
+      CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
+      return nullptr;
+    }
   }
   CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
   return module;
