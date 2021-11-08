@@ -74,15 +74,8 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
 #ifndef SYCL_EXTERNAL
 #define SYCL_EXTERNAL
 #endif
-#ifdef __SYCL_USE_NON_VARIADIC_SPIRV_OCL_PRINTF__
-template <typename... Args>
-extern SYCL_EXTERNAL int
-__spirv_ocl_printf(const __attribute__((opencl_constant)) char *Format,
-                   Args... args);
-#else
 extern SYCL_EXTERNAL int
 __spirv_ocl_printf(const __attribute__((opencl_constant)) char *Format, ...);
-#endif
 
   __spirv_ocl_printf(assert_fmt, file, (int32_t)line,
                      // WORKAROUND: IGC does not handle this well
