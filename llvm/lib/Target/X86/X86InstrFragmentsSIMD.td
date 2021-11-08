@@ -86,16 +86,26 @@ def X86multishift   : SDNode<"X86ISD::MULTISHIFT",
                  SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
                                       SDTCisSameAs<1,2>]>>;
 def X86pextrb  : SDNode<"X86ISD::PEXTRB",
-                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCisVT<1, v16i8>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCVecEltisVT<1, i8>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i8>]>>;
 def X86pextrw  : SDNode<"X86ISD::PEXTRW",
-                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCisVT<1, v8i16>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCVecEltisVT<1, i16>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i8>]>>;
 def X86pinsrb  : SDNode<"X86ISD::PINSRB",
-                 SDTypeProfile<1, 3, [SDTCisVT<0, v16i8>, SDTCisSameAs<0,1>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<1, i8>,
+                                      SDTCisSameAs<0,1>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i32>, SDTCisVT<3, i8>]>>;
 def X86pinsrw  : SDNode<"X86ISD::PINSRW",
-                 SDTypeProfile<1, 3, [SDTCisVT<0, v8i16>, SDTCisSameAs<0,1>,
+#if INTEL_CUSTOMIZATION
+                 SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCVecEltisVT<1, i16>,
+                                      SDTCisSameAs<0,1>,
+#endif // INTEL_CUSTOMIZATION
                                       SDTCisVT<2, i32>, SDTCisVT<3, i8>]>>;
 def X86insertps : SDNode<"X86ISD::INSERTPS",
                  SDTypeProfile<1, 3, [SDTCisVT<0, v4f32>, SDTCisSameAs<0,1>,

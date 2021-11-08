@@ -5238,6 +5238,12 @@ def mshstk : Flag<["-"], "mshstk">, Group<m_x86_Features_Group>;
 def mno_shstk : Flag<["-"], "mno-shstk">, Group<m_x86_Features_Group>;
 def mretpoline_external_thunk : Flag<["-"], "mretpoline-external-thunk">, Group<m_x86_Features_Group>;
 def mno_retpoline_external_thunk : Flag<["-"], "mno-retpoline-external-thunk">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+def mvpinsr_vpextr : Flag<["-"], "mvpinsr-vpextr">, Group<m_x86_Features_Group>;
+def mno_vpinsr_vpextr : Flag<["-"], "mno-vpinsr-vpextr">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
 def mvzeroupper : Flag<["-"], "mvzeroupper">, Group<m_x86_Features_Group>;
 def mno_vzeroupper : Flag<["-"], "mno-vzeroupper">, Group<m_x86_Features_Group>;
 // These are legacy user-facing driver-level option spellings. They are always

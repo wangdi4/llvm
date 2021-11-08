@@ -3881,6 +3881,12 @@ X86
 
 .. option:: -mvpclmulqdq, -mno-vpclmulqdq
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_VPINSR_VPEXTR
+.. option:: -mvpinsr-vpextr, -mno-vpinsr-vpextr
+.. end INTEL_FEATURE_ISA_VPINSR_VPEXTR
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mvzeroupper, -mno-vzeroupper
 
 .. option:: -mwaitpkg, -mno-waitpkg

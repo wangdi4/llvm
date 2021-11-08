@@ -19510,6 +19510,30 @@ static SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG,
                      DAG.getIntPtrConstant(0, dl));
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+static SDValue LowerEXTRACT_VECTOR_ELT_VPEXTR(SDValue Op, SelectionDAG &DAG,
+                                              const X86Subtarget &Subtarget) {
+  MVT VT = Op.getSimpleValueType();
+  SDValue Vec = Op.getOperand(0);
+  SDValue Idx = Op.getOperand(1);
+  assert(isa<ConstantSDNode>(Idx) && "Constant index expected");
+  SDLoc dl(Op);
+
+  unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
+  if (VT == MVT::i8 || VT == MVT::i16) {
+    unsigned Opc = VT == MVT::i8 ? X86ISD::PEXTRB : X86ISD::PEXTRW;
+    SDValue Extract = DAG.getNode(Opc, dl, MVT::i32, Vec,
+                                  DAG.getTargetConstant(IdxVal, dl, MVT::i8));
+    return DAG.getNode(ISD::TRUNCATE, dl, VT, Extract);
+  }
+  if (VT == MVT::i32 || (VT == MVT::i64 && Subtarget.is64Bit()))
+    return Op;
+  return SDValue();
+}
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
+
 SDValue
 X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
                                            SelectionDAG &DAG) const {
@@ -19561,6 +19585,14 @@ X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
   // If this is a 256-bit vector result, first extract the 128-bit vector and
   // then extract the element from the 128-bit vector.
   if (VecVT.is256BitVector() || VecVT.is512BitVector()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+    if (Subtarget.hasVPINSRVPEXTR())
+      if (SDValue Res = LowerEXTRACT_VECTOR_ELT_VPEXTR(Op, DAG, Subtarget))
+        return Res;
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
+
     // Get the 128-bit vector.
     Vec = extract128BitVector(Vec, IdxVal, DAG, dl);
     MVT EltVT = VecVT.getVectorElementType();
@@ -19687,6 +19719,35 @@ static SDValue InsertBitToMaskVector(SDValue Op, SelectionDAG &DAG,
   return DAG.getNode(ISD::INSERT_SUBVECTOR, dl, VecVT, Vec, EltInVec, Idx);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+static SDValue LowerINSERT_VECTOR_ELT_VPINSR(SDValue Op, SelectionDAG &DAG,
+                                             const X86Subtarget &Subtarget) {
+  MVT VT = Op.getSimpleValueType();
+  MVT EltVT = VT.getVectorElementType();
+  SDValue N0 = Op.getOperand(0);
+  SDValue N1 = Op.getOperand(1);
+  SDValue Idx = Op.getOperand(2);
+  assert(isa<ConstantSDNode>(Idx) && "Constant index expected");
+
+  SDLoc dl(Op);
+  unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
+
+  if (EltVT == MVT::i8 || EltVT == MVT::i16) {
+    unsigned Opc = EltVT == MVT::i8 ? X86ISD::PINSRB : X86ISD::PINSRW;
+    N1 = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::i32, N1);
+    Idx = DAG.getTargetConstant(IdxVal, dl, MVT::i8);
+    return DAG.getNode(Opc, dl, VT, N0, N1, Idx);
+  }
+
+  if (EltVT == MVT::i32 || (EltVT == MVT::i64 && Subtarget.is64Bit()))
+    return Op;
+
+  return SDValue();
+}
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
+
 SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
                                                   SelectionDAG &DAG) const {
   MVT VT = Op.getSimpleValueType();
@@ -19778,6 +19839,14 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
                            DAG.getTargetConstant(1, dl, MVT::i8));
       }
     }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+    if (Subtarget.hasVPINSRVPEXTR())
+      if (SDValue Res = LowerINSERT_VECTOR_ELT_VPINSR(Op, DAG, Subtarget))
+        return Res;
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
 
     unsigned NumEltsIn128 = 128 / EltSizeInBits;
     assert(isPowerOf2_32(NumEltsIn128) &&
@@ -47636,6 +47705,15 @@ static SDValue combineVectorInsert(SDNode *N, SelectionDAG &DAG,
                                    TargetLowering::DAGCombinerInfo &DCI,
                                    const X86Subtarget &Subtarget) {
   EVT VT = N->getValueType(0);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+  // FIXME: We don't combining PINSRB/W for VPINSR_VPEXTR target for now. Do
+  // this when upstream.
+  if ((N->getOpcode() == X86ISD::PINSRB || N->getOpcode() == X86ISD::PINSRW) &&
+      VT.getSizeInBits() > 128)
+    return SDValue();
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
   assert(((N->getOpcode() == X86ISD::PINSRB && VT == MVT::v16i8) ||
           (N->getOpcode() == X86ISD::PINSRW && VT == MVT::v8i16) ||
           N->getOpcode() == ISD::INSERT_VECTOR_ELT) &&

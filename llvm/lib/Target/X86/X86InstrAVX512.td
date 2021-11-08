@@ -12019,6 +12019,25 @@ defm VPEXTRWZ : avx512_extract_elt_w<"vpextrw", v8i16x_info>, VEX_WIG;
 defm VPEXTRDZ : avx512_extract_elt_dq<"vpextrd", v4i32x_info, GR32>;
 defm VPEXTRQZ : avx512_extract_elt_dq<"vpextrq", v2i64x_info, GR64>, VEX_W;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+// FIXME: Renaming these record when upstream. The 128bit version should end
+// with 'Z128' and the 512bit version should end with 'Z'.
+let Predicates = [HasVPINSRVPEXTR] in {
+  defm VPEXTRBZ256 : avx512_extract_elt_b<"vpextrb", v32i8x_info>, VEX_WIG, EVEX_V256;
+  defm VPEXTRBZ512 : avx512_extract_elt_b<"vpextrb", v64i8_info>, VEX_WIG, EVEX_V512;
+  defm VPEXTRWZ256 : avx512_extract_elt_w<"vpextrw", v16i16x_info>, VEX_WIG, EVEX_V256;
+  defm VPEXTRWZ512 : avx512_extract_elt_w<"vpextrw", v32i16_info>, VEX_WIG, EVEX_V512;
+  defm VPEXTRDZ256 : avx512_extract_elt_dq<"vpextrd", v8i32x_info, GR32>, EVEX_V256;
+  defm VPEXTRDZ512 : avx512_extract_elt_dq<"vpextrd", v16i32_info, GR32>, EVEX_V512;
+}
+let Predicates = [HasVPINSRVPEXTR, In64BitMode] in {
+  defm VPEXTRQZ256 : avx512_extract_elt_dq<"vpextrq", v4i64x_info, GR64>, VEX_W, EVEX_V256;
+  defm VPEXTRQZ512 : avx512_extract_elt_dq<"vpextrq", v8i64_info, GR64>, VEX_W, EVEX_V512;
+}
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
+
 multiclass avx512_insert_elt_m<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                             X86VectorVTInfo _, PatFrag LdFrag,
                                             SDPatternOperator immoperator> {
@@ -12065,6 +12084,29 @@ defm VPINSRWZ : avx512_insert_elt_bw<0xC4, "vpinsrw", X86pinsrw, v8i16x_info,
                                      extloadi16>, PD, VEX_WIG;
 defm VPINSRDZ : avx512_insert_elt_dq<0x22, "vpinsrd", v4i32x_info, GR32>;
 defm VPINSRQZ : avx512_insert_elt_dq<0x22, "vpinsrq", v2i64x_info, GR64>, VEX_W;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VPINSR_VPEXTR
+// FIXME: Renaming these record when upstream. The 128bit version should end
+// with 'Z128' and the 512bit version should end with 'Z'.
+let Predicates = [HasVPINSRVPEXTR] in {
+  defm VPINSRBZ256 : avx512_insert_elt_bw<0x20, "vpinsrb", X86pinsrb, v32i8x_info,
+                                       extloadi8>, TAPD, VEX_WIG, EVEX_V256;
+  defm VPINSRBZ512 : avx512_insert_elt_bw<0x20, "vpinsrb", X86pinsrb, v64i8_info,
+                                       extloadi8>, TAPD, VEX_WIG, EVEX_V512;
+  defm VPINSRWZ256 : avx512_insert_elt_bw<0xC4, "vpinsrw", X86pinsrw, v16i16x_info,
+                                       extloadi16>, PD, VEX_WIG, EVEX_V256;
+  defm VPINSRWZ512 : avx512_insert_elt_bw<0xC4, "vpinsrw", X86pinsrw, v32i16_info,
+                                       extloadi16>, PD, VEX_WIG, EVEX_V512;
+  defm VPINSRDZ256 : avx512_insert_elt_dq<0x22, "vpinsrd", v8i32x_info, GR32>, EVEX_V256;
+  defm VPINSRDZ512 : avx512_insert_elt_dq<0x22, "vpinsrd", v16i32_info, GR32>, EVEX_V512;
+}
+let Predicates = [HasVPINSRVPEXTR, In64BitMode] in {
+  defm VPINSRQZ256 : avx512_insert_elt_dq<0x22, "vpinsrq", v4i64x_info, GR64>, VEX_W, EVEX_V256;
+  defm VPINSRQZ512 : avx512_insert_elt_dq<0x22, "vpinsrq", v8i64_info, GR64>, VEX_W, EVEX_V512;
+}
+#endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // VSHUFPS - VSHUFPD Operations
