@@ -20,13 +20,13 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:   DO i64 i2 = 0, sext.i32.i64(%Y.addr.037) + -1, 1   <DO_LOOP>
-; CHECK:     <RVAL-REG> LINEAR i64 sext.i32.i64(%Y.addr.037) + -1{def@1} {sb:2}
-; CHECK:     <BLOB> LINEAR i32 %Y.addr.037{def@1} {sb:5}
+; CHECK:     <RVAL-REG> LINEAR i64 sext.i32.i64(%Y.addr.037) + -1{def@1}
+; CHECK:     <BLOB> LINEAR i32 %Y.addr.037{def@1}
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:   DO i64 i2 = 0, 10 * sext.i32.i64(%Y.addr.037) + -1, 1   <DO_LOOP>
-; CHECK:     <RVAL-REG> LINEAR i64 10 * sext.i32.i64(%Y.addr.037) + -1{def@1} {sb:2}
-; CHECK:     <BLOB> LINEAR i32 %Y.addr.037{def@1} {sb:5}
+; CHECK:     <RVAL-REG> LINEAR i64 10 * sext.i32.i64(%Y.addr.037) + -1{def@1}
+; CHECK:     <BLOB> LINEAR i32 %Y.addr.037{def@1}
 
 
 ;Module Before HIR

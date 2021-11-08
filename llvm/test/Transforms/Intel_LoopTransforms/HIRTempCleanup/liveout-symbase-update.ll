@@ -4,13 +4,13 @@
 ; Verify that the loop liveouts of i1 and i3 loop are correctly updated after redundant liveout copies are removed.
 
 ; CHECK: Function
-; CHECK: LiveOut symbases: 6
-; CHECK: LiveOut symbases: 4
-; CHECK: LiveOut symbases: 45
+; CHECK: LiveOut symbases: 5
+; CHECK: LiveOut symbases: 3
+; CHECK: LiveOut symbases: 3
 
 ; CHECK: Function
-; CHECK: LiveOut symbases: 4
-; CHECK: LiveOut symbases: 4
+; CHECK: LiveOut symbases: 3
+; CHECK: LiveOut symbases: 3
 ; CHECK: LiveOut symbases: 3
 
 

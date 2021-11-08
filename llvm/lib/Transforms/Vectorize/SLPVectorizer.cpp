@@ -2583,8 +2583,7 @@ private:
       TreeEntry *UserTE = UserTreeIdx.UserTE;
       if (UserTE)
         assert(UserTE != Last && "Bad UserTreeIdx ?");
-      bool IsRootNode = (!UserTE || UserTE->Idx == 0 ||
-                         Last->Idx == CurrentMultiNode->getRoot());
+      bool IsRootNode = (!UserTE || Last->Idx == CurrentMultiNode->getRoot());
       for (int Lane = 0, Lanes = VL.size(); Lane != Lanes; ++Lane) {
         // The root of the Multi-Node gets 0 sign.
         bool IsNegativeSign = false;

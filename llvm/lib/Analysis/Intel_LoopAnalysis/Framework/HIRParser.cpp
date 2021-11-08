@@ -3899,7 +3899,7 @@ void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
 }
 
 const Value *
-HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
+HIRParser::getValidPhiBaseVal(const Value *PhiInitVal, Type *ResultElemTy,
                               const GEPOrSubsOperator **InitGEPOp) const {
 
   *InitGEPOp = nullptr;
@@ -3912,7 +3912,8 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
 
   // A phi init GEP representing an offset cannot be merged into the ref as it
   // represents an unconventional access.
-  if (representsStructOffset(GEPOp) || !isValidGEPOp(GEPOp)) {
+  if (representsStructOffset(GEPOp) || !isValidGEPOp(GEPOp) ||
+      (getResultElementType(GEPOp) != ResultElemTy)) {
     // If this is an instruction, we can use it as the base.
     if (isa<Instruction>(PhiInitVal)) {
       return PhiInitVal;
@@ -3980,14 +3981,14 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
       const Value *PhiInitVal = RI.getHeaderPhiInitVal(CurBasePhi);
 
-      if (RecSCEV->isAffine() &&
-          (BaseVal = getValidPhiBaseVal(PhiInitVal, &InitGEPOp))) {
+      if (RecSCEV->isAffine()) {
         IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
+        BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
       }
     }
 
     // Non-linear base is parsed as base + zero offset: (%p)[0].
-    if (!IndexCE) {
+    if (!IndexCE || !BaseVal) {
       InitGEPOp = nullptr;
       BaseVal = CurBasePhi;
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);

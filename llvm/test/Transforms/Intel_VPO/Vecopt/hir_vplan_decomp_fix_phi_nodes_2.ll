@@ -8,37 +8,35 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>"  -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
-; <73>    + DO i1 = 0, 1023, 1   <DO_LOOP>
-; <8>     |   %t2.069.out3 = %t2.069;
-; <10>    |   %1 = (@a)[0][i1];
-; <14>    |   if (i1 > %1)
-; <14>    |   {
-; <25>    |      if (%1 > 1023)
-; <25>    |      {
-; <37>    |         %t2.1 = %t2.069.out3;
-; <38>    |         %t1.0 = 2 * %1;
-; <25>    |      }
-; <25>    |      else
-; <25>    |      {
-; <31>    |         %4 = (@a)[0][i1 + 134];
-; <32>    |         %t2.1 = %4;
-; <33>    |         %t1.0 = %1;
-; <25>    |      }
-; <42>    |      %t2.069 = %t2.1 + 1024;
-; <43>    |      %t1.1 = %t1.0;
-; <14>    |   }
-; <14>    |   else
-; <14>    |   {
-; <20>    |      %6 = (@a)[0][i1 + 1];
-; <21>    |      %t1.1 = %6;
-; <14>    |   }
-; <46>    |   %t2.069.out = %t2.069;
-; <48>    |   (@b)[0][i1] = %t1.1;
-; <51>    |   (@c)[0][i1] = %t1.1 + 2 * %N;
-; <53>    |   %7 = (@d)[0][i1];
-; <57>    |   %spec.select = (i1 > %t1.1 + 2 * %N + %7) ? %t1.1 : %7;
-; <58>    |   (@d)[0][i1] = %spec.select;
-; <73>    + END LOOP
+; <70>    + DO i1 = 0, 1023, 1   <DO_LOOP> <simd>
+; <9>     |   %1 = (@a)[0][i1];
+; <13>    |   if (i1 > %1)
+; <13>    |   {
+; <18>    |      if (%1 > 1023)
+; <18>    |      {
+; <23>    |         %t1.0 = 2 * %1;
+; <18>    |      }
+; <18>    |      else
+; <18>    |      {
+; <28>    |         %4 = (@a)[0][i1 + 134];
+; <29>    |         %t2.069 = %4;
+; <30>    |         %t1.0 = %1;
+; <18>    |      }
+; <33>    |      %t2.069 = %t2.069  +  1024;
+; <34>    |      %t1.1 = %t1.0;
+; <13>    |   }
+; <13>    |   else
+; <13>    |   {
+; <39>    |      %6 = (@a)[0][i1 + 1];
+; <40>    |      %t1.1 = %6;
+; <13>    |   }
+; <43>    |   %t2.069.out = %t2.069;
+; <45>    |   (@b)[0][i1] = %t1.1;
+; <48>    |   (@c)[0][i1] = %t1.1 + 2 * %N;
+; <50>    |   %7 = (@d)[0][i1];
+; <54>    |   %spec.select = (i1 > %t1.1 + 2 * %N + %7) ? %t1.1 : %7;
+; <55>    |   (@d)[0][i1] = %spec.select;
+; <70>    + END LOOP
 
 ; Here PHI nodes are inserted at multiple VPBBs for %t1.0, %t2.1 and %t2.069.
 ; The PHI placed at loop latch VPBB for %t2.069 is of interest for us. The
@@ -76,7 +74,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: foo:HIR
+; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -86,69 +84,66 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[T2_0690:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32 [[VP4:%.*]] = hir-copy i32 [[VP0]] , OriginPhiId: -1
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP5]]
-; CHECK-NEXT:     br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i1 [[VP5:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP4]]
+; CHECK-NEXT:     br i1 [[VP5]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:       i64 [[VP7:%.*]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP7]]
+; CHECK-NEXT:       i64 [[VP6:%.*]] = add i64 [[VP2]] i64 1
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP6]]
 ; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       i32 [[VP8:%.*]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
+; CHECK-NEXT:       i32 [[VP7:%.*]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i1 [[VP9:%.*]] = icmp sgt i32 [[VP_LOAD]] i32 1023
-; CHECK-NEXT:       br i1 [[VP9]], [[BB6:BB[0-9]+]], [[BB7:BB[0-9]+]]
+; CHECK-NEXT:       i1 [[VP8:%.*]] = icmp sgt i32 [[VP_LOAD]] i32 1023
+; CHECK-NEXT:       br i1 [[VP8]], [[BB6:BB[0-9]+]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB7]]: # preds: [[BB4]]
-; CHECK-NEXT:         i64 [[VP10:%.*]] = add i64 [[VP2]] i64 134
-; CHECK-NEXT:         i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP10]]
+; CHECK-NEXT:         i64 [[VP9:%.*]] = add i64 [[VP2]] i64 134
+; CHECK-NEXT:         i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP9]]
 ; CHECK-NEXT:         i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:         i32 [[VP11:%.*]] = hir-copy i32 [[VP_LOAD_2]] , OriginPhiId: -1
-; CHECK-NEXT:         i32 [[VP12:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
+; CHECK-NEXT:         i32 [[VP10:%.*]] = hir-copy i32 [[VP_LOAD_2]] , OriginPhiId: -1
+; CHECK-NEXT:         i32 [[VP11:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
 ; CHECK-NEXT:         br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB6]]: # preds: [[BB4]]
-; CHECK-NEXT:         i32 [[VP13:%.*]] = hir-copy i32 [[VP4]] , OriginPhiId: -1
-; CHECK-NEXT:         i32 [[VP14:%.*]] = mul i32 [[VP_LOAD]] i32 2
-; CHECK-NEXT:         i32 [[VP15:%.*]] = hir-copy i32 [[VP14]] , OriginPhiId: -1
+; CHECK-NEXT:         i32 [[VP12:%.*]] = mul i32 [[VP_LOAD]] i32 2
+; CHECK-NEXT:         i32 [[VP13:%.*]] = hir-copy i32 [[VP12]] , OriginPhiId: -1
 ; CHECK-NEXT:         br [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB6]], [[BB7]]
-; CHECK-NEXT:       i32 [[VP16:%.*]] = phi  [ i32 [[VP15]], [[BB6]] ],  [ i32 [[VP12]], [[BB7]] ]
-; CHECK-NEXT:       i32 [[VP17:%.*]] = phi  [ i32 [[VP13]], [[BB6]] ],  [ i32 [[VP11]], [[BB7]] ]
-; CHECK-NEXT:       i32 [[VP18:%.*]] = add i32 [[VP17]] i32 1024
-; CHECK-NEXT:       i32 [[VP19:%.*]] = hir-copy i32 [[VP18]] , OriginPhiId: -1
-; CHECK-NEXT:       i32 [[VP20:%.*]] = hir-copy i32 [[VP16]] , OriginPhiId: -1
+; CHECK-NEXT:       i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB6]] ],  [ i32 [[VP11]], [[BB7]] ]
+; CHECK-NEXT:       i32 [[VP15:%.*]] = phi  [ i32 [[VP0]], [[BB6]] ],  [ i32 [[VP10]], [[BB7]] ]
+; CHECK-NEXT:       i32 [[VP16:%.*]] = add i32 [[VP15]] i32 1024
+; CHECK-NEXT:       i32 [[VP17:%.*]] = hir-copy i32 [[VP14]] , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB8]], [[BB5]]
-; CHECK-NEXT:     i32 [[VP21:%.*]] = phi  [ i32 [[VP20]], [[BB8]] ],  [ i32 [[VP8]], [[BB5]] ]
-; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP19]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
-; CHECK-NEXT:     i32 [[VP22:%.*]] = hir-copy i32 [[VP1]] , OriginPhiId: -1
+; CHECK-NEXT:     i32 [[VP18:%.*]] = phi  [ i32 [[VP17]], [[BB8]] ],  [ i32 [[VP7]], [[BB5]] ]
+; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP16]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
+; CHECK-NEXT:     i32 [[VP19:%.*]] = hir-copy i32 [[VP1]] , OriginPhiId: -1
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i32 [[VP23:%.*]] = mul i32 [[N0:%.*]] i32 2
-; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP21]] i32 [[VP23]]
+; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     i32 [[VP20:%.*]] = mul i32 [[N0:%.*]] i32 2
+; CHECK-NEXT:     i32 [[VP21:%.*]] = add i32 [[VP18]] i32 [[VP20]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @c i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP24]] i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
-; CHECK-NEXT:     i32 [[VP25:%.*]] = mul i32 [[N0]] i32 2
-; CHECK-NEXT:     i32 [[VP26:%.*]] = add i32 [[VP21]] i32 [[VP25]]
-; CHECK-NEXT:     i32 [[VP27:%.*]] = add i32 [[VP26]] i32 [[VP_LOAD_3]]
-; CHECK-NEXT:     i64 [[VP28:%.*]] = sext i32 [[VP27]] to i64
-; CHECK-NEXT:     i1 [[VP29:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP28]]
-; CHECK-NEXT:     i32 [[VP30:%.*]] = select i1 [[VP29]] i32 [[VP21]] i32 [[VP_LOAD_3]]
+; CHECK-NEXT:     i32 [[VP22:%.*]] = mul i32 [[N0]] i32 2
+; CHECK-NEXT:     i32 [[VP23:%.*]] = add i32 [[VP18]] i32 [[VP22]]
+; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP23]] i32 [[VP_LOAD_3]]
+; CHECK-NEXT:     i64 [[VP25:%.*]] = sext i32 [[VP24]] to i64
+; CHECK-NEXT:     i1 [[VP26:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP25]]
+; CHECK-NEXT:     i32 [[VP27:%.*]] = select i1 [[VP26]] i32 [[VP18]] i32 [[VP_LOAD_3]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP30]] i32* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:     store i32 [[VP27]] i32* [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP31:%.*]] = icmp sle i64 [[VP3]] i64 1023
-; CHECK-NEXT:     br i1 [[VP31]], [[BB2]], [[BB9:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP28:%.*]] = icmp sle i64 [[VP3]] i64 1023
+; CHECK-NEXT:     br i1 [[VP28]], [[BB2]], [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB10:BB[0-9]+]]
