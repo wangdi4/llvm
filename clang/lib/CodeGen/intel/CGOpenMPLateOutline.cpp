@@ -1767,8 +1767,8 @@ void OpenMPLateOutliner::emitOMPDefaultmapClause(
   case OMPC_DEFAULTMAP_pointer:
     CSB.add(":POINTER");
     break;
-  default:
-     llvm_unreachable("Unexpected defaultmap kind");
+  case OMPC_DEFAULTMAP_unknown:
+    break;
   }
   addArg(CSB.getString());
 }
