@@ -1762,32 +1762,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     Value *VecExit = getVectorValue(VPInst->getOperand(0));
     Value *VecIndex = getVectorValue(VPInst->getOperand(1));
 
-    Value *OrigVal = getScalarValue(VPInst->getOperand(2), 0);
-    if (VPInst->getOpcode() == VPInstruction::PrivateFinalCondMem)
-      OrigVal = Builder.CreateLoad(OrigVal->getType()->getPointerElementType(),
-                                   OrigVal);
-
-    // Add a check is there a data to store into the private.
-    BasicBlock *BBIf = Builder.GetInsertBlock();
-    BasicBlock *BBThen =
-        SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
-                   nullptr, "cond.last.private.then");
-    BasicBlock *BBElse = SplitBlock(BBThen, BBThen->getTerminator(), DT, LI,
-                                    nullptr, "cond.last.private.else");
-    Builder.SetInsertPoint(BBIf->getTerminator());
-
     Value *IdxReduceCall = Builder.CreateIntMaxReduce(VecIndex, true);
-    Value *Cond =
-        Builder.CreateICmp(ICmpInst::ICMP_NE, IdxReduceCall,
-                           ConstantInt::get(IdxReduceCall->getType(), -1));
-    Builder.CreateCondBr(Cond, BBThen, BBElse);
-    BBIf->getTerminator()->eraseFromParent();
-    Builder.SetInsertPoint(BBThen->getTerminator());
-
     Value *CmpInst = Builder.CreateICmp(
         ICmpInst::ICMP_EQ, VecIndex,
         Builder.CreateVectorSplat(VF, IdxReduceCall, "broadcast"),
         "priv.idx.cmp");
+
     Type *IntTy = IntegerType::get(CmpInst->getContext(), VF);
     Value *CastedMask = Builder.CreateBitCast(CmpInst, IntTy);
 
@@ -1801,14 +1781,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // private descriptor variable.
     Value *PrivExtract =
         Builder.CreateExtractElement(VecExit, BsfCall, "priv.extract");
-
-    State->CFG.PrevBB = BBElse;
-    Builder.SetInsertPoint(BBElse->getTerminator());
-    PHINode *Phi = Builder.CreatePHI(PrivExtract->getType(), 2);
-    Phi->addIncoming(PrivExtract, BBThen);
-    Phi->addIncoming(OrigVal, BBIf);
-    VPScalarMap[VPInst][0] = Phi;
-
+    VPScalarMap[VPInst][0] = PrivExtract;
     return;
   }
   case VPInstruction::PrivateFinalArray: {
