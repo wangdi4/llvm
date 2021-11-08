@@ -177,6 +177,17 @@ Enables/disables use of target build options embedded in the target image.
 
 **Default**: Enabled
 
+``LIBOMPTARGET_ONEAPI_SHOW_BUILD_LOG=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables printing of the build logs produced by the device compiler
+for the target programs.
+
+**Default**: Disabled
+
 
 Plugin LevelZero
 ----------------
