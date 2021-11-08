@@ -318,7 +318,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
         auto *CalledF = dyn_cast<Function>(Callee);
         if (!CalledF)
           continue;
-        for (int i = 0, e = CI->getNumArgOperands(); i < e; ++i) {
+        for (int i = 0, e = CI->arg_size(); i < e; ++i) {
           if (CI->getArgOperand(i) != Cast)
             continue;
           assert(llvm::all_of(CalledF->getArg(i)->users(),
