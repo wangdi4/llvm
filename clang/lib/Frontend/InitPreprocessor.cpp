@@ -1261,7 +1261,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.OpenCL) {
     InitializeOpenCLFeatureTestMacros(TI, LangOpts, Builder);
 
-    if (TI.getTriple().isSPIR())
+    if (TI.getTriple().isSPIR() || TI.getTriple().isSPIRV())
 #if INTEL_CUSTOMIZATION
       if (TI.getTriple().getEnvironment() != llvm::Triple::IntelFPGA)
 #endif // INTEL_CUSTOMIZATION
