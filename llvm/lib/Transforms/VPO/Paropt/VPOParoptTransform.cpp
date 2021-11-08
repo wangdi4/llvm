@@ -183,6 +183,19 @@ static cl::opt<bool> AssumeNonNegativeIV(
     cl::desc("Add llvm.assume call to parallel loops on SPIR-V target which "
              "tells that signed IV is non-negative."));
 
+// The libomp runtime doesn't need `kmpc_begin` to be called, only `kmpc_end`.
+// and that too only on Windows.
+static cl::opt<bool> EmitKmpcBegin(
+    "vpo-paropt-emit-kmpc-begin", cl::Hidden, cl::init(false),
+    cl::desc(
+        "Add kmpc_begin call to the beginning of the main entry routine."));
+
+static cl::opt<bool> EmitKmpcBeginEndOnlyForWindows(
+    "vpo-paropt-emit-kmpc-begin-end-only-for-windows", cl::Hidden,
+    cl::init(true),
+    cl::desc("Add kmpc_begin/end calls to the main entry routine only for "
+             "Windows, and not for other systems."));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -1532,13 +1545,43 @@ bool VPOParoptTransform::paroptTransforms() {
 
   IdentTy = VPOParoptUtils::getIdentStructType(F);
 
-  StringRef S = F->getName();
+  auto shouldEmitKmpcBeginEnd = [&]() -> bool {
+    if (!(Mode & OmpPar) || !(Mode & ParTrans))
+      return false;
 
-  if (!S.compare_insensitive(StringRef("@main"))) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    if (isTargetCSA())
+      return false;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+    if (isTargetSPIRV())
+      return false;
+
+    Module *M = F->getParent();
+    assert(M && "Function has no parent module.");
+    Triple TT(M->getTargetTriple());
+
+    // kmpc_begin/end calls are only needed for Windows according to the
+    // libomp team.
+    if (EmitKmpcBeginEndOnlyForWindows && !TT.isOSWindows())
+      return false;
+
+    return llvm::StringSwitch<bool>(F->getName())
+        .Case("main", true)
+#if INTEL_CUSTOMIZATION
+        .Case("MAIN__", F->isFortran())
+#endif // INTEL_CUSTOMIZATION
+        .Cases("wmain", "WinMain", "wWinMain", TT.isOSMSVCRT())
+        .Default(false);
+  };
+
+  if (shouldEmitKmpcBeginEnd()) {
     BasicBlock::iterator I = F->getEntryBlock().begin();
-    CallInst *RI = VPOParoptUtils::genKmpcBeginCall(F, &*I, IdentTy);
-    RI->insertBefore(&*I);
-    VPOParoptUtils::addFuncletOperandBundle(RI, DT);
+    if (EmitKmpcBegin) {
+      CallInst *RI = VPOParoptUtils::genKmpcBeginCall(F, &*I, IdentTy);
+      RI->insertBefore(&*I);
+    }
 
     for (BasicBlock &BB : *F) {
       if (isa<ReturnInst>(BB.getTerminator())) {
@@ -1546,7 +1589,6 @@ bool VPOParoptTransform::paroptTransforms() {
 
         CallInst *RI = VPOParoptUtils::genKmpcEndCall(F, Inst, IdentTy);
         RI->insertBefore(Inst);
-        VPOParoptUtils::addFuncletOperandBundle(RI, DT);
       }
     }
   }
