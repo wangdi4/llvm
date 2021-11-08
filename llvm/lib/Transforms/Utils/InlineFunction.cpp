@@ -2133,21 +2133,19 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
 
   for (auto *RI : Returns) {
     Value *RetOpnd = objcarc::GetRCIdentityRoot(RI->getOperand(0));
-    BasicBlock::reverse_iterator I = ++(RI->getIterator().getReverse());
-    BasicBlock::reverse_iterator EI = RI->getParent()->rend();
     bool InsertRetainCall = IsRetainRV;
     IRBuilder<> Builder(RI->getContext());
 
     // Walk backwards through the basic block looking for either a matching
     // autoreleaseRV call or an unannotated call.
-    for (; I != EI;) {
-      auto CurI = I++;
-
+    auto InstRange = llvm::make_range(++(RI->getIterator().getReverse()),
+                                      RI->getParent()->rend());
+    for (Instruction &I : llvm::make_early_inc_range(InstRange)) {
       // Ignore casts.
-      if (isa<CastInst>(*CurI))
+      if (isa<CastInst>(I))
         continue;
 
-      if (auto *II = dyn_cast<IntrinsicInst>(&*CurI)) {
+      if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
         if (II->getIntrinsicID() != Intrinsic::objc_autoreleaseReturnValue ||
             !II->hasNUses(0) ||
             objcarc::GetRCIdentityRoot(II->getOperand(0)) != RetOpnd)
@@ -2170,7 +2168,7 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
         break;
       }
 
-      auto *CI = dyn_cast<CallInst>(&*CurI);
+      auto *CI = dyn_cast<CallInst>(&I);
 
       if (!CI)
         break;
