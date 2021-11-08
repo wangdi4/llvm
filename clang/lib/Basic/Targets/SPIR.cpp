@@ -1,4 +1,4 @@
-//===--- SPIR.cpp - Implement SPIR target feature support -----------------===//
+//===--- SPIR.cpp - Implement SPIR and SPIR-V target feature support ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements SPIR TargetInfo objects.
+// This file implements SPIR and SPIR-V TargetInfo objects.
 //
 //===----------------------------------------------------------------------===//
 
@@ -37,6 +37,7 @@ void SPIR64TargetInfo::getTargetDefines(const LangOptions &Opts,
   DefineStd(Builder, "SPIR64", Opts);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 const Builtin::Info SPIR32INTELFpgaTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
@@ -82,3 +83,21 @@ void SPIR64INTELFpgaTargetInfo::getTargetDefines(
   defineFPGA(Builder);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+void SPIRVTargetInfo::getTargetDefines(const LangOptions &Opts,
+                                       MacroBuilder &Builder) const {
+  DefineStd(Builder, "SPIRV", Opts);
+}
+
+void SPIRV32TargetInfo::getTargetDefines(const LangOptions &Opts,
+                                         MacroBuilder &Builder) const {
+  SPIRVTargetInfo::getTargetDefines(Opts, Builder);
+  DefineStd(Builder, "SPIRV32", Opts);
+}
+
+void SPIRV64TargetInfo::getTargetDefines(const LangOptions &Opts,
+                                         MacroBuilder &Builder) const {
+  SPIRVTargetInfo::getTargetDefines(Opts, Builder);
+  DefineStd(Builder, "SPIRV64", Opts);
+}
+>>>>>>> 64b16f6ff10f45c55899670059e8515b40097614

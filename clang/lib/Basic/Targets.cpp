@@ -674,6 +674,23 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 #endif // INTEL_CUSTOMIZATION
     }
   }
+<<<<<<< HEAD
+=======
+
+  case llvm::Triple::spirv32: {
+    if (os != llvm::Triple::UnknownOS ||
+        Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+      return nullptr;
+    return new SPIRV32TargetInfo(Triple, Opts);
+  }
+  case llvm::Triple::spirv64: {
+    if (os != llvm::Triple::UnknownOS ||
+        Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+      return nullptr;
+    return new SPIRV64TargetInfo(Triple, Opts);
+  }
+
+>>>>>>> 64b16f6ff10f45c55899670059e8515b40097614
   case llvm::Triple::wasm32:
     if (Triple.getSubArch() != llvm::Triple::NoSubArch ||
         Triple.getVendor() != llvm::Triple::UnknownVendor ||
