@@ -2750,14 +2750,15 @@ public:
         return false;
       DTransType *ActualType = MDReader.getDTransTypeFromMD(Call);
       auto ActualFType = dyn_cast_or_null<DTransFunctionType>(ActualType);
-      if (!ActualFType)
+      if (!ActualFType ||
+          Call->getFunctionType()->getNumParams() != ActualFType->getNumArgs())
         return true;
       // Look for a matching address taken external call.
       for (auto &F : Call->getModule()->functions()) {
         if (isExternalAddressTakenFunction(&F)) {
           // The standard test for an indirect call match.
-          if ((F.arg_size() == Call->arg_size()) ||
-              (F.isVarArg() && (F.arg_size() <= Call->arg_size()))) {
+          if ((F.arg_size() == ActualFType->getNumArgs()) ||
+              (F.isVarArg() && F.arg_size() <= ActualFType->getNumArgs())) {
             bool IsFunctionMatch = true;
             DTransType *FormalType = MDReader.getDTransTypeFromMD(&F);
             auto FormalFType = dyn_cast_or_null<DTransFunctionType>(FormalType);
