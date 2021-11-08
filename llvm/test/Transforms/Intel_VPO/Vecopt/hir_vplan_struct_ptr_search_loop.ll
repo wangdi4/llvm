@@ -8,10 +8,10 @@
 ; Check final vectorized codegen
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
 
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec"\
-; RUN:     -print-after=hir-vplan-vec \
+; RUN:     -print-after=hir-vplan-vec -vplan-force-vf=4 \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
 
 ; REQUIRES: asserts

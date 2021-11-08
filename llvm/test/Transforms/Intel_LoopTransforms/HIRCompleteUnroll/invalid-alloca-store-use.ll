@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that the first loop is not unrolled because the alloca stores are used in the second loop which is vectorized and we assume that scalar alloca stores cannot be propagated to vector loads.
@@ -180,3 +182,4 @@ attributes #2 = { nounwind }
 !6 = !{!"array@_ZTSA4_A4_j", !7, i64 0}
 !7 = !{!"array@_ZTSA4_j", !8, i64 0}
 !8 = !{!"int", !3, i64 0}
+; end INTEL_FEATURE_SW_ADVANCED
