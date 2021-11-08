@@ -10012,13 +10012,10 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
       // auto is the default split mode
       addArgs(CmdArgs, TCArgs, {"-split=auto"});
     }
-<<<<<<< HEAD
-=======
   } else if (getToolChain().getTriple().getArchName() != "spir64_fpga") {
     // for FPGA targets, off is the default split mode,
     // otherwise auto is the default split mode
     addArgs(CmdArgs, TCArgs, {"-split=auto"});
->>>>>>> bea72e65a954974afc80be8925f822969c6408df
   }
 
   // On FPGA target we don't need non-kernel functions as entry points, because
