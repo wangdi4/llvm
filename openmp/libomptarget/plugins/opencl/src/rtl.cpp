@@ -54,6 +54,11 @@
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
 #endif // INTEL_CUSTOMIZATION
 
+#ifdef _WIN32
+// TODO: enable again if XDEPS-3027 is resolved
+#define OCL_KERNEL_BEGIN(ID)
+#define OCL_KERNEL_END(ID)
+#else // _WIN32
 #define OCL_KERNEL_BEGIN(ID)                                                   \
   do {                                                                         \
     if (DeviceInfo->KernelDynamicMemorySize > 0) {                             \
@@ -72,6 +77,7 @@
       DeviceInfo->Mutexes[ID].unlock();                                        \
     }                                                                          \
   } while (0)
+#endif // _WIN32
 
 /// Additional TARGET_ALLOC* definition for the plugin
 constexpr int32_t TARGET_ALLOC_SVM = INT32_MAX;
