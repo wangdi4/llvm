@@ -2850,7 +2850,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   StringRef FPContract = "";
   bool StrictFPModel = false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // In Intel mode, the default settings should be equivalent to fp-model fast
   if (D.IsIntelMode()) {
@@ -2867,8 +2866,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     FPContract = "fast";
   }
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 190bde404c67527c0a15b1ccbcb5af025aadcdd7
 
   if (const Arg *A = Args.getLastArg(options::OPT_flimited_precision_EQ)) {
     CmdArgs.push_back("-mlimit-float-precision");
