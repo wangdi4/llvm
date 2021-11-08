@@ -139,11 +139,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-<<<<<<< HEAD
-; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=2
-=======
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF={{[2|4|8|16|32]}}
->>>>>>> d80bd78c1017005bcaaab6f500d18dd0e9588a65
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:

@@ -207,13 +207,8 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: simpleReduction:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-<<<<<<< HEAD
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
-=======
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
->>>>>>> d80bd78c1017005bcaaab6f500d18dd0e9588a65
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
