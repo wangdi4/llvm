@@ -21,6 +21,7 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
+;CHECK-DAG:  Running analysis: TargetIRAnalysis on foo
 ;CHECK:      Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ; INTEL_CUSTOMIZATION
@@ -50,7 +51,6 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
-;CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo
 ;            Running pass: InlineListsPass on [module]
@@ -75,6 +75,7 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
+;CHECK-DAG:  Running analysis: TargetIRAnalysis on foo
 ;CHECK:      Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on foo
@@ -104,7 +105,6 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
-;CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 

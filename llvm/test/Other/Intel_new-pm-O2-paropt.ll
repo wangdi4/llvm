@@ -25,6 +25,7 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
+;CHECK-DAG:  Running analysis: TargetIRAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on foo ;INTEL
@@ -50,7 +51,6 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
-;CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo ;INTEL
 ;            Running pass: LowerExpectIntrinsicPass on foo
 ;            Running pass: SimplifyCFGPass on foo
@@ -145,6 +145,7 @@
 ;            Running analysis: XmainOptLevelAnalysis on foo ;INTEL
 ;            Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function> on foo
 ;            Running analysis: AssumptionAnalysis on foo
+;            Running analysis: TargetIRAnalysis on foo
 ;            Running analysis: DominatorTreeAnalysis on foo
 ;            Running analysis: ScopedNoAliasAA on foo
 ;            Running analysis: TypeBasedAA on foo
@@ -155,7 +156,6 @@
 ;            Running analysis: OptReportOptionsAnalysis on foo ;INTEL
 ;            Running pass: SROA on foo
 ;            Running pass: EarlyCSEPass on foo
-;            Running analysis: TargetIRAnalysis on foo ;INTEL
 ;            Running analysis: MemorySSAAnalysis on foo
 ;            Running pass: SpeculativeExecutionPass on foo
 ;            Running pass: JumpThreadingPass on foo
