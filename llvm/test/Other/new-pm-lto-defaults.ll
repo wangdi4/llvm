@@ -93,6 +93,7 @@
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O1-NEXT: Running analysis: AssumptionAnalysis on foo
+; CHECK-O1-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA ;INTEL
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
