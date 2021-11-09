@@ -5,7 +5,7 @@
 ; inner loop w/o break with top test
 define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -52,19 +52,19 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK-NEXT:         br [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB6]], [[BB8]]
-; CHECK-NEXT:       i64 [[VP_PRIV_IDX_BB6:%.*]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB8]] ],  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB6]] ]
+; CHECK-NEXT:       i64 [[VP_PRIV_IDX_BB6:%.*]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB8]] ],  [ i64 [[VP_PRIV_IDX_BB3]], [[BB6]] ]
 ; CHECK-NEXT:       i64 [[VP4:%.*]] = phi  [ i64 [[VP3]], [[BB8]] ],  [ i64 [[VP2]], [[BB6]] ]
 ; CHECK-NEXT:       br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB5]], [[BB7]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB4]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB5]] ],  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB7]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB4]] = phi  [ i64 [[VP_PRIV_IDX_BB3]], [[BB5]] ],  [ i64 [[VP_PRIV_IDX_BB6]], [[BB7]] ]
 ; CHECK-NEXT:     i64 [[VP0]] = phi  [ i64 [[VP2]], [[BB5]] ],  [ i64 [[VP4]], [[BB7]] ]
 ; CHECK-NEXT:     i64 [[VP_INC]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INC]] i64 100
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB4]], [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB1]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB8]] = phi  [ i64 [[VP__OMP_IV_LOCAL_020]], [[BB1]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB8]] = phi  [ i64 [[VP_PRIV_IDX_BB4]], [[BB1]] ]
 ; CHECK-NEXT:     i64 [[VP__LCSSA]] = phi  [ i64 [[VP0]], [[BB1]] ]
 ; CHECK-NEXT:     i64 [[VP_ADD9]] = add i64 [[VP__OMP_IV_LOCAL_020]] i64 [[VP__OMP_IV_LOCAL_020_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND31:%.*]] = icmp eq i64 [[VP_ADD9]] i64 100

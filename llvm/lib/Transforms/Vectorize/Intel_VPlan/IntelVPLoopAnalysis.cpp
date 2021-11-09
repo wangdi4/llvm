@@ -1068,17 +1068,6 @@ VPLoopEntityList::getLoopInduction() const {
   return Ret;
 }
 
-static void collectPhiOperands(VPPHINode *I, VPPHINode *HeaderPhi,
-                               SmallSet<VPPHINode *, 4> &PhiUsers) {
-  PhiUsers.insert(I);
-  for (auto V : I->operands())
-    if (V != HeaderPhi)
-      if (auto Phi = dyn_cast<VPPHINode>(V))
-        if (!is_contained(PhiUsers, Phi))
-          collectPhiOperands(Phi, HeaderPhi, PhiUsers);
-}
-
-
 // See comment in the header file.
 void VPLoopEntityList::insertConditionalLastPrivateInst(
     VPPrivate &Private, VPBuilder &Builder, VPBasicBlock *Preheader,
@@ -1093,41 +1082,66 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
 
   VPBuilder::InsertPointGuard Guard(Builder);
   if (Private.hasExitInstr() && isa<VPPHINode>(Private.getExitInst())) {
+
     // We have registerized private.
     auto ExitPhi = cast<VPPHINode>(Private.getExitInst());
     VPPHINode *HeaderPhi = getRecurrentVPHINode(Private);
     assert(HeaderPhi && "Expected non-null header phi");
-    // First collect phi nodes on the way from liveout to header phi.
-    SmallSet<VPPHINode *, 4> PhiUsers;
-    collectPhiOperands(ExitPhi, HeaderPhi, PhiUsers);
+
     // First insert phi in the loop header, with one operand, starting -1.
     Builder.setInsertPoint(InductionHeaderPhi);
     VPPHINode *IndexStartPhi = Builder.createPhiInstruction(
         InductionHeaderPhi->getType(), "priv.idx.hdr");
     IndexStartPhi->addIncoming(IncomingVal, Loop.getLoopPreheader());
-    // Then insert phis along the assignment chain to preserve SSA form.
-    DenseMap<VPBasicBlock *, VPPHINode *> InsertedPhis;
-    InsertedPhis[IndexStartPhi->getParent()] = IndexStartPhi;
-    for (VPPHINode *Phi : PhiUsers) {
-      Builder.setInsertPoint(Phi);
-      VPPHINode *IndexBBPhi = Builder.createPhiInstruction(
-          InductionHeaderPhi->getType(),
-          "priv.idx." + Phi->getParent()->getName());
-      for (unsigned I = 0; I < Phi->getNumIncomingValues(); I++) {
-        VPValue *Op = Phi->getIncomingValue(I);
-        VPBasicBlock *BB = Phi->getIncomingBlock(I);
-        VPValue *NewOp = nullptr;
-        if (InsertedPhis.count(BB))
-          NewOp = InsertedPhis[BB];
-        else {
-          NewOp = Op == HeaderPhi ? IndexStartPhi : InductionHeaderPhi;
+
+    DenseMap<VPValue *, VPInstruction *> CreatedVPInsts;
+    std::function<VPInstruction *(VPValue *)> getOrCreateIndexInst =
+        [&](VPValue *VPVal) -> VPInstruction * {
+
+      if (VPVal == HeaderPhi)
+        return IndexStartPhi;
+      if (CreatedVPInsts.count(VPVal))
+        return CreatedVPInsts[VPVal];
+
+      if (auto *VPPhi = dyn_cast<VPPHINode>(VPVal)) {
+
+        Builder.setInsertPoint(VPPhi);
+        VPPHINode *VPPhiIndex =
+            Builder.createPhiInstruction(InductionHeaderPhi->getType());
+        VPPhiIndex->setName("priv.idx." + VPPhi->getParent()->getName());
+        CreatedVPInsts[VPVal] = VPPhiIndex;
+
+        for (unsigned I = 0; I < VPPhi->getNumIncomingValues(); I++) {
+
+          VPValue *Val = VPPhi->getIncomingValue(I);
+          VPBasicBlock *BB = VPPhi->getIncomingBlock(I);
+          VPPhiIndex->addIncoming(getOrCreateIndexInst(Val), BB);
         }
-        IndexBBPhi->addIncoming(NewOp, BB);
+
+        return VPPhiIndex;
       }
-      InsertedPhis[Phi->getParent()] = IndexBBPhi;
-    }
+
+      if (auto VPInst = dyn_cast<VPInstruction>(VPVal))
+        if (VPInst->getOpcode() == Instruction::Select) {
+
+          Builder.setInsertPoint(VPInst);
+          VPInstruction *VPInstIndex = Builder.createSelect(
+              VPInst->getOperand(0), InductionHeaderPhi, InductionHeaderPhi);
+          VPInstIndex->setName("priv.idx." + VPInst->getParent()->getName());
+          CreatedVPInsts[VPInst] = VPInstIndex;
+
+          for (int I = 1; I <= 2; I++)
+            VPInstIndex->setOperand(
+                I, getOrCreateIndexInst(VPInst->getOperand(I)));
+
+          return VPInstIndex;
+        }
+
+      return InductionHeaderPhi;
+    };
+
     // Add latch phi as operand to the header phi.
-    VPPHINode *LastPhi = InsertedPhis[ExitPhi->getParent()];
+    VPInstruction *LastPhi = getOrCreateIndexInst(ExitPhi);
     IndexStartPhi->addIncoming(LastPhi, ExitPhi->getParent());
 
     // Create last value calculation instruction.
