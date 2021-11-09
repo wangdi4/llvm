@@ -198,6 +198,7 @@ private:
   bool HasF90DopeVectorReduction = false;
 
   bool HasComplexTyReduction = false;
+  bool HasUserDefinedReduction = false;
 
 public:
   /// Add stride information for pointer \p Ptr.
@@ -237,8 +238,10 @@ public:
   }
 
   /// Register explicit reduction variables provided from outside by finding
-  /// pattern inside the loop for matching the explicit reduction variable \p V.
-  void addReduction(Value *V, RecurKind Kind, bool IsF90DopeVector);
+  /// pattern inside the loop for matching the explicit reduction variable \p V,
+  /// recurrence kind and whether the reduction deals with F90 dope vector or
+  /// it is a user defined reduction.
+  void addReduction(Value *V, RecurKind Kind, bool IsF90DopeVector, bool IsUDR);
 
   bool isExplicitReductionPhi(PHINode *Phi);
 

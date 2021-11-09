@@ -1385,6 +1385,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
     return false;
   }
+  if (HIRVecLegal.hasUserDefinedReduction()) {
+    LLVM_DEBUG(dbgs() << "User defined reductions are not supported\n");
+    return false;
+  }
   // Find any DDRefs in loop pre-header that are aliases to the descriptor
   // variables
   HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), HLoop);

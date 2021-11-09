@@ -1548,6 +1548,8 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
       return RecurKind::Xor;
     case ReductionItem::WRNReductionBand:
       return RecurKind::And;
+    case ReductionItem::WRNReductionUdr:
+      return RecurKind::None; // Unsupported
     default:
       llvm_unreachable("Unsupported reduction type");
     }
@@ -1559,7 +1561,8 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
       LVL.setHasComplexTyReduction();
 
     RecurKind Kind = GetRecurKind(RedItem, getType(V)->getPointerElementType());
-    LVL.addReduction(V, Kind, RedItem->getIsF90DopeVector());
+    LVL.addReduction(V, Kind, RedItem->getIsF90DopeVector(),
+                     RedItem->getType() == ReductionItem::WRNReductionUdr);
   }
 
   LVL.collectPreLoopDescrAliases();
