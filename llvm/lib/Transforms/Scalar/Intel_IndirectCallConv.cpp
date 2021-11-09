@@ -49,6 +49,7 @@
 
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
@@ -398,6 +399,12 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
                                              OrigBlock->getParent(), Tail_BB);
 
     NewCall = createDirectCallSite(Call, Call->getCalledOperand(), Call_BB);
+#if INTEL_FEATURE_SW_DTRANS
+    // Transfer any DTrans type metadata that was present on the original
+    // indirect call to the new indirect call.
+    if (MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(*Call))
+      dtransOP::TypeMetadataReader::addDTransMDNode(*NewCall, MD);
+#endif // INTEL_FEATURE_SW_DTRANS
 
     // Add them to NewDirectCallBBs and NewDirectCalls list
     NewDirectCallBBs.push_back(Call_BB);
