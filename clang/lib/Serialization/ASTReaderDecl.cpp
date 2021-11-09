@@ -4757,16 +4757,10 @@ void ASTDeclReader::UpdateDecl(Decl *D,
       auto AllocatorKind =
           static_cast<OMPAllocateDeclAttr::AllocatorTypeTy>(Record.readInt());
       Expr *Allocator = Record.readExpr();
-#if INTEL_COLLAB
       Expr *Alignment = Record.readExpr();
-#endif // INTEL_COLLAB
       SourceRange SR = readSourceRange();
       D->addAttr(OMPAllocateDeclAttr::CreateImplicit(
-#if INTEL_COLLAB
           Reader.getContext(), AllocatorKind, Allocator, Alignment, SR,
-#else // INTEL_COLLAB
-          Reader.getContext(), AllocatorKind, Allocator, SR,
-#endif // INTEL_COLLAB
           AttributeCommonInfo::AS_Pragma));
       break;
     }

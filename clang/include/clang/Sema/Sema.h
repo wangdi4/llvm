@@ -11616,11 +11616,6 @@ public:
                                    ArrayRef<Expr *> NumElements,
                                    SourceLocation StartLoc,
                                    SourceLocation EndLoc);
-  /// Called on well-formed 'align' clause.
-  OMPClause *ActOnOpenMPAlignClause(Expr *Alignment,
-                                    SourceLocation StartLoc,
-                                    SourceLocation LParenLoc,
-                                    SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Called on well-formed 'tile' clause.
@@ -11637,6 +11632,10 @@ public:
                                        SourceLocation EndLoc);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  /// Called on well-formed 'align' clause.
+  OMPClause *ActOnOpenMPAlignClause(Expr *Alignment, SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
   /// Called on well-formed 'safelen' clause.
   OMPClause *ActOnOpenMPSafelenClause(Expr *Length,
                                       SourceLocation StartLoc,

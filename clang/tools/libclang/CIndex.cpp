@@ -2245,10 +2245,6 @@ void OMPClauseEnqueue::VisitOMPDataClause(const OMPDataClause *C) {
   for (auto *E : C->val_exprs())
     Visitor->AddStmt(E);
 }
-
-void OMPClauseEnqueue::VisitOMPAlignClause(const OMPAlignClause *C) {
-  Visitor->AddStmt(C->getAlignment());
-}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseEnqueue::VisitOMPTileClause(const OMPTileClause *C) {
@@ -2368,6 +2364,10 @@ void OMPClauseEnqueue::VisitOMPNocontextClause(const OMPNocontextClause *C) {
 void OMPClauseEnqueue::VisitOMPFilterClause(const OMPFilterClause *C) {
   VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getThreadID());
+}
+
+void OMPClauseEnqueue::VisitOMPAlignClause(const OMPAlignClause *C) {
+  Visitor->AddStmt(C->getAlignment());
 }
 
 void OMPClauseEnqueue::VisitOMPUnifiedAddressClause(

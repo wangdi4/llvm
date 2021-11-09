@@ -3438,7 +3438,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 #if INTEL_COLLAB
   case OMPC_subdevice:
   case OMPC_ompx_places:
-  case OMPC_align:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
@@ -3448,6 +3447,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 #endif // INTEL_CUSTOMIZATION
   case OMPC_filter:
   case OMPC_partial:
+  case OMPC_align:
     // OpenMP [2.5, Restrictions]
     //  At most one num_threads clause can appear on the directive.
     // OpenMP [2.8.1, simd construct, Restrictions]
@@ -3745,11 +3745,9 @@ ExprResult Parser::ParseOpenMPParensExpr(StringRef ClauseName,
 ///    detach-clause:
 ///      'detach' '(' event-handler-expression ')'
 ///
-#if INTEL_COLLAB
 ///    align-clause
-///      'align' '(' integer-constant ')'
+///      'align' '(' positive-integer-constant ')'
 ///
-#endif // INTEL_COLLAB
 OMPClause *Parser::ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                                bool ParseOnly) {
   SourceLocation Loc = ConsumeToken();

@@ -479,12 +479,8 @@ void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
   for (auto *E : C->val_exprs())
     Profiler->VisitStmt(E);
 }
-
-void OMPClauseProfiler::VisitOMPAlignClause(const OMPAlignClause *C) {
-  if (C->getAlignment())
-    Profiler->VisitStmt(C->getAlignment());
-}
 #endif // INTEL_COLLAB
+
 #if INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
   for (auto *E : C->sizes())
@@ -502,6 +498,11 @@ void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+
+void OMPClauseProfiler::VisitOMPAlignClause(const OMPAlignClause *C) {
+  if (C->getAlignment())
+    Profiler->VisitStmt(C->getAlignment());
+}
 
 void OMPClauseProfiler::VisitOMPSafelenClause(const OMPSafelenClause *C) {
   if (C->getSafelen())

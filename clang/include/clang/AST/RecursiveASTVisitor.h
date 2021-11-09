@@ -3167,11 +3167,6 @@ RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
   return true;
 }
 
-template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPAlignClause(OMPAlignClause *C) {
-  TRY_TO(TraverseStmt(C->getAlignment()));
-  return true;
-}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
@@ -3194,6 +3189,12 @@ RecursiveASTVisitor<Derived>::VisitOMPDataflowClause(OMPDataflowClause *C) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPAlignClause(OMPAlignClause *C) {
+  TRY_TO(TraverseStmt(C->getAlignment()));
+  return true;
+}
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPSafelenClause(OMPSafelenClause *C) {

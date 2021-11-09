@@ -322,7 +322,6 @@ public:
   }
 };
 
-#if INTEL_COLLAB
 /// This represents the 'align' clause in the '#pragma omp allocate'
 /// directive.
 ///
@@ -332,7 +331,7 @@ public:
 /// In this example directive '#pragma omp allocate' has simple 'allocator'
 /// clause with the allocator 'omp_default_mem_alloc' and align clause with
 /// value of 8.
-class OMPAlignClause : public OMPClause {
+class OMPAlignClause final : public OMPClause {
   friend class OMPClauseReader;
 
   /// Location of '('.
@@ -344,10 +343,12 @@ class OMPAlignClause : public OMPClause {
   /// Set alignment value.
   void setAlignment(Expr *A) { Alignment = A; }
 
-public:
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
   /// Build 'align' clause with the given alignment
   ///
-  /// \param A Alignment value
+  /// \param A Alignment value.
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
@@ -358,11 +359,19 @@ public:
 
   /// Build an empty clause.
   OMPAlignClause()
-      : OMPClause(llvm::omp::OMPC_align, SourceLocation(),
-                  SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_align, SourceLocation(), SourceLocation()) {}
 
-  /// Sets the location of '('.
-  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+public:
+  /// Build 'align' clause with the given alignment
+  ///
+  /// \param A Alignment value.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  static OMPAlignClause *Create(const ASTContext &C, Expr *A,
+                                SourceLocation StartLoc,
+                                SourceLocation LParenLoc,
+                                SourceLocation EndLoc);
 
   /// Returns the location of '('.
   SourceLocation getLParenLoc() const { return LParenLoc; }
@@ -387,7 +396,6 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_align;
   }
 };
-#endif // INTEL_COLLAB
 
 /// This represents clause 'allocate' in the '#pragma omp ...' directives.
 ///
