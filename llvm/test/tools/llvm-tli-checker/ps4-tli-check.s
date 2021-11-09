@@ -1,12 +1,15 @@
 # REQUIRES: x86-registered-target
 #
-# RUN: llvm-mc --triple=x86_64-scei-ps4 --filetype=obj %s -o %t.o
-# RUN: ld.lld --shared %t.o -o %t.so
-# RUN: llvm-tli-checker --triple=x86_64-scei-ps4 %t.so | FileCheck %s
+## The object files ps4-tli-checks.right.so and ps4-tli-checks.wrong.so
+## were generated with the following commands:
+## llvm-mc --triple=x86_64-scei-ps4 --filetype=obj ps4-tli-check.s -o t.o
+## ld.lld --shared t.o -o Inputs/ps4-tli-check.right.so
+## llvm-mc --triple=x86_64-scei-ps4 --defsym WRONG=1 --filetype=obj ps4-tli-check.s -o t2.o
+## ld.lld --shared t2.o -o Inputs/ps4-tli-check.wrong.so
 #
-# RUN: llvm-mc --triple=x86_64-scei-ps4 --defsym WRONG=1 --filetype=obj %s -o %t2.o
-# RUN: ld.lld --shared %t2.o -o %t2.so
-# RUN: echo %t2.so > %t2.txt
+# RUN: llvm-tli-checker --triple=x86_64-scei-ps4 %S/Inputs/ps4-tli-check.right.so | FileCheck %s
+#
+# RUN: echo %S/Inputs/ps4-tli-check.wrong.so > %t2.txt
 # RUN: llvm-tli-checker --triple x86_64-scei-ps4 @%t2.txt | \
 # RUN:     FileCheck %s --check-prefix=WRONG_SUMMARY --check-prefix=WRONG_DETAIL \
 # RUN:     --implicit-check-not="==" --implicit-check-not="<<" --implicit-check-not=">>"
