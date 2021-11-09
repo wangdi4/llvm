@@ -22,7 +22,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64"
 target device_triples = "spir64"
 
-
+; CHECK: %[[GLOBAL_SUM_CAST:[^,]+]] = addrspacecast i32 addrspace(1)* %[[GLOBAL_SUM:[^,]+]] to i32 addrspace(4)*
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
 ; CHECK: %[[LOCAL_SIZE:[^,]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
@@ -34,16 +34,16 @@ target device_triples = "spir64"
 ; CHECK: br i1 %[[CMP1]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
 ; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load
-; CHECK: %[[GLOBAL_SUM_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_SUM:[^,]+]]
+; CHECK: %[[GLOBAL_SUM_VAL:[^,]+]] = load volatile i32, i32 addrspace(4)* %[[GLOBAL_SUM_CAST:[^,]+]]
 ; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[GLOBAL_SUM_VAL]], %[[LOCAL_SUM_VAL]]
 ; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(1)* %[[GLOBAL_SUM]]
 ; CHECK: br label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.latch:
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: add i64 %[[IDX_PHI]], 1
 ; CHECK: br label %atomic.free.red.local.update.update.header
 ; CHECK-LABEL: atomic.free.red.local.update.update.exit:
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK-NOT: call spir_func void @__kmpc_atomic_{{.*}}_add(
 
 ; Function Attrs: convergent noinline nounwind

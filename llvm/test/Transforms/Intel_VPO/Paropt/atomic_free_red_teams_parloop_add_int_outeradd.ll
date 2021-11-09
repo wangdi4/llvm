@@ -1,20 +1,21 @@
 ; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction=true -S | FileCheck %s
 ; RUN: opt < %s -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-reduction=true -S | FileCheck %s
 
-
 ;
-; int main(void)
-; {
-;   int i, sum = 0;
+;int main() {
+;  int s = 0;
+;#pragma omp target teams reduction(+: s) num_teams(1)
+;  {
+;    s += 10;
+;#pragma omp parallel for reduction(+: s)
+;    for (int i = 0; i < 100; ++i) {
+;      s += 1;
+;    }
+;  }
 ;
-; #pragma omp target teams distribute parallel for reduction(+:sum) map(tofrom:sum)
-;   for (i=0; i<10; i++) {
-;     sum+=i;
-;   }
+;  printf("%d\n", s);
+;  return 0;
 ;
-;   return 0;
-; }
-
 
 ; ModuleID = 'test.c'
 source_filename = "test.c"
@@ -22,9 +23,13 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64"
 target device_triples = "spir64"
 
+@.str = private unnamed_addr addrspace(1) constant [4 x i8] c"%d\0A\00", align 1
 
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
 ; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, i32 addrspace(1)* %red_buf, i64 %[[GROUP_ID]]
+; CHECK: %[[OLD_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
+; CHECK: %[[NEW_VAL:[^,]+]] = add nsw i32 %[[OLD_VAL]], 10
+; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
 ; CHECK: %[[LOCAL_SIZE:[^,]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
@@ -77,44 +82,46 @@ define hidden i32 @main() #0 {
 entry:
   %retval = alloca i32, align 4
   %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
-  %i = alloca i32, align 4
-  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
-  %sum = alloca i32, align 4
-  %sum.ascast = addrspacecast i32* %sum to i32 addrspace(4)*
-  %.omp.lb = alloca i32, align 4
-  %.omp.lb.ascast = addrspacecast i32* %.omp.lb to i32 addrspace(4)*
-  %.omp.ub = alloca i32, align 4
-  %.omp.ub.ascast = addrspacecast i32* %.omp.ub to i32 addrspace(4)*
+  %s = alloca i32, align 4
+  %s.ascast = addrspacecast i32* %s to i32 addrspace(4)*
   %tmp = alloca i32, align 4
   %tmp.ascast = addrspacecast i32* %tmp to i32 addrspace(4)*
   %.omp.iv = alloca i32, align 4
   %.omp.iv.ascast = addrspacecast i32* %.omp.iv to i32 addrspace(4)*
+  %.omp.lb = alloca i32, align 4
+  %.omp.lb.ascast = addrspacecast i32* %.omp.lb to i32 addrspace(4)*
+  %.omp.ub = alloca i32, align 4
+  %.omp.ub.ascast = addrspacecast i32* %.omp.ub to i32 addrspace(4)*
+  %i = alloca i32, align 4
+  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
   store i32 0, i32 addrspace(4)* %retval.ascast, align 4
-  store i32 0, i32 addrspace(4)* %sum.ascast, align 4, !tbaa !8
+  store i32 0, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* %s.ascast, i32 addrspace(4)* %s.ascast, i64 4, i64 547, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.REDUCTION.ADD"(i32 addrspace(4)* %s.ascast), "QUAL.OMP.NUM_TEAMS"(i32 1), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
+  %2 = load i32, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
+  %add = add nsw i32 %2, 10
+  store i32 %add, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
   store i32 0, i32 addrspace(4)* %.omp.lb.ascast, align 4, !tbaa !8
-  store i32 9, i32 addrspace(4)* %.omp.ub.ascast, align 4, !tbaa !8
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* %sum.ascast, i32 addrspace(4)* %sum.ascast, i64 4, i64 35, i8* null, i8* null), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.REDUCTION.ADD"(i32 addrspace(4)* %sum.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32 addrspace(4)* %sum.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast) ]
-  %3 = load i32, i32 addrspace(4)* %.omp.lb.ascast, align 4, !tbaa !8
-  store i32 %3, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
+  store i32 99, i32 addrspace(4)* %.omp.ub.ascast, align 4, !tbaa !8
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32 addrspace(4)* %s.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast) ]
+  %4 = load i32, i32 addrspace(4)* %.omp.lb.ascast, align 4, !tbaa !8
+  store i32 %4, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %4 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
-  %5 = load i32, i32 addrspace(4)* %.omp.ub.ascast, align 4, !tbaa !8
-  %cmp = icmp sle i32 %4, %5
+  %5 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
+  %6 = load i32, i32 addrspace(4)* %.omp.ub.ascast, align 4, !tbaa !8
+  %cmp = icmp sle i32 %5, %6
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %6 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
-  %mul = mul nsw i32 %6, 1
-  %add = add nsw i32 0, %mul
-  store i32 %add, i32 addrspace(4)* %i.ascast, align 4, !tbaa !8
-  %7 = load i32, i32 addrspace(4)* %i.ascast, align 4, !tbaa !8
-  %8 = load i32, i32 addrspace(4)* %sum.ascast, align 4, !tbaa !8
-  %add1 = add nsw i32 %8, %7
-  store i32 %add1, i32 addrspace(4)* %sum.ascast, align 4, !tbaa !8
+  %7 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
+  %mul = mul nsw i32 %7, 1
+  %add1 = add nsw i32 0, %mul
+  store i32 %add1, i32 addrspace(4)* %i.ascast, align 4, !tbaa !8
+  %8 = load i32, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
+  %add2 = add nsw i32 %8, 1
+  store i32 %add2, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
@@ -122,19 +129,22 @@ omp.body.continue:                                ; preds = %omp.inner.for.body
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
   %9 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
-  %add2 = add nsw i32 %9, 1
-  store i32 %add2, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
+  %add3 = add nsw i32 %9, 1
+  store i32 %add3, i32 addrspace(4)* %.omp.iv.ascast, align 4, !tbaa !8
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
+  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+  %10 = load i32, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
+  %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 %10) #3
   ret i32 0
 }
+
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1
@@ -142,8 +152,11 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token %0) #1
 
+declare spir_func noundef i32 @printf(i8 addrspace(4)* nocapture noundef readonly, ...) #2
+
 attributes #0 = { convergent noinline nounwind "contains-openmp-target"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
+attributes #2 = { convergent nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
 
 !omp_offload.info = !{!0}
 !llvm.module.flags = !{!1, !2, !3, !4, !5}
