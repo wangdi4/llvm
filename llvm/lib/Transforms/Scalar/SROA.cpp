@@ -1364,11 +1364,11 @@ static void updateLoadUsers(Instruction *Inst, Instruction *NewInst) {
 /// \brief Update \p Inst's load users with \p NewInst. If Inst happens to be
 /// a GEP, iterate through its users untill loads are met; return the GEPs.
 static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
+                            Type *LoadTy,
                             SmallPtrSet<LoadInst *, 4> &NewLoads) {
   switch(Inst->getOpcode()) {
   case Instruction::Load: {
-    auto *PtrTy = Ptr->getType()->getPointerElementType();
-    LoadInst *NewLoad = IRB.CreateLoad(PtrTy, Ptr);
+    LoadInst *NewLoad = IRB.CreateLoad(LoadTy, Ptr);
     NewLoads.insert(NewLoad);
     break;
   }
@@ -1376,14 +1376,14 @@ static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
     assert(GEP->hasAllZeroIndices() && "Expected all zero indices!!!");
 
-    auto *ElementTy = Ptr->getType()->getScalarType()->getPointerElementType();
+    auto *ElementTy = GEP->getSourceElementType();
     SmallVector<Value*, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
     Value *NewGEP = GEP->isInBounds()
           ? IRB.CreateInBoundsGEP(ElementTy, Ptr, IdxList)
           : IRB.CreateGEP(ElementTy, Ptr, IdxList);
 
     for (auto *U : Inst->users())
-      injectGEPsLoads(IRB, cast<Instruction>(U), NewGEP, NewLoads);
+      injectGEPsLoads(IRB, cast<Instruction>(U), NewGEP, LoadTy, NewLoads);
 
     break;
   }
@@ -1437,7 +1437,8 @@ static void speculatePHINodeLoads(PHINode &PN) {
     IRBuilderTy PredBuilder(TI);
 
     SmallPtrSet<LoadInst *, 4> NewLoads;
-    injectGEPsLoads(PredBuilder, cast<Instruction>(PN.user_back()), InVal, NewLoads);
+    injectGEPsLoads(PredBuilder, cast<Instruction>(PN.user_back()), InVal,
+      LoadTy, NewLoads);
     for (auto *NewLoad : NewLoads) {
       ++NumLoadsSpeculated;
       NewLoad->setAlignment(Alignment);
