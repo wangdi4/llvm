@@ -452,6 +452,7 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
     Profiler->VisitStmt(C->getNumThreads());
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 void OMPClauseProfiler::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   VistOMPClauseWithPreInit(C);
@@ -480,10 +481,13 @@ void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
     Profiler->VisitStmt(E);
 }
 
+=======
+>>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 void OMPClauseProfiler::VisitOMPAlignClause(const OMPAlignClause *C) {
   if (C->getAlignment())
     Profiler->VisitStmt(C->getAlignment());
 }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
@@ -502,6 +506,8 @@ void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 
 void OMPClauseProfiler::VisitOMPSafelenClause(const OMPSafelenClause *C) {
   if (C->getSafelen())

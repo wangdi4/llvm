@@ -657,6 +657,13 @@ OMPAlignedClause *OMPAlignedClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPAlignedClause(NumVars);
 }
 
+OMPAlignClause *OMPAlignClause::Create(const ASTContext &C, Expr *A,
+                                       SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation EndLoc) {
+  return new (C) OMPAlignClause(A, StartLoc, LParenLoc, EndLoc);
+}
+
 void OMPCopyinClause::setSourceExprs(ArrayRef<Expr *> SrcExprs) {
   assert(SrcExprs.size() == varlist_size() && "Number of source expressions is "
                                               "not the same as the "
@@ -1732,6 +1739,7 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
   OS << ")";
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   OS << "subdevice(";
@@ -1793,11 +1801,14 @@ void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
   OS << ")";
 }
 
+=======
+>>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 void OMPClausePrinter::VisitOMPAlignClause(OMPAlignClause *Node) {
   OS << "align(";
   Node->getAlignment()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
 }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {
@@ -1841,6 +1852,8 @@ void OMPClausePrinter::VisitOMPDataflowClause(OMPDataflowClause *Node) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 
 void OMPClausePrinter::VisitOMPSafelenClause(OMPSafelenClause *Node) {
   OS << "safelen(";

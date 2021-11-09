@@ -11594,6 +11594,7 @@ public:
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
+<<<<<<< HEAD
 #if INTEL_COLLAB
   /// Called on well-formed 'subdevice' clause.
   OMPClause *ActOnOpenMPSubdeviceClause(Expr *Level,
@@ -11637,6 +11638,12 @@ public:
                                        SourceLocation EndLoc);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Called on well-formed 'align' clause.
+  OMPClause *ActOnOpenMPAlignClause(Expr *Alignment, SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
+>>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
   /// Called on well-formed 'safelen' clause.
   OMPClause *ActOnOpenMPSafelenClause(Expr *Length,
                                       SourceLocation StartLoc,

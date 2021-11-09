@@ -5036,9 +5036,13 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
         auto *A = D->getAttr<OMPAllocateDeclAttr>();
         Record.push_back(A->getAllocatorType());
         Record.AddStmt(A->getAllocator());
+<<<<<<< HEAD
 #if INTEL_COLLAB
         Record.AddStmt(A->getAlignment());
 #endif // INTEL_COLLAB
+=======
+        Record.AddStmt(A->getAlignment());
+>>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
         Record.AddSourceRange(A->getRange());
         break;
       }
@@ -6289,6 +6293,11 @@ void OMPClauseWriter::VisitOMPNocontextClause(OMPNocontextClause *C) {
 void OMPClauseWriter::VisitOMPFilterClause(OMPFilterClause *C) {
   VisitOMPClauseWithPreInit(C);
   Record.AddStmt(C->getThreadID());
+  Record.AddSourceLocation(C->getLParenLoc());
+}
+
+void OMPClauseWriter::VisitOMPAlignClause(OMPAlignClause *C) {
+  Record.AddStmt(C->getAlignment());
   Record.AddSourceLocation(C->getLParenLoc());
 }
 
