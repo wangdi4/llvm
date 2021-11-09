@@ -343,9 +343,6 @@ def OMPC_OmpxPlaces : Clause<"ompx_places"> {
 def OMPC_Data : Clause<"data"> {
   let clangClass = "OMPDataClause";
 }
-def OMPC_Align : Clause<"align"> {
-  let clangClass = "OMPAlignClause";
-}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 def OMPC_tile : Clause<"tile"> {
@@ -1690,15 +1687,8 @@ def OMP_TargetTeamsDistributeSimd :
 }
 def OMP_Allocate : Directive<"allocate"> {
   let allowedOnceClauses = [
-<<<<<<< HEAD
-#if INTEL_COLLAB
-    VersionedClause<OMPC_Align, 51>,
-#endif // INTEL_COLLAB
-    VersionedClause<OMPC_Allocator>
-=======
     VersionedClause<OMPC_Allocator>,
     VersionedClause<OMPC_Align, 51>
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
   ];
 }
 def OMP_DeclareVariant : Directive<"declare variant"> {

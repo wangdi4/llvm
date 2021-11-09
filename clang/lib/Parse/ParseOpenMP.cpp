@@ -3438,7 +3438,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 #if INTEL_COLLAB
   case OMPC_subdevice:
   case OMPC_ompx_places:
-  case OMPC_align:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
@@ -3746,17 +3745,9 @@ ExprResult Parser::ParseOpenMPParensExpr(StringRef ClauseName,
 ///    detach-clause:
 ///      'detach' '(' event-handler-expression ')'
 ///
-<<<<<<< HEAD
-#if INTEL_COLLAB
-///    align-clause
-///      'align' '(' integer-constant ')'
-///
-#endif // INTEL_COLLAB
-=======
 ///    align-clause
 ///      'align' '(' positive-integer-constant ')'
 ///
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 OMPClause *Parser::ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                                bool ParseOnly) {
   SourceLocation Loc = ConsumeToken();

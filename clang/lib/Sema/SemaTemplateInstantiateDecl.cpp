@@ -3795,10 +3795,6 @@ Decl *TemplateDeclInstantiator::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   SmallVector<OMPClause *, 4> Clauses;
   // Copy map clauses from the original mapper.
   for (OMPClause *C : D->clauselists()) {
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
     OMPClause *IC = nullptr;
     if (auto *AC = dyn_cast<OMPAllocatorClause>(C)) {
       ExprResult NewE = SemaRef.SubstExpr(AC->getAllocator(), TemplateArgs);
@@ -3810,28 +3806,12 @@ Decl *TemplateDeclInstantiator::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
       ExprResult NewE = SemaRef.SubstExpr(AC->getAlignment(), TemplateArgs);
       if (!NewE.isUsable())
         continue;
-<<<<<<< HEAD
-      IC = SemaRef.ActOnOpenMPAlignClause(
-          NewE.get(), AC->getBeginLoc(), AC->getLParenLoc(), AC->getEndLoc());
-=======
       IC = SemaRef.ActOnOpenMPAlignClause(NewE.get(), AC->getBeginLoc(),
                                           AC->getLParenLoc(), AC->getEndLoc());
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
       // If align clause value ends up being invalid, this can end up null.
       if (!IC)
         continue;
     }
-<<<<<<< HEAD
-#else // INTEL_COLLAB
-    auto *AC = cast<OMPAllocatorClause>(C);
-    ExprResult NewE = SemaRef.SubstExpr(AC->getAllocator(), TemplateArgs);
-    if (!NewE.isUsable())
-      continue;
-    OMPClause *IC = SemaRef.ActOnOpenMPAllocatorClause(
-        NewE.get(), AC->getBeginLoc(), AC->getLParenLoc(), AC->getEndLoc());
-#endif // INTEL_COLLAB
-=======
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
     Clauses.push_back(IC);
   }
 

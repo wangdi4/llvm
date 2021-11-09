@@ -322,10 +322,6 @@ public:
   }
 };
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 /// This represents the 'align' clause in the '#pragma omp allocate'
 /// directive.
 ///
@@ -335,11 +331,7 @@ public:
 /// In this example directive '#pragma omp allocate' has simple 'allocator'
 /// clause with the allocator 'omp_default_mem_alloc' and align clause with
 /// value of 8.
-<<<<<<< HEAD
-class OMPAlignClause : public OMPClause {
-=======
 class OMPAlignClause final : public OMPClause {
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
   friend class OMPClauseReader;
 
   /// Location of '('.
@@ -351,19 +343,12 @@ class OMPAlignClause final : public OMPClause {
   /// Set alignment value.
   void setAlignment(Expr *A) { Alignment = A; }
 
-<<<<<<< HEAD
-public:
-  /// Build 'align' clause with the given alignment
-  ///
-  /// \param A Alignment value
-=======
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
 
   /// Build 'align' clause with the given alignment
   ///
   /// \param A Alignment value.
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
@@ -374,13 +359,6 @@ public:
 
   /// Build an empty clause.
   OMPAlignClause()
-<<<<<<< HEAD
-      : OMPClause(llvm::omp::OMPC_align, SourceLocation(),
-                  SourceLocation()) {}
-
-  /// Sets the location of '('.
-  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
-=======
       : OMPClause(llvm::omp::OMPC_align, SourceLocation(), SourceLocation()) {}
 
 public:
@@ -394,7 +372,6 @@ public:
                                 SourceLocation StartLoc,
                                 SourceLocation LParenLoc,
                                 SourceLocation EndLoc);
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 
   /// Returns the location of '('.
   SourceLocation getLParenLoc() const { return LParenLoc; }
@@ -419,10 +396,6 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_align;
   }
 };
-<<<<<<< HEAD
-#endif // INTEL_COLLAB
-=======
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
 
 /// This represents clause 'allocate' in the '#pragma omp ...' directives.
 ///

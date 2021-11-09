@@ -4500,15 +4500,8 @@ def OMPAllocateDecl : InheritableAttr {
                    "OMPCGroupMemAlloc", "OMPPTeamMemAlloc", "OMPThreadMemAlloc",
                    "OMPUserDefinedMemAlloc"
                  ]>,
-<<<<<<< HEAD
-    ExprArgument<"Allocator">
-#if INTEL_COLLAB
-    , ExprArgument<"Alignment">
-#endif // INTEL_COLLAB
-=======
     ExprArgument<"Allocator">,
     ExprArgument<"Alignment">
->>>>>>> b0de656bdf0ee3f4e51d04ae29160dab99819e8e
   ];
   let Documentation = [Undocumented];
 }

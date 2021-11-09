@@ -1646,16 +1646,6 @@ public:
     return getSema().ActOnOpenMPOmpxPlacesClause(Modifier, Start, Length,
                                                  Stride, StartLoc, EndLoc);
   }
-
-  /// Build a new OpenMP 'align' clause.
-  ///
-  /// By default, performs semantic analysis to build the new OpenMP clause.
-  /// Subclasses may override this routine to provide different behavior.
-  OMPClause *RebuildOMPAlignClause(Expr *A, SourceLocation StartLoc,
-                                   SourceLocation LParenLoc,
-                                   SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPAlignClause(A, StartLoc, LParenLoc, EndLoc);
-  }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Build a new OpenMP 'tile' clause.
@@ -9529,16 +9519,6 @@ TreeTransform<Derived>::TransformOMPDataClause(OMPDataClause *C) {
   }
   return getDerived().RebuildOMPDataClause(
       Addrs, Hints, NumElements, C->getBeginLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPAlignClause(OMPAlignClause *C) {
-  ExprResult E = getDerived().TransformExpr(C->getAlignment());
-  if (E.isInvalid())
-    return nullptr;
-  return getDerived().RebuildOMPAlignClause(
-      E.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
