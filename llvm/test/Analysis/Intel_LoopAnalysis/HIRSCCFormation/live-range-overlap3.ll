@@ -2,7 +2,12 @@
 
 ; Verify that we do not create SCC (v_ovm.0159 -> %v_ovm.2158 -> %or -> %or.lcssa) which has live-range overlap because %v_ovm.0159 is used in %or after the definition of %v_ovm.2158 in the same bblock.
 
-; CHECK-NOT: SCC1
+; We do construct SCC (%or -> %v_ovm.2158) for the inner loop.
+
+; CHECK: SCC1: 
+; CHECK-NOT: %v_ovm.0159
+; CHECK-SAME: %v_ovm.2158
+
 
 @a1_c = local_unnamed_addr global [192 x i64] zeroinitializer, align 16
 @g_d = local_unnamed_addr global i32 32, align 4
