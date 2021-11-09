@@ -1712,15 +1712,9 @@ static bool functionWillReturn(const Function &F,                  // INTEL
 }
 
 // Set the willreturn function attribute if possible.
-<<<<<<< HEAD
-static bool addWillReturn(const SCCNodeSet &SCCNodes,               // INTEL
-                          WholeProgramInfo *WPInfo) {               // INTEL
-  bool Changed = false;
-
-=======
 static void addWillReturn(const SCCNodeSet &SCCNodes,
-                          SmallSet<Function *, 8> &Changed) {
->>>>>>> 28a06a1b8795604403c5ac2fdd69e676050c27a2
+                          SmallSet<Function *, 8> &Changed,         // INTEL
+                          WholeProgramInfo *WPInfo) {               // INTEL
   for (Function *F : SCCNodes) {
     if (!F || F->willReturn() || !functionWillReturn(*F, WPInfo))   // INTEL
       continue;
@@ -1839,28 +1833,16 @@ static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
 }
 
 template <typename AARGetterT>
-<<<<<<< HEAD
-static bool deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
+static SmallSet<Function *, 8>
+deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
                                    AARGetterT &&AARGetter,     // INTEL
                                    WholeProgramInfo *WPInfo) { // INTEL
-=======
-static SmallSet<Function *, 8>
-deriveAttrsInPostOrder(ArrayRef<Function *> Functions, AARGetterT &&AARGetter) {
->>>>>>> 28a06a1b8795604403c5ac2fdd69e676050c27a2
   SCCNodesResult Nodes = createSCCNodeSet(Functions);
 
   // Bail if the SCC only contains optnone functions.
   if (Nodes.SCCNodes.empty())
     return {};
 
-<<<<<<< HEAD
-  Changed |= addArgumentReturnedAttrs(Nodes.SCCNodes);
-  Changed |= addReadAttrs(Nodes.SCCNodes, AARGetter);
-  Changed |= addArgumentAttrs(Nodes.SCCNodes);
-  Changed |= inferConvergent(Nodes.SCCNodes);
-  Changed |= addNoReturnAttrs(Nodes.SCCNodes);
-  Changed |= addWillReturn(Nodes.SCCNodes, WPInfo);    // INTEL
-=======
   SmallSet<Function *, 8> Changed;
 
   addArgumentReturnedAttrs(Nodes.SCCNodes, Changed);
@@ -1868,8 +1850,7 @@ deriveAttrsInPostOrder(ArrayRef<Function *> Functions, AARGetterT &&AARGetter) {
   addArgumentAttrs(Nodes.SCCNodes, Changed);
   inferConvergent(Nodes.SCCNodes, Changed);
   addNoReturnAttrs(Nodes.SCCNodes, Changed);
-  addWillReturn(Nodes.SCCNodes, Changed);
->>>>>>> 28a06a1b8795604403c5ac2fdd69e676050c27a2
+  addWillReturn(Nodes.SCCNodes, Changed, WPInfo); // INTEL
 
   // If we have no external nodes participating in the SCC, we can deduce some
   // more precise attributes as well.
@@ -1912,25 +1893,16 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     Functions.push_back(&N.getFunction());
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // NOTE: We may want to pass the whole program analysis here when the new
   // pass manager is turned on by default. Currently, the functions collected
   // in the new pass manager are different than the legacy pass manager.
   // The legacy pass manager includes declarations in the Functions vector,
   // while the new pass manager isn't adding them.
-  if (deriveAttrsInPostOrder(Functions, AARGetter, nullptr)) {
+  auto ChangedFunctions = deriveAttrsInPostOrder(Functions, AARGetter, nullptr);
 #endif // INTEL_CUSTOMIZATION
-    // We have not changed the call graph or removed/added functions.
-    PreservedAnalyses PA;
-    PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
-    return PA;
-  }
-=======
-  auto ChangedFunctions = deriveAttrsInPostOrder(Functions, AARGetter);
   if (ChangedFunctions.empty())
     return PreservedAnalyses::all();
->>>>>>> 28a06a1b8795604403c5ac2fdd69e676050c27a2
 
   PreservedAnalyses PA;
   // We have not added or removed functions.
@@ -1998,14 +1970,11 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
 #endif // INTEL_CUSTOMIZATION
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;
-  return !deriveAttrsInPostOrder(Functions, AARGetter, WPInfo) || Changed;
+  return !deriveAttrsInPostOrder(Functions, AARGetter, WPInfo).empty()
+         || Changed;
 #endif // INTEL_CUSTOMIZATION
-=======
-  return !deriveAttrsInPostOrder(Functions, AARGetter).empty();
->>>>>>> 28a06a1b8795604403c5ac2fdd69e676050c27a2
 }
 
 bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
