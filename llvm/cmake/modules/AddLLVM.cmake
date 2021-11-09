@@ -1328,6 +1328,37 @@ macro(add_llvm_tool name)
   set_target_properties(${name} PROPERTIES FOLDER "Tools")
 endmacro(add_llvm_tool name)
 
+# INTEL_CUSTOMIZATION
+# This macro is a copy of add_llvm_tool except it installs the tool into the
+# bin directory
+macro(add_llvm_tool_in_bin name)
+  if( NOT LLVM_BUILD_TOOLS )
+    set(EXCLUDE_FROM_ALL ON)
+  endif()
+  add_llvm_executable(${name} ${ARGN})
+
+  if ( ${name} IN_LIST LLVM_TOOLCHAIN_TOOLS OR NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
+    if( LLVM_BUILD_TOOLS )
+      get_target_export_arg(${name} LLVM export_to_llvmexports)
+      install(TARGETS ${name}
+              ${export_to_llvmexports}
+              RUNTIME DESTINATION bin
+              COMPONENT ${name})
+
+      if (NOT LLVM_ENABLE_IDE)
+        add_llvm_install_targets(install-${name}
+                                 DEPENDS ${name}
+                                 COMPONENT ${name})
+      endif()
+    endif()
+  endif()
+  if( LLVM_BUILD_TOOLS )
+    set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS ${name})
+  endif()
+  set_target_properties(${name} PROPERTIES FOLDER "Tools")
+endmacro(add_llvm_tool_in_bin name)
+# end INTEL_CUSTOMIZATION
+
 
 macro(add_llvm_example name)
   if( NOT LLVM_BUILD_EXAMPLES )
