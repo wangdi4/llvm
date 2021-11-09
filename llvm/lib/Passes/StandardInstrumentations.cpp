@@ -2235,11 +2235,11 @@ StandardInstrumentations::StandardInstrumentations(
       PrintChangedIR(false),
       PrintChangedDiff(false, false),
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#endif // INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       WebsiteChangeReporter(PrintChanged ==
                             ChangePrinter::PrintChangedDotCfgVerbose),
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif // INTEL_CUSTOMIZATION
       Verify(DebugLogging), VerifyEach(VerifyEach) {}
 
 void StandardInstrumentations::registerCallbacks(
@@ -2248,9 +2248,9 @@ void StandardInstrumentations::registerCallbacks(
   PrintPass.registerCallbacks(PIC);
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptBisect.registerCallbacks(PIC);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (FAM)
     PreservedCFGChecker.registerCallbacks(PIC, *FAM);
   PrintChangedIR.registerCallbacks(PIC);
@@ -2258,9 +2258,9 @@ void StandardInstrumentations::registerCallbacks(
   if (VerifyEach)
     Verify.registerCallbacks(PIC);
   PrintChangedDiff.registerCallbacks(PIC);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   WebsiteChangeReporter.registerCallbacks(PIC);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 template class ChangeReporter<std::string>;

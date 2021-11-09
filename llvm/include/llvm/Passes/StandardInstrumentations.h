@@ -508,9 +508,9 @@ class StandardInstrumentations {
   IRChangedPrinter PrintChangedIR;
   PseudoProbeVerifier PseudoProbeVerification;
   InLineChangePrinter PrintChangedDiff;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   DotCfgChangeReporter WebsiteChangeReporter;
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   VerifyInstrumentation Verify;
 
   bool VerifyEach;
