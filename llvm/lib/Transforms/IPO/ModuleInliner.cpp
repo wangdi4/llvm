@@ -234,7 +234,11 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
         continue;
       }
 
-      auto Advice = Advisor.getAdvice(*CB, /*OnlyMandatory*/ false);
+#if INTEL_CUSTOMIZATION
+      InlineCost *IC = nullptr;
+      auto Advice = Advisor.getAdvice(*CB, nullptr, nullptr, &IC,
+          /*OnlyMandatory*/ false);
+#endif // INTEL_CUSTOMIZATION
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();

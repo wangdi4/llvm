@@ -1425,7 +1425,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
@@ -1433,10 +1432,13 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(VPOParoptTargetInlinePass());
 #endif // INTEL_CUSTOMIZATION
 
+  if (EnableModuleInliner)
+    MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
+  else
 #if INTEL_COLLAB
-  MPM.addPass(buildInlinerPipeline(Level, Phase, &MPM));
-#else
-  MPM.addPass(buildInlinerPipeline(Level, Phase));
+    MPM.addPass(buildInlinerPipeline(Level, Phase, &MPM));
+#else // INTEL_COLLAB
+    MPM.addPass(buildInlinerPipeline(Level, Phase));
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 
@@ -1447,12 +1449,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (RunVPOParopt && Level.getSpeedupLevel() > 2)
     MPM.addPass(IPSCCPPass());
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (EnableModuleInliner)
-    MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
-  else
-    MPM.addPass(buildInlinerPipeline(Level, Phase));
->>>>>>> 6cad45d5c6f581e025106b8157541f10370faa08
 
   if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
