@@ -5587,6 +5587,9 @@ class OffloadingActionBuilder final {
                 ToolChains, [&](auto &TC) { return TT == TC->getTriple(); });
             assert(TCIt != ToolChains.end() &&
                    "Toolchain was not created for this platform");
+#if INTEL_CUSTOMIZATION
+            (void)TCIt;
+#endif // INTEL_CUSTOMIZATION
 
             const char *TF = C.getArgs().MakeArgString(I.second);
             // populate the AOT binary inputs vector.
