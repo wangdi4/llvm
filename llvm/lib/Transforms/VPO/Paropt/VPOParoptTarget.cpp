@@ -2368,32 +2368,6 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
   return true;
 }
 
-void VPOParoptTransform::checkAtomicFreeReductionOpportunity(WRegionNode *W) {
-  if (W->getIsSections())
-    return;
-  auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-  if (!WTarget)
-    return;
-
-  if (W->getIsOmpLoop())
-    AtomicFreeReductionCheck[WTarget].setLoopIsOk(
-        !W->getWRNLoopInfo().isKnownNDRange());
-  if (W->getIsPar())
-    AtomicFreeReductionCheck[WTarget].setParIsOk();
-  if (W->getIsDistribute())
-    AtomicFreeReductionCheck[WTarget].setParIsOk(
-        // TODO: set WRNDistirbute inner stores pointer operands to @redbuf
-        // so that the following condition could be removed
-        // TODO: remove isKnownNDRange call here once the related clause
-        // is correctly handled in fixupKnownNDRange()
-        (isa<WRNDistributeNode>(W)
-             ? AtomicFreeReductionCheck[WTarget].getParIsOk()
-             : true) &&
-        !W->getWRNLoopInfo().isKnownNDRange());
-  if (W->getIsTeams())
-    AtomicFreeReductionCheck[WTarget].setTeamsIsOk();
-}
-
 // Add globals for fast GPU reduction global buffers (one per reduction item)
 // and global teams counter (one per kernel)
 bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
@@ -2401,16 +2375,15 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
 
   assert(W->getIsTarget());
 
-  if (!AtomicFreeReductionCheck[W].isGlobalValid())
-    return false;
-
   auto WTeamsIt =
       std::find_if(W->getChildren().begin(), W->getChildren().end(),
                    [](WRegionNode *SW) { return SW->getIsTeams(); });
-  assert(WTeamsIt != W->getChildren().end() &&
-         "Teams presence was promised by AtomicFreeReductionCheck");
+  if (WTeamsIt == W->getChildren().end())
+    return false;
 
   auto *WTeams = *WTeamsIt;
+  if (WTeams->getRed().empty())
+    return false;
 
   CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
 

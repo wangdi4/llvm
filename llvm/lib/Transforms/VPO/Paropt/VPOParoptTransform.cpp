@@ -1691,14 +1691,6 @@ bool VPOParoptTransform::paroptTransforms() {
     F->getContext().diagnose(DI);
   };
 
-  // we want to process the whole WRGraph before the actual codegen
-  // to make sure we possess the whole info required for atomic-free
-  // reduction validity check (e.g. we want to know about WRNDistribute
-  // KnownNDRange clause before generating reduction for the loop)
-  if ((Mode & OmpPar) && (Mode & ParTrans))
-    for (auto *W : WRegionList)
-      checkAtomicFreeReductionOpportunity(W);
-
   SmallPtrSet<WRegionNode *, 4> RegionsNeedingDummyBranchInsertion;
   //
   // Walk through W-Region list, the outlining / lowering is performed from
@@ -1792,9 +1784,6 @@ bool VPOParoptTransform::paroptTransforms() {
         RemoveDirectives = false;
       }
 
-      if (Mode & ParPrepare)
-        checkAtomicFreeReductionOpportunity(W);
-
       switch (W->getWRegionKindID()) {
 
       // 1. Constructs that need to perform outlining:
@@ -1885,7 +1874,6 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
-          checkAtomicFreeReductionOpportunity(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
@@ -2257,7 +2245,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= fixupKnownNDRange(W);
-          checkAtomicFreeReductionOpportunity(W);
         }
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
@@ -2318,7 +2305,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
-          checkAtomicFreeReductionOpportunity(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
@@ -2587,7 +2573,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= fixupKnownNDRange(W);
-          checkAtomicFreeReductionOpportunity(W);
           RemoveDirectives = false;
         }
         break;
@@ -2953,12 +2938,16 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   UpdateBB->setName("atomic.free.red.local.update.update.body");
   auto *IVNext = cast<BinaryOperator>(
       Builder.CreateAdd(IVPhi, ConstantInt::get(SizeTy, 1)));
+
+  bool IsGlobalMem = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams) == nullptr;
   CallInst *BarrierCI = VPOParoptUtils::genCall(
       "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
       {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
        ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
-       ConstantInt::get(Builder.getInt32Ty(), spirv::SequentiallyConsistent |
-                                                  spirv::WorkgroupMemory)},
+       ConstantInt::get(
+           Builder.getInt32Ty(),
+           spirv::SequentiallyConsistent | spirv::WorkgroupMemory |
+               (IsGlobalMem ? spirv::CrossWorkgroupMemory : spirv::None))},
       IVNext);
   BarrierCI->getCalledFunction()->setConvergent();
 
@@ -2995,8 +2984,10 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
       {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
        ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
-       ConstantInt::get(Builder.getInt32Ty(), spirv::SequentiallyConsistent |
-                                                  spirv::WorkgroupMemory)},
+       ConstantInt::get(
+           Builder.getInt32Ty(),
+           spirv::SequentiallyConsistent | spirv::WorkgroupMemory |
+               (IsGlobalMem ? spirv::CrossWorkgroupMemory : spirv::None))},
       ExitBB->getFirstNonPHI());
   ExitBarrierCI->getCalledFunction()->setConvergent();
   // no kmpc_critical required
@@ -3004,6 +2995,10 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
 
   if (!DT->getNode(ExitBB))
     DT->addNewBlock(ExitBB, HeaderBB);
+  assert(DT->properlyDominates(HeaderBB, IdCheckBB));
+  assert(DT->properlyDominates(HeaderBB, UpdateBB));
+  assert(DT->properlyDominates(IdCheckBB, UpdateBB));
+  assert(DT->properlyDominates(IdCheckBB, LatchBB));
   return false;
 }
 
@@ -3198,6 +3193,11 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   // Now as we have IdxPhi we need to use it for the source pointer
   // offsets in the loop body
   Builder.SetInsertPoint(RedValToLoad);
+  // For the global update loop we want to offset by IdxPhi from the beginning
+  // of the buffer while ReductionValueLoc is already buffer+group_id(0)
+  auto *GepToSkip = dyn_cast<GetElementPtrInst>(ReductionValueLoc);
+  assert(GepToSkip);
+  ReductionValueLoc = GepToSkip->getPointerOperand();
   auto *GlobalGep = Builder.CreateGEP(RedElemType, ReductionValueLoc, IdxPhi);
   RedValToLoad->setOperand(0, GlobalGep);
 
@@ -3223,18 +3223,14 @@ bool VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
     Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
     DominatorTree *DT) {
-  auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
   // the local update loop is already emitted, reuse its body
   // for another reduction items' updates
   bool UseLocalUpdates =
-      isTargetSPIRV() && (isa<WRNParallelNode>(W) || W->getIsParLoop());
+      isTargetSPIRV() && (isa<WRNParallelNode>(W) || W->getIsParLoop()) &&
+      WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
   bool UseGlobalUpdates = isTargetSPIRV() && W->getIsTeams();
-  UseLocalUpdates &= isAtomicFreeReductionLocalEnabled() && WTarget &&
-                     AtomicFreeReductionCheck[WTarget].isLocalValid() &&
-                     // we want to generate local reduction loop only if
-                     // we have teams reduction or no teams at all
-                     (WTarget->getHasTeamsReduction() ||
-                      !AtomicFreeReductionCheck[WTarget].getTeamsIsOk());
+
+  UseLocalUpdates &= isAtomicFreeReductionLocalEnabled();
   UseGlobalUpdates &= isAtomicFreeReductionGlobalEnabled() &&
                       AtomicFreeRedGlobalBufs.count(RedI);
 
@@ -3349,9 +3345,14 @@ bool VPOParoptTransform::genReductionScalarFini(
     }
     return Res;
   };
-  auto *Rhs2 = Builder.CreateLoad(ScalarTy, ReductionValueLoc);
+  // NOTE: due to some weird load elimination + phi translation by GVN we want
+  // to generate volatile load from the reduction variable for the local
+  // update loop. The load from ReductionValueLoc doesn't need to be volatile
+  // as it may be safely LICMed
+  auto *Rhs2 = Builder.CreateLoad(ScalarTy, ReductionValueLoc, UseLocalUpdates);
   auto *Rhs1 = UseGlobalUpdates
-      ? cast<Instruction>(SumPhi) : Builder.CreateLoad(ScalarTy, ReductionVar);
+      ? cast<Instruction>(SumPhi)
+      : Builder.CreateLoad(ScalarTy, ReductionVar, UseLocalUpdates);
   auto *Res = GenerateRedOp(Rhs1, Rhs2);
   auto *Tmp0 = Builder.CreateStore(Res, ReductionVar);
 
@@ -3490,19 +3491,6 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
         AtomicFreeRedLocalUpdateBBs.count(W)) {
       InsertPt = AtomicFreeRedLocalUpdateBBs[W]->getTerminator();
       Builder.SetInsertPoint(InsertPt);
-    }
-    if (AtomicFreeRedGlobalBufs.count(RedI)) {
-      auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
-      if ((isa<WRNParallelNode>(W) || W->getIsParLoop())) {
-        auto *GroupId0 = VPOParoptUtils::genOCLGenericCall(
-            "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
-            Builder.getInt32(0), InsertPt);
-        OldV = Builder.CreateGEP(GlobalBuf->getValueType(),
-                                 GlobalBuf, GroupId0);
-      } else {
-        NewV = Builder.CreateGEP(GlobalBuf->getValueType(),
-                                 GlobalBuf, Builder.getInt32(0));
-      }
     }
     Builder.SetInsertPoint(OrigInsertPt);
   }
@@ -4281,16 +4269,6 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   bool isArraySection = RedI->getIsArraySection() || AllocaTy->isArrayTy();
 
   IRBuilder<> Builder(InsertPt);
-  if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
-      W->getIsTeams() && !isArraySection && !IsUDR &&
-      AtomicFreeRedGlobalBufs.count(RedI)) {
-    auto *GroupId0 = VPOParoptUtils::genOCLGenericCall(
-        "_Z12get_group_idj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
-        InsertPt);
-    auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
-    NewV = Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
-                             GlobalBuf, GroupId0);
-  }
 
 #endif // INTEL_CUSTOMIZATION
   if (isArraySection) {
@@ -5026,6 +5004,40 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     std::tie(FastRedStructTy, FastRedInst) = genFastRedTyAndVar(W, FastRedMode);
 
     int ItemIndex = 0;
+    // Filling the AtomicFreeRedGlobalBufs array to be used for
+    // atomic-free reduction generation later
+    if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
+        W->getIsTeams()) {
+      for (ReductionItem *RedI : RedClause.items()) {
+        if (auto *WTarget =
+                WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
+          auto &MapClause = WTarget->getMap();
+
+          int CurBufIdx = 0;
+          bool Found = false;
+          for (auto &MItem : MapClause.items()) {
+            if (isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
+                cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
+                    ->hasAttribute(
+                        VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
+              if (CurBufIdx == ItemIndex) {
+                auto *GV = dyn_cast<GlobalVariable>(
+                    MItem->getMapChain()[0]->getBasePtr());
+                assert(GV);
+                AtomicFreeRedGlobalBufs[RedI] = GV;
+                Found = true;
+                break;
+              }
+              ++CurBufIdx;
+            }
+          }
+          if (Found)
+            ItemIndex++;
+        }
+      }
+    }
+
+    ItemIndex = 0;
     for (ReductionItem *RedI : RedClause.items()) {
       Value *NewRedInst;
       Value *Orig = RedI->getOrig();
@@ -5062,9 +5074,21 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         NewRedInst = genFastRedPrivateVariable(
             RedI, ItemIndex++, FastRedStructTy, FastRedInst, InsertPt);
       } else {
-        auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, RedI);
-        NewRedInst =
-            genPrivatizationAlloca(RedI, InsertPt, ".red", AllocaAddrSpace);
+        if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
+            W->getIsTeams() && AtomicFreeRedGlobalBufs.count(RedI)) {
+          IRBuilder<> Builder(InsertPt);
+          auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
+          auto *GroupId0 = VPOParoptUtils::genOCLGenericCall(
+              "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
+              Builder.getInt32(0), InsertPt);
+          NewRedInst =
+              Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
+                                GlobalBuf, GroupId0);
+        } else {
+          auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, RedI);
+          NewRedInst =
+              genPrivatizationAlloca(RedI, InsertPt, ".red", AllocaAddrSpace);
+        }
       }
 
       RedI->setNew(NewRedInst);
@@ -5085,41 +5109,6 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                                    // to call _f90_dv_size(&dv) to get
                                    // num_elements in the reduction callback.
 #endif // INTEL_CUSTOMIZATION
-      // Filling the AtomicFreeRedGlobalBufs array to be used for
-      // fast GPU reduction generation later
-      if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
-          ((isa<WRNParallelNode>(W) || W->getIsParLoop()) || W->getIsTeams()) &&
-          !AtomicFreeRedGlobalBufs.count(RedI)) {
-        if (auto *WTarget =
-                WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
-          auto &MapClause = WTarget->getMap();
-
-          int CurBufIdx = 0;
-          bool Found = false;
-          for (auto &MItem : MapClause.items()) {
-            if (isa<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr()) &&
-                cast<GlobalVariable>(MItem->getMapChain()[0]->getBasePtr())
-                    ->hasAttribute(
-                        VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
-              if (CurBufIdx == ItemIndex) {
-                auto *GV = dyn_cast<GlobalVariable>(
-                    MItem->getMapChain()[0]->getBasePtr());
-                assert(GV);
-                AtomicFreeRedGlobalBufs[RedI] = GV;
-                Found = true;
-                break;
-              }
-              ++CurBufIdx;
-            }
-          }
-          // we need to increment ItemIndex but need to ensure non-GPU
-          // FastReduction is disabled to prevent its failure due to the updated
-          // ItemIndex
-          assert(!Found || !FastReductionEnabled);
-          if (Found)
-            ItemIndex++;
-        }
-      }
 
       RedInitEntryBB = createEmptyPrivInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
@@ -12673,6 +12662,13 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
     }
     RemoveKnownNDRange = true;
   }
+
+  // Same as above, should not use ND-range parallelization with
+  // teams reduction due to the perf problems.
+  // This check's intended to cover Distribute WRNs as they
+  // can't have reduction clauses themselves
+  if (WTeams && !WTeams->getRed().items().empty())
+    RemoveKnownNDRange = true;
 
   // Detect cases that do not imply "distribute" behavior.
   // We cannot use ND-range partitioning for them.

@@ -286,32 +286,10 @@ private:
   ///           };
   StructType *KmpTaskDependInfoTy;
 
+  /// Atomic-free reduction global buffers per reduction item.
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
 
-  class AtomicFreeReductionValidityCheck {
-    bool LoopIsOk = false;
-    bool ParIsOk = false;
-    bool TeamsIsOk = false;
-
-  public:
-    AtomicFreeReductionValidityCheck() {}
-
-    bool getLoopIsOk() const { return LoopIsOk; }
-    bool getParIsOk() const { return ParIsOk; }
-    bool getTeamsIsOk() const { return TeamsIsOk; }
-
-    void setLoopIsOk(bool Val = true) { LoopIsOk = Val; }
-    void setParIsOk(bool Val = true) { ParIsOk = Val; }
-    void setTeamsIsOk(bool Val = true) { TeamsIsOk = Val; }
-
-    bool isLocalValid() const { return LoopIsOk && ParIsOk; }
-    bool isGlobalValid() const { return LoopIsOk && ParIsOk && TeamsIsOk; }
-  };
-
-  DenseMap<WRegionNode *, AtomicFreeReductionValidityCheck>
-      AtomicFreeReductionCheck;
-
-  /// BBs that perform updates within the fast GPU reduction loops.
+  /// BBs that perform updates within the atomic-free reduction loops.
   DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedLocalUpdateBBs;
   DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedGlobalUpdateBBs;
 
@@ -610,7 +588,6 @@ private:
   bool addMapForUseDevicePtr(WRegionNode *W,
                  Instruction *InsertBefore = nullptr);
 
-  void checkAtomicFreeReductionOpportunity(WRegionNode *W);
   bool addFastGlobalRedBufMap(WRegionNode *W);
 
   // Convert 'IS_DEVICE_PTR' clauses in W to MAP, and 'IS_DEVICE_PTR:PTR_TO_PTR'

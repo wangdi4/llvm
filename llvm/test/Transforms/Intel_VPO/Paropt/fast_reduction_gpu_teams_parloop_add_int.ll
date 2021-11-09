@@ -34,7 +34,7 @@ target device_triples = "spir64"
 ; CHECK: br i1 %[[CMP1]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
 ; CHECK: %[[PRIV_SUM_VAL:[^,]+]] = load
-; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load i32, i32 addrspace(3)* @[[LOCAL_SUM:[^,]+]]
+; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load volatile i32, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* @[[LOCAL_SUM:[^,]+]] to i32 addrspace(4)*)
 ; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[LOCAL_SUM_VAL]], %[[PRIV_SUM_VAL]]
 ; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(3)* @[[LOCAL_SUM]]
 ; CHECK: br label %atomic.free.red.local.update.update.latch
