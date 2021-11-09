@@ -1358,6 +1358,7 @@ void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
 #endif // INTEL_CUSTOMIZATION
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 namespace {
 
 enum IRChangeDiffType { InBefore, InAfter, IsCommon, NumIRChangeDiffTypes };
@@ -1882,9 +1883,10 @@ void DotCfgDiffNode::finalize(DotCfgDiff &G) {
 }
 
 } // namespace
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 namespace llvm {
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 template <> struct GraphTraits<DotCfgDiffDisplayGraph *> {
   using NodeRef = const DisplayNode *;
   using ChildIteratorType = DisplayNode::ChildIterator;
@@ -2213,6 +2215,7 @@ void DotCfgChangeReporter::registerCallbacks(
     dbgs() << "Unable to open output stream for -cfg-dot-changed\n";
   }
 }
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 StandardInstrumentations::StandardInstrumentations(
     bool DebugLogging, bool VerifyEach, PrintPassOptions PrintPassOpts)
@@ -2233,8 +2236,10 @@ StandardInstrumentations::StandardInstrumentations(
       PrintChangedDiff(false, false),
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       WebsiteChangeReporter(PrintChanged ==
                             ChangePrinter::PrintChangedDotCfgVerbose),
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       Verify(DebugLogging), VerifyEach(VerifyEach) {}
 
 void StandardInstrumentations::registerCallbacks(
@@ -2253,7 +2258,9 @@ void StandardInstrumentations::registerCallbacks(
   if (VerifyEach)
     Verify.registerCallbacks(PIC);
   PrintChangedDiff.registerCallbacks(PIC);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   WebsiteChangeReporter.registerCallbacks(PIC);
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
 template class ChangeReporter<std::string>;

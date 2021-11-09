@@ -508,7 +508,9 @@ class StandardInstrumentations {
   IRChangedPrinter PrintChangedIR;
   PseudoProbeVerifier PseudoProbeVerification;
   InLineChangePrinter PrintChangedDiff;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   DotCfgChangeReporter WebsiteChangeReporter;
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   VerifyInstrumentation Verify;
 
   bool VerifyEach;
