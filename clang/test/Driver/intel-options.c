@@ -762,3 +762,33 @@
 // SOX: -sox=
 // SOX-SAME: -### -sox -c {{.*}}intel-options.c
 // NOSOX-NOT: -sox
+
+// -ftz and /Qftz
+// RUN: %clang -### -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -fp-model=precise -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -ftz -fp-model=precise -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -fp-model=strict -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -ftz -fp-model=strict -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -fp-model=fast -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -no-ftz -fp-model=fast -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -ffast-math -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -no-ftz -ffast-math -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -O0 -ftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang -### -ftz -O0 -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -O1 -no-ftz -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang -### -no-ftz -O1 -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz- -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /fp:precise /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz /fp:precise -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /fp:strict /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz /fp:strict -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /fp:fast /Qftz- -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /Qftz- /fp:fast -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### -Od /Qftz -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// RUN: %clang_cl -### /Qftz -Od -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### -O1 /Qftz- -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
+// RUN: %clang_cl -### /Qftz- -O1 -c %s 2>&1 | FileCheck -check-prefix=FTZ %s
+// FTZ: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+// NO-FTZ-NOT: "-fdenormal-fp-math=preserve-sign,preserve-sign"
