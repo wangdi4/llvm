@@ -143,10 +143,10 @@ char DPCPPKernelVecCloneLegacy::ID = 0;
 
 static const char lv_name[] = SV_NAME;
 INITIALIZE_PASS_BEGIN(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
-                      false /* not modifies CFG */, true /* transform pass */)
+                      false /* not modifies CFG */, false /* is_analysis */)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
-                    false /* not modifies CFG */, true /* transform pass */)
+                    false /* not modifies CFG */, false /* is_analysis */)
 
 DPCPPKernelVecCloneLegacy::DPCPPKernelVecCloneLegacy(
     ArrayRef<VectItem> VectInfos, VectorVariant::ISAClass ISA, bool IsOCL)
