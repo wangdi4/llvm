@@ -17,8 +17,8 @@ typedef struct { int r1; int r2; } int1x2_avx;
 __attribute__((intel_ocl_bicc))
 extern __m128i __svml_urem4(__m128i x, __m128i y );
 
-// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_urem8_e9(<4 x i64> noundef %{{.*}}, <4 x i64> noundef %{{.*}})
-// CHECK: declare svml_unified_cc <2 x i64> @__svml_urem4(<2 x i64> noundef, <2 x i64> noundef)
+// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_urem8_e9(<4 x i64> %{{.*}}, <4 x i64> %{{.*}})
+// CHECK: declare svml_unified_cc <2 x i64> @__svml_urem4(<2 x i64>, <2 x i64>)
 __attribute__((intel_ocl_bicc))
 __m256i __svml_urem8_e9(__m256i x, __m256i y) {
   __declspec(align(32)) __m128i x1[2];
@@ -36,7 +36,7 @@ __m256i __svml_urem8_e9(__m256i x, __m256i y) {
   return dst;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_i64div4_l9(<4 x i64> noundef %{{.*}}, <4 x i64> noundef %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_i64div4_l9(<4 x i64> %{{.*}}, <4 x i64> %{{.*}})
 __attribute__((intel_ocl_bicc))
 __m256i __svml_i64div4_l9(__m256i vas, __m256i vbs) {
     return vas;

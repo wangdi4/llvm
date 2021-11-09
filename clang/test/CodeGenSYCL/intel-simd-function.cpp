@@ -220,7 +220,7 @@ constexpr auto makeSimdFunction() noexcept {
         detail::makeSimdFunctionImpl<F, T...>(L()));
 }
 
-//CHECK: define{{.*}}spir_func noundef i32 @_Z3fooif
+//CHECK: define{{.*}}spir_func i32 @_Z3fooif
 SYCL_EXTERNAL int foo(int i, float f) {return (int)f+i+1;}
 
 using namespace cl::sycl::intel;
@@ -237,8 +237,8 @@ SYCL_EXTERNAL auto bar()
 // Call operator
 //CHECK: define{{.*}}i32 {{.*}}_EEEclEOiOf
 //CHECK-SAME: class{{.*}}SimdFunction{{.*}}* {{[^,]*}} %this
-//CHECK-SAME: i32 [[AS4:addrspace\(4\)]]* noundef align 4 dereferenceable(4) %args
-//CHECK-SAME: float [[AS4]]* noundef align 4 dereferenceable(4) %args
+//CHECK-SAME: i32 [[AS4:addrspace\(4\)]]* align 4 dereferenceable(4) %args
+//CHECK-SAME: float [[AS4]]* align 4 dereferenceable(4) %args
 //CHECK: [[THISARG:%this.addr.*]] = alloca {{.*}}class{{.*}}SimdFunction{{.*}}*,
 //CHECK: [[ARG1:%args.addr.*]] = alloca i32 [[AS4]]*,
 //CHECK: %[[ARG1_CAST:.+]] = addrspacecast i32 [[AS4]]** [[ARG1]] to i32 [[AS4]]* [[AS4]]*

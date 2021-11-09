@@ -30,12 +30,12 @@ struct CopyCtor {
 
 #pragma omp declare target
 
-//CHECK: define {{.*}}_Z3Foo7Default([[DT]] [[AS:addrspace\(4\)]]* noundef byval([[DT]])
+//CHECK: define {{.*}}_Z3Foo7Default([[DT]] [[AS:addrspace\(4\)]]* byval([[DT]])
 int Foo(Default D) {
   return D.i;
 }
 
-//CHECK: define {{.*}}_Z3Foo8CopyCtor([[CT]] [[AS]]* noundef %C)
+//CHECK: define {{.*}}_Z3Foo8CopyCtor([[CT]] [[AS]]* %C)
 int Foo(CopyCtor C) {
   return C.i;
 }
@@ -65,14 +65,14 @@ int Caller() {
   //CHECK-SAME: i8 [[AS]]* align 4 [[SRC]], i64 4, i1 false)
 
   // Call passing agg.tmp byval
-  //CHECK: call {{.*}}_Z3Foo7Default([[DT]] [[AS]]* noundef byval([[DT]]){{.*}}[[ATDA]])
+  //CHECK: call {{.*}}_Z3Foo7Default([[DT]] [[AS]]* byval([[DT]]){{.*}}[[ATDA]])
 
   // Copy construct the agg.tmp calling copy constructor.
   //CHECK: call {{.*}}_ZN8CopyCtorC1ERKS_([[CT]] [[AS]]* {{[^,]*}} [[ATCA]],
-  //CHECK-SAME: [[CT]] [[AS]]* noundef align 4 dereferenceable(4) [[CA]])
+  //CHECK-SAME: [[CT]] [[AS]]* align 4 dereferenceable(4) [[CA]])
 
   //Call passing address of agg.tmp
-  //CHECK: call {{.*}}_Z3Foo8CopyCtor([[CT]] [[AS]]* noundef [[ATCA]])
+  //CHECK: call {{.*}}_Z3Foo8CopyCtor([[CT]] [[AS]]* [[ATCA]])
 
   return Foo(d) + Foo(c);
 }
