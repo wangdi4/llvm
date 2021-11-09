@@ -23,6 +23,7 @@
 #include "llvm/Support/PGOOptions.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/ModuleInliner.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include <vector>
@@ -208,6 +209,11 @@ public:
 #else
                                                 ThinOrFullLTOPhase Phase);
 #endif // INTEL_COLLAB
+
+  /// Construct the module pipeline that performs inlining with
+  /// module inliner pass.
+  ModuleInlinerPass buildModuleInlinerPipeline(OptimizationLevel Level,
+                                               ThinOrFullLTOPhase Phase);
 
   /// Construct the core LLVM module optimization pipeline.
   ///
