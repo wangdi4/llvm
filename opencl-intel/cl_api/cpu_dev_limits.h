@@ -118,4 +118,5 @@
 #define DEV_PARALLEL_COPY_MIN_SIZE (512)
 
 // Supported subgroup sizes on cpu device.
-#define CPU_DEV_SUB_GROUP_SIZES {4, 8, 16, 32, 64}
+// Size 1 is supported since we have implemented subgroup emulation.
+#define CPU_DEV_SUB_GROUP_SIZES {1, 4, 8, 16, 32, 64}
