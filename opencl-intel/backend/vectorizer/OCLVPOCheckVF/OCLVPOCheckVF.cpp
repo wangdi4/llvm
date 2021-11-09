@@ -245,8 +245,8 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
   static std::set<unsigned> SupportedWorkGroupVFs = {1, 4, 8, 16, 32, 64};
   static std::set<unsigned> SupportedSubGroupVFs = CPU_DEV_SUB_GROUP_SIZES;
 
-  if (EnableSubGroupEmulation)
-    SupportedSubGroupVFs.insert((unsigned)1);
+  if (!EnableSubGroupEmulation)
+    SupportedSubGroupVFs.erase(1u);
 
   std::vector<std::pair<std::string, unsigned>> UnimplementBuiltins;
 

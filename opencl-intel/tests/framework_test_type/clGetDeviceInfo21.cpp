@@ -68,7 +68,7 @@ TEST_F(CL21, GetDeviceInfo_CL_DEVICE_SUB_GROUP_SIZES_INTEL)
     ASSERT_EQ(CL_SUCCESS, iRet)
         << " clGetDeviceInfo(CL_DEVICE_SUB_GROUP_SIZES_INTEL query) failed. ";
 
-    std::vector<size_t> expected_sg_sizes{4, 8, 16, 32, 64};
+    std::vector<size_t> expected_sg_sizes = CPU_DEV_SUB_GROUP_SIZES;
     std::sort(supported_sg_sizes_for_device.begin(), supported_sg_sizes_for_device.end());
     ASSERT_EQ(supported_sg_sizes_for_device, expected_sg_sizes)
         << " clGetDeviceInfo(CL_DEVICE_SUB_GROUP_SIZES_INTEL query) failed. "
