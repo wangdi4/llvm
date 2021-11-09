@@ -683,6 +683,10 @@ def extended_float_types : Flag<["--"], "extended_float_types">,
 def fintel_long_double_size_EQ : Joined<["-"], "fintel-long-double-size=">,
   HelpText<"Overrides the size of long double from the architecture/OS defaults.">,
   Flags<[CC1Option, DpcppHidden]>;
+def ftz : Flag<["-"], "ftz">, Flags<[NoXarchOption]>,
+  HelpText<"Enable flush denormal results to zero">;
+def no_ftz : Flag<["-"], "no-ftz">, Flags<[NoXarchOption]>,
+  HelpText<"Disable flush denormal results to zero">;
 def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
   Flags<[CC1Option]>, HelpText<"Force certain functions using intrinsics to "
   "promote their architectures and make the intrinsic headers included by default">,
@@ -7421,6 +7425,10 @@ def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
 def : CLFlag<"Qfreestanding">, Alias<ffreestanding>,
   HelpText<"Assert that the compilation takes place in a freestanding environment">;
+def _SLASH_Qftz : CLFlag<"Qftz">, Alias<ftz>,
+  HelpText<"Enable flush denormal results to zero">;
+def _SLASH_Qftz_ : CLFlag<"Qftz-">, Alias<no_ftz>,
+  HelpText<"Disable flush denormal results to zero">;
 def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
   Alias<finstrument_functions>, HelpText<"Generate calls to instrument "
   "function entry and exit">;

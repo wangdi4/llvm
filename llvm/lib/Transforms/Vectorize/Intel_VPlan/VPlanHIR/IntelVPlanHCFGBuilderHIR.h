@@ -179,11 +179,18 @@ public:
   }
 
   /// Register explicit reduction variables provided from outside.
-  void addReduction(RegDDRef *V, RecurKind Kind, bool IsF90DopeVector, bool IsSigned = false) {
+  void addReduction(RegDDRef *V, RecurKind Kind, bool IsF90DopeVector,
+                    bool IsUDR) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+    if (IsUDR)
+      HasUserDefinedReduction = true;
+
     if (IsF90DopeVector)
       HasF90DopeVectorReduction = true;
-    ReductionList.emplace_back(V, Kind, IsSigned);
+
+    // TODO: Consider removing IsSigned field from RedDescr struct since it is
+    // unused and can basically be deducted from the recurrence kind.
+    ReductionList.emplace_back(V, Kind, false /*IsSigned*/);
   }
 
   // Add explicit linear.
@@ -256,6 +263,7 @@ public:
   bool hasComplexTyReduction() { return HasComplexTyReduction; }
   void setHasComplexTyReduction() { HasComplexTyReduction = true; }
 
+  bool hasUserDefinedReduction() const { return HasUserDefinedReduction; }
 private:
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
@@ -297,6 +305,7 @@ private:
   bool HasF90DopeVectorPrivate = false;
   bool HasF90DopeVectorReduction = false;
   bool HasComplexTyReduction = false;
+  bool HasUserDefinedReduction = false;
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {
