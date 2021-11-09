@@ -30,11 +30,7 @@ void test(int val) {
   // --- Attributes
   // CHECK: {{.*}} !kernel_arg_accessor_ptr ![[ACC_PTR_ATTR:[0-9]+]] !sycl_explicit_simd !{{[0-9]+}} {{.*}}{
   // --- init_esimd call is expected instead of __init:
-<<<<<<< HEAD
   // CHECK:   call spir_func void @{{.*}}__init_esimd{{.*}}(%"{{.*}}sycl::accessor" addrspace(4)* {{[^.]*}} %{{[0-9]+}}, i32 addrspace(1)* %{{[0-9]+}})
-=======
-  // CHECK:   call spir_func void @{{.*}}__init_esimd{{.*}}(%"{{.*}}sycl::accessor" addrspace(4)* {{[^,]*}} %{{[0-9]+}}, i32 addrspace(1)* %{{[0-9]+}})
->>>>>>> 254ab74346d458dd9fc631f728bf6b55b95f3451
   // CHECK-LABEL: }
   // CHECK: ![[ACC_PTR_ATTR]] = !{i1 true, i1 false, i1 true}
 }
