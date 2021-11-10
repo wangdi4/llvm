@@ -914,17 +914,6 @@ bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
   return isa<PointerType>(V->getType()) && InMemoryReductions.count(V);
 }
 
-bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {
-  auto PtrThruBitCast = getPtrThruCast<BitCastInst>(Val);
-  if (Linears.count(PtrThruBitCast)) {
-    if (Step)
-      *Step = Linears[PtrThruBitCast];
-    return true;
-  }
-
-  return false;
-}
-
 bool VPOVectorizationLegality::isInductionVariable(const Value *V) {
   Value *In0 = const_cast<Value *>(V);
   PHINode *PN = dyn_cast_or_null<PHINode>(In0);
