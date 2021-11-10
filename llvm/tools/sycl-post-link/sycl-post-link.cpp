@@ -306,6 +306,13 @@ static bool funcIsSpirvSyclBuiltin(StringRef FName) {
 }
 
 static bool isEntryPoint(const Function &F) {
+#if INTEL_CUSTOMIZATION
+  // Skip declarations, if any: they should not be included into KernelModuleMap
+  // or otherwise we will end up with incorrectly generated list of symbols.
+  if (F.isDeclaration())
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   // Kernels are always considered to be entry points
   if (CallingConv::SPIR_KERNEL == F.getCallingConv())
     return true;
