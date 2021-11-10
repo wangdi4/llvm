@@ -1407,6 +1407,8 @@ public:
 
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
+    // TODO: for opaque pointers we may need to pull type information down
+    // through the legality checker.
     Type *IndTy = CurrValue.getRef()->getDestType();
     const HLDDNode *HLNode = CurrValue.getRef()->getHLDDNode();
     Descriptor.setStartPhi(

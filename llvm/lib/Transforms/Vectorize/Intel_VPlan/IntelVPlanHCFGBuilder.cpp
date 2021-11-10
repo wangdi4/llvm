@@ -407,24 +407,25 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(Builder.getOrCreateVPOperand(CurValue.first));
 
-    Type *IndTy = CurValue.first->getType();
-    assert(IndTy->isPointerTy() &&
+    Value *V = CurValue.first;
+    assert(V->getType()->isPointerTy() &&
            "expected pointer type for explicit induction");
-    IndTy = IndTy->getPointerElementType();
-    Type *StepTy = IndTy;
+    Type *IndTy;
+    int Step;
+    std::tie(IndTy, Step) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
+
+    Type *StepTy = IndTy;
     if (IndTy->isPointerTy()) {
-      assert(isa<Instruction>(CurValue.first) &&
-             "Linear descriptor is not an instruction.");
-      const DataLayout &DL =
-          cast<Instruction>(CurValue.first)->getModule()->getDataLayout();
+      // TODO: revisit this once PTR_TO_PTR clause implemented
+      const DataLayout &DL = cast<Instruction>(V)->getModule()->getDataLayout();
       StepTy = DL.getIntPtrType(IndTy);
     }
-    Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
-    Descriptor.setStep(Builder.getOrCreateVPOperand(Cstep));
+    Descriptor.setStep(
+        Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, Step)));
 
     Descriptor.setInductionOp(nullptr);
-    assertIsSingleElementAlloca(CurValue.first);
+    assertIsSingleElementAlloca(V);
     // Initialize the AllocaInst of the descriptor with the induction start
     // value. Explicit inductions always have a valid memory allocation.
     Descriptor.setAllocaInst(Descriptor.getStart());

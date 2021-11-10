@@ -194,8 +194,13 @@ public:
   }
 
   // Add explicit linear.
-  void addLinear(RegDDRef *LinearVal, RegDDRef *Step) {
+  void addLinear(RegDDRef *LinearVal, Type * /* LinearTy */, RegDDRef *Step) {
     assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
+
+    // TODO: Type information is not used thus far but is here for consistency
+    // of the legality interface(vs LLVM IR path). LinearListCvt converter has
+    // problems and is disabled. Once enabled this likely has to be revisited
+    // too.
     LinearList.emplace_back(LinearVal, Step);
   }
 

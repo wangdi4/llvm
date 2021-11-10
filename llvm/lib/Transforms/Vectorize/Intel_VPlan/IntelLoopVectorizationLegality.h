@@ -68,8 +68,9 @@ public:
   using InductionList = MapVector<PHINode *, InductionDescriptor>;
 
   /// Linear list contains explicit linear specifications, mapping linear values
-  /// and their strides.
-  using LinearListTy = MapVector<Value *, int>;
+  /// to their strides and a type of the linear.
+  using LinearListTy =
+      MapVector<Value *, std::pair<Type * /*EltType*/, int /*Step*/>>;
 
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
@@ -253,22 +254,16 @@ public:
   bool isLoopPrivate(Value *Val) const;
 
   // Add linear value to Linears map
-  void addLinear(Value *LinearVal, Value *StepValue) {
-    assert(isa<ConstantInt>(StepValue) &&
-           "Non constant LINEAR step is not yet supported");
+  void addLinear(Value *LinearVal, Type *EltTy, Value *StepValue) {
     ConstantInt *CI = cast<ConstantInt>(StepValue);
     int Step = *((CI->getValue()).getRawData());
-    Linears[LinearVal] = Step;
+    Linears[LinearVal] = std::make_pair(EltTy, Step);
   }
 
   // Add unit step linear value to UnitStepLinears map
   void addUnitStepLinear(Value *LinearVal, Value *NewVal, int Step) {
     UnitStepLinears[LinearVal] = std::make_pair(NewVal, Step);
   }
-
-  // Return true if \p Val is a linear and return linear step in \p Step if
-  // non-null
-  bool isLinear(Value *Val, int *Step = nullptr);
 
   // Return pointer to Linears map
   LinearListTy *getLinears() {
