@@ -2951,17 +2951,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       }
     }
 
-#if INTEL_CUSTOMIZATION
-    if (A->getOption().matches(options::OPT_O_Group))
-      if (A->getOption().matches(options::OPT_O0)) {
-        DenormalFPMath = llvm::DenormalMode::getIEEE();
-        DenormalFP32Math = llvm::DenormalMode::getIEEE();
-      } else {
-        DenormalFPMath = llvm::DenormalMode::getPreserveSign();
-        DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
-      }
-#endif // INTEL_CUSTOMIZATION
-
     switch (optID) {
     // If this isn't an FP option skip the claim below
     default: continue;
@@ -3153,17 +3142,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
       FPContract = "";
       break;
-
-#if INTEL_CUSTOMIZATION
-    case options::OPT_ftz:
-      DenormalFPMath = llvm::DenormalMode::getPreserveSign();
-      DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
-      break;
-    case options::OPT_no_ftz:
-      DenormalFPMath = llvm::DenormalMode::getIEEE();
-      DenormalFP32Math = llvm::DenormalMode::getIEEE();
-      break;
-#endif // INTEL_CUSTOMIZATION
     }
     if (StrictFPModel) {
       // If -ffp-model=strict has been specified on command line but

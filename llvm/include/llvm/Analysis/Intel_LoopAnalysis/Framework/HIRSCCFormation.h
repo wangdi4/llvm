@@ -100,6 +100,10 @@ private:
   /// NodeStack - Running stack of nodes visited during a call to findSCC().
   SmallVector<NodeTy *, 32> NodeStack;
 
+  /// SCC nodes that were invalidated due to legality/profitability. They are
+  /// tracked as they may be reconsidered for an inner loop.
+  SmallVector<NodeTy *, 32> InvalidatedSCCNodes;
+
   /// CurRegIt - Points to the region being processed.
   HIRRegionIdentification::const_iterator CurRegIt;
 

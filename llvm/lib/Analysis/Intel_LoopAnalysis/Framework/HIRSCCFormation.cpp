@@ -980,6 +980,8 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
              RI.isHeaderPhi(cast<PHINode>(NewSCC.getRoot())) &&
              "No phi found in SCC!");
 
+      SCCNodesTy CurSCCNodes(NewSCC.begin(), NewSCC.end());
+
       removeIntermediateNodes(NewSCC);
 
       if (isValidSCC(NewSCC) && isProfitableSCC(NewSCC)) {
@@ -988,6 +990,10 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
 
         // Set pointer to first SCC of region, if applicable.
         setRegionSCCBegin();
+      } else if (!CurLoop->isInnermost()) {
+        // Track invalidated nodes so they can be reconsidered for an inner
+        // loopnest.
+        InvalidatedSCCNodes.append(CurSCCNodes);
       }
     }
   }
@@ -1009,6 +1015,7 @@ void HIRSCCFormation::runImpl() {
     ScopedSE.setScope(RegIt->getOutermostLoops());
 
     VisitedNodes.clear();
+    InvalidatedSCCNodes.clear();
 
     auto Root = DT.getNode(RegIt->getEntryBBlock());
 
@@ -1029,6 +1036,14 @@ void HIRSCCFormation::runImpl() {
       }
 
       CurLoop = LI.getLoopFor(BB);
+
+      // Remove invalidated nodes from visited set so they can be reconsidered
+      // for the inner loopnest.
+      for (auto *Node : InvalidatedSCCNodes) {
+        VisitedNodes.erase(Node);
+      }
+
+      InvalidatedSCCNodes.clear();
 
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {
@@ -1057,9 +1072,11 @@ HIRSCCFormation::HIRSCCFormation(HIRSCCFormation &&SCCF)
       RegionSCCs(std::move(SCCF.RegionSCCs)),
       RegionSCCBegin(std::move(SCCF.RegionSCCBegin)),
       VisitedNodes(std::move(SCCF.VisitedNodes)),
-      NodeStack(std::move(SCCF.NodeStack)), CurRegIt(SCCF.CurRegIt),
-      LastSCCRegIt(SCCF.LastSCCRegIt), CurLoop(SCCF.CurLoop),
-      GlobalNodeIndex(SCCF.GlobalNodeIndex), IsNewRegion(SCCF.IsNewRegion) {}
+      NodeStack(std::move(SCCF.NodeStack)),
+      InvalidatedSCCNodes(std::move(SCCF.InvalidatedSCCNodes)),
+      CurRegIt(SCCF.CurRegIt), LastSCCRegIt(SCCF.LastSCCRegIt),
+      CurLoop(SCCF.CurLoop), GlobalNodeIndex(SCCF.GlobalNodeIndex),
+      IsNewRegion(SCCF.IsNewRegion) {}
 
 HIRSCCFormation::const_iterator
 HIRSCCFormation::begin(HIRRegionIdentification::const_iterator RegIt) const {

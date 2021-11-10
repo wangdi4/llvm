@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -mattr=+sse4.2 -enable-intel-advanced-opts -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
@@ -55,3 +57,4 @@ for.body:                                         ; preds = %for.body, %for.body
 for.exit:                                 ; preds = %for.body
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

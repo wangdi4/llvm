@@ -1,9 +1,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
-; Check parsing output for the loop verifying that we do not construct SCC (%mul26.lcssa.lcssa99 -> %inc -> %mul26.lcssa.lcssa98 -> %mul26.lcssa95 -> %mul2692 -> %mul26 -> %mul26.lcssa -> %mul26.lcssa.lcssa) containing multiple liveout values.
-
-; NOTE: We can still construct inner loopnest SCC (%mul26.lcssa -> %mul26 -> %mul2692 -> %mul26.lcssa95).
-; TODO: Add logic in SCCFormation to construct SCC for an inner loopnest.
+; Check parsing output for the loop verifying that we do not construct SCC
+; (%mul26.lcssa.lcssa99 -> %inc -> %mul26.lcssa.lcssa98 -> %mul26.lcssa95 ->
+; %mul2692 -> %mul26 -> %mul26.lcssa -> %mul26.lcssa.lcssa) containing multiple
+; liveout values but we do construct inner loopnest SCC (%mul26.lcssa -> %mul26
+; -> %mul2692 -> %mul26.lcssa95).
 
 ; CHECK: LiveOuts
 ; CHECK-DAG: mul26.lcssa.lcssa98
@@ -15,19 +16,16 @@
 ; CHECK: |
 ; CHECK: |      %mul26.lcssa95 = %mul26.lcssa.lcssa99 + 1;
 ; CHECK: |   + DO i2 = 0, i1 + -49, 1   <DO_LOOP>
-; CHECK: |   |   %mul2692 = %mul26.lcssa95;
 ; CHECK: |   |
 ; CHECK: |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   |   |   %mul2692.out = %mul2692;
 ; CHECK: |   |   |   %0 = (%g)[0][i3 + 1];
-; CHECK: |   |   |   %mul26 = %mul2692.out  *  %0;
-; CHECK: |   |   |   %mul2692 = (%0 * %mul2692.out);
+; CHECK: |   |   |   %mul26.lcssa95 = %mul26.lcssa95  *  %0;
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   |
-; CHECK: |   |   %mul26.lcssa95 = %mul26;
+; CHECK: |   |   %mul26.lcssa95.out = %mul26.lcssa95;
 ; CHECK: |   + END LOOP
 ; CHECK: |      (%j0)[0] = 11;
-; CHECK: |      %mul26.lcssa.lcssa98 = %mul26;
+; CHECK: |      %mul26.lcssa.lcssa98 = %mul26.lcssa95.out;
 ; CHECK: |
 ; CHECK: |   %mul26.lcssa.lcssa99 = %mul26.lcssa.lcssa98;
 ; CHECK: + END LOOP
