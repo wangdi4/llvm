@@ -549,9 +549,12 @@ public:
   std::pair<SCEV::NoWrapFlags, bool /*Deduced*/>
   getStrengthenedNoWrapFlagsFromBinOp(const OverflowingBinaryOperator *OBO);
 
+<<<<<<< HEAD
   /// Notify this ScalarEvolution that \p User directly uses SCEVs in \p Ops.
   void registerUser(const SCEV *User, ArrayRef<const SCEV *> Ops);
 
+=======
+>>>>>>> a53a965c7bb8813d1fa3b8255f3a631bb0d30333
   /// Return true if the SCEV expression contains an undef value.
   bool containsUndefs(const SCEV *S) const;
 
