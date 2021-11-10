@@ -136,12 +136,8 @@
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
-<<<<<<< HEAD
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running pass: SROA on foo
-=======
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
->>>>>>> 1d8750c3dad432bf01f708eb2e67a6e18757c379
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo

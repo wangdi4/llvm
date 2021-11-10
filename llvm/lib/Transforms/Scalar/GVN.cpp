@@ -1213,7 +1213,6 @@ void GVNPass::AnalyzeLoadAvailability(LoadInst *Load, LoadDepVect &Deps,
          "post condition violation");
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We don't call into LTO here because ScalarOpt must build as a standalone
 // library with -slibs.
@@ -1367,10 +1366,7 @@ static bool isLoadPREProfitable(LoadInst *Load, DominatorTree *DT,
 
 #endif // INTEL_CUSTOMIZATION
 
-void GVN::eliminatePartiallyRedundantLoad(
-=======
 void GVNPass::eliminatePartiallyRedundantLoad(
->>>>>>> 1d8750c3dad432bf01f708eb2e67a6e18757c379
     LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
     MapVector<BasicBlock *, Value *> &AvailableLoads) {
   for (const auto &AvailableLoad : AvailableLoads) {
@@ -1444,18 +1440,13 @@ void GVNPass::eliminatePartiallyRedundantLoad(
   });
 }
 
-<<<<<<< HEAD
-bool GVN::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
-                         UnavailBlkVect &UnavailableBlocks) {
+bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
+                             UnavailBlkVect &UnavailableBlocks) {
 #if INTEL_CUSTOMIZATION
   if (!isLoadPREProfitable(Load, DT, this->LI)) {
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
-                             UnavailBlkVect &UnavailableBlocks) {
->>>>>>> 1d8750c3dad432bf01f708eb2e67a6e18757c379
   // Okay, we have *some* definitions of the value.  This means that the value
   // is available in some of our (transitive) predecessors.  Lets think about
   // doing PRE of this load.  This will involve inserting a new load into the
@@ -1738,9 +1729,9 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   return true;
 }
 
-<<<<<<< HEAD
-bool GVN::performLoopLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
-                             UnavailBlkVect &UnavailableBlocks) {
+bool GVNPass::performLoopLoadPRE(LoadInst *Load,
+                                 AvailValInBlkVect &ValuesPerBlock,
+                                 UnavailBlkVect &UnavailableBlocks) {
 #if INTEL_CUSTOMIZATION
   // This transformation adds a conditional loop carried dependency
   // for the load. It's bad for vectorization.
@@ -1751,11 +1742,6 @@ bool GVN::performLoopLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
     return false;
 #endif // INTEL_CUSTOMIZATION
 
-=======
-bool GVNPass::performLoopLoadPRE(LoadInst *Load,
-                                 AvailValInBlkVect &ValuesPerBlock,
-                                 UnavailBlkVect &UnavailableBlocks) {
->>>>>>> 1d8750c3dad432bf01f708eb2e67a6e18757c379
   if (!LI)
     return false;
 

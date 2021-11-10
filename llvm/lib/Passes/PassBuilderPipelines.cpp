@@ -1645,7 +1645,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
 
   if (Simplify) {
     // Optimize unnesessary alloca, loads and stores to simplify IR.
-    FPM.addPass(SROA());
+    FPM.addPass(SROAPass());
 
     // Inlining may introduce BasicBlocks without predecessors into an OpenMP
     // region. This breaks CodeExtractor when outlining the region because it
@@ -1993,14 +1993,14 @@ void PassBuilder::addLoopOptCleanupPasses(FunctionPassManager &FPM,
 
   FPM.addPass(SimplifyCFGPass());
   FPM.addPass(LowerSubscriptIntrinsicPass());
-  FPM.addPass(SROA());
+  FPM.addPass(SROAPass());
 
   if (Level.getSpeedupLevel() > 2)
     FPM.addPass(NaryReassociatePass());
 
-  FPM.addPass(GVN());
+  FPM.addPass(GVNPass());
 
-  FPM.addPass(SROA());
+  FPM.addPass(SROAPass());
 
   addInstCombinePass(FPM, !DTransEnabled);
 

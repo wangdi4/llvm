@@ -138,14 +138,10 @@
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-EP-CGSCC-LATE-NEXT: Running pass: NoOpCGSCCPass
-<<<<<<< HEAD
 ; CHECK-O-NEXT: Running pass: TbaaMDPropagationPass ;INTEL
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptReportOptionsAnalysis ;INTEL
 ; CHECK-O-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
-; CHECK-O-NEXT: Running pass: SROA
-=======
 ; CHECK-O-NEXT: Running pass: SROAPass
->>>>>>> 1d8750c3dad432bf01f708eb2e67a6e18757c379
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass

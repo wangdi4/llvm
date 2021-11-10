@@ -5037,7 +5037,7 @@ public:
         // has problems with scheduling DominatorTree analysis. An attempt to
         // get it from the legacy pass manager triggers llvm_unreachable().
         DominatorTree DT(*F);
-        auto PA = SROA().runImpl(
+        auto PA = SROAPass().runImpl(
             *F, DT,
             getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F));
         Changed |= !PA.areAllPreserved();
