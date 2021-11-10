@@ -50,16 +50,9 @@ include_directories(
 
 set(TARGET_EXTRA_SOURCE_FILES
   Resolver/AVX512Resolver.cpp
-  Utils/IRInjection.cpp
-  Utils/Namer.cpp
-  Utils/PrintfAdder.cpp
-  Renderscript/RenderscriptDriver.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES
   Resolver/AVX512Resolver.h
-  Utils/Namer.h
-  Utils/PrintfAdder.h
-  Renderscript/RenderscriptDriver.h
 )
 
 set(TARGET_INCLUDE_FILES

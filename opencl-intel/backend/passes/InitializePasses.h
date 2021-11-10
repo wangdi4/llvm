@@ -40,8 +40,6 @@ void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
 void initializeCLWGLoopBoundariesPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
 void initializeCleanupWrappedKernelsPass(llvm::PassRegistry&);
-void initializeIRInjectModulePass(llvm::PassRegistry&);
-void initializenameByInstTypePass(llvm::PassRegistry&);
 void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
 void initializeSinCosFoldPass(llvm::PassRegistry&);
 // SGEmulation passes
@@ -76,7 +74,6 @@ void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
 void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
-void initializeRenderscriptVectorizerPass(llvm::PassRegistry&);
 void initializeOCLAliasAnalysisPass(llvm::PassRegistry&);
 void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
