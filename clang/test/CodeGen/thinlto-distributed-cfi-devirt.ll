@@ -6,11 +6,12 @@
 
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 
-; INTEL_CUSTOMIZATION
-; This customization is for turning off the multiversioning
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 
-; RUN: llvm-lto2 run -thinlto-distributed-indexes -disable-thinlto-funcattrs=0 -wholeprogramdevirt-multiversion=false %t.o \
+; RUN: llvm-lto2 run -thinlto-distributed-indexes -disable-thinlto-funcattrs=0 %t.o \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -whole-program-visibility \
 ; RUN:   -verify-machineinstrs=0 \
 ; RUN:   -o %t2.index \
@@ -25,7 +26,6 @@
 ; RUN:   -r=%t.o,_ZN1C1fEi, \
 ; RUN:   -r=%t.o,_ZTV1B,px \
 ; RUN:   -r=%t.o,_ZTV1C,px
-; END INTEL_CUSTOMIZATION
 
 ; Ensure that typeids are in the index.
 ; RUN: llvm-bcanalyzer -dump %t.o.thinlto.bc | FileCheck %s
@@ -43,17 +43,18 @@
 ; CHECK-DIS: ^1 = gv: (guid: 8346051122425466633, summaries: (function: (module: ^0, flags: (linkage: external, visibility: default, notEligibleToImport: 0, live: 1, dsoLocal: 0, canAutoHide: 0), insts: 18, funcFlags: (readNone: 0, readOnly: 0, noRecurse: 0, returnDoesNotAlias: 0, noInline: 0, alwaysInline: 0, noUnwind: 0, mayThrow: 0, hasUnknownCall: 1), typeIdInfo: (typeTests: (^2), typeCheckedLoadVCalls: (vFuncId: (^2, offset: 8), vFuncId: (^2, offset: 0))))))
 ; CHECK-DIS: ^2 = typeid: (name: "_ZTS1A", summary: (typeTestRes: (kind: allOnes, sizeM1BitWidth: 7), wpdResolutions: ((offset: 0, wpdRes: (kind: branchFunnel)), (offset: 8, wpdRes: (kind: singleImpl, singleImplName: "_ZN1A1nEi"))))) ; guid = 7004155349499253778
 
-; INTEL_CUSTOMIZATION
-; These customizations are for turning off the multiversioning
-
 ; RUN: %clang_cc1 -triple x86_64-grtev4-linux-gnu \
 ; RUN:   -emit-obj -fthinlto-index=%t.o.thinlto.bc -O2 -Rpass=wholeprogramdevirt \
-; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -emit-llvm -o - -x ir %t.o 2>&1 | FileCheck %s --check-prefixes=CHECK-IR --check-prefixes=REMARKS
 
 ; Check that the devirtualization is suppressed via -wholeprogramdevirt-skip
 ; RUN: %clang_cc1 -triple x86_64-grtev4-linux-gnu -mllvm -wholeprogramdevirt-skip=_ZN1A1nEi \
-; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -emit-obj -fthinlto-index=%t.o.thinlto.bc -O2 -Rpass=wholeprogramdevirt \
 ; RUN:   -emit-llvm -o - -x ir %t.o 2>&1 | FileCheck %s --check-prefixes=SKIP-IR --check-prefixes=SKIP-REMARKS
 
@@ -62,11 +63,11 @@
 
 ; Check that backend does not fail generating native code.
 ; RUN: %clang_cc1 -triple x86_64-grtev4-linux-gnu \
-; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_mllvm %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -emit-obj -fthinlto-index=%t.o.thinlto.bc -O2 \
 ; RUN:   -o %t.native.o -x ir %t.o
-
-; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-grtev4-linux-gnu"

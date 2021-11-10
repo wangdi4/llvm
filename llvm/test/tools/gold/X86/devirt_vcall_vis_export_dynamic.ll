@@ -5,17 +5,14 @@
 
 ;; First check that we get devirtualization without any export dynamic options.
 
-;; INTEL_CUSTOMIZATION
-
-;; We need to turn off the multiversioning for devirtualization in the Intel
-;; customization.
-
 ;; Index based WPD
 ;; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt -thinlto-bc -o %t2.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t2.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -25,8 +22,10 @@
 ;; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -35,8 +34,10 @@
 ;; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t4.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
@@ -49,8 +50,10 @@
 
 ;; Index based WPD
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t2.o -o %t3 \
@@ -59,8 +62,10 @@
 
 ;; Hybrid WPD
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t.o -o %t3 \
@@ -69,15 +74,15 @@
 
 ;; Regular LTO WPD
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:   --plugin-opt=-wholeprogramdevirt-multiversion=false \
 ; RUN:   --plugin-opt=whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_plugin_devirt_options \
+; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t4.o -o %t3 \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
 ; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-
-; END INTEL_CUSTOMIZATION
 
 ;; Check that all WPD fails with when linking against a shared library containing
 ;; preemptible versions of the vtables. In this case the symbols in the object being

@@ -94,6 +94,22 @@ if ics_setopts:
     # Check if bfd is the default linker
     elif ics_setopts == 'ld=bfd':
         config.available_features.add('default_linker_bfd')
+
+intel_devirt_options = ''
+intel_mllvm = ''
+# INTEL_FEATURE_SW_DTRANS
+# Special options that we want to pass to the test cases for Intel only
+
+if config.include_intel_extra_opts:
+  # Turn off multiversioning for whole program devirtualization
+  intel_devirt_options = '-wholeprogramdevirt-multiversion=false'
+
+  # Substitution for -mllvm
+  intel_mllvm = '-mllvm'
+
+# end INTEL_FEATURE_SW_DTRANS
+config.substitutions.append(('%intel_devirt_options', intel_devirt_options))
+config.substitutions.append(('%intel_mllvm', intel_mllvm))
 # end INTEL_CUSTOMIZATION
 
 llvm_config.feature_config(

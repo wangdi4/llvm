@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test checks that devirtualization with multiversioning will be applied
 ; for target functions that contain exception handling.
 
@@ -76,3 +79,5 @@ declare void @llvm.assume(i1)
 
 attributes #0 = { "target-features"="+retpoline" }
 attributes #1 = { nounwind }
+
+; end INTEL_FEATURE_SW_DTRANS

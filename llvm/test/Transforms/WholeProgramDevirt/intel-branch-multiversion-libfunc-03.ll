@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test case checks that the indirect call is preserved after
 ; devirtualization when the caller is a LibFunc.
 
@@ -58,3 +61,5 @@ declare void @llvm.assume(i1)
 
 ; Check the merge
 ; CHECK: br label [[T4:%[^ ]*]]
+
+; end INTEL_FEATURE_SW_DTRANS
