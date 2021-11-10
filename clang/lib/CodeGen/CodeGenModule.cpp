@@ -19,16 +19,10 @@
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
-<<<<<<< HEAD
-#include "CGOpenMPRuntimeAMDGCN.h"
-#include "CGOpenMPRuntimeNVPTX.h"
 #include "intel/CGSPIRMetadataAdder.h" // INTEL
 #include "CGRecordLayout.h" // INTEL
 #include "CGSYCLRuntime.h"
-=======
 #include "CGOpenMPRuntimeGPU.h"
-#include "CGSYCLRuntime.h" // INTEL
->>>>>>> 8ab6fd587578a9d73408e535a5e9c6800a7e401b
 #include "CodeGenFunction.h"
 #include "CodeGenPGO.h"
 #include "ConstantEmitter.h"
