@@ -1,15 +1,15 @@
 ; INTEL_CUSTOMIZATION
-; The customization is for turning off the multiversioning.
 
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s | FileCheck --check-prefixes=CHECK,RETP %s
-; RUN: sed -e 's,+retpoline,-retpoline,g' %s | opt -S -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false | FileCheck --check-prefixes=CHECK,NORETP %s
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options %s | FileCheck --check-prefixes=CHECK,RETP %s
+; RUN: sed -e 's,+retpoline,-retpoline,g' %s | opt -S -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options | FileCheck --check-prefixes=CHECK,NORETP %s
 
-; RUN: opt -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,RETP %s
+; RUN: opt -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,RETP %s
 
-; RUN: opt -passes='wholeprogramdevirt,default<O3>' -whole-program-visibility -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK %s
+; RUN: opt -passes='wholeprogramdevirt,default<O3>' -whole-program-visibility %intel_devirt_options -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK %s
 
 ; RUN: FileCheck --check-prefix=SUMMARY %s < %t
-; END INTEL_CUSTOMIZATION
+
+; end INTEL_CUSTOMIZATION
 
 ; SUMMARY:      TypeIdMap:       
 ; SUMMARY-NEXT:   typeid3:

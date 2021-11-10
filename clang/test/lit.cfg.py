@@ -55,6 +55,22 @@ llvm_config.with_system_environment(
 
 config.substitutions.append(('%PATH%', config.environment['PATH']))
 
+# INTEL_CUSTOMIZATION
+intel_devirt_options = ''
+intel_mllvm = ''
+# INTEL_FEATURE_SW_DTRANS
+# Special options that we want to pass to the test cases for Intel only
+if config.include_intel_extra_opts:
+  # Extra options for whole program devirtualization
+  intel_devirt_options = '-wholeprogramdevirt-multiversion=false'
+
+  # Substitution for -mllvm
+  intel_mllvm = '-mllvm'
+
+# end INTEL_FEATURE_SW_DTRANS
+config.substitutions.append(('%intel_devirt_options', intel_devirt_options))
+config.substitutions.append(('%intel_mllvm', intel_mllvm))
+# end INTEL_CUSTOMIZATION
 
 # For each occurrence of a clang tool name, replace it with the full path to
 # the build directory holding that tool.  We explicitly specify the directories

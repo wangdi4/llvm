@@ -415,6 +415,25 @@ if config.have_opt_viewer_modules:
 # INTEL_CUSTOMIZATION
 if config.llvm_use_sanitizer:
     config.available_features.add('intel_use_sanitizers')
+
+intel_devirt_options = ''
+intel_mllvm = ''
+intel_plugin_devirt_options = ''
+# INTEL_FEATURE_SW_DTRANS
+# Special options that we want to pass to the test cases for Intel only
+if config.include_intel_extra_opts:
+    # Turn off multiversioning for whole program devirtualization
+    intel_devirt_options = '-wholeprogramdevirt-multiversion=false'
+
+    # Substitution for -mllvm
+    intel_mllvm = '-mllvm'
+
+    # plugin options for devirt
+    intel_plugin_devirt_options = '--plugin-opt=-wholeprogramdevirt-multiversion=false'
+# end INTEL_FEATURE_SW_DTRANS
+config.substitutions.append(('%intel_devirt_options', intel_devirt_options))
+config.substitutions.append(('%intel_mllvm', intel_mllvm))
+config.substitutions.append(('%intel_plugin_devirt_options', intel_plugin_devirt_options))
 # end INTEL_CUSTOMIZATION
 
 if config.expensive_checks:

@@ -39,6 +39,9 @@ config.llvm_external_lit = path(r"@LLVM_EXTERNAL_LIT@")
 
 # INTEL_CUSTOMIZATION
 config.intel_llvm_has_libompdevice = @INTEL_LLVM_HAS_LIBOMPDEVICE@
+# INTEL_FEATURE_SW_DTRANS
+config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
+# end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
 
 # Support substitution of the tools and libs dirs with user parameters. This is

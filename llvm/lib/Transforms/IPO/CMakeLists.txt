@@ -1,3 +1,48 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+# Add custom Intel files below.  Files listed here will be included in
+# the INTEL_CUSTOMIZATION build.
+  Intel_AdvancedFastCall.cpp
+  Intel_AggInliner.cpp
+  Intel_ArgNoAliasProp.cpp
+  Intel_ArgumentAlignment.cpp
+  Intel_CallTreeCloning.cpp
+  Intel_DopeVectorConstProp.cpp
+  Intel_FoldWPIntrinsic.cpp
+  Intel_InlineLists.cpp
+  Intel_IPArrayTranspose.cpp
+  Intel_IPODeadArgElimination.cpp
+  Intel_MathLibrariesDeclaration.cpp
+  Intel_OptimizeDynamicCasts.cpp
+  Intel_TileMVInlMarker.cpp
+  Intel_VTableFixup.cpp
+  Utils/Intel_IPOUtils.cpp
+  )
+
+# INTEL_FEATURE_SW_ADVANCED
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_SW_ADVANCED
+  Intel_DeadArrayOpsElimination.cpp
+  Intel_QsortRecognizer.cpp
+  Intel_IPCloning.cpp
+  Intel_IPOPrefetch.cpp
+  Intel_IPPredOpt.cpp
+  Intel_PartialInline.cpp
+  )
+# end INTEL_FEATURE_SW_ADVANCED
+
+# INTEL_FEATURE_SW_DTRANS
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS
+  Intel_DevirtMultiversioning.cpp
+  )
+# end INTEL_FEATURE_SW_DTRANS
+# end INTEL_CUSTOMIZATION
+
 add_llvm_component_library(LLVMipo
   AlwaysInliner.cpp
   Annotation2Metadata.cpp
@@ -23,42 +68,11 @@ add_llvm_component_library(LLVMipo
   IPO.cpp
   IROutliner.cpp
   InferFunctionAttrs.cpp
-  Intel_AdvancedFastCall.cpp   # INTEL
-  Intel_AggInliner.cpp # INTEL
-  Intel_ArgNoAliasProp.cpp # INTEL
 # INTEL_CUSTOMIZATION
-# INTEL_FEATURE_SW_ADVANCED
-  Intel_DeadArrayOpsElimination.cpp
-#end INTEL_FEATURE_SW_ADVANCED
-  Intel_DevirtMultiversioning.cpp
-  Intel_DopeVectorConstProp.cpp
-#if INTEL_FEATURE_SW_ADVANCED
-  Intel_QsortRecognizer.cpp
-#endif // INTEL_FEATURE_SW_ADVANCED
+  ${INTEL_SOURCE_FILES_TO_BUILD}
 #endif // INTEL_CUSTOMIZATION
   InlineSimple.cpp
   Inliner.cpp
-  Intel_ArgumentAlignment.cpp      # INTEL
-  Intel_CallTreeCloning.cpp # INTEL
-  Intel_IPODeadArgElimination.cpp #INTEL
-  Intel_FoldWPIntrinsic.cpp         # INTEL
-  Intel_IPArrayTranspose.cpp     # INTEL
-# INTEL_CUSTOMIZATION
-# INTEL_FEATURE_SW_ADVANCED
-  Intel_IPCloning.cpp
-  Intel_IPOPrefetch.cpp
-  Intel_IPPredOpt.cpp
-#end INTEL_FEATURE_SW_ADVANCED
-#end INTEL_CUSTOMIZATION
-  Utils/Intel_IPOUtils.cpp # INTEL
-  Intel_InlineLists.cpp   # INTEL
-  Intel_MathLibrariesDeclaration.cpp #INTEL
-  Intel_OptimizeDynamicCasts.cpp    # INTEL
-# INTEL_FEATURE_SW_ADVANCED
-  Intel_PartialInline.cpp           # INTEL
-# end INTEL_FEATURE_SW_ADVANCED
-  Intel_TileMVInlMarker.cpp         # INTEL
-  Intel_VTableFixup.cpp             # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp

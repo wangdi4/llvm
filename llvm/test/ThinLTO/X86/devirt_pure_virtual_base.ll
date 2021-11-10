@@ -3,10 +3,11 @@
 ;; Index based WPD
 ;; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt --thinlto-bc -o %t1a.o %s
-; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run %t1a.o -wholeprogramdevirt-multiversion=false -save-temps -pass-remarks=. \
-; END INTEL_CUSTOMIZATION
+; RUN: llvm-lto2 run %t1a.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t3a \
 ; RUN:   -r=%t1a.o,_start,plx \
 ; RUN:   -r=%t1a.o,_ZTV1A,p \
@@ -21,10 +22,11 @@
 ;; Hybrid WPD
 ;; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t1b.o %s
-; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run %t1b.o -wholeprogramdevirt-multiversion=false -save-temps -pass-remarks=. \
-; END INTEL_CUSTOMIZATION
+; RUN: llvm-lto2 run %t1b.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t3b \
 ; RUN:   -r=%t1b.o,_start,plx \
 ; RUN:   -r=%t1b.o,_ZTV1A, \
@@ -43,10 +45,11 @@
 
 ;; Regular LTO WPD
 ; RUN: opt -o %t1c.o %s
-; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run %t1c.o -wholeprogramdevirt-multiversion=false -save-temps -pass-remarks=. \
-; END INTEL_CUSTOMIZATION
+; RUN: llvm-lto2 run %t1c.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t3c \
 ; RUN:   -r=%t1c.o,_start,plx \
 ; RUN:   -r=%t1c.o,_ZTV1A,p \

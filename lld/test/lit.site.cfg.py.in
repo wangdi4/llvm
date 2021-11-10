@@ -20,6 +20,12 @@ config.have_libxml2 = @LLVM_ENABLE_LIBXML2@
 config.sizeof_void_p = @CMAKE_SIZEOF_VOID_P@
 config.ld_lld_default_mingw = @LLD_DEFAULT_LD_LLD_IS_MINGW@
 
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_SW_DTRANS
+config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
+# end INTEL_FEATURE_SW_DTRANS
+# end INTEL_CUSTOMIZATION
+
 # Support substitution of the tools and libs dirs with user parameters. This is
 # used when we can't determine the tool dir at configuration time.
 try:

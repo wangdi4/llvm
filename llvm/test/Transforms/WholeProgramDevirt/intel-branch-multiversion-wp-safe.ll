@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test checks that the multiversioning based on virtual function pointers
 ; was done correctly when whole program safe is achieved. The goal is to check
 ; that the virtual call is removed correctly since all targets were found.
@@ -218,3 +221,5 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; CHECK-NEXT:   %call1.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l(%"class.std::basic_ostream"* nonnull dereferenceable(272) %call.i, i8* nonnull getelementptr inbounds ([2 x i8], [2 x i8]* @.str, i64 0, i64 0), i64 1)
 ; CHECK-NEXT:   ret i32 0
 ; CHECK-NEXT: }
+
+; end INTEL_FEATURE_SW_DTRANS

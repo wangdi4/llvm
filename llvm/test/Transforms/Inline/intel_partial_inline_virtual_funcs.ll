@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test case checks that the partial inliner was executed for functions that are virtual
 ; function targets. The test cases translates into the following example:
 ;
@@ -615,5 +618,4 @@ attributes #12 = { builtin nounwind }
 ; CHECK-NEXT:    %i[[V4:[0-9]+]] = phi i1 [ %retval.0.i[[V3]], %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
 ; CHECK-NEXT:    br label %bb
 
-
-
+; end INTEL_FEATURE_SW_DTRANS

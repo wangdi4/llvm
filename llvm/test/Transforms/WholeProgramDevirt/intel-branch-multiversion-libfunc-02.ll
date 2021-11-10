@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test case checks that the indirect call is preserved and the PHI
 ; nodes are correct after devirtualization when the target is a LibFunc.
 
@@ -57,3 +60,5 @@ declare void @llvm.assume(i1)
 ; Check that the PHI node was generated correctly
 ; CHECK: [[T6:%[^ ]*]] = phi i32 [ [[T4]], %BBDevirt__ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl ], [ [[T5]], %DefaultBB ]
 ; CHECK: br label [[T7:%[^ ]*]]
+
+; end INTEL_FEATURE_SW_DTRANS

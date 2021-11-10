@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test check that the multiversioning based on virtual function pointers
 ; was done correctly using an InvokeInst. The test case is pretty simple,
 ; this is how it looks like in C++:
@@ -459,3 +462,5 @@ attributes #11 = { noreturn nounwind }
 ; Check that the metadata was added correctly
 ; CHECK: define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target
 ; CHECK: define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target
+
+; end INTEL_FEATURE_SW_DTRANS

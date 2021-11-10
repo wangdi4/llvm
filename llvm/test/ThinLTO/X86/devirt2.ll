@@ -36,15 +36,13 @@
 ; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "_ZTS1C", summary: ((offset: 16, [[C]])))
 ; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "_ZTS1D", summary: ((offset: 16, [[D]])))
 
-; INTEL_CUSTOMIZATION
-; These customizations are for turning off the multiversioning during
-; whole program devirtualization
-
 ; Legacy PM, Index based WPD
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -wholeprogramdevirt-print-index-based \
-; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t3.o,test,px \
 ; RUN:   -r=%t3.o,_ZTV1B, \
@@ -68,8 +66,10 @@
 ; New PM, Index based WPD
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -wholeprogramdevirt-print-index-based \
-; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t3.o,test,px \
 ; RUN:   -r=%t3.o,_ZTV1B, \
@@ -103,8 +103,10 @@
 ; Index based WPD, distributed backends
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -use-new-pm \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -thinlto-distributed-indexes -wholeprogramdevirt-print-index-based \
-; RUN:   -wholeprogramdevirt-multiversion=false \
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t3.o,test,px \
 ; RUN:   -r=%t3.o,_ZTV1B, \
@@ -128,7 +130,9 @@
 ; Legacy PM
 ; RUN: llvm-lto2 run %t1.o %t2.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
-; RUN:   -wholeprogramdevirt-multiversion=false \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t1.o,test,px \
 ; RUN:   -r=%t1.o,_ZTV1B, \
@@ -167,7 +171,9 @@
 ; New PM
 ; RUN: llvm-lto2 run %t1.o %t2.o -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
-; RUN:   -wholeprogramdevirt-multiversion=false \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t5 \
 ; RUN:   -r=%t1.o,test,px \
 ; RUN:   -r=%t1.o,_ZTV1B, \
@@ -202,8 +208,6 @@
 ; RUN: llvm-dis %t5.2.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR2
 ; RUN: llvm-nm %t5.1 | FileCheck %s --check-prefix=NM-HYBRID1
 ; RUN: llvm-nm %t5.2 | FileCheck %s --check-prefix=NM-HYBRID2
-
-; END INTEL_CUSTOMIZATION
 
 ; NM-HYBRID1-DAG: U _ZN1A1nEi.{{[0-9a-f]*}}
 ; NM-HYBRID1-DAG: U _ZN1E1mEi.{{[0-9a-f]*}}

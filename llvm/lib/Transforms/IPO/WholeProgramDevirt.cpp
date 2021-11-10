@@ -61,6 +61,10 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -94,7 +98,11 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
-#include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/IPO/Intel_DevirtMultiversioning.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Evaluator.h"
 #include <algorithm>
@@ -104,7 +112,11 @@
 #include <string>
 
 using namespace llvm;
-using namespace llvm::llvm_intel_wp_analysis;  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+using namespace llvm::llvm_intel_wp_analysis;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
@@ -536,6 +548,8 @@ struct DevirtModule {
   std::map<CallInst *, unsigned> NumUnsafeUsesForTypeTest;
   PatternList FunctionsToSkip;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   DevirtModule(Module &M, function_ref<AAResults &(Function &)> AARGetter,
                function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
                function_ref<DominatorTree &(Function &)> LookupDomTree,
@@ -555,6 +569,26 @@ struct DevirtModule {
     assert(!(ExportSummary && ImportSummary));
     FunctionsToSkip.init(SkipFunctionNames);
   }
+#else // INTEL_FEATURE_SW_DTRANS
+  DevirtModule(Module &M, function_ref<AAResults &(Function &)> AARGetter,
+               function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
+               function_ref<DominatorTree &(Function &)> LookupDomTree,
+               ModuleSummaryIndex *ExportSummary,
+               const ModuleSummaryIndex *ImportSummary)
+      : M(M), AARGetter(AARGetter), LookupDomTree(LookupDomTree),
+        ExportSummary(ExportSummary), ImportSummary(ImportSummary),
+        Int8Ty(Type::getInt8Ty(M.getContext())),
+        Int8PtrTy(Type::getInt8PtrTy(M.getContext())),
+        Int32Ty(Type::getInt32Ty(M.getContext())),
+        Int64Ty(Type::getInt64Ty(M.getContext())),
+        IntPtrTy(M.getDataLayout().getIntPtrType(M.getContext(), 0)),
+        Int8Arr0Ty(ArrayType::get(Type::getInt8Ty(M.getContext()), 0)),
+        RemarksEnabled(areRemarksEnabled()), OREGetter(OREGetter) {
+    assert(!(ExportSummary && ImportSummary));
+    FunctionsToSkip.init(SkipFunctionNames);
+  }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   bool areRemarksEnabled();
 
@@ -585,11 +619,13 @@ struct DevirtModule {
                             WholeProgramDevirtResolution *Res, VTableSlot Slot);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Generate a VirtualCallsDataForMV, which contains the basic information
   // needed by the multiversioning
   void translateDataForMultiVersion(
       MutableArrayRef<VirtualCallTarget> TargetsForSlot,
       VTableSlotInfo &SlotInfo);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
   bool tryEvaluateFunctionsWithArgs(
@@ -653,6 +689,7 @@ struct DevirtModule {
   bool run();
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Lower the module using the action and summary passed as command line
   // arguments. For testing purposes only.
   static bool
@@ -663,6 +700,15 @@ struct DevirtModule {
 
 private:
   IntelDevirtMultiversion &IntelDevirtMV;
+
+#else  // INTEL_FEATURE_SW_DTRANS
+  // Lower the module using the action and summary passed as command line
+  // arguments. For testing purposes only.
+  static bool
+  runForTesting(Module &M, function_ref<AAResults &(Function &)> AARGetter,
+                function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
+                function_ref<DominatorTree &(Function &)> LookupDomTree);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -741,6 +787,7 @@ struct WholeProgramDevirt : public ModulePass {
     };
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
@@ -757,6 +804,15 @@ struct WholeProgramDevirt : public ModulePass {
     return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
                         ExportSummary, ImportSummary, IntelDevirtMV)
         .run();
+#else  // INTEL_FEATURE_SW_DTRANS
+    if (UseCommandLine)
+      return DevirtModule::runForTesting(M, LegacyAARGetter(*this), OREGetter,
+                                         LookupDomTree);
+
+    return DevirtModule(M, LegacyAARGetter(*this), OREGetter, LookupDomTree,
+                        ExportSummary, ImportSummary)
+        .run();
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -764,9 +820,11 @@ struct WholeProgramDevirt : public ModulePass {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>(); // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-    AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
+#if INTEL_CUSTOMIZATION
+    AU.addRequired<WholeProgramWrapperPass>();
+    AU.addRequired<XmainOptLevelWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
   }
 };
 
@@ -777,7 +835,9 @@ INITIALIZE_PASS_BEGIN(WholeProgramDevirt, "wholeprogramdevirt",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)     // INTEL
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_END(WholeProgramDevirt, "wholeprogramdevirt",
                     "Whole program devirtualization", false, false)
 char WholeProgramDevirt::ID = 0;
@@ -802,6 +862,7 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
   };
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   auto WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
@@ -820,6 +881,18 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
                     ImportSummary, IntelDevirtMV)
            .run())
     return PreservedAnalyses::all();
+#else // INTEL_FEATURE_SW_DTRANS
+  if (UseCommandLine) {
+    if (DevirtModule::runForTesting(M, AARGetter, OREGetter, LookupDomTree))
+      return PreservedAnalyses::all();
+    return PreservedAnalyses::none();
+  }
+  if (!DevirtModule(M, AARGetter, OREGetter, LookupDomTree, ExportSummary,
+                    ImportSummary)
+           .run())
+    return PreservedAnalyses::all();
+#endif // INTEL_FEATURE_SW_DTRANS
+  // return PreservedAnalyses::none();
 
   auto PA = PreservedAnalyses();
   PA.preserve<WholeProgramAnalysis>();
@@ -832,10 +905,12 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 // internal option, and not force disabled.
 static bool hasWholeProgramVisibility(bool WholeProgramVisibilityEnabledInLTO) {
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // If the user specifies that we assume whole program then we need to turn
   // on the visibility
   if (AssumeWholeProgram && !DisableWholeProgramVisibility)
     return true;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   return (WholeProgramVisibilityEnabledInLTO || WholeProgramVisibility) &&
@@ -935,11 +1010,13 @@ static Error checkCombinedSummaryForTesting(ModuleSummaryIndex *Summary) {
   return ErrorSuccess();
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 bool DevirtModule::runForTesting(
     Module &M, function_ref<AAResults &(Function &)> AARGetter,
     function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
-    function_ref<DominatorTree &(Function &)> LookupDomTree,          // INTEL
-    IntelDevirtMultiversion &IntelDevirtMV) {   // INTEL
+    function_ref<DominatorTree &(Function &)> LookupDomTree,
+    IntelDevirtMultiversion &IntelDevirtMV) {
   std::unique_ptr<ModuleSummaryIndex> Summary =
       std::make_unique<ModuleSummaryIndex>(/*HaveGVs=*/false);
 
@@ -963,7 +1040,6 @@ bool DevirtModule::runForTesting(
     }
   }
 
-#if INTEL_CUSTOMIZATION
   bool Changed =
       DevirtModule(M, AARGetter, OREGetter, LookupDomTree,
                    ClSummaryAction == PassSummaryAction::Export ? Summary.get()
@@ -972,7 +1048,6 @@ bool DevirtModule::runForTesting(
                                                                 : nullptr,
                    IntelDevirtMV)
           .run();
-#endif // INTEL_CUSTOMIZATION
 
   if (!ClWriteSummary.empty()) {
     ExitOnError ExitOnErr(
@@ -992,6 +1067,62 @@ bool DevirtModule::runForTesting(
 
   return Changed;
 }
+#else // INTEL_FEATURE_SW_DTRANS
+bool DevirtModule::runForTesting(
+    Module &M, function_ref<AAResults &(Function &)> AARGetter,
+    function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
+    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+  std::unique_ptr<ModuleSummaryIndex> Summary =
+      std::make_unique<ModuleSummaryIndex>(/*HaveGVs=*/false);
+
+  // Handle the command-line summary arguments. This code is for testing
+  // purposes only, so we handle errors directly.
+  if (!ClReadSummary.empty()) {
+    ExitOnError ExitOnErr("-wholeprogramdevirt-read-summary: " + ClReadSummary +
+                          ": ");
+    auto ReadSummaryFile =
+        ExitOnErr(errorOrToExpected(MemoryBuffer::getFile(ClReadSummary)));
+    if (Expected<std::unique_ptr<ModuleSummaryIndex>> SummaryOrErr =
+            getModuleSummaryIndex(*ReadSummaryFile)) {
+      Summary = std::move(*SummaryOrErr);
+      ExitOnErr(checkCombinedSummaryForTesting(Summary.get()));
+    } else {
+      // Try YAML if we've failed with bitcode.
+      consumeError(SummaryOrErr.takeError());
+      yaml::Input In(ReadSummaryFile->getBuffer());
+      In >> *Summary;
+      ExitOnErr(errorCodeToError(In.error()));
+    }
+  }
+
+  bool Changed =
+      DevirtModule(M, AARGetter, OREGetter, LookupDomTree,
+                   ClSummaryAction == PassSummaryAction::Export ? Summary.get()
+                                                                : nullptr,
+                   ClSummaryAction == PassSummaryAction::Import ? Summary.get()
+                                                                : nullptr)
+          .run();
+
+  if (!ClWriteSummary.empty()) {
+    ExitOnError ExitOnErr(
+        "-wholeprogramdevirt-write-summary: " + ClWriteSummary + ": ");
+    std::error_code EC;
+    if (StringRef(ClWriteSummary).endswith(".bc")) {
+      raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_None);
+      ExitOnErr(errorCodeToError(EC));
+      WriteIndexToFile(*Summary, OS);
+    } else {
+      raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_TextWithCRLF);
+      ExitOnErr(errorCodeToError(EC));
+      yaml::Output Out(OS);
+      Out << *Summary;
+    }
+  }
+
+  return Changed;
+}
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 void DevirtModule::buildTypeIdentifierMap(
     std::vector<VTableBits> &Bits,
@@ -1058,10 +1189,12 @@ bool DevirtModule::tryFindVirtualCallTargets(
       continue;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     // Windows form of pure virtual
     // TODO: guard this check for Windows only
     if (Fn->getName() == "_purecall")
       continue;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
     TargetsForSlot.push_back({Fn, &TM});
@@ -1144,12 +1277,14 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
                              TheFn->stripPointerCasts()->getName(), OREGetter);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
       // CMPLRLLVM-23243: If the target or the caller functions are libfuncs
       // then we are going to multiversion the virtual call and will include
       // the default case.
       if(!IntelDevirtMV.tryAddingDefaultTargetIntoVCallSite(&VCallSite.CB,
           dyn_cast<Function>(TheFn), VCallSite.CB.getCaller())) {
-#endif // INTEL_CUSTOIMIZATION
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
       auto &CB = VCallSite.CB;
       assert(!CB.getCalledFunction() && "devirtualizing direct call?");
       IRBuilder<> Builder(&CB);
@@ -1183,8 +1318,8 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       if (TheFn->getType() != VCallSite.CB.getCalledOperand()->getType())
         (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call",
          IntelDevirtMV.getDevirtCallMDNode());
-#endif // INTEL_FEATURE_SW_DTRANS
       }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       // This use is no longer unsafe.
       if (VCallSite.NumUnsafeUses)
@@ -1473,6 +1608,7 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 // This function will collect the virtual call sites from SlotInfo and the
 // possible targets from TargetsForSlot and generate a new
 // VirtualCallsDataForMV (structure that holds the basic data needed for
@@ -1523,6 +1659,7 @@ void DevirtModule::translateDataForMultiVersion(
     IntelDevirtMV.PrintVTableInfoAndTargets();
   });
 }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 bool DevirtModule::tryEvaluateFunctionsWithArgs(
@@ -1882,6 +2019,7 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
        B.GV->getInitializer(),
        ConstantDataArray::get(M.getContext(), B.After.Bytes)});
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Changed under INTEL_CUSTOMIZATION to not create an unnamed global variable
   // because doing so prevents IR dumps created after this pass from being able
   // run with through opt using the -whole-program-assume flag, because
@@ -1890,6 +2028,11 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
   auto NewGV = new GlobalVariable(M, NewInit->getType(), B.GV->isConstant(),
                                   GlobalVariable::PrivateLinkage, NewInit,
                                   "__Devirt", B.GV);
+#else // INTEL_FEATURE_SW_DTRANS
+  auto NewGV =
+      new GlobalVariable(M, NewInit->getType(), B.GV->isConstant(),
+                         GlobalVariable::PrivateLinkage, NewInit, "", B.GV);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   NewGV->setSection(B.GV->getSection());
   NewGV->setComdat(B.GV->getComdat());
@@ -1957,7 +2100,11 @@ void DevirtModule::scanTypeTestUsers(
         CallSlots[{TypeId, Call.Offset}].addCallSite(Ptr, Call.CB, nullptr);
     }
 
-    IntelDevirtMV.deleteVTableCast(CI->getArgOperand(0));  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    IntelDevirtMV.deleteVTableCast(CI->getArgOperand(0));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     auto RemoveTypeTestAssumes = [&]() {
       // We no longer need the assumes or the type test.
@@ -2195,8 +2342,10 @@ bool DevirtModule::run() {
     return false;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // Find the possible places where a downcasting can occur
   IntelDevirtMV.filterDowncasting(AssumeFunc);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Rebuild type metadata into a map for easy lookup.
@@ -2303,8 +2452,10 @@ bool DevirtModule::run() {
       if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
         translateDataForMultiVersion(TargetsForSlot, S.second);
         if (!IntelDevirtMV.tryMultiVersionDevirt()) {
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
         DidVirtualConstProp |=
@@ -2313,7 +2464,9 @@ bool DevirtModule::run() {
         tryICallBranchFunnel(TargetsForSlot, S.second, Res, S.first);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
         }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       }
 
@@ -2365,8 +2518,11 @@ bool DevirtModule::run() {
   for (GlobalVariable &GV : M.globals())
     GV.eraseMetadata(LLVMContext::MD_vcall_visibility);
 
-  IntelDevirtMV.runDevirtVerifier(M);  // INTEL
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  IntelDevirtMV.runDevirtVerifier(M);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 
