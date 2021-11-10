@@ -1777,8 +1777,7 @@ static pi_result SetKernelParamsAndLaunch(
     case kernel_param_kind_t::kind_sampler: {
       sampler *SamplerPtr = (sampler *)Arg.MPtr;
       RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
-<<<<<<< HEAD
-                                  ->getOrCreateSampler(MQueue->get_context());
+                                  ->getOrCreateSampler(Queue->get_context());
 #if INTEL_CUSTOMIZATION
       if (Plugin.getBackend() == (backend::level_zero)) {
         // TODO: This is a workaround and should be reworked when
@@ -1788,9 +1787,6 @@ static pi_result SetKernelParamsAndLaunch(
         break;
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-                                  ->getOrCreateSampler(Queue->get_context());
->>>>>>> 535ad1efc865b8cd9790dac7e21febb2445ad8e3
       Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
                                                        &Sampler);
       break;
@@ -2164,101 +2160,10 @@ cl_int ExecCGCommand::enqueueImp() {
       return CL_SUCCESS;
     }
 
-<<<<<<< HEAD
-    const std::shared_ptr<detail::kernel_bundle_impl> &KernelBundleImplPtr =
-        ExecKernel->getKernelBundle();
-
-    // Run OpenCL kernel
-    auto ContextImpl = MQueue->getContextImplPtr();
-    auto DeviceImpl = MQueue->getDeviceImplPtr();
-    RT::PiKernel Kernel = nullptr;
-    std::mutex *KernelMutex = nullptr;
-    RT::PiProgram Program = nullptr;
-
-    std::shared_ptr<kernel_impl> SyclKernelImpl;
-    std::shared_ptr<device_image_impl> DeviceImageImpl;
-
-    // Use kernel_bundle is available
-    if (KernelBundleImplPtr) {
-
-      std::shared_ptr<kernel_id_impl> KernelIDImpl =
-          std::make_shared<kernel_id_impl>(ExecKernel->MKernelName);
-
-      kernel SyclKernel = KernelBundleImplPtr->get_kernel(
-          detail::createSyclObjFromImpl<kernel_id>(KernelIDImpl),
-          KernelBundleImplPtr);
-
-      SyclKernelImpl = detail::getSyclObjImpl(SyclKernel);
-
-      Kernel = SyclKernelImpl->getHandleRef();
-      DeviceImageImpl = SyclKernelImpl->getDeviceImage();
-
-      Program = DeviceImageImpl->get_program_ref();
-
-      std::tie(Kernel, KernelMutex) =
-          detail::ProgramManager::getInstance().getOrCreateKernel(
-              KernelBundleImplPtr->get_context(), ExecKernel->MKernelName,
-              /*PropList=*/{}, Program);
-    } else if (nullptr != ExecKernel->MSyclKernel) {
-      assert(ExecKernel->MSyclKernel->get_info<info::kernel::context>() ==
-             MQueue->get_context());
-      Kernel = ExecKernel->MSyclKernel->getHandleRef();
-
-      auto SyclProg = detail::getSyclObjImpl(
-          ExecKernel->MSyclKernel->get_info<info::kernel::program>());
-      Program = SyclProg->getHandleRef();
-      if (SyclProg->is_cacheable()) {
-        RT::PiKernel FoundKernel = nullptr;
-        std::tie(FoundKernel, KernelMutex, std::ignore) =
-            detail::ProgramManager::getInstance().getOrCreateKernel(
-                ExecKernel->MOSModuleHandle, ContextImpl, DeviceImpl,
-                ExecKernel->MKernelName, SyclProg.get());
-        assert(FoundKernel == Kernel);
-      }
-    } else {
-      // FIXME should validate if any use-case leads here as in such a case
-      // Kernel handle remains nullptr
-      std::tie(Kernel, KernelMutex, Program) =
-          detail::ProgramManager::getInstance().getOrCreateKernel(
-              ExecKernel->MOSModuleHandle, ContextImpl, DeviceImpl,
-              ExecKernel->MKernelName, nullptr);
-    }
-
-    pi_result Error = PI_SUCCESS;
-    ProgramManager::KernelArgMask EliminatedArgMask;
-    if (nullptr == ExecKernel->MSyclKernel ||
-        !ExecKernel->MSyclKernel->isCreatedFromSource()) {
-      EliminatedArgMask =
-          detail::ProgramManager::getInstance().getEliminatedKernelArgMask(
-              ExecKernel->MOSModuleHandle, Program, ExecKernel->MKernelName);
-    }
-    if (KernelMutex != nullptr) {
-      // For cacheable kernels, we use per-kernel mutex
-      std::lock_guard<std::mutex> Lock(*KernelMutex);
-      Error =
-          SetKernelParamsAndLaunch(ExecKernel, DeviceImageImpl, Kernel, NDRDesc,
-                                   RawEvents, Event, EliminatedArgMask);
-    } else {
-      auto ContextImpl = MQueue->getContextImplPtr();
-      Locked<RT::PiKernel> Lock = ContextImpl->getNonCachedKernelLock(Kernel);
-      Error =
-          SetKernelParamsAndLaunch(ExecKernel, DeviceImageImpl, Kernel, NDRDesc,
-                                   RawEvents, Event, EliminatedArgMask);
-    }
-
-    if (PI_SUCCESS != Error) {
-      // If we have got non-success error code, let's analyze it to emit nice
-      // exception explaining what was wrong
-      const device_impl &DeviceImpl = *(MQueue->getDeviceImplPtr());
-      return detail::enqueue_kernel_launch::handleError(Error, DeviceImpl,
-                                                        Kernel, NDRDesc);
-    }
-=======
     auto getMemAllocationFunc = [this](Requirement *Req) {
       AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
       return AllocaCmd->getMemAllocation();
     };
->>>>>>> 535ad1efc865b8cd9790dac7e21febb2445ad8e3
 
     return enqueueImpKernel(
         MQueue, NDRDesc, Args, ExecKernel->getKernelBundle(),
