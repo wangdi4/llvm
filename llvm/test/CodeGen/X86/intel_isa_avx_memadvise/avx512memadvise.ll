@@ -52,7 +52,7 @@ define void @test_x86_avx512_vmovadvisew_store_256(i8* %a0, <8 x i32> %a1) {
 define <16 x i32> @test_x86_avx512_vmovadvisew_load_512(i8* %a0) {
 ; CHECK-LABEL: test_x86_avx512_vmovadvisew_load_512:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovadvisew $16, (%rdi), %zmm0 # encoding: [0x62,0xf3,0x7e,0x48,0x10,0x07,0x10]
+; CHECK-NEXT:    {evex} vmovadvisew $16, (%rdi), %zmm0 # encoding: [0x62,0xf3,0x7e,0x48,0x10,0x07,0x10]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %res = call <16 x i32> @llvm.x86.avx512.vmovadvisew.load.512(i8* %a0, i8 16)
   ret <16 x i32> %res
@@ -61,7 +61,7 @@ define <16 x i32> @test_x86_avx512_vmovadvisew_load_512(i8* %a0) {
 define void @test_x86_avx512_vmovadvisew_store_512(i8* %a0, <16 x i32> %a1) {
 ; CHECK-LABEL: test_x86_avx512_vmovadvisew_store_512:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovadvisew $16, %zmm0, (%rdi) # encoding: [0x62,0xf3,0x7e,0x48,0x11,0x07,0x10]
+; CHECK-NEXT:    {evex} vmovadvisew $16, %zmm0, (%rdi) # encoding: [0x62,0xf3,0x7e,0x48,0x11,0x07,0x10]
 ; CHECK-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.avx512.vmovadvisew.store.512(i8* %a0, <16 x i32> %a1, i8 16)
@@ -89,7 +89,7 @@ define void @test_x86_avx512_vmemadvise_256(i8* %a0) {
 define void @test_x86_avx512_vmemadvise_512(i8* %a0) {
 ; CHECK-LABEL: test_x86_avx512_vmemadvise_512:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmemadvisez $12, (%rdi) # encoding: [0x62,0xf1,0x7f,0x48,0x71,0x07,0x0c]
+; CHECK-NEXT:    {evex} vmemadvisez $12, (%rdi) # encoding: [0x62,0xf1,0x7f,0x48,0x71,0x07,0x0c]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.avx512.vmemadvise.512(i8* %a0, i8 12)
   ret void

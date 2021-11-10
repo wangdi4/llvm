@@ -8256,13 +8256,13 @@ multiclass VMOVADVISEW_mr<string OpcodeStr, RegisterClass RC,
                     OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     [(set RC:$dst,
                      (IntrLoad addr:$src1, timm:$src2))]>,
-                    VEX, TAXS, Sched<[sched.RM]>;
+                    VEX, TAXS, Sched<[sched.RM]>, EmitVEXOrEVEXPrefix;
       def mri : Ii8<0x11, MRMDestMem, (outs),
                     (ins X86MemOp:$dst, RC:$src1, u8imm:$src2),
                     OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     [(IntrStore addr:$dst,
                      RC:$src1, timm:$src2)]>,
-                    VEX, TAXS, Sched<[sched.MR]>;
+                    VEX, TAXS, Sched<[sched.MR]>, EmitVEXOrEVEXPrefix;
   }
 }
 
@@ -8283,13 +8283,13 @@ multiclass VMEMADVISE_mi {
                     "vmemadvise{x}\t{$src, $dst|$dst, $src}",
                     [(int_x86_avx2_vmemadvise_128 addr:$dst, timm:$src)]>,
                     Sched<[SchedWriteFMoveLS.XMM.MR]>,
-                    NotMemoryFoldable, XD, VEX;
+                    NotMemoryFoldable, XD, VEX, EmitVEXOrEVEXPrefix;
       def Ymr : Ii8<0x71, MRMDestMemImm8, (outs),
                     (ins i256mem:$dst, u8imm:$src),
                     "vmemadvise{y}\t{$src, $dst|$dst, $src}",
                     [(int_x86_avx2_vmemadvise_256 addr:$dst, timm:$src)]>,
                     Sched<[SchedWriteFMoveLS.YMM.MR]>,
-                    NotMemoryFoldable, XD, VEX, VEX_L;
+                    NotMemoryFoldable, XD, VEX, VEX_L, EmitVEXOrEVEXPrefix;
   }
 }
 
