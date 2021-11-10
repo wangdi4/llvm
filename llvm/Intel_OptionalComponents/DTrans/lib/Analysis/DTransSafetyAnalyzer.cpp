@@ -38,9 +38,6 @@
 // structures.
 #define SAFETY_VALUES "dtrans-safetyanalyzer-values"
 
-// Debug type for verbose field single alloc function analysis output.
-#define SAFETY_FSAF "dtrans-safety-analyzer-fsaf"
-
 using namespace llvm;
 using namespace dtransOP;
 
@@ -487,14 +484,8 @@ public:
             updateFieldValueTracking(*StInfo, FI, I, ConstVal, &GV);
             CheckInitializerCompatibility(GV, FI.getDTransType(), ConstVal);
           }
-          if (!isa<ConstantPointerNull>(ConstVal)) {
-            DEBUG_WITH_TYPE(SAFETY_FSAF, {
-              if (!FI.isBottomAllocFunction())
-                dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
-                       << I << "] <BOTTOM>\n";
-            });
-            FI.setBottomAllocFunction();
-          }
+          if (!isa<ConstantPointerNull>(ConstVal))
+            StInfo->updateSingleAllocFuncToBottom(I);
         }
       } else if (auto *DTransArTy = dyn_cast<DTransArrayType>(DTy)) {
         if (!isa<ConstantAggregateZero>(Init) && !isa<ConstantArray>(Init))
@@ -2039,16 +2030,9 @@ public:
     // Set FI to bottom alloc function if 'FI' is being assigned a constant
     // value other than nullptr.
     auto CheckWriteValue = [](Constant *ConstVal, dtrans::FieldInfo &FI,
-                              size_t FieldNum,
-                              dtrans::StructInfo *ParentStInfo) {
-      if (!isa<ConstantPointerNull>(ConstVal)) {
-        DEBUG_WITH_TYPE(SAFETY_FSAF, {
-          if (!FI.isBottomAllocFunction())
-            dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType()) << " ["
-                   << FieldNum << "] <BOTTOM>\n";
-        });
-        FI.setBottomAllocFunction();
-      }
+                              size_t FieldNum, dtrans::StructInfo *ParentStInfo) {
+      if (!isa<ConstantPointerNull>(ConstVal))
+        ParentStInfo->updateSingleAllocFuncToBottom(FieldNum);
     };
 
     if (IsWholeStructure) {
@@ -2090,32 +2074,12 @@ public:
     } else if (auto *Call = dyn_cast<CallBase>(WriteVal)) {
       if (PTA.getAllocationCallKind(Call) != dtrans::AK_NotAlloc) {
         Function *Callee = Call->getCalledFunction();
-        if (FI.processNewSingleAllocFunction(Callee)) {
-          DEBUG_WITH_TYPE(SAFETY_FSAF, {
-            dbgs() << "dtrans-fsaf: " << *(WrittenStInfo->getLLVMType())
-                   << " [" << FieldNum << "] ";
-            if (FI.isSingleAllocFunction())
-              Callee->printAsOperand(dbgs());
-            else
-              dbgs() << "<BOTTOM>";
-            dbgs() << "\n";
-          });
-        }
+        WrittenStInfo->updateNewSingleAllocFunc(FieldNum, *Callee);
       } else {
-        DEBUG_WITH_TYPE(SAFETY_FSAF, {
-          if (!FI.isBottomAllocFunction())
-            dbgs() << "dtrans-fsaf: " << *(WrittenStInfo->getLLVMType())
-                   << " [" << FieldNum << "] <BOTTOM>\n";
-        });
-        FI.setBottomAllocFunction();
+        WrittenStInfo->updateSingleAllocFuncToBottom(FieldNum);
       }
     } else {
-      DEBUG_WITH_TYPE(SAFETY_FSAF, {
-        if (!FI.isBottomAllocFunction())
-          dbgs() << "dtrans-fsaf: " << *(WrittenStInfo->getLLVMType())
-                 << " [" << FieldNum << "] <BOTTOM>\n";
-      });
-      FI.setBottomAllocFunction();
+      WrittenStInfo->updateSingleAllocFuncToBottom(FieldNum);
     }
   }
 
@@ -4805,12 +4769,8 @@ private:
         size_t Idx = Field.index();
         FI.setWritten(I);
         updateFieldFrequency(FI, I);
-        DEBUG_WITH_TYPE(SAFETY_FSAF, {
-          if (!FI.isBottomAllocFunction())
-            dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
-                   << Idx << "] <BOTTOM>\n";
-        });
-        FI.setBottomAllocFunction();
+        if (WriteType != FWT_ZeroValue)
+          StInfo->updateSingleAllocFuncToBottom(Idx);
         if (WriteType != FWT_ExistingValue) {
           Constant *C = (WriteType == FWT_ZeroValue)
                             ? Constant::getNullValue(FI.getLLVMType())
@@ -4864,6 +4824,8 @@ private:
     for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
       auto &FI = StInfo->getField(Idx);
       FI.setWritten(I);
+      if (WriteType != FWT_ZeroValue)
+        StInfo->updateSingleAllocFuncToBottom(Idx);
       updateFieldFrequency(FI, I);
       if (WriteType != FWT_ExistingValue) {
         Constant *C = (WriteType == FWT_ZeroValue)
@@ -5612,14 +5574,8 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
           StInfo->getField(I).getLLVMType()->isAggregateType())
         StInfo->getField(I).setMultipleValue();
       if (FSAF_Unsafe ||
-          (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken())) {
-        DEBUG_WITH_TYPE(SAFETY_FSAF, {
-          if (!StInfo->getField(I).isBottomAllocFunction())
-            dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
-                   << I << "] <BOTTOM>\n";
-        });
-        StInfo->getField(I).setBottomAllocFunction();
-      }
+          (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()))
+        StInfo->updateSingleAllocFuncToBottom(I);
     }
   }
 }

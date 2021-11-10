@@ -953,6 +953,13 @@ public:
   // Return true if the last field in the structure is used for padding.
   bool hasPaddedField();
 
+  // Update 'FieldNum' to indicate it has been assigned result of
+  // calling 'Callee'.
+  void updateNewSingleAllocFunc(unsigned FieldNum, Function &Callee);
+
+  // Indicate 'FieldNum' is BottomAllocFunc
+  void updateSingleAllocFuncToBottom(unsigned FieldNum);
+
 private:
   SmallVector<FieldInfo, 16> Fields;
   // Total Frequency of all fields in struct.
