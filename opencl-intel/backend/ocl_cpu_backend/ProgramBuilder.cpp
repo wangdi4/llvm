@@ -127,6 +127,14 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
     pK->SetRuntimeService(rs);
   }
 }
+
+/// Apply runtime config to kernels.
+void UpdateKernelsWithRuntimeConfig(const ICompilerConfig *Config,
+                                    KernelSet *Kernels) {
+  for (size_t I = 0, E = Kernels->GetCount(); I != E; ++I)
+    Kernels->GetKernel(I)->SetRuntimeConfig(Config);
+}
+
 } //namespace Utils
 
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
@@ -466,10 +474,11 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   // avoid grabbing all of available threads by work-groups of autorun kernels
   //
   // Work-groups are serialized in the following cases:
-  //   1. CL_CONFIG_CPU_TBB_NUM_WORKERS is 1
+  //   1. CL_CONFIG_CPU_TBB_NUM_WORKERS is 1. This is implemented in
+  //      UpdateKernelsWithRuntimeConfig.
   //   2. Kernel has FPGA pipe/channel
   //   3. Kernel is FPGA autorun.
-  bool needSerializeWGs = m_config->GetSerializeWorkGroups() ||
+  bool needSerializeWGs =
       (skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get()) || isAutorun;
 
   // Need to check if NoBarrierPath Value exists, it is not guaranteed that
@@ -572,6 +581,13 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetVerctorizeOnDimention(skimd.VectorizationDimension.get());
 
   return pProps;
+}
+
+cl_dev_err_code ProgramBuilder::FinalizeProgram(Program *Prog) {
+  // Apply runtime config.
+  Utils::UpdateKernelsWithRuntimeConfig(m_config.get(), Prog->GetKernelSet());
+
+  return Prog->Finalize();
 }
 
 cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,

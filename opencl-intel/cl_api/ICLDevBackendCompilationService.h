@@ -81,6 +81,10 @@ public:
         const ICLDevBackendOptions* pOptions,
         const char* pBuildOpts) = 0;
 
+    /// Finalize program, e.g. apply runtime config, run global ctor, load
+    /// program dll for windows, etc.
+    virtual cl_dev_err_code FinalizeProgram(ICLDevBackendProgram_ *Prog) = 0;
+
     /**
      * Creates program from backend library kernels.
      *

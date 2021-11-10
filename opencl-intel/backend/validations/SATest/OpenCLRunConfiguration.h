@@ -58,6 +58,7 @@ namespace Validation
         RC_BR_DUMP_IR_BEFORE,
         RC_BR_DUMP_IR_DIR,
         RC_BR_DUMP_JIT,
+        RC_BR_DUMP_KERNEL_PROPERTY,
         RC_BR_TIME_PASSES,
         RC_BR_DEBUG_PASS_MANAGER,
         RC_BR_DUMP_HEURISTIC_IR,
@@ -65,6 +66,7 @@ namespace Validation
         RC_BR_OBJECT_FILE,
         RC_BR_EXPENSIVE_MEM_OPT,
         RC_BR_PASS_MANAGER_TYPE,
+        RC_BR_SERIALIZE_WORK_GROUPS,
         // Reference runner specific options
         RC_REF_USE_NEAT,
         RC_REF_USE_FMA_NEAT,
@@ -114,6 +116,7 @@ namespace Validation
         std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> m_PrintIRBefore;
         std::string m_DumpIRDir;
         std::string m_DumpJIT;
+        bool m_dumpKernelProperty;
         std::string m_TimePasses;
         std::string m_DebugPassManager;
         std::string m_InjectedObject;
@@ -122,6 +125,7 @@ namespace Validation
         bool m_nativeSubgroups;
         bool m_enableSubgroupEmulation;
         PassManagerType m_passManagerType;
+        bool m_serializeWorkGroups;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;

@@ -248,6 +248,10 @@ DumpJIT("dump-JIT",
                           "The <filename> could be an absolute path or relative to the base directory."),
            llvm::cl::value_desc("filename"));
 
+llvm::cl::opt<bool> DumpKernelProperty("dump-kernel-property",
+                                       llvm::cl::desc("Dump kernel properties"),
+                                       llvm::cl::init(false));
+
 // Enable -time-passes in Volcano
 llvm::cl::opt<std::string>
 TimePasses("dump-time-passes",
@@ -285,6 +289,12 @@ llvm::cl::opt<PassManagerType> OptPassManagerType(
         clEnumValN(PM_LTO_LEGACY, "lto-legacy", "llvm legacy pass pipeline"),
         clEnumValN(PM_LTO_NEW, "lto-new", "llvm new pass pipeline")),
     llvm::cl::init(PM_NONE));
+
+llvm::cl::opt<bool> SerializeWorkGroups(
+    "serialize-work-groups",
+    llvm::cl::desc("Serialize workgroups, i.e. they are executed sequentially "
+                   "by a single thread"),
+    llvm::cl::init(false));
 
 // Command line example:
 // SATest.exe -config=test.cfg

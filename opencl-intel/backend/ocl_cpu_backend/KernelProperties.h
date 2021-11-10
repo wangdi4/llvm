@@ -278,6 +278,8 @@ public:
     virtual void Deserialize(IInputStream& ist, SerializationStatus* stats,
                              size_t maxPrivateMemSize = 0);
 
+    /// Print all properties to llvm::outs().
+    void Print() const override;
 
 protected:
     bool m_hasBarrier;

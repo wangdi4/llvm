@@ -145,6 +145,7 @@ protected:
       bool NeedSerializeWGs() const override { return false; }
       const char *GetKernelAttributes() const override { return attributes; }
       size_t GetRequiredSubGroupSize() const override { return 0; }
+      void Print() const override {}
 
     protected:
         static const char* attributes;

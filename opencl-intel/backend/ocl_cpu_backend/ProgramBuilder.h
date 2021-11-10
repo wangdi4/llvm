@@ -38,6 +38,10 @@ class ObjectCodeCache;
 namespace Utils {
 /// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
 void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelSet * pKernels);
+
+/// Apply runtime configurations to kernels.
+void UpdateKernelsWithRuntimeConfig(const ICompilerConfig *Config,
+                                    KernelSet *Kernels);
 }
 
 //*****************************************************************************************
@@ -56,6 +60,9 @@ public:
      * Build the given program using the supplied build options
      */
     cl_dev_err_code BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions, const char* pBuildOpts);
+
+    /// Finalize program, so that it is ready to create kernel from it.
+    cl_dev_err_code FinalizeProgram(Program *Prog);
 
     /**
      * Parses the given program

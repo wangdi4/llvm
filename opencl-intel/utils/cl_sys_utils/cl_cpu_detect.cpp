@@ -69,6 +69,13 @@ cl_err_code Intel::OpenCL::Utils::IsCPUSupported() {
   return CL_ERR_CPU_NOT_SUPPORTED;
 }
 
+std::string CPUId::str() const {
+  return ("CPU: " + llvm::Twine((int)m_CPU) +
+          ", CPUFeatures: " + llvm::Twine(m_CPUFeatures) +
+          ", m_is64BitOS: " + llvm::Twine(m_is64BitOS))
+      .str();
+}
+
 TransposeSizeSupport
 CPUDetect::isTransposeSizeSupported(ETransposeSize transposeSize) const {
   switch (transposeSize) {

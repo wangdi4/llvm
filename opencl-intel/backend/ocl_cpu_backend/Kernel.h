@@ -36,6 +36,7 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
+class ICompilerConfig;
 class KernelProperties;
 class KernelJITProperties;
 
@@ -315,6 +316,9 @@ public:
     assert(rs.get() && "RuntimeService is non-initialized");
     m_RuntimeService = rs;
   }
+
+  /// Set runtime configurations.
+  void SetRuntimeConfig(const ICompilerConfig *Config);
 
   /**
    * Serialization methods for the class (used by the serialization service)

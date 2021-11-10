@@ -63,6 +63,10 @@ namespace Validation
         /// @param [IN] config Configuration of the test run
         virtual void StoreOutput(const IRunResult* pRunResult, const IProgramConfiguration* pConfig) const {}
     private:
+        /// Dump properties of kernel from OpenCLKernelConfiguration.
+        void DumpKernelProperties(ICLDevBackendProgram_ *program,
+                                  OpenCLKernelConfiguration *kernelConfig);
+
         /// @brief Executes OpenCL test kernel (actually executes all the kernels in the given program)
         /// @param [IN] input  input buffers container
         /// @param [OUT] runResult This method updates runResult execution time.
