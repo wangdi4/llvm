@@ -50,6 +50,21 @@ DEVICE_EXTERN_C void __devicelib_assert_read(void *_Dst) {
 }
 #endif // !INTEL_COLLAB || !OMP_LIBDEVICE
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+// SYCL commit 24eb1ab1a004fca02e01f0f27eaa0a8f321ee17a changed following
+// function from a compiler built-in to a regular function declaration in
+// header file sycl/include/CL/__spirv/spirv_ops.hpp. Including said header
+// in this file leads to compilation errors due to an assertion failure. The
+// only way around is to re-declare it here right before invoking it.
+#ifndef SYCL_EXTERNAL
+#define SYCL_EXTERNAL
+#endif
+extern SYCL_EXTERNAL int
+__spirv_ocl_printf(const __attribute__((opencl_constant)) char *Format, ...);
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
+
 DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
                                              int32_t line, const char *func,
                                              uint64_t gid0, uint64_t gid1,
@@ -65,17 +80,6 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
   // is defined in terms of *device* types (OpenCL types): %d matches a 32 bit
   // integer, %lu matches a 64 bit unsigned integer. Host `int' and
   // `long' types may be different, so we cannot use them.
-
-  // SYCL commit 24eb1ab1a004fca02e01f0f27eaa0a8f321ee17a changed following
-  // function from a compiler built-in to a regular function declaration in
-  // header file sycl/include/CL/__spirv/spirv_ops.hpp. Including said header
-  // in this file leads to compilation errors due to an assertion failure. The
-  // only way around is to re-declare it here right before invoking it.
-#ifndef SYCL_EXTERNAL
-#define SYCL_EXTERNAL
-#endif
-extern SYCL_EXTERNAL int
-__spirv_ocl_printf(const __attribute__((opencl_constant)) char *Format, ...);
 
   __spirv_ocl_printf(assert_fmt, file, (int32_t)line,
                      // WORKAROUND: IGC does not handle this well
