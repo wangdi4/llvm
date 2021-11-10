@@ -3851,8 +3851,11 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
                                             unsigned ScalarLaneID) {
   auto Dim0 = VPSubscript->dim(0);
   Type *DestTy = Dim0.DimElementType;
-  for (uint64_t Idx : Dim0.StructOffsets)
+  assert(DestTy && "Expected an actual destination type.");
+  for (uint64_t Idx : Dim0.StructOffsets) {
     DestTy = GetElementPtrInst::getTypeAtIndex(DestTy, Idx);
+    assert(DestTy && "Expected an actual destination type.");
+  }
   Type *ResultRefTy = DestTy;
   if (Widen) {
     // See documentation for
