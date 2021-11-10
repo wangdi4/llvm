@@ -3498,7 +3498,8 @@ CallInst *VPOParoptUtils::genKmpcMaskedOrEndMaskedCall(
                                        I32Ty, Tid, Align(4), "my.tid"));
 
   if (IsMaskedStart)
-    FnArgs.push_back(isa<WRNMaskedNode>(W) ? W->getFilter() : Zero);
+    FnArgs.push_back(isa<WRNMaskedNode>(W) && W->getFilter() ? W->getFilter()
+                                                             : Zero);
 
   CallInst *MaskedOrEndCall =
       VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);

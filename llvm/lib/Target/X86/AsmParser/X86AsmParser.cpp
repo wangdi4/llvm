@@ -4330,13 +4330,6 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
        ForcedVEXEncoding != VEXEncoding_VEX3))
     return Match_Unsupported;
 
-#if INTEL_CUSTOMIZATION
-  // These instructions are only available with {evex} prefix
-  if (MCID.TSFlags & X86II::ExplicitEVEXPrefix &&
-      ForcedVEXEncoding != VEXEncoding_EVEX)
-    return Match_Unsupported;
-#endif // INTEL_CUSTOMIZATION
-
   return Match_Success;
 }
 

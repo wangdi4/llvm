@@ -32,6 +32,9 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+// Debug type for verbose field single alloc function analysis output.
+#define SAFETY_FSAF "dtrans-safetyanalyzer-fsaf"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
                                                cl::ReallyHidden);
@@ -981,6 +984,30 @@ bool StructInfo::hasPaddedField() {
   dtrans::FieldInfo &Field = getField(LastField);
 
   return Field.isPaddedField();
+}
+
+void StructInfo::updateNewSingleAllocFunc(unsigned FieldNum,
+                                          Function &Callee) {
+  dtrans::FieldInfo &FI = getField(FieldNum);
+  if (!FI.processNewSingleAllocFunction(&Callee))
+    return;
+  DEBUG_WITH_TYPE(SAFETY_FSAF, {
+    dbgs() << "dtrans-fsaf: " << *(getLLVMType()) << " [" << FieldNum << "] ";
+    if (FI.isSingleAllocFunction())
+      Callee.printAsOperand(dbgs());
+    else
+      dbgs() << "<BOTTOM>";
+    dbgs() << "\n";
+  });
+}
+
+void StructInfo::updateSingleAllocFuncToBottom(unsigned FieldNum) {
+  dtrans::FieldInfo &FI = getField(FieldNum);
+  DEBUG_WITH_TYPE(SAFETY_FSAF, {
+    if (!FI.isBottomAllocFunction())
+      dbgs() << "dtrans-fsaf: " << *(getLLVMType()) << " [" << FieldNum << "] <BOTTOM>\n";
+  });
+  FI.setBottomAllocFunction();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

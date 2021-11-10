@@ -1068,9 +1068,9 @@ namespace X86II {
     ExplicitVEXPrefix = 1ULL << ExplicitVEXShift,
 #if INTEL_CUSTOMIZATION
 
-    // Force EVEX encoding
-    ExplicitEVEXShift = ExplicitVEXShift + 1,
-    ExplicitEVEXPrefix = 1ULL << ExplicitEVEXShift
+    // Force output with prefix
+    EmitVEXOrEVEXPrefixShift = ExplicitVEXShift + 1,
+    EmitVEXOrEVEXPrefix = 1ULL << EmitVEXOrEVEXPrefixShift,
 #endif // INTEL_CUSTOMIZATION
   };
 
