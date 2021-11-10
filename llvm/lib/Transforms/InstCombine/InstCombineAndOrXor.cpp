@@ -2251,14 +2251,12 @@ Value *InstCombinerImpl::getSelectCondition(Value *A, Value *B) {
     // element. That could allow poison in lanes where it was not present in the
     // original code.
     A = peekThroughBitcast(A);
-#if INTEL_CUSTOMIZATION
-    if (!A->getType()->isIntOrIntVectorTy())
-      return nullptr;
-#endif // INTEL_CUSTOMIZATION
-    unsigned NumSignBits = ComputeNumSignBits(A);
-    if (NumSignBits == A->getType()->getScalarSizeInBits() &&
-        NumSignBits <= Ty->getScalarSizeInBits())
-      return Builder.CreateTrunc(A, CmpInst::makeCmpResultType(A->getType()));
+    if (A->getType()->isIntOrIntVectorTy()) {
+      unsigned NumSignBits = ComputeNumSignBits(A);
+      if (NumSignBits == A->getType()->getScalarSizeInBits() &&
+          NumSignBits <= Ty->getScalarSizeInBits())
+        return Builder.CreateTrunc(A, CmpInst::makeCmpResultType(A->getType()));
+    }
     return nullptr;
   }
 
