@@ -2363,17 +2363,15 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           if (CannotRemove)
             break;
         }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-        if (isRedundantStacksaveStackrestore(cast<CallInst>(SS), &CI))
-          return eraseInstFromFunction(CI);
-#endif // INTEL_CUSTOMIZATION
-=======
 
         if (!CannotRemove)
           return eraseInstFromFunction(CI);
->>>>>>> f9059efa0d5434744b7b193545b70047ea2bbbe6
       }
+#if INTEL_CUSTOMIZATION
+      if (SS->getIntrinsicID() == Intrinsic::stacksave &&
+          isRedundantStacksaveStackrestore(cast<CallInst>(SS), &CI))
+        return eraseInstFromFunction(CI);
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Scan down this block to see if there is another stack restore in the
