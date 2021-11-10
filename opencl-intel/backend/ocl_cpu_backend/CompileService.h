@@ -74,6 +74,10 @@ public:
                                  const ICLDevBackendOptions *pOptions,
                                  const char *pBuildOpts) override;
 
+    /// Finalize program, e.g. apply runtime config, run global ctor, load
+    /// program dll for windows, etc.
+    cl_dev_err_code FinalizeProgram(ICLDevBackendProgram_ *Prog) override;
+
     /**
      * Create program from backend library kernel module and object files.
      *

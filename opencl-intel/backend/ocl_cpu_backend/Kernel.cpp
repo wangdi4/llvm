@@ -856,6 +856,11 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
   }
 }
 
+void Kernel::SetRuntimeConfig(const ICompilerConfig *Config) {
+  if (Config->GetSerializeWorkGroups())
+    m_pProps->SetNeedSerializeWGs(true);
+}
+
 void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t maxPrivateMemSize)
 {
   Serializer::DeserialString(m_name, ist);

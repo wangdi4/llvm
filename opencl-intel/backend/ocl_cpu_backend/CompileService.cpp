@@ -135,6 +135,19 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
     }
 }
 
+cl_dev_err_code CompileService::FinalizeProgram(ICLDevBackendProgram_ *Prog) {
+  if (!Prog)
+    return CL_DEV_INVALID_VALUE;
+
+  try {
+    return GetProgramBuilder()->FinalizeProgram(static_cast<Program *>(Prog));
+  } catch (Exceptions::DeviceBackendExceptionBase &E) {
+    return E.GetErrorCode();
+  } catch (std::bad_alloc &) {
+    return CL_DEV_OUT_OF_MEMORY;
+  }
+}
+
 cl_dev_err_code
 CompileService::GetLibraryProgram(ICLDevBackendProgram_ **Prog,
                                   const char **KernelNames) {

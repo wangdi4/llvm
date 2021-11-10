@@ -113,6 +113,7 @@ public:
   }
   bool HasAVX1() const { return m_CPUFeatures & CFS_AVX10; }
   bool HasAVX2() const { return m_CPUFeatures & CFS_AVX20; }
+  std::string str() const;
 
 private:
   ECPU m_CPU;

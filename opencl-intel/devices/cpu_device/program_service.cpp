@@ -420,7 +420,7 @@ cl_dev_err_code ProgramService::FinalizeProgram(cl_dev_program IN prog) {
     return CL_DEV_INVALID_PROGRAM_EXECUTABLE;
   }
 
-  cl_dev_err_code err = pEntry->pProgram->Finalize();
+  cl_dev_err_code err = m_pBackendCompiler->FinalizeProgram(pEntry->pProgram);
 
   CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
   return err;

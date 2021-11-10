@@ -14,9 +14,12 @@
 
 #include "KernelProperties.h"
 #include "exceptions.h"
-#include <string.h>
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <iostream>
+#include <string.h>
+
+using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -417,4 +420,50 @@ bool KernelProperties::IsNonUniformWGSizeSupported() const
     return m_bIsNonUniformWGSizeSupported;
 }
 
+void KernelProperties::Print() const {
+  outs() << "[Kernel properties]\n";
+  unsigned NS = 4;
+  outs().indent(NS) << "hasBarrier: " << m_hasBarrier << "\n";
+  outs().indent(NS) << "hasGlobalSync: " << m_hasGlobalSync << "\n";
+  outs().indent(NS) << "useNativeSubgroups: " << m_useNativeSubgroups << "\n";
+  outs().indent(NS) << "DAZ: " << m_DAZ << "\n";
+  outs().indent(NS) << "CPUId: " << m_cpuId.str() << "\n";
+  outs().indent(NS) << "optWGSize: " << m_optWGSize << "\n";
+  outs().indent(NS) << "reqdWGSize: " << m_reqdWGSize[MAX_WORK_DIM] << "\n";
+  outs().indent(NS) << "hintWGSize: " << m_hintWGSize[MAX_WORK_DIM] << "\n";
+  outs().indent(NS) << "totalImplSize: " << m_totalImplSize << "\n";
+  outs().indent(NS) << "barrierBufferSize: " << m_barrierBufferSize << "\n";
+  outs().indent(NS) << "privateMemorySize: " << m_privateMemorySize << "\n";
+  outs().indent(NS) << "maxPrivateMemorySize: " << m_maxPrivateMemorySize
+                    << "\n";
+  outs().indent(NS) << "reqdNumSG: " << m_reqdNumSG << "\n";
+  outs().indent(NS) << "kernelExecutionLength: " << m_kernelExecutionLength
+                    << "\n";
+  outs().indent(NS) << "vectorizationWidth: " << m_vectorizationWidth << "\n";
+  outs().indent(NS) << "reqdSubGroupSize: " << m_reqdSubGroupSize << "\n";
+  outs().indent(NS) << "kernelAttributes: " << m_kernelAttributes << "\n";
+  outs().indent(NS) << "minGroupSizeFactorial: " << m_minGroupSizeFactorial
+                    << "\n";
+  outs().indent(NS) << "isVectorizedWithTail: " << m_isVectorizedWithTail
+                    << "\n";
+  outs().indent(NS) << "sizeT: " << m_uiSizeT << "\n";
+  outs().indent(NS) << "isBlock: " << m_bIsBlock << "\n";
+  outs().indent(NS) << "isAutorun: " << m_bIsAutorun << "\n";
+  outs().indent(NS) << "needSerializeWGs: " << m_bNeedSerializeWGs << "\n";
+  outs().indent(NS) << "isTask: " << m_bIsTask << "\n";
+  outs().indent(NS) << "canUseGlobalWorkOffset: " << m_bCanUseGlobalWorkOffset
+                    << "\n";
+  outs().indent(NS) << "isNonUniformWGSizeSupported: "
+                    << m_bIsNonUniformWGSizeSupported << "\n";
+  outs().indent(NS) << "canUniteWG: " << m_canUniteWG << "\n";
+  outs().indent(NS) << "verctorizeOnDimention: " << m_verctorizeOnDimention
+                    << "\n";
+  outs().indent(NS) << "debugInfo: " << m_debugInfo << "\n";
+  outs().indent(NS) << "targetDevice: "
+                    << ((m_targetDevice == CPU_DEVICE)        ? "cpu"
+                        : (m_targetDevice == FPGA_EMU_DEVICE) ? "fpga-emu"
+                                                              : "eyeq-emu")
+                    << "\n";
+  outs().indent(NS) << "cpuMaxWGSize: " << m_cpuMaxWGSize << "\n";
+}
 }}}

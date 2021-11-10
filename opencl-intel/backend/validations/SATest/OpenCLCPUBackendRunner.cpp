@@ -463,10 +463,12 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         BuildProgram(programHolder.getProgram(), spCompileService.get(), runResult, pOCLRunConfig, pOCLProgramConfig);
     }
 
+    ICLDevBackendProgram_ *program = programHolder.getProgram();
     if (!pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_OPTIMIZED_LLVM_IR, "").empty() )
     {
         //currently dumping to the file is temporary unsupported
-        const ICLDevBackendCodeContainer* pCodeContainer = programHolder.getProgram()->GetProgramIRCodeContainer();
+        const ICLDevBackendCodeContainer *pCodeContainer =
+            program->GetProgramIRCodeContainer();
         ProgramDumpConfig dumpOptions(pOCLRunConfig);
         spCompileService->DumpCodeContainer( pCodeContainer, &dumpOptions);
     }
@@ -476,8 +478,14 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         std::string filename = Utils::GetDataFilePath( pOCLRunConfig->GetValue<std::string>(RC_BR_DUMP_JIT, ""),
                                                        pOCLProgramConfig->GetBaseDirectory());
         ProgramJitDumpConfig dumpOptions(filename);
-        spCompileService->DumpJITCodeContainer(programHolder.getProgram(),
-                                               &dumpOptions);
+        spCompileService->DumpJITCodeContainer(program, &dumpOptions);
+    }
+
+    if (pOCLRunConfig->GetValue<bool>(RC_BR_DUMP_KERNEL_PROPERTY, false)) {
+        for (auto it = pOCLProgramConfig->beginKernels(),
+                  e = pOCLProgramConfig->endKernels();
+             it != e; ++it)
+          DumpKernelProperties(program, *it);
     }
 
     if (pOCLRunConfig->GetValue<bool>(RC_BR_BUILD_ONLY, false))
@@ -500,12 +508,28 @@ void OpenCLCPUBackendRunner::Run(IRunResult* runResult,
         PriorityBooster booster(!pOCLRunConfig->GetValue<bool>(RC_BR_MEASURE_PERFORMANCE, false));
         for( uint32_t i = 0; i < pOCLRunConfig->GetValue<uint32_t>(RC_BR_EXECUTE_ITERATIONS_COUNT, 1); ++i)
         {
-            ExecuteKernel(input, runResult, programHolder.getProgram(), spImageService.get(), *it, pOCLRunConfig);
+            ExecuteKernel(input, runResult, program, spImageService.get(), *it,
+                          pOCLRunConfig);
         }
     }
     }// ProgramHolder scope end
 }
 
+void OpenCLCPUBackendRunner::DumpKernelProperties(
+    ICLDevBackendProgram_ *program, OpenCLKernelConfiguration *kernelConfig) {
+  assert(program && kernelConfig && "invalid program or kernelConfig");
+  std::string kernelName = kernelConfig->GetKernelName();
+  const ICLDevBackendKernel_ *kernel = nullptr;
+  cl_dev_err_code err = program->GetKernelByName(kernelName.c_str(), &kernel);
+  if (err != CL_DEV_SUCCESS)
+    throw Exception::TestRunnerException("GetKernelByName " + kernelName +
+                                         " failed with error code " +
+                                         std::to_string(err));
+  assert(kernel && "invalid kernel");
+  auto *kernelProperties = kernel->GetKernelProporties();
+  assert(kernelProperties && "invalid kernel property");
+  kernelProperties->Print();
+}
 
 static void initWorkInfo(cl_work_description_type* workInfo, const OpenCLKernelConfiguration * pKernelConfig, const BERunOptions* pRunConfig){
 

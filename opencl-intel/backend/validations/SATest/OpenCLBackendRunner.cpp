@@ -76,7 +76,6 @@ ICLDevBackendProgram_* OpenCLBackendRunner::CreateProgram(const OpenCLProgram * 
     const char* pBinary = oclProgram->GetProgramContainer();
     size_t uiBinarySize = oclProgram->GetProgramContainerSize();
     assert( pBinary);
-
     ICLDevBackendProgram_* pProgram = NULL;
     cl_dev_err_code ret = pCompileService->CreateProgram(pBinary, uiBinarySize, &pProgram);
     if ( CL_DEV_FAILED(ret) )

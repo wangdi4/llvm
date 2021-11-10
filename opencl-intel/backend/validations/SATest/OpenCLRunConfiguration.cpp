@@ -101,6 +101,8 @@ DumpHeuristicIR;
 extern llvm::cl::opt<std::string>
 DumpJIT;
 
+extern llvm::cl::opt<bool> DumpKernelProperty;
+
 extern llvm::cl::opt<bool>
 Verbose;
 
@@ -120,6 +122,8 @@ ExpensiveMemOpts;
 
 extern llvm::cl::opt<PassManagerType>
 OptPassManagerType;
+
+extern llvm::cl::opt<bool> SerializeWorkGroups;
 
 namespace Validation
 {
@@ -146,10 +150,12 @@ namespace Validation
         m_TimePasses(::TimePasses),
         m_DebugPassManager(::DebugPassManager),
         m_dumpHeuristcIR(::DumpHeuristicIR),
+        m_dumpKernelProperty(::DumpKernelProperty),
         m_vectorizerType(::OptVectorizerType),
         m_nativeSubgroups(::NativeSubgroups),
         m_enableSubgroupEmulation(::EnableSubgroupEmulation),
-        m_passManagerType(::OptPassManagerType)
+        m_passManagerType(::OptPassManagerType),
+        m_serializeWorkGroups(::SerializeWorkGroups)
     {
     }
 
@@ -178,10 +184,14 @@ namespace Validation
             return m_stopBeforeJIT;
         case RC_BR_DUMP_HEURISTIC_IR :
             return m_dumpHeuristcIR;
+        case RC_BR_DUMP_KERNEL_PROPERTY:
+            return m_dumpKernelProperty;
         case RC_BR_NATIVE_SUBGROUPS :
             return m_nativeSubgroups;
         case RC_BR_ENABLE_SUBGROUP_EMULATION:
             return m_enableSubgroupEmulation;
+        case RC_BR_SERIALIZE_WORK_GROUPS:
+            return m_serializeWorkGroups;
         default:
             return defaultValue;
         }
@@ -353,6 +363,7 @@ namespace Validation
         m_DebugPassManager = ::DebugPassManager;
         m_InjectedObject = ::ObjectFile;
         m_dumpHeuristcIR = ::DumpHeuristicIR;
+        m_dumpKernelProperty = ::DumpKernelProperty;
         m_verbose = ::Verbose;
         m_vectorizerType = ::OptVectorizerType;
         m_nativeSubgroups = ::NativeSubgroups;

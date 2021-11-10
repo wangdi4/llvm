@@ -212,6 +212,9 @@ public:
      * qualifier then 0 is returned.
      */
     virtual size_t GetRequiredSubGroupSize() const = 0;
+
+    /// Print properties to dbgs().
+    virtual void Print() const = 0;
 };
 
 class ICLDevBackendKernel_;

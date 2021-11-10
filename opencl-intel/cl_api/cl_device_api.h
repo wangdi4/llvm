@@ -1412,6 +1412,8 @@ public:
                                            cl_build_status* OUT buildStatus
                                            ) = 0;
 
+    /// Finalize program, e.g. apply runtime config, run global ctor, load
+    /// program dll for windows, etc.
     virtual cl_dev_err_code clDevFinalizeProgram(cl_dev_program IN prog) = 0;
 
     //! Deletes previously created program object and releases all related resources.

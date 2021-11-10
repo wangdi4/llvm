@@ -137,6 +137,8 @@ public:
             RC_BR_PASS_MANAGER_TYPE, PM_NONE);
         m_debugPassManager =
             runConfig.GetValue<std::string>(RC_BR_DEBUG_PASS_MANAGER, "");
+        m_serializeWorkGroups =
+            runConfig.GetValue<bool>(RC_BR_SERIALIZE_WORK_GROUPS, false);
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -153,6 +155,8 @@ public:
             return m_dumpHeuristcIR;
         case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS :
             return m_nativeSubgroups;
+        case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
+            return m_serializeWorkGroups;
         default:
             return defaultValue;
         }
@@ -229,6 +233,7 @@ protected:
     PassManagerType m_passManagerType;
     std::string m_debugPassManager;
     bool m_nativeSubgroups;
+    bool m_serializeWorkGroups;
 };
 
 
