@@ -56,6 +56,7 @@ set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} nvptx64-nvidia-cuda-n
 set (LIBOMPTARGET_SYSTEM_TARGETS "")
 set (LIBOMPTARGET_TESTED_PLUGINS "")
 
+<<<<<<< HEAD
 # Check OMPT support
 set(OMPT_DEFAULT_IN_LIBOMPTARGET FALSE)
 if(NOT INTEL_CUSTOMIZATION)
@@ -71,6 +72,8 @@ else()
   message(STATUS "OMPT disabled in libomptarget")
 endif()
 
+=======
+>>>>>>> 52da6f562e7d45f03ca4c5e291987f4ebdacccf1
 # Check whether using debug mode. In debug mode, allow dumping progress
 # messages at runtime by default. Otherwise, it can be enabled
 # independently using the LIBOMPTARGET_ENABLE_DEBUG option.
