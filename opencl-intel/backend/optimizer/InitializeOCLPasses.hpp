@@ -31,8 +31,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
     intel::initializeCleanupWrappedKernelsPass(Registry);
-    intel::initializeIRInjectModulePass(Registry);
-    intel::initializenameByInstTypePass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
 
     // SGEmulation
@@ -60,7 +58,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
     intel::initializeDeduceMaxWGDimPass(Registry);
-    intel::initializeRenderscriptVectorizerPass(Registry);
     intel::initializeSinCosFoldPass(Registry);
     intel::initializeOCLAliasAnalysisPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
