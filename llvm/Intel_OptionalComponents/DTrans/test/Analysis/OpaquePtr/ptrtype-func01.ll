@@ -35,6 +35,11 @@ define internal void @test03(i32 %in1, double %in2) {
 ; CHECK: Added alias [USE]: @test03 -- void (i32, double)*
 
 
+declare void @llvm.directive.region.exit(token)
+; CHECK: Added alias [DECL]: @llvm.directive.region.exit -- void (token)*
+; CHECK: Added alias [USE]: @llvm.directive.region.exit -- void (token)*
+
+
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 !1 = !{i64 0, i32 0}  ; i64

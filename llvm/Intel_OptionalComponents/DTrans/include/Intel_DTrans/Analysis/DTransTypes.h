@@ -201,11 +201,14 @@ private:
   friend class DTransTypeManager;
   explicit DTransAtomicType(llvm::Type *Ty)
       : DTransType(DTransAtomicTypeID, Ty->getContext()), LLVMType(Ty) {
-    // Integer type encapsulates integers, floating point and void type.
-    // Ensure this class is not used to represent a complex type (pointer,
-    // structure, array, function, etc)
+    // This type encapsulates the single value types (integer types, floating
+    // point types, etc) with the exception of pointer types. It is also used
+    // for specialized types that do not represent aggregate types (void type,
+    // metadata type and token type). Assert to ensure that this class does not
+    // get used to represent a complex type (pointer, structure, array,
+    // function, etc) that requires special handling by DTrans.
     assert((Ty->isIntegerTy() || Ty->isFloatingPointTy() || Ty->isVoidTy() ||
-            Ty->isMetadataTy()) &&
+            Ty->isMetadataTy() || Ty->isTokenTy()) &&
            "Atomic type must be first class type");
   }
 

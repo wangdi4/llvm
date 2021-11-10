@@ -3029,8 +3029,11 @@ RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
   RegDDRef *MemRef = getOrCreateScalarRef(LoadStore->getPointerOperand(), 0);
   if (MemRef->isAddressOf())
     MemRef->setAddressOf(false);
-  else
-    MemRef = createMemrefFromBlob(MemRef, LoadStore->getValueType(), 0, 1);
+  else {
+    auto *VecTy = cast<VectorType>(LoadStore->getValueType());
+    unsigned NumElems = VecTy->getNumElements();
+    MemRef = createMemrefFromBlob(MemRef, VecTy->getElementType(), 0, NumElems);
+  }
   MemRef->setBitCastDestVecOrElemType(LoadStore->getValueType());
   MemRef->setAlignment(LoadStore->getAlignment().value());
   MemRef->setSymbase(LoadStore->HIR().getSymbase());

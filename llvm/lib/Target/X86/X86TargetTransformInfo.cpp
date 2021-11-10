@@ -5511,6 +5511,11 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
     return false;
   };
 
+#if INTEL_CUSTOMIZATION
+  if (CI->getMetadata("hetero.arch.opt.disable.gather"))
+    return true;
+#endif //INTEL_CUSTOMIZATION
+
   if (ST->hasAVX512() || isAVX2GatherProfitable()) {
     if (auto *DataVTy = dyn_cast<FixedVectorType>(DataTy)) {
       unsigned NumElts = DataVTy->getNumElements();

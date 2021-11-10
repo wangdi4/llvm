@@ -517,12 +517,6 @@ public:
 
     // Get the type for all the Function definitions.
     for (auto &F : M) {
-      // TODO: Currently, we do not have information about declarations that are
-      // outside the module in the metadata. The metadata descriptions may be
-      // extended in the future to handle these.
-      if (F.isDeclaration())
-        continue;
-
       DTransType *DType = MDReader.getDTransTypeFromMD(&F);
       if (DType) {
         PTA.setDeclaredType(&F, TM.getOrCreatePointerType(DType));
