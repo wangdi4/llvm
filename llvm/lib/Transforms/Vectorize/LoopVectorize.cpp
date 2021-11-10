@@ -1778,7 +1778,6 @@ private:
   DenseMap<ElementCount, ScalarCostsTy> InstsToScalarize;
 
   /// Holds the instructions known to be uniform after vectorization.
-  /// Entries in Uniforms may demand either the first or last lane.
   /// The data is collected per VF.
   DenseMap<ElementCount, SmallPtrSet<Instruction *, 4>> Uniforms;
 
@@ -5440,8 +5439,9 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
     assert(WideningDecision != CM_Unknown &&
            "Widening decision should be ready at this moment");
 
-    // A uniform memory op is itself uniform.
-    if (Legal->isUniformMemOp(*I)) {
+    // A uniform memory op is itself uniform.  We exclude uniform stores
+    // here as they demand the last lane, not the first one.
+    if (isa<LoadInst>(I) && Legal->isUniformMemOp(*I)) {
       assert(WideningDecision == CM_Scalarize);
       return true;
     }
@@ -5466,8 +5466,7 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
   SetVector<Value *> HasUniformUse;
 
   // Scan the loop for instructions which are either a) known to have only
-  // lane 0 or the last lane demanded or b) are uses which demand only
-  // lane 0 of their operand.
+  // lane 0 demanded or b) are uses which demand only lane 0 of their operand.
   for (auto *BB : TheLoop->blocks())
     for (auto &I : *BB) {
       if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(&I)) {
@@ -5499,15 +5498,10 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
       if (!Ptr)
         continue;
 
-      // A uniform memory op is itself uniform. Load instructions are added
-      // to the worklist as they demand the first lane. Since store instructions
-      // demand the last lane, we instead add these to Uniforms only.
-      if (Legal->isUniformMemOp(I)) {
-        if (isa<LoadInst>(I))
-          addToWorklistIfAllowed(&I);
-        else if (!isOutOfScope(&I) && !isScalarWithPredication(&I))
-          Uniforms[VF].insert(&I);
-      }
+      // A uniform memory op is itself uniform.  We exclude uniform stores
+      // here as they demand the last lane, not the first one.
+      if (isa<LoadInst>(I) && Legal->isUniformMemOp(I))
+        addToWorklistIfAllowed(&I);
 
       if (isUniformDecision(&I, VF)) {
         assert(isVectorizedMemAccessUse(&I, Ptr) && "consistency check");
@@ -7526,8 +7520,17 @@ void LoopVectorizationCostModel::setCostBasedWideningDecision(ElementCount VF) {
         // relying on instcombine to remove them.
         // Load: Scalar load + broadcast
         // Store: Scalar store + isLoopInvariantStoreValue ? 0 : extract
-        InstructionCost Cost = getUniformMemOpCost(&I, VF);
-        setWideningDecision(&I, VF, CM_Scalarize, Cost);
+        InstructionCost Cost;
+        if (isa<StoreInst>(&I) && VF.isScalable() &&
+            isLegalGatherOrScatter(&I)) {
+          Cost = getGatherScatterCost(&I, VF);
+          setWideningDecision(&I, VF, CM_GatherScatter, Cost);
+        } else {
+          assert((isa<LoadInst>(&I) || !VF.isScalable()) &&
+                 "Cannot yet scalarize uniform stores");
+          Cost = getUniformMemOpCost(&I, VF);
+          setWideningDecision(&I, VF, CM_Scalarize, Cost);
+        }
         continue;
       }
 
@@ -9402,6 +9405,8 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
   DFS.perform(LI);
 
   VPBasicBlock *VPBB = nullptr;
+  VPBasicBlock *HeaderVPBB = nullptr;
+  SmallVector<VPWidenIntOrFpInductionRecipe *> InductionsToMove;
   for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO())) {
     // Relevant instructions from basic block BB will be grouped into VPRecipe
     // ingredients and fill a new VPBasicBlock.
@@ -9409,8 +9414,10 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     auto *FirstVPBBForBB = new VPBasicBlock(BB->getName());
     if (VPBB)
       VPBlockUtils::insertBlockAfter(FirstVPBBForBB, VPBB);
-    else
+    else {
       Plan->setEntry(FirstVPBBForBB);
+      HeaderVPBB = FirstVPBBForBB;
+    }
     VPBB = FirstVPBBForBB;
     Builder.setInsertPoint(VPBB);
 
@@ -9452,15 +9459,19 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
           Plan->addVPValue(UV, Def);
         }
 
+        if (isa<VPWidenIntOrFpInductionRecipe>(Recipe) &&
+            HeaderVPBB->getFirstNonPhi() != VPBB->end()) {
+          // Keep track of VPWidenIntOrFpInductionRecipes not in the phi section
+          // of the header block. That can happen for truncates of induction
+          // variables. Those recipes are moved to the phi section of the header
+          // block after applying SinkAfter, which relies on the original
+          // position of the trunc.
+          assert(isa<TruncInst>(Instr));
+          InductionsToMove.push_back(
+              cast<VPWidenIntOrFpInductionRecipe>(Recipe));
+        }
         RecipeBuilder.setRecipe(Instr, Recipe);
-        if (isa<VPWidenIntOrFpInductionRecipe>(Recipe)) {
-          // Make sure induction recipes are all kept in the header block.
-          // VPWidenIntOrFpInductionRecipe may be generated when reaching a
-          // Trunc of an induction Phi, where Trunc may not be in the header.
-          auto *Header = Plan->getEntry()->getEntryBasicBlock();
-          Header->insert(Recipe, Header->getFirstNonPhi());
-        } else
-          VPBB->appendRecipe(Recipe);
+        VPBB->appendRecipe(Recipe);
         continue;
       }
 
@@ -9548,6 +9559,11 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
         VPBB = SplitBlock;
     }
   }
+
+  // Now that sink-after is done, move induction recipes for optimized truncates
+  // to the phi section of the header block.
+  for (VPWidenIntOrFpInductionRecipe *Ind : InductionsToMove)
+    Ind->moveBefore(*HeaderVPBB, HeaderVPBB->getFirstNonPhi());
 
   // Adjust the recipes for any inloop reductions.
   adjustRecipesForReductions(VPBB, Plan, RecipeBuilder, Range.Start);
@@ -9928,16 +9944,6 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
     return;
   }
 
-  // If the instruction is a store to a uniform address, we only need to
-  // generate the last lane for the last UF part.
-  Instruction *I = getUnderlyingInstr();
-  if (State.VF.isVector() && IsUniform && isa<StoreInst>(I)) {
-    VPLane Lane = VPLane::getLastLaneForVF(State.VF);
-    State.ILV->scalarizeInstruction(
-        I, this, *this, VPIteration(State.UF - 1, Lane), IsPredicated, State);
-    return;
-  }
-
   // Generate scalar instances for all VF lanes of all UF parts, unless the
   // instruction is uniform inwhich case generate only the first lane for each
   // of the UF parts.
@@ -9946,8 +9952,9 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
          "Can't scalarize a scalable vector");
   for (unsigned Part = 0; Part < State.UF; ++Part)
     for (unsigned Lane = 0; Lane < EndLane; ++Lane)
-      State.ILV->scalarizeInstruction(I, this, *this, VPIteration(Part, Lane),
-                                      IsPredicated, State);
+      State.ILV->scalarizeInstruction(getUnderlyingInstr(), this, *this,
+                                      VPIteration(Part, Lane), IsPredicated,
+                                      State);
 }
 
 void VPBranchOnMaskRecipe::execute(VPTransformState &State) {
