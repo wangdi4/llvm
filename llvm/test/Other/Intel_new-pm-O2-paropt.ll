@@ -83,7 +83,7 @@
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis on [module]
-;CHECK-NEXT: Running pass: SROA on foo
+;CHECK-NEXT: Running pass: SROAPass on foo
 ;CHECK-NEXT: Running pass: SimplifyCFGPass on foo
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
