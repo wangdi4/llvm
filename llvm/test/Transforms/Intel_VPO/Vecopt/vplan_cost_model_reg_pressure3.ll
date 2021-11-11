@@ -78,11 +78,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 2376 for store i32 [[VP__BLEND_BB4]] i32* [[VP_SUBSCRIPT_11]]
 ; CHECK-NEXT:    Cost 4000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-<<<<<<< HEAD
-; CHECK-NEXT:    Cost 44000 for i1 [[VP17:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
-=======
-; CHECK-NEXT:    Cost 32000 for i1 [[VP17:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
->>>>>>> 6bb6733d7d956481cb70afc9e6b49ca4f1fe2dde
+; CHECK-NEXT:    Cost 44000 for i1 [[VP17:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB3]]: base cost: 50376
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5]]

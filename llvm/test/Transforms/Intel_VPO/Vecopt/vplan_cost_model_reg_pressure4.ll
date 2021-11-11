@@ -56,11 +56,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-<<<<<<< HEAD
-; VPLAN-CM-AVX2-NEXT:    Cost 16000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
-=======
-; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
->>>>>>> 6bb6733d7d956481cb70afc9e6b49ca4f1fe2dde
+; VPLAN-CM-AVX2-NEXT:    Cost 16000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 456876
 ; VPLAN-CM-AVX2-NEXT:  Block total cost includes GS Cost: 320000
