@@ -516,12 +516,12 @@ TEST(Assert, TestPositive) {
       return;
     }
 
-    if (Plt.get_backend() == sycl::backend::cuda) {
+    if (Plt.get_backend() == sycl::backend::ext_oneapi_cuda) {
       printf("Test is not supported on CUDA platform, skipping\n");
       return;
     }
 
-    if (Plt.get_backend() == sycl::backend::hip) {
+    if (Plt.get_backend() == sycl::backend::ext_oneapi_hip) {
       printf("Test is not supported on HIP platform, skipping\n");
       return;
     }
@@ -575,14 +575,11 @@ TEST(Assert, TestInteropKernelNegative) {
 
   const sycl::backend Backend = Plt.get_backend();
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::hip ||
-      Backend == sycl::backend::level_zero) {
+  if (Backend == sycl::backend::ext_oneapi_cuda ||
+      Backend == sycl::backend::ext_oneapi_hip ||
+      Backend == sycl::backend::ext_oneapi_level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-    /* end INTEL_CUSTOMIZATION */
     return;
   }
 
@@ -616,14 +613,11 @@ TEST(Assert, TestInteropKernelFromProgramNegative) {
 
   const sycl::backend Backend = Plt.get_backend();
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::hip ||
-      Backend == sycl::backend::level_zero) {
+  if (Backend == sycl::backend::ext_oneapi_cuda ||
+      Backend == sycl::backend::ext_oneapi_hip ||
+      Backend == sycl::backend::ext_oneapi_level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-  /* end INTEL_CUSTOMIZATION */
     return;
   }
 
@@ -659,14 +653,11 @@ TEST(Assert, TestKernelFromSourceNegative) {
 
   const sycl::backend Backend = Plt.get_backend();
 
-  /* INTEL_CUSTOMIZATION */
-  /* Cherry-pick 56c9ec4e introduces renaming of ROCM backed to HIP in the test
-   * without renaming it in headers. Revert this change after pulldown. */
-  if (Backend == sycl::backend::cuda || Backend == sycl::backend::hip ||
-      Backend == sycl::backend::level_zero) {
+  if (Backend == sycl::backend::ext_oneapi_cuda ||
+      Backend == sycl::backend::ext_oneapi_hip ||
+      Backend == sycl::backend::ext_oneapi_level_zero) {
     printf(
         "Test is not supported on CUDA, ROCm, Level Zero platforms, skipping\n");
-    /* end INTEL_CUSTOMIZATION */
     return;
   }
 
