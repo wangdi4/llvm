@@ -811,7 +811,7 @@ bool llvm::isOpenCLWriteChannelSrc(StringRef FnName, unsigned i) {
   return (isOpenCLWriteChannel(FnName) && i == 1);
 }
 
-Value* llvm::getOpenCLReadWriteChannelAlloc(const CallInst *Call) {
+AllocaInst* llvm::getOpenCLReadWriteChannelAlloc(const CallInst *Call) {
 
   AddrSpaceCastInst *Arg = dyn_cast<AddrSpaceCastInst>(Call->getArgOperand(1));
 
@@ -972,10 +972,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     // Check JR https://jira.devtools.intel.com/browse/CORC-4838
     assert(Call && "VPVALCG: OpenCL read/write channels not uplifted to be "
                    "call independent.");
-    Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
+    AllocaInst *Alloca = getOpenCLReadWriteChannelAlloc(Call);
     std::string VLStr = toString(APInt(32, VL), 10, false);
-    std::string TyStr =
-        typeToString(Alloca->getType()->getPointerElementType());
+    std::string TyStr = typeToString(Alloca->getAllocatedType());
     std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;
 
     if (isOpenCLReadChannel(FnName)) {
@@ -983,8 +982,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
       // pointer element type of the read destination pointer alloca. The
       // function call below traces back through bitcast instructions to
       // find the alloca.
-      VecRetTy =
-          FixedVectorType::get(Alloca->getType()->getPointerElementType(), VL);
+      VecRetTy = FixedVectorType::get(Alloca->getAllocatedType(), VL);
     }
     if (isOpenCLWriteChannel(FnName)) {
       VecRetTy = RetTy;

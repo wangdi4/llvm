@@ -562,7 +562,7 @@ bool isOpenCLReadChannelDest(StringRef FnName, unsigned Idx);
 bool isOpenCLWriteChannelSrc(StringRef FnName, unsigned Idx);
 
 /// \brief Returns the alloca associated with an OpenCL read/write channel call.
-Value* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
+AllocaInst* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
 
 /// \brief Returns a string representation of Type \p Ty.
 std::string typeToString(Type *Ty);

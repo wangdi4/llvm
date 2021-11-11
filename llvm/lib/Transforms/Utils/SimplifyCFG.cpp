@@ -3668,9 +3668,8 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
                                           Indices, "BBPtr");
 
   auto *VecPtrTy = cast<VectorType>(BBPtr->getType());
-  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
   ElementCount NumElts = VecPtrTy->getElementCount();
-  auto *Ty = PtrTy->getElementType();
+  auto *Ty = BBPtrBase->getResultElementType();
   auto *VecTy = VectorType::get(Ty, NumElts);
   auto *BBV = Builder.CreateMaskedGather(VecTy, BBPtr, Align(1), nullptr,
                                          nullptr, "BBV");
