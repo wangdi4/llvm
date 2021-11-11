@@ -213,6 +213,7 @@ static Value *convertGEPToSubscript(const DataLayout &DL,
 
   // Partial result
   Value *Res = GEP->getPointerOperand();
+  Type *ResPtrTy = GEP->getSourceElementType();
 
   for (gep_slice_iterator It = gep_slice_iterator::gep_slice_begin(GEP),
                           End = gep_slice_iterator::gep_slice_end(GEP),
@@ -250,10 +251,11 @@ static Value *convertGEPToSubscript(const DataLayout &DL,
 
       // Minor optimization: "gep base, 0" == base
       if (StructOffs.size() != 1 || !isa<ConstantInt>(StructOffs[0]) ||
-          !cast<ConstantInt>(StructOffs[0])->isZero())
-        Res = Builder.CreateInBoundsGEP(
-            Res->getType()->getScalarType()->getPointerElementType(), Res,
+          !cast<ConstantInt>(StructOffs[0])->isZero()) {
+        Res = Builder.CreateInBoundsGEP(ResPtrTy, Res,
             StructOffs);
+        ResPtrTy = GetElementPtrInst::getIndexedType(ResPtrTy, StructOffs);
+      }
       // Reset BaseIt after new GEP generated.
       BaseIt = It;
       ++BaseIt;
@@ -268,7 +270,7 @@ static Value *convertGEPToSubscript(const DataLayout &DL,
             Rank - 1, ConstantInt::get(PtrIntTy, 0),
             ConstantInt::get(PtrIntTy,
                              DL.getTypeStoreSize(TypeIt.getIndexedType())),
-            Res, Res->getType()->getScalarType()->getPointerElementType(),
+            Res, ResPtrTy,
             TypeIt.getOperand());
     }
   }
