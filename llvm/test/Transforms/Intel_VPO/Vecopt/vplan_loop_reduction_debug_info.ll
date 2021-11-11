@@ -27,7 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable mustprogress
 define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKPCFG-LABEL:  VPlan after importing plain CFG:
-; CHECKPCFG-NEXT:  VPlan IR for: _Z3foov:omp.inner.for.body
+; CHECKPCFG-NEXT:  VPlan IR for: _Z3foov:omp.inner.for.body.#{{[0-9]+}}
 ; CHECKPCFG-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECKPCFG-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECKPCFG-NEXT:      DbgLoc:
@@ -80,7 +80,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKPCFG-NEXT:  Id: 0     [[ADD1_LCSSA0:%.*]] = phi i32 [ [[ADD10:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], !dbg !124 i32 [[VP_ADD1]] -> i32 [[ADD10]]
 ;
 ; CHECKVPE-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECKVPE-NEXT:  VPlan IR for: _Z3foov:omp.inner.for.body
+; CHECKVPE-NEXT:  VPlan IR for: _Z3foov:omp.inner.for.body.#{{[0-9]+}}
 ; CHECKVPE-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECKVPE-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECKVPE-NEXT:      DbgLoc:
@@ -88,10 +88,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     i32* [[VP_S_RED:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; CHECKVPE-NEXT:      DbgLoc:
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i32 [[VP_S_RED_RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_RED_PROMOTED0:%.*]]
+; CHECKVPE-NEXT:     i32 [[VP_S_REDRED_INIT:%.*]] = reduction-init i32 0 i32 [[S_RED_PROMOTED0:%.*]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     store i32 [[VP_S_RED_RED_INIT]] i32* [[VP_S_RED]]
+; CHECKVPE-NEXT:     store i32 [[VP_S_REDRED_INIT]] i32* [[VP_S_RED]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -106,7 +106,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[VP_S_RED_RED_INIT]], [[BB1]] ],  [ i32 [[VP_ADD1:%.*]], [[BB2]] ]
+; CHECKVPE-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[VP_S_REDRED_INIT]], [[BB1]] ],  [ i32 [[VP_ADD1:%.*]], [[BB2]] ]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     call metadata i64 [[INDVARS_IV0:%.*]] metadata !107 metadata !DIExpression() void (metadata, metadata, metadata)* @llvm.dbg.value
@@ -139,10 +139,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE:         [[BB3]]: # preds: [[BB2]]
-; CHECKVPE-NEXT:     i32 [[VP_S_RED_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD1]]
+; CHECKVPE-NEXT:     i32 [[VP_S_REDRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD1]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     store i32 [[VP_S_RED_RED_FINAL]] i32* [[S_RED0:%.*]]
+; CHECKVPE-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0:%.*]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -154,10 +154,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     br <External Block>
 ; CHECKVPE-NEXT:      DbgLoc:
 ; CHECKVPE:       External Uses:
-; CHECKVPE-NEXT:  Id: 0     [[ADD1_LCSSA0:%.*]] = phi i32 [ [[ADD10:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], !dbg !124 i32 [[VP_S_RED_RED_FINAL]] -> i32 [[ADD10]]
+; CHECKVPE-NEXT:  Id: 0     [[ADD1_LCSSA0:%.*]] = phi i32 [ [[ADD10:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], !dbg !124 i32 [[VP_S_REDRED_FINAL]] -> i32 [[ADD10]]
 ;
 ; CHECKHIRPCFG-LABEL:  VPlan after importing plain CFG:
-; CHECKHIRPCFG-NEXT:  VPlan IR for: _Z3foov:HIR
+; CHECKHIRPCFG-NEXT:  VPlan IR for: _Z3foov:HIR.#{{[0-9]+}}
 ; CHECKHIRPCFG-NEXT:  External Defs Start:
 ; CHECKHIRPCFG-DAG:     [[VP0:%.*]] = {%2}
 ; CHECKHIRPCFG-DAG:     [[VP1:%.*]] = {@a}
@@ -200,7 +200,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i1 [[VP9:%.*]] = icmp sle i64 [[VP6]] i64 127
+; CHECKHIRPCFG-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP6]] i64 128
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -215,7 +215,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:  Id: 0   i32 [[VP4]] -> [[VP10:%.*]] = {%2}
 ;
 ; CHECKHIRVPE-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECKHIRVPE-NEXT:  VPlan IR for: _Z3foov:HIR
+; CHECKHIRVPE-NEXT:  VPlan IR for: _Z3foov:HIR.#{{[0-9]+}}
 ; CHECKHIRVPE-NEXT:  External Defs Start:
 ; CHECKHIRVPE-DAG:     [[VP0:%.*]] = {%2}
 ; CHECKHIRVPE-DAG:     [[VP1:%.*]] = {@a}
@@ -225,7 +225,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE:         [[BB1]]: # preds: [[BB0]]
-; CHECKHIRVPE-NEXT:     i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
+; CHECKHIRVPE-NEXT:     i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -237,7 +237,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE:         [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECKHIRVPE-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
+; CHECKHIRVPE-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
@@ -267,13 +267,13 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i1 [[VP9:%.*]] = icmp sle i64 [[VP6]] i64 127
+; CHECKHIRVPE-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP6]] i64 128
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE:         [[BB3]]: # preds: [[BB2]]
-; CHECKHIRVPE-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
+; CHECKHIRVPE-NEXT:     i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -285,7 +285,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     br <External Block>
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE:       External Uses:
-; CHECKHIRVPE-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP10:%.*]] = {%2}
+; CHECKHIRVPE-NEXT:  Id: 0   i32 [[VP_RED_FINAL]] -> [[VP10:%.*]] = {%2}
 ;
 DIR.OMP.SIMD.120:
   %s.red = alloca i32, align 4

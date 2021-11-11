@@ -32,10 +32,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local float @ifsum1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: ifsum1:HIR
+; CHECK-NEXT:  VPlan IR for: ifsum1:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%tsum.015}
-; CHECK-DAG:     [[VP1:%.*]] = {sext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP0:%.*]] = {sext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%tsum.015}
 ; CHECK-DAG:     [[VP2:%.*]] = {@B}
 ; CHECK-DAG:     [[VP3:%.*]] = {@C}
 ; CHECK-NEXT:  External Defs End:
@@ -43,28 +43,29 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     float [[VP4:%.*]] = phi  [ float [[TSUM_0150:%.*]], [[BB1]] ],  [ float [[VP5:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP6]]
+; CHECK-NEXT:     float [[VP5:%.*]] = phi  [ float [[TSUM_0150:%.*]], [[BB1]] ],  [ float [[VP6:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB3]] ]
+; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i1 [[VP8:%.*]] = fcmp ogt float [[VP_LOAD]] float 0.000000e+00
-; CHECK-NEXT:     br i1 [[VP8]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     i1 [[VP9:%.*]] = fcmp ogt float [[VP_LOAD]] float 0.000000e+00
+; CHECK-NEXT:     br i1 [[VP9]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP6]]
+; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP7]]
 ; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       float [[VP9:%.*]] = fadd float [[VP_LOAD]] float [[VP_LOAD_1]]
-; CHECK-NEXT:       float [[VP10:%.*]] = fadd float [[VP4]] float [[VP9]]
+; CHECK-NEXT:       float [[VP10:%.*]] = fadd float [[VP_LOAD]] float [[VP_LOAD_1]]
+; CHECK-NEXT:       float [[VP11:%.*]] = fadd float [[VP5]] float [[VP10]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP10]], [[BB4]] ],  [ float [[VP4]], [[BB2]] ]
-; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP7]] i64 [[VP1]]
-; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     float [[VP6]] = phi  [ float [[VP11]], [[BB4]] ],  [ float [[VP5]], [[BB2]] ]
+; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP8]] i64 [[VP4]]
+; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
@@ -73,7 +74,7 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   float [[VP5]] -> [[VP12:%.*]] = {%tsum.015}
+; CHECK-NEXT:  Id: 0   float [[VP6]] -> [[VP13:%.*]] = {%tsum.015}
 ;
 entry:
   %cmp14 = icmp sgt i32 %N, 0

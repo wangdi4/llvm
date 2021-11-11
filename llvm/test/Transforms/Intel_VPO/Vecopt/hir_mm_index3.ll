@@ -24,6 +24,7 @@
 ; CHECK-NEXT:    Linked values: i32 [[VP5]], i32 [[VP4]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]:
 ; CHECK:         [[BB2:BB[0-9]+]]:
+; CHECK-NEXT:     i32 [[UB_INC:%.*]] = add i32 [[VPMPLUS]] i32 1
 ; CHECK-NEXT:     i32 [[VP__RED_INIT]] = reduction-init i32 [[BEST_0230]]
 ; CHECK-NEXT:     i32 [[VP__RED_INIT_1]] = reduction-init i32 [[TMP_0240]]
 ; CHECK-NEXT:     i32 [[VP__IND_INIT]] = induction-init{add} i32 0 i32 1
@@ -40,7 +41,7 @@
 ; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sge i32 [[VP9]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP0]] = select i1 [[VP11]] i32 [[VP9]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP4]] = add i32 [[VP5]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i32 [[VP4]] i32 [[VPMPLUS]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i32 [[VP4]] i32 [[UB_INC]]
 ; CHECK:         [[BB3:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL]] = reduction-final{u_smax} i32 [[VP0]]
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL_1]] = reduction-final{s_smax} i32 [[VP2]] i32 [[VP0]] i32 [[VP__RED_FINAL]]

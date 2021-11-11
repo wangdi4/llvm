@@ -65,7 +65,7 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP5]] = phi  [ i32 [[VP10]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP7]] i64 68
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP7]] i64 69
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
