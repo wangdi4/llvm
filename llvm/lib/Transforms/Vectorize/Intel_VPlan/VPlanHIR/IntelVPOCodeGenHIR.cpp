@@ -1164,6 +1164,17 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   eliminateRedundantGotosLabels();
   setupLiveInLiveOut();
 
+  if (isMergedCFG()) {
+    // Set the code gen for modified region. This will ensure outgoing HIR
+    // region is lowered to LLVM-IR by HIR-CG.
+    assert(MainLoop->getParentRegion() &&
+           " Loop does not have a parent region.");
+    MainLoop->getParentRegion()->setGenCode();
+
+    // Mark parent for invalidation
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(MainLoop);
+  }
+
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
   LLVM_DEBUG(dumpFinalHIR());
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -4209,14 +4220,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto *VPVectorTC = cast<VPVectorTripCountCalculation>(VPInst);
     RegDDRef *OrigTC = getUniformScalarRef(VPVectorTC->getOperand(0));
     RegDDRef *UBRef = OrigTC->clone();
-    // HLLoop upper bounds are normalized, so increment by 1 to get actual UB.
-    UBRef->getSingleCanonExpr()->addConstant(1, true);
-    // The following call is required because self-blobs do not have BlobDDRefs.
-    // +1 operation could make non-self blob a self-blob and vice-versa.
-    // For example if UB is (%b - 1) or (%b).
-    SmallVector<const RegDDRef *, 1> Aux = {OrigTC};
-    UBRef->makeConsistent(Aux,
-                          OrigTC->getSingleCanonExpr()->getDefinedAtLevel());
 
     // For given original loop TC say %N, we emit following sequence of
     // instructions to compute vector TC -

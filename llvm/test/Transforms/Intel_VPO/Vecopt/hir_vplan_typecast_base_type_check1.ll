@@ -50,9 +50,10 @@ define void @foo(i32 %factor) local_unnamed_addr {
 ; CHECK-DAG:    [[VP1:%.*]] = {@a}
 ; CHECK-DAG:    [[VP2:%.*]] = {@b}
 ; CHECK-NEXT:  External Defs End:
+; CHECK:          i64 [[UB_INC:%.*]] = add i64 [[VP3]] i64 1
 ; CHECK:          i64 [[VP4:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP5:%.*]], {{.*}} ]
 ; CHECK:          i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP5]] i64 [[VP3]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP5]] i64 [[UB_INC]]
 ;
 entry:
   %cmp = icmp sgt i32 %factor, 1600

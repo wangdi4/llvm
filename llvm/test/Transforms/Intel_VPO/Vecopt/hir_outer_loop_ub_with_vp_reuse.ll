@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: foo:HIR
+; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@arr}
 ; CHECK-DAG:     [[VP1:%.*]] = {%lp}
@@ -32,21 +32,22 @@ define dso_local void @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP_LOAD]] i64 1
 ; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB5]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP5:%.*]], [[BB5]] ]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP2]] i64 [[VP4]]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [128 x [128 x i64]]* @arr i64 0 i64 [[VP4]] i64 [[VP2]]
-; CHECK-NEXT:     store i64 [[VP6]] i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp sle i64 [[VP5]] i64 [[VP_LOAD]]
-; CHECK-NEXT:     br i1 [[VP7]], [[BB5]], [[BB3]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP6:%.*]], [[BB5]] ]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP2]] i64 [[VP5]]
+; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [128 x [128 x i64]]* @arr i64 0 i64 [[VP5]] i64 [[VP2]]
+; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
+; CHECK-NEXT:     br i1 [[VP8]], [[BB5]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP3]] i64 99
-; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP3]] i64 100
+; CHECK-NEXT:     br i1 [[VP9]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB7:BB[0-9]+]]

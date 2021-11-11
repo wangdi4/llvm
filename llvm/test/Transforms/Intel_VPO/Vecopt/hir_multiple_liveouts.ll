@@ -11,59 +11,61 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%x4.sroa.0.140}
 ; CHECK-DAG:     [[VP1:%.*]] = {%n + -2}
-; CHECK-DAG:     [[VP2:%.*]] = {%u0}
+; CHECK-DAG:     [[VP2:%.*]] = {%inc.lcssa45}
+; CHECK-DAG:     [[VP3:%.*]] = {%u0}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
-; CHECK-NEXT:     i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in1
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP1]] i64 1
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP4]], UF = 1
+; CHECK-NEXT:     i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in2 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32 [[VP7:%.*]] = trunc i64 [[VP5]] to i32
-; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP7]] i32 1
-; CHECK-NEXT:     i32 [[VP9:%.*]] = hir-copy i32 [[VP8]] , OriginPhiId: -1
-; CHECK-NEXT:     i32 [[VP10:%.*]] = trunc i64 [[VP5]] to i32
-; CHECK-NEXT:     i32 [[VP11:%.*]] = add i32 [[VP10]] i32 1
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ult i32 [[VP11]] i32 2
-; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     i32 [[VP5:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP6:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i32 [[VP9:%.*]] = trunc i64 [[VP7]] to i32
+; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP9]] i32 1
+; CHECK-NEXT:     i32 [[VP11:%.*]] = hir-copy i32 [[VP10]] , OriginPhiId: -1
+; CHECK-NEXT:     i32 [[VP12:%.*]] = trunc i64 [[VP7]] to i32
+; CHECK-NEXT:     i32 [[VP13:%.*]] = add i32 [[VP12]] i32 1
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp ult i32 [[VP13]] i32 2
+; CHECK-NEXT:     br i1 [[VP14]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i64 [[VP13:%.*]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x i32]* [[U00:%.*]] i64 0 i64 [[VP13]]
+; CHECK-NEXT:       i64 [[VP15:%.*]] = add i64 [[VP7]] i64 1
+; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x i32]* [[U00:%.*]] i64 0 i64 [[VP15]]
 ; CHECK-NEXT:       i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       i32 [[VP14:%.*]] = sub i32 [[VP3]] i32 [[VP_LOAD]]
-; CHECK-NEXT:       i64 [[VP15:%.*]] = add i64 [[VP5]] i64 2
-; CHECK-NEXT:       i32 [[VP16:%.*]] = trunc i64 [[VP15]] to i32
-; CHECK-NEXT:       i32 [[VP17:%.*]] = hir-copy i32 [[VP16]] , OriginPhiId: -1
+; CHECK-NEXT:       i32 [[VP16:%.*]] = sub i32 [[VP5]] i32 [[VP_LOAD]]
+; CHECK-NEXT:       i64 [[VP17:%.*]] = add i64 [[VP7]] i64 2
+; CHECK-NEXT:       i32 [[VP18:%.*]] = trunc i64 [[VP17]] to i32
+; CHECK-NEXT:       i32 [[VP19:%.*]] = hir-copy i32 [[VP18]] , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP18:%.*]] = phi  [ i32 [[VP17]], [[BB4]] ],  [ i32 [[VP9]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP4]] = phi  [ i32 [[VP14]], [[BB4]] ],  [ i32 [[VP3]], [[BB2]] ]
-; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp sle i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     br i1 [[VP19]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i32 [[VP20:%.*]] = phi  [ i32 [[VP19]], [[BB4]] ],  [ i32 [[VP11]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[VP16]], [[BB4]] ],  [ i32 [[VP5]], [[BB2]] ]
+; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP21:%.*]] = icmp slt i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     br i1 [[VP21]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
-; CHECK-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
+; CHECK-NEXT:     i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP6]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i32 [[VP__PRIV_FINAL:%.*]] = private-final-uc i32 [[VP18]]
+; CHECK-NEXT:     i32 [[VP__PRIV_FINAL:%.*]] = private-final-uc i32 [[VP20]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 [[VP__PRIV_FINAL]] -> [[VP20:%.*]] = {%inc.lcssa45}
+; CHECK-NEXT:  Id: 0   i32 [[VP__PRIV_FINAL]] -> [[VP22:%.*]] = {%inc.lcssa45}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   i32 [[VP__RED_FINAL]] -> [[VP21:%.*]] = {%x4.sroa.0.140}
+; CHECK-NEXT:  Id: 1   i32 [[VP_RED_FINAL]] -> [[VP23:%.*]] = {%x4.sroa.0.140}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 2   no underlying for i64 [[VP__IND_FINAL]]
 ;
