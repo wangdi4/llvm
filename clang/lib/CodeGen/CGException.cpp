@@ -495,11 +495,11 @@ void CodeGenFunction::EmitStartEHSpec(const Decl *D) {
     return;
 
   ExceptionSpecificationType EST = Proto->getExceptionSpecType();
-  if (isNoexceptExceptionSpec(EST) && Proto->canThrow() == CT_Cannot) {
-    // noexcept functions are simple terminate scopes.
-    if (!getLangOpts().EHAsynch) // -EHa: HW exception still can occur
-      EHStack.pushTerminate();
-  } else if (EST == EST_Dynamic || EST == EST_DynamicNone) {
+  // In C++17 and later, 'throw()' aka EST_DynamicNone is treated the same way
+  // as noexcept. In earlier standards, it is handled in this block, along with
+  // 'throw(X...)'.
+  if (EST == EST_Dynamic ||
+      (EST == EST_DynamicNone && !getLangOpts().CPlusPlus17)) {
     // TODO: Revisit exception specifications for the MS ABI.  There is a way to
     // encode these in an object file but MSVC doesn't do anything with it.
     if (getTarget().getCXXABI().isMicrosoft())
@@ -539,6 +539,10 @@ void CodeGenFunction::EmitStartEHSpec(const Decl *D) {
                                                         /*ForEH=*/true);
       Filter->setFilter(I, EHType);
     }
+  } else if (Proto->canThrow() == CT_Cannot) {
+    // noexcept functions are simple terminate scopes.
+    if (!getLangOpts().EHAsynch) // -EHa: HW exception still can occur
+      EHStack.pushTerminate();
   }
 }
 
@@ -598,10 +602,8 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
     return;
 
   ExceptionSpecificationType EST = Proto->getExceptionSpecType();
-  if (isNoexceptExceptionSpec(EST) && Proto->canThrow() == CT_Cannot &&
-      !EHStack.empty() /* possible empty when under async exceptions */) {
-    EHStack.popTerminate();
-  } else if (EST == EST_Dynamic || EST == EST_DynamicNone) {
+  if (EST == EST_Dynamic ||
+      (EST == EST_DynamicNone && !getLangOpts().CPlusPlus17)) {
     // TODO: Revisit exception specifications for the MS ABI.  There is a way to
     // encode these in an object file but MSVC doesn't do anything with it.
     if (getTarget().getCXXABI().isMicrosoft())
@@ -617,6 +619,10 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
     EHFilterScope &filterScope = cast<EHFilterScope>(*EHStack.begin());
     emitFilterDispatchBlock(*this, filterScope);
     EHStack.popFilter();
+  } else if (Proto->canThrow() == CT_Cannot &&
+              /* possible empty when under async exceptions */
+             !EHStack.empty()) {
+    EHStack.popTerminate();
   }
 }
 
