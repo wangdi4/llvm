@@ -1141,7 +1141,7 @@ bool UnMapMemObject::producesPiEvent() const {
   // an event waitlist and Level Zero plugin attempts to batch these commands,
   // so the execution of kernel B starts only on step 4. This workaround
   // restores the old behavior in this case until this is resolved.
-  return MQueue->getPlugin().getBackend() != backend::level_zero ||
+  return MQueue->getPlugin().getBackend() != backend::ext_oneapi_level_zero ||
          MEvent->getHandleRef() != nullptr;
 }
 
@@ -1238,7 +1238,7 @@ bool MemCpyCommand::producesPiEvent() const {
   // so the execution of kernel B starts only on step 4. This workaround
   // restores the old behavior in this case until this is resolved.
   return MQueue->is_host() ||
-         MQueue->getPlugin().getBackend() != backend::level_zero ||
+         MQueue->getPlugin().getBackend() != backend::ext_oneapi_level_zero ||
          MEvent->getHandleRef() != nullptr;
 }
 
