@@ -50,6 +50,10 @@ public:
 
     // Each conversion should return a value of type mlir::Type.
     addConversion([&](BoxType box) { return convertBoxType(box); });
+    addConversion([&](BoxCharType boxchar) {
+      LLVM_DEBUG(llvm::dbgs() << "type convert: " << boxchar << '\n');
+      return convertType(specifics->boxcharMemoryType(boxchar.getEleTy()));
+    });
     addConversion(
         [&](fir::CharacterType charTy) { return convertCharType(charTy); });
     addConversion([&](fir::LogicalType boolTy) {
@@ -66,8 +70,13 @@ public:
         [&](fir::RealType real) { return convertRealType(real.getFKind()); });
     addConversion(
         [&](fir::ReferenceType ref) { return convertPointerLike(ref); });
-    addConversion(
-        [&](SequenceType sequence) { return convertSequenceType(sequence); });
+    addConversion([&](fir::SequenceType sequence) {
+      return convertSequenceType(sequence);
+    });
+    addConversion([&](fir::VectorType vecTy) {
+      return mlir::VectorType::get(llvm::ArrayRef<int64_t>(vecTy.getLen()),
+                                   convertType(vecTy.getEleTy()));
+    });
     addConversion([&](mlir::TupleType tuple) {
       LLVM_DEBUG(llvm::dbgs() << "type convert: " << tuple << '\n');
       llvm::SmallVector<mlir::Type> inMembers;
