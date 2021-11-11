@@ -2479,8 +2479,15 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processBlobs(
       continue;
     }
 
-    addBlobCost(BInfo, Blob->Coeff, CE, 0, NumNonLinearTerms,
-                &HasVisitedNonLinearTerms);
+    // Currently, nullptr is passed to addBlobCost to increase NumNonLinearTerms
+    // further with Visited non-linear terms.
+    // There may be a way to improve the cost model analysis but it will require
+    // more intrusive changes. Basically, we can call
+    // canConvertToStandAloneBlobOrConstant() on the CE where applicable and
+    // keep track of the resulting blobs as 'visited'. Based on whether the
+    // overall CE blob was visited, we can either consider the cost as 1 or
+    // (number of terms).
+    addBlobCost(BInfo, Blob->Coeff, CE, 0, NumNonLinearTerms, nullptr);
   }
 
   if (HasVisitedNonLinearTerms) {
