@@ -2262,15 +2262,11 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   const auto *SD = FD ? FD->getAttr<CPUSpecificAttr>() : nullptr;
   const auto *TC = FD ? FD->getAttr<TargetClonesAttr>() : nullptr;
   bool AddedAttr = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
-  if (TD || SD || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
+  if (TD || SD || TC || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
       (FD && FD->hasAttr<AllowCpuFeaturesAttr>())) {
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (TD || SD || TC) {
->>>>>>> c5de2af6d0ab54c5088c95a32c3173af9f53313c
     llvm::StringMap<bool> FeatureMap;
     getContext().getFunctionFeatureMap(FeatureMap, GD);
 
@@ -3996,7 +3992,10 @@ void CodeGenModule::EmitTargetClonesResolver(GlobalDecl GD) {
         return TargetMVPriority(TI, LHS) > TargetMVPriority(TI, RHS);
       });
   CodeGenFunction CGF(*this);
-  CGF.EmitMultiVersionResolver(ResolverFunc, Options);
+#if INTEL_CUSTOMIZATION
+  CGF.EmitMultiVersionResolver(ResolverFunc, Options,
+                               /*IsCpuDispatch*/ false);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenModule::emitMultiVersionFunctions() {
