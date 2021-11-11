@@ -35,12 +35,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind uwtable
 define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noalias nocapture %c, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predicator:
-; CHECK-NEXT:  VPlan IR for: foo:HIR
+; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 299, UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 300, UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -117,7 +117,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB11]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP20]], [[BB2]], [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]: # preds: [[BB3]]

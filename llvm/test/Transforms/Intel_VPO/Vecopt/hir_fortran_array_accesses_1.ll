@@ -47,7 +47,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP9]] : i64 [[VP2]] : double*(double)} {i64 1 : i64 [[VP5]] : i64 [[VP3]] : double*(double)} {i64 0 : i64 [[VP17]] : i64 8 : double*(double)}
 ; VPLAN-IR-NEXT:     store double [[VP15]] double* [[VP_SUBSCRIPT_2]]
 ; VPLAN-IR-NEXT:     i64 [[VP11]] = add i64 [[VP10]] i64 1
-; VPLAN-IR-NEXT:     i1 [[VP18:%.*]] = icmp sle i64 [[VP11]] i64 1023
+; VPLAN-IR-NEXT:     i1 [[VP18:%.*]] = icmp slt i64 [[VP11]] i64 1024
 ; VPLAN-IR-NEXT:     br i1 [[VP18]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-IR-EMPTY:
 ; VPLAN-IR-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -185,7 +185,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-NEXT:     double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* %"interp_$U" {i64 1 : i64 [[VP6]] : i64 [[VP9]] : double*(double)} {i64 1 : i64 [[VP2]] : i64 [[VP7]] : double*(double)} {i64 0 : i64 [[VP19]] : i64 8 : double*(double)}
 ; VPLAN-IR-NEXT:     store double [[VP17]] double* [[VP_SUBSCRIPT_3]]
 ; VPLAN-IR-NEXT:     i64 [[VP11]] = add i64 [[VP10]] i64 1
-; VPLAN-IR-NEXT:     i1 [[VP20:%.*]] = icmp sle i64 [[VP11]] i64 1023
+; VPLAN-IR-NEXT:     i1 [[VP20:%.*]] = icmp slt i64 [[VP11]] i64 1024
 ; VPLAN-IR-NEXT:     br i1 [[VP20]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-IR-EMPTY:
 ; VPLAN-IR-NEXT:    [[BB3]]: # preds: [[BB2]]
