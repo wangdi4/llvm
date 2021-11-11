@@ -578,7 +578,7 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
   // redundant loads/stores.
   if ((NumExits == 1) ||
       (HasTemporalLocality = HIRLoopLocality::hasTemporalReuseLocality(
-           HLoop, MaxUnrollFactor - 1, true))) {
+           HLoop, MaxUnrollFactor - 1, true, true))) {
     UnrollFactor = MaxUnrollFactor;
   } else {
     // Multi-exit loops have a higher chance of having a low trip count as they

@@ -187,10 +187,10 @@ void HIRLoopLocality::printAnalysis(raw_ostream &OS) const {
     for (auto Lp : Loops) {
       unsigned TempInv = HLA.getTemporalInvariantLocality(Lp, false);
       unsigned TempReuse =
-          HLA.getTemporalReuseLocality(Lp, TemporalReuseThreshold, false);
+          HLA.getTemporalReuseLocality(Lp, TemporalReuseThreshold, false, true);
 
-      assert((HLA.getTemporalLocality(Lp, TemporalReuseThreshold, false) ==
-              TempInv + TempReuse) &&
+      assert((HLA.getTemporalLocality(Lp, TemporalReuseThreshold, false,
+                                      true) == TempInv + TempReuse) &&
              "Mismatch between temporal locality implementations!");
 
       Lp->printHeader(FOS, 0, false);
@@ -770,7 +770,7 @@ void HIRLoopLocality::sortedLocalityLoops(
 unsigned HIRLoopLocality::getTemporalLocalityImpl(
     const HLLoop *Lp, unsigned ReuseThreshold,
     TemporalLocalityType LocalityType, bool IgnoreConditionalRefs,
-    bool CheckPresence) {
+    bool IgnoreEqualRefs, bool CheckPresence) {
   assert(Lp && " Loop parameter is null!");
 
   unsigned Level = Lp->getNestingLevel();
@@ -840,7 +840,8 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(
 
       // Since we are not uniquing refs, we can encounter multiple identical
       // refs.
-      if (NeedReuse && !DDRefUtils::areEqual(PrevRef, CurRef) &&
+      if (NeedReuse &&
+          !(IgnoreEqualRefs && DDRefUtils::areEqual(PrevRef, CurRef)) &&
           isTemporalMatch(PrevRef, CurRef, Level, ReuseThreshold)) {
         ++NumTemporal;
       }

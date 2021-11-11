@@ -166,6 +166,7 @@ private:
                                           unsigned ReuseThreshold,
                                           TemporalLocalityType LocalityType,
                                           bool IgnoreConditionalRefs,
+                                          bool IgnoreEqualRefs,
                                           bool CheckPresence);
 
 public:
@@ -192,10 +193,11 @@ public:
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
   static bool hasTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
-                                  bool IgnoreConditionalRefs) {
-    return getTemporalLocalityImpl(Lp, ReuseThreshold,
-                                   TemporalLocalityType::Both,
-                                   IgnoreConditionalRefs, true);
+                                  bool IgnoreConditionalRefs,
+                                  bool IgnoreEqualRefs) {
+    return getTemporalLocalityImpl(
+        Lp, ReuseThreshold, TemporalLocalityType::Both, IgnoreConditionalRefs,
+        IgnoreEqualRefs, true);
   }
 
   /// Returns a number which represents the instances of temporal (invariant +
@@ -203,10 +205,11 @@ public:
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.
   static unsigned getTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
-                                      bool IgnoreConditionalRefs) {
-    return getTemporalLocalityImpl(Lp, ReuseThreshold,
-                                   TemporalLocalityType::Both,
-                                   IgnoreConditionalRefs, false);
+                                      bool IgnoreConditionalRefs,
+                                      bool IgnoreEqualRefs) {
+    return getTemporalLocalityImpl(
+        Lp, ReuseThreshold, TemporalLocalityType::Both, IgnoreConditionalRefs,
+        IgnoreEqualRefs, false);
   }
 
   /// Returns true if loop has any temporal invariant locality.
@@ -215,7 +218,7 @@ public:
   static bool hasTemporalInvariantLocality(const HLLoop *Lp,
                                            bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, 0, TemporalLocalityType::Invariant,
-                                   IgnoreConditionalRefs, true);
+                                   IgnoreConditionalRefs, true, true);
   }
 
   /// Returns a number which represents the instances of temporal invariant
@@ -225,7 +228,7 @@ public:
   static unsigned getTemporalInvariantLocality(const HLLoop *Lp,
                                                bool IgnoreConditionalRefs) {
     return getTemporalLocalityImpl(Lp, 0, TemporalLocalityType::Invariant,
-                                   IgnoreConditionalRefs, false);
+                                   IgnoreConditionalRefs, true, false);
   }
 
   /// Returns true if loop has any temporal reuse locality using \p
@@ -234,10 +237,11 @@ public:
   /// executed will be ignored.
   static bool hasTemporalReuseLocality(const HLLoop *Lp,
                                        unsigned ReuseThreshold,
-                                       bool IgnoreConditionalRefs) {
-    return getTemporalLocalityImpl(Lp, ReuseThreshold,
-                                   TemporalLocalityType::Reuse,
-                                   IgnoreConditionalRefs, true);
+                                       bool IgnoreConditionalRefs,
+                                       bool IgnoreEqualRefs) {
+    return getTemporalLocalityImpl(
+        Lp, ReuseThreshold, TemporalLocalityType::Reuse, IgnoreConditionalRefs,
+        IgnoreEqualRefs, true);
   }
 
   /// Returns a number which represents the instances of temporal reuse locality
@@ -246,10 +250,11 @@ public:
   /// executed will be ignored.
   static unsigned getTemporalReuseLocality(const HLLoop *Lp,
                                            unsigned ReuseThreshold,
-                                           bool IgnoreConditionalRefs) {
-    return getTemporalLocalityImpl(Lp, ReuseThreshold,
-                                   TemporalLocalityType::Reuse,
-                                   IgnoreConditionalRefs, false);
+                                           bool IgnoreConditionalRefs,
+                                           bool IgnoreEqualRefs) {
+    return getTemporalLocalityImpl(
+        Lp, ReuseThreshold, TemporalLocalityType::Reuse, IgnoreConditionalRefs,
+        IgnoreEqualRefs, false);
   }
 
   /// Populates \p TemporalGroups with memref groups which have temporal
