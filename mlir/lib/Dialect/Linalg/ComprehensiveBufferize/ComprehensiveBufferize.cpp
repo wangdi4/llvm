@@ -170,14 +170,6 @@ static ReturnOp getAssumedUniqueReturnOp(FuncOp funcOp) {
   return returnOp;
 }
 
-/// Return true if `value` is the result of an InitTensorOp or a cast thereof.
-static bool isInitTensorOp(Value value) {
-  tensor::CastOp castOp;
-  while ((castOp = value.getDefiningOp<tensor::CastOp>()))
-    value = castOp.source();
-  return value.getDefiningOp<InitTensorOp>();
-}
-
 //===----------------------------------------------------------------------===//
 // Bufferization-specific BlockAndValueMapping support with debugging.
 //===----------------------------------------------------------------------===//
@@ -466,9 +458,8 @@ findValueInReverseUseDefChain(Value value,
 /// Furthermore, BlockArguments are also assumed to be writes. There is no
 /// analysis across block boundaries.
 ///
-/// Note: To simplify the analysis, scf.if ops are considered writes. Treating
-/// a non-writing op as a writing op may introduce unnecessary out-of-place
-/// bufferizations, but is always safe from a correctness point of view.
+/// Note: When reaching an end of the reverse SSA use-def chain, that value
+/// is returned regardless of whether it is a memory write or not.
 static Value findLastPrecedingWrite(Value value) {
   SetVector<Value> result =
       findValueInReverseUseDefChain(value, [](Value value) {
@@ -481,6 +472,10 @@ static Value findLastPrecedingWrite(Value value) {
         return bufferizableOp.isMemoryWrite(value.cast<OpResult>());
       });
 
+  // To simplify the analysis, `scf.if` ops are considered memory writes. There
+  // are currently no other ops where one OpResult may alias with multiple
+  // OpOperands. Therefore, this function should return exactly one result at
+  // the moment.
   assert(result.size() == 1 && "expected exactly one result");
   return result.front();
 }
@@ -996,13 +991,13 @@ static Value createNewAllocDeallocPairForShapedValue(
 static Value getResultBuffer(OpBuilder &b, OpResult result,
                              const BlockAndValueMapping &bvm,
                              BufferizationAliasInfo &aliasInfo,
-                             AllocationCallbacks allocationFns,
-                             bool skipCopy = false) {
+                             AllocationCallbacks allocationFns) {
   OpBuilder::InsertionGuard guard(b);
   Operation *op = result.getOwner();
   SmallVector<OpOperand *> aliasingOperands = getAliasingOpOperand(result);
   assert(!aliasingOperands.empty() && "could not get aliasing OpOperand");
-  Value operand = aliasingOperands.front()->get();
+  OpOperand *opOperand = aliasingOperands.front();
+  Value operand = opOperand->get();
   Value operandBuffer = lookup(bvm, operand);
   assert(operandBuffer && "operand buffer not found");
   // Make sure that all OpOperands are the same buffer. If this is not the case,
@@ -1028,11 +1023,23 @@ static Value getResultBuffer(OpBuilder &b, OpResult result,
     // Allocate the result buffer.
     Value resultBuffer = createNewAllocDeallocPairForShapedValue(
         b, loc, operand, aliasInfo, allocationFns);
-    // Do not copy the result of an InitTensorOp.
-    if (isInitTensorOp(operand))
-      skipCopy = true;
+    bool skipCopy = false;
+    // Do not copy if the last preceding write of `operand` is an op that does
+    // not write (skipping ops that merely create aliases). E.g., InitTensorOp.
+    // Note: If `findLastPrecedingWrite` reaches the end of the reverse SSA
+    // use-def chain, it returns that value, regardless of whether it is a
+    // memory write or not.
+    Value lastWrite = findLastPrecedingWrite(operand);
+    if (auto bufferizableOp =
+            lastWrite.getDefiningOp<BufferizableOpInterface>())
+      if (!bufferizableOp.isMemoryWrite(lastWrite.cast<OpResult>()))
+        skipCopy = true;
     // Do not copy if the copied data is never read.
     if (!isValueRead(result))
+      skipCopy = true;
+    // Do not copy if this op does not read the data, but writes it.
+    if (bufferizesToMemoryWrite(*opOperand) &&
+        !bufferizesToMemoryRead(*opOperand))
       skipCopy = true;
     if (!skipCopy) {
       // Set insertion point now that potential alloc/dealloc are introduced.
@@ -2106,9 +2113,8 @@ static LogicalResult allocateBuffersForResults(
     OpResult opResult = cast<BufferizableOpInterface>(op.getOperation())
                             .getAliasingOpResult(*opOperand);
     assert(opResult && "could not find correspond OpResult");
-    bool skipCopy = !op.payloadUsesValueFromOperand(opOperand);
     Value resultBuffer =
-        getResultBuffer(b, opResult, bvm, aliasInfo, allocationFns, skipCopy);
+        getResultBuffer(b, opResult, bvm, aliasInfo, allocationFns);
     if (!resultBuffer)
       return failure();
     resultBuffers.push_back(resultBuffer);
@@ -2173,8 +2179,9 @@ struct LinalgOpInterface
                                                     OpTy> {
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand) const {
     auto genericOp = cast<linalg::LinalgOp>(op);
-    return genericOp.isInputTensor(&opOperand) ||
-           genericOp.isInitTensor(&opOperand);
+    return (genericOp.isInputTensor(&opOperand) ||
+            genericOp.isInitTensor(&opOperand)) &&
+           genericOp.payloadUsesValueFromOperand(&opOperand);
   }
 
   bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand) const {
@@ -2224,6 +2231,11 @@ struct InitTensorOpInterface
   SmallVector<OpOperand *> getAliasingOpOperand(Operation *op,
                                                 OpResult opResult) const {
     return {};
+  }
+
+  bool isMemoryWrite(Operation *op, OpResult opResult) const {
+    // InitTensorOps allocate but do not write.
+    return false;
   }
 
   LogicalResult bufferize(Operation *op, OpBuilder &b,
