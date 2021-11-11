@@ -2070,16 +2070,16 @@ public:
 
     // Update field single allocation function info
     if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
-      CheckWriteValue(ConstVal, FI, FieldNum, WrittenStInfo);
+      CheckWriteValue(ConstVal, FI, WrittenFieldNum, WrittenStInfo);
     } else if (auto *Call = dyn_cast<CallBase>(WriteVal)) {
       if (PTA.getAllocationCallKind(Call) != dtrans::AK_NotAlloc) {
         Function *Callee = Call->getCalledFunction();
-        WrittenStInfo->updateNewSingleAllocFunc(FieldNum, *Callee);
+        WrittenStInfo->updateNewSingleAllocFunc(WrittenFieldNum, *Callee);
       } else {
-        WrittenStInfo->updateSingleAllocFuncToBottom(FieldNum);
+        WrittenStInfo->updateSingleAllocFuncToBottom(WrittenFieldNum);
       }
     } else {
-      WrittenStInfo->updateSingleAllocFuncToBottom(FieldNum);
+      WrittenStInfo->updateSingleAllocFuncToBottom(WrittenFieldNum);
     }
   }
 

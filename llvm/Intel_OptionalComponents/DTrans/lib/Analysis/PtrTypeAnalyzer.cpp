@@ -4051,7 +4051,7 @@ bool PtrTypeAnalyzerImpl::isPtrToPtr(ValueTypeInfo &Info) const {
 }
 
 bool PtrTypeAnalyzerImpl::isPtrToIntOrFloat(ValueTypeInfo &Info) const {
-  DTransType *DomTy = getDominantAggregateUsageType(Info);
+  DTransType *DomTy = getDominantType(Info, ValueTypeInfo::VAT_Use);
   if (!DomTy)
     return false;
   if (!DomTy->isPointerTy())
