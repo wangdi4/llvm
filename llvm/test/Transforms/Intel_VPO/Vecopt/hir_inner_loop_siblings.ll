@@ -31,7 +31,7 @@ define dso_local void @foo(i64** nocapture readnone %lpp) local_unnamed_addr #0 
 ; CHECK-NEXT:  |   |   <i2 = 0>
 ; CHECK-NEXT:  |   |   [[BB0:BB[0-9]+]].54:
 ; CHECK-NEXT:  |   |   (<4 x i64>*)(@larr1)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][%phi.temp] = i1 + <i64 0, i64 1, i64 2, i64 3> + %phi.temp;
-; CHECK-NEXT:  |   |   %.vec = %phi.temp + 1 <= 99;
+; CHECK-NEXT:  |   |   %.vec = %phi.temp + 1 < 100;
 ; CHECK-NEXT:  |   |   %phi.temp = %phi.temp + 1;
 ; CHECK-NEXT:  |   |   %unifcond = extractelement %.vec,  0;
 ; CHECK-NEXT:  |   |   if (%unifcond == 1)
@@ -47,7 +47,7 @@ define dso_local void @foo(i64** nocapture readnone %lpp) local_unnamed_addr #0 
 ; CHECK-NEXT:  |   |   <i2 = 0>
 ; CHECK-NEXT:  |   |   [[BB1:BB[0-9]+]].65:
 ; CHECK-NEXT:  |   |   (<4 x i64>*)(@larr2)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][%phi.temp5] = i1 + <i64 0, i64 1, i64 2, i64 3> + %phi.temp5;
-; CHECK-NEXT:  |   |   %.vec7 = %phi.temp5 + 1 <= 99;
+; CHECK-NEXT:  |   |   %.vec7 = %phi.temp5 + 1 < 100;
 ; CHECK-NEXT:  |   |   %phi.temp5 = %phi.temp5 + 1;
 ; CHECK-NEXT:  |   |   %unifcond9 = extractelement %.vec7,  0;
 ; CHECK-NEXT:  |   |   if (%unifcond9 == 1)

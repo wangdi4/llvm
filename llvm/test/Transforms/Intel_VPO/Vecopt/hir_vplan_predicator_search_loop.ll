@@ -19,44 +19,45 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocapture readnone %b, i8 signext %val) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predicator:
-; CHECK-NEXT:  VPlan IR for: _Z3fooiPKaPaa:HIR
+; CHECK-NEXT:  VPlan IR for: _Z3fooiPKaPaa:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%val}
-; CHECK-DAG:     [[VP1:%.*]] = {%a}
-; CHECK-DAG:     [[VP2:%.*]] = {sext.i32.i64(%n) + -1}
+; CHECK-DAG:     [[VP0:%.*]] = {sext.i32.i64(%n) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%val}
+; CHECK-DAG:     [[VP2:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Uni] i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[A0:%.*]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Uni] i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[A0:%.*]] i64 [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = icmp ne i8 [[VP_LOAD]] i8 [[VAL0:%.*]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP5]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP5]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = icmp ne i8 [[VP_LOAD]] i8 [[VAL0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP6]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP6:%.*]] = block-predicate i1 [[VP__NOT]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:       [DA: Uni] i1 [[VP7:%.*]] = icmp sle i64 [[VP4]] i64 [[VP2]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP__NOT_1:%.*]] = not i1 [[VP7]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP7:%.*]] = block-predicate i1 [[VP__NOT]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP5]] = add i64 [[VP4]] i64 1
+; CHECK-NEXT:       [DA: Uni] i1 [[VP8:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP__NOT_1:%.*]] = not i1 [[VP8]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_BB6_BR_VP__NOT:%.*]] = and i1 [[VP__NOT]] i1 [[VP__NOT_1]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP7]], [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP8]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB6_BR_VP__NOT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB6_BR_VP__NOT]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP9:%.*]] = block-predicate i1 [[VP5]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP10:%.*]] = hir-copy i64 [[VP3]] , OriginPhiId: -1
+; CHECK-NEXT:       [DA: Uni] i1 [[VP10:%.*]] = block-predicate i1 [[VP6]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP11:%.*]] = hir-copy i64 [[VP4]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Uni] br cleanup.loopexit.split.loop.exit
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB4]], [[BB6]]
@@ -64,6 +65,9 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i64 [[VP11]] -> [[VP12:%.*]] = {%indvars.iv.out}
 ;
 entry:
   %cmp8 = icmp sgt i32 %n, 0

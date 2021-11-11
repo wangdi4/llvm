@@ -25,42 +25,43 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-NEXT:  VPlan IR for: Perl_do_open6:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@PL_charclass}
-; CHECK-DAG:     [[VP1:%.*]] = {-1 * umin((-1 + ptrtoint.i8*.i64(%i87)), ptrtoint.i8*.i64(%i85)) + ptrtoint.i8*.i64(%i87) + -1}
-; CHECK-DAG:     [[VP2:%.*]] = {%i87}
+; CHECK-DAG:     [[VP1:%.*]] = {%i87}
+; CHECK-DAG:     [[VP2:%.*]] = {-1 * umin((-1 + ptrtoint.i8*.i64(%i87)), ptrtoint.i8*.i64(%i85)) + ptrtoint.i8*.i64(%i87) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = mul i64 -1 i64 [[VP3]]
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[I870:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     i8* [[VP6:%.*]] = hir-copy i8* [[VP_SUBSCRIPT]] , OriginPhiId: -1
-; CHECK-NEXT:     i64 [[VP7:%.*]] = mul i64 -1 i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 -1
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP8]]
-; CHECK-NEXT:     i64 [[VP9:%.*]] = mul i64 -1 i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP10:%.*]] = add i64 [[VP9]] i64 -1
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP10]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = mul i64 -1 i64 [[VP4]]
+; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[I870:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i8* [[VP7:%.*]] = hir-copy i8* [[VP_SUBSCRIPT]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 -1 i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP8]] i64 -1
+; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP9]]
+; CHECK-NEXT:     i64 [[VP10:%.*]] = mul i64 -1 i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP10]] i64 -1
+; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP11]]
 ; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i64 [[VP11:%.*]] = zext i8 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [256 x i32]* @PL_charclass i64 0 i64 [[VP11]]
+; CHECK-NEXT:     i64 [[VP12:%.*]] = zext i8 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [256 x i32]* @PL_charclass i64 0 i64 [[VP12]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i32 [[VP12:%.*]] = and i32 [[VP_LOAD_1]] i32 17408
-; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp ne i32 [[VP12]] i32 17408
-; CHECK-NEXT:     br i1 [[VP13]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     i32 [[VP13:%.*]] = and i32 [[VP_LOAD_1]] i32 17408
+; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp ne i32 [[VP13]] i32 17408
+; CHECK-NEXT:     br i1 [[VP14]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       i64 [[VP14:%.*]] = mul i64 -1 i64 [[VP3]]
-; CHECK-NEXT:       i64 [[VP15:%.*]] = add i64 [[VP14]] i64 -1
-; CHECK-NEXT:       i8* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP15]]
+; CHECK-NEXT:       i64 [[VP15:%.*]] = mul i64 -1 i64 [[VP4]]
+; CHECK-NEXT:       i64 [[VP16:%.*]] = add i64 [[VP15]] i64 -1
+; CHECK-NEXT:       i8* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP16]]
 ; CHECK-NEXT:       store i8 0 i8* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:       i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:       i1 [[VP16:%.*]] = icmp sle i64 [[VP4]] i64 [[VP1]]
-; CHECK-NEXT:       br i1 [[VP16]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:       i64 [[VP5]] = add i64 [[VP4]] i64 1
+; CHECK-NEXT:       i1 [[VP17:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
+; CHECK-NEXT:       br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:       br [[BB6:BB[0-9]+]]
@@ -75,9 +76,9 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i8* [[VP6]] -> [[VP17:%.*]] = {%i91.out}
+; CHECK-NEXT:  Id: 0   i8* [[VP7]] -> [[VP18:%.*]] = {%i91.out}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   i8* [[VP_SUBSCRIPT_1]] -> [[VP18:%.*]] = {%i92}
+; CHECK-NEXT:  Id: 1   i8* [[VP_SUBSCRIPT_1]] -> [[VP19:%.*]] = {%i92}
 ;
 bb89:
   br label %bb90

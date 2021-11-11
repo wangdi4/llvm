@@ -32,7 +32,7 @@ define dso_local void @foo(i64** nocapture readnone %lpp) local_unnamed_addr #0 
 ; CHECK-NEXT:  |   |   |   <i3 = 0>
 ; CHECK-NEXT:  |   |   |   [[BB1:BB[0-9]+]].56:
 ; CHECK-NEXT:  |   |   |   (<4 x i64>*)(@larr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][%phi.temp][%phi.temp4] = i1 + <i64 0, i64 1, i64 2, i64 3> + %phi.temp + %phi.temp4;
-; CHECK-NEXT:  |   |   |   %.vec = %phi.temp4 + 1 <= 99;
+; CHECK-NEXT:  |   |   |   %.vec = %phi.temp4 + 1 < 100;
 ; CHECK-NEXT:  |   |   |   %phi.temp4 = %phi.temp4 + 1;
 ; CHECK-NEXT:  |   |   |   %unifcond = extractelement %.vec,  0;
 ; CHECK-NEXT:  |   |   |   if (%unifcond == 1)
@@ -42,7 +42,7 @@ define dso_local void @foo(i64** nocapture readnone %lpp) local_unnamed_addr #0 
 ; CHECK-NEXT:  |   |   |   }
 ; CHECK-NEXT:  |   |   + END LOOP
 ; CHECK-NEXT:  |   |
-; CHECK-NEXT:  |   |   %.vec7 = %phi.temp + 1 <= 99;
+; CHECK-NEXT:  |   |   %.vec7 = %phi.temp + 1 < 100;
 ; CHECK-NEXT:  |   |   %phi.temp = %phi.temp + 1;
 ; CHECK-NEXT:  |   |   %unifcond9 = extractelement %.vec7,  0;
 ; CHECK-NEXT:  |   |   if (%unifcond9 == 1)

@@ -12,36 +12,37 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
 ; CHECK-NEXT:  VPlan IR for: foo1:HIR
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%C}
-; CHECK-DAG:     [[VP2:%.*]] = {%B}
-; CHECK-DAG:     [[VP3:%.*]] = {%A}
+; CHECK-DAG:     [[VP0:%.*]] = {%C}
+; CHECK-DAG:     [[VP1:%.*]] = {%B}
+; CHECK-DAG:     [[VP2:%.*]] = {%A}
+; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP0]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = add i64 [[VP3]] i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP4]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_TREE_CONFLICT:%.*]] = tree-conflict i64 [[VP_VCONFLICT_INDEX]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] { Redux Opcode: add }
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_TREE_CONFLICT]] i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp sle i64 [[VP5]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -101,27 +102,28 @@ define dso_local void @foo2(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP1]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = add i64 [[VP1]] i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP4]], UF = 1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[C0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[C0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP7]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_TREE_CONFLICT:%.*]] = tree-conflict i64 [[VP_VCONFLICT_INDEX]] float [[VP_LOAD_2]] float [[VP_LOAD_1]] { Redux Opcode: fadd }
 ; CHECK-NEXT:     [DA: Div] store float [[VP_TREE_CONFLICT]] float* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp sle i64 [[VP5]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1

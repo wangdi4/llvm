@@ -41,7 +41,7 @@ define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store float [[VP_GENERAL_MEM_OPT_CONFLICT]] float* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp sle i64 [[VP3]] i64 1023
+; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -78,27 +78,28 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo2:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {%A}
-; CHECK-DAG:     [[VP3:%.*]] = {%C}
+; CHECK-DAG:     [[VP0:%.*]] = {%B}
+; CHECK-DAG:     [[VP1:%.*]] = {%A}
+; CHECK-DAG:     [[VP2:%.*]] = {%C}
+; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[C0:%.*]]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -106,13 +107,13 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
-; CHECK-NEXT:      live-out : i32 [[VP7]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
+; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
+; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP5]] i64 [[VP0]]
-; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
+; CHECK-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -166,32 +167,33 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP3]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = add i64 [[VP5]] i64 2
+; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = add i64 [[VP6]] i64 2
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP6]] i64 2
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 2
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP_LIVE_IN0]] i32 100
-; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 100
+; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP_LIVE_IN0]] i32 100
+; CHECK-NEXT:      live-out : i32 [[VP9]] = add i32 [[VP_LIVE_IN0]] i32 100
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp sle i64 [[VP4]] i64 [[VP0]]
-; CHECK-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
+; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
+; CHECK-NEXT:     br i1 [[VP10]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -237,38 +239,39 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo4:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%B}
-; CHECK-DAG:     [[VP1:%.*]] = {%A}
-; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%B}
+; CHECK-DAG:     [[VP2:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP3]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP5]]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP6:%.*]] = add i32 [[VP_LIVE_IN0]] i32 -100
-; CHECK-NEXT:      live-out : i32 [[VP6]] = add i32 [[VP_LIVE_IN0]] i32 -100
+; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 [[VP_LIVE_IN0]] i32 -100
+; CHECK-NEXT:      live-out : i32 [[VP7]] = add i32 [[VP_LIVE_IN0]] i32 -100
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp sle i64 [[VP4]] i64 [[VP2]]
-; CHECK-NEXT:     br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
+; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -314,56 +317,57 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:  VPlan IR for: foo5:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%C}
-; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {%A}
-; CHECK-DAG:     [[VP3:%.*]] = {%D}
-; CHECK-DAG:     [[VP4:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%B}
+; CHECK-DAG:     [[VP3:%.*]] = {%A}
+; CHECK-DAG:     [[VP4:%.*]] = {%D}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP1]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP_LIVE_IN0]] i32 100
-; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 100
+; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP_LIVE_IN0]] i32 100
+; CHECK-NEXT:      live-out : i32 [[VP9]] = add i32 [[VP_LIVE_IN0]] i32 100
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX_1:%.*]] = sext i32 [[VP_LOAD_2]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX_1]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     i64 [[VP9:%.*]] = sext i32 [[VP_LOAD_2]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP9]]
+; CHECK-NEXT:     i64 [[VP10:%.*]] = sext i32 [[VP_LOAD_2]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP10]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT_1:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX_1]] void [[VP_CONFLICT_REGION_1:%.*]] i32 [[VP_LOAD_3]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0_1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP10:%.*]] = add i32 [[VP_LIVE_IN0_1]] i32 500
-; CHECK-NEXT:      live-out : i32 [[VP10]] = add i32 [[VP_LIVE_IN0_1]] i32 500
+; CHECK-NEXT:      i32 [[VP11:%.*]] = add i32 [[VP_LIVE_IN0_1]] i32 500
+; CHECK-NEXT:      live-out : i32 [[VP11]] = add i32 [[VP_LIVE_IN0_1]] i32 500
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT_1]] i32* [[VP_SUBSCRIPT_5]]
-; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP6]] i64 [[VP4]]
-; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP7]] i64 [[VP5]]
+; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -417,8 +421,8 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo6:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%B}
-; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%B}
 ; CHECK-DAG:     [[VP2:%.*]] = {%A}
 ; CHECK-DAG:     [[VP3:%.*]] = {%C}
 ; CHECK-NEXT:  External Defs End:
@@ -426,45 +430,46 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 [[VP_LIVE_IN0]] i32 100
-; CHECK-NEXT:      live-out : i32 [[VP7]] = add i32 [[VP_LIVE_IN0]] i32 100
+; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP_LIVE_IN0]] i32 100
+; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 100
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX_1:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP_VCONFLICT_INDEX_1]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP8]]
+; CHECK-NEXT:     i64 [[VP9:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT_1:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX_1]] void [[VP_CONFLICT_REGION_1:%.*]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0_1:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP_LIVE_IN0_1]] i32 500
-; CHECK-NEXT:      live-out : i32 [[VP9]] = add i32 [[VP_LIVE_IN0_1]] i32 500
+; CHECK-NEXT:      i32 [[VP10:%.*]] = add i32 [[VP_LIVE_IN0_1]] i32 500
+; CHECK-NEXT:      live-out : i32 [[VP10]] = add i32 [[VP_LIVE_IN0_1]] i32 500
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT_1]] i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp sle i64 [[VP5]] i64 [[VP1]]
-; CHECK-NEXT:     br i1 [[VP10]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
+; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -531,30 +536,31 @@ define dso_local void @foo7(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP7:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[CALL0:%.*]]
-; CHECK-NEXT:      live-out : i32 [[VP7]] = add i32 [[VP_LIVE_IN0]] i32 [[CALL0]]
+; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[CALL0:%.*]]
+; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 [[CALL0]]
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP5]] i64 [[VP3]]
-; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
+; CHECK-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -600,8 +606,8 @@ define dso_local void @foo8(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:  VPlan IR for: foo8:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%0}
-; CHECK-DAG:     [[VP1:%.*]] = {%D}
-; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%D}
 ; CHECK-DAG:     [[VP3:%.*]] = {%B}
 ; CHECK-DAG:     [[VP4:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
@@ -609,35 +615,36 @@ define dso_local void @foo8(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP1]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP7]]
+; CHECK-NEXT:     i64 [[VP8:%.*]] = sext i32 [[VP_LOAD]] to i64
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
 ; CHECK-NEXT:      live-in : i32 [[VP_LIVE_IN0:%.*]]
 ; CHECK-NEXT:      Region:
 ; CHECK-NEXT:      VConflictBB
-; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[TMP0:%.*]]
-; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 [[TMP0]]
+; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[TMP0:%.*]]
+; CHECK-NEXT:      live-out : i32 [[VP9]] = add i32 [[VP_LIVE_IN0]] i32 [[TMP0]]
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i32 [[VP9:%.*]] = add i32 [[TMP0]] i32 [[VP_LOAD_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[D0]] i64 [[VP5]]
-; CHECK-NEXT:     store i32 [[VP9]] i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp sle i64 [[VP6]] i64 [[VP2]]
-; CHECK-NEXT:     br i1 [[VP10]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[TMP0]] i32 [[VP_LOAD_2]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[D0]] i64 [[VP6]]
+; CHECK-NEXT:     store i32 [[VP10]] i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP7]] i64 [[VP5]]
+; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
