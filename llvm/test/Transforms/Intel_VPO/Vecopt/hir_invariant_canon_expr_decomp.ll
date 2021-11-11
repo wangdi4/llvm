@@ -56,7 +56,7 @@ define dso_local void @foo(i64 %n1, i64 %n2) {
 ; CHECK-NEXT:     float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP10]]
 ; CHECK-NEXT:     store float [[VP9]] float* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP6]] i64 99
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP6]] i64 100
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]

@@ -43,7 +43,7 @@ define void @foo(i64 %n1, i64 %n2) {
 ; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [100 x i64]* @arr2 i64 0 i64 [[VP6]]
 ; CHECK-NEXT:     store i64 [[VP5]] i64* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp sle i64 [[VP4]] i64 99
+; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp slt i64 [[VP4]] i64 100
 ; CHECK-NEXT:     br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]

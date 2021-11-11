@@ -16,7 +16,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Function: foo
-; CHECK:          BEGIN REGION { }
+; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           %sum.07 = %init;
 ; CHECK-NEXT:           %tgu = %N  /u  4;
 ; CHECK-NEXT:           %vec.tc = %tgu  *  4;
@@ -41,7 +41,7 @@
 ; CHECK-NEXT:           + END LOOP
 
 ; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%.vec9);
-; CHECK-NEXT:           %.vec11 = %N + -1 == %vec.tc5;
+; CHECK-NEXT:           %.vec11 = %N == %vec.tc5;
 ; CHECK-NEXT:           %phi.temp = %sum.07;
 ; CHECK-NEXT:           %phi.temp2 = %vec.tc5;
 ; CHECK-NEXT:           %phi.temp14 = %sum.07;

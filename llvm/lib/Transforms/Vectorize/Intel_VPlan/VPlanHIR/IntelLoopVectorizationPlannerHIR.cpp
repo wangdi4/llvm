@@ -282,8 +282,9 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   // hasLoopNormalizedInduction) to accept HIR-normalized loops. They use 'le'
   // condition which leads to execution of OrigUB + 1 iterations.
   //
-  bool ExactUB = true;
+  bool ExactUB = false;
   bool HasNormalizedInd = hasLoopNormalizedInduction(CandidateLoop, ExactUB);
+  assert(ExactUB && "Exact UB expected for decomposed HLLoops.");
   CandidateLoop->setHasNormalizedInductionFlag(HasNormalizedInd, ExactUB);
 
   // The multi-exit loops are processed in a special way
@@ -311,6 +312,7 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
         "Unexpected loop upper bound placement");
     Builder.setInsertPoint(Parent, std::next(Instr->getIterator(), 1));
   }
+
   auto *VTC = Builder.createHIR<VPVectorTripCountCalculation>(
       TheLoop, "vector.trip.count", OrigTC);
   Cond->replaceUsesOfWith(OrigTC, VTC);

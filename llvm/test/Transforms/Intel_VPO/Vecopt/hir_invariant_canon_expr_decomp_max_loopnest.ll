@@ -49,13 +49,14 @@ define dso_local void @foo(i32 %n, i32* nocapture %A, i32 %C) local_unnamed_addr
 ; CHECK-DAG:     [[VP1:%.*]] = {sext.i32.i64(%n) + -1}
 ; CHECK-DAG:     [[VP2:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
+; CHECK:          i64 [[UB_INC:%.*]] = add i64 [[VP1]] i64 1
 ; CHECK:          i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1:.*]] ],  [ i64 [[VP4:%.*]], [[BB2:.*]] ]
 ; CHECK-NEXT:     i32 [[VP5:%.*]] = trunc i64 [[VP3]] to i32
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = add i32 [[VP0]] i32 [[VP5]]
 ; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP3]]
 ; CHECK-NEXT:     store i32 [[VP6]] i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp sle i64 [[VP4]] i64 [[VP1]]
+; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp slt i64 [[VP4]] i64 [[UB_INC]]
 ;
 entry:
   %cmp93 = icmp sgt i32 %n, 0

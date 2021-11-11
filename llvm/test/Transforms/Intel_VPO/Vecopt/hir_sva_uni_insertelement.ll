@@ -15,23 +15,23 @@ define void @foo(i64 *%a, i64 *%b) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 127, UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 128, UF = 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript i64* [[A0:%.*]] i64 [[VP2]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript i64* [[A0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_LOAD_1:%.*]] = load i64* [[B0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP4:%.*]] = bitcast i64 [[VP_LOAD_1]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP5:%.*]] = shufflevector <2 x i32> [[VP4]] <2 x i32> [[VP4]] <2 x i32> <i32 3, i32 0> (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP6:%.*]] = trunc i64 [[VP_LOAD_1]] to i32 (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP7:%.*]] = insertelement <2 x i32> [[VP4]] i32 [[VP6]] i32 0 (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP8:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP5:%.*]] = bitcast i64 [[VP_LOAD_1]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP6:%.*]] = shufflevector <2 x i32> [[VP5]] <2 x i32> [[VP5]] <2 x i32> <i32 3, i32 0> (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP7:%.*]] = trunc i64 [[VP_LOAD_1]] to i32 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP8:%.*]] = insertelement <2 x i32> [[VP5]] i32 [[VP7]] i32 0 (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP4]] = add i64 [[VP3]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP9:%.*]] = icmp slt i64 [[VP4]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )

@@ -31,31 +31,32 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @foo(i32 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: foo:HIR
+; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@c}
-; CHECK-DAG:     [[VP1:%.*]] = {smax(1, sext.i32.i64(%n)) + -1}
-; CHECK-DAG:     [[VP2:%.*]] = {@a}
-; CHECK-DAG:     [[VP3:%.*]] = {@b}
+; CHECK-DAG:     [[VP1:%.*]] = {@a}
+; CHECK-DAG:     [[VP2:%.*]] = {@b}
+; CHECK-DAG:     [[VP3:%.*]] = {smax(1, sext.i32.i64(%n)) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1600 x i32]* @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1600 x i32]* @a i64 0 i64 [[VP5]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1600 x i32]* @b i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1600 x i32]* @b i64 0 i64 [[VP5]]
 ; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1600 x i32]* @c i64 0 i64 [[VP4]]
-; CHECK-NEXT:     store i32 [[VP6]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp sle i64 [[VP5]] i64 [[VP1]]
-; CHECK-NEXT:     br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1600 x i32]* @c i64 0 i64 [[VP5]]
+; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
+; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]

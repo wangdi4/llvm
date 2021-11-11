@@ -62,7 +62,8 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP3]], UF = 1
+; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP3]] i64 1
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP9]], UF = 1
 ; CHECK-NEXT:     i32 [[VP_RED_INIT]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:     i64 [[VP__IND_INIT]] = induction-init{add} i64 live-in2 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
@@ -76,8 +77,8 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:     i32 [[VP4]] = add i32 [[VP_LOAD]] i32 [[VP5]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp sle i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     br i1 [[VP9]], [[BB0]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     br i1 [[VP10]], [[BB0]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i32 [[VP_RED_FINAL]] = reduction-final{u_add} i32 [[VP4]]
@@ -93,9 +94,9 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:  live-out1(i64 [[VP__PRIV_FINAL]])
 ; CHECK-NEXT:  live-out2(i64 [[VP__IND_FINAL]])
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 [[VP_RED_FINAL]] -> [[VP10:%.*]] = {%Sum.07}
+; CHECK-NEXT:  Id: 0   i32 [[VP_RED_FINAL]] -> [[VP11:%.*]] = {%Sum.07}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   i64 [[VP__PRIV_FINAL]] -> [[VP11:%.*]] = {%indvars.iv.next}
+; CHECK-NEXT:  Id: 1   i64 [[VP__PRIV_FINAL]] -> [[VP12:%.*]] = {%indvars.iv.next}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 2   no underlying for i64 [[VP__IND_FINAL]]
 ; CHECK-EMPTY:

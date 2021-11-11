@@ -9,11 +9,12 @@
 ;CHECK-NEXT:  Cost 0 for br [[BB2:BB[0-9]+]]
 ;CHECK-NEXT: [[BB1]]: base cost: 0
 ;CHECK-NEXT: Analyzing VPBasicBlock [[BB2]]
-;CHECK-NEXT:   Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP14:%.*]], UF = 1
+;CHECK-NEXT:   Cost 1000 for i64 [[VP_UB_INC:%.*]] = add i64 [[VP14:%.*]] i64 1
+;CHECK-NEXT:   Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_UB_INC]], UF = 1
 ;CHECK-NEXT:   Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ;CHECK-NEXT:   Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ;CHECK-NEXT:   Cost 0 for br [[BB3:BB[0-9]+]]
-;CHECK-NEXT: [[BB2]]: base cost: 0
+;CHECK-NEXT: [[BB2]]: base cost: 1000
 ;CHECK-NEXT: Analyzing VPBasicBlock [[BB3]]
 ;CHECK-NEXT:   Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP11:%.*]], [[BB3]] ]
 ;CHECK-NEXT:   Cost 0 for i32* [[VP1:%.*]] = subscript inbounds %"EXTENT$.btINTVL"* {{.*}}%"A.addr_a0$_fetch.8" i64 [[VP0]] (0 )
@@ -34,7 +35,7 @@
 ;CHECK-NEXT:   Cost 0 for i32* [[VP10:%.*]] = subscript inbounds i32* {{.*}}%"var$6" i64 [[VP0]]
 ;CHECK-NEXT:   Cost 1000 for store i32 [[VP20]] i32* [[VP10]]
 ;CHECK-NEXT:   Cost 1000 for i64 [[VP11:%.*]] = add i64 [[VP0]] i64 [[VP12:%.*]]
-;CHECK-NEXT:   Cost 1000 for i1 [[VP14:%.*]] = icmp sle i64 [[VP11]] i64 [[VP13:%.*]]
+;CHECK-NEXT:   Cost 1000 for i1 [[VP14:%.*]] = icmp slt i64 [[VP11]] i64 [[VP13:%.*]]
 ;CHECK-NEXT:   Cost 0 for br i1 [[VP14]], [[BB3]], [[BB4:BB[0-9]+]]
 ;CHECK-NEXT: BB3: base cost: 16000
 

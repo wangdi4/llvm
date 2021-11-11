@@ -44,7 +44,7 @@ define dso_local void @init() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x [100 x i64]]* @larr i64 0 i64 [[I10]] i64 [[VP2]]
 ; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP3]] i64 95
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP3]] i64 96
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]

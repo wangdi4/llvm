@@ -50,6 +50,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     i64 [[UB_INC:%.*]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
@@ -68,7 +69,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:     i1 [[VP17:%.*]] = icmp sgt i32 [[VP_LOAD]] i32 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP5]] = select i1 [[VP17]] i32 [[VP_LOAD]] i32 [[VP6]]
 ; CHECK-NEXT:     i64 [[VP11]] = add i64 [[VP12]] i64 1
-; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp sle i64 [[VP11]] i64 [[VP2]]
+; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp slt i64 [[VP11]] i64 [[UB_INC]]
 ; CHECK-NEXT:     br i1 [[VP18]], [[BB0]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
@@ -116,6 +117,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:     br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     i64 [[UB_INC]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i32 [[VP_MINMAX_RED_INIT]] = reduction-init i32 [[BEST_0230]]
 ; CHECK-NEXT:     i64 [[VP_MONO_IDX_RED_INIT]] = reduction-init i64 9223372036854775807
 ; CHECK-NEXT:     i32 [[VP_IDX_RED_INIT]] = reduction-init i32 [[TMP_0240]]
@@ -142,7 +144,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:     i1 [[VP17]] = icmp sgt i32 [[VP_LOAD]] i32 [[VP6]]
 ; CHECK-NEXT:     i32 [[VP5]] = select i1 [[VP17]] i32 [[VP_LOAD]] i32 [[VP6]]
 ; CHECK-NEXT:     i64 [[VP11]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP18]] = icmp sle i64 [[VP11]] i64 [[VP2]]
+; CHECK-NEXT:     i1 [[VP18]] = icmp slt i64 [[VP11]] i64 [[UB_INC]]
 ; CHECK-NEXT:     br i1 [[VP18]], [[BB0]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]

@@ -209,7 +209,7 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:      end of details
 
   %exitcond = icmp eq i64 %indvars.iv.next, 1024, !dbg !42
-; VPLAN-IR:          i1 [[VP21:%.*]] = icmp sle i64 [[VP7]] i64 1023
+; VPLAN-IR:          i1 [[VP21:%.*]] = icmp slt i64 [[VP7]] i64 1024
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:9:3
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

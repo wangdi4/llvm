@@ -53,10 +53,11 @@ public:
 
   /// Create a VPInstruction with 'Add' opcode, \p LHS and \p RHS as operands
   /// and \p DDNode as its VPInstructionData.
-  VPValue *createAdd(VPValue *LHS, VPValue *RHS, loopopt::HLDDNode *DDNode) {
-    assert(DDNode && "DDNode can't be null.");
+  VPValue *createAdd(VPValue *LHS, VPValue *RHS,
+                     loopopt::HLDDNode *DDNode = nullptr) {
     auto *NewAdd = cast<VPInstruction>(VPBuilder::createAdd(LHS, RHS));
-    NewAdd->HIR().setUnderlyingNode(DDNode);
+    if (DDNode)
+      NewAdd->HIR().setUnderlyingNode(DDNode);
     return NewAdd;
   }
 

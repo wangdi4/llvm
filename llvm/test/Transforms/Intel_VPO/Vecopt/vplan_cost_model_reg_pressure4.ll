@@ -31,7 +31,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1
+; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
@@ -56,7 +56,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 444876
 ; VPLAN-CM-AVX2-NEXT:  Block total cost includes GS Cost: 320000
@@ -78,7 +78,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB0]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB1]]
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1
+; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
@@ -103,7 +103,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB2]]: base cost: 206938
 ; VPLAN-CM-AVX512-NEXT:  Block total cost includes GS Cost: 144000
