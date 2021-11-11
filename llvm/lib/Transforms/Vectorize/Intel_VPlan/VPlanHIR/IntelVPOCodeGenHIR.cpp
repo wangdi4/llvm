@@ -1023,7 +1023,7 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
       auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
       auto *DDR = DDRefUtilities.createConstDDRef(Int64Ty, 0);
       auto *UnknownLoop = HLNodeUtilities.createHLLoop(
-          nullptr, DDR, DDR->clone(), DDR->clone(), 1);
+          nullptr /* ZttIf */, DDR, DDR->clone(), DDR->clone(), 1 /* NumEx */);
       VPLoopHLLoopMap[VPLp] = UnknownLoop;
     }
   }
@@ -1121,6 +1121,8 @@ void VPOCodeGenHIR::setupLiveInLiveOut() {
       return;
     }
 
+    // Update livein/liveout information for the case where the def and use
+    // appear in different VPLoops.
     assert(UseHLLoop && DefHLLoop && "Expected non-null use and def loops");
     auto *LCAHLLoop =
         HLNodeUtils::getLowestCommonAncestorLoop(DefHLLoop, UseHLLoop);
@@ -4601,6 +4603,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       Pred1 = widenRef(PredInst->getOperand(1), getVF());
       Pred = PredInst->getPredicate();
     } else {
+      // Used Pred0 == AllOnes as the select mask
       Pred0 = widenRef(VPInst->getOperand(0), getVF());
       Pred1 = nullptr;
       Pred = CmpInst::ICMP_EQ;
@@ -5059,10 +5062,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         makeSymLiveInForParentLoops(RvalSym);
       }
       addInstUnmasked(NewInst);
-      SmallVector<const RegDDRef *, 1> AuxRefs;
-      makeConsistentAndAddToMap(NewInst->getLvalDDRef(), VPInst, AuxRefs, Widen,
-                                ScalarLaneID);
-
+      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
       return;
     }
 
