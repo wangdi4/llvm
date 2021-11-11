@@ -5,8 +5,11 @@
 ; which is loop-invariant.
 
 ; RUN: opt -S -vplan-vec -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
-; TODO: Enable the test for HIR codegen path CMPLRLLVM-10967.
 ;
+; ; HIR-run.
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
+
 ; Marking as fail due to the test in test_pointer_induction_escape function is incorrect.
 ; The test contains inducitons of pointers to private arrays. This is an incorrect
 ; situation and we should bail out. The test should be corrected to move the inducitons
