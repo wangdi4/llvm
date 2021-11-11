@@ -291,6 +291,7 @@ private:
 
   /// BBs that perform updates within the atomic-free reduction loops.
   DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedLocalUpdateBBs;
+  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedLocalExitBBs;
   DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedGlobalUpdateBBs;
 
   /// Struct that keeps all the information needed to pass to
@@ -621,10 +622,14 @@ private:
   /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
   /// means that \p OldV has already been pre-processed to include any pointer
   /// dereference/offset, and can be used directly as the destination base
-  /// pointer. (default = false)
+  /// pointer. (default = false) \p LocalRedVar is a WG-local storage for
+  /// the reduction items, contains !nullptr iff atomic-free reduction
+  /// uses SLM for the local computations to be able copy its contents to the
+  /// global buffer. (default = nullptr)
   bool genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
                         Instruction *InsertPt, DominatorTree *DT,
-                        bool NoNeedToOffsetOrDerefOldV = false);
+                        bool NoNeedToOffsetOrDerefOldV = false,
+                        Value *LocalRedVar = nullptr);
 
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);

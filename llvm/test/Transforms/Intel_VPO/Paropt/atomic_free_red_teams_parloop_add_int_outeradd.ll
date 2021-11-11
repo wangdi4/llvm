@@ -27,9 +27,9 @@ target device_triples = "spir64"
 
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
 ; CHECK: %[[LOCAL_SUM_GEP:[^,]+]] = getelementptr i32, i32 addrspace(1)* %red_buf, i64 %[[GROUP_ID]]
-; CHECK: %[[OLD_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
+; CHECK: %[[OLD_VAL:[^,]+]] = load i32, i32 addrspace(3)* @[[LOCAL_PTR:[^,]+]]
 ; CHECK: %[[NEW_VAL:[^,]+]] = add nsw i32 %[[OLD_VAL]], 10
-; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
+; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(3)* @[[LOCAL_PTR]]
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi
 ; CHECK: %[[LOCAL_SIZE:[^,]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
@@ -41,9 +41,9 @@ target device_triples = "spir64"
 ; CHECK: br i1 %[[CMP1]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
 ; CHECK: %[[PRIV_SUM_VAL:[^,]+]] = load
-; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load volatile i32, i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
+; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load volatile i32, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* @[[LOCAL_PTR]] to i32 addrspace(4)*)
 ; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[LOCAL_SUM_VAL]], %[[PRIV_SUM_VAL]]
-; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
+; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(3)* @[[LOCAL_PTR]]
 ; CHECK: br label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.latch:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
@@ -51,6 +51,8 @@ target device_triples = "spir64"
 ; CHECK: br label %atomic.free.red.local.update.update.header
 ; CHECK-LABEL: atomic.free.red.local.update.update.exit:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
+; CHECK: %[[LOCAL_LD:[^,]+]] = load i32, i32 addrspace(3)* @[[LOCAL_PTR]]
+; CHECK: store i32 %[[LOCAL_LD]], i32 addrspace(1)* %[[LOCAL_SUM_GEP]]
 ; CHECK-LABEL: counter_check:
 ; CHECK: %[[NUM_GROUPS:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
 ; CHECK: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast i32 addrspace(1)* %teams_counter to i32 addrspace(4)*
