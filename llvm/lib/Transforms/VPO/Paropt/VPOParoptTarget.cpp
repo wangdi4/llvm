@@ -97,6 +97,12 @@ static cl::opt<bool> DisableParallelBarriers(
     cl::init(false), cl::ZeroOrMore,
     cl::desc("Disable adding workgroup barriers after parallel regions"));
 
+static cl::opt<bool> ExcludeGlobalFenceFromBarriers(
+    "vpo-paropt-exclude-global-fence-from-workgroup-barriers", cl::Hidden,
+    cl::init(false), cl::ZeroOrMore,
+    cl::desc("Exclude global fence when adding workgroup barriers after "
+             "parallel regions"));
+
 static cl::opt<uint64_t> KernelArgsSizeLimit(
     "vpo-paropt-kernel-args-size-limit", cl::Hidden, cl::init(1024),
     cl::desc("Maximum total size in bytes of the arguments for a kernel"));
@@ -830,6 +836,18 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt << "\n");
 
+    // Experimental option is used to remove global memory fence from the
+    // barrier instruction. 
+    auto MemorySemanticsID =
+        (ExcludeGlobalFenceFromBarriers)
+            ? ConstantInt::get(Type::getInt32Ty(C),
+                               spirv::SequentiallyConsistent |
+                               spirv::WorkgroupMemory)
+            : ConstantInt::get(Type::getInt32Ty(C),
+                               spirv::SequentiallyConsistent |
+                               spirv::WorkgroupMemory |
+                               spirv::CrossWorkgroupMemory);
+
     // TODO: we only need global fences for side effect instructions
     //       inside "omp target" and outside of the enclosed regions.
     //       Moreover, it probably makes sense to guard such instructions
@@ -850,10 +868,7 @@ void VPOParoptTransform::guardSideEffectStatements(
             //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
             { ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
               ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-              ConstantInt::get(Type::getInt32Ty(C),
-                               spirv::SequentiallyConsistent |
-                               spirv::WorkgroupMemory |
-                               spirv::CrossWorkgroupMemory) },
+              MemorySemanticsID },
             InsertPt);
     // __spirv_ControlBarrier() is a convergent call.
     CI->getCalledFunction()->setConvergent();
