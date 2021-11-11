@@ -916,12 +916,45 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                             Attrs.getRetAttrs(), ArgAttrs));
 }
 
-Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
-                                          ArrayRef<Type *> ArgTys,
-                                          TargetLibraryInfo *TLI,
-                                          Intrinsic::ID ID,
-                                          VectorVariant *VecVariant,
-                                          bool Masked, const CallInst *Call) {
+Function *llvm::getOrInsertVectorVariantFunction(
+    Function *OrigF, unsigned VL,
+    ArrayRef<Type *> ArgTys,
+    VectorVariant *VecVariant,
+    bool Masked) {
+  // OrigF is the original scalar function being called.
+  assert(OrigF && "Function not found for call instruction");
+  assert(VecVariant && "Expect VectorVariant to be present");
+
+  StringRef FnName = OrigF->getName();
+  Module *M = OrigF->getParent();
+  Type *RetTy = OrigF->getReturnType();
+  Type *VecRetTy = RetTy;
+  if (!RetTy->isVoidTy()) {
+    VecRetTy = getWidenedType(RetTy, VL);
+  }
+
+  // Having getName() absent means that the vector variant was in the form
+  // "_ZGVbM4uu_" without the BaseName. Use function name then.
+  std::string VFnName = VecVariant->getName().hasValue() ?
+    *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
+  Function *VectorF = M->getFunction(VFnName);
+  if (!VectorF) {
+    FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+    VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
+    VectorF->copyAttributesFrom(OrigF);
+    VectorF->setVisibility(OrigF->getVisibility());
+  }
+
+  return VectorF;
+}
+
+
+Function *llvm::getOrInsertVectorLibFunction(
+    Function *OrigF, unsigned VL,
+    ArrayRef<Type *> ArgTys,
+    TargetLibraryInfo *TLI,
+    Intrinsic::ID ID,
+    bool Masked, const CallInst *Call) {
 
   // OrigF is the original scalar function being called. Widen the scalar
   // call to a vector call if it is known to be vectorizable as SVML or
@@ -930,8 +963,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   StringRef FnName = OrigF->getName();
   if (TLI && !TLI->isFunctionVectorizable(
         FnName, ElementCount::getFixed(VL)) &&
-      !ID && !VecVariant && !isOpenCLReadChannel(FnName) &&
-      !isOpenCLWriteChannel(FnName))
+      !ID && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
     return nullptr;
 
   Module *M = OrigF->getParent();
@@ -939,21 +971,6 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   Type *VecRetTy = RetTy;
   if (!RetTy->isVoidTy()) {
     VecRetTy = getWidenedType(RetTy, VL);
-  }
-
-  if (VecVariant) {
-    // Having getName() absent means that the vector variant was in the form
-    // "_ZGVbM4uu_" without the BaseName. Use function name then.
-    std::string VFnName = VecVariant->getName().hasValue() ?
-      *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
-    Function *VectorF = M->getFunction(VFnName);
-    if (!VectorF) {
-      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
-      VectorF->copyAttributesFrom(OrigF);
-      VectorF->setVisibility(OrigF->getVisibility());
-    }
-    return VectorF;
   }
 
   if (ID) {

@@ -535,14 +535,20 @@ void getFunctionsToVectorize(
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
-/// This function will insert functions for library calls, intrinsics, and simd
-/// functions. The call site instruction is not strictly required here. It is
+/// This function will insert functions for simd functions.
+Function *getOrInsertVectorVariantFunction(
+  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
+  VectorVariant *VecVariant, bool Masked);
+
+/// \brief Widens the call to function \p OrigF  using a vector length of \p VL
+/// and inserts the appropriate function declaration if not already created.
+/// This function will insert functions for library calls, intrinsics.
+/// The call site instruction is not strictly required here. It is
 /// used only for OpenCL read/write channel functions.
-Function *getOrInsertVectorFunction(Function *OrigF, unsigned VL,
-                                    ArrayRef<Type *> ArgTys,
-                                    TargetLibraryInfo *TLI, Intrinsic::ID ID,
-                                    VectorVariant *VecVariant, bool Masked,
-                                    const CallInst *Call = nullptr);
+Function *getOrInsertVectorLibFunction(
+  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
+  TargetLibraryInfo *TLI, Intrinsic::ID ID, bool Masked,
+  const CallInst *Call = nullptr);
 
 /// \brief Return true if \p FnName is an OpenCL SinCos function
 bool isOpenCLSinCos(StringRef FcnName);
