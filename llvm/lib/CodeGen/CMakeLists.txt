@@ -12,6 +12,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_MIRMatcher.cpp
   Intel_MachineOptReportEmitter.cpp
   Intel_RAReportEmitter.cpp
+  Intel_HeteroArchOpt.cpp
   )
 # end INTEL_CUSTOMIZATION
 

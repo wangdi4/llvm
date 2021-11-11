@@ -1,12 +1,12 @@
 ; INTEL_CUSTOMIZATION
-; This customization is for turning off the multiversioning.
-
-; RUN: opt -mtriple=x86_64-unknown-linux-gnu -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,X86 %s
+; RUN: opt -mtriple=x86_64-unknown-linux-gnu -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,X86 %s
+; end INTEL_CUSTOMIZATION
 ; RUN: FileCheck --check-prefixes=SUMMARY,SUMMARY-X86 %s < %t
 
-; RUN: opt -mtriple=armv7-unknown-linux-gnu -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,ARM %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -mtriple=armv7-unknown-linux-gnu -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,ARM %s
+; end INTEL_CUSTOMIZATION
 ; RUN: FileCheck --check-prefixes=SUMMARY,SUMMARY-ARM %s < %t
-; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-p:64:64"
 

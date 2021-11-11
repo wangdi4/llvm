@@ -847,6 +847,38 @@ static bool isStarEdge(const DDEdge &Edge) {
   return false;
 }
 
+// Check for temps in the loop. If there are live-in temps
+// and they are not in a safe-reduction chain, RTDD will not help vectorization
+// and should be avoided.
+bool HIRRuntimeDD::canHelpVectorization(const HLLoop *InnermostLoop) const {
+  // Gather terminal refs which are only inside the innermost loop
+  DDRefGatherer<RegDDRef, TerminalRefs>::VectorTy TempRefs;
+  DDRefGatherer<RegDDRef, TerminalRefs>::gather(InnermostLoop, TempRefs);
+
+  SRA.computeSafeReductionChains(InnermostLoop);
+
+  DDGraph DDG = DDA.getGraph(InnermostLoop);
+  unsigned LoopLevel = InnermostLoop->getNestingLevel();
+
+  for (RegDDRef *TempRef : TempRefs) {
+    if (!TempRef->isLval() && !InnermostLoop->isLiveIn(TempRef->getSymbase())) {
+      continue;
+    }
+
+    for (const DDEdge *Edge : DDG.outgoing(TempRef)) {
+      if (!Edge->preventsVectorization(LoopLevel)) {
+        continue;
+      }
+
+      unsigned OpCode;
+      if (!SRA.isReductionRef(TempRef, OpCode)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
     const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
     DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
@@ -910,6 +942,11 @@ static void clearNotInvolvedGroups(
   for (unsigned GroupNo : TestedGroups.set_bits()) {
     Groups[GroupNo].clear();
   }
+}
+
+static bool
+canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
+  return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true);
 }
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
@@ -1096,6 +1133,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   }
 
+  if (!canHelpVectorization(InnermostLoop) &&
+      !canHelpScalarReplacementOrMemoryMotion(InnermostLoop)) {
+    return NON_PROFITABLE;
+  }
+
   processLoopnest(Loop, InnermostLoop, IVSegments);
 
   // Check if LibraryCall method is required.
@@ -1187,9 +1229,9 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
 
       auto *BaseDDRef = BaseInst->getLvalDDRef();
 
-      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(Upper->getDereferencedType(),
-          BaseDDRef->getSelfBlobIndex(), NonLinearLevel, Upper->getSymbase(),
-          true);
+      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(
+          Upper->getDereferencedType(), BaseDDRef->getSelfBlobIndex(),
+          NonLinearLevel, Upper->getSymbase(), true);
 
       OffsetDDRef->addDimension(
           HNU.getCanonExprUtils().createCanonExpr(OffsetTy, 0, Offset));
@@ -1302,7 +1344,8 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   //   (%dd)[49].0 = &(%Q)[%lower]
   //   (%dd)[49].1 = &(%Q)[%upper]
   for (auto &S : Context.SegmentList) {
-    RegDDRef *LBDDRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+    RegDDRef *LBDDRef =
+        DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
     LBDDRef->addDimension(CEU.createCanonExpr(IVType));
     LBDDRef->addDimension(CEU.createCanonExpr(IVType, 0, TestIdx));
     LBDDRef->setTrailingStructOffsets(1, 0);
@@ -1329,7 +1372,8 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   FunctionCallee RtddIndep = HNU.getModule().getOrInsertFunction(
       "__intel_rtdd_indep", Attrs, IntPtrType, I8PtrType, IntPtrType);
 
-  RegDDRef *ArrayRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
+  RegDDRef *ArrayRef =
+      DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
   ArrayRef->setAddressOf(true);
   ArrayRef->addDimension(CEU.createCanonExpr(IVType));
   ArrayRef->setBitCastDestVecOrElemType(Type::getInt8Ty(LLVMContext));
@@ -1655,7 +1699,8 @@ PreservedAnalyses HIRRuntimeDDPass::runImpl(llvm::Function &F,
   HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                AM.getResult<HIRLoopStatisticsAnalysis>(F),
                AM.getResult<TargetLibraryAnalysis>(F),
-               AM.getResult<TargetIRAnalysis>(F))
+               AM.getResult<TargetIRAnalysis>(F),
+               AM.getResult<HIRSafeReductionAnalysisPass>(F))
       .run();
 
   return PreservedAnalyses::all();
@@ -1675,6 +1720,7 @@ public:
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -1683,11 +1729,13 @@ public:
       return false;
     }
 
-    return HIRRuntimeDD(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                        getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                        getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-                        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-                        getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
+    return HIRRuntimeDD(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
+               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
         .run();
   }
 };
@@ -1700,6 +1748,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRRuntimeDDLegacyPass, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRRuntimeDDPass() {

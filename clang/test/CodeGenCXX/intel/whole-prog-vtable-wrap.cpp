@@ -1,3 +1,6 @@
+// INTEL_FEATURE_SW_DTRANS
+// REQUIRES: intel_feature_sw_dtrans
+
 // RUN: %clang_cc1 -flto -flto-unit -fwhole-program-vtables \
 // RUN:  -fintel-compatibility -triple x86_64-unknown-linux \
 // RUN:  -emit-llvm -o - %s \
@@ -38,3 +41,5 @@ void af(A *a) {
   // CHECK-BOTH: call {{.*}}void{{.*}}A*
   // CHECK-BOTH: ret void
 }
+
+// end INTEL_FEATURE_SW_DTRANS

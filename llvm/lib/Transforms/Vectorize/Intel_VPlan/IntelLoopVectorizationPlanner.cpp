@@ -1477,7 +1477,6 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
       std::is_same<LegalityTy, VPOVectorizationLegality>::value ? IRKind::LLVMIR
                                                                 : IRKind::HIR;
 #endif // INTEL_CUSTOMIZATION
-  // Collect any SIMD loop private information
   if (!WRLp)
     return;
   LVL.setIsSimdFlag();
@@ -1497,6 +1496,7 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
     return ElType;
   };
 
+  // Collect any SIMD loop private information
   for (LastprivateItem *PrivItem : WRLp->getLpriv().items()) {
     auto *PrivVal = PrivItem->getOrig<Kind>();
     Type *PrivTy = GetPrivateElementType(PrivItem);
@@ -1520,11 +1520,25 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
       LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getIsF90DopeVector());
   }
 
+  auto GetLinearElementType = [](const Item *I) {
+    Type *ElType = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElType, NumElements, /* AddrSpace */ std::ignore) =
+        VPOParoptUtils::getItemInfo(I);
+    assert(ElType && "Missed OMP clause item type!");
+
+    // NumElements == nullptr by convention means the number is 1.
+    // Any other values including a non-constant are not supported.
+    assert(!NumElements && "Unexpected number of elements");
+    return ElType;
+  };
+
   // Add information about loop linears to Legality
   for (LinearItem *LinItem : WRLp->getLinear().items()) {
     auto *LinVal = LinItem->getOrig<Kind>();
     auto *Step = LinItem->getStep<Kind>();
-    LVL.addLinear(LinVal, Step);
+    Type *LinTy = GetLinearElementType(LinItem);
+    LVL.addLinear(LinVal, LinTy, Step);
   }
 
   auto GetRecurKind = [](const ReductionItem *Item, const Type *ElType) {

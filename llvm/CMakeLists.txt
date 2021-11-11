@@ -917,6 +917,9 @@ if(INTEL_CUSTOMIZATION)
 
 # INTEL_FEATURE_SW_DTRANS
   option(INTEL_ENABLE_SW_DTRANS "Include DTrans optimizations" ON)
+  # Extra boolean variable that will be used for the Python configuration
+  # files to identify if DTrans build is enabled
+  set (INTEL_DTRANS_EXTRA_OPTS 0)
   if (INTEL_ENABLE_SW_DTRANS)
     list(APPEND features_enabled_by_default
        "${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS"
@@ -932,6 +935,7 @@ if(INTEL_CUSTOMIZATION)
                                Intel_DTrans
                                Intel_DTransOpt
                                Intel_DTransAnalysis)
+    set (INTEL_DTRANS_EXTRA_OPTS 1)
   endif(INTEL_ENABLE_SW_DTRANS)
 # end INTEL_FEATURE_SW_DTRANS
 

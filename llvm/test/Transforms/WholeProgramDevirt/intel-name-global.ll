@@ -1,5 +1,8 @@
-; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s 2>&1 | FileCheck %s
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s 2>&1 | FileCheck %s
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
+; RUN: opt -S -wholeprogramdevirt -whole-program-visibility %intel_devirt_options %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility %intel_devirt_options %s 2>&1 | FileCheck %s
 
 ; This test is to check that the virtual function constant variables are not
 ; changed to unnamed variables in the case where aliases get introduced to
@@ -88,3 +91,5 @@ declare void @llvm.assume(i1)
 declare void @__cxa_pure_virtual()
 
 !0 = !{i32 0, !"typeid"}
+
+; end INTEL_FEATURE_SW_DTRANS

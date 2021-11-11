@@ -791,7 +791,7 @@ DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
   }
 
   assert((Ty->isIntegerTy() || Ty->isFloatingPointTy() || Ty->isVoidTy() ||
-          Ty->isMetadataTy()) &&
+          Ty->isMetadataTy() || Ty->isTokenTy()) &&
          "Primitive type must be based on scalar type");
   return getOrCreateAtomicType(Ty);
 }

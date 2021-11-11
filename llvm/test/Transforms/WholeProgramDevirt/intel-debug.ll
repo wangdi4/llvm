@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; REQUIRES: asserts
 
 ; This test case checks that the debug data is printed correctly.
@@ -152,3 +155,5 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; CHECK:  Targets:
 ; CHECK:    _ZN7Derived3fooEi
 ; CHECK:    _ZN8Derived23fooEi
+
+; end INTEL_FEATURE_SW_DTRANS

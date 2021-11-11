@@ -1969,6 +1969,7 @@ function.
   }];
 }
 
+#if INTEL_FEATURE_SW_DTRANS
 def WholeProgramVTableWrapDocs : Documentation {
   let Category = DocCatIntelOptimization;
   let Option = "IntelCompat";
@@ -2026,6 +2027,7 @@ When used with ``-fwhole-program-vtables`` option, this optimization enables
 devirtualization with whole program analysis without hidden LTO visibility.
   }];
 }
+#endif // INTEL_FEATURE_SW_DTRANS
 
 def IntelTBAADocs : Documentation {
   let Category = DocCatIntelOptimization;

@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test case checks that devirtualization won't happen since there is a
 ; downcasting. The issue with downcasting is that the pointer can reference
 ; memory that could be allocated with another type. If we devirtualize these
@@ -35,7 +38,7 @@
 ; is that p can point to a DerivedA object. The devirtualization process
 ; can convert ptr->foo() into DevirtB::foo() and that is incorrect.
 
-; RUN: opt -S -wholeprogramdevirt -whole-program-assume %s | FileCheck %s
+; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=true -whole-program-assume %s | FileCheck %s
 
 ; Check that the indirect call wasn't converted into a direct call
 ; CHECK: %tmp6 = tail call i32 %tmp5(%class.DerivedB* %tmp)
@@ -111,3 +114,5 @@ define internal void @_Z3barP4Base(%class.Base*) {
 !6 = !{!7, !7, i64 0}
 !7 = !{!"vtable pointer", !8, i64 0}
 !8 = !{!"Simple C++ TBAA"}
+
+; end INTEL_FEATURE_SW_DTRANS

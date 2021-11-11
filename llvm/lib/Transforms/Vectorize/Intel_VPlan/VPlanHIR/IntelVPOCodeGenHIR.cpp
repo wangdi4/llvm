@@ -3029,8 +3029,11 @@ RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
   RegDDRef *MemRef = getOrCreateScalarRef(LoadStore->getPointerOperand(), 0);
   if (MemRef->isAddressOf())
     MemRef->setAddressOf(false);
-  else
-    MemRef = createMemrefFromBlob(MemRef, LoadStore->getValueType(), 0, 1);
+  else {
+    auto *VecTy = cast<VectorType>(LoadStore->getValueType());
+    unsigned NumElems = VecTy->getNumElements();
+    MemRef = createMemrefFromBlob(MemRef, VecTy->getElementType(), 0, NumElems);
+  }
   MemRef->setBitCastDestVecOrElemType(LoadStore->getValueType());
   MemRef->setAlignment(LoadStore->getAlignment().value());
   MemRef->setSymbase(LoadStore->HIR().getSymbase());
@@ -3848,8 +3851,11 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
                                             unsigned ScalarLaneID) {
   auto Dim0 = VPSubscript->dim(0);
   Type *DestTy = Dim0.DimElementType;
-  for (uint64_t Idx : Dim0.StructOffsets)
+  assert(DestTy && "Expected an actual destination type.");
+  for (uint64_t Idx : Dim0.StructOffsets) {
     DestTy = GetElementPtrInst::getTypeAtIndex(DestTy, Idx);
+    assert(DestTy && "Expected an actual destination type.");
+  }
   Type *ResultRefTy = DestTy;
   if (Widen) {
     // See documentation for
