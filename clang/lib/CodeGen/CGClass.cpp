@@ -2703,17 +2703,20 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
                                                    llvm::Value *VTable,
                                                    SourceLocation Loc) {
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   bool WrappingNeeded =
       getLangOpts().isIntelCompat(LangOptions::WholeProgramVTableWrap) &&
       CGM.getCodeGenOpts().WholeProgramVTables &&
       CGM.getCodeGenOpts().PrepareForLTO &&
       CGM.getCodeGenOpts().LTOUnit;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   if (SanOpts.has(SanitizerKind::CFIVCall))
     EmitVTablePtrCheckForCall(RD, VTable, CodeGenFunction::CFITCK_VCall, Loc);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   else if (WrappingNeeded || (CGM.getCodeGenOpts().WholeProgramVTables &&
                               // Don't insert type test assumes if we are
                               // forcing public std visibility.
@@ -2729,6 +2732,12 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
       Builder.CreateCondBr(Check, WrapBB, ContinueBB);
       EmitBlock(WrapBB);
     }
+#else  // INTEL_FEATURE_SW_DTRANS
+  else if (CGM.getCodeGenOpts().WholeProgramVTables &&
+           // Don't insert type test assumes if we are forcing public std
+           // visibility.
+           !CGM.HasLTOVisibilityPublicStd(RD)) {
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     llvm::Metadata *MD =
         CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
@@ -2741,8 +2750,10 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
                            {CastedVTable, TypeId});
     Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::assume), TypeTest);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     if (WrappingNeeded)
       EmitBlock(ContinueBB);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 }
