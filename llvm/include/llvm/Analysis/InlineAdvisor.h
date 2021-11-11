@@ -177,6 +177,12 @@ public:
   /// to prepare for a partial update.
   virtual void onPassExit() {}
 
+  /// Called when the module is invalidated. We let the advisor implementation
+  /// decide what to refresh - in the case of the development mode
+  /// implementation, for example, we wouldn't want to delete the whole object
+  /// and need to re-load the model evaluator.
+  virtual void onModuleInvalidated() {}
+
 protected:
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM);
 #if INTEL_CUSTOMIZATION
@@ -251,6 +257,8 @@ public:
     Result(Module &M, ModuleAnalysisManager &MAM) : M(M), MAM(MAM) {}
     bool invalidate(Module &, const PreservedAnalyses &PA,
                     ModuleAnalysisManager::Invalidator &) {
+      if (Advisor && !PA.areAllPreserved())
+        Advisor->onModuleInvalidated();
       // Check whether the analysis has been explicitly invalidated. Otherwise,
       // it's stateless and remains preserved.
       auto PAC = PA.getChecker<InlineAdvisorAnalysis>();
