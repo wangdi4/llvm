@@ -3,6 +3,7 @@
 // RUN: -fenable-variant-virtual-calls \
 // RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 
+// CHECK: @"_ZN1C3zooEv$SIMDTable" = weak global [1 x void (%struct._ZTS1C.C addrspace(4)*)*] [void (%struct._ZTS1C.C addrspace(4)*)* @_ZN1C3zooEv], align 8
 // CHECK: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [{{.+}} ({{.+}} ({{.+}} @_ZTI4Base to i8*) {{.+}}), {{.+}} ({{.+}}({{.+}} @"_ZN4Base1fEi$SIMDTable" to i8*) {{.+}})] }
 // CHECK: @"_ZN4Base1fEi$SIMDTable" =  weak global [1 x void (%struct._ZTS4Base.Base addrspace(4)*, i32)*] [void (%struct._ZTS4Base.Base addrspace(4)*, i32)* @_ZN4Base1fEi]
 template <typename name, typename Func>
@@ -37,10 +38,12 @@ struct B {
 struct C {
   virtual void foo() {};
   virtual void bar() {};
+  void zoo() {}
 };
 
 void test_1(C *p) {
   p->bar();
+  p->zoo();
 }
 
 typedef  void (C::*PMFn)();
@@ -64,6 +67,8 @@ int main() {
                                    test_1(cp);
                                    PMFn pf = &C::foo;
                                    test_2(cp, pf);
+                                   pf = &C::zoo;
+                                   test_2(cp, pf);
                                  });
 }
 
@@ -71,6 +76,7 @@ int main() {
 // CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 10000)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 2)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 3)
+// CHECK: store { i64, i64 } { i64 ptrtoint ([1 x void (%struct._ZTS1C.C addrspace(4)*)*]* @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, { i64, i64 } addrspace(4)* %pf.ascast
 // CHECK: ret void
 
 // CHECK: define dso_local spir_func void{{.+}}aoo{{.+}}

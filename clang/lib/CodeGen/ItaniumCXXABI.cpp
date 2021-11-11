@@ -1094,6 +1094,13 @@ llvm::Constant *ItaniumCXXABI::BuildMemberPointer(const CXXMethodDecl *MD,
     }
     llvm::Constant *addr = CGM.GetAddrOfFunction(MD, Ty);
 
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().SYCLIsDevice &&
+        CGM.getLangOpts().EnableVariantVirtualCalls &&
+        !isa<llvm::GlobalAlias>(addr))
+      addr = CGM.CreateSIMDFnTableVar(addr);
+#endif  // INTEL_CUSTOMIZATION
+
     MemPtr[0] = llvm::ConstantExpr::getPtrToInt(addr, CGM.PtrDiffTy);
     MemPtr[1] = llvm::ConstantInt::get(CGM.PtrDiffTy,
                                        (UseARMMethodPtrABI ? 2 : 1) *
