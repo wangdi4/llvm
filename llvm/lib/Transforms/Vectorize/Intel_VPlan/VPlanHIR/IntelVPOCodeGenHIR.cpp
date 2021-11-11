@@ -1351,9 +1351,8 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
     // Using the newly created vector call arguments, generate the vector
     // call instruction and extract the low element.
-    Function *VectorF = getOrInsertVectorFunction(
-        F, VF, ArgTys, TLI, Intrinsic::not_intrinsic, nullptr /*simd function*/,
-        false /*non-masked*/);
+    Function *VectorF = getOrInsertVectorLibFunction(
+        F, VF, ArgTys, TLI, Intrinsic::not_intrinsic, false /*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
     FastMathFlags FMF =
@@ -2512,8 +2511,8 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
     }
   }
 
-  Function *VectorF = getOrInsertVectorFunction(
-      Fn, VF, ArgTys, TLI, VectorIntrinID, nullptr /*vector-variant*/, Masked);
+  Function *VectorF = getOrInsertVectorLibFunction(
+      Fn, VF, ArgTys, TLI, VectorIntrinID, Masked);
   assert(VectorF && "Can't create vector function.");
 
   FastMathFlags FMF =
