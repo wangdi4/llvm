@@ -51,10 +51,13 @@ static bool isOptimizableOperation(Instruction *Inst) {
   if (!Divisor->getType()->isIntegerTy(32))
     return false;
 
+  if (isa<UndefValue>(Divisor))
+    return false;
+
   // Do not replace functions with constant divisors as they may be replaced
   // with shifts in the future
-  if (Constant *C = dyn_cast<Constant>(Divisor)) {
-    const APInt &ConstIntVal = cast<ConstantInt>(C)->getValue();
+  if (auto *C = dyn_cast<ConstantInt>(Divisor)) {
+    const APInt &ConstIntVal = C->getValue();
     if (ConstIntVal.isPowerOf2() || (-ConstIntVal).isPowerOf2())
       return false;
   }
