@@ -861,7 +861,7 @@ bool HIRRuntimeDD::canHelpVectorization(const HLLoop *InnermostLoop) const {
   unsigned LoopLevel = InnermostLoop->getNestingLevel();
 
   for (RegDDRef *TempRef : TempRefs) {
-    if (!TempRef->isLval() && !InnermostLoop->isLiveIn(TempRef->getSymbase())) {
+    if (TempRef->isRval() || !InnermostLoop->isLiveIn(TempRef->getSymbase())) {
       continue;
     }
 
@@ -946,7 +946,7 @@ static void clearNotInvolvedGroups(
 
 static bool
 canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
-  return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true);
+  return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true, false);
 }
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {

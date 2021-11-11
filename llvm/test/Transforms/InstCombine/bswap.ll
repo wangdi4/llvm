@@ -251,12 +251,7 @@ define i32 @bswap32_and_first(i32 %x) {
 
 define i32 @bswap32_and_first_extra_use(i32 %x) {
 ; CHECK-LABEL: @bswap32_and_first_extra_use(
-; INTEL_CUSTOMIZATION
-; CMPLRLLVM-23976: Recognize fsh only for pow2 shift with negated operand.
-; CHECK-NEXT:    [[SHL:%.*]] = shl i32 [[X:%.*]], 16
-; CHECK-NEXT:    [[SHR:%.*]] = lshr i32 [[X]], 16
-; CHECK-NEXT:    [[SWAPHALF:%.*]] = or i32 [[SHL]], [[SHR]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[SWAPHALF:%.*]] = call i32 @llvm.fshl.i32(i32 [[X:%.*]], i32 [[X]], i32 16)
 ; CHECK-NEXT:    [[T:%.*]] = and i32 [[SWAPHALF]], 16711935
 ; CHECK-NEXT:    [[BSWAP:%.*]] = call i32 @llvm.bswap.i32(i32 [[X]])
 ; CHECK-NEXT:    call void @extra_use(i32 [[T]])
@@ -300,12 +295,8 @@ define i32 @bswap32_shl_first(i32 %x) {
 
 define i32 @bswap32_shl_first_extra_use(i32 %x) {
 ; CHECK-LABEL: @bswap32_shl_first_extra_use(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP1:%.*]] = shl i32 [[X:%.*]], 24
-; CHECK-NEXT:    [[TMP2:%.*]] = lshr i32 [[X]], 8
-; CHECK-NEXT:    [[TMP3:%.*]] = and i32 [[TMP2]], 16776960
-; CHECK-NEXT:    [[T:%.*]] = or i32 [[TMP1]], [[TMP3]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[SWAPHALF:%.*]] = call i32 @llvm.fshl.i32(i32 [[X:%.*]], i32 [[X]], i32 16)
+; CHECK-NEXT:    [[T:%.*]] = shl i32 [[SWAPHALF]], 8
 ; CHECK-NEXT:    [[BSWAP:%.*]] = call i32 @llvm.bswap.i32(i32 [[X]])
 ; CHECK-NEXT:    call void @extra_use(i32 [[T]])
 ; CHECK-NEXT:    ret i32 [[BSWAP]]
