@@ -160,6 +160,10 @@ cl::opt<uint32_t> AtomicFreeReductionCtrl(
         "Control option for atomic-free reduction. Bit 0(default off): Local "
         "update loop emitted "
         "reduction code. Bit 1(default off): Global update loop is emitted."));
+cl::opt<bool>
+    AtomicFreeReductionUseSLM("vpo-paropt-atomic-free-reduction-slm",
+                              cl::Hidden, cl::init(true),
+                              cl::desc("Keep intra-WG reduction items in SLM"));
 
 static cl::opt<bool> EmitTargetFPCtorDtors(
     "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
@@ -3349,7 +3353,7 @@ bool VPOParoptTransform::genReductionScalarFini(
   // to generate volatile load from the reduction variable for the local
   // update loop. The load from ReductionValueLoc doesn't need to be volatile
   // as it may be safely LICMed
-  auto *Rhs2 = Builder.CreateLoad(ScalarTy, ReductionValueLoc, UseLocalUpdates);
+  auto *Rhs2 = Builder.CreateLoad(ScalarTy, ReductionValueLoc);
   auto *Rhs1 = UseGlobalUpdates
       ? cast<Instruction>(SumPhi)
       : Builder.CreateLoad(ScalarTy, ReductionVar, UseLocalUpdates);
@@ -3456,7 +3460,8 @@ bool VPOParoptTransform::genReductionScalarFini(
 bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
                                           Value *OldV, Instruction *InsertPt,
                                           DominatorTree *DT,
-                                          bool NoNeedToOffsetOrDerefOldV) {
+                                          bool NoNeedToOffsetOrDerefOldV,
+                                          Value *LocalRedVar) {
   Type *AllocaTy = nullptr;
   Value *NumElements = nullptr;
   std::tie(AllocaTy, NumElements, std::ignore) =
@@ -3482,17 +3487,17 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
 
 #endif // INTEL_CUSTOMIZATION
 
-  if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
-      !RedI->getIsArraySection() &&
-      RedI->getType() != ReductionItem::WRNReductionUdr &&
-      (isa<WRNParallelNode>(W) || W->getIsParLoop() || W->getIsTeams())) {
-    auto *OrigInsertPt = InsertPt;
-    if ((isa<WRNParallelNode>(W) || W->getIsParLoop()) &&
-        AtomicFreeRedLocalUpdateBBs.count(W)) {
-      InsertPt = AtomicFreeRedLocalUpdateBBs[W]->getTerminator();
+  if (LocalRedVar) {
+    auto *ExistingBBToInsertInto = AtomicFreeRedLocalExitBBs.lookup(W);
+    if (ExistingBBToInsertInto)
+      Builder.SetInsertPoint(ExistingBBToInsertInto->getTerminator());
+    else
+      AtomicFreeRedLocalExitBBs[W] = InsertPt->getParent();
+    auto *LocalLoad = Builder.CreateLoad(AllocaTy, LocalRedVar);
+    assert(AtomicFreeRedGlobalBufs.count(RedI));
+    Builder.CreateStore(LocalLoad, NewV);
+    if (ExistingBBToInsertInto)
       Builder.SetInsertPoint(InsertPt);
-    }
-    Builder.SetInsertPoint(OrigInsertPt);
   }
 
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy())
@@ -5069,21 +5074,25 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       bool UseRecForArray = ((FastReductionCtrl & 0x2) == 0);
       bool UseRec = ((!isArrayReduction(RedI) && UseRecForScalar) ||
                      (isArrayReduction(RedI) && UseRecForArray));
+      Value *GlobalBufToReplaceWith = nullptr;
       if (FastReductionEnabled && UseRec) {
         // Get private reduction variable from structure and set to NewRedInst
         NewRedInst = genFastRedPrivateVariable(
             RedI, ItemIndex++, FastRedStructTy, FastRedInst, InsertPt);
       } else {
-        if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() &&
-            W->getIsTeams() && AtomicFreeRedGlobalBufs.count(RedI)) {
+        if (isTargetSPIRV() && isAtomicFreeReductionGlobalEnabled() && W->getIsTeams() &&
+            AtomicFreeRedGlobalBufs.count(RedI)) {
           IRBuilder<> Builder(InsertPt);
           auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
           auto *GroupId0 = VPOParoptUtils::genOCLGenericCall(
               "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
               Builder.getInt32(0), InsertPt);
-          NewRedInst =
+          GlobalBufToReplaceWith =
               Builder.CreateGEP(GlobalBuf->getType()->getPointerElementType(),
                                 GlobalBuf, GroupId0);
+        }
+        if (GlobalBufToReplaceWith && !AtomicFreeReductionUseSLM) {
+          NewRedInst = GlobalBufToReplaceWith;
         } else {
           auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, RedI);
           NewRedInst =
@@ -5112,6 +5121,9 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       RedInitEntryBB = createEmptyPrivInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
+
+      if (GlobalBufToReplaceWith && AtomicFreeReductionUseSLM)
+        RedI->setNew(GlobalBufToReplaceWith);
 
       if ((FastReductionEnabled) && !UseRec) {
         BasicBlock *RecInitEntryBB = createEmptyPrivInitBB(W);
@@ -5145,7 +5157,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       //        Note that the first two sections will work with the loop
       //        as well, but this may not be very efficient.
       NeedsKmpcCritical |= genReductionFini(W, RedI, RedI->getOrig(),
-                                            BeginBB->getTerminator(), DT);
+                                            BeginBB->getTerminator(), DT,
+                                            false,
+                                            GlobalBufToReplaceWith
+                                              ? NewRedInst
+                                              : nullptr);
       LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
