@@ -2834,8 +2834,13 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     TrappingMath = false;
     RoundingFPMath = false;
     MathErrno = false;
-    DenormalFPMath = llvm::DenormalMode::getPreserveSign();
-    DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+    if (areOptimizationsEnabled(Args)) {
+      DenormalFPMath = llvm::DenormalMode::getPreserveSign();
+      DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+    } else {
+      DenormalFPMath = llvm::DenormalMode::getIEEE();
+      DenormalFP32Math = llvm::DenormalMode::getIEEE();
+    }
     FPContract = "fast";
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3114,6 +3119,17 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
       FPContract = "";
       break;
+
+#if INTEL_CUSTOMIZATION
+    case options::OPT_ftz:
+      DenormalFPMath = llvm::DenormalMode::getPreserveSign();
+      DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+      break;
+    case options::OPT_no_ftz:
+      DenormalFPMath = llvm::DenormalMode::getIEEE();
+      DenormalFP32Math = llvm::DenormalMode::getIEEE();
+      break;
+#endif // INTEL_CUSTOMIZATION
     }
     if (StrictFPModel) {
       // If -ffp-model=strict has been specified on command line but
