@@ -83,7 +83,33 @@ public:
                 TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
                 HIRSafeReductionAnalysis *SRA, HIRParVecInfoMapType &InfoMap)
       : Mode(Mode), InfoMap(InfoMap), TTI(TTI), TLI(TLI), DDA(DDA), SRA(SRA) {}
-  /// \brief Determine parallelizability/vectorizability of the loop
+
+  /// Ensure DDG for the Region is either fully valid or invalidated so that it
+  /// won't be invalidated in the middle of the analysis. It's possible that we
+  /// can encounter something like this:
+  ///
+  ///   Region {
+  ///      Loop {}
+  ///   }
+  ///
+  /// --> HIRDDAnalysis --> Some transform -->
+  ///
+  ///
+  ///    Region {      // DD invalidated
+  ///      if (cond) {
+  ///        Loop {}   // DD valid
+  ///      } else {
+  ///        Loop2 {}  // No DD data
+  ///      }
+  ///    }
+  ///
+  /// Then we walk into Loop first, store edges information and invalidate the
+  /// whole Region's DD graph when visiting Loop2 making our stored edges data
+  /// stale. Avoid that by using the resetInvalidGraphs interface.
+  void visit(HLRegion *Region) {
+    DDA->resetInvalidGraphs(Region);
+  }
+  /// Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
 
   // TODO: Add structural analysis for non-rectangular loop nest.

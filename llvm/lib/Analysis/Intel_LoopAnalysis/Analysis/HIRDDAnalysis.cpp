@@ -234,6 +234,16 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLRegion *Region,
   return DDGraph(Node, &DDG);
 }
 
+void HIRDDAnalysis::resetInvalidGraphs(const HLRegion *Region) {
+  if (ValidationMap[Region] != GraphState::Invalid)
+    return;
+
+  // Clear region graph and reset state to NoData.
+  RegionDDGraph[Region].clear();
+  GraphStateUpdater GSU(ValidationMap, GraphState::NoData);
+  HLNodeUtils::visit(GSU, Region);
+}
+
 static ConstructDDEdgeType refineEdgeTypeUsingPathAnalysis(const DDRef *Ref1,
                                                            const DDRef *Ref2) {
   auto *Node1 = Ref1->getHLDDNode();
