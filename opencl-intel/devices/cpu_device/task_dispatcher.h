@@ -113,6 +113,19 @@ public:
 
     queue_t                 GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
 
+    queue_t GetTaskSeqQueue() {
+      if (!m_pTaskSeqQueue) {
+        OclAutoMutex lock(&TaskSeqQueueMutex);
+        if (!m_pTaskSeqQueue) {
+          cl_dev_err_code err = createCommandList(
+              CL_DEV_LIST_ENABLE_OOO, GetRootDevice(), &m_pTaskSeqQueue);
+          assert(err == CL_DEV_SUCCESS &&
+                 "Failed to create command queue for task_sequence.");
+        }
+      }
+      return m_pTaskSeqQueue.GetPtr();
+    }
+
     unsigned int            GetNumThreads() const { return m_uiNumThreads;}
 
     ITEDevice*              GetRootDevice() { return m_pRootDevice.GetPtr(); }
@@ -141,6 +154,7 @@ protected:
     bool                      m_bTEActivated;
 
     Intel::OpenCL::Utils::SharedPtr<ITaskList> m_pDefaultQueue;
+    Intel::OpenCL::Utils::SharedPtr<ITaskList> m_pTaskSeqQueue;
 
     IAffinityChangeObserver*    m_pObserver;
 
@@ -209,6 +223,7 @@ protected:
 private:
     TaskDispatcher(const TaskDispatcher&);
     TaskDispatcher& operator=(const TaskDispatcher&);
+    Intel::OpenCL::Utils::OclSpinMutex TaskSeqQueueMutex;
 };
 
 class AffinitizeThreads : public ITaskSet

@@ -238,6 +238,7 @@ public:
 
     // IDeviceCommandManager
     queue_t GetDefaultQueueForDevice() const override;
+    queue_t GetTaskSeqQueueForDevice() const override;
 
   protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskList* pList, KernelCommand* parent);
