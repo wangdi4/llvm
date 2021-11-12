@@ -194,6 +194,29 @@
 // RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
 // FP_MODEL_FAST: "-fdenormal-fp-math=preserve-sign,preserve-sign"
 
+// Optimization level O1 or higher should set preserve-sign
+// RUN: %clang -### --intel -O0 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix NO_FP_MODEL_FAST %s
+// RUN: %clang -### --intel -O1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
+// RUN: %clang -### --intel -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
+// NO_FP_MODEL_FAST-NOT: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+
+// -fp-model options should override -fdenormal-fp-math settings set by optimization level regardless of ordering
+// RUN: %clang -### --intel -O0 -ffp-model=fast -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
+// RUN: %clang -### --intel -ffp-model=fast -O0 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
+// RUN: %clang -### --intel -O1 -ffp-model=precise -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix NO_FP_MODEL_FAST %s
+// RUN: %clang -### --intel -ffp-model=precise -O1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix NO_FP_MODEL_FAST %s
+// RUN: %clang -### --intel -O1 -ffp-model=strict -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix NO_FP_MODEL_FAST %s
+// RUN: %clang -### --intel -ffp-model=strict -O1 -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix NO_FP_MODEL_FAST %s
+
 // print-search-dirs should contain the Intel lib dir
 // RUN: %clang --intel -target x86_64-unknown-linux-gnu --print-search-dirs 2>&1 | FileCheck -check-prefix CHECK-SEARCH-DIRS %s
 // CHECK-SEARCH-DIRS: libraries:{{.*}} {{.*}}compiler/lib{{(/|\\)}}intel64_lin{{.*}}

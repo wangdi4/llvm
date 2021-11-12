@@ -975,6 +975,9 @@ include "X86ScheduleBtVer2.td"
 include "X86SchedSkylakeClient.td"
 include "X86SchedSkylakeServer.td"
 include "X86SchedIceLake.td"
+#if INTEL_CUSTOMIZATION
+include "Intel_X86ScheduleGRT.td"
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // X86 Processor Feature Lists
@@ -1876,7 +1879,7 @@ def : ProcModel<"sapphirerapids", SkylakeServerModel,
 def : ProcModel<"alderlake", SkylakeClientModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 #if INTEL_CUSTOMIZATION
-def : ProcModel<"gracemont", SkylakeClientModel,
+def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
 #endif // INTEL_CUSTOMIZATION
 

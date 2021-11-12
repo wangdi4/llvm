@@ -169,6 +169,35 @@ void propagateIntelTBAAToMemInst(Instruction &MemInst, Value *PointerOp) {
   // information from the GEP.
   if (!MemInstTBAA)
     return;
+  
+  // In opaque pointers mode, there may be a "missing" bitcast, causing the
+  // GEP result type not to match the memory access type. We cannot propagate
+  // the TBAA info in this case.
+  //
+  //   %addr = gep %struct.s, ptr %p, i64 0... ; struct field type
+  //   %res = load i8, %addr ; implicit cast of %addr to i8*
+  //
+  // The GEP indexes into the struct, which can result in any type. If the
+  // result type does not match the i8 load type, the TBAA info cannot be used
+  // for the load.
+  if (GEP->getPointerOperandType()->isOpaquePointerTy()) {
+    auto *GEPType = GEP->getResultElementType();
+    // If the GEP result itself is a "ptr" type, we can't tell if it is
+    // actually compatible with any other "ptr" types. This may be overly
+    // conservative as C++ rules not allow dereferences of an object
+    // from incompatible pointer types.
+    if (GEPType->isOpaquePointerTy()) {
+      return;
+    }
+    if (auto *LI = dyn_cast<LoadInst>(&MemInst)) {
+      if (LI->getType() != GEPType)
+        return;
+    }
+    else if (auto *SI = dyn_cast<StoreInst>(&MemInst)) {
+      if (SI->getValueOperand()->getType() != GEPType)
+        return;
+    }
+  }
 
   MDNode *MergedTBAA = getMostSpecificTBAA(getGepChainTBAA(GEP), MemInstTBAA);
   if (MemInstTBAA != MergedTBAA)
