@@ -315,6 +315,16 @@ set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name 
 
 # INTEL_CUSTOMIZATION
 set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
+
+# If configured to install a separate tools directory (as is the default)
+# install a README explaining its purpose.
+if(NOT LLVM_TOOLS_INSTALL_DIR STREQUAL "bin")
+  install(FILES "intel-bin-llvm-README.txt"
+    DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
+    COMPONENT bin-llvm-readme
+    RENAME "README.txt"
+    )
+endif()
 # end INTEL_CUSTOMIZATION
 mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
 
@@ -1809,6 +1819,8 @@ if (INTEL_CUSTOMIZATION)
       # Extra xmain components
       xmain-extra-libs
       # SYCL components: see sycl/CMakeLists.txt
+      # LLVM tools directory readme
+      bin-llvm-readme
       )
 
     if (WIN32)
