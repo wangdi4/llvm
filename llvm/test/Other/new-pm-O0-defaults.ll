@@ -68,8 +68,7 @@
 ; CHECK-LTO-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-LTO-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-LTO-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-LTO-NEXT: Running pass: IntelFoldWPIntrinsicPass
-; CHECK-LTO-NEXT: Running pass: WholeProgramDevirtPass
+; CHECK-LTO: Running pass: WholeProgramDevirtPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass

@@ -277,9 +277,11 @@ void initializeIntelAdvancedFastCallWrapperPassPass(PassRegistry &); // INTEL
 void initializeIntelIPOPrefetchWrapperPassPass(PassRegistry &);
 void initializeIntelPartialInlineLegacyPassPass(PassRegistry &);
 #endif // INTEL_FEATURE_SW_ADVANCED
+#if INTEL_FEATURE_SW_DTRANS
+void initializeIntelFoldWPIntrinsicLegacyPassPass(PassRegistry &);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 void initializeIntelArgumentAlignmentLegacyPassPass(PassRegistry &); // INTEL
-void initializeIntelFoldWPIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeInterleavedAccessPass(PassRegistry&);
 void initializeInterleavedLoadCombinePass(PassRegistry &);
 void initializeInternalizeLegacyPassPass(PassRegistry&);

@@ -327,9 +327,11 @@ ModulePass *createIntelArgumentAlignmentLegacyPass();
 /// removed too.
 ModulePass *createIntelIPODeadArgEliminationWrapperPass();
 
+#if INTEL_FEATURE_SW_DTRANS
 /// \brief This pass folds the intrinsic llvm.intel.wholeprogramsafe using the
 /// results from the whole program analysis.
 ModulePass *createIntelFoldWPIntrinsicLegacyPass();
+#endif // INTEL_FEATURE_SW_DTRANS
 
 /// \brief This pass will add the declarations for math functions that are
 /// expressed as llvm intrinsics.
