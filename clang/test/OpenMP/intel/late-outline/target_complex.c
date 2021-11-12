@@ -50,14 +50,13 @@ void foo()
 void foo()
 {
   //CHECK:[[XT:%xTmp]] = alloca [[TP:{ double, double }]], align 8
+  //CHECK:[[TH:%thresh]] = alloca double, align 8
+  //CHECK:[[IAT:%indirect-arg-temp[0-9]*]] = alloca [[TP]], align 8
+
   //CHECK:[[XTA:%xTmp.ascast]] =
   //CHECK-SAME: addrspacecast [[TP]]* [[XT]] to [[TP]] [[AS:addrspace\(4\)]]*
-
-  //CHECK:[[TH:%thresh]] = alloca double, align 8
   //CHECK:[[THA:%thresh.ascast]] =
   //CHECK-SAME: addrspacecast double* [[TH]] to double [[AS]]*
-
-  //CHECK:[[IAT:%indirect-arg-temp[0-9]*]] = alloca [[TP]], align 8
   //CHECK:[[IATA:%indirect-arg-temp[0-9]*.ascast]] =
   //CHECK-SAME: addrspacecast [[TP]]* [[IAT]] to [[TP]] [[AS:addrspace\(4\)]]*
 

@@ -72,15 +72,15 @@ void foo_base(float *A, int dnum) { }
 void caller2(int n, float* x, int dnum)
 {
   //ALL: [[DNUM:%dnum.*]] = alloca i32, align 4
-  //TARG: [[DNUM_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[DNUM]] to i32 addrspace(4)*
   //ALL: [[CAP:%.capture.*]] = alloca i32, align 4
+  //ALL: [[CAP1:%.capture.*]] = alloca i8, align 1
+  //ALL: [[CAP2:%.capture.*]] = alloca i8, align 1
+  //ALL: [[CAP3:%.capture.*]] = alloca i8, align 1
+  //TARG: [[DNUM_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[DNUM]] to i32 addrspace(4)*
   //TARG: [[CAP_CAST:%.capture_.*]] = addrspacecast i32* [[CAP]] to i32 addrspace(4)*
 
-  //ALL: [[CAP1:%.capture.*]] = alloca i8, align 1
   //TARG: [[CAP_CAST1:%.capture_.*]] = addrspacecast i8* [[CAP1]] to i8 addrspace(4)*
-  //ALL: [[CAP2:%.capture.*]] = alloca i8, align 1
   //TARG: [[CAP_CAST2:%.capture_.*]] = addrspacecast i8* [[CAP2]] to i8 addrspace(4)*
-  //ALL: [[CAP3:%.capture.*]] = alloca i8, align 1
   //TARG: [[CAP_CAST3:%.capture_.*]] = addrspacecast i8* [[CAP3]] to i8 addrspace(4)*
   #pragma omp target data map(tofrom:x[0:n]) \
                           use_device_ptr(x) device(dnum)

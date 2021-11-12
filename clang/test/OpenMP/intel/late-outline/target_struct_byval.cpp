@@ -43,18 +43,15 @@ int Foo(CopyCtor C) {
 //CHECK: define {{.*}}_Z6Callerv()
 int Caller() {
   //CHECK: [[D:%d]] = alloca [[DT]], align 4
+  //CHECK: [[C:%c]] = alloca [[CT]], align 4
+  //CHECK: [[ATD:%agg.tmp.*]] = alloca [[DT]], align 4
+  //CHECK: [[ATC:%agg.tmp.*]] = alloca [[CT]], align 4
   //CHECK: [[DA:%d.ascast]] = addrspacecast [[DT]]* [[D]] to [[DT]] [[AS]]*
   Default d = {42};
-
-  //CHECK: [[C:%c]] = alloca [[CT]], align 4
   //CHECK: [[CA:%c.ascast]] = addrspacecast [[CT]]* [[C]] to [[CT]] [[AS]]*
   CopyCtor c;
-
-  //CHECK: [[ATD:%agg.tmp.*]] = alloca [[DT]], align 4
   //CHECK-NEXT: [[ATDA:%agg.tmp.ascast.*]] =
   //CHECK-SAME: addrspacecast [[DT]]* [[ATD]] to [[DT]] [[AS]]*
-
-  //CHECK: [[ATC:%agg.tmp.*]] = alloca [[CT]], align 4
   //CHECK-NEXT: [[ATCA:%agg.tmp.*.ascast]] =
   //CHECK-SAME: addrspacecast [[CT]]* [[ATC]] to [[CT]] [[AS]]*
 

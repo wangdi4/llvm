@@ -153,10 +153,10 @@ int main() {
 //TARG: @_ZTV7Derived = linkonce_odr hidden target_declare unnamed_addr addrspace(1) constant
 //TARG: define hidden{{.*}}main
 //TARG: [[X:%X]] = alloca %class.Base
-//TARG: [[XA:%X.ascast]] = addrspacecast %class.Base* [[X]] to %class.Base addrspace(4)*
 //TARG: [[dobj:%dobj]] = alloca %class.Derived
-//TARG: [[dobja:%dobj.ascast]] = addrspacecast %class.Derived* [[dobj]] to %class.Derived addrspace(4)*
 //TARG: [[d:%d]] = alloca %struct.D
+//TARG: [[XA:%X.ascast]] = addrspacecast %class.Base* [[X]] to %class.Base addrspace(4)*
+//TARG: [[dobja:%dobj.ascast]] = addrspacecast %class.Derived* [[dobj]] to %class.Derived addrspace(4)*
 //TARG: [[da:%d.ascast]] = addrspacecast %struct.D* [[d]] to %struct.D addrspace(4)*
 //TARG: [[L0:%[0-9]+]] =  bitcast %class.Base addrspace(4)* [[XA]] to i8 addrspace(4)* addrspace(4)* addrspace(4)*
 //TARG: [[VT:%vtable]] = load i8 addrspace(4)* addrspace(4)*, i8 addrspace(4)* addrspace(4)* addrspace(4)* [[L0]]

@@ -53,8 +53,8 @@ struct B : virtual A , public C
 B::B() {}
 // CHECK: define{{.*}}spir_func void @_ZN1BC2Ev
 // CHECK: [[THIS_ADDR:%[^)]*]] = alloca %struct.B addrspace(4)*
-// CHECK: [[THIS_ADDR_ASCAST:%[^)]*]] = addrspacecast %struct.B addrspace(4)** [[THIS_ADDR]] to %struct.B addrspace(4)* addrspace(4)*
 // CHECK: [[VTT_ADDR:%[^)]*]] = alloca i8 addrspace(4)* addrspace(4)*
+// CHECK: [[THIS_ADDR_ASCAST:%[^)]*]] = addrspacecast %struct.B addrspace(4)** [[THIS_ADDR]] to %struct.B addrspace(4)* addrspace(4)*
 // CHECK: [[VTT_ADDR_ASCAST:%[^)]*]] =  addrspacecast i8 addrspace(4)* addrspace(4)** [[VTT_ADDR]] to i8 addrspace(4)* addrspace(4)* addrspace(4)*
 // CHECK: store %struct.B addrspace(4)* %this, %struct.B addrspace(4)* addrspace(4)* [[THIS_ADDR_ASCAST]]
 // CHECK: store i8 addrspace(4)* addrspace(4)* %vtt, i8 addrspace(4)* addrspace(4)* addrspace(4)* [[VTT_ADDR_ASCAST]]
