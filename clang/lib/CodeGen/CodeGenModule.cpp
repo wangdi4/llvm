@@ -2243,15 +2243,11 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   const auto *TD = FD ? FD->getAttr<TargetAttr>() : nullptr;
   const auto *SD = FD ? FD->getAttr<CPUSpecificAttr>() : nullptr;
   bool AddedAttr = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
-  if (TD || SD || TC || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
+  if (TD || SD || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
       (FD && FD->hasAttr<AllowCpuFeaturesAttr>())) {
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (TD || SD) {
->>>>>>> f7105d883c81f9ca4332f8d00897402d2fb112a5
     llvm::StringMap<bool> FeatureMap;
     getContext().getFunctionFeatureMap(FeatureMap, GD);
 
@@ -3917,69 +3913,6 @@ llvm::GlobalValue::LinkageTypes getMultiversionLinkage(CodeGenModule &CGM,
   return llvm::GlobalValue::WeakODRLinkage;
 }
 
-<<<<<<< HEAD
-void CodeGenModule::EmitTargetClonesResolver(GlobalDecl GD) {
-  const auto *FD = cast<FunctionDecl>(GD.getDecl());
-  assert(FD && "Not a FunctionDecl?");
-  const auto *TC = FD->getAttr<TargetClonesAttr>();
-  assert(TC && "Not a target_clones Function?");
-
-  QualType CanonTy = Context.getCanonicalType(FD->getType());
-  llvm::Type *DeclTy = getTypes().ConvertType(CanonTy);
-
-  if (const auto *CXXFD = dyn_cast<CXXMethodDecl>(FD)) {
-    const CGFunctionInfo &FInfo = getTypes().arrangeCXXMethodDeclaration(CXXFD);
-    DeclTy = getTypes().GetFunctionType(FInfo);
-  }
-
-  llvm::Function *ResolverFunc;
-  if (getTarget().supportsIFunc()) {
-    auto *IFunc = cast<llvm::GlobalIFunc>(
-        GetOrCreateMultiVersionResolver(GD, DeclTy, FD));
-    ResolverFunc = cast<llvm::Function>(IFunc->getResolver());
-  } else
-    ResolverFunc =
-        cast<llvm::Function>(GetOrCreateMultiVersionResolver(GD, DeclTy, FD));
-
-  SmallVector<CodeGenFunction::MultiVersionResolverOption, 10> Options;
-  for (unsigned VersionIndex = 0; VersionIndex < TC->featuresStrs_size();
-       ++VersionIndex) {
-    if (!TC->isFirstOfVersion(VersionIndex))
-      continue;
-    StringRef Version = TC->getFeatureStr(VersionIndex);
-    StringRef MangledName =
-        getMangledName(GD.getWithMultiVersionIndex(VersionIndex));
-    llvm::Constant *Func = GetGlobalValue(MangledName);
-    assert(Func &&
-           "Should have already been created before calling resolver emit");
-
-    StringRef Architecture;
-    llvm::SmallVector<StringRef, 1> Feature;
-
-    if (Version.startswith("arch="))
-      Architecture = Version.drop_front(sizeof("arch=") - 1);
-    else if (Version != "default")
-      Feature.push_back(Version);
-
-    Options.emplace_back(cast<llvm::Function>(Func), Architecture, Feature);
-  }
-
-  const TargetInfo &TI = getTarget();
-  std::stable_sort(
-      Options.begin(), Options.end(),
-      [&TI](const CodeGenFunction::MultiVersionResolverOption &LHS,
-            const CodeGenFunction::MultiVersionResolverOption &RHS) {
-        return TargetMVPriority(TI, LHS) > TargetMVPriority(TI, RHS);
-      });
-  CodeGenFunction CGF(*this);
-#if INTEL_CUSTOMIZATION
-  CGF.EmitMultiVersionResolver(ResolverFunc, Options,
-                               /*IsCpuDispatch*/ false);
-#endif // INTEL_CUSTOMIZATION
-}
-
-=======
->>>>>>> f7105d883c81f9ca4332f8d00897402d2fb112a5
 void CodeGenModule::emitMultiVersionFunctions() {
   std::vector<GlobalDecl> MVFuncsToEmit;
   MultiVersionFuncs.swap(MVFuncsToEmit);
