@@ -856,8 +856,9 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
     Value *Parm = VectorParmMapIt.VectorParm;
     Instruction *Cast = VectorParmMapIt.VectorParmCast;
 
-    for (auto *U : make_early_inc_range(Parm->users())) {
-      auto *User = cast<Instruction>(U);
+    for (auto &U:  make_early_inc_range(Parm->uses())) {
+      auto *User = cast<Instruction>(U.getUser());
+
       if (isa<StoreInst>(User) && User->getParent() == EntryBlock) {
         // The user is the parameter store to alloca in the entry block. Replace
         // the old scalar alloca with the new vector one.
@@ -873,38 +874,32 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
             GetElementPtrInst::Create(VectorParmMapIt.OrigElemType, BitCast,
                                       Phi, BitCast->getName() + ".gep", User);
 
-      unsigned NumOps = User->getNumOperands();
-      for (unsigned I = 0; I < NumOps; ++I) {
-        if (User->getOperand(I) != Parm)
-          continue;
-
-        if (isa<AllocaInst>(Parm) &&
-            (isa<LoadInst>(User) || isa<StoreInst>(User))) {
-          // We've transformed/repurposed original alloca, so the update is
-          // simple.
-          assert(VecGep && "Expect VecGep to be a non-null value.");
-          User->setOperand(I, VecGep);
-          continue;
-        }
-
-        // Otherwise, we need to load the value from the gep first before
-        // using it. This effectively loads the particular element from
-        // the vector parameter.
-        if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
-          BasicBlock *IncommingBB = PHIUser->getIncomingBlock(I);
-          VecGep = GetElementPtrInst::Create(
-              VectorParmMapIt.OrigElemType, BitCast, Phi,
-              BitCast->getName() + ".gep", IncommingBB->getTerminator());
-        }
+      if (isa<AllocaInst>(Parm) &&
+          (isa<LoadInst>(User) || isa<StoreInst>(User))) {
+        // We've transformed/repurposed original alloca, so the update is
+        // simple.
         assert(VecGep && "Expect VecGep to be a non-null value.");
-        Type *LoadTy = VecGep->getResultElementType();
-        LoadInst *ParmElemLoad = new LoadInst(
-            LoadTy, VecGep, "vec." + Parm->getName() + ".elem",
-            false /*volatile*/,
-            Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
-        ParmElemLoad->insertAfter(VecGep);
-        User->setOperand(I, ParmElemLoad);
+        User->setOperand(U.getOperandNo(), VecGep);
+        continue;
       }
+
+      // Otherwise, we need to load the value from the gep first before
+      // using it. This effectively loads the particular element from
+      // the vector parameter.
+      if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
+        BasicBlock *IncommingBB = PHIUser->getIncomingBlock(U.getOperandNo());
+        VecGep = GetElementPtrInst::Create(
+            VectorParmMapIt.OrigElemType, BitCast, Phi,
+            BitCast->getName() + ".gep", IncommingBB->getTerminator());
+      }
+      assert(VecGep && "Expect VecGep to be a non-null value.");
+      Type *LoadTy = VecGep->getResultElementType();
+      LoadInst *ParmElemLoad = new LoadInst(
+          LoadTy, VecGep, "vec." + Parm->getName() + ".elem",
+          false /*volatile*/,
+          Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
+      ParmElemLoad->insertAfter(VecGep);
+      User->setOperand(U.getOperandNo(), ParmElemLoad);
     }
   }
 
