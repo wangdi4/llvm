@@ -1,3 +1,7 @@
+; INTEL_FEATURE_SW_DTRANS
+
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test is a regression test for CMPLRLLVM-9213 to verify that the compiler
 ; does not crash when attempting to partial inline devirtualized functions
 ; when profiling information is being used.
@@ -59,3 +63,5 @@ return:
 !4 = !{!"branch_weights", i32 30, i32 60}
 !5 = !{!"branch_weights", i32 90, i32 10}
 !6 = !{!"_Intel.Devirt.Target"}
+
+; end INTEL_FEATURE_SW_DTRANS

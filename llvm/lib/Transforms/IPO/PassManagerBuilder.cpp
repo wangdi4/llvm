@@ -66,11 +66,13 @@
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
+#endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
-#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
@@ -1717,8 +1719,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelIPOPrefetchWrapperPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
 
+#if INTEL_FEATURE_SW_DTRANS
   if (EnableWPA)
     PM.add(createIntelFoldWPIntrinsicLegacyPass());
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #if INTEL_FEATURE_SW_ADVANCED
   // IP Cloning

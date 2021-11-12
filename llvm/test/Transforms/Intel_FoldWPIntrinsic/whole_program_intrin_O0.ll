@@ -1,3 +1,5 @@
+; REQUIRES: intel_feature_sw_dtrans
+
 ; Tests if the intrinsic llvm.intel.wholeprogramsafe was converted correctly
 ; into false since the optimization levele is O0. Also, the intrinsic
 ; llvm.intel.wholeprogramsafe should be removed.

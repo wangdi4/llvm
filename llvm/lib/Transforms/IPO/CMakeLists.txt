@@ -10,7 +10,6 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_ArgumentAlignment.cpp
   Intel_CallTreeCloning.cpp
   Intel_DopeVectorConstProp.cpp
-  Intel_FoldWPIntrinsic.cpp
   Intel_InlineLists.cpp
   Intel_IPArrayTranspose.cpp
   Intel_IPODeadArgElimination.cpp
@@ -39,6 +38,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS
   Intel_DevirtMultiversioning.cpp
+  Intel_FoldWPIntrinsic.cpp
   )
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION

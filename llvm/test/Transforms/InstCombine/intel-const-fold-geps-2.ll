@@ -1,3 +1,7 @@
+; INTEL_FEATURE_SW_DTRANS
+
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test verifies that instcombine can't convert indirect call to direct
 ; call by applying constant folding when two GEPs and GlobalAlias are
 ; involved.
@@ -105,3 +109,5 @@ declare dso_local void @__std_terminate() local_unnamed_addr
 !0 = !{i64 8, !"baz"}
 !1 = !{i64 8, !"goo"}
 !2 = !{i64 1}
+
+; end INTEL_FEATURE_SW_DTRANS

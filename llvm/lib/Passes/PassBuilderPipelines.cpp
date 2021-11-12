@@ -72,7 +72,9 @@
 #include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h"
+#if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
+#endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
@@ -2357,7 +2359,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       // Set the optimization level
       MPM.addPass(XmainOptLevelAnalysisInit(Level.getSpeedupLevel()));
       MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+#if INTEL_FEATURE_SW_DTRANS
       MPM.addPass(IntelFoldWPIntrinsicPass());
+#endif // INTEL_FEATURE_SW_DTRANS
     }
 #endif // INTEL_CUSTOMIZATION
     // The WPD and LowerTypeTest passes need to run at -O0 to lower type
@@ -2469,8 +2473,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(GlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   if (EnableWPA)
     MPM.addPass(IntelFoldWPIntrinsicPass());
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #if INTEL_FEATURE_SW_ADVANCED
   if (EnableIPCloning) {

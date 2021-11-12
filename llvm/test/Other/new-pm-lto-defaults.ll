@@ -38,7 +38,6 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
-; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass

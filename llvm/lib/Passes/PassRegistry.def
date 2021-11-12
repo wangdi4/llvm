@@ -205,7 +205,9 @@ MODULE_PASS("call-tree-clone", CallTreeCloningPass())
 MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())
 #endif // INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())
+#if INTEL_FEATURE_SW_DTRANS
 MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())
+#endif // INTEL_FEATURE_SW_DTRANS
 MODULE_PASS("intel-math-libraries-decl", IntelMathLibrariesDeclarationPass())
 MODULE_PASS("intel-ipo-dead-arg-elimination", IntelIPODeadArgEliminationPass())
 #endif // INTEL_CUSTOMIZATION
