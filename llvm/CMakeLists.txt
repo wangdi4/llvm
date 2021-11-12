@@ -319,7 +319,9 @@ endif()
 
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
-set(LLVM_TOOLS_INSTALL_DIR "bin" CACHE STRING "Path for binary subdirectory (defaults to 'bin')")
+# INTEL_CUSTOMIZATION
+set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
+# end INTEL_CUSTOMIZATION
 mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
 
 set(LLVM_UTILS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE STRING
