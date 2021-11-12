@@ -45,7 +45,7 @@ int  __declspec(dllexport) foo(int a) {
 // expected-note@+1 {{'bar' declared here}}
 SYCL_EXTERNAL int __declspec(dllimport) bar();
 // expected-note@+1 {{previous declaration is here}}
-int __declspec(dllimport) foobar();  // expected-note {{'foobar' declared here}}
+int __declspec(dllimport) foobar(); // expected-note {{'foobar' declared here}}
 int foobar()  // expected-warning {{'foobar' redeclared without 'dllimport' attribute: 'dllexport' attribute added}}
 {
   return 10;
