@@ -70,6 +70,7 @@ Value *WRNLoopInfo::getNormUB(unsigned I) const {
   if (NormUB.size() == 0)
     return nullptr;
   assert(I < NormUB.size() && "getNormUB: bad idx");
+  assert(NormUB[I] && "normalized UB must not be null.");
   return NormUB[I];
 }
 
@@ -77,6 +78,7 @@ Type *WRNLoopInfo::getNormUBElemTy(unsigned I) const {
   if (NormUBElemTy.size() == 0)
     return nullptr;
   assert(I < NormUBElemTy.size() && "getNormUBElemTy: bad idx");
+  assert(NormUBElemTy[I] && "normalized UB type must not be null.");
   return NormUBElemTy[I];
 }
 
