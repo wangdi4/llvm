@@ -83,10 +83,12 @@ private:
                                  llvm::opt::ArgStringList &cmdArgs,
                                  RewriteKind rewrite) const;
 
+#if INTEL_CUSTOMIZATION
   void AddClangCLArgs(const llvm::opt::ArgList &Args, types::ID InputType,
                       llvm::opt::ArgStringList &CmdArgs,
                       codegenoptions::DebugInfoKind *DebugInfoKind,
-                      bool *EmitCodeView) const;
+                      bool *EmitCodeView, const JobAction &JA) const;
+#endif // INTEL_CUSTOMIZATION
 
   void ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
                                 const InputInfo &Output,
