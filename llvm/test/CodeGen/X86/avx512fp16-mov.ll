@@ -1927,7 +1927,6 @@ define void @load_store_v4f16(<4 x half>* %x, <4 x half>* %y, <4 x half>* %z) {
   ret void
 }
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 define dso_local fastcc void @v8i16_vzmovl(i16* %rmsk) {
 ; CHECK-LABEL: v8i16_vzmovl:
@@ -1960,7 +1959,7 @@ afterloop.183:                                    ; preds = %loop.183
 
 declare i16 @llvm.vector.reduce.or.v16i16(<16 x i16>)
 ; end INTEL_CUSTOMIZATION
-=======
+
 define <8 x half> @test21(half %a, half %b, half %c) nounwind {
 ; X64-LABEL: test21:
 ; X64:       # %bb.0:
@@ -1989,4 +1988,3 @@ define <8 x half> @test21(half %a, half %b, half %c) nounwind {
   %3 = insertelement <8 x half> %2, half %c, i32 2
   ret <8 x half> %3
 }
->>>>>>> 74b979abcd0fd711cb1038b666eabf17f2274fe3
