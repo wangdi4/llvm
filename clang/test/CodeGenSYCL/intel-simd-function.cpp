@@ -241,8 +241,8 @@ SYCL_EXTERNAL auto bar()
 //CHECK-SAME: float [[AS4]]* align 4 dereferenceable(4) %args
 //CHECK: [[THISARG:%this.addr.*]] = alloca {{.*}}class{{.*}}SimdFunction{{.*}}*,
 //CHECK: [[ARG1:%args.addr.*]] = alloca i32 [[AS4]]*,
-//CHECK: %[[ARG1_CAST:.+]] = addrspacecast i32 [[AS4]]** [[ARG1]] to i32 [[AS4]]* [[AS4]]*
 //CHECK: [[ARG2:%args.addr.*]] = alloca float [[AS4]]*,
+//CHECK: %[[ARG1_CAST:.+]] = addrspacecast i32 [[AS4]]** [[ARG1]] to i32 [[AS4]]* [[AS4]]*
 //CHECK: %[[ARG2_CAST:.+]] = addrspacecast float [[AS4]]** [[ARG2]] to float [[AS4]]* [[AS4]]*
 
 //CHECK: %ptrs = getelementptr {{.*}}%this{{.*}} i32 0, i32 0
