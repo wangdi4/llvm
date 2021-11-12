@@ -462,6 +462,12 @@ static bool addExceptionArgs(const ArgList &Args, types::ID InputType,
     return false;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) && Triple.isSPIR())
+    // Disable exception handling for spir target.
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   // See if the user explicitly enabled exceptions.
   bool EH = Args.hasFlag(options::OPT_fexceptions, options::OPT_fno_exceptions,
                          false);
@@ -486,10 +492,7 @@ static bool addExceptionArgs(const ArgList &Args, types::ID InputType,
   if (types::isCXX(InputType)) {
     // Disable C++ EH by default on XCore and PS4.
     bool CXXExceptionsEnabled =
-#if INTEL_CUSTOMIZATION
-        Triple.getArch() != llvm::Triple::xcore && !Triple.isPS4CPU() &&
-        !(JA.isDeviceOffloading(Action::OFK_OpenMP) && Triple.isSPIR());
-#endif // INTEL_CUSTOMIZATION
+        Triple.getArch() != llvm::Triple::xcore && !Triple.isPS4CPU();
     Arg *ExceptionArg = Args.getLastArg(
         options::OPT_fcxx_exceptions, options::OPT_fno_cxx_exceptions,
         options::OPT_fexceptions, options::OPT_fno_exceptions);
@@ -2861,8 +2864,13 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
     TrappingMath = false;
     RoundingFPMath = false;
     MathErrno = false;
-    DenormalFPMath = llvm::DenormalMode::getPreserveSign();
-    DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+    if (areOptimizationsEnabled(Args)) {
+      DenormalFPMath = llvm::DenormalMode::getPreserveSign();
+      DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+    } else {
+      DenormalFPMath = llvm::DenormalMode::getIEEE();
+      DenormalFP32Math = llvm::DenormalMode::getIEEE();
+    }
     FPContract = "fast";
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3142,6 +3150,17 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       DenormalFP32Math = llvm::DenormalMode::getIEEE();
       FPContract = "";
       break;
+
+#if INTEL_CUSTOMIZATION
+    case options::OPT_ftz:
+      DenormalFPMath = llvm::DenormalMode::getPreserveSign();
+      DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
+      break;
+    case options::OPT_no_ftz:
+      DenormalFPMath = llvm::DenormalMode::getIEEE();
+      DenormalFP32Math = llvm::DenormalMode::getIEEE();
+      break;
+#endif // INTEL_CUSTOMIZATION
     }
     if (StrictFPModel) {
       // If -ffp-model=strict has been specified on command line but
@@ -6184,8 +6203,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Add clang-cl arguments.
   types::ID InputType = Input.getType();
   if (D.IsCLMode())
-    AddClangCLArgs(Args, InputType, CmdArgs, &DebugInfoKind, &EmitCodeView);
 #if INTEL_CUSTOMIZATION
+    AddClangCLArgs(Args, InputType, CmdArgs, &DebugInfoKind, &EmitCodeView, JA);
   // for OpenMP with /Qiopenmp /Qopenmp-targets=spir64, /LD is not supported.
   Arg *LDArg = Args.getLastArg(options::OPT__SLASH_LD);
   if (D.IsCLMode() && LDArg && IsOpenMPDevice && Triple.isSPIR())
@@ -8561,10 +8580,12 @@ static EHFlags parseClangCLEHFlags(const Driver &D, const ArgList &Args) {
   return EH;
 }
 
+#if INTEL_CUSTOMIZATION
 void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                            ArgStringList &CmdArgs,
                            codegenoptions::DebugInfoKind *DebugInfoKind,
-                           bool *EmitCodeView) const {
+                           bool *EmitCodeView, const JobAction &JA) const {
+#endif // INTEL_CUSTOMIZATION
   unsigned RTOptionID = options::OPT__SLASH_MT;
   bool isNVPTX = getToolChain().getTriple().isNVPTX();
   bool isSPIR = getToolChain().getTriple().isSPIR();
@@ -8757,7 +8778,10 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 
   const Driver &D = getToolChain().getDriver();
   EHFlags EH = parseClangCLEHFlags(D, Args);
-  if (!isNVPTX && (EH.Synch || EH.Asynch)) {
+#if INTEL_CUSTOMIZATION
+  if (!isNVPTX && !(isSPIR && JA.isOffloading(Action::OFK_OpenMP)) &&
+      (EH.Synch || EH.Asynch)) {
+#endif // INTEL_CUSTOMIZATION
     if (types::isCXX(InputType))
       CmdArgs.push_back("-fcxx-exceptions");
     CmdArgs.push_back("-fexceptions");

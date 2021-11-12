@@ -1,5 +1,6 @@
-;RUN: opt -whole-program-assume -internalize -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="internalize,padded-pointer-prop" < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -whole-program-assume -internalize -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="internalize,padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; The test checks if padding is propagated through the InvokeInst
 

@@ -1013,6 +1013,8 @@ void PaddedPtrPropWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
 // InvokeInst. In that case, it preserves none of its analyses.
 bool PaddedPtrPropWrapper::runOnModule(Module &M) {
   auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
+  if (!DTInfo.useDTransAnalysis())
+    return false;
   WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
   dtrans::DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
   PaddedPtrPropImpl<dtrans::DTransAnalysisInfoAdapter> PaddedPtrI(AIAdaptor);
@@ -1046,6 +1048,8 @@ bool PaddedPtrPropOPWrapper::runOnModule(Module &M) {
       getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
   dtransOP::DTransSafetyInfo &DTInfo =
       DTAnalysisWrapper.getDTransSafetyInfo(M);
+  if (!DTInfo.useDTransSafetyAnalysis())
+    return false;
   WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
   dtransOP::DTransSafetyInfoAdapter AIAdaptor(DTInfo);
   PaddedPtrPropImpl<dtransOP::DTransSafetyInfoAdapter> PaddedPtrI(AIAdaptor);
