@@ -1413,20 +1413,6 @@ static bool isUniqueInternalLinkageDecl(GlobalDecl GD,
          (CGM.getFunctionLinkage(GD) == llvm::GlobalValue::InternalLinkage);
 }
 
-static void AppendTargetClonesMangling(const CodeGenModule &CGM,
-                                       const TargetClonesAttr *Attr,
-                                       unsigned VersionIndex,
-                                       raw_ostream &Out) {
-  Out << '.';
-  StringRef FeatureStr = Attr->getFeatureStr(VersionIndex);
-  if (FeatureStr.startswith("arch="))
-    Out << "arch_" << FeatureStr.substr(sizeof("arch=") - 1);
-  else
-    Out << FeatureStr;
-
-  Out << '.' << Attr->getMangledIndex(VersionIndex);
-}
-
 static std::string getMangledNameImpl(CodeGenModule &CGM, GlobalDecl GD,
                                       const NamedDecl *ND,
                                       bool OmitMultiVersionMangling = false) {
@@ -1479,10 +1465,6 @@ static std::string getMangledNameImpl(CodeGenModule &CGM, GlobalDecl GD,
         break;
       case MultiVersionKind::Target:
         AppendTargetMangling(CGM, FD->getAttr<TargetAttr>(), Out);
-        break;
-      case MultiVersionKind::TargetClones:
-        AppendTargetClonesMangling(CGM, FD->getAttr<TargetClonesAttr>(),
-                                   GD.getMultiVersionIndex(), Out);
         break;
       case MultiVersionKind::None:
         llvm_unreachable("None multiversion type isn't valid here");
@@ -2260,13 +2242,16 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   FD = FD ? FD->getMostRecentDecl() : FD;
   const auto *TD = FD ? FD->getAttr<TargetAttr>() : nullptr;
   const auto *SD = FD ? FD->getAttr<CPUSpecificAttr>() : nullptr;
-  const auto *TC = FD ? FD->getAttr<TargetClonesAttr>() : nullptr;
   bool AddedAttr = false;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
   if (TD || SD || TC || (FD && FD->hasAttr<TargetPromotionAttr>()) ||
       (FD && FD->hasAttr<AllowCpuFeaturesAttr>())) {
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (TD || SD) {
+>>>>>>> f7105d883c81f9ca4332f8d00897402d2fb112a5
     llvm::StringMap<bool> FeatureMap;
     getContext().getFunctionFeatureMap(FeatureMap, GD);
 
@@ -3838,12 +3823,6 @@ void CodeGenModule::EmitMultiVersionFunctionDefinition(GlobalDecl GD,
     for (unsigned I = 0; I < Spec->cpus_size(); ++I)
       EmitGlobalFunctionDefinition(GD.getWithMultiVersionIndex(I), nullptr);
     // Requires multiple emits.
-  } else if (FD->isTargetClonesMultiVersion()) {
-    auto *Clone = FD->getAttr<TargetClonesAttr>();
-    for (unsigned I = 0; I < Clone->featuresStrs_size(); ++I)
-      if (Clone->isFirstOfVersion(I))
-        EmitGlobalFunctionDefinition(GD.getWithMultiVersionIndex(I), nullptr);
-    EmitTargetClonesResolver(GD);
   } else
     EmitGlobalFunctionDefinition(GD, GV);
 }
@@ -3938,6 +3917,7 @@ llvm::GlobalValue::LinkageTypes getMultiversionLinkage(CodeGenModule &CGM,
   return llvm::GlobalValue::WeakODRLinkage;
 }
 
+<<<<<<< HEAD
 void CodeGenModule::EmitTargetClonesResolver(GlobalDecl GD) {
   const auto *FD = cast<FunctionDecl>(GD.getDecl());
   assert(FD && "Not a FunctionDecl?");
@@ -3998,6 +3978,8 @@ void CodeGenModule::EmitTargetClonesResolver(GlobalDecl GD) {
 #endif // INTEL_CUSTOMIZATION
 }
 
+=======
+>>>>>>> f7105d883c81f9ca4332f8d00897402d2fb112a5
 void CodeGenModule::emitMultiVersionFunctions() {
   std::vector<GlobalDecl> MVFuncsToEmit;
   MultiVersionFuncs.swap(MVFuncsToEmit);
@@ -4242,25 +4224,8 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(
   // Since this is the first time we've created this IFunc, make sure
   // that we put this multiversioned function into the list to be
   // replaced later if necessary (target multiversioning only).
-  if (FD->isTargetMultiVersion())
+  if (!FD->isCPUDispatchMultiVersion() && !FD->isCPUSpecificMultiVersion())
     MultiVersionFuncs.push_back(GD);
-  else if (FD->isTargetClonesMultiVersion()) {
-    // In target_clones multiversioning, make sure we emit this if used.
-    auto DDI =
-        DeferredDecls.find(getMangledName(GD.getWithMultiVersionIndex(0)));
-    if (DDI != DeferredDecls.end()) {
-      addDeferredDeclToEmit(GD);
-      DeferredDecls.erase(DDI);
-    } else {
-      // Emit the symbol of the 1st variant, so that the deferred decls know we
-      // need it, otherwise the only global value will be the resolver/ifunc,
-      // which end up getting broken if we search for them with GetGlobalValue'.
-      GetOrCreateLLVMFunction(
-          getMangledName(GD.getWithMultiVersionIndex(0)), DeclTy, FD,
-          /*ForVTable=*/false, /*DontDefer=*/true,
-          /*IsThunk=*/false, llvm::AttributeList(), ForDefinition);
-    }
-  }
 
 #if INTEL_CUSTOMIZATION
   if (getTarget().supportsIFunc() &&

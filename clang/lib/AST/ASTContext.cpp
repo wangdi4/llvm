@@ -11942,6 +11942,7 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
                     Target->getTargetOpts().FeaturesAsWritten.begin(),
                     Target->getTargetOpts().FeaturesAsWritten.end());
     Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU, Features);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
   } else if (const auto *TP = FD->getAttr<TargetPromotionAttr>()) {
@@ -11971,6 +11972,8 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
       Features.push_back((StringRef{"+"} + VersionStr).str());
 
     Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU, Features);
+=======
+>>>>>>> f7105d883c81f9ca4332f8d00897402d2fb112a5
   } else {
     FeatureMap = Target->getTargetOpts().FeatureMap;
   }
