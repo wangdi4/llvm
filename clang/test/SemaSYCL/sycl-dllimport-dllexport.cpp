@@ -3,16 +3,11 @@
 // RUN: -fsyntax-only -Wno-sycl-2017-compat -DWARNCHECK %s -o /dev/null 2>&1 | FileCheck %s
 // check random triple aux-triple with sycl-device
 
-<<<<<<< HEAD
 // RUN: %clang_cc1 -aux-triple x86_64-pc-windows-msvc \
 // RUN: -triple spir64-unknown-windows -fsycl-is-device \
 // RUN: -Wno-sycl-2017-compat -fsyntax-only \
 // RUN: -fms-extensions -DWARNCHECK %s -o /dev/null 2>&1 | \
 // RUN:  FileCheck %s --check-prefixes CHECKALL
-=======
-// RUN: %clang_cc1 -triple spir64-unknown-windows -Wno-sycl-2017-compat -fsyntax-only \
-// RUN: -fms-extensions -DWARNCHECK %s -o /dev/null 2>&1 | FileCheck --check-prefixes CHECKALL %s
->>>>>>> 6761e738c69ee4f5ca976298e43e3d023b02563d
 // check without -aux-triple but sycl-device
 
 // RUN: %clang_cc1 -triple spir64-unknown-windows \
@@ -50,11 +45,7 @@ int  __declspec(dllexport) foo(int a) {
 // expected-note@+1 {{'bar' declared here}}
 SYCL_EXTERNAL int __declspec(dllimport) bar();
 // expected-note@+1 {{previous declaration is here}}
-<<<<<<< HEAD
-int __declspec(dllimport) foobar();  // expected-note {{'foobar' declared here}}
-=======
 int __declspec(dllimport) foobar(); // expected-note {{'foobar' declared here}}
->>>>>>> 6761e738c69ee4f5ca976298e43e3d023b02563d
 int foobar()  // expected-warning {{'foobar' redeclared without 'dllimport' attribute: 'dllexport' attribute added}}
 {
   return 10;
