@@ -144,6 +144,7 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void _ZdlPv(void*) LLVM_BA
 class IDeviceCommandManager;
 class IBlockToKernelMapper;
 #include "opencl20_ext_execution.h"
+#include "opencl_task_sequence.h"
 
 // Register BI functions defined above to JIT.
 //   MCJIT: use llvm::sys::DynamicLibrary::AddSymbol for each function.
@@ -187,6 +188,10 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size",ocl20_get_kernel_wg_size)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
     REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
+    REGISTER_BI_FUNCTION("ocl_task_sequence_create",ocl_task_sequence_create)
+    REGISTER_BI_FUNCTION("ocl_task_sequence_async",ocl_task_sequence_async)
+    REGISTER_BI_FUNCTION("ocl_task_sequence_get",ocl_task_sequence_get)
+    REGISTER_BI_FUNCTION("ocl_task_sequence_release",ocl_task_sequence_release)
     REGISTER_BI_FUNCTION("__emutls_get_address",__opencl_emutls_get_address)
     // Floating-point extend/truncate builtins
     REGISTER_BI_FUNCTION("__gnu_f2h_ieee", __gnu_f2h_ieee)

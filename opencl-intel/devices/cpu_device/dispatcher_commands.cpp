@@ -1170,6 +1170,12 @@ queue_t NDRange::GetDefaultQueueForDevice() const
     return m_pTaskDispatcher->GetDefaultQueue();
 }
 
+queue_t NDRange::GetTaskSeqQueueForDevice() const {
+  if (nullptr == m_pTaskDispatcher)
+    return 0 != m_parent ? m_parent->GetTaskSeqQueueForDevice() : nullptr;
+  return m_pTaskDispatcher->GetTaskSeqQueue();
+}
+
 bool NDRange::applyForcedWGSize() {
   // If CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE is set, we'll use it regardless of
   // whether workgroup size is specified in clEnqueueNDRangeKernel.

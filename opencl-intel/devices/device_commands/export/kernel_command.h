@@ -85,6 +85,9 @@ public:
 
     int SetEventStatus(clk_event_t event, int iStatus) override;
 
+    int WaitForEvents(cl_uint num_events,
+                      const clk_event_t *event_list) override;
+
     void CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name,
                                    volatile void *pValue) override;
 
