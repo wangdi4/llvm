@@ -930,6 +930,10 @@ Function *llvm::getOrInsertVectorVariantFunction(
   Type *RetTy = OrigF->getReturnType();
   Type *VecRetTy = RetTy;
   if (!RetTy->isVoidTy()) {
+    // GEPs into vectors of i1 do not make sense, so promote it to i8
+    // similar to its later processing in CodeGen.
+    if (RetTy->isIntegerTy(1))
+      RetTy = Type::getInt8Ty(RetTy->getContext());
     VecRetTy = getWidenedType(RetTy, VL);
   }
 

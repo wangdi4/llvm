@@ -3102,7 +3102,16 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     assert(VectorF && "Can't create vector function.");
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
     VecCall->setCallingConv(VectorF->getCallingConv());
-    CallResults.push_back(VecCall);
+    if (VPCall->getType()->isIntegerTy(1)) {
+      // Trunc the result back to i1 after it has been promoted to i8,
+      // in order not to conflict with ret type users.
+      Value *Trunc = Builder.CreateTrunc(
+        VecCall,
+        getWidenedType(Type::getInt1Ty(Builder.getContext()), VF / PumpFactor),
+        VecCall->getName() + ".trunc");
+      CallResults.push_back(Trunc);
+    } else
+      CallResults.push_back(VecCall);
 
     // Copy fast math flags represented in VPInstruction.
     // TODO: investigate why attempting to copy fast math flags for __read_pipe

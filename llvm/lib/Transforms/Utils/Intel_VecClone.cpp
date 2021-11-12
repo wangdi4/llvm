@@ -706,12 +706,18 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
       if (Param.VectorParm == FuncReturn->getReturnValue())
         return Param.VectorParmCast;
 
+  Type *RetTy = F.getReturnType();
+  // GEPs into vectors of i1 do not make sense, so promote it to i8,
+  // similar to later CodeGen processing.
+  if (RetTy->isIntegerTy(1))
+    RetTy = Type::getInt8Ty(RetTy->getContext());
+
   if (!Alloca) {
 
     // Case 1
 
     VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
-                                     F.getReturnType(), LastAlloca);
+                                     RetTy, LastAlloca);
     Value *RetVal = FuncReturn->getReturnValue();
     Instruction *RetFromTemp = dyn_cast<Instruction>(RetVal);
 
@@ -734,8 +740,22 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
     // Generate a gep from the bitcast of the vector alloca used for the return
     // vector.
     GetElementPtrInst *VecGep = GetElementPtrInst::Create(
-        F.getReturnType(), VecReturn, Phi, VecReturn->getName() + ".gep");
+        RetTy, VecReturn, Phi, VecReturn->getName() + ".gep");
     VecGep->insertAfter(InsertPt);
+
+    // If a conflict with the promoted type, extend.
+    if (RetTy->isIntegerTy()) {
+      IntegerType *ValToStoreTy = cast<IntegerType>(ValToStore->getType());
+      if (RetTy != ValToStoreTy) {
+        assert(ValToStoreTy->getBitWidth() <
+               cast<IntegerType>(RetTy)->getBitWidth() &&
+               "Expect the type to be promoted.");
+        ZExtInst *ZExt =
+          new ZExtInst(ValToStore, RetTy, ValToStore->getName() + ".zext");
+        ZExt->insertAfter(InsertPt);
+        ValToStore = ZExt;
+      }
+    }
 
     // Store the constant or temp to the appropriate lane in the return vector.
     StoreInst *VecStore =
@@ -760,8 +780,8 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
       // A new return vector is needed because we do not load the return value
       // from an alloca.
       VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
-                                       F.getReturnType(), LastAlloca);
-      VectorParmMap.emplace_back(Alloca, VecReturn, F.getReturnType());
+                                       RetTy, LastAlloca);
+      VectorParmMap.emplace_back(Alloca, VecReturn, RetTy);
       return VecReturn;
     }
   }
