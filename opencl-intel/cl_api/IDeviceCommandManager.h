@@ -95,6 +95,9 @@ public:
 	 */
 	virtual int SetEventStatus(clk_event_t event, int iStatus) = 0;
 
+    virtual int WaitForEvents(cl_uint num_events,
+                              const clk_event_t *event_list) = 0;
+
 	/**
 	 * Capture the profiling information for a command
 	 * @param event the clk_event_t with which the command is associated
@@ -107,6 +110,8 @@ public:
 	 * @return the default queue for the device on which the kernel is executing
 	 */
 	virtual queue_t GetDefaultQueueForDevice() const = 0;
+
+    virtual queue_t GetTaskSeqQueueForDevice() const = 0;
 
         virtual ~IDeviceCommandManager() {}
 };

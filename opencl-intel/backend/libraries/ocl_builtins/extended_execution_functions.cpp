@@ -317,3 +317,33 @@ __get_kernel_max_sub_group_size_for_ndrange_impl(const ndrange_t ndrange,
   else
       return prod;
 }
+
+extern size_t ocl_task_sequence_create(size_t result_size,
+                                       unsigned max_outstanding);
+size_t __attribute__((always_inline))
+__create_task_sequence(size_t result_size, unsigned max_outstanding) {
+  return ocl_task_sequence_create(result_size, max_outstanding);
+}
+
+extern void ocl_task_sequence_async(void *obj, void *block_invoke,
+                                    void *block_literal, void *DCM, void *B2K,
+                                    void *RuntimeHandle);
+void __attribute__((always_inline))
+__async(void *obj, void *block_invoke, void *block_literal) {
+  void *DCM = __get_device_command_manager();
+  void *B2K = __get_block_to_kernel_mapper();
+  void *RuntimeHandle = __get_runtime_handle();
+  ocl_task_sequence_async(obj, block_invoke, block_literal, DCM, B2K,
+                          RuntimeHandle);
+}
+
+extern void *ocl_task_sequence_get(void *obj, void *DCM);
+void *__attribute__((always_inline)) __get(void *obj) {
+  void *DCM = __get_device_command_manager();
+  return ocl_task_sequence_get(obj, DCM);
+}
+
+extern void ocl_task_sequence_release(void *obj);
+void __attribute__((always_inline)) __release_task_sequence(void *obj) {
+  return ocl_task_sequence_release(obj);
+}

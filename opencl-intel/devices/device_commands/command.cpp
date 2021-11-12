@@ -103,6 +103,11 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
         (*iter)->NotifyCommandFinished(GetError());
     }
     m_waitingCommandsForThis.clear();
+    m_event.Signal();
+}
+
+void DeviceCommand::Wait() const {
+  m_event.Wait();
 }
 
 void DeviceCommand::StartExecutionProfiling()

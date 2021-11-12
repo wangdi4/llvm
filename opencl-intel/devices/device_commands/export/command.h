@@ -17,6 +17,7 @@
 #include <vector>
 #include "task_executor.h"
 #include "cl_shared_ptr.h"
+#include "cl_synch_objects.h"
 
 using Intel::OpenCL::TaskExecutor::ITaskBase;
 using Intel::OpenCL::TaskExecutor::ITaskList;
@@ -123,19 +124,23 @@ protected:
 	 * @param list			the ITaskList that implements the command-queue on which this DeviceCommand executes
 	 * @param pMyTaskBase	a pointer to itself as ITaskBase or NULL if the concrete class does not inherit from ITaskBase
 	 */
-	DeviceCommand(ITaskList* list, ITaskBase* pMyTaskBase) :
-	    m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
-	    m_pExecTimeUserPtr(nullptr), m_list(list),
-		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(nullptr != list ? list->IsProfilingEnabled() : false),
-    m_CMD_STAMP(CMD_STAMP)
-  { }
-
+  DeviceCommand(ITaskList *list, ITaskBase *pMyTaskBase)
+      : m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0),
+        m_ulExecTime(0), m_pExecTimeUserPtr(nullptr), m_list(list),
+        m_pMyTaskBase(pMyTaskBase),
+        m_bIsProfilingEnabled(nullptr != list ? list->IsProfilingEnabled()
+                                              : false),
+        m_CMD_STAMP(CMD_STAMP) {
+    m_event.Init();
+  }
 
 	/**
 	 * Signal that this DeviceCommand is changing its state to CL_COMPLETE
 	 * @param err the error code of the DeviceCommand
 	 */
 	void SignalComplete(cl_dev_err_code err);
+
+    void Wait() const;
 
 	/**
 	 * Set an error code for this DeviceCommand
@@ -166,6 +171,7 @@ private:
 	std::vector<SharedPtr<DeviceCommand> > m_commandsThisIsWaitingFor;
 	SharedPtr<ITaskList> m_list;
 	mutable OclSpinMutex m_mutex;
+    mutable Utils::OclOsDependentEvent m_event;
 	ITaskBase* const m_pMyTaskBase;
 	const bool m_bIsProfilingEnabled;
 	static const cl_long CMD_STAMP = 0xEFEBDAEFEBDA7190; // memory stamp for detecting if the object belongs to the DeviceCommand class

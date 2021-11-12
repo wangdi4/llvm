@@ -266,6 +266,20 @@ int KernelCommand::SetEventStatus(clk_event_t event, int iStatus)
     return CL_SUCCESS;
 }
 
+int KernelCommand::WaitForEvents(cl_uint num_events,
+                                 const clk_event_t *event_list) {
+  if (event_list == nullptr || num_events == 0 && event_list != nullptr)
+    return CL_INVALID_VALUE;
+
+  for ( ; num_events > 0; --num_events) {
+    const KernelCommand *command =
+        reinterpret_cast<const KernelCommand *>(*event_list);
+    command->Wait();
+    event_list++;
+  }
+  return CL_SUCCESS;
+}
+
 void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name, volatile void* pValue)
 {
     if (nullptr == event || name != CLK_PROFILING_COMMAND_EXEC_TIME || nullptr == pValue)
