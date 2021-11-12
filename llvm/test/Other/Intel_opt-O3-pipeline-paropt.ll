@@ -102,35 +102,37 @@
 ;                Call Graph SCC Pass Manager
 ;                  Remove unused exception handling info
 ;                  Function Integration/Inlining
-;CHECK:             FunctionPass Manager
+;CHECK:            FunctionPass Manager
 ;CHECK-NEXT:         Dominator Tree Construction
 ;CHECK-NEXT:         SROA
 ;CHECK-NEXT:         Simplify the CFG
-;CHECK-NEXT:         VPO Restore Operands
+;CHECK-NEXT:     A No-Op Barrier Pass
+;CHECK-NEXT:     FunctionPass Manager
+;CHECK-NEXT:       VPO Restore Operands
 ; INTEL_CUSTOMIZATION
-;CHECK-NEXT:         Dominator Tree Construction
-;CHECK-NEXT:         Natural Loop Information
-;CHECK-NEXT:         VPO CFGRestructuring
-;CHECK-NEXT:         Scalar Evolution Analysis
-;CHECK-NEXT:         Basic Alias Analysis (stateless AA impl)
-;CHECK-NEXT:         Function Alias Analysis Results
-;CHECK-NEXT:         VPO Work-Region Collection
-;CHECK-NEXT:         Lazy Branch Probability Analysis
-;CHECK-NEXT:         Lazy Block Frequency Analysis
-;CHECK-NEXT:         Optimization Remark Emitter
-;CHECK-NEXT:         VPO Work-Region Information
-;CHECK-NEXT:         VPO Paropt Shared Privatization Pass
-;CHECK-NEXT:         Dominator Tree Construction
-;CHECK-NEXT:         Natural Loop Information
-;CHECK-NEXT:         Scalar Evolution Analysis
-;CHECK-NEXT:         Basic Alias Analysis (stateless AA impl)
-;CHECK-NEXT:         Function Alias Analysis Results
-;CHECK-NEXT:         VPO Work-Region Collection
-;CHECK-NEXT:         Lazy Branch Probability Analysis
-;CHECK-NEXT:         Lazy Block Frequency Analysis
-;CHECK-NEXT:         Optimization Remark Emitter
-;CHECK-NEXT:         VPO Work-Region Information
-;CHECK-NEXT:         VPO Paropt Optimize Data Sharing
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       VPO CFGRestructuring
+;CHECK-NEXT:       Scalar Evolution Analysis
+;CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:       Function Alias Analysis Results
+;CHECK-NEXT:       VPO Work-Region Collection
+;CHECK-NEXT:       Lazy Branch Probability Analysis
+;CHECK-NEXT:       Lazy Block Frequency Analysis
+;CHECK-NEXT:       Optimization Remark Emitter
+;CHECK-NEXT:       VPO Work-Region Information
+;CHECK-NEXT:       VPO Paropt Shared Privatization Pass
+;CHECK-NEXT:       Dominator Tree Construction
+;CHECK-NEXT:       Natural Loop Information
+;CHECK-NEXT:       Scalar Evolution Analysis
+;CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+;CHECK-NEXT:       Function Alias Analysis Results
+;CHECK-NEXT:       VPO Work-Region Collection
+;CHECK-NEXT:       Lazy Branch Probability Analysis
+;CHECK-NEXT:       Lazy Block Frequency Analysis
+;CHECK-NEXT:       Optimization Remark Emitter
+;CHECK-NEXT:       VPO Work-Region Information
+;CHECK-NEXT:       VPO Paropt Optimize Data Sharing
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT:     VPO Paropt Pass
 ;CHECK-NEXT:       FunctionPass Manager
@@ -265,8 +267,8 @@
 ;                    Function Alias Analysis Results
 ;                    Memory SSA
 ;                    MemCpy Optimization
-;                    Dead Store Elimination
 ;                    Natural Loop Information
+;                    Dead Store Elimination
 ;                    Canonicalize natural loops
 ;                    LCSSA Verifier
 ;                    Loop-Closed SSA Form Pass
@@ -348,7 +350,6 @@
 ;                  Canonicalize natural loops
 ;                  Lazy Value Information Analysis
 ;                  Lower SwitchInst's to branches
-;                  Dominator Tree Construction
 ;                  Natural Loop Information
 ;                  LCSSA Verifier
 ;                  Loop-Closed SSA Form Pass
@@ -479,10 +480,10 @@
 ;                  Scalar Evolution Analysis                 ;INTEL
 ;                  Load Coalescing                           ;INTEL
 ;                  SROA                                      ;INTEL
+;                  Function Alias Analysis Results           ;INTEL
 ;                  Optimize scalar/vector ops
 ;                  Early CSE                                 ;INTEL
 ;CHECK:            VPO CFGRestructuring
-;                  Function Alias Analysis Results           ;INTEL
 ;                  Optimization Remark Emitter
 ;                  Combine redundant instructions
 ;                  Canonicalize natural loops

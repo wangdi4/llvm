@@ -1347,7 +1347,12 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
   if (RunVPOOpt == InvokeParoptAfterInliner) {
-    addVPOPasses(MPM, false, /* Simplify= */ true);
+    // We need to ensure that the inliner's CGSCC pipeline finishes before
+    // vpo-restore-operands pass is run on any of the functions. See
+    // llvm/test/Transforms/Intel_VPO/Paropt/target_fp_packed_struct.ll for
+    // details.
+    addVPOPasses(MPM, false, /* Simplify= */ true,
+                 /* AddNoOpBarrierPassBeforeRestore= */ true);
   }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
@@ -2107,7 +2112,8 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 
 #if INTEL_COLLAB
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
-                                      bool Simplify) {
+                                      bool Simplify,
+                                      bool AddNoOpBarrierPassBeforeRestore) {
   if (!RunVPOParopt)
     return;
 
@@ -2125,6 +2131,8 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 #endif // INTEL_CUSTOMIZATION
     PM.add(createCFGSimplificationPass());
   }
+  if (AddNoOpBarrierPassBeforeRestore)
+    PM.add(createBarrierNoopPass());
   PM.add(createVPORestoreOperandsPass());
   PM.add(createVPOCFGRestructuringPass());
 #if INTEL_CUSTOMIZATION

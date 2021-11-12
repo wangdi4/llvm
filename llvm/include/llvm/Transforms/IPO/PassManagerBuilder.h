@@ -247,7 +247,8 @@ private:
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
-                    bool Simplify = false);
+                    bool Simplify = false,
+                    bool AddNoOpBarrierPassBeforeRestore = false);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION // HIR passes
   // Temporary utility function to add all passes needed for vectorizing SIMD
