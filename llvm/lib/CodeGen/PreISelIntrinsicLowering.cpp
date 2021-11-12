@@ -199,6 +199,7 @@ static bool lowerSSACopy(Function &F) {
   return Changed;
 }
 
+#if INTEL_FEATURE_SW_DTRANS
 static bool lowerWholeProgramSafe(Function &F) {
   if (F.use_empty())
     return false;
@@ -222,6 +223,7 @@ static bool lowerWholeProgramSafe(Function &F) {
   }
   return Changed;
 }
+#endif // INTEL_FEATURE_SW_DTRANS
 
 static bool lowerIntelHonorFCmp(Function &F) {
   if (F.use_empty())
@@ -310,8 +312,10 @@ static bool lowerIntrinsics(Module &M) {
     if (F.getIntrinsicID() == Intrinsic::intel_fakeload)
       Changed |= lowerFakeload(F);
 
+#if INTEL_FEATURE_SW_DTRANS
     if (F.getIntrinsicID() == Intrinsic::intel_wholeprogramsafe)
       Changed |= lowerWholeProgramSafe(F);
+#endif // INTEL_FEATURE_SW_DTRANS
 
     if (F.getIntrinsicID() == Intrinsic::ssa_copy)
       Changed |= lowerSSACopy(F);

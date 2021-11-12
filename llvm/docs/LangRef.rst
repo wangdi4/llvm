@@ -24482,6 +24482,7 @@ Independence cannot be proved without additional analysis,
 because one cannot tell that ``j`` and/or ``k`` are related to rightmost
 indexes.
 
+.. INTEL_FEATURE_SW_DTRANS
 
 '``llvm.intel.wholeprogramsafe``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -24558,6 +24559,8 @@ Link Time Optimization (LTO) process is enabled. The reason is because
 the whole program analysis run if LTO is available. If LTO is not used,
 then it will be considered that whole program safe wasn't achieved and
 the intrinsic will be lowered as ``false``.
+
+.. end INTEL_FEATURE_SW_DTRANS
 
 .. END INTEL_CUSTOMIZATION
 

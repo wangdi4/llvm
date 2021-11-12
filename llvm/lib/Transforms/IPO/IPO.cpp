@@ -83,7 +83,9 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeQsortRecognizerLegacyPassPass(Registry);
 #endif // INTEL_FEATURE_SW_ADVANCED
   initializeAggInlinerLegacyPassPass(Registry);
+#if INTEL_FEATURE_SW_DTRANS
   initializeIntelFoldWPIntrinsicLegacyPassPass(Registry);
+#endif // INTEL_FEATURE_SW_DTRANS
   initializeTileMVInlMarkerLegacyPassPass(Registry);
   initializeIPArrayTransposeLegacyPassPass(Registry);
   initializeArgNoAliasPropPass(Registry);
