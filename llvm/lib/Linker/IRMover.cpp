@@ -308,7 +308,11 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD) {
     DTransSTMap.insert({ST, DTStruct});
 
     DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
-      if (DTStruct->getReconstructError()) {
+      if (!DTStruct) {
+        dbgs() << "    llvm::Type: " << *ST << "\n";
+        dbgs() << "    DTransType: None\n\n";
+      }
+      else if (DTStruct->getReconstructError()) {
         dbgs() << "    llvm::Type: " << *ST << "\n";
         dbgs() << "    DTransType: ";
         DTStruct->dump();
