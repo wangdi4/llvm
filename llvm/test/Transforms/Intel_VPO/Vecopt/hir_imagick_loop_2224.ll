@@ -83,7 +83,8 @@
 ; CHECK-NEXT:       |   |      %phi.temp34 = %red.init18;
 ; CHECK-NEXT:       |   |      %phi.temp36 = %red.init;
 ; CHECK-NEXT:       |   |      %phi.temp38 = -1;
-; CHECK:            |   |      + DO i3 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 16> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:       |   |
+; CHECK-NEXT:       |   |      + DO i3 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 16> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   |      |   %.vec = 64 * i2 + i3 + %arg5 + <i64 0, i64 1, i64 2, i64 3>  *  64 * i2 + i3 + %arg5 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:       |   |      |   %.vec40 = (<4 x i16>*)(%.TempArray)[0][i3];
 ; CHECK-NEXT:       |   |      |   %.vec41 = (<4 x i16>*)(%.TempArray10)[0][i3];
@@ -147,7 +148,8 @@
 ; CHECK-NEXT:       |   |      |   %phi.temp36 = %select90;
 ; CHECK-NEXT:       |   |      |   %phi.temp38 = %select74;
 ; CHECK-NEXT:       |   |      + END LOOP
-; CHECK:            |   |      %tmp35 = @llvm.vector.reduce.fadd.v4f64(%tmp35,  %select90);
+; CHECK-NEXT:       |   |
+; CHECK-NEXT:       |   |      %tmp35 = @llvm.vector.reduce.fadd.v4f64(%tmp35,  %select90);
 ; CHECK-NEXT:       |   |      %tmp36 = @llvm.vector.reduce.fadd.v4f64(%tmp36,  %select88);
 ; CHECK-NEXT:       |   |      %tmp32 = @llvm.vector.reduce.fadd.v4f32(%tmp32,  %select86);
 ; CHECK-NEXT:       |   |      %tmp31 = @llvm.vector.reduce.fadd.v4f32(%tmp31,  %select84);
