@@ -367,9 +367,8 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool UseEpilogRemainder,
       Value *IdxNext = Builder.CreateAdd(NewIdx, One, NewIdx->getName() + ".next");
       Value *IdxCmp = Builder.CreateICmpNE(IdxNext, NewIter, NewIdx->getName() + ".cmp");
       Builder.CreateCondBr(IdxCmp, FirstLoopBB, InsertBot);
-<<<<<<< HEAD
-      NewIdx->addIncoming(NewIter, InsertTop);
-      NewIdx->addIncoming(IdxSub, NewBB);
+      NewIdx->addIncoming(Zero, InsertTop);
+      NewIdx->addIncoming(IdxNext, NewBB);
 #if INTEL_CUSTOMIZATION
       // Remove Loop metadata from the loop branch instruction
       // to avoid failing the check of OptReport metadata
@@ -381,10 +380,6 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool UseEpilogRemainder,
       // metadata properly.
       LatchBR->setMetadata(LLVMContext::MD_loop, nullptr);
 #endif  // INTEL_CUSTOMIZATION
-=======
-      NewIdx->addIncoming(Zero, InsertTop);
-      NewIdx->addIncoming(IdxNext, NewBB);
->>>>>>> 37ead201e6148f2b079179a71ccbad5af223ce03
       LatchBR->eraseFromParent();
     }
   }
