@@ -2017,26 +2017,18 @@ void llvm::updateProfileCallee(
 
   // During inlining ?
   if (VMap) {
-<<<<<<< HEAD
-    uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
+    uint64_t CloneEntryCount = PriorEntryCount - NewEntryCount;
     for (auto Entry : *VMap) { // INTEL
 #if INTEL_CUSTOMIZATION
       // Update intel_profx metadata, which can be on CallInst or InvokeInst
       if (isa<CallBase>(Entry.first))
         if (auto *Call = dyn_cast_or_null<CallBase>(Entry.second))
-          Call->updateProfxWeight(cloneEntryCount, priorEntryCount);
+          Call->updateProfxWeight(CloneEntryCount, PriorEntryCount);
 #endif // INTEL_CUSTOMIZATION
       if (isa<CallInst>(Entry.first))
         if (auto *CI = dyn_cast_or_null<CallInst>(Entry.second))
-          CI->updateProfWeight(cloneEntryCount, priorEntryCount);
-    } // INTEL
-=======
-    uint64_t CloneEntryCount = PriorEntryCount - NewEntryCount;
-    for (auto Entry : *VMap)
-      if (isa<CallInst>(Entry.first))
-        if (auto *CI = dyn_cast_or_null<CallInst>(Entry.second))
           CI->updateProfWeight(CloneEntryCount, PriorEntryCount);
->>>>>>> 0662a3612cea579668252571182da7b493b2e124
+    } // INTEL
   }
 
   if (EntryDelta) {
@@ -2050,15 +2042,11 @@ void llvm::updateProfileCallee(
           // Update intel_profx metadata, which can be on CallInst or
           // InvokeInst
           if (CallBase *Call = dyn_cast<CallBase>(&I))
-            Call->updateProfxWeight(newEntryCount, priorEntryCount);
+            Call->updateProfxWeight(NewEntryCount, PriorEntryCount);
 #endif // INTEL_CUSTOMIZATION
           if (CallInst *CI = dyn_cast<CallInst>(&I))
-<<<<<<< HEAD
-            CI->updateProfWeight(newEntryCount, priorEntryCount);
-        } // INTEL
-=======
             CI->updateProfWeight(NewEntryCount, PriorEntryCount);
->>>>>>> 0662a3612cea579668252571182da7b493b2e124
+        } // INTEL
   }
 }
 
