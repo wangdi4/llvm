@@ -30487,58 +30487,15 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
     if (IsFSHR)
       std::swap(Op0, Op1);
 
-<<<<<<< HEAD
-    // With AVX512, but not VLX we need to widen to get a 512-bit result type.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-    if (!Subtarget.hasVLX() && !VT.is512BitVector() && !Subtarget.hasAVXCOMPRESS()) {
-#else // INTEL_FEATURE_ISA_AVX_COMPRESS
-    if (!Subtarget.hasVLX() && !VT.is512BitVector()) {
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
-      Op0 = widenSubVector(Op0, false, Subtarget, DAG, DL, 512);
-      Op1 = widenSubVector(Op1, false, Subtarget, DAG, DL, 512);
-    }
-
-    SDValue Funnel;
-=======
->>>>>>> a310cbae02248023b11eefc8d1663661ac1f7721
     APInt APIntShiftAmt;
     if (X86::isConstantSplat(Amt, APIntShiftAmt)) {
       uint64_t ShiftAmt = APIntShiftAmt.urem(VT.getScalarSizeInBits());
-<<<<<<< HEAD
-      Funnel =
-          DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, ResultVT, Op0,
-                      Op1, DAG.getTargetConstant(ShiftAmt, DL, MVT::i8));
-    } else {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-      if (!Subtarget.hasVLX() && !VT.is512BitVector() && !Subtarget.hasAVXCOMPRESS())
-#else // INTEL_FEATURE_ISA_AVX_COMPRESS
-      if (!Subtarget.hasVLX() && !VT.is512BitVector())
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
-        Amt = widenSubVector(Amt, false, Subtarget, DAG, DL, 512);
-      Funnel = DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL,
-                           ResultVT, Op0, Op1, Amt);
-    }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-    if (!Subtarget.hasVLX() && !VT.is512BitVector() && !Subtarget.hasAVXCOMPRESS())
-#else // INTEL_FEATURE_ISA_AVX_COMPRESS
-    if (!Subtarget.hasVLX() && !VT.is512BitVector())
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
-      Funnel = extractSubVector(Funnel, 0, DAG, DL, VT.getSizeInBits());
-    return Funnel;
-=======
       SDValue Imm = DAG.getTargetConstant(ShiftAmt, DL, MVT::i8);
       return getAVX512Node(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, VT,
                            {Op0, Op1, Imm}, DAG, Subtarget);
     }
     return getAVX512Node(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
                          {Op0, Op1, Amt}, DAG, Subtarget);
->>>>>>> a310cbae02248023b11eefc8d1663661ac1f7721
   }
   assert(
       (VT == MVT::i8 || VT == MVT::i16 || VT == MVT::i32 || VT == MVT::i64) &&
