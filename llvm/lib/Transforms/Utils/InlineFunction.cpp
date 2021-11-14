@@ -2000,40 +2000,39 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
 }
 
 void llvm::updateProfileCallee(
-    Function *Callee, int64_t entryDelta,
+    Function *Callee, int64_t EntryDelta,
     const ValueMap<const Value *, WeakTrackingVH> *VMap) {
   auto CalleeCount = Callee->getEntryCount();
   if (!CalleeCount.hasValue())
     return;
 
-  uint64_t priorEntryCount = CalleeCount.getCount();
-  uint64_t newEntryCount;
+  const uint64_t PriorEntryCount = CalleeCount.getCount();
 
   // Since CallSiteCount is an estimate, it could exceed the original callee
   // count and has to be set to 0 so guard against underflow.
-  if (entryDelta < 0 && static_cast<uint64_t>(-entryDelta) > priorEntryCount)
-    newEntryCount = 0;
-  else
-    newEntryCount = priorEntryCount + entryDelta;
+  const uint64_t NewEntryCount =
+      (EntryDelta < 0 && static_cast<uint64_t>(-EntryDelta) > PriorEntryCount)
+          ? 0
+          : PriorEntryCount + EntryDelta;
 
   // During inlining ?
   if (VMap) {
-    uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
+    uint64_t CloneEntryCount = PriorEntryCount - NewEntryCount;
     for (auto Entry : *VMap) { // INTEL
 #if INTEL_CUSTOMIZATION
       // Update intel_profx metadata, which can be on CallInst or InvokeInst
       if (isa<CallBase>(Entry.first))
         if (auto *Call = dyn_cast_or_null<CallBase>(Entry.second))
-          Call->updateProfxWeight(cloneEntryCount, priorEntryCount);
+          Call->updateProfxWeight(CloneEntryCount, PriorEntryCount);
 #endif // INTEL_CUSTOMIZATION
       if (isa<CallInst>(Entry.first))
         if (auto *CI = dyn_cast_or_null<CallInst>(Entry.second))
-          CI->updateProfWeight(cloneEntryCount, priorEntryCount);
+          CI->updateProfWeight(CloneEntryCount, PriorEntryCount);
     } // INTEL
   }
 
-  if (entryDelta) {
-    Callee->setEntryCount(newEntryCount);
+  if (EntryDelta) {
+    Callee->setEntryCount(NewEntryCount);
 
     for (BasicBlock &BB : *Callee)
       // No need to update the callsite if it is pruned during inlining.
@@ -2043,10 +2042,10 @@ void llvm::updateProfileCallee(
           // Update intel_profx metadata, which can be on CallInst or
           // InvokeInst
           if (CallBase *Call = dyn_cast<CallBase>(&I))
-            Call->updateProfxWeight(newEntryCount, priorEntryCount);
+            Call->updateProfxWeight(NewEntryCount, PriorEntryCount);
 #endif // INTEL_CUSTOMIZATION
           if (CallInst *CI = dyn_cast<CallInst>(&I))
-            CI->updateProfWeight(newEntryCount, priorEntryCount);
+            CI->updateProfWeight(NewEntryCount, PriorEntryCount);
         } // INTEL
   }
 }
