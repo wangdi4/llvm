@@ -463,9 +463,9 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   // All uses of the old function have been replaced with the new function,
   // transfer the function entry count to the replacement function to maintain
   // the ability to place the functions into hot/cold sections.
-  Function::ProfileCount OldCount = F->getEntryCount();
+  Optional<Function::ProfileCount> OldCount = F->getEntryCount();
   if (OldCount.hasValue())
-    NF->setEntryCount(OldCount.getCount());
+    NF->setEntryCount(OldCount->getCount());
 #endif // INTEL_CUSTOMIZATION
 
   // Since we have now created the new function, splice the body of the old
