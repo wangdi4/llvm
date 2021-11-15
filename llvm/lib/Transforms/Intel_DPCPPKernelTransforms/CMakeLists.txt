@@ -46,6 +46,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   SubgroupEmulation/SGLoopConstruct.cpp
   SubgroupEmulation/SGSizeAnalysis.cpp
   SubgroupEmulation/SGValueWiden.cpp
+  TaskSeqAsyncHandling.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/IndirectCallLowering.cpp
   VectorVariant/SGSizeCollector.cpp

@@ -42,6 +42,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGLoopConstruct.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGValueWiden.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/TaskSeqAsyncHandling.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/CreateSimdVariantPropagation.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/IndirectCallLowering.h"
