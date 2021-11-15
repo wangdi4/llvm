@@ -4172,31 +4172,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     }
   }
 
-#if INTEL_CUSTOMIZATION
   // Check if -fopenmp is specified and set default version to 5.0.
   Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 50 : 0;
-  Opts.OpenMPSimdOnly = false;
-  Opts.OpenMPSimdDisabled = false;
-  Opts.OpenMPTBBOnly = false;
-  Opts.OpenMPTBBDisabled = false;
-  if (Opts.IntelCompat) {
-    if (Opts.OpenMP) {
-      // OpenMP is enabled but we want to disable OpenMP subset
-      Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fno_openmp_simd);
-      Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
-    } else {
-      Opts.OpenMPSimdOnly = Args.hasArg(OPT_fopenmp_simd);
-      Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
-      if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
-        Opts.OpenMP = true;
-    }
-  }
-#endif //INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  Opts.OpenMPLateOutline =
-      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_late_outline);
-#endif // INTEL_COLLAB
-
   // Check if -fopenmp-simd is specified.
   bool IsSimdSpecified =
       Args.hasFlag(options::OPT_fopenmp_simd, options::OPT_fno_openmp_simd,
@@ -4215,6 +4192,25 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
       Args.hasArg(options::OPT_fopenmp_target_new_runtime);
 
   Opts.ConvergentFunctions = Opts.ConvergentFunctions || Opts.OpenMPIsDevice;
+
+#if INTEL_CUSTOMIZATION
+  Opts.OpenMPSimdOnly = false;
+  Opts.OpenMPSimdDisabled = false;
+  Opts.OpenMPTBBOnly = false;
+  Opts.OpenMPTBBDisabled = false;
+  if (Opts.IntelCompat) {
+    if (Args.hasArg(options::OPT_fopenmp)) {
+      // OpenMP is enabled but we want to disable OpenMP subset
+      Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fno_openmp_simd);
+      Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
+    } else {
+      Opts.OpenMPSimdOnly = Args.hasArg(OPT_fopenmp_simd);
+      Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
+      if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
+        Opts.OpenMP = 50;
+    }
+  }
+#endif //INTEL_CUSTOMIZATION
 
   if (Opts.OpenMP || Opts.OpenMPSimd) {
     if (int Version = getLastArgIntValue(
@@ -4235,6 +4231,11 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
       }
     }
   }
+
+#if INTEL_COLLAB
+  Opts.OpenMPLateOutline =
+      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_late_outline);
+#endif // INTEL_COLLAB
 
   // Set the flag to prevent the implementation from emitting device exception
   // handling code for those requiring so.
