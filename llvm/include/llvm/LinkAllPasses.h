@@ -31,21 +31,42 @@
 #include "llvm/Analysis/RegionPrinter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"  // INTEL
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
+#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
+#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/SYCLLowerIR/LowerESIMD.h"
+#include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
+#include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Instrumentation/SPIRITTAnnotations.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -55,6 +76,25 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"  // INTEL
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
+#include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#if INTEL_FEATURE_CSA
+#include "Intel_CSA/CSAIRPasses.h"
+#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
+#endif // INTEL_COLLAB
+
 #include <cstdlib>
 
 namespace {
@@ -77,6 +117,36 @@ namespace {
       (void)llvm::createOpenMPOptCGSCCLegacyPass();
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
+#if INTEL_CUSTOMIZATION
+      (void) llvm::createAndersensAAWrapperPass();
+#if INTEL_FEATURE_SW_DTRANS
+      (void) llvm::createDTransPasses();
+#endif // INTEL_FEATURE_SW_DTRANS
+      (void) llvm::createNonLTOGlobalOptimizerPass();
+      (void) llvm::createTbaaMDPropagationLegacyPass();
+      (void) llvm::createCleanupFakeLoadsPass();
+      (void) llvm::createHandlePragmaVectorAlignedPass();
+      (void) llvm::createStdContainerOptPass();
+      (void) llvm::createStdContainerAAWrapperPass();
+      (void) llvm::createInlineListsPass();
+      (void) llvm::createInlineReportSetupPass();
+      (void) llvm::createInlineReportEmitterPass();
+      (void) llvm::createIntelAdvancedFastCallWrapperPass();
+#if INTEL_FEATURE_SW_ADVANCED
+      (void) llvm::createIntelIPOPrefetchWrapperPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
+      (void) llvm::createXmainOptLevelWrapperPass();
+      (void) llvm::createOptReportOptionsPass();
+      (void) llvm::createRemoveRegionDirectivesLegacyPass();
+      (void) llvm::createOptReportEmitterLegacyPass();
+      (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
+      (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
+      (void) llvm::createCallTreeCloningPass();
+      (void) llvm::createAddSubReassociatePass();
+      (void) llvm::createForcedCMOVGenerationPass();
+      (void) llvm::createTransformFPGARegPass();
+      (void) llvm::createTransformSinAndCosCallsPass();
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
       (void) llvm::createTypeBasedAAWrapperPass();
@@ -95,6 +165,7 @@ namespace {
       (void) llvm::createControlHeightReductionLegacyPass();
       (void) llvm::createCostModelAnalysisPass();
       (void) llvm::createDeadArgEliminationPass();
+      (void) llvm::createDeadArgEliminationSYCLPass();
       (void) llvm::createDeadCodeEliminationPass();
       (void) llvm::createDeadStoreEliminationPass();
       (void) llvm::createDependenceAnalysisWrapperPass();
@@ -111,6 +182,11 @@ namespace {
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+      (void) llvm::createFunctionRecognizerLegacyPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createAlwaysInlinerLegacyPass();
       (void) llvm::createGlobalDCEPass();
       (void) llvm::createGlobalOptimizerPass();
@@ -118,6 +194,7 @@ namespace {
       (void) llvm::createGuardWideningPass();
       (void) llvm::createLoopGuardWideningPass();
       (void) llvm::createIPSCCPPass();
+      (void) llvm::createIndirectCallConvLegacyPass(); // INTEL
       (void) llvm::createInductiveRangeCheckEliminationPass();
       (void) llvm::createIndVarSimplifyPass();
       (void) llvm::createInstSimplifyLegacyPass();
@@ -177,6 +254,7 @@ namespace {
       (void) llvm::createStripDeadPrototypesPass();
       (void) llvm::createTailCallEliminationPass();
       (void) llvm::createJumpThreadingPass();
+      (void) llvm::createIVSplitLegacyPass(); // INTEL
       (void) llvm::createDFAJumpThreadingPass();
       (void) llvm::createUnifyFunctionExitNodesPass();
       (void) llvm::createInstCountPass();
@@ -202,6 +280,12 @@ namespace {
       (void) llvm::createMergeICmpsLegacyPass();
       (void) llvm::createExpandMemCmpPass();
       (void) llvm::createExpandVectorPredicationPass();
+      (void)llvm::createSYCLLowerWGScopePass();
+      (void)llvm::createSYCLLowerESIMDPass();
+      (void)llvm::createESIMDLowerLoadStorePass();
+      (void)llvm::createESIMDLowerVecArgPass();
+      (void)llvm::createSPIRITTAnnotationsLegacyPass();
+      (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -216,6 +300,12 @@ namespace {
       (void) llvm::createLoopVectorizePass();
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
+#if INTEL_CUSTOMIZATION
+      (void) llvm::createVPlanPragmaOmpOrderedSimdExtractPass();
+      (void) llvm::createVPlanDriverPass();
+      (void) llvm::createVPlanDriverHIRPass(false);
+      (void) llvm::createVPlanFunctionVectorizerPass();
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createVectorCombinePass();
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
@@ -249,8 +339,177 @@ namespace {
             llvm::AAMDNodes()); // for -print-alias-sets
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
+
+#if INTEL_CUSTOMIZATION
+      (void)llvm::createLoadCoalescingPass();
+      (void)llvm::createMathLibraryFunctionsReplacementPass();
+      (void) llvm::createSNodeAnalysisPass();
+      (void) llvm::createLoopOptMarkerLegacyPass();
+      (void) llvm::createArrayUseWrapperPass();
+#if INTEL_FEATURE_SW_ADVANCED
+      (void) llvm::createNontemporalStoreWrapperPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
+      // HIR passes
+      (void) llvm::createHIRRegionIdentificationWrapperPass();
+      (void) llvm::createHIRSCCFormationWrapperPass();
+      (void) llvm::createHIRFrameworkWrapperPass();
+      (void) llvm::createHIROptReportEmitterWrapperPass();
+      (void) llvm::createHIRDDAnalysisPass();
+      (void) llvm::createHIRLocalityAnalysisPass();
+      (void) llvm::createHIRLoopResourceWrapperPass();
+      (void) llvm::createHIRLoopStatisticsWrapperPass();
+      (void) llvm::createHIRParVecAnalysisPass();
+      (void) llvm::createHIRSafeReductionAnalysisPass();
+      (void) llvm::createHIRSparseArrayReductionAnalysisPass();
+      (void) llvm::createHIRSSADeconstructionLegacyPass();
+      (void) llvm::createHIRTempCleanupPass();
+      (void) llvm::createHIRLoopInterchangePass();
+      (void) llvm::createHIRLoopBlockingPass();
+      (void) llvm::createHIRPragmaLoopBlockingPass();
+      (void) llvm::createHIRGenerateMKLCallPass();
+      (void) llvm::createHIROptPredicatePass();
+      (void) llvm::createHIROptVarPredicatePass();
+      (void) llvm::createHIRGeneralUnrollPass();
+      (void) llvm::createHIRUnrollAndJamPass();
+      (void) llvm::createHIRPreVecCompleteUnrollPass();
+      (void) llvm::createHIRPostVecCompleteUnrollPass();
+      (void) llvm::createHIRParDirInsertPass();
+      (void) llvm::createHIRVecDirInsertPass();
+      (void) llvm::createHIRLoopDistributionForMemRecPass();
+      (void) llvm::createHIRLoopDistributionForLoopNestPass();
+      (void) llvm::createHIRLoopRematerializePass();
+      (void) llvm::createHIRLoopRerollPass();
+      (void) llvm::createHIRLoopReversalPass();
+      (void) llvm::createHIRLMMPass();
+      (void) llvm::createHIRLoopCollapsePass();
+      (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
+      (void) llvm::createHIRScalarReplArrayPass();
+      (void) llvm::createHIRIdiomRecognitionPass();
+      (void) llvm::createHIRMVForConstUBPass();
+      (void) llvm::createHIRMVForVariableStridePass();
+      (void) llvm::createHIRLoopConcatenationPass();
+      (void) llvm::createHIRArrayTransposePass();
+      (void) llvm::createHIRAosToSoaPass();
+#if INTEL_FEATURE_SW_ADVANCED
+      (void) llvm::createHIRInterLoopBlockingPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
+      (void) llvm::createHIRLoopFusionPass();
+      (void) llvm::createHIRDummyTransformationPass();
+      (void) llvm::createHIRCodeGenWrapperPass();
+      (void) llvm::createHIRDeadStoreEliminationPass();
+      (void) llvm::createHIRLastValueComputationPass();
+      (void) llvm::createHIRPropagateCastedIVPass();
+      (void) llvm::createHIRMultiExitLoopRerollPass();
+      (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
+      (void) llvm::createHIRPrefetchingPass();
+      (void) llvm::createHIRSinkingForPerfectLoopnestPass();
+      (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
+      (void) llvm::createHIRConditionalTempSinkingPass();
+      (void) llvm::createHIRMemoryReductionSinkingPass();
+      (void) llvm::createHIRRowWiseMVPass();
+      (void) llvm::createHIRConditionalLoadStoreMotionPass();
+      (void) llvm::createHIRNontemporalMarkingPass();
+      (void) llvm::createHIRStoreResultIntoTempArrayPass();
+      (void) llvm::createHIRSumWindowReusePass();
+      (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
+      (void) llvm::createHIRIdentityMatrixSubstitutionPass();
+      (void) llvm::createHIRArrayScalarizationTestLauncherPass();
+
+      // DPCPP Kernel Transformations
+      (void)llvm::createAddFunctionAttrsLegacyPass();
+      (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createCoerceWin64TypesLegacyPass();
+      (void)llvm::createDPCPPEqualizerLegacyPass();
+      (void)llvm::createDPCPPKernelVecClonePass();
+      (void)llvm::createDPCPPKernelPostVecPass();
+      (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
+      (void)llvm::createDPCPPKernelAnalysisLegacyPass();
+      (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
+      (void)llvm::createDuplicateCalledKernelsLegacyPass();
+      (void)llvm::createPhiCanonicalizationLegacyPass();
+      (void)llvm::createRedundantPhiNodeLegacyPass();
+      (void)llvm::createGroupBuiltinLegacyPass();
+      (void)llvm::createSetVectorizationFactorLegacyPass();
+      (void)llvm::createSplitBBonBarrierLegacyPass();
+      (void)llvm::createWIRelatedValueWrapperPass();
+      (void)llvm::createDataPerBarrierWrapperPass();
+      (void)llvm::createDataPerValueWrapperPass();
+      (void)llvm::createKernelBarrierLegacyPass(false, false);
+      (void)llvm::createBarrierInFunctionLegacyPass();
+      (void)llvm::createImplicitArgsAnalysisLegacyPass();
+      (void)llvm::createInternalizeNonKernelFuncLegacyPass();
+      (void)llvm::createLocalBufferAnalysisLegacyPass();
+      (void)llvm::createLocalBuffersLegacyPass(false);
+      (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::createResolveSubGroupWICallLegacyPass();
+      (void)llvm::createResolveWICallLegacyPass(false, false);
+      (void)llvm::createSGBarrierPropagateLegacyPass();
+      (void)llvm::createSGBarrierSimplifyLegacyPass();
+      (void)llvm::createSGBuiltinLegacyPass();
+      (void)llvm::createSGLoopConstructLegacyPass();
+      (void)llvm::createSGSizeAnalysisLegacyPass();
+      (void)llvm::createSGValueWidenLegacyPass();
+      (void)llvm::createPrepareKernelArgsLegacyPass(false);
+      (void)llvm::createCleanupWrappedKernelLegacyPass();
+      (void)llvm::createVFAnalysisLegacyPass();
+      (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
+      (void)llvm::createVectorVariantFillInLegacyPass();
+      (void)llvm::createVectorVariantLoweringLegacyPass(
+          llvm::VectorVariant::XMM);
+      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VectorVariant::XMM);
+      (void)llvm::createSGSizeCollectorIndirectLegacyPass(
+          llvm::VectorVariant::XMM);
+      (void)llvm::createTaskSeqAsyncHandlingLegacyPass();
+      (void)llvm::createUpdateCallAttrsLegacyPass();
+      (void)llvm::createIndirectCallLoweringLegacyPass();
+      (void)llvm::createCreateSimdVariantPropagationLegacyPass();
+      (void)llvm::createLinearIdResolverPass();
+
+      // Optimize math calls
+      (void) llvm::createMapIntrinToImlPass();
+
+      // VPO WRegion Passes
+      (void) llvm::createWRegionCollectionWrapperPassPass();
+      (void) llvm::createWRegionInfoWrapperPassPass();
+
+      // VPO Vectorizer Passes
+      (void) llvm::createVPODirectiveCleanupPass();
+      (void) llvm::createVecClonePass();
+
+      // dynamic_cast calls optimization pass.
+      (void) llvm::createOptimizeDynamicCastsWrapperPass();
+
+  #if INTEL_FEATURE_CSA
+      // Various CSA passes.
+      (void) llvm::createLoopSPMDizationPass();
+      (void) llvm::createCSALowerParallelIntrinsicsWrapperPass();
+      (void) llvm::createCSAGraphSplitterPass();
+  #endif  // INTEL_FEATURE_CSA
+      (void) llvm::createVPOParoptOptimizeDataSharingPass();
+      (void) llvm::createVPOParoptSharedPrivatizationPass();
+      (void) llvm::createVPOParoptTargetInlinePass();
+      (void) llvm::createIntelVTableFixupPass();
+  #endif // INTEL_CUSTOMIZATION
+
+  #if INTEL_COLLAB
+      // VPO Paropt Loop Collapse Pass
+      (void) llvm::createVPOParoptLoopCollapsePass();
+
+      // VPO Paropt Prepare Passes
+      (void) llvm::createVPOParoptPreparePass();
+
+      // VPO Pass to restore clause opreands renamed by the Prepare pass.
+      (void)llvm::createVPORestoreOperandsPass();
+
+      // VPO Parallelizer Passes
+      (void) llvm::createVPOParoptPass();
+
+      // VPO Thread Private Transformation
+      (void) llvm::createVPOParoptTpvPass();
+  #endif // INTEL_COLLAB
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }
 
 #endif
+
