@@ -6243,7 +6243,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                                    ReuseShuffleIndicies);
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = CI->arg_size(); i != e; ++i) {
+<<<<<<< HEAD
         SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
+=======
+        // For scalar operands no need to to create an entry since no need to
+        // vectorize it.
+        if (hasVectorInstrinsicScalarOpd(ID, i))
+          continue;
+>>>>>>> 6fb5bed7d16bffc8549db0523323b182dd43fe4e
         ValueList Operands;
         // Prepare the operand vector.
         for (Value *V : VL) {
