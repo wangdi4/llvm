@@ -7780,7 +7780,12 @@ void CodeGenFunction::EmitLateOutlineOMPUncollapsedLoop(
     }
     for (const Expr *UE : S.uncollapsedUpdates())
       EmitIgnoredExpr(UE);
-    EmitStmt(S.getBody());
+    const Stmt *Body =
+        S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
+    emitBody(*this, Body,
+             OMPLoopBasedDirective::tryToFindNextInnerLoop(
+                 Body, /*TryImperfectlyNestedLoops=*/true),
+             S.getLoopsNumber());
     EmitStopPoint(&S);
     EmitBlock(Continue.getBlock());
     BreakContinueStack.pop_back();
