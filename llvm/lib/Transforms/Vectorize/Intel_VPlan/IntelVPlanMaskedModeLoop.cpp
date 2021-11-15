@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanMaskedModeLoop.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"

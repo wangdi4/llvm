@@ -18,7 +18,6 @@
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCFGMerger.h"
 #include "IntelVPlanCallVecDecisions.h"

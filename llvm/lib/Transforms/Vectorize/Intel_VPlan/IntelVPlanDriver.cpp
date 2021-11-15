@@ -19,7 +19,6 @@
 #include "IntelVPMemRefTransform.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
