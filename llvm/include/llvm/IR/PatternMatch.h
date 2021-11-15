@@ -1077,13 +1077,13 @@ struct BinaryOp_match {
   // The LHS is always matched first.
   BinaryOp_match(const LHS_t &LHS, const RHS_t &RHS) : L(LHS), R(RHS) {}
 
-  template <typename OpTy> bool match(OpTy *V) {
+  template <typename OpTy> inline bool match(unsigned Opc, OpTy *V) {
 #ifdef INTEL_CUSTOMIZATION
     // Use unified for Value and VPValue way to check whether it is
     // (VP)Instruction of given Opcode.
-    if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opcode) {
+    if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opc) {
 #else
-    if (V->getValueID() == Value::InstructionVal + Opcode) {
+    if (V->getValueID() == Value::InstructionVal + Opc) {
 #endif // INTEL_CUSTOMIZATION
       auto *I = cast<BinaryOperator>(V);
       return (L.match(I->getOperand(0)) && R.match(I->getOperand(1))) ||
@@ -1091,12 +1091,14 @@ struct BinaryOp_match {
               R.match(I->getOperand(0)));
     }
     if (auto *CE = dyn_cast<ConstantExpr>(V))
-      return CE->getOpcode() == Opcode &&
+      return CE->getOpcode() == Opc &&
              ((L.match(CE->getOperand(0)) && R.match(CE->getOperand(1))) ||
               (Commutable && L.match(CE->getOperand(1)) &&
                R.match(CE->getOperand(0))));
     return false;
   }
+
+  template <typename OpTy> bool match(OpTy *V) { return match(Opcode, V); }
 };
 
 template <typename LHS, typename RHS>
@@ -1339,6 +1341,26 @@ m_NUWShl(const LHS &L, const RHS &R) {
   return OverflowingBinaryOp_match<LHS, RHS, Instruction::Shl,
                                    OverflowingBinaryOperator::NoUnsignedWrap>(
       L, R);
+}
+
+template <typename LHS_t, typename RHS_t, bool Commutable = false>
+struct SpecificBinaryOp_match
+    : public BinaryOp_match<LHS_t, RHS_t, 0, Commutable> {
+  unsigned Opcode;
+
+  SpecificBinaryOp_match(unsigned Opcode, const LHS_t &LHS, const RHS_t &RHS)
+      : BinaryOp_match<LHS_t, RHS_t, 0, Commutable>(LHS, RHS), Opcode(Opcode) {}
+
+  template <typename OpTy> bool match(OpTy *V) {
+    return BinaryOp_match<LHS_t, RHS_t, 0, Commutable>::match(Opcode, V);
+  }
+};
+
+/// Matches a specific opcode.
+template <typename LHS, typename RHS>
+inline SpecificBinaryOp_match<LHS, RHS> m_BinOp(unsigned Opcode, const LHS &L,
+                                                const RHS &R) {
+  return SpecificBinaryOp_match<LHS, RHS>(Opcode, L, R);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2341,6 +2363,13 @@ m_c_ICmp(ICmpInst::Predicate &Pred, const LHS &L, const RHS &R) {
     ICmpInst::Predicate, true>(Pred, L, R);
 }
 #endif // INTEL_CUSTOMIZATION
+
+/// Matches a specific opcode with LHS and RHS in either order.
+template <typename LHS, typename RHS>
+inline SpecificBinaryOp_match<LHS, RHS, true>
+m_c_BinOp(unsigned Opcode, const LHS &L, const RHS &R) {
+  return SpecificBinaryOp_match<LHS, RHS, true>(Opcode, L, R);
+}
 
 /// Matches a Add with LHS and RHS in either order.
 template <typename LHS, typename RHS>
