@@ -733,6 +733,7 @@ void initializeSGSizeCollectorLegacyPass(PassRegistry &);
 void initializeSGSizeCollectorIndirectLegacyPass(PassRegistry &);
 void initializeSGValueWidenLegacyPass(PassRegistry &);
 void initializeSplitBBonBarrierLegacyPass(PassRegistry &);
+void initializeTaskSeqAsyncHandlingLegacyPass(PassRegistry &);
 void initializeUpdateCallAttrsLegacyPass(PassRegistry &);
 void initializeVectorVariantFillInLegacyPass(PassRegistry &);
 void initializeVectorVariantLoweringLegacyPass(PassRegistry &);

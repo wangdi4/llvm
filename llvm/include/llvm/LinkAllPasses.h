@@ -456,6 +456,7 @@ namespace {
       (void)llvm::createSGSizeCollectorLegacyPass(llvm::VectorVariant::XMM);
       (void)llvm::createSGSizeCollectorIndirectLegacyPass(
           llvm::VectorVariant::XMM);
+      (void)llvm::createTaskSeqAsyncHandlingLegacyPass();
       (void)llvm::createUpdateCallAttrsLegacyPass();
       (void)llvm::createIndirectCallLoweringLegacyPass();
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
