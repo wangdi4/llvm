@@ -104,6 +104,18 @@ define void @test_basic_conditions(i32 %a, i32 %b, i32 %c, i32* %ptr1, i32* %ptr
 ;
 ; X64-LFENCE-LABEL: test_basic_conditions:
 ; X64-LFENCE:       # %bb.0: # %entry
+; INTEL_CUSTOMIZATION
+; X64-LFENCE-NEXT:    testl %edi, %edi
+; X64-LFENCE-NEXT:    je .LBB1_1
+; X64-LFENCE-NEXT:  .LBB1_6: # %exit
+; X64-LFENCE-NEXT:    lfence
+; X64-LFENCE-NEXT:    retq
+; X64-LFENCE-NEXT:  .LBB1_1: # %then1
+; X64-LFENCE-NEXT:    lfence
+; X64-LFENCE-NEXT:    testl %esi, %esi
+; X64-LFENCE-NEXT:    jne .LBB1_6
+; X64-LFENCE-NEXT:  # %bb.2: # %then2
+; end INTEL_CUSTOMIZATION
 ; X64-LFENCE-NEXT:    pushq %r14
 ; X64-LFENCE-NEXT:    .cfi_def_cfa_offset 16
 ; X64-LFENCE-NEXT:    pushq %rbx
@@ -112,13 +124,6 @@ define void @test_basic_conditions(i32 %a, i32 %b, i32 %c, i32* %ptr1, i32* %ptr
 ; X64-LFENCE-NEXT:    .cfi_def_cfa_offset 32
 ; X64-LFENCE-NEXT:    .cfi_offset %rbx, -24
 ; X64-LFENCE-NEXT:    .cfi_offset %r14, -16
-; X64-LFENCE-NEXT:    testl %edi, %edi
-; X64-LFENCE-NEXT:    jne .LBB1_6
-; X64-LFENCE-NEXT:  # %bb.1: # %then1
-; X64-LFENCE-NEXT:    lfence
-; X64-LFENCE-NEXT:    testl %esi, %esi
-; X64-LFENCE-NEXT:    jne .LBB1_6
-; X64-LFENCE-NEXT:  # %bb.2: # %then2
 ; X64-LFENCE-NEXT:    movq %r8, %rbx
 ; X64-LFENCE-NEXT:    lfence
 ; X64-LFENCE-NEXT:    testl %edx, %edx
@@ -142,14 +147,17 @@ define void @test_basic_conditions(i32 %a, i32 %b, i32 %c, i32* %ptr1, i32* %ptr
 ; X64-LFENCE-NEXT:  .LBB1_5: # %merge
 ; X64-LFENCE-NEXT:    movslq (%r14), %rax
 ; X64-LFENCE-NEXT:    movl $0, (%rbx,%rax,4)
-; X64-LFENCE-NEXT:  .LBB1_6: # %exit
-; X64-LFENCE-NEXT:    lfence
 ; X64-LFENCE-NEXT:    addq $8, %rsp
 ; X64-LFENCE-NEXT:    .cfi_def_cfa_offset 24
 ; X64-LFENCE-NEXT:    popq %rbx
 ; X64-LFENCE-NEXT:    .cfi_def_cfa_offset 16
 ; X64-LFENCE-NEXT:    popq %r14
 ; X64-LFENCE-NEXT:    .cfi_def_cfa_offset 8
+; INTEL_CUSTOMIZATION
+; X64-LFENCE-NEXT:    .cfi_restore %rbx
+; X64-LFENCE-NEXT:    .cfi_restore %r14
+; X64-LFENCE-NEXT:    lfence
+; end INTEL_CUSTOMIZATION
 ; X64-LFENCE-NEXT:    retq
 entry:
   %a.cmp = icmp eq i32 %a, 0
