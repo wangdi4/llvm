@@ -586,8 +586,7 @@ Instruction *VecCloneImpl::expandVectorParameters(
 
 Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
                                                 BasicBlock *EntryBlock,
-                                                VectorType *ReturnType,
-                                                Type *FuncReturnType,
+                                                Type *OrigFuncReturnType,
                                                 AllocaInst *&LastAlloca) {
   // Expand the return temp to a vector.
 
@@ -604,7 +603,8 @@ Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
   LastAlloca = VecAlloca;
 
   auto *ElemTypePtr =
-      PointerType::get(FuncReturnType, VecAlloca->getType()->getAddressSpace());
+      PointerType::get(OrigFuncReturnType,
+                       VecAlloca->getType()->getAddressSpace());
 
   BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
   VecCast->insertBefore(EntryBlock->getTerminator());
@@ -699,7 +699,6 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
   // has already been created in expandVectorParameters().
 
   Instruction *VecReturn = NULL;
-  VectorType *ReturnType = cast<VectorType>(Clone->getReturnType());
 
   if (isa<Argument>(FuncReturn->getReturnValue()))
     for (auto &Param : VectorParmMap)
@@ -716,8 +715,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
 
     // Case 1
 
-    VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
-                                     RetTy, LastAlloca);
+    VecReturn = createExpandedReturn(Clone, EntryBlock, RetTy, LastAlloca);
     Value *RetVal = FuncReturn->getReturnValue();
     Instruction *RetFromTemp = dyn_cast<Instruction>(RetVal);
 
@@ -779,8 +777,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
-      VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
-                                       RetTy, LastAlloca);
+      VecReturn = createExpandedReturn(Clone, EntryBlock, RetTy, LastAlloca);
       VectorParmMap.emplace_back(Alloca, VecReturn, RetTy);
       return VecReturn;
     }

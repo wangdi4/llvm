@@ -162,8 +162,7 @@ class VecCloneImpl {
     /// bitcast to the appropriate element type. LastAlloca indicates where the
     /// alloca of the return value should be placed.
     Instruction *createExpandedReturn(Function *F, BasicBlock *BB,
-                                      VectorType *ReturnType,
-                                      Type *FuncReturnType,
+                                      Type *OrigFuncReturnType,
                                       AllocaInst *&LastAlloca);
 
     /// \brief Check to see if the function is simple enough that a loop does
