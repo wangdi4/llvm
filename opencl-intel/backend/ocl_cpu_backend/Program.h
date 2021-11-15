@@ -240,8 +240,6 @@ public:
 
     virtual llvm::orc::LLJIT* GetLLJIT() = 0;
 
-    virtual cl_dev_err_code Finalize() = 0;
-
     /// get runtime service
     RuntimeServiceSharedPtr GetRuntimeService() const{
       return m_RuntimeService;
