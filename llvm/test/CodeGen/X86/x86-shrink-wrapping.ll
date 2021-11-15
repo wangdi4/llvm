@@ -1583,3 +1583,106 @@ define void @infiniteLoopNoSuccessor() #5 {
 declare void @somethingElse(...)
 
 attributes #5 = { nounwind "frame-pointer"="non-leaf" }
+
+; INTEL_CUSTOMIZATION
+define x86_regcallcc <4 x float> @__regcall3__outer(<4 x float> %a, <4 x float> %b) #6 {
+; ENABLE-LABEL: __regcall3__outer:
+; ENABLE:       ## %bb.0: ## %entry
+; ENABLE-NEXT:    movaps %xmm0, %xmm2
+; ENABLE-NEXT:    movq _v@GOTPCREL(%rip), %rax
+; ENABLE-NEXT:    movaps (%rax), %xmm0
+; ENABLE-NEXT:    movq _cond@GOTPCREL(%rip), %rax
+; ENABLE-NEXT:    cmpl $0, (%rax)
+; ENABLE-NEXT:    je LBB18_2
+; ENABLE-NEXT:  ## %bb.1: ## %if.then
+; ENABLE-NEXT:    subq $184, %rsp
+; ENABLE-NEXT:    movaps %xmm15, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm14, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm13, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm12, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm11, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm10, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm9, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm8, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; ENABLE-NEXT:    movaps %xmm2, (%rsp) ## 16-byte Spill
+; ENABLE-NEXT:    callq _inner
+; ENABLE-NEXT:    movaps (%rsp), %xmm2 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm8 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm9 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm10 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm11 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm12 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm13 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm14 ## 16-byte Reload
+; ENABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm15 ## 16-byte Reload
+; ENABLE-NEXT:    addq $184, %rsp
+; ENABLE-NEXT:  LBB18_2: ## %if.end
+; ENABLE-NEXT:    addps %xmm2, %xmm0
+; ENABLE-NEXT:    addps %xmm1, %xmm0
+; ENABLE-NEXT:    retq
+;
+; DISABLE-LABEL: __regcall3__outer:
+; DISABLE:       ## %bb.0: ## %entry
+; DISABLE-NEXT:    subq $184, %rsp
+; DISABLE-NEXT:    movaps %xmm15, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm14, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm13, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm12, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm11, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm10, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm9, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm8, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm0, %xmm2
+; DISABLE-NEXT:    movq _v@GOTPCREL(%rip), %rax
+; DISABLE-NEXT:    movaps (%rax), %xmm0
+; DISABLE-NEXT:    movq _cond@GOTPCREL(%rip), %rax
+; DISABLE-NEXT:    cmpl $0, (%rax)
+; DISABLE-NEXT:    je LBB18_2
+; DISABLE-NEXT:  ## %bb.1: ## %if.then
+; DISABLE-NEXT:    movaps %xmm1, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 16-byte Spill
+; DISABLE-NEXT:    movaps %xmm2, (%rsp) ## 16-byte Spill
+; DISABLE-NEXT:    callq _inner
+; DISABLE-NEXT:    movaps (%rsp), %xmm2 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 ## 16-byte Reload
+; DISABLE-NEXT:  LBB18_2: ## %if.end
+; DISABLE-NEXT:    addps %xmm2, %xmm0
+; DISABLE-NEXT:    addps %xmm1, %xmm0
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm8 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm9 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm10 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm11 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm12 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm13 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm14 ## 16-byte Reload
+; DISABLE-NEXT:    movaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm15 ## 16-byte Reload
+; DISABLE-NEXT:    addq $184, %rsp
+; DISABLE-NEXT:    retq
+entry:
+  %0 = load <4 x float>, <4 x float>* @v, align 16
+  %1 = load i32, i32* @cond, align 4
+  %tobool.not = icmp eq i32 %1, 0
+  br i1 %tobool.not, label %if.end, label %if.then
+
+if.then:
+  tail call void @inner()
+  br label %if.end
+
+if.end:
+  %add.i = fadd <4 x float> %0, %a
+  %add.i3 = fadd <4 x float> %add.i, %b
+  ret <4 x float> %add.i3
+}
+
+@v = external constant <4 x float>, align 16
+@cond = external constant i32, align 4
+
+declare void @inner()
+
+attributes #6 = { nounwind }
+; end INTEL_CUSTOMIZATION

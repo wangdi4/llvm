@@ -41,7 +41,6 @@
 
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPLoopAnalysis.h"
-#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
