@@ -930,6 +930,19 @@ struct LoadOpConversion : public FIROpConversion<fir::LoadOp> {
   }
 };
 
+/// Lower `fir.select_type` to LLVM IR dialect.
+struct SelectTypeOpConversion : public FIROpConversion<fir::SelectTypeOp> {
+  using FIROpConversion::FIROpConversion;
+
+  mlir::LogicalResult
+  matchAndRewrite(fir::SelectTypeOp select, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const override {
+    return rewriter.notifyMatchFailure(
+        select, "fir.select_type codegen is not implemented yet");
+    return failure();
+  }
+};
+
 /// conversion of fir::SelectRankOp to an if-then-else ladder
 struct SelectRankOpConversion : public FIROpConversion<fir::SelectRankOp> {
   using FIROpConversion::FIROpConversion;
@@ -1388,6 +1401,41 @@ struct IsPresentOpConversion : public FIROpConversion<fir::IsPresentOp> {
     return success();
   }
 };
+
+/// Convert `!fir.emboxchar<!fir.char<KIND, ?>, #n>` into a sequence of
+/// instructions that generate `!llvm.struct<(ptr<ik>, i64)>`. The 1st element
+/// in this struct is a pointer. Its type is determined from `KIND`. The 2nd
+/// element is the length of the character buffer (`#n`).
+struct EmboxCharOpConversion : public FIROpConversion<fir::EmboxCharOp> {
+  using FIROpConversion::FIROpConversion;
+
+  mlir::LogicalResult
+  matchAndRewrite(fir::EmboxCharOp emboxChar, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const override {
+    mlir::ValueRange operands = adaptor.getOperands();
+    MLIRContext *ctx = emboxChar.getContext();
+
+    mlir::Value charBuffer = operands[0];
+    mlir::Value charBufferLen = operands[1];
+
+    mlir::Location loc = emboxChar.getLoc();
+    mlir::Type llvmStructTy = convertType(emboxChar.getType());
+    auto llvmStruct = rewriter.create<mlir::LLVM::UndefOp>(loc, llvmStructTy);
+
+    mlir::Type lenTy =
+        llvmStructTy.cast<mlir::LLVM::LLVMStructType>().getBody()[1];
+    mlir::Value lenAfterCast = integerCast(loc, rewriter, lenTy, charBufferLen);
+
+    auto c0 = mlir::ArrayAttr::get(ctx, rewriter.getI32IntegerAttr(0));
+    auto c1 = mlir::ArrayAttr::get(ctx, rewriter.getI32IntegerAttr(1));
+    auto insertBufferOp = rewriter.create<mlir::LLVM::InsertValueOp>(
+        loc, llvmStructTy, llvmStruct, charBuffer, c0);
+    rewriter.replaceOpWithNewOp<mlir::LLVM::InsertValueOp>(
+        emboxChar, llvmStructTy, insertBufferOp, lenAfterCast, c1);
+
+    return success();
+  }
+};
 } // namespace
 
 namespace {
@@ -1416,11 +1464,12 @@ public:
         BoxEleSizeOpConversion, BoxIsAllocOpConversion, BoxIsArrayOpConversion,
         BoxIsPtrOpConversion, BoxRankOpConversion, CallOpConversion,
         ConvertOpConversion, DispatchOpConversion, DispatchTableOpConversion,
-        DTEntryOpConversion, DivcOpConversion, ExtractValueOpConversion,
-        HasValueOpConversion, GlobalOpConversion, InsertOnRangeOpConversion,
-        InsertValueOpConversion, IsPresentOpConversion, LoadOpConversion,
-        NegcOpConversion, MulcOpConversion, SelectCaseOpConversion,
-        SelectOpConversion, SelectRankOpConversion, StoreOpConversion,
+        DTEntryOpConversion, DivcOpConversion, EmboxCharOpConversion,
+        ExtractValueOpConversion, HasValueOpConversion, GlobalOpConversion,
+        InsertOnRangeOpConversion, InsertValueOpConversion,
+        IsPresentOpConversion, LoadOpConversion, NegcOpConversion,
+        MulcOpConversion, SelectCaseOpConversion, SelectOpConversion,
+        SelectRankOpConversion, SelectTypeOpConversion, StoreOpConversion,
         SubcOpConversion, UndefOpConversion, UnreachableOpConversion,
         ZeroOpConversion>(typeConverter);
     mlir::populateStdToLLVMConversionPatterns(typeConverter, pattern);
