@@ -10,9 +10,13 @@
 
 #include <CL/sycl/detail/defines_elementary.hpp>
 
+<<<<<<< HEAD
 #include <cstdint>
 
 #ifdef __SYCL_DEVICE_ONLY__
+=======
+#if defined(__SYCL_DEVICE_ONLY__) && defined(SYCL_ENABLE_FALLBACK_ASSERT)
+>>>>>>> d5aa621c6092dfb0aea0cd76ee3ddd2b9f89f4f4
 // Reads Flag of AssertHappened on device
 SYCL_EXTERNAL __attribute__((weak)) extern "C" void
 __devicelib_assert_read(void *);
