@@ -5733,21 +5733,40 @@ VPOParoptTransform::getClauseItemReplacementValue(const Item *ClauseI,
 
   assert(ClauseI && "Null clause item.");
 
+  IRBuilder<> Builder(InsertPt);
   Value *ReplacementVal = nullptr;
   bool IsByref = ClauseI->getIsByRef();
   bool IsArraySection = isa<ReductionItem>(ClauseI) &&
                         cast<ReductionItem>(ClauseI)->getIsArraySection();
 
-  if (IsArraySection)
+  if (IsArraySection) {
     ReplacementVal = VPOParoptTransform::getArrSecReductionItemReplacementValue(
         *(cast<ReductionItem>(ClauseI)), InsertPt);
-  else
+  } else {
     ReplacementVal = ClauseI->getNew();
+
+    // OPAQUEPOINTER: this casting code must be completely removed
+    // for opaque-pointers. It is needed for TYPED clauses, because
+    // for array items we produce getNew() as pointer to the element
+    // type, rather than a pointer to an array (see MimicArrayAllocation
+    // code in VPOParoptUtils::genPrivatizationAlloca()).
+    Value *Orig = ClauseI->getOrig();
+    PointerType *OrigPtrTy = cast<PointerType>(Orig->getType());
+    if (!OrigPtrTy->isOpaque()) {
+      if (ClauseI->getIsByRef())
+        OrigPtrTy = cast<PointerType>(OrigPtrTy->getPointerElementType());
+
+      PointerType *NewPtrTy = cast<PointerType>(ReplacementVal->getType());
+      PointerType *ReplacementType = PointerType::getWithSamePointeeType(
+          OrigPtrTy, NewPtrTy->getAddressSpace());
+      ReplacementVal = Builder.CreateBitCast(ReplacementVal, ReplacementType,
+          ReplacementVal->getName() + ".cast");
+    }
+  }
 
   // For a by-ref, we need to add an extra address-of before replacing the
   // original value with the local value.
   if (IsByref) {
-    IRBuilder<> Builder(InsertPt);
     AllocaInst *ByRefAddr = Builder.CreateAlloca(
         ReplacementVal->getType(), nullptr, ReplacementVal->getName() + ".ref");
 
@@ -6666,10 +6685,17 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // type is the integer type of the same size as the item's data type,
         // and the second returned type is the intptr_t type for the current
         // compilation target.
-        auto GetPassAsScalarSizeInBits = [](Function *F, Value *Item) ->
+        auto GetPassAsScalarSizeInBits = [](Function *F,
+                                            Value *ItemVal,
+                                            FirstprivateItem *Item) ->
             std::tuple<Type *, Type *> {
-          if (!Item || !Item->getType()->isPointerTy())
+          if (!ItemVal || !ItemVal->getType()->isPointerTy())
             return std::make_tuple(nullptr, nullptr);
+
+          Type *AllocaTy;
+          Value *NumElements;
+          std::tie(AllocaTy, NumElements, std::ignore) =
+              VPOParoptUtils::getItemInfo(Item);
 
           // There is no clean way to recognize VLAs now.
           // They will look like this in IR:
@@ -6678,8 +6704,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           //
           // It does look like a scalar firstprivate, but it is not,
           // so we have to recognize this and bail out.
+          //
+          // TODO: remove this after switching to TYPED clauses.
           if (auto *NewAI =
-              dyn_cast<AllocaInst>(Item->stripPointerCasts())) {
+              dyn_cast<AllocaInst>(ItemVal->stripPointerCasts())) {
             bool IsVla = true;
             Value *Size = NewAI->getArraySize();
             if (auto *ConstSize = dyn_cast<ConstantInt>(Size))
@@ -6690,7 +6718,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
               return std::make_tuple(nullptr, nullptr);
           }
 
-          auto *ValueTy = Item->getType()->getPointerElementType();
+          // Recognize VLA, and return early.
+          if (NumElements && !isa<ConstantInt>(NumElements))
+            return std::make_tuple(nullptr, nullptr);
+
+          auto *ValueTy = AllocaTy;
           TypeSize ValueTySize = ValueTy->getPrimitiveSizeInBits();
 
           if (ValueTy->isPointerTy() ||
@@ -6703,6 +6735,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
             return std::make_tuple(nullptr, nullptr);
 
           uint64_t ValueSize = ValueTySize.getFixedSize();
+          if (NumElements)
+            ValueSize *= cast<ConstantInt>(NumElements)->getZExtValue();
 
           // WARNING: in case host and target use differently sized
           //          pointers this optimization may be illegal
@@ -6710,11 +6744,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           //          probably does not support such configurations anyway.
           unsigned PtrSize =
               F->getParent()->getDataLayout().getPointerSizeInBits(0);
-          Type *IntPtrTy = Type::getIntNTy(Item->getContext(), PtrSize);
+          Type *IntPtrTy = Type::getIntNTy(F->getContext(), PtrSize);
 
           if (ValueSize != 0 && ValueSize <= PtrSize)
             return std::make_tuple(
-                Type::getIntNTy(Item->getContext(), ValueSize), IntPtrTy);
+                Type::getIntNTy(F->getContext(), ValueSize), IntPtrTy);
 
           return std::make_tuple(nullptr, nullptr);
         };
@@ -6732,7 +6766,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 #endif // INTEL_CUSTOMIZATION
             !FprivI->getInMap() && !FprivI->getIsByRef()) {
           std::tie(ValueIntTy, IntPtrTy) =
-              GetPassAsScalarSizeInBits(F, NewPrivInst);
+              GetPassAsScalarSizeInBits(F, NewPrivInst, FprivI);
         }
 
         if (ValueIntTy && IntPtrTy) {
