@@ -18,7 +18,6 @@ set(TARGET_EXTRA_SOURCE_FILES
   Driver/DX/DXRuntime.cpp
   Driver/DX/DXWrapperParamsCheck.cpp
   Driver/Functions.cpp
-  Driver/RenderScript/RenderscriptRuntime.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES 
   Driver/Volcano/VolcanoOpenclRuntime.h
@@ -26,7 +25,6 @@ set(TARGET_EXTRA_INCLUDE_FILES
   Driver/DX/DXRuntime.h
   Driver/DX/DXWrapperParamsCheck.h
   Driver/Functions.h
-  Driver/RenderScript/RenderscriptRuntime.h
 )
 
 set(TARGET_INCLUDE_FILES
