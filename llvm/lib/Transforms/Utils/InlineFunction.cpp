@@ -1978,8 +1978,7 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
                               const ProfileCount &CalleeEntryCount,
                               const CallBase &TheCall, ProfileSummaryInfo *PSI,
                               BlockFrequencyInfo *CallerBFI) {
-  if (!CalleeEntryCount.hasValue() || CalleeEntryCount.isSynthetic() ||
-      CalleeEntryCount.getCount() < 1)
+  if (CalleeEntryCount.isSynthetic() || CalleeEntryCount.getCount() < 1)
     return;
   auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : None;
 #if INTEL_CUSTOMIZATION
@@ -2006,7 +2005,7 @@ void llvm::updateProfileCallee(
   if (!CalleeCount.hasValue())
     return;
 
-  const uint64_t PriorEntryCount = CalleeCount.getCount();
+  const uint64_t PriorEntryCount = CalleeCount->getCount();
 
   // Since CallSiteCount is an estimate, it could exceed the original callee
   // count and has to be set to 0 so guard against underflow.
@@ -2463,8 +2462,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         updateCallerBFI(OrigBB, VMap, IFI.CallerBFI, IFI.CalleeBFI,
                         CalledFunc->front());
 
-      updateCallProfile(CalledFunc, VMap, CalledFunc->getEntryCount(), CB,
-                        IFI.PSI, IFI.CallerBFI);
+      if (auto Profile = CalledFunc->getEntryCount())
+        updateCallProfile(CalledFunc, VMap, *Profile, CB, IFI.PSI,
+                          IFI.CallerBFI);
     }
 
     // Inject byval arguments initialization.
