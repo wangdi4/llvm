@@ -1077,19 +1077,14 @@ struct BinaryOp_match {
   // The LHS is always matched first.
   BinaryOp_match(const LHS_t &LHS, const RHS_t &RHS) : L(LHS), R(RHS) {}
 
-<<<<<<< HEAD
-  template <typename OpTy> bool match(OpTy *V) {
+  template <typename OpTy> inline bool match(unsigned Opc, OpTy *V) {
 #ifdef INTEL_CUSTOMIZATION
     // Use unified for Value and VPValue way to check whether it is
     // (VP)Instruction of given Opcode.
-    if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opcode) {
+    if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opc) {
 #else
-    if (V->getValueID() == Value::InstructionVal + Opcode) {
-#endif // INTEL_CUSTOMIZATION
-=======
-  template <typename OpTy> inline bool match(unsigned Opc, OpTy *V) {
     if (V->getValueID() == Value::InstructionVal + Opc) {
->>>>>>> e785f4ab6a40d5fe55f01a70a8152b8df98c2a7a
+#endif // INTEL_CUSTOMIZATION
       auto *I = cast<BinaryOperator>(V);
       return (L.match(I->getOperand(0)) && R.match(I->getOperand(1))) ||
              (Commutable && L.match(I->getOperand(1)) &&
