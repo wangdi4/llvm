@@ -14,6 +14,7 @@
 
 #include "llvm/Analysis/CostModel.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -124,6 +125,11 @@ FunctionPass *llvm::createHeteroArchOptPass() { return new HeteroArchOpt(); }
 bool HeteroArchOpt::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
+
+  bool Is64Bit = Triple(F.getParent()->getTargetTriple()).isArch64Bit();
+  // current dynamic CPU checker only support 64bit mode
+  if (!Is64Bit)
+    return false; // CMPLRLLVM-32796
 
   if (F.hasOptSize())
     return false; // This opt will bloat code.
