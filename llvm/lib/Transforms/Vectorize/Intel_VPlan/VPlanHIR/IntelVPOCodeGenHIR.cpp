@@ -3617,11 +3617,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     RegDDRef *VecExit = widenRef(CondPrivateFinal->getExit(), getVF());
     RegDDRef *VecIndex = widenRef(CondPrivateFinal->getIndex(), getVF());
 
-    // TODO: First of all we need to check is there any data which needs
-    // to be stored into the original private variable. It's possible
-    // that the condition was always false during the loop iterations.
-    // See also LLVM IR CG implementation and CMPLRLLVM-31619 for details.
-
     HLContainerTy CondPrivFinalInsts;
 
     Function *IdxReduceFunc = Intrinsic::getDeclaration(
@@ -5036,7 +5031,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // TODO: Dirty hack to handle copy instructions outside the loop region.
     // These are generated for conditional last private recurrent PHIs.
-    if (VPInst->getParent() == getVPLoop()->getLoopPreheader()) {
+    if (VPInst->getParent() == getVPLoop()->getLoopPreheader() ||
+        VPInst->getParent() == getVPLoop()->getExitBlock()) {
       auto *RValTmp = NewInst->getRvalDDRef();
       if (RValTmp->isSelfBlob()) {
         unsigned RvalSym = RValTmp->getSymbase();

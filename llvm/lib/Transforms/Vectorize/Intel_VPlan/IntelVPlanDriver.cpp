@@ -278,6 +278,9 @@ static bool canProcessMaskedVariant(const VPlan &P) {
 
 static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
 
+  VPLoopInfo *VPLI = Plan->getVPLoopInfo();
+  VPDominatorTree *DT = Plan->getDT();
+  VPPostDominatorTree *PDT = Plan->getPDT();
   VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
 
   // For conditional privates it is possible that the condition will be always
@@ -300,8 +303,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
 
     VPBuilder Builder;
     VPBasicBlock *VPBB = VPInst->getParent();
-    VPBasicBlock *VPBBTrue = VPBlockUtils::splitBlock(
-        VPBB, VPInst->getIterator(), Plan->getVPLoopInfo());
+    VPBasicBlock *VPBBTrue =
+        VPBlockUtils::splitBlock(VPBB, VPInst->getIterator(), VPLI, DT, PDT);
     VPBasicBlock *VPBBFalse;
     VPInstruction *NextInst = &*std::next(VPInst->getIterator());
 
@@ -315,12 +318,12 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
              "Expected a store instruction next after memory private "
              "finalization instruction");
       VPBBFalse = VPBlockUtils::splitBlock(
-          VPBBTrue, std::next(NextInst->getIterator()), Plan->getVPLoopInfo());
+          VPBBTrue, std::next(NextInst->getIterator()), VPLI, DT, PDT);
 
     } else {
 
       VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
-                                           Plan->getVPLoopInfo());
+                                           VPLI, DT, PDT);
       Builder.setInsertPoint(&*VPBBFalse->begin());
       VPPHINode *Phi = Builder.createPhiInstruction(VPInst->getType());
       VPInst->replaceAllUsesWith(Phi);
@@ -1526,6 +1529,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
     LVP.emitPeelRemainderVPLoops(VF, UF);
   }
+
+  preprocessPrivateFinalCondInstructions(Plan);
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
