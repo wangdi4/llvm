@@ -1,10 +1,6 @@
 ; FIXME: This test should use CHECK-NEXT to keep up-to-date.
 ; REQUIRES: x86-registered-target
 
-; INTEL CUSTOMIZATION
-; XFAIL: *
-; END INTEL CUSTOMIZATION
-
 ; Validate ThinLTO post link pipeline at O2 and O3
 
 ; RUN: opt -thinlto-bc -o %t.o %s

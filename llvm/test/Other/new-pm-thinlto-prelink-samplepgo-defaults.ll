@@ -1,14 +1,10 @@
 ; Validate ThinLTO prelink pipeline when we have Sample PGO
 ;
-<<<<<<< HEAD
 ; INTEL CUSTOMIZATION
 ; XFAIL: *
 ; END INTEL CUSTOMIZATION
 ;
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
-=======
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
->>>>>>> 19867de9e79327207796a16c1c24ac5d2cafecf9
 ; RUN:     -pgo-kind=pgo-sample-use-pipeline -profile-file='%S/Inputs/new-pm-thinlto-samplepgo-defaults.prof' \
 ; RUN:     -passes='thinlto-pre-link<O1>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O1

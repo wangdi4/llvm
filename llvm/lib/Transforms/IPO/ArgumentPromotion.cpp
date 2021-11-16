@@ -1286,12 +1286,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
-<<<<<<< HEAD
-      FunctionAnalysisManager &FAM =
-          AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
-=======
 
->>>>>>> 19867de9e79327207796a16c1c24ac5d2cafecf9
       // FIXME: This lambda must only be used with this function. We should
       // skip the lambda and just get the AA results directly.
       auto AARGetter = [&](Function &F) -> AAResults & {
@@ -1340,15 +1335,12 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   PreservedAnalyses PA;
   // We've cleared out analyses for deleted functions.
   PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
 #endif // INTEL_CUSTOMIZATION
-=======
   // We've manually invalidated analyses for functions we've modified.
   PA.preserveSet<AllAnalysesOn<Function>>();
->>>>>>> 19867de9e79327207796a16c1c24ac5d2cafecf9
   return PA;
 }
 
