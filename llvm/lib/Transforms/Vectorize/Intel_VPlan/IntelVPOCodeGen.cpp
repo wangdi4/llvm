@@ -316,9 +316,16 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
              VPInst->getOpcode() == Instruction::AddrSpaceCast) {
     assert(Ops.size() == 1 &&
            "BitCast/AddrspaceCast should have only one operand.");
+    Type *DestTy = VPInst->getType();
+    // Cast's destination type on operands with SOA accesses need to be set up
+    // with correct type.
+    if (isSOAAccess(VPInst, Plan)) {
+      Type *ElemTy = cast<PointerType>(DestTy)->getElementType();
+      DestTy = PointerType::get(getSOAType(ElemTy, VF),
+                                cast<PointerType>(DestTy)->getAddressSpace());
+    }
     SerialInst = Builder.CreateCast(
-        static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0],
-        VPInst->getType());
+        static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0], DestTy);
   } else if (VPInst->getOpcode() == Instruction::PHI) {
     assert(Ops.size() == 0 && "No operands expected for serialized PHIs.");
     SerialInst = Builder.CreatePHI(VPInst->getType(), VPInst->getNumOperands(),
@@ -3981,7 +3988,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
 
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
-  if (isSOAAccess(VPPhi, Plan) && !isOnlyUsedInLifetimeIntrinsics(VPPhi)) {
+  if (isSOAAccess(VPPhi, Plan)) {
     Type *ElemTy = PhiTy->getPointerElementType();
     PhiTy = PointerType::get(getSOAType(ElemTy, VF),
                              cast<PointerType>(PhiTy)->getAddressSpace());
