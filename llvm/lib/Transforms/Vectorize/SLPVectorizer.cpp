@@ -6089,17 +6089,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of GEPs.\n");
-<<<<<<< HEAD
-      TE->setOperandsInOrder();
-      for (unsigned i = 0, e = 2; i < e; ++i) {
-        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
-        ValueList Operands;
-        // Prepare the operand vector.
-        for (Value *V : VL)
-          Operands.push_back(cast<Instruction>(V)->getOperand(i));
-
-        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection}); // INTEL
-=======
       SmallVector<ValueList, 2> Operands(2);
       // Prepare the operand vector for pointer operands.
       for (Value *V : VL)
@@ -6129,12 +6118,15 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         auto *CI = cast<ConstantInt>(Op);
         Operands.back().push_back(ConstantExpr::getIntegerCast(
             CI, Ty, CI->getValue().isSignBitSet()));
->>>>>>> aa9bbb64becda3d74ae922b3c0c875649f4ebbce
       }
       TE->setOperand(IndexIdx, Operands.back());
 
-      for (unsigned I = 0, Ops = Operands.size(); I < Ops; ++I)
-        buildTree_rec(Operands[I], Depth + 1, {TE, I});
+#if INTEL_CUSTOMIZATION
+      for (unsigned I = 0, Ops = Operands.size(); I < Ops; ++I) {
+        SmallVector<int, 4> OpDirection(VL.size(), I);
+        buildTree_rec(Operands[I], Depth + 1, {TE, I, OpDirection});
+      }
+#endif // INTEL_CUSTOMIZATION
       return;
     }
     case Instruction::Store: {
