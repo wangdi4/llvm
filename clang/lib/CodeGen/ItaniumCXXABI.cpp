@@ -1320,8 +1320,13 @@ void ItaniumCXXABI::emitRethrow(CodeGenFunction &CGF, bool isNoReturn) {
 static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM) {
   // void *__cxa_allocate_exception(size_t thrown_size);
 
+#if INTEL_COLLAB
+  llvm::FunctionType *FTy = llvm::FunctionType::get(
+      CGM.TargetInt8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
+#else // INTEL_COLLAB
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.Int8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
+#endif  // INTEL_COLLAB
 
   return CGM.CreateRuntimeFunction(FTy, "__cxa_allocate_exception");
 }
@@ -1330,7 +1335,12 @@ static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
   // void __cxa_throw(void *thrown_exception, std::type_info *tinfo,
   //                  void (*dest) (void *));
 
+#if INTEL_COLLAB
+  llvm::Type *Args[3] = {CGM.TargetInt8PtrTy, CGM.TargetInt8PtrTy,
+                         CGM.TargetInt8PtrTy};
+#else // INTEL_COLLAB
   llvm::Type *Args[3] = { CGM.Int8PtrTy, CGM.Int8PtrTy, CGM.Int8PtrTy };
+#endif  // INTEL_COLLAB
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.VoidTy, Args, /*isVarArg=*/false);
 
@@ -1362,10 +1372,19 @@ void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
     if (!Record->hasTrivialDestructor()) {
       CXXDestructorDecl *DtorD = Record->getDestructor();
       Dtor = CGM.getAddrOfCXXStructor(GlobalDecl(DtorD, Dtor_Complete));
+#if INTEL_COLLAB
+      Dtor = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+          Dtor, CGM.TargetInt8PtrTy);
+#else // INTEL_COLLAB
       Dtor = llvm::ConstantExpr::getBitCast(Dtor, CGM.Int8PtrTy);
+#endif  // INTEL_COLLAB
     }
   }
+#if INTEL_COLLAB
+  if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.TargetInt8PtrTy);
+#else // INTEL_COLLAB
   if (!Dtor) Dtor = llvm::Constant::getNullValue(CGM.Int8PtrTy);
+#endif  // INTEL_COLLAB
 
   llvm::Value *args[] = { ExceptionPtr, TypeInfo, Dtor };
   CGF.EmitNoreturnRuntimeCallOrInvoke(getThrowFn(CGM), args);
