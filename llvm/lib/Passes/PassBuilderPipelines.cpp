@@ -1170,16 +1170,25 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   }
 #endif // INTEL_COLLAB
 
+#if INTEL_CUSTOMIZATION
+  // Argument promotion pass was originally added after passes which compute
+  // attribues for functions and arguments, but such ordering is not good
+  // because argument promotion changes function arguments. As a result
+  // promoted arguments do not get any attributes. Reordering argument
+  // promotion pass and the passes computing attributes fixes this problem.
+  // Additionally adding SROA after the argument promotion to cleanup allocas
+  // allows to get more accurate attributes for the promoted arguments.
+  if (Level.getSpeedupLevel() > 2) {
+    MainCGPipeline.addPass(ArgumentPromotionPass(true));
+    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(SROA()));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
 
   // Now deduce any function attributes based in the current code.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
-
-  // When at O3 add argument promotion to the pass pipeline.
-  // FIXME: It isn't at all clear why this should be limited to O3.
-  if (Level == OptimizationLevel::O3)
-    MainCGPipeline.addPass(ArgumentPromotionPass(true)); // INTEL
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
