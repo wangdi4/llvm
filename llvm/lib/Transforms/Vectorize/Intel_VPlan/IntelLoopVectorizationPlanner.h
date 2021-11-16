@@ -345,13 +345,6 @@ public:
   /// best selected VPlan.
   void executeBestPlan(VPOCodeGen &LB);
 
-  /// Feed information from explicit clauses to the loop Legality.
-  /// This information is necessary for initial loop analysis in the CodeGen.
-#if INTEL_CUSTOMIZATION
-  template <class VPOVectorizationLegality>
-#endif
-  static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
-
   /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
   /// was constructed. There are some limitations in CG, CM, and other parts of
   /// VPlan vectorizer on which we better gracefully bail out than assert.

@@ -35,9 +35,7 @@
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -1426,124 +1424,6 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
   VPLAN_DUMP(InitialTransformsDumpControl, Plan);
 }
 
-// Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
-#if INTEL_CUSTOMIZATION
-static Type *getType(Value *V) { return V->getType(); }
-static Type *getType(RegDDRef *V) { return V->getDestType(); }
-
-template <typename LegalityTy>
-void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
-                                                 LegalityTy &LVL) {
-  constexpr IRKind Kind =
-      std::is_same<LegalityTy, VPOVectorizationLegality>::value ? IRKind::LLVMIR
-                                                                : IRKind::HIR;
-#endif // INTEL_CUSTOMIZATION
-  if (!WRLp)
-    return;
-  LVL.setIsSimdFlag();
-
-  auto GetPrivateElementType = [](const Item *I) {
-    Type *ElType = nullptr;
-    Value *NumElements = nullptr;
-    std::tie(ElType, NumElements, /* AddrSpace */ std::ignore) =
-        VPOParoptUtils::getItemInfo(I);
-    assert(ElType && "Missed OMP clause item type!");
-
-    // TODO: account for supporting having num elements > 1.
-    // NumElements == nullptr by convention means the number is 1.
-    // Any other value including non-constant is not supported yet.
-    // Zero constant seems to be illegal.
-    assert(!NumElements && "Unexpected number of elements");
-    return ElType;
-  };
-
-  // Collect any SIMD loop private information
-  for (LastprivateItem *PrivItem : WRLp->getLpriv().items()) {
-    auto *PrivVal = PrivItem->getOrig<Kind>();
-    Type *PrivTy = GetPrivateElementType(PrivItem);
-    if (PrivItem->getIsNonPod())
-      LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
-                         PrivItem->getDestructor(), PrivItem->getCopyAssign(),
-                         true /* IsLast */);
-    else
-      LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getIsF90DopeVector(),
-                         true /* IsLast */, PrivItem->getIsConditional());
-  }
-
-  for (PrivateItem *PrivItem : WRLp->getPriv().items()) {
-    auto *PrivVal = PrivItem->getOrig<Kind>();
-    Type *PrivTy = GetPrivateElementType(PrivItem);
-    if (PrivItem->getIsNonPod())
-      LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
-                         PrivItem->getDestructor(),
-                         nullptr /* no CopyAssign for PrivateItem */);
-    else
-      LVL.addLoopPrivate(PrivVal, PrivTy, PrivItem->getIsF90DopeVector());
-  }
-
-  auto GetLinearElementType = [](const Item *I) {
-    Type *ElType = nullptr;
-    Value *NumElements = nullptr;
-    std::tie(ElType, NumElements, /* AddrSpace */ std::ignore) =
-        VPOParoptUtils::getItemInfo(I);
-    assert(ElType && "Missed OMP clause item type!");
-
-    // NumElements == nullptr by convention means the number is 1.
-    // Any other values including a non-constant are not supported.
-    assert(!NumElements && "Unexpected number of elements");
-    return ElType;
-  };
-
-  // Add information about loop linears to Legality
-  for (LinearItem *LinItem : WRLp->getLinear().items()) {
-    auto *LinVal = LinItem->getOrig<Kind>();
-    auto *Step = LinItem->getStep<Kind>();
-    Type *LinTy = GetLinearElementType(LinItem);
-    LVL.addLinear(LinVal, LinTy, Step);
-  }
-
-  auto GetRecurKind = [](const ReductionItem *Item, const Type *ElType) {
-    switch (Item->getType()) {
-    case ReductionItem::WRNReductionMin:
-      return ElType->isIntegerTy()
-                 ? (Item->getIsUnsigned() ? RecurKind::UMin : RecurKind::SMin)
-                 : RecurKind::FMin;
-    case ReductionItem::WRNReductionMax:
-      return ElType->isIntegerTy()
-                 ? (Item->getIsUnsigned() ? RecurKind::UMax : RecurKind::SMax)
-                 : RecurKind::FMax;
-    case ReductionItem::WRNReductionAdd:
-    case ReductionItem::WRNReductionSub:
-      return ElType->isIntegerTy() ? RecurKind::Add : RecurKind::FAdd;
-    case ReductionItem::WRNReductionMult:
-      return ElType->isIntegerTy() ? RecurKind::Mul : RecurKind::FMul;
-    case ReductionItem::WRNReductionBor:
-      return RecurKind::Or;
-    case ReductionItem::WRNReductionBxor:
-      return RecurKind::Xor;
-    case ReductionItem::WRNReductionBand:
-      return RecurKind::And;
-    case ReductionItem::WRNReductionUdr:
-      return RecurKind::None; // Unsupported
-    default:
-      llvm_unreachable("Unsupported reduction type");
-    }
-  };
-
-  for (ReductionItem *RedItem : WRLp->getRed().items()) {
-    auto *V = RedItem->getOrig<Kind>();
-    if (RedItem->getIsComplex())
-      LVL.setHasComplexTyReduction();
-
-    RecurKind Kind = GetRecurKind(RedItem, getType(V)->getPointerElementType());
-    LVL.addReduction(V, Kind, RedItem->getIsF90DopeVector(),
-                     RedItem->getType() == ReductionItem::WRNReductionUdr);
-  }
-
-  LVL.collectPreLoopDescrAliases();
-  LVL.collectPostExitLoopDescrAliases();
-}
-
 bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   VPLoop *VPLp = *(Plan.getVPLoopInfo()->begin());
   VPBasicBlock *Header = VPLp->getHeader();
@@ -1591,19 +1471,6 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
 
   return true;
 }
-
-namespace llvm {
-namespace vpo {
-#if INTEL_CUSTOMIZATION
-template void
-LoopVectorizationPlanner::EnterExplicitData<HIRVectorizationLegality>(
-    WRNVecLoopNode *WRLp, HIRVectorizationLegality &LVL);
-template void
-LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
-    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL);
-#endif
-} // namespace vpo
-} // namespace llvm
 
 VPlanVector *LoopVectorizationPlanner::getBestVPlan() {
   unsigned VF = getBestVF();
