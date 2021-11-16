@@ -351,7 +351,9 @@ public:
 #if INTEL_CUSTOMIZATION
   template <class VPOVectorizationLegality>
 #endif
-  static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
+  static void EnterExplicitData(WRNVecLoopNode *WRLp,
+                                VPOVectorizationLegality &Legal,
+                                ScalarEvolution *SE = nullptr);
 
   /// Utility to check if given Item is an array type item.
   static bool isItemArrayType(const Item *I);

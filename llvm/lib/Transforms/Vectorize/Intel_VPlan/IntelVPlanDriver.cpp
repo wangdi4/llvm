@@ -399,7 +399,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // Send explicit data from WRLoop to the Legality.
   // The decision about possible loop vectorization is based
   // on this data.
-  LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
+  LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL, &SE);
   if (!ForceComplexTyReductionVec && LVL.hasComplexTyReduction()) {
     LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
     return false;
