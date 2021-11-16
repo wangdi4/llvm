@@ -29,7 +29,6 @@ class VPValue;
 class VPInstruction;
 class VPCmpInst;
 class VPlanDivergenceAnalysis;
-class VPlanScalVecAnalysis;
 class VPLoop;
 
 struct TripCountInfo {

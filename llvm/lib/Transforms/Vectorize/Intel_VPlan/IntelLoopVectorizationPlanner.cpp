@@ -1521,7 +1521,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
-  Plan->runSVA();
+  Plan->runSVA(getBestVF());
   VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
   VPTransformState State(getBestVF(), 1 /* UF */, LI, DT, ILV->getBuilder(),

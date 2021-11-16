@@ -143,7 +143,7 @@ protected:
 
     // Compute SVA results for current VPlan in order to compute cost
     // accurately in CM.
-    const_cast<VPlanVector *>(Plan)->runSVA();
+    const_cast<VPlanVector *>(Plan)->runSVA(VF);
 
     // Collect VLS Groups once VLSA is specified. Heuristics can query VLS
     // Groups when VLSA is available.
