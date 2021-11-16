@@ -1667,12 +1667,24 @@ namespace vpo {
 template void
 LoopVectorizationPlanner::EnterExplicitData<HIRVectorizationLegality>(
     WRNVecLoopNode *WRLp, HIRVectorizationLegality &LVL,
+#ifdef _WIN32
+    // MSVC doesn't allow explicit specializations or instantiations of a
+    // function template to have default arguments (error C2765).
+    ScalarEvolution *SE);
+#else // _WIN32
     ScalarEvolution *SE = nullptr);
+#endif // _WIN32
 template void
 LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
     WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL,
+#ifdef _WIN32
+    // MSVC doesn't allow explicit specializations or instantiations of a
+    // function template to have default arguments (error C2765).
+    ScalarEvolution *SE);
+#else // _WIN32
     ScalarEvolution *SE = nullptr);
-#endif
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 } // namespace vpo
 } // namespace llvm
 
