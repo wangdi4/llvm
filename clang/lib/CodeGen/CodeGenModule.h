@@ -1178,6 +1178,9 @@ public:
       return Context.getTargetAddressSpace(LangAS::Default);
     return getDataLayout().getAllocaAddrSpace();
   }
+  void addDeferredAliasTarget(GlobalDecl AliasTarget) {
+    addDeferredDeclToEmit(AliasTarget);
+  }
 #endif // INTEL_COLLAB
 
   void generateIntelFPGAAnnotation(const Decl *D,
