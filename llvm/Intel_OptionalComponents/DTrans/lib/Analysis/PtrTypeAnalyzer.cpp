@@ -168,7 +168,7 @@ public:
       if (Info) {
         Info->print(OS, CombineUseAndDecl, ";    ");
         OS << ";      ";
-        Analyzer.printDominantAggregateUsageType(OS, *Info);
+        printDominantUsageType(OS, *Info);
       } else if (A.getType()->isPointerTy()) {
         OS << ";    <NO PTR INFO AVAILABLE>\n";
       }
@@ -187,7 +187,7 @@ public:
       if (Info) {
         Info->print(OS, CombineUseAndDecl, ";          ");
         OS << ";            ";
-        Analyzer.printDominantAggregateUsageType(OS, *Info);
+        printDominantUsageType(OS, *Info);
       } else if (CE->getType()->isPointerTy()) {
         OS << ";          <NO PTR INFO AVAILABLE FOR ConstantExpr>\n";
       }
@@ -227,8 +227,18 @@ public:
       OS << "\n";
       Info->print(OS, CombineUseAndDecl, ";    ");
       OS << ";      ";
-      Analyzer.printDominantAggregateUsageType(OS, *Info);
+      printDominantUsageType(OS, *Info);
     }
+  }
+
+  void printDominantUsageType(raw_ostream &OS, ValueTypeInfo &Info) {
+    DTransType *DomTy = Analyzer.getDominantType(Info, ValueTypeInfo::VAT_Use);
+    if (DomTy)
+      OS << "DomTy: " << *DomTy << "\n";
+    else if (Info.canAliasToAggregatePointer())
+      OS << "Ambiguous Dominant Type\n";
+    else
+      OS << "No Dominant Type\n";
   }
 
 private:
@@ -4008,8 +4018,12 @@ DTransType *PtrTypeAnalyzerImpl::getDominantAggregateType(
 
 DTransType *PtrTypeAnalyzerImpl::getDominantType(
     ValueTypeInfo &Info, ValueTypeInfo::ValueAnalysisType Kind) const {
-  auto IsGenericPtrType = [this](DTransType *Ty) {
-    return Ty == getDTransI8PtrType() || Ty == getDTransPtrSizedIntPtrType();
+  auto IsI8PtrTy = [this](DTransType *Ty) {
+    return Ty == getDTransI8PtrType();
+  };
+
+  auto IsPtrSizeIntPtrTy = [this](DTransType *Ty) {
+    return Ty == getDTransPtrSizedIntPtrType();
   };
 
   // If there are aggregate types, try to find the dominant one.
@@ -4019,24 +4033,36 @@ DTransType *PtrTypeAnalyzerImpl::getDominantType(
   // If there are no aggregate types, try to find the best match from pointers
   // to scalar types. By best type, this means that if a type is aliased by a
   // generic form (i8* or pointer sized int pointer), ignore those in
-  // preference to a non-generic form.
-  //   For examples, given the following sets of possibilities:
+  // preference to a non-generic form. If only generic forms are present, then
+  // return the generic form, unless both generic forms are present, in which
+  // case we will return the i64* type because it is unknown which is being used
+  // as a generic pointer and we want deterministic results.
+  // For example, given the following sets of possibilities:
   //   1)  { i8*, i32* }       -> return i32*
   //   2)  { double*, i64* }   -> return double*
   //   3)  { float*, double* } -> return nullptr
+  //   4)  { i8*, i64* }       -> i64*
   DTransType *DomTy = nullptr;
-  bool HaveGenericDomTy = false;
+  DTransType *GenericTy = nullptr;
   for (auto *AliasTy : Info.getPointerTypeAliasSet(Kind)) {
-    // Allow replacement of a generic type with a non-generic type, but don't
-    // allow a non-generic type to be replaced by another non-generic type.
-    if (DomTy && !HaveGenericDomTy && !IsGenericPtrType(AliasTy))
-      return nullptr;
+    if (IsI8PtrTy(AliasTy)) {
+      if (!GenericTy)
+        GenericTy = AliasTy;
+    } else if (IsPtrSizeIntPtrTy(AliasTy)) {
+      // Prefer a pointer sized int pointer to an i8* type.
+      GenericTy = AliasTy;
+    } else {
+      if (DomTy)
+        return nullptr;
 
-    DomTy = AliasTy;
-    HaveGenericDomTy = IsGenericPtrType(DomTy);
+      // Choose AliasTy as the dominant type.
+      DomTy = AliasTy;
+    }
   }
 
-  return DomTy;
+  if (DomTy)
+    return DomTy;
+  return GenericTy;
 }
 
 bool PtrTypeAnalyzerImpl::isPtrToPtr(ValueTypeInfo &Info) const {
@@ -4358,18 +4384,6 @@ void PtrTypeAnalyzer::dumpPTA(Module &M) {
   PtrTypeAnalyzerAnnotationWriter Annotator(*this, PTAEmitCombinedSets);
   M.print(dbgs(), &Annotator);
 }
-
-void PtrTypeAnalyzer::printDominantAggregateUsageType(raw_ostream &OS,
-                                                      ValueTypeInfo &Info) {
-  DTransType *DomTy = getDominantAggregateUsageType(Info);
-  if (DomTy)
-    OS << "DomTy: " << *DomTy << "\n";
-  else if (Info.canAliasToAggregatePointer())
-    OS << "Ambiguous Dominant Type\n";
-  else
-    OS << "No Dominant Type\n";
-}
-
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 } // namespace dtransOP
