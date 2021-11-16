@@ -156,13 +156,24 @@
 ; CHECK-NEXT:       |   |      %tmp30 = @llvm.vector.reduce.fadd.v4f32(%tmp30,  %select82);
 ; CHECK-NEXT:       |   |      %tmp = @llvm.vector.reduce.fadd.v4f32(%tmp,  %select80);
 ; CHECK-NEXT:       |   |      %tmp34 = @llvm.vector.reduce.add.v4i64(%select78);
+; CHECK-NEXT:       |   |      %.vec106 = %select74 != -1;
+; CHECK-NEXT:       |   |      %0 = bitcast.<4 x i1>.i4(%.vec106);
+; CHECK-NEXT:       |   |      %cmp = %0 == 0;
+; CHECK-NEXT:       |   |      %all.zero.check = %cmp;
+; CHECK-NEXT:       |   |      %phi.temp107 = %tmp37;
+; CHECK-NEXT:       |   |      %unifcond = extractelement %all.zero.check,  0;
+; CHECK-NEXT:       |   |      if (%unifcond == 1)
+; CHECK-NEXT:       |   |      {
+; CHECK-NEXT:       |   |         goto BB12.296;
+; CHECK-NEXT:       |   |      }
 ; CHECK-NEXT:       |   |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select74);
 ; CHECK-NEXT:       |   |      %priv.idx.cmp = %select74 == %priv.idx.max;
 ; CHECK-NEXT:       |   |      %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);
 ; CHECK-NEXT:       |   |      %bsf = @llvm.cttz.i4(%bsfintmask,  1);
 ; CHECK-NEXT:       |   |      %tmp37 = extractelement %select76,  %bsf;
+; CHECK-NEXT:       |   |      %phi.temp107 = %tmp37;
+; CHECK-NEXT:       |   |      BB12.296:
 ; CHECK-NEXT:       |   |   }
-
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
