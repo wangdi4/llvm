@@ -510,7 +510,6 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);
-  void printDominantAggregateUsageType(raw_ostream &OS, ValueTypeInfo &Info);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:

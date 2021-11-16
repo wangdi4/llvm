@@ -53,7 +53,7 @@ merge:
 ; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
-; CHECK-NEXT: No Dominant Type
+; CHECK-NEXT: DomTy: i64*{{ *}}
 
 ; CHECK-NONOPAQUE:  %ptr2 = phi i64* [ %zf0, %zlabel ], [ %nzf1, %nzlabel ]
 ; CHECK-OPAQUE:  %ptr2 = phi ptr [ %zf0, %zlabel ], [ %nzf1, %nzlabel ]
@@ -63,7 +63,7 @@ merge:
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 ; CHECK-NEXT:   %struct.test01 @ 1
-; CHECK-NEXT: No Dominant Type
+; CHECK-NEXT: DomTy: i64*{{ *}}
 
 ; CHECK-NONOPAQUE:  %ptr3 = phi i64* [ null, %zlabel ], [ %nzf0, %nzlabel ]
 ; CHECK-OPAQUE:  %ptr3 = phi ptr [ null, %zlabel ], [ %nzf0, %nzlabel ]
@@ -72,7 +72,7 @@ merge:
 ; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
-; CHECK-NEXT: No Dominant Type
+; CHECK-NEXT: DomTy: i64*{{ *}}
 
 
 ; Test phi with self-reference.
