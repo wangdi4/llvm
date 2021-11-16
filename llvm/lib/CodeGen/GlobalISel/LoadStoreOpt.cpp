@@ -396,11 +396,10 @@ bool LoadStoreOpt::doSingleStoreMerge(SmallVectorImpl<GStore *> &Stores) {
     WideConst.insertBits(ConstantVals[Idx], Idx * SmallTy.getSizeInBits());
   }
   WideReg = Builder.buildConstant(WideValueTy, WideConst).getReg(0);
-  LLVM_DEBUG({
-    auto NewStore =
-        Builder.buildStore(WideReg, FirstStore->getPointerReg(), *WideMMO);
-    dbgs() << "Created merged store: " << *NewStore;
-  });
+  auto NewStore =
+      Builder.buildStore(WideReg, FirstStore->getPointerReg(), *WideMMO);
+  (void) NewStore;
+  LLVM_DEBUG(dbgs() << "Created merged store: " << *NewStore);
   NumStoresMerged += Stores.size();
 
   MachineOptimizationRemarkEmitter MORE(*MF, nullptr);
