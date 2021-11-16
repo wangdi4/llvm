@@ -180,7 +180,7 @@ define i32 @fptoui_float_i16(i32 %arg) {
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3I16 = fptoui <3 x float> undef to <3 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7I16 = fptoui <7 x float> undef to <7 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V9I16 = fptoui <9 x float> undef to <9 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33I16 = fptoui <33 x float> undef to <33 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V33I16 = fptoui <33 x float> undef to <33 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3I16 = fptoui <3 x float> undef to <3 x i16>
@@ -209,7 +209,7 @@ define i32 @fptoui_float_i8(i32 %arg) {
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3I8 = fptoui <3 x float> undef to <3 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7I8 = fptoui <7 x float> undef to <7 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V9I8 = fptoui <9 x float> undef to <9 x i8>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 91 for instruction: %V33I8 = fptoui <33 x float> undef to <33 x i8>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V33I8 = fptoui <33 x float> undef to <33 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3I8 = fptoui <3 x float> undef to <3 x i8>

@@ -180,7 +180,7 @@ define i32 @fptosi_float_i16(i32 %arg) {
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3I16 = fptosi <3 x float> undef to <3 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7I16 = fptosi <7 x float> undef to <7 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V9I16 = fptosi <9 x float> undef to <9 x i16>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33I16 = fptosi <33 x float> undef to <33 x i16>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V33I16 = fptosi <33 x float> undef to <33 x i16>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3I16 = fptosi <3 x float> undef to <3 x i16>
