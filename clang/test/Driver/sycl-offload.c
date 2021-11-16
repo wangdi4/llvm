@@ -196,7 +196,11 @@
 // RUN:   | FileCheck -DARCH=spir64_fpga -check-prefixes=CHK-UNUSED-ARG-WARNING,CHK-TARGET %s
 // CHK-UNUSED-ARG-WARNING-NOT: clang{{.*}} warning: argument unused during compilation: '-Xsycl-target-frontend={{.*}} -DFOO'
 // CHK-TARGET: clang{{.*}} "-cc1" "-triple" "[[ARCH]]-unknown-unknown"{{.*}} "-D" "FOO"
-// CHK-TARGET: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-[[ARCH]]-unknown-unknown"
+// INTEL_CUSTOMIZATION
+// Do not check for unbundling of objects, as the objects in question are not
+// guaranteed to be available.
+// CHK-TARGETx: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-[[ARCH]]-unknown-unknown"
+// end INTEL_CUSTOMIZATION
 
 /// ###########################################################################
 
