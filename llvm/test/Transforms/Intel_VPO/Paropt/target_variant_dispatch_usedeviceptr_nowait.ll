@@ -24,7 +24,7 @@
 ;   2. Create the InteropObj and pass it as last argument to variant function
 
 ; 1. Allocate AsyncObj (type: %__struct.AsyncObj) and create a pointer to it
-; CHECK: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @.kmpc_loc{{.*}}, i32 0, i32 144, i64 24, i64 0, i8* null)
+; CHECK: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @.kmpc_loc{{.*}}, i32 0, i32 16, i64 24, i64 0, i8* null)
 ; CHECK: [[ASYNCPTR:%[a-zA-Z._0-9]+]] = bitcast i8* [[ASYNCOBJ]] to %__struct.AsyncObj*
 
 ; 2a. Create the InteropObj

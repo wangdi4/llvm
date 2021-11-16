@@ -23,7 +23,6 @@
 #else
 #include "VPlan.h"
 #endif
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 
@@ -354,15 +353,6 @@ public:
   static void EnterExplicitData(WRNVecLoopNode *WRLp,
                                 VPOVectorizationLegality &Legal,
                                 ScalarEvolution *SE = nullptr);
-
-  /// Utility to check if given Item is an array type item.
-  static bool isItemArrayType(const Item *I);
-
-  /// Utility to check if given WRegion loop has any array reduction idioms.
-  static bool hasArrayReduction(WRNVecLoopNode *WRLp);
-
-  /// Utility to check if given WRegion loop has any nonPOD lastprivate array.
-  static bool hasArrayLastprivateNonPod(WRNVecLoopNode *WRLp);
 
   /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
   /// was constructed. There are some limitations in CG, CM, and other parts of
