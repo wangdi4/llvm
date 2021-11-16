@@ -1943,14 +1943,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
   Type *SizeTTy = GeneralUtils::getSizeTTy(InsertPt->getFunction());
 
   Value *ValueZero = ConstantInt::get(Int32Ty, 0);
-  Value *ProxyFlag = nullptr;
-
-  if (VPOParoptUtils::enableAsyncHelperThread()) {
-    ProxyFlag = ConstantInt::get(Int32Ty,
-                WRNTaskFlag::Proxy | WRNTaskFlag::HiddenHelper);
-  }
-  else
-    ProxyFlag = ConstantInt::get(Int32Ty, WRNTaskFlag::Proxy); // 0x10
+  Value *ProxyFlag = ConstantInt::get(Int32Ty, WRNTaskFlag::Proxy); // 0x10
 
   Value *ValueAsyncObjTySize = ConstantInt::get(SizeTTy, AsyncObjTySize);
 
