@@ -1433,8 +1433,7 @@ static Type *getType(RegDDRef *V) { return V->getDestType(); }
 
 template <typename LegalityTy>
 void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
-                                                 LegalityTy &LVL,
-                                                 ScalarEvolution *SE) {
+                                                 LegalityTy &LVL) {
   constexpr IRKind Kind =
       std::is_same<LegalityTy, VPOVectorizationLegality>::value ? IRKind::LLVMIR
                                                                 : IRKind::HIR;
@@ -1443,42 +1442,18 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
     return;
   LVL.setIsSimdFlag();
 
-  auto GetPrivateElementType = [&SE](const Item *I) {
+  auto GetPrivateElementType = [](const Item *I) {
     Type *ElType = nullptr;
     Value *NumElements = nullptr;
     std::tie(ElType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(I);
     assert(ElType && "Missed OMP clause item type!");
 
+    // TODO: account for supporting having num elements > 1.
     // NumElements == nullptr by convention means the number is 1.
     // Any other value including non-constant is not supported yet.
-    // For NumElements == nullptr(i.e. 1 element), the original type(including
-    // array) is untouched. To handle arrays in private clause with non-null
-    // NumElements we convert the type into 1D array:  ElType -> [NumElements x
-    // ElType]. Eg, "QUAL.OMP.PRIVATE:TYPED"([10 x i32]* %20, [10 x i32]
-    // zeroinitializer, i32 0) will give us [10 x i32] array type.
-    // "QUAL.OMP.PRIVATE:TYPED"([10 x i32]* %20, [10 x i32] zeroinitializer, i32
-    // 2520) will give us [2520 x [10 x i32]] array type. The resulting array
-    // then will be vectorized by our algorithms. Usually it will be transformed
-    // into [VF x ElType] array (unless SOA transformation is applied to it).
-    if (NumElements) {
-      ConstantInt *CI = nullptr;
-      if (SE) {
-        auto NumSCEV = SE->getSCEV(NumElements);
-        assert(NumSCEV && isa<SCEVConstant>(NumSCEV) &&
-               "Unsupported private array length");
-        CI = cast<SCEVConstant>(NumSCEV)->getValue();
-      } else {
-        // Fallback for HIR pipeline
-        // TODO: Add Paropt utility to return DDRef from which Item info can be
-        // extracted
-        CI = dyn_cast<ConstantInt>(NumElements);
-      }
-      assert(CI && "Unsupported private array length");
-      if (CI->uge(1))
-        ElType = ArrayType::get(ElType, CI->getZExtValue());
-    }
-
+    // Zero constant seems to be illegal.
+    assert(!NumElements && "Unexpected number of elements");
     return ElType;
   };
 
@@ -1628,12 +1603,10 @@ namespace vpo {
 #if INTEL_CUSTOMIZATION
 template void
 LoopVectorizationPlanner::EnterExplicitData<HIRVectorizationLegality>(
-    WRNVecLoopNode *WRLp, HIRVectorizationLegality &LVL,
-    ScalarEvolution *SE = nullptr);
+    WRNVecLoopNode *WRLp, HIRVectorizationLegality &LVL);
 template void
 LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
-    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL,
-    ScalarEvolution *SE = nullptr);
+    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL);
 #endif
 } // namespace vpo
 } // namespace llvm
