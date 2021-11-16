@@ -6676,6 +6676,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // Note: We must run lastprivate codegen before firstprivate codegen.
         // Otherwise the lastprivate var replacement will mess up the
         // copy instructions.
+        Type *ElementTy = nullptr;
+        Value *NumElements = nullptr;
+        std::tie(ElementTy, NumElements, std::ignore) =
+            VPOParoptUtils::getItemInfo(FprivI);
 
         PrivInitEntryBB = createEmptyPrivInitBB(W);
 
@@ -6685,17 +6689,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // type is the integer type of the same size as the item's data type,
         // and the second returned type is the intptr_t type for the current
         // compilation target.
-        auto GetPassAsScalarSizeInBits = [](Function *F,
-                                            Value *ItemVal,
-                                            FirstprivateItem *Item) ->
+        auto GetPassAsScalarSizeInBits = [ElementTy, NumElements](
+            Function *F, Value *ItemVal, FirstprivateItem *Item) ->
             std::tuple<Type *, Type *> {
           if (!ItemVal || !ItemVal->getType()->isPointerTy())
             return std::make_tuple(nullptr, nullptr);
-
-          Type *AllocaTy;
-          Value *NumElements;
-          std::tie(AllocaTy, NumElements, std::ignore) =
-              VPOParoptUtils::getItemInfo(Item);
 
           // There is no clean way to recognize VLAs now.
           // They will look like this in IR:
@@ -6722,7 +6720,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           if (NumElements && !isa<ConstantInt>(NumElements))
             return std::make_tuple(nullptr, nullptr);
 
-          auto *ValueTy = AllocaTy;
+          auto *ValueTy = ElementTy;
           TypeSize ValueTySize = ValueTy->getPrimitiveSizeInBits();
 
           if (ValueTy->isPointerTy() ||
@@ -6807,8 +6805,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           //   ...
           IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
           Value *NewArg = PredBuilder.CreateLoad(
-              Orig->getType()->getPointerElementType(),
-              Orig, Orig->getName() + Twine(".val"));
+              ElementTy, Orig, Orig->getName() + Twine(".val"));
           NewArg = PredBuilder.CreateBitCast(NewArg, ValueIntTy,
               NewArg->getName() + Twine(".bcast"));
           NewArg = PredBuilder.CreateZExt(NewArg, IntPtrTy,
@@ -6819,8 +6816,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           NewArg = RegBuilder.CreateTrunc(NewArg, ValueIntTy,
               NewArg->getName() + Twine(".trunc"));
           NewArg = RegBuilder.CreateBitCast(
-              NewArg, NewPrivInst->getType()->getPointerElementType(),
-              NewArg->getName() + Twine(".bcast"));
+              NewArg, ElementTy, NewArg->getName() + Twine(".bcast"));
           RegBuilder.CreateStore(NewArg, NewPrivInst);
         } else if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
@@ -6831,7 +6827,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
             FprivI->getIsF90NonPod() ||
 #endif // INTEL_CUSTOMIZATION
             FprivI->getIsByRef() || !NewPrivInst->getType()->isPointerTy() ||
-            !NewPrivInst->getType()->getPointerElementType()->isPointerTy()) {
+            !ElementTy->isPointerTy()) {
           // Copy the firstprivate data from the original version to the
           // private copy. In the case of lastprivate, this is the lastprivate
           // copy. The lastprivate codegen will replace all original vars
@@ -7324,13 +7320,17 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
 }
 
 Value *VPOParoptTransform::genRegionPrivateValue(
-    WRegionNode *W, Value *V, bool IsFirstPrivate) {
+    WRegionNode *W, Value *V, Type *ElementTy, Value *NumElements,
+    bool IsFirstPrivate) {
   // V is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(V) &&
          "genRegionPrivateValue: Expect isOMPItemLocalVAR().");
 
   // Create a fake firstprivate item referencing the original alloca.
   FirstprivateItem FprivI(V);
+  FprivI.setIsTyped(true);
+  FprivI.setOrigItemElementTypeFromIR(ElementTy);
+  FprivI.setNumElements(NumElements);
   auto *EntryBB = W->getEntryBBlock();
   auto *InsertPt = EntryBB->getFirstNonPHI();
 
@@ -7655,7 +7655,11 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
     // in this case, so we have to privatize the normalized induction
     // variable in the region. This is not a big deal, since
     // normalized induction variable *is* private for the region.
-    auto *NewAlloca = genRegionPrivateValue(W, OrigAlloca);
+    Type *ElementTy = W->getWRNLoopInfo().getNormIVElemTy(Index);
+    assert(ElementTy->isIntegerTy() && "IV must have integer type.");
+    auto *NewAlloca = genRegionPrivateValue(W, OrigAlloca,
+                                            ElementTy,
+                                            ConstantInt::get(ElementTy, 1));
     // We apply PromoteMemToReg to the private version generated
     // by genRegionPrivateValue(). We cannot apply PromoteMemToReg
     // to the original normalized induction variable.
@@ -7694,7 +7698,10 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
     //        to propagate constant normalized upper bounds and
     //        do not propagate non-constant ones.
     auto *OrigAlloca = W->getWRNLoopInfo().getNormUB(Index);
-    auto *NewAlloca = genRegionPrivateValue(W, OrigAlloca, true);
+    Type *ElementTy = W->getWRNLoopInfo().getNormUBElemTy(Index);
+    assert(ElementTy->isIntegerTy() && "UB must have integer type.");
+    auto *NewAlloca = genRegionPrivateValue(
+        W, OrigAlloca, ElementTy, ConstantInt::get(ElementTy, 1), true);
     // The original load/stores from/to the normalized upper bound
     // "variable" may be marked volatile, e.g.:
     //

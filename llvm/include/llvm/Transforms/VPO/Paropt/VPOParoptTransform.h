@@ -1773,7 +1773,8 @@ private:
   /// \p V is an optionally addrspacecast'ed AllocaInst for \p W region's
   /// normalized upper bound pointer or normalized induction variable
   /// pointer.
-  /// Insert a new AllocaInst at the region's entry block.
+  /// Insert a new AllocaInst at the region's entry block allocating
+  /// an object as specified by \p ElementTy and \p NumElements.
   /// Copy the original variable value to the allocated area, iff
   /// \p IsFirstPrivate is true.
   /// Replace all uses of the original AllocaInst with the new one.
@@ -1782,7 +1783,8 @@ private:
   /// pointer, we do not expect it to have non-POD type
   /// neither expect it to be By-Ref.
   Value *genRegionPrivateValue(
-      WRegionNode *W, Value *V, bool IsFirstPrivate = false);
+      WRegionNode *W, Value *V, Type *ElementTy, Value *NumElements,
+      bool IsFirstPrivate = false);
 
   /// Move SIMD directives next to the loop associated
   /// with the given OpenMP loop region \p W.

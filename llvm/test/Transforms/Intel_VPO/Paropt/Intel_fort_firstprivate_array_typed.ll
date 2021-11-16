@@ -1,5 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s 2>&1 | FileCheck --check-prefix=CHECK %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S 2>&1 | FileCheck --check-prefix=CHECK %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s 2>&1 | FileCheck --check-prefix=OPQPTR %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S 2>&1 | FileCheck --check-prefix=OPQPTR %s
 
 ; Original code:
 ;subroutine foo(a)
@@ -20,6 +22,11 @@
 ; CHECK: [[FPRIV_GEP_CAST:%[A-Za-z0-9$._"]+]] = bitcast i32* [[FPRIV_GEP]] to [10 x i32]*
 ; CHECK: [[CAST:%[A-Za-z0-9$._"]+]] = bitcast i32* [[FPRIV_GEP]] to i8*
 ; CHECK: call void @llvm.memcpy{{.*}}(i8*{{.*}}[[CAST]],
+
+; OPQPTR: define internal void @foo_.DIR.OMP.PARALLEL.LOOP
+; OPQPTR: [[FPRIV:%[A-Za-z0-9$._"]+]] = alloca [10 x i32]
+; OPQPTR: [[FPRIV_GEP:%[A-Za-z0-9$._"]+]] = getelementptr inbounds [10 x i32], ptr [[FPRIV]], i32 0, i32 0
+; OPQPTR: call void @llvm.memcpy{{.*}}(ptr{{.*}}[[FPRIV_GEP]],
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
