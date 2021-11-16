@@ -51,7 +51,6 @@ class VPOCodeGenHIR;
 class VPPostDominatorTree;
 class VPPHINode;
 struct TripCountInfo;
-class VPlanScalVecAnalysis;
 
 // llvm::mapped_itrator has limited support of functions returning by value.
 // TODO: Replace VPSuccIterator with llvm::mapped_iterator, once it is fixed.
