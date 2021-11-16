@@ -440,7 +440,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // Send explicit data from WRLoop to the Legality.
   // The decision about possible loop vectorization is based
   // on this data.
-  LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
+  LVL.EnterExplicitData(WRLp);
   if (!ForceComplexTyReductionVec && LVL.hasComplexTyReduction()) {
     LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
     return false;
@@ -1412,7 +1412,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                                   &VLSA, LightWeightMode);
 
   // Send explicit data from WRLoop to the Legality.
-  LVP.EnterExplicitData(WRLp, HIRVecLegal);
+  HIRVecLegal.EnterExplicitData(WRLp);
   if (HIRVecLegal.hasF90DopeVectorPrivate()) {
     LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
     return false;

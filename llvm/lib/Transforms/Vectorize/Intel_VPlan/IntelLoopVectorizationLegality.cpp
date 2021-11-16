@@ -598,16 +598,9 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::addReduction(Value *RedVarPtr, RecurKind Kind,
-                                            bool IsF90DopeVector, bool IsUDR) {
+void VPOVectorizationLegality::addReduction(Value *RedVarPtr, RecurKind Kind) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
-
-  if (IsUDR)
-    HasUserDefinedReduction = true;
-
-  if (IsF90DopeVector)
-    HasF90DopeVectorReduction = true;
 
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
     return parseMinMaxReduction(RedVarPtr, Kind);
@@ -621,17 +614,17 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
 
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                                             const CallInst *RegionEntry) {
-  if (HasUserDefinedReduction) {
+  if (hasUserDefinedReduction()) {
     LLVM_DEBUG(dbgs() << "User defined reductions are not supported\n");
     return false;
   }
 
   // TODO: implement Fortran dope vectors support (CMPLRLLVM-10783)
-  if (HasF90DopeVectorPrivate) {
+  if (hasF90DopeVectorPrivate()) {
     LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
     return false;
   }
-  if (HasF90DopeVectorReduction) {
+  if (hasF90DopeVectorReduction()) {
     LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
     return false;
   }

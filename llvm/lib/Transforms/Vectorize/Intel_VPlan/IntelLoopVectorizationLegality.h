@@ -22,7 +22,10 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
+using namespace llvm::loopopt;
 namespace llvm {
 
 class PredicatedScalarEvolution;
@@ -33,6 +36,155 @@ class LoopInfo;
 class Function;
 
 namespace vpo {
+class VPOVectorizationLegality;
+inline Type *getType(Value *V) { return V->getType(); }
+inline Type *getType(RegDDRef *V) { return V->getDestType(); }
+
+// Importer of WRNVecLoopNode (OMP SIMD Loop) items into Legality.
+template <typename LegalityTy>
+class OMPSimdImporter {
+  static constexpr IRKind Kind =
+      std::is_same<LegalityTy, VPOVectorizationLegality>::value ? IRKind::LLVMIR
+                                                                : IRKind::HIR;
+  // Allow legality to read the importer internal state;
+  friend LegalityTy;
+  LegalityTy *Legality;
+
+  bool SeenComplexTyReduction = false;
+  bool SeenF90DopeVectorPrivate = false;
+  bool SeenF90DopeVectorReduction = false;
+  bool SeenUserDefinedReduction = false;
+
+public:
+  OMPSimdImporter(LegalityTy *L) : Legality(L) {}
+
+  void run(const WRNVecLoopNode *WRLp) {
+    visitPrivates(WRLp);
+    visitLinears(WRLp);
+    visitReductions(WRLp);
+  }
+
+private:
+  /// Imports any SIMD loop private amd listprivate information into Legality
+  void visitPrivates(const WRNVecLoopNode *WRLp) {
+    auto GetPrivateElementType = [](const Item *I) {
+      Type *ElType = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(ElType, NumElements, /* AddrSpace */ std::ignore) =
+          VPOParoptUtils::getItemInfo(I);
+      assert(ElType && "Missed OMP clause item type!");
+
+      // TODO: account for supporting having num elements > 1.
+      // NumElements == nullptr by convention means the number is 1.
+      // Any other value including non-constant is not supported yet.
+      // Zero constant seems to be illegal.
+      assert(!NumElements && "Unexpected number of elements");
+      return ElType;
+    };
+
+    for (LastprivateItem *PrivItem : WRLp->getLpriv().items()) {
+      auto *PrivVal = PrivItem->getOrig<Kind>();
+      Type *PrivTy = GetPrivateElementType(PrivItem);
+
+      if (PrivItem->getIsF90DopeVector())
+        SeenF90DopeVectorPrivate = true;
+
+      if (PrivItem->getIsNonPod())
+        Legality->addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
+                                 PrivItem->getDestructor(),
+                                 PrivItem->getCopyAssign(), true /* IsLast */);
+      else
+        Legality->addLoopPrivate(PrivVal, PrivTy, true /* IsLast */,
+                                 PrivItem->getIsConditional());
+    }
+
+    for (PrivateItem *PrivItem : WRLp->getPriv().items()) {
+      auto *PrivVal = PrivItem->getOrig<Kind>();
+      Type *PrivTy = GetPrivateElementType(PrivItem);
+      if (PrivItem->getIsF90DopeVector())
+        SeenF90DopeVectorPrivate = true;
+
+      if (PrivItem->getIsNonPod())
+        Legality->addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
+                                 PrivItem->getDestructor(),
+                                 nullptr /* no CopyAssign for PrivateItem */,
+                                 false /* IsLast */);
+      else
+        Legality->addLoopPrivate(PrivVal, PrivTy, false /* IsLast */,
+                                 false /*IsConditional*/);
+    }
+  }
+
+  /// Import information about loop linears to Legality
+  void visitLinears(const WRNVecLoopNode *WRLp) {
+    auto GetLinearElementType = [](const Item *I) {
+      Type *ElType = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(ElType, NumElements, /* AddrSpace */ std::ignore) =
+          VPOParoptUtils::getItemInfo(I);
+      assert(ElType && "Missed OMP clause item type!");
+
+      // NumElements == nullptr by convention means the number is 1.
+      // Any other values including a non-constant are not supported.
+      assert(!NumElements && "Unexpected number of elements");
+      return ElType;
+    };
+
+    for (LinearItem *LinItem : WRLp->getLinear().items()) {
+      auto *LinVal = LinItem->getOrig<Kind>();
+      auto *Step = LinItem->getStep<Kind>();
+      Type *LinTy = GetLinearElementType(LinItem);
+      Legality->addLinear(LinVal, LinTy, Step);
+    }
+  }
+
+  /// Import information about loop reductions into Legality
+  void visitReductions(const WRNVecLoopNode *WRLp) {
+    auto GetRecurKind = [](const ReductionItem *Item, const Type *ElType) {
+      switch (Item->getType()) {
+      case ReductionItem::WRNReductionMin:
+        return ElType->isIntegerTy()
+                   ? (Item->getIsUnsigned() ? RecurKind::UMin : RecurKind::SMin)
+                   : RecurKind::FMin;
+      case ReductionItem::WRNReductionMax:
+        return ElType->isIntegerTy()
+                   ? (Item->getIsUnsigned() ? RecurKind::UMax : RecurKind::SMax)
+                   : RecurKind::FMax;
+      case ReductionItem::WRNReductionAdd:
+      case ReductionItem::WRNReductionSub:
+        return ElType->isIntegerTy() ? RecurKind::Add : RecurKind::FAdd;
+      case ReductionItem::WRNReductionMult:
+        return ElType->isIntegerTy() ? RecurKind::Mul : RecurKind::FMul;
+      case ReductionItem::WRNReductionBor:
+        return RecurKind::Or;
+      case ReductionItem::WRNReductionBxor:
+        return RecurKind::Xor;
+      case ReductionItem::WRNReductionBand:
+        return RecurKind::And;
+      case ReductionItem::WRNReductionUdr:
+        return RecurKind::None; // Unsupported
+      default:
+        llvm_unreachable("Unsupported reduction type");
+      }
+    };
+
+    for (ReductionItem *RedItem : WRLp->getRed().items()) {
+      auto *V = RedItem->getOrig<Kind>();
+      if (RedItem->getIsComplex())
+        SeenComplexTyReduction = true;
+
+      if (RedItem->getIsF90DopeVector())
+        SeenF90DopeVectorReduction = true;
+
+      if (RedItem->getType() == ReductionItem::WRNReductionUdr)
+        SeenUserDefinedReduction = true;
+
+      RecurKind Kind =
+          GetRecurKind(RedItem, getType(V)->getPointerElementType());
+      Legality->addReduction(V, Kind);
+    }
+  }
+};
 
 class VPOVectorizationLegality {
 public:
@@ -138,11 +290,18 @@ public:
   /// Returns the widest induction type.
   Type *getWidestInductionType() { return WidestIndTy; }
 
-  void setIsSimdFlag() { IsSimdLoop = true; }
-
-  bool hasComplexTyReduction() { return HasComplexTyReduction; }
-  void setHasComplexTyReduction() { HasComplexTyReduction = true; }
-
+  bool hasF90DopeVectorPrivate() const {
+    return SimdLoopDataImporter.SeenF90DopeVectorPrivate;
+  }
+  bool hasF90DopeVectorReduction() const {
+    return SimdLoopDataImporter.SeenF90DopeVectorReduction;
+  }
+  bool hasComplexTyReduction() const {
+    return SimdLoopDataImporter.SeenComplexTyReduction;
+  }
+  bool hasUserDefinedReduction() const {
+    return SimdLoopDataImporter.SeenUserDefinedReduction;
+  }
 private:
   /// The loop that we evaluate.
   Loop *TheLoop;
@@ -192,16 +351,21 @@ private:
   /// step values 1 and -1 and is used to generate unit-stride loads/stores
   /// when possible
   std::map<Value *, std::pair<Value *, int>> UnitStepLinears;
+  OMPSimdImporter<VPOVectorizationLegality> SimdLoopDataImporter = {this};
 
   bool IsSimdLoop = false;
 
-  bool HasF90DopeVectorPrivate = false;
-  bool HasF90DopeVectorReduction = false;
-
-  bool HasComplexTyReduction = false;
-  bool HasUserDefinedReduction = false;
-
 public:
+  /// Import information from explicit OMP SIMD clauses.
+  void EnterExplicitData(const WRNVecLoopNode *WRLp) {
+    if (!WRLp)
+      return;
+    IsSimdLoop = true;
+    SimdLoopDataImporter.run(WRLp);
+    collectPreLoopDescrAliases();
+    collectPostExitLoopDescrAliases();
+  }
+
   /// Add stride information for pointer \p Ptr.
   // Used for a temporary solution of teaching legality based on DA.
   // TODO: Is it okay to overwrite existing stride value?
@@ -213,19 +377,18 @@ public:
 
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
-                      Function *Destr, Function *CopyAssign,
-                      bool IsLast = false) {
+                      Function *Destr, Function *CopyAssign, bool IsLast) {
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
       Kind = PrivateKindTy::Last;
     auto PrivItem = std::make_unique<PrivDescrNonPODTy>(
-          PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign);
+        PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign);
     Privates.insert({PrivVal, std::move(PrivItem)});
   }
 
   /// Add an in memory POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Type *PrivTy, bool IsF90DopeVector,
-                      bool IsLast = false, bool IsConditional = false) {
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, bool IsLast,
+                      bool IsConditional) {
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
       Kind = PrivateKindTy::Last;
@@ -233,16 +396,12 @@ public:
       Kind = PrivateKindTy::Conditional;
     auto PrivItem = std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind);
     Privates.insert({PrivVal, std::move(PrivItem)});
-
-    if (IsF90DopeVector)
-      HasF90DopeVectorPrivate = true;
   }
 
   /// Register explicit reduction variables provided from outside by finding
-  /// pattern inside the loop for matching the explicit reduction variable \p V,
-  /// recurrence kind and whether the reduction deals with F90 dope vector or
-  /// it is a user defined reduction.
-  void addReduction(Value *V, RecurKind Kind, bool IsF90DopeVector, bool IsUDR);
+  /// pattern inside the loop for matching the explicit reduction variable \p V
+  /// and the recurrence kind.
+  void addReduction(Value *V, RecurKind Kind);
 
   bool isExplicitReductionPhi(PHINode *Phi);
 
