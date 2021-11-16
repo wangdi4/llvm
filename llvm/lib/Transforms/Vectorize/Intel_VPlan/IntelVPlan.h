@@ -4489,14 +4489,14 @@ public:
     VPVT = std::move(A);
   }
 
-  void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysis> VPSVA) {
+  void setVPlanSVA(std::unique_ptr<VPlanScalVecAnalysisBase> VPSVA) {
     VPlanSVA = std::move(VPSVA);
   }
 
-  VPlanScalVecAnalysis *getVPlanSVA() const { return VPlanSVA.get(); }
+  VPlanScalVecAnalysisBase *getVPlanSVA() const { return VPlanSVA.get(); }
 
-  // Compute SVA results for this VPlan.
-  void runSVA();
+  // Compute SVA results for this VPlan for given VF.
+  void runSVA(unsigned VF);
 
   // Clear results of SVA.
   void clearSVA();
@@ -4638,7 +4638,7 @@ private:
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanScalarEvolution> VPSE;
   std::unique_ptr<VPlanValueTracking> VPVT;
-  std::unique_ptr<VPlanScalVecAnalysis> VPlanSVA;
+  std::unique_ptr<VPlanScalVecAnalysisBase> VPlanSVA;
 
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 

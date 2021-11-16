@@ -916,19 +916,21 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPlanScalVecAnalysis::print(raw_ostream &OS, const VPInstruction *VPI) {
+void VPlanScalVecAnalysisBase::print(raw_ostream &OS,
+                                     const VPInstruction *VPI) {
   OS << "[";
   printSVAKindForInst(OS, VPI);
   OS << "] ";
   VPI->print(OS);
 }
 
-void VPlanScalVecAnalysis::print(raw_ostream &OS, const VPBasicBlock *VPBB) {
+void VPlanScalVecAnalysisBase::print(raw_ostream &OS,
+                                     const VPBasicBlock *VPBB) {
   for (auto &VPI : *VPBB)
     print(OS, &VPI);
 }
 
-void VPlanScalVecAnalysis::print(raw_ostream &OS) {
+void VPlanScalVecAnalysisBase::print(raw_ostream &OS) {
   OS << "\nPrinting ScalVec analysis results for " << Plan->getName() << "\n";
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
   for (VPBasicBlock *VPBB : make_range(RPOT.begin(), RPOT.end())) {
@@ -992,5 +994,15 @@ void VPlanScalVecAnalysis::printSVAKindForOperand(raw_ostream &OS,
     OS << "L";
   if (OpBits.test(static_cast<unsigned>(SVAKind::Vector)))
     OS << "V";
+}
+
+void VPlanScalVecAnalysisScalar::printSVAKindForInst(
+  raw_ostream &OS, const VPInstruction *VPI) const {
+  OS << "(F  )";
+}
+
+void VPlanScalVecAnalysisScalar::printSVAKindForOperand(
+  raw_ostream &OS, const VPInstruction *VPI, unsigned OpIdx) const {
+  OS << "F";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

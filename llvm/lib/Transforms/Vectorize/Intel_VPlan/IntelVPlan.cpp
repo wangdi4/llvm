@@ -407,7 +407,7 @@ void VPInstruction::print(raw_ostream &O) const {
     return;
   }
   const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
-  VPlanScalVecAnalysis *SVA = nullptr;
+  VPlanScalVecAnalysisBase *SVA = nullptr;
   if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
     SVA = VecVPlan->getVPlanSVA();
 
@@ -793,10 +793,13 @@ void VPlanVector::computePDT(void) {
 
 #endif // INTEL_CUSTOMIZATION
 
-void VPlanVector::runSVA() {
+void VPlanVector::runSVA(unsigned VF) {
   if (!EnableScalVecAnalysis)
     return;
-  VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
+  if (VF == 1)
+    VPlanSVA = std::make_unique<VPlanScalVecAnalysisScalar>();
+  else
+    VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
   VPlanSVA->compute(this);
 }
 

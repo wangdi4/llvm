@@ -18,6 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 
+#include "../IntelLoopVectorizationLegality.h"
 #include "../IntelVPlanEntityDescr.h"
 #include "../IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanVerifierHIR.h"
@@ -151,10 +152,17 @@ public:
                            HIRDDAnalysis *DDA)
       : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
 
-  // Add explicit private.
-  // Add POD privates to PrivatesList
-  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, bool IsF90DopeVector,
-                      bool IsLast = false, bool IsConditional = false) {
+  /// Import information from explicit OMP SIMD clauses.
+  void EnterExplicitData(const WRNVecLoopNode *WRLp) {
+    if (!WRLp)
+      return;
+    SimdLoopDataImporter.run(WRLp);
+  }
+
+  /// Add explicit private.
+  /// Add POD privates to PrivatesList
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, bool IsLast,
+                      bool IsConditional) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
@@ -162,31 +170,23 @@ public:
     if (IsConditional)
       Kind = PrivateKindTy::Conditional;
     PrivatesList.emplace_back(PrivVal, PrivTy, Kind);
-
-    if (IsF90DopeVector)
-      HasF90DopeVectorPrivate = true;
   }
 
-  // Add non-POD privates to PrivatesList
-  // TODO: Use Constr, Destr and CopyAssign for non-POD privates.
-  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr, Function *Destr,
-                      Function *CopyAssign, bool IsLast = false) {
+  /// Add non-POD privates to PrivatesList
+  /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
+                      Function *Destr, Function *CopyAssign, bool IsLast) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
       Kind = PrivateKindTy::Last;
-    PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign);
+    PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr,
+                                    CopyAssign);
   }
 
   /// Register explicit reduction variables provided from outside.
-  void addReduction(RegDDRef *V, RecurKind Kind, bool IsF90DopeVector,
-                    bool IsUDR) {
+  void addReduction(RegDDRef *V, RecurKind Kind) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
-    if (IsUDR)
-      HasUserDefinedReduction = true;
-
-    if (IsF90DopeVector)
-      HasF90DopeVectorReduction = true;
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is
     // unused and can basically be deducted from the recurrence kind.
@@ -248,27 +248,25 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
-  void setIsSimdFlag() { IsSimdLoop = true; }
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
   void dump(raw_ostream &OS) const;
   void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // TODO: Dummy placeholder set of functions which should be updated once
-  // common interface will be established for VPOVectorizationLegality and for
-  // HIRVectorizationLegality.
-  void collectPreLoopDescrAliases();
-  void collectPostExitLoopDescrAliases();
+  bool hasF90DopeVectorPrivate() const {
+    return SimdLoopDataImporter.SeenF90DopeVectorPrivate;
+  }
+  bool hasF90DopeVectorReduction() const {
+    return SimdLoopDataImporter.SeenF90DopeVectorReduction;
+  }
+  bool hasComplexTyReduction() const {
+    return SimdLoopDataImporter.SeenComplexTyReduction;
+  }
+  bool hasUserDefinedReduction() const {
+    return SimdLoopDataImporter.SeenUserDefinedReduction;
+  }
 
-  bool hasF90DopeVectorPrivate() { return HasF90DopeVectorPrivate; }
-  bool hasF90DopeVectorReduction() { return HasF90DopeVectorReduction; }
-
-  bool hasComplexTyReduction() { return HasComplexTyReduction; }
-  void setHasComplexTyReduction() { HasComplexTyReduction = true; }
-
-  bool hasUserDefinedReduction() const { return HasUserDefinedReduction; }
 private:
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
   /// \p DescrType in the list \p List, if yes then return the descriptor object
@@ -306,11 +304,8 @@ private:
   // list of idioms on the fly if no entry is found for a given loop. Check
   // getVectorIdioms(HLLoop*).
   mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
-  bool IsSimdLoop = false;
-  bool HasF90DopeVectorPrivate = false;
-  bool HasF90DopeVectorReduction = false;
-  bool HasComplexTyReduction = false;
-  bool HasUserDefinedReduction = false;
+
+  OMPSimdImporter<HIRVectorizationLegality> SimdLoopDataImporter = {this};
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {
