@@ -26,16 +26,16 @@ using FunctionVector = SmallVector<Function *>;
 namespace {
 
 // Bulit-in function patterns coming from frontend
-constexpr char *const BuiltinCreateTaskSeqPattern = "_Z31__spirv_TaskSequenceCreateINTEL";
-constexpr char *const BuiltinReleaseTaskSeqPattern = "_Z32__spirv_TaskSequenceReleaseINTEL";
-constexpr char *const BuiltinGetPattern = "_Z28__spirv_TaskSequenceGetINTEL";
-constexpr char *const BuiltinAsyncPattern = "_Z30__spirv_TaskSequenceAsyncINTEL";
+constexpr const char *BuiltinCreateTaskSeqPattern = "_Z31__spirv_TaskSequenceCreateINTEL";
+constexpr const char *BuiltinReleaseTaskSeqPattern = "_Z32__spirv_TaskSequenceReleaseINTEL";
+constexpr const char *BuiltinGetPattern = "_Z28__spirv_TaskSequenceGetINTEL";
+constexpr const char *BuiltinAsyncPattern = "_Z30__spirv_TaskSequenceAsyncINTEL";
 
 // Bulit-in function names provided by backend
-constexpr char *const BackendCreateTaskSeqName = "__create_task_sequence";
-constexpr char *const BackendReleaseTaskSeqName = "__release_task_sequence";
-constexpr char *const BackendGetName = "__get";
-constexpr char *const BackendAsyncName = "__async";
+constexpr const char *BackendCreateTaskSeqName = "__create_task_sequence";
+constexpr const char *BackendReleaseTaskSeqName = "__release_task_sequence";
+constexpr const char *BackendGetName = "__get";
+constexpr const char *BackendAsyncName = "__async";
 
 /// Terms used in variable names:
 ///
