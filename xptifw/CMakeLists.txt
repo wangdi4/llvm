@@ -63,16 +63,8 @@ add_custom_target(check-xptifw)
 if (INTEL_CUSTOMIZATION)
 # Workaround for build failures. Remove once the long-term fix is committed to open-source.
 # add_subdirectory(unit_test)
-<<<<<<< HEAD
-endif()
-
-if (XPTI_BUILD_SAMPLES)
-  add_subdirectory(samples/basic_collector)
-  add_subdirectory(samples/syclpi_collector)
-=======
 # add_subdirectory(samples/basic_collector)
 # add_subdirectory(samples/syclpi_collector)
->>>>>>> 9b7c2c29c23c2379a61749cbe19d9ad240ef8ba0
 endif()
 
 # The tests in basic_test are written using TBB, so these tests are enabled
