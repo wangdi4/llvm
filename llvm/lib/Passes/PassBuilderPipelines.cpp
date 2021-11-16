@@ -1192,7 +1192,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // allows to get more accurate attributes for the promoted arguments.
   if (Level.getSpeedupLevel() > 2) {
     MainCGPipeline.addPass(ArgumentPromotionPass(true));
-    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(SROA()));
+    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(SROAPass()));
   }
 #endif // INTEL_CUSTOMIZATION
 
