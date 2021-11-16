@@ -485,6 +485,9 @@ static void populatePassesPostFailCheck(
 
   PM.add(createResolveVariableTIDCallPass());
 
+  if (IsSYCL)
+    PM.add(createTaskSeqAsyncHandlingLegacyPass());
+
   // Run few more passes after GenericAddressStaticResolution
   PM.add(createOclFunctionAttrsPass());
   PM.add(llvm::createUnifyFunctionExitNodesPass());
