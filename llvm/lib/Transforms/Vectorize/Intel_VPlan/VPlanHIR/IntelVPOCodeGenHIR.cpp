@@ -2883,7 +2883,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 
 RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef,
                                               Type *ElementType, int Index,
-                                              unsigned NumElements) {
+                                              unsigned IdxBcastFactor) {
   assert(PtrRef->isSelfBlob() && "Expected self blob DDRef");
   auto &HIRF = HLNodeUtilities.getHIRFramework();
   llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
@@ -2895,9 +2895,9 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef,
   auto IndexCE =
       CanonExprUtilities.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
   IndexCE->addConstant(Index, true /* IsMathAdd */);
-  if (NumElements > 1)
+  if (IdxBcastFactor > 1)
     IndexCE->setSrcAndDestType(
-        getWidenedType(IndexCE->getSrcType(), NumElements));
+        getWidenedType(IndexCE->getSrcType(), IdxBcastFactor));
   MemRef->addDimension(IndexCE);
   return MemRef;
 }
@@ -3043,8 +3043,8 @@ RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
     MemRef->setAddressOf(false);
   else {
     auto *VecTy = cast<VectorType>(LoadStore->getValueType());
-    unsigned NumElems = VecTy->getNumElements();
-    MemRef = createMemrefFromBlob(MemRef, VecTy->getElementType(), 0, NumElems);
+    MemRef = createMemrefFromBlob(MemRef, VecTy->getElementType(), 0 /*Idx*/,
+                                  1 /*IdxBcastFactor*/);
   }
   MemRef->setBitCastDestVecOrElemType(LoadStore->getValueType());
   MemRef->setAlignment(LoadStore->getAlignment().value());
