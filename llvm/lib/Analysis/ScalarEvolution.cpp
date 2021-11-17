@@ -7260,32 +7260,12 @@ static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
   return Flags != SCEV::FlagAnyWrap;
 }
 
-<<<<<<< HEAD
 static bool getRefinedFlagsUsingConstantFoldingRec(
     const Value *Val, unsigned OrigOpcode,
     const OverflowingBinaryOperator *UserBinOp, APInt AccumulatedConst,
     SCEV::NoWrapFlags &Flags) {
   if (!UserBinOp || UserBinOp->getOpcode() != OrigOpcode)
     return false;
-=======
-const Instruction *
-ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops,
-                                       bool &Precise) {
-  Precise = true;
-  // Do a bounded search of the def relation of the requested SCEVs.
-  SmallSet<const SCEV *, 16> Visited;
-  SmallVector<const SCEV *> Worklist;
-  auto pushOp = [&](const SCEV *S) {
-    if (!Visited.insert(S).second)
-      return;
-    // Threshold of 30 here is arbitrary.
-    if (Visited.size() > 30) {
-      Precise = false;
-      return;
-    }
-    Worklist.push_back(S);
-  };
->>>>>>> ad69402f3e19f027fc6fb179ad59a2851e615c41
 
   if (!getRefinedFlags(UserBinOp, Flags))
     return false;
@@ -7563,7 +7543,9 @@ static void collectUniqueOps(const SCEV *S,
 }
 
 const Instruction *
-ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
+ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops,
+                                       bool &Precise) {
+  Precise = true;
   // Do a bounded search of the def relation of the requested SCEVs.
   SmallSet<const SCEV *, 16> Visited;
   SmallVector<const SCEV *> Worklist;
@@ -7571,8 +7553,10 @@ ScalarEvolution::getDefiningScopeBound(ArrayRef<const SCEV *> Ops) {
     if (!Visited.insert(S).second)
       return;
     // Threshold of 30 here is arbitrary.
-    if (Visited.size() > 30)
+    if (Visited.size() > 30) {
+      Precise = false;
       return;
+    }
     Worklist.push_back(S);
   };
 
