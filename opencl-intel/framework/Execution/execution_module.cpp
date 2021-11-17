@@ -3737,18 +3737,21 @@ bool ExecutionModule::CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
 void ExecutionModule::SetTrackerForUSM(Command *command,
         const std::vector<const void *> &usmPtrList, cl_event tracker,
         bool isTrackerVisible) {
-    if (!isTrackerVisible)
-        command->SetUsmPtrList(usmPtrList);
+  // Retain tracker event in case it is released by user before USMBlockingFree.
+  if (isTrackerVisible)
+    m_pEventsManager->RetainEvent(tracker);
 
-    std::shared_ptr<_cl_event> trackerEvtSPtr(tracker, [=](cl_event e) {
-        // If tracker event is not visible to user, we should release it.
-        // Otherwise, it is expected to be released by user.
-        if (!isTrackerVisible)
-            m_pEventsManager->ReleaseEvent(e);
-    });
+  // Releasing tracker event along with its related context will cause huge
+  // memory consumption in extreme case. So we save USM pointers for the command
+  // in order to unregister its tracker event once the command is completed.
+  command->SetUsmPtrList(usmPtrList);
 
-    for (auto usmPtr : usmPtrList)
-        m_pContextModule->RegisterUSMFreeWaitEvent(usmPtr, trackerEvtSPtr);
+  std::shared_ptr<_cl_event> trackerEvtSPtr(tracker, [=](cl_event e) {
+    m_pEventsManager->ReleaseEvent(e);
+  });
+
+  for (auto usmPtr : usmPtrList)
+    m_pContextModule->RegisterUSMFreeWaitEvent(usmPtr, trackerEvtSPtr);
 }
 
 cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,

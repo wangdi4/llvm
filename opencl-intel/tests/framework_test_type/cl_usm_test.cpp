@@ -270,10 +270,11 @@ TEST_F(USMTest, memBlockingFree) {
   // This thread is to unblock kernel execution.
   // Just for testing purpose, detaching and sleeping for 2 seconds to make
   // clMemBlockingFreeINTEL invoked before kernel completes.
-  std::thread([&]() {
+  auto waitAndNotifyKernel = [&]() {
     std::this_thread::sleep_for(std::chrono::seconds(2));
     result = 0; // Notify kernel to break the infinite loop.
-  }).detach();
+  };
+  std::thread(waitAndNotifyKernel).detach();
 
   // Test clMemBlockingFreeINTEL when USM buffer passed as argument of kernel.
   err = clMemBlockingFreeINTEL(m_context, bufferB);
@@ -285,6 +286,43 @@ TEST_F(USMTest, memBlockingFree) {
 
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
+
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+
+
+  //=== Test clMemBlockingFreeINTEL with event released in advance ===
+
+  bufferA = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+                                            size, alignment, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+
+  bufferB = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+                                            size, alignment, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+
+  kernel = clCreateKernel(program, "blocking_test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test");
+
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferA);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+  err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  cl_event event;
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, &event);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+
+  // Release event before clMemBlockingFreeINTEL.
+  err = clReleaseEvent(event);
+  EXPECT_OCL_SUCCESS(err, "clReleaseEvent");
+
+  // Notify kernel to break the infinite loop.
+  std::thread(waitAndNotifyKernel).detach();
+
+  err = clMemBlockingFreeINTEL(m_context, bufferB);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 
   err = clReleaseKernel(kernel);
   EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
