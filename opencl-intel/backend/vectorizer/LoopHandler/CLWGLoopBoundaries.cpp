@@ -331,7 +331,7 @@ bool CLWGLoopBoundaries::handleBuiltinBoundMinMax(Instruction *tidInst) {
   bool isMinBltn, isSigned;
   if (!m_clRtServices->isScalarMinMaxBuiltin(fname, isMinBltn, isSigned))
     return false;
-  assert(CI->getNumArgOperands() == 2 && "bad min,max signature");
+  assert(CI->arg_size() == 2 && "bad min,max signature");
 
   // Track the boundary and the tid call.
   Value *tid, *bound[2] = {0};

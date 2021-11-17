@@ -192,7 +192,7 @@ namespace intel {
             addExternFunctionDeclaration(calledFuncType, FT, CallbackName);
           }
           // Copy original function operands
-          SmallVector<Value*, 16> ExtExecArgs(pCall->arg_operands());
+          SmallVector<Value*, 16> ExtExecArgs(pCall->args());
           // Add the RuntimeInterface arg
           ExtExecArgs.push_back(getOrCreateRuntimeInterface());
           // Add the Block2KernelMapper arg
@@ -379,9 +379,9 @@ namespace intel {
     // a printf call and we're interested in all the arguments after the
     // format string, we start with #2.
     //
-    assert(pCall->getNumArgOperands() > 0 && "Expect printf to have a format string");
+    assert(pCall->arg_size() > 0 && "Expect printf to have a format string");
     unsigned total_arg_size = 0;
-    for ( unsigned numarg = 1; numarg < pCall->getNumArgOperands(); ++numarg ) {
+    for ( unsigned numarg = 1; numarg < pCall->arg_size(); ++numarg ) {
       Value *arg = pCall->getArgOperand(numarg);
       unsigned argsize = DL.getTypeAllocSize(arg->getType());
       total_arg_size += argsize;
@@ -401,7 +401,7 @@ namespace intel {
     // it anyway.
     //
     ArrayType *buf_arr_type;
-    if ( pCall->getNumArgOperands() == 1 ) {
+    if ( pCall->arg_size() == 1 ) {
       buf_arr_type = ArrayType::get(int8_type, 1);
     } else {
       buf_arr_type = ArrayType::get(int8_type, total_arg_size);
@@ -414,7 +414,7 @@ namespace intel {
     // Generate instructions to store the operands into the argument buffer
     //
     unsigned buf_pointer_offset = 0;
-    for ( unsigned numarg = 1; numarg < pCall->getNumArgOperands(); ++numarg ) {
+    for ( unsigned numarg = 1; numarg < pCall->arg_size(); ++numarg ) {
       std::vector<Value*> index_args;
       index_args.push_back(getConstZeroInt32Value());
       index_args.push_back(ConstantInt::get(int32_type, buf_pointer_offset));

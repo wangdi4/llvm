@@ -317,7 +317,7 @@ void NEATPlugIn::LoadValueFromMemory(NEATGenericValue &Result,
       std::string msg;
       raw_string_ostream Msg(msg);
       Msg << "Cannot load value of type " << *Ty << "!";
-      report_fatal_error(Msg.str());
+      report_fatal_error(Twine(Msg.str()));
     }
 }
 void NEATDataLayout ::InitMemory( void* Memory, const Type* Ty ) const

@@ -685,11 +685,11 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
                                               Function *NewF) {
   assert(OldC && "CallInst is NULL");
   assert(NewF && "function is NULL");
-  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size() &&
+  assert(OldC->arg_size() + NewArgs.size() == NewF->arg_size() &&
          "Function argument number mismatch");
 
   SmallVector<Value *, 16> Args;
-  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+  for (unsigned I = 0, E = OldC->arg_size(); I != E; ++I)
     Args.push_back(OldC->getArgOperand(I));
   Args.append(NewArgs.begin(), NewArgs.end());
 
@@ -717,7 +717,7 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
 
   SmallVector<Value *, 16> Args;
   // Copy existing arguments
-  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+  for (unsigned I = 0, E = OldC->arg_size(); I != E; ++I)
     Args.push_back(OldC->getArgOperand(I));
   // And append new arguments
   Args.append(NewArgs.begin(), NewArgs.end());

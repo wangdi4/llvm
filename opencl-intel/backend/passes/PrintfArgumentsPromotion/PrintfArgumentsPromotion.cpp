@@ -94,14 +94,14 @@ namespace intel {
     IRBuilder<> Builder(M.getContext());
     for(User * user: printfFunc->users()) {
       CallInst * printfCI = dyn_cast<CallInst>(user);
-      if(!printfCI || printfCI->getNumArgOperands() < 2) continue;
+      if(!printfCI || printfCI->arg_size() < 2) continue;
 
       // Set NoBuiltin attribute to avoid replacements by 'puts'/'putc'.
       if (!printfCI->isNoBuiltin())
         printfCI->addFnAttr(Attribute::NoBuiltin);
 
       Builder.SetInsertPoint(printfCI);
-      for(Use & use: printfCI->arg_operands()) {
+      for(Use & use: printfCI->args()) {
         Value * argVal = use;
         Type * argTy = argVal->getType();
         if(!isPromotionNeeded(argTy)) continue;

@@ -14,9 +14,9 @@
 
 #pragma once
 
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 #include <memory>

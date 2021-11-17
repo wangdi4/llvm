@@ -903,8 +903,8 @@ LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
 void LLDJIT::TmpFile::close() {
   OS().close();
   if (std::error_code EC = OS().error())
-    report_fatal_error("IO failure on file " + FileName() + ": " +
-                       EC.message());
+    report_fatal_error(Twine("IO failure on file " + FileName() + ": " +
+                       EC.message()));
 }
 
 void LLDJIT::notifyObjectLoaded(const object::ObjectFile &Obj,

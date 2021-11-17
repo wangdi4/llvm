@@ -733,7 +733,7 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
 
   /// all other arguments are the arguments of the instruction
   if (CallInst *CI = dyn_cast<CallInst>(inst)){
-    for (unsigned j = 0; j < CI->getNumArgOperands(); ++j){
+    for (unsigned j = 0; j < CI->arg_size(); ++j){
       args.push_back(CI->getArgOperand(j)->getType());
     }
   } else {
@@ -879,7 +879,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     // insert the mask as the first actual parameter
     params.push_back(pred);
     // copy predicator and original parameters list
-    for (unsigned j = 0; j < call->getNumArgOperands(); ++j)
+    for (unsigned j = 0; j < call->arg_size(); ++j)
       params.push_back(call->getArgOperand(j));
     //we might need to cast struct pointers, if they are not defined in this
     //module
@@ -899,7 +899,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     pcall->setCallingConv(call->getCallingConv());
     AttributeList as;
     auto callAttr = call->getAttributes();
-    for (unsigned int i=0; i < call->getNumArgOperands(); ++i) {
+    for (unsigned int i=0; i < call->arg_size(); ++i) {
       //Parameter attributes starts with index 1-NumOfParams
       unsigned int idx = i+1;
       //pcall starts with mask argument, skip it when setting original argument attributes.
@@ -2203,7 +2203,7 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
   }
 
   if (Mangler::isMangledLoad(std::string(call->getCalledFunction()->getName()))) {
-    V_ASSERT(call->getNumArgOperands() == 2 && "expected 2 arguments");
+    V_ASSERT(call->arg_size() == 2 && "expected 2 arguments");
     if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM) {
        V_ASSERT(m_predicatedToOriginalInst.count(call) &&
         "missing predicated to original entry");
@@ -2217,7 +2217,7 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
     return false;
   }
   if (Mangler::isMangledStore(std::string(call->getCalledFunction()->getName()))) {
-    V_ASSERT(call->getNumArgOperands() == 3 && "expected 3 arguments");
+    V_ASSERT(call->arg_size() == 3 && "expected 3 arguments");
     if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM &&
       m_WIA->whichDepend(call->getArgOperand(2)) == WIAnalysis::UNIFORM) {
       V_ASSERT(m_predicatedToOriginalInst.count(call) &&

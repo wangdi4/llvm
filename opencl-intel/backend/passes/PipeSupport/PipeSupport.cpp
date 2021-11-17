@@ -196,7 +196,7 @@ static PipeCallInfo replaceBlockingCall(const PipeCallInfo &PC,
   auto *NonBlockingFun =
     Builtins.get(CompilationUtils::getPipeName(NonBlockingKind));
 
-  SmallVector<Value *, 4> NewArgs(PC.Call->arg_operands());
+  SmallVector<Value *, 4> NewArgs(PC.Call->args());
 
   // Blocking SIMD read does not have a retcode, allocate it.
   if (NonBlockingKind.Access == PipeKind::READ &&

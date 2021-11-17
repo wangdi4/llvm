@@ -67,7 +67,7 @@ findPipeStorageGlobals(Module *M,
       auto *Call = dyn_cast<CallInst>(User);
       if (!Call)
         continue;
-      assert(Call->getNumArgOperands() == 1 &&
+      assert(Call->arg_size() == 1 &&
              "Expect __spirv_CreatePipeFromPipeStorage to have 1 argument");
       // Get PipeStorage GV, it might be hidden by several pointer casts.
       // Strip them.

@@ -775,7 +775,7 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
   // for CallInst getNumOperands returns number of args including destination,
   // but we care about actual arguments here.
   if (isa<CallInst>(I)) {
-    numOperands = cast<CallInst>(I)->getNumArgOperands();
+    numOperands = cast<CallInst>(I)->arg_size();
   }
 
   // Iterate over all operands and replace them
@@ -1697,13 +1697,13 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // If we already know this is a load-transpose or a transpose-store,
   // packetize to that.
   if (m_loadTranspMap.count(CI)) {
-    V_ASSERT((CI->getNumArgOperands() >= 2) && "Not enough operands in load-transpose");
+    V_ASSERT((CI->arg_size() >= 2) && "Not enough operands in load-transpose");
     createLoadAndTranspose(CI, CI->getArgOperand(1), CI->getType(), CI->getArgOperand(0));
     return;
   }
 
   if (m_storeTranspMap.count(CI)) {
-    V_ASSERT((CI->getNumArgOperands() >= 3) && "Not enough operands in transpose-store");
+    V_ASSERT((CI->arg_size() >= 3) && "Not enough operands in transpose-store");
     createTransposeAndStore(CI, CI->getArgOperand(2), CI->getArgOperand(1)->getType(), CI->getArgOperand(0));
     return;
   }
@@ -1809,7 +1809,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
 
     // If the vector intrinsic has a scalar operand, and the operand isn't
     // uniform, then serialize it.
-    for (auto Arg : enumerate(CI->arg_operands())) {
+    for (auto Arg : enumerate(CI->args())) {
       if (hasVectorInstrinsicScalarOpd(ID, Arg.index()) &&
           m_depAnalysis->whichDepend(Arg.value()) != WIAnalysis::UNIFORM) {
         V_STAT(m_noVectorFuncCtr++;
@@ -1962,7 +1962,7 @@ void PacketizeFunction::packetizedMemsetSoaAllocaDerivedInst(CallInst *CI) {
   // need to fix the operands: size and alignment by multiply them with m_packetWidth.
   const unsigned int sizeIndex = 2;
   const unsigned int alignmentIndex = 3;
-  unsigned int numOperands = CI->getNumArgOperands();
+  unsigned int numOperands = CI->arg_size();
   // Iterate over all operands and replace them
   for (unsigned op = 0; op < numOperands; ++op) {
     if (op == sizeIndex) {
@@ -2003,7 +2003,7 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
   }
 
   unsigned scalarStart = isMangled ? 1 : 0;
-  unsigned numArguments = CI->getNumArgOperands();
+  unsigned numArguments = CI->arg_size();
   FunctionType *LibFuncTy = LibFunc->getFunctionType();
   for (unsigned argIndex = scalarStart; argIndex < numArguments; ++argIndex) {
     Value *operand;
@@ -2274,7 +2274,7 @@ void PacketizeFunction::mapFakeExtractUsagesTo(CallInst* CI,
 bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) {
   V_ASSERT(CI->getType()->isVectorTy() && "expected vector type");
   FixedVectorType *vTy = cast<FixedVectorType>(CI->getType());
-  unsigned numArgs = newCall->getNumArgOperands();
+  unsigned numArgs = newCall->arg_size();
   unsigned numPtrs = vTy->getNumElements();
   V_ASSERT(numArgs > numPtrs && "bad signature");
 
@@ -3395,7 +3395,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
     {
       std::vector<Value*> params;
       // Create arguments for new function call, ignoring the predicate operand
-      for (unsigned j = 1; j < CI->getNumArgOperands(); ++j)
+      for (unsigned j = 1; j < CI->arg_size(); ++j)
       {
         params.push_back(CI->getArgOperand(j));
       }

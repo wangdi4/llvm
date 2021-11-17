@@ -674,8 +674,9 @@ TEST(FrameworkTestType, Test_clKernelLocalMemSizeQueryTest)
     clKernelLocalMemSizeQueryTest();
 }
 
+// TODO: Enable the test when CMPLRLLVM-32787 is fixed
 #ifdef _WIN32
-TEST(FrameworkTestType, Test_clDisableMasterJoinTest)
+TEST(FrameworkTestType, DISABLED_Test_clDisableMasterJoinTest)
 {
     clDisableMasterJoinTest();
 }

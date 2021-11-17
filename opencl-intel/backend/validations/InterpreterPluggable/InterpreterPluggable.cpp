@@ -212,7 +212,7 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
                 pre_method->setCallingConv(CallingConv::C);
                 std::vector<Value*> args;
                 //provide same param values as in Called built-in
-                for(uint32_t i = 0, e = C->getNumArgOperands(); i<e; ++i)
+                for(uint32_t i = 0, e = C->arg_size(); i<e; ++i)
                 {
                     args.push_back(C->getArgOperand(i));
                 }
