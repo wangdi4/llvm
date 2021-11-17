@@ -1499,6 +1499,8 @@ PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
   else
     MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
         createDevirtSCCRepeatedPass(std::move(PM), MaxDevirtIterations)));
+
+  MPM.addPass(std::move(AfterCGMPM));
   MPM.run(M, MAM);
 
   // Discard the InlineAdvisor, a subsequent inlining session should construct
