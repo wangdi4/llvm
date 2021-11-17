@@ -1321,8 +1321,20 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
       PreservedAnalyses FuncPA;
       FuncPA.preserveSet<CFGAnalyses>();
       for (auto *U : NewF->users()) {
-        auto *UserF = cast<CallBase>(U)->getFunction();
-        FAM.invalidate(*UserF, FuncPA);
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-32836: Accommodate bitcasts within the arguments of
+        // broker functions, which is an Intel extension.
+        auto CB = dyn_cast<CallBase>(U);
+        if (CB) {
+          auto *UserF = CB->getFunction();
+          FAM.invalidate(*UserF, FuncPA);
+        } else {
+          for (auto *V : U->users()) {
+            auto *UserF = cast<CallBase>(V)->getFunction();
+            FAM.invalidate(*UserF, FuncPA);
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
       }
     }
 
