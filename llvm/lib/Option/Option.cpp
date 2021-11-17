@@ -32,7 +32,10 @@ Option::Option(const OptTable::Info *info, const OptTable *owner)
 
   if (Info && getAliasArgs()) {
     assert(getAlias().isValid() && "Only alias options can have alias args.");
-    assert(getKind() == FlagClass && "Only Flag aliases can have alias args.");
+#if INTEL_CUSTOMIZATION
+    assert((getKind() == FlagClass || getKind() == SeparateOrNoneClass) &&
+           "Only Flag aliases can have alias args.");
+#endif // INTEL_CUSTOMIZATION
     assert(getAlias().getKind() != FlagClass &&
            "Cannot provide alias args to a flag option.");
   }
@@ -55,6 +58,9 @@ void Option::print(raw_ostream &O) const {
     P(JoinedAndSeparateClass);
     P(RemainingArgsClass);
     P(RemainingArgsJoinedClass);
+#if INTEL_CUSTOMIZATION
+    P(SeparateOrNoneClass);
+#endif // INTEL_CUSTOMIZATION
 #undef P
   }
 
@@ -227,6 +233,23 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
       A->getValues().push_back(Args.getArgString(Index++));
     return A;
   }
+#if INTEL_CUSTOMIZATION
+  case SeparateOrNoneClass: {
+    if (ArgSize != strlen(Args.getArgString(Index)))
+      return nullptr;
+
+    // If it is not followed by a value
+    if (Index + 2 > Args.getNumInputArgStrings() ||
+        StringRef(Args.getArgString(Index + 1)).startswith("-") ||
+        StringRef(Args.getArgString(Index + 1)).contains('.'))
+      return std::make_unique<Arg>(*this, Spelling, Index++);
+
+    // If it is followed by a value
+    Index += 2;
+    return std::make_unique<Arg>(*this, Spelling, Index - 2,
+                                 Args.getArgString(Index - 1));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   default:
     llvm_unreachable("Invalid option kind!");
@@ -268,7 +291,10 @@ std::unique_ptr<Arg> Option::accept(const ArgList &Args, StringRef CurArg,
   Arg *RawA = A.get();
   UnaliasedA->setAlias(std::move(A));
 
-  if (getKind() != FlagClass) {
+#if INTEL_CUSTOMIZATION
+  if (getKind() != FlagClass &&
+      !(getKind() == SeparateOrNoneClass && RawA->getValues().empty())) {
+#endif // INTEL_CUSTOMIZATION
     // Values are usually owned by the ArgList. The exception are
     // CommaJoined flags, where the Arg owns the values. For aliased flags,
     // make the unaliased Arg the owner of the values.

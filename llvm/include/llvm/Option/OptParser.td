@@ -48,6 +48,10 @@ def KIND_REMAINING_ARGS : OptionKind<"RemainingArgs">;
 // An option which consumes an optional joined argument and any other remaining
 // arguments.
 def KIND_REMAINING_ARGS_JOINED : OptionKind<"RemainingArgsJoined">;
+#if INTEL_CUSTOMIZATION
+// An option which is either followed by its value or with no values
+def KIND_SEPARATE_OR_NONE : OptionKind<"SeparateOrNone">;
+#endif // INTEL_CUSTOMIZATION
 
 // Define the option flags.
 
@@ -131,6 +135,10 @@ class JoinedOrSeparate<list<string> prefixes, string name>
   : Option<prefixes, name, KIND_JOINED_OR_SEPARATE>;
 class JoinedAndSeparate<list<string> prefixes, string name>
   : Option<prefixes, name, KIND_JOINED_AND_SEPARATE>;
+#if INTEL_CUSTOMIZATION
+class SeparateOrNone<list<string> prefixes, string name>
+  : Option<prefixes, name, KIND_SEPARATE_OR_NONE>;
+#endif // INTEL_CUSTOMIZATION
 
 // Mix-ins for adding optional attributes.
 
