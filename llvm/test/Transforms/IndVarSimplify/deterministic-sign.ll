@@ -12,7 +12,12 @@ define dso_local float @foo(float* noalias %dst, float* %src, i32 %offset, i32 %
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[FOR_BODY_LR_PH:%.*]], label [[FOR_COND_CLEANUP:%.*]]
 ; CHECK:       for.body.lr.ph:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[OFFSET:%.*]] to i64
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
+; INTEL_CUSTOMIZATION
+; After 305816f, IndVars prefers to use signed types. This has a knock-on
+; effect on our customizations. Either extension is OK as N can be proved
+; non-negative inside the loop.
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = {{[zs]}}ext i32 [[N]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.cond.for.cond.cleanup_crit_edge:
 ; CHECK-NEXT:    br label [[FOR_COND_CLEANUP]]
