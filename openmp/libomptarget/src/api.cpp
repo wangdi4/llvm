@@ -741,5 +741,33 @@ EXTERN int ompx_get_num_subdevices(int device_num, int level) {
   else
     return 1;
 }
+
+EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s does nothing for the host device\n", __func__);
+    return;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s does nothing for device %d\n", __func__, device_num);
+    return;
+  }
+
+  PM->Devices[device_num]->kernelBatchBegin(max_kernels);
+}
+
+EXTERN void ompx_kernel_batch_end(int device_num) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s does nothing for the host device\n", __func__);
+    return;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s does nothing for device %d\n", __func__, device_num);
+    return;
+  }
+
+  PM->Devices[device_num]->kernelBatchEnd();
+}
 #endif  // INTEL_COLLAB
 

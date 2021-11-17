@@ -410,6 +410,8 @@ struct DeviceTy {
   // BatchLevel 2 enables full batching within a target region
   int32_t commandBatchBegin(int32_t BatchLevel = 1);
   int32_t commandBatchEnd(int32_t BatchLevel = 1);
+  void kernelBatchBegin(uint32_t MaxKernels);
+  void kernelBatchEnd(void);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return
