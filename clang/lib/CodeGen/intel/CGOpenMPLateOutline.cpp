@@ -924,6 +924,10 @@ void OpenMPLateOutliner::addImplicitClauses() {
     return;
 
   for (const auto *VD : VarRefs) {
+    if (VD->getName().empty()) {
+      // Avoid trying to create a clause for an unnamed catch parameter.
+      continue;
+    }
     if (isExplicitForDirective(VD, CurrentDirectiveKind))
       continue;
     if (isImplicit(VD)) {
