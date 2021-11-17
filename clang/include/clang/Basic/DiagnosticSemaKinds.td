@@ -10999,6 +10999,8 @@ def err_omp_nowait_requires_depend_clause : Error<
 def err_omp_depend_type_unsupported_taskwait : Error<
   "unsupported dependency type in 'taskwait' directive; must be one of "
   "'in', 'out', or 'inout'">;
+def err_omp_ordered_unsupported_in_target : Error<
+  "'ordered' is unsupported in target region">;
 #endif // INTEL_COLLAB
 def err_omp_instantiation_not_supported
     : Error<"instantiation of '%0' not supported yet">;
