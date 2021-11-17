@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
 
 
 ; #include <omp.h>
@@ -15,8 +17,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: getItemInfo: Local Element Info for 'i32* @priv' (Typed):: Type: i32{{.*}}
-; CHECK: Enter VPOParoptTransform::genPrivatizationCode
-; CHECK: %priv.dst.gep = getelementptr inbounds %__struct.kmp_copy_privates_t{{.*}}
+; OPQPTR: getItemInfo: Local Element Info for 'ptr @priv' (Typed):: Type: i32{{.*}}
+; ALL: Enter VPOParoptTransform::genPrivatizationCode
+; ALL: %priv.dst.gep = getelementptr inbounds %__struct.kmp_copy_privates_t{{.*}}
 
 @priv = dso_local thread_private global i32 0, align 4
 

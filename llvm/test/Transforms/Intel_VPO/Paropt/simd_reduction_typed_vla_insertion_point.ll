@@ -1,7 +1,9 @@
 ;REQUIRES: asserts
-;RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S < %s 2>&1 | FileCheck %s
-;RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S < %s 2>&1 | FileCheck %s
-;
+;RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+;RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+;RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+;RUN: opt -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+
 ;test src:
 ;void foo(int n) {
 ;int e[n];
@@ -11,9 +13,10 @@
 ;
 ;IR was hand modified to add TYPED modifer to the Reduction clause.
 ;check the debug messages for finding the VLA and for setting a VLA insertion point.
-;CHECK: checkIfVLA: '  %{{[^,]+}} = alloca i32, i64 %{{[^,]+}}, align 16' is a VLA clause operand.
+;ALL: checkIfVLA: '  %{{[^,]+}} = alloca i32, i64 %{{[^,]+}}, align 16' is a VLA clause operand.
 ;CHECK: setInsertionPtForVlaAllocas: Found a VLA operand. Setting VLA insertion point to
 ;CHECK: insertStackSaveRestore: Inserted stacksave' %{{[^,]+}} = call i8* @llvm.stacksave()'.
+;OPQPTR: insertStackSaveRestore: Inserted stacksave' %{{[^,]+}} = call ptr @llvm.stacksave()'.
 
 ;check in the IR that the allocas and the stacksave call are inserted before the region entry and that the stackrestore is inserted after the region exit
 ;CHECK:  [[SS1:%[^ ]+]] = call i8* @llvm.stacksave()
@@ -26,6 +29,17 @@
 ;CHECK:  call void @llvm.stackrestore(i8* [[SS2]])
 ;CHECK:  [[READSS1:%[^ ]+]] = load i8*, i8** %saved_stack, align 8
 ;CHECK:  call void @llvm.stackrestore(i8* [[READSS1]])
+
+;OPQPTR:  [[SS1:%[^ ]+]] = call ptr @llvm.stacksave()
+;OPQPTR:  store ptr [[SS1]], ptr %saved_stack, align 8
+;OPQPTR:  %vla.fast_red.alloca = alloca i32, i64 %{{[^,]}}, align 16
+;OPQPTR:  %vla.red = alloca i32, i64 %{{[^,]}}, align 16
+;OPQPTR:  [[SS2:%[^ ]+]]  = call ptr @llvm.stacksave()
+;OPQPTR:  %{{[^,]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()
+;OPQPTR:  call void @llvm.directive.region.exit(token %{{[^,]+}}) [ "DIR.OMP.END.SIMD"() ]
+;OPQPTR:  call void @llvm.stackrestore(ptr [[SS2]])
+;OPQPTR:  [[READSS1:%[^ ]+]] = load ptr, ptr %saved_stack, align 8
+;OPQPTR:  call void @llvm.stackrestore(ptr [[READSS1]])
 
 ; ModuleID = 'test3.c'
 source_filename = "test3.c"
@@ -52,7 +66,7 @@ entry:
   store i64 %1, i64* %__vla_expr0, align 8
   store i32 99, i32* %.omp.ub, align 4
   store i64 %1, i64* %omp.vla.tmp, align 8
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %vla, i32 0, i64 %1), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.LINEAR:IV"(i32* %d, i32 1) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %vla, i32 0, i64 %1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i32* %.omp.iv, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i32* %.omp.ub, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %d, i32 0, i32 1, i32 1) ]
   %4 = load i64, i64* %omp.vla.tmp, align 8
   store i32 0, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond

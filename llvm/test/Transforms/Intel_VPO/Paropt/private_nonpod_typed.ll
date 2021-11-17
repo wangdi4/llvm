@@ -1,5 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
 
 ; Original code:
 ;struct NP {
@@ -13,10 +15,12 @@
 
 ; Check that constructor/destructor are not invoked in a loop, since
 ; only one element of type %struct.NP is privatized:
-; CHECK: define internal void @_Z3foov.DIR.OMP.PARALLEL
-; CHECK: [[A_PRIV:%[A-Za-z0-9._]+]] = alloca %struct.NP
+; ALL: define internal void @_Z3foov.DIR.OMP.PARALLEL
+; ALL: [[A_PRIV:%[A-Za-z0-9._]+]] = alloca %struct.NP
 ; CHECK: call %struct.NP* @_ZTS2NP.omp.def_constr(%struct.NP* [[A_PRIV]])
 ; CHECK: call void @_ZTS2NP.omp.destr(%struct.NP* [[A_PRIV]])
+; OPQPTR: call ptr @_ZTS2NP.omp.def_constr(ptr [[A_PRIV]])
+; OPQPTR: call void @_ZTS2NP.omp.destr(ptr [[A_PRIV]])
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

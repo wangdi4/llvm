@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform -S 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
 
 ; #include <omp.h>
 ; int nder;
@@ -13,9 +15,10 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: Enter VPOParoptTransform::genMultiThreadedCode
+; ALL: Enter VPOParoptTransform::genMultiThreadedCode
 ; CHECK: genTpvCopyIn: Copyin for 'i32* @nder' (Typed):: Type: i32
-; CHECK: Exit VPOParoptTransform::genMultiThreadedCode
+; OPQPTR: genTpvCopyIn: Copyin for 'ptr @nder' (Typed):: Type: i32
+; ALL: Exit VPOParoptTransform::genMultiThreadedCode
 
 @nder = dso_local thread_private global i32 0, align 4
 
