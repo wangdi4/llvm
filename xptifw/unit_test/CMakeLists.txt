@@ -51,17 +51,47 @@ target_include_directories(XPTIFWUnitTests SYSTEM PRIVATE
   ${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include
 )
 
-if (TARGET LLVMSupport)
-  set(SUPPORT_LIB LLVMSupport)
+# INTEL_CUSTOMIZATION
+
+# This piece is replaced with logic below
+# if (TARGET LLVMSupport)
+#   set(SUPPORT_LIB LLVMSupport)
+# endif()
+
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+  llvm_map_components_to_libnames(llvm_libs Support_stdcpp)
+  set(SUPPORT_LIB ${llvm_libs} gtest_stdcpp gtest_main_stdcpp stdc++)
+  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+  set(EXTRA_FLAGS -stdlib=libstdc++)
+elseif(WIN32)
+  llvm_map_components_to_libnames(llvm_libs Support_dyn)
+  set(SUPPORT_LIB ${llvm_libs} gtest_dyn gtest_main_dyn)
+  if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(XPTIFWUnitTests PRIVATE "/MDd")
+  else()
+    target_compile_options(XPTIFWUnitTests PRIVATE "/MD")
+  endif()
+else()
+  llvm_map_components_to_libnames(llvm_libs Support)
+  set(SUPPORT_LIB ${llvm_libs} gtest gtest_main)
 endif()
+# end INTEL_CUSTOMIZATION
 
 target_link_libraries(XPTIFWUnitTests PRIVATE
-  gtest
-  LLVMSupport # INTEL
-  gtest_main
+  # gtest INTEL_CUSTOMIZATION
+  # gtest_main INTEL_CUSTOMIZATION
   xptifw
   ${SUPPORT_LIB}
 )
+
+if (EXTRA_FLAGS)
+  target_compile_options(XPTIFWUnitTests PRIVATE ${EXTRA_FLAGS})
+endif()
 
 add_test(NAME XPTIFWTests COMMAND XPTIFWUnitTests)
 
