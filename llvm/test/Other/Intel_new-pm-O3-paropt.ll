@@ -96,7 +96,10 @@
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis on [module]
 ;CHECK-NEXT: Running pass: SROAPass on foo
+<<<<<<< HEAD
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
+=======
+>>>>>>> 7d16ef6ff37d3922ca2855e51de5962eba9bfb81
 ;CHECK-NEXT: Running pass: SimplifyCFGPass on foo
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
