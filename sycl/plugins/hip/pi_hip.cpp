@@ -2536,6 +2536,11 @@ pi_result hip_piEnqueueKernelLaunch(
     }
   }
 
+  if (maxWorkGroupSize <
+      size_t(threadsPerBlock[0] * threadsPerBlock[1] * threadsPerBlock[2])) {
+    return PI_INVALID_WORK_GROUP_SIZE;
+  }
+
   int blocksPerGrid[3] = {1, 1, 1};
 
   for (size_t i = 0; i < work_dim; i++) {
@@ -2563,7 +2568,8 @@ pi_result hip_piEnqueueKernelLaunch(
           hip_implicit_offset[i] =
               static_cast<std::uint32_t>(global_work_offset[i]);
           if (global_work_offset[i] != 0) {
-            hipFunc = kernel->get_with_offset_parameter();
+            cl::sycl::detail::pi::die("Global offsets different from 0 are not "
+                                      "implemented in the HIP backend.");
           }
         }
       }
