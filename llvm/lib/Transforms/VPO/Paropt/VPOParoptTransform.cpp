@@ -4345,8 +4345,12 @@ bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
   if (I->getIsArraySection())
     return true;
 
-  Type *ElementType = I->getOrig()->getType()->getPointerElementType();
-  if (ElementType->isArrayTy())
+  Type *ElementTy = nullptr;
+  Value *NumElements = nullptr;
+  std::tie(ElementTy, NumElements, std::ignore) =
+      VPOParoptUtils::getItemInfo(I);
+
+  if (ElementTy->isArrayTy() || NumElements)
     return true;
 
   return false;
@@ -6346,13 +6350,16 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
   assert(Index && "genLinearCode: Null Loop index.");
 
   for (LinearItem *LinearI : LrClause.items()) {
+    Type *ElementTy = nullptr;
+    std::tie(ElementTy, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(LinearI);
+
     Value *Orig = LinearI->getOrig();
     // (A) Create private copy of the linear var to be used instead of the
     // original var inside the WRegion. (2)
     NewLinearVar = genPrivatizationAlloca(LinearI, NewLinearInsertPt,
                                           ".linear"); //                   (2)
     LinearI->setNew(NewLinearVar);
-    Type *NewVTy = NewLinearVar->getType();
     // Create a copy of the linear variable to capture its starting value (1)
     LinearStartVar =
         genPrivatizationAlloca(LinearI, NewLinearInsertPt); //             (1)
@@ -6364,10 +6371,15 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     genPrivatizationReplacement(W, Orig, ReplacementVal);
 
     // For by-refs, do a pointer dereference to reach the actual operand.
-    if (LinearI->getIsByRef())
-      Orig = new LoadInst(NewVTy, Orig, "", NewLinearInsertPt);
+    if (LinearI->getIsByRef()) {
+      PointerType *OrigPtrTy = cast<PointerType>(Orig->getType());
+      Orig = new LoadInst(PointerType::get(ElementTy,
+                                           OrigPtrTy->getAddressSpace()),
+                          Orig, Orig->getName() + Twine(".deref"),
+                          NewLinearInsertPt);
+    }
 
-    NewVTy = NewVTy->getPointerElementType();
+    Type *NewVTy = ElementTy;
 
     // (B) Capture value of linear variable before entering the loop
     LoadInst *LoadOrig = CaptureBuilder.CreateLoad(NewVTy, Orig);       // (3)
@@ -6476,6 +6488,10 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
   IRBuilder<> FiniBuilder(LinearFiniBB->getTerminator());
 
   for (LinearItem *LinearI : LrClause.items()) {
+    Type *ElementTy = nullptr;
+    std::tie(ElementTy, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(LinearI);
+
     Value *Orig = LinearI->getOrig();
     bool IsLinearIV = LinearI->getIsIV();
 
@@ -6489,12 +6505,14 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
         getClauseItemReplacementValue(LinearI, EntryDirective);
     genPrivatizationReplacement(W, Orig, ReplacementVal); //               (4)
 
-    Type *NewVTy = NewLinearVar->getType();
     // For by-refs, do a pointer dereference to reach the actual operand.
-    if (LinearI->getIsByRef())
-      Orig = InitBuilder.CreateLoad(NewVTy, Orig);
+    if (LinearI->getIsByRef()) {
+      PointerType *OrigPtrTy = cast<PointerType>(Orig->getType());
+      Orig = InitBuilder.CreateLoad(
+          PointerType::get(ElementTy, OrigPtrTy->getAddressSpace()), Orig);
+    }
 
-    NewVTy = NewVTy->getPointerElementType();
+    Type *NewVTy = ElementTy;
     // For LINEAR:IV, the initialization using closed-form is inserted in each
     // iteration of the loop by the frontend, so we don't need to do the
     // "firstprivate copyin" to the privatized linear var.
@@ -11435,8 +11453,7 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   assert(isa<PointerType>(CopyPrivateBase->getType()) &&
            "genCopyPrivateCode: Expect non-empty pointer type");
   const DataLayout &DL = F->getParent()->getDataLayout();
-  uint64_t Size =
-      DL.getTypeAllocSize(CopyPrivateBase->getType()->getPointerElementType());
+  uint64_t Size = DL.getTypeAllocSize(KmpCopyPrivateTy);
   VPOParoptUtils::genKmpcCopyPrivate(
       W, IdentTy, TidPtrHolder, Size, CopyPrivateBase, FnCopyPriv,
       Builder.CreateLoad(IsSingleThread->getAllocatedType(), IsSingleThread),

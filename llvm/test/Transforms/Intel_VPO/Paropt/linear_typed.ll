@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -aa-pipeline=basic-aa -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck --check-prefixes=CHECK,ALL %s
+; RUN: opt -opaque-pointers -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S < %s 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
+; RUN: opt < %s -opaque-pointers -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug-only=WRegionUtils,vpo-paropt-transform,vpo-paropt-utils -S 2>&1 | FileCheck --check-prefixes=OPQPTR,ALL %s
 
 
 ; #include <omp.h>
@@ -18,10 +20,12 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 
-; CHECK: Enter VPOParoptTransform::genLinearCode
+; ALL: Enter VPOParoptTransform::genLinearCode
 ; CHECK: getItemInfo: Local Element Info for 'i32* @y' (Typed):: Type: i32{{.*}}
-; CHECK: Exit VPOParoptTransform::genLinearCode
+; OPQPTR: getItemInfo: Local Element Info for 'ptr @y' (Typed):: Type: i32{{.*}}
+; ALL: Exit VPOParoptTransform::genLinearCode
 ; CHECK: %y.linear = alloca i32, align 4
+; OPQPTR: %y.linear = alloca i32, align 4
 
 
 @x = dso_local global [10 x i32] zeroinitializer, align 16
@@ -45,7 +49,7 @@ entry:
   %2 = bitcast i32* %.omp.ub to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %2) #2
   store i32 9, i32* %.omp.ub, align 4, !tbaa !4
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.LINEAR:TYPED"(i32* @y, i32 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.LINEAR:TYPED"(i32* @y, i32 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i32* %.omp.iv, i32 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %.omp.lb, i32 0, i32 1), "QUAL.OMP.NORMALIZED.UB:TYPED"(i32* %.omp.ub, i32 0), "QUAL.OMP.PRIVATE:TYPED"(i32* %i, i32 0, i32 1) ]
   %4 = load i32, i32* %.omp.lb, align 4, !tbaa !4
   store i32 %4, i32* %.omp.iv, align 4, !tbaa !4
   br label %omp.inner.for.cond
