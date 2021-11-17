@@ -28,7 +28,7 @@
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: Availability ((SubjectMatchRule_record, SubjectMatchRule_enum, SubjectMatchRule_enum_constant, SubjectMatchRule_field, SubjectMatchRule_function, SubjectMatchRule_namespace, SubjectMatchRule_objc_category, SubjectMatchRule_objc_implementation, SubjectMatchRule_objc_interface, SubjectMatchRule_objc_method, SubjectMatchRule_objc_property, SubjectMatchRule_objc_protocol, SubjectMatchRule_record, SubjectMatchRule_type_alias, SubjectMatchRule_variable))
 // CHECK-NEXT: BPFPreserveAccessIndex (SubjectMatchRule_record)
-// CHECK-NEXT: BTFTag (SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_record, SubjectMatchRule_field)
+// CHECK-NEXT: BTFDeclTag (SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_record, SubjectMatchRule_field, SubjectMatchRule_type_alias)
 // CHECK-NEXT: BuiltinAlias (SubjectMatchRule_function)
 // CHECK-NEXT: CFAuditedTransfer (SubjectMatchRule_function)
 // CHECK-NEXT: CFConsumed (SubjectMatchRule_variable_is_parameter)
@@ -109,7 +109,7 @@
 // CHECK-NEXT: NoDuplicate (SubjectMatchRule_function)
 // CHECK-NEXT: NoEscape (SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: NoInline (SubjectMatchRule_function)
-// CHECK-NEXT: NoInstrumentFunction (SubjectMatchRule_function)
+// CHECK-NEXT: NoInstrumentFunction (SubjectMatchRule_function, SubjectMatchRule_objc_method)
 // CHECK-NEXT: NoMerge (SubjectMatchRule_function)
 // CHECK-NEXT: NoMicroMips (SubjectMatchRule_function)
 // CHECK-NEXT: NoMips16 (SubjectMatchRule_function)
@@ -195,6 +195,7 @@
 // CHECK-NEXT: SYCLIntelUseStallEnableClusters (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLRegisterNum (SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: SYCLSimd (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
+// CHECK-NEXT: SYCLSpecialClass (SubjectMatchRule_record)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: SYCLUnmasked (SubjectMatchRule_function, SubjectMatchRule_function_is_member)
 // endif INTEL_CUSTOMIZATION

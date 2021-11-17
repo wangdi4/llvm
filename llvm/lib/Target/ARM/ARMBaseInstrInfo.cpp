@@ -916,7 +916,7 @@ void ARMBaseInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   else if (ARM::DPRRegClass.contains(DestReg, SrcReg) && Subtarget.hasFP64())
     Opc = ARM::VMOVD;
   else if (ARM::QPRRegClass.contains(DestReg, SrcReg))
-    Opc = Subtarget.hasNEON() ? ARM::VORRq : ARM::MVE_VORR;
+    Opc = Subtarget.hasNEON() ? ARM::VORRq : ARM::MQPRCopy;
 
   if (Opc) {
     MachineInstrBuilder MIB = BuildMI(MBB, I, DL, get(Opc), DestReg);
@@ -925,7 +925,7 @@ void ARMBaseInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
       MIB.addReg(SrcReg, getKillRegState(KillSrc));
     if (Opc == ARM::MVE_VORR)
       addUnpredicatedMveVpredROp(MIB, DestReg);
-    else
+    else if (Opc != ARM::MQPRCopy)
       MIB.add(predOps(ARMCC::AL));
     return;
   }
@@ -1682,8 +1682,6 @@ void ARMBaseInstrInfo::expandMEMCPY(MachineBasicBlock::iterator MI) const {
 
 bool ARMBaseInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   if (MI.getOpcode() == TargetOpcode::LOAD_STACK_GUARD) {
-    assert(getSubtarget().getTargetTriple().isOSBinFormatMachO() &&
-           "LOAD_STACK_GUARD currently supported only for MachO.");
     expandLoadStackGuard(MI);
     MI.getParent()->erase(MI);
     return true;
@@ -2371,9 +2369,13 @@ ARMBaseInstrInfo::optimizeSelect(MachineInstr &MI,
 
   // Find new register class to use.
   MachineOperand FalseReg = MI.getOperand(Invert ? 2 : 1);
+  MachineOperand TrueReg = MI.getOperand(Invert ? 1 : 2);
   Register DestReg = MI.getOperand(0).getReg();
-  const TargetRegisterClass *PreviousClass = MRI.getRegClass(FalseReg.getReg());
-  if (!MRI.constrainRegClass(DestReg, PreviousClass))
+  const TargetRegisterClass *FalseClass = MRI.getRegClass(FalseReg.getReg());
+  const TargetRegisterClass *TrueClass = MRI.getRegClass(TrueReg.getReg());
+  if (!MRI.constrainRegClass(DestReg, FalseClass))
+    return nullptr;
+  if (!MRI.constrainRegClass(DestReg, TrueClass))
     return nullptr;
 
   // Create a new predicated version of DefMI.
@@ -3261,9 +3263,8 @@ bool ARMBaseInstrInfo::optimizeCompareInstr(
   // live-out. If it is live-out, do not optimize.
   if (!isSafe) {
     MachineBasicBlock *MBB = CmpInstr.getParent();
-    for (MachineBasicBlock::succ_iterator SI = MBB->succ_begin(),
-             SE = MBB->succ_end(); SI != SE; ++SI)
-      if ((*SI)->isLiveIn(ARM::CPSR))
+    for (MachineBasicBlock *Succ : MBB->successors())
+      if (Succ->isLiveIn(ARM::CPSR))
         return false;
   }
 
@@ -4880,8 +4881,6 @@ bool ARMBaseInstrInfo::verifyInstruction(const MachineInstr &MI,
   return true;
 }
 
-// LoadStackGuard has so far only been implemented for MachO. Different code
-// sequence is needed for other targets.
 void ARMBaseInstrInfo::expandLoadStackGuardBase(MachineBasicBlock::iterator MI,
                                                 unsigned LoadImmOpc,
                                                 unsigned LoadOpc) const {
@@ -4891,27 +4890,70 @@ void ARMBaseInstrInfo::expandLoadStackGuardBase(MachineBasicBlock::iterator MI,
   MachineBasicBlock &MBB = *MI->getParent();
   DebugLoc DL = MI->getDebugLoc();
   Register Reg = MI->getOperand(0).getReg();
-  const GlobalValue *GV =
-      cast<GlobalValue>((*MI->memoperands_begin())->getValue());
   MachineInstrBuilder MIB;
+  unsigned int Offset = 0;
 
-  BuildMI(MBB, MI, DL, get(LoadImmOpc), Reg)
-      .addGlobalAddress(GV, 0, ARMII::MO_NONLAZY);
+  if (LoadImmOpc == ARM::MRC || LoadImmOpc == ARM::t2MRC) {
+    assert(Subtarget.isReadTPHard() &&
+           "TLS stack protector requires hardware TLS register");
 
-  if (Subtarget.isGVIndirectSymbol(GV)) {
-    MIB = BuildMI(MBB, MI, DL, get(LoadOpc), Reg);
-    MIB.addReg(Reg, RegState::Kill).addImm(0);
-    auto Flags = MachineMemOperand::MOLoad |
-                 MachineMemOperand::MODereferenceable |
-                 MachineMemOperand::MOInvariant;
-    MachineMemOperand *MMO = MBB.getParent()->getMachineMemOperand(
-        MachinePointerInfo::getGOT(*MBB.getParent()), Flags, 4, Align(4));
-    MIB.addMemOperand(MMO).add(predOps(ARMCC::AL));
+    BuildMI(MBB, MI, DL, get(LoadImmOpc), Reg)
+        .addImm(15)
+        .addImm(0)
+        .addImm(13)
+        .addImm(0)
+        .addImm(3)
+        .add(predOps(ARMCC::AL));
+
+    Module &M = *MBB.getParent()->getFunction().getParent();
+    Offset = M.getStackProtectorGuardOffset();
+    if (Offset & ~0xfffU) {
+      // The offset won't fit in the LDR's 12-bit immediate field, so emit an
+      // extra ADD to cover the delta. This gives us a guaranteed 8 additional
+      // bits, resulting in a range of 0 to +1 MiB for the guard offset.
+      unsigned AddOpc = (LoadImmOpc == ARM::MRC) ? ARM::ADDri : ARM::t2ADDri;
+      BuildMI(MBB, MI, DL, get(AddOpc), Reg)
+          .addReg(Reg, RegState::Kill)
+          .addImm(Offset & ~0xfffU)
+          .add(predOps(ARMCC::AL))
+          .addReg(0);
+      Offset &= 0xfffU;
+    }
+  } else {
+    const GlobalValue *GV =
+        cast<GlobalValue>((*MI->memoperands_begin())->getValue());
+    bool IsIndirect = Subtarget.isGVIndirectSymbol(GV);
+
+    unsigned TargetFlags = ARMII::MO_NO_FLAG;
+    if (Subtarget.isTargetMachO()) {
+      TargetFlags |= ARMII::MO_NONLAZY;
+    } else if (Subtarget.isTargetCOFF()) {
+      if (GV->hasDLLImportStorageClass())
+        TargetFlags |= ARMII::MO_DLLIMPORT;
+      else if (IsIndirect)
+        TargetFlags |= ARMII::MO_COFFSTUB;
+    } else if (Subtarget.isGVInGOT(GV)) {
+      TargetFlags |= ARMII::MO_GOT;
+    }
+
+    BuildMI(MBB, MI, DL, get(LoadImmOpc), Reg)
+        .addGlobalAddress(GV, 0, TargetFlags);
+
+    if (IsIndirect) {
+      MIB = BuildMI(MBB, MI, DL, get(LoadOpc), Reg);
+      MIB.addReg(Reg, RegState::Kill).addImm(0);
+      auto Flags = MachineMemOperand::MOLoad |
+                   MachineMemOperand::MODereferenceable |
+                   MachineMemOperand::MOInvariant;
+      MachineMemOperand *MMO = MBB.getParent()->getMachineMemOperand(
+          MachinePointerInfo::getGOT(*MBB.getParent()), Flags, 4, Align(4));
+      MIB.addMemOperand(MMO).add(predOps(ARMCC::AL));
+    }
   }
 
   MIB = BuildMI(MBB, MI, DL, get(LoadOpc), Reg);
   MIB.addReg(Reg, RegState::Kill)
-      .addImm(0)
+      .addImm(Offset)
       .cloneMemRefs(*MI)
       .add(predOps(ARMCC::AL));
 }

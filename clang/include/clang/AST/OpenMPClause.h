@@ -322,7 +322,6 @@ public:
   }
 };
 
-#if INTEL_COLLAB
 /// This represents the 'align' clause in the '#pragma omp allocate'
 /// directive.
 ///
@@ -332,7 +331,7 @@ public:
 /// In this example directive '#pragma omp allocate' has simple 'allocator'
 /// clause with the allocator 'omp_default_mem_alloc' and align clause with
 /// value of 8.
-class OMPAlignClause : public OMPClause {
+class OMPAlignClause final : public OMPClause {
   friend class OMPClauseReader;
 
   /// Location of '('.
@@ -344,10 +343,12 @@ class OMPAlignClause : public OMPClause {
   /// Set alignment value.
   void setAlignment(Expr *A) { Alignment = A; }
 
-public:
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
   /// Build 'align' clause with the given alignment
   ///
-  /// \param A Alignment value
+  /// \param A Alignment value.
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
@@ -358,11 +359,19 @@ public:
 
   /// Build an empty clause.
   OMPAlignClause()
-      : OMPClause(llvm::omp::OMPC_align, SourceLocation(),
-                  SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_align, SourceLocation(), SourceLocation()) {}
 
-  /// Sets the location of '('.
-  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+public:
+  /// Build 'align' clause with the given alignment
+  ///
+  /// \param A Alignment value.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  static OMPAlignClause *Create(const ASTContext &C, Expr *A,
+                                SourceLocation StartLoc,
+                                SourceLocation LParenLoc,
+                                SourceLocation EndLoc);
 
   /// Returns the location of '('.
   SourceLocation getLParenLoc() const { return LParenLoc; }
@@ -387,7 +396,6 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_align;
   }
 };
-#endif // INTEL_COLLAB
 
 /// This represents clause 'allocate' in the '#pragma omp ...' directives.
 ///
@@ -759,83 +767,6 @@ public:
 };
 
 #if INTEL_COLLAB
-/// This represents 'bind' clause in the '#pragma omp ...' directives.
-///
-/// \code
-/// #pragma omp loop bind(parallel)
-/// \endcode
-class OMPBindClause final : public OMPClause {
-  friend class OMPClauseReader;
-
-  /// Location of '('.
-  SourceLocation LParenLoc;
-
-  /// A kind of the 'bind' clause.
-  llvm::omp::BindKind Kind = llvm::omp::OMP_BIND_unknown;
-
-  /// Start location of the kind in source code.
-  SourceLocation KindKwLoc;
-
-  /// Set kind of the clauses.
-  ///
-  /// \param K Argument of clause.
-  void setBindKind(llvm::omp::BindKind K) { Kind = K; }
-
-  /// Set argument location.
-  ///
-  /// \param KLoc Argument location.
-  void setBindKindKwLoc(SourceLocation KLoc) { KindKwLoc = KLoc; }
-
-public:
-  /// Build 'bind' clause with argument \a A ('teams', 'parallel', or 'thread').
-  ///
-  /// \param A Argument of the clause ('teams', 'parallel' or 'thread').
-  /// \param ALoc Starting location of the argument.
-  /// \param StartLoc Starting location of the clause.
-  /// \param LParenLoc Location of '('.
-  /// \param EndLoc Ending location of the clause.
-  OMPBindClause(llvm::omp::BindKind A, SourceLocation ALoc,
-                SourceLocation StartLoc, SourceLocation LParenLoc,
-                SourceLocation EndLoc)
-      : OMPClause(llvm::omp::OMPC_bind, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Kind(A), KindKwLoc(ALoc) {}
-
-  /// Build an empty clause.
-  OMPBindClause()
-      : OMPClause(llvm::omp::OMPC_bind, SourceLocation(), SourceLocation()) {}
-
-  /// Sets the location of '('.
-  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
-
-  /// Returns the location of '('.
-  SourceLocation getLParenLoc() const { return LParenLoc; }
-
-  /// Returns kind of the clause.
-  llvm::omp::BindKind getBindKind() const { return Kind; }
-
-  /// Returns location of clause kind.
-  SourceLocation getBindKindKwLoc() const { return KindKwLoc; }
-
-  child_range children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-
-  const_child_range children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
-  }
-
-  child_range used_children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-  const_child_range used_children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
-  }
-
-  static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_bind;
-  }
-};
-
 /// This represents the 'subdevice' clause in '#pragma omp ...' directives.
 ///
 /// \code
@@ -9143,6 +9074,96 @@ public:
 
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == llvm::omp::OMPC_filter;
+  }
+};
+
+/// This represents 'bind' clause in the '#pragma omp ...' directives.
+///
+/// \code
+/// #pragma omp loop bind(parallel)
+/// \endcode
+class OMPBindClause final : public OMPClause {
+  friend class OMPClauseReader;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// The binding kind of 'bind' clause.
+  OpenMPBindClauseKind Kind = OMPC_BIND_unknown;
+
+  /// Start location of the kind in source code.
+  SourceLocation KindLoc;
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Set the binding kind.
+  void setBindKind(OpenMPBindClauseKind K) { Kind = K; }
+
+  /// Set the binding kind location.
+  void setBindKindLoc(SourceLocation KLoc) { KindLoc = KLoc; }
+
+  /// Build 'bind' clause with kind \a K ('teams', 'parallel', or 'thread').
+  ///
+  /// \param K Binding kind of the clause ('teams', 'parallel' or 'thread').
+  /// \param KLoc Starting location of the binding kind.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  OMPBindClause(OpenMPBindClauseKind K, SourceLocation KLoc,
+                SourceLocation StartLoc, SourceLocation LParenLoc,
+                SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_bind, StartLoc, EndLoc), LParenLoc(LParenLoc),
+        Kind(K), KindLoc(KLoc) {}
+
+  /// Build an empty clause.
+  OMPBindClause()
+      : OMPClause(llvm::omp::OMPC_bind, SourceLocation(), SourceLocation()) {}
+
+public:
+  /// Build 'bind' clause with kind \a K ('teams', 'parallel', or 'thread').
+  ///
+  /// \param C AST context
+  /// \param K Binding kind of the clause ('teams', 'parallel' or 'thread').
+  /// \param KLoc Starting location of the binding kind.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  static OMPBindClause *Create(const ASTContext &C, OpenMPBindClauseKind K,
+                               SourceLocation KLoc, SourceLocation StartLoc,
+                               SourceLocation LParenLoc, SourceLocation EndLoc);
+
+  /// Build an empty 'bind' clause.
+  ///
+  /// \param C AST context
+  static OMPBindClause *CreateEmpty(const ASTContext &C);
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Returns kind of the clause.
+  OpenMPBindClauseKind getBindKind() const { return Kind; }
+
+  /// Returns location of clause kind.
+  SourceLocation getBindKindLoc() const { return KindLoc; }
+
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_bind;
   }
 };
 

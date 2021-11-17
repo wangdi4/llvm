@@ -353,9 +353,9 @@ Constant *llvm::ConstantFoldLoadThroughBitcast(Constant *C, Type *DestTy,
                                          const DataLayout &DL) {
   do {
     Type *SrcTy = C->getType();
-    uint64_t DestSize = DL.getTypeSizeInBits(DestTy);
-    uint64_t SrcSize = DL.getTypeSizeInBits(SrcTy);
-    if (SrcSize < DestSize)
+    TypeSize DestSize = DL.getTypeSizeInBits(DestTy);
+    TypeSize SrcSize = DL.getTypeSizeInBits(SrcTy);
+    if (!TypeSize::isKnownGE(SrcSize, DestSize))
       return nullptr;
 
     // Catch the obvious splat cases (since all-zeros can coerce non-integral
@@ -669,8 +669,11 @@ Constant *getConstantAtOffset(Constant *Base, APInt Offset,
   return C;
 }
 
-Constant *ConstantFoldLoadFromConst(Constant *C, Type *Ty, const APInt &Offset,
-                                    const DataLayout &DL) {
+} // end anonymous namespace
+
+Constant *llvm::ConstantFoldLoadFromConst(Constant *C, Type *Ty,
+                                          const APInt &Offset,
+                                          const DataLayout &DL) {
   if (Constant *AtOffset = getConstantAtOffset(C, Offset, DL))
     if (Constant *Result = ConstantFoldLoadThroughBitcast(AtOffset, Ty, DL))
       return Result;
@@ -682,11 +685,14 @@ Constant *ConstantFoldLoadFromConst(Constant *C, Type *Ty, const APInt &Offset,
   return nullptr;
 }
 
-} // end anonymous namespace
+Constant *llvm::ConstantFoldLoadFromConst(Constant *C, Type *Ty,
+                                          const DataLayout &DL) {
+  return ConstantFoldLoadFromConst(C, Ty, APInt(64, 0), DL);
+}
 
 Constant *llvm::ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
+                                             APInt Offset,
                                              const DataLayout &DL) {
-  APInt Offset(DL.getIndexTypeSizeInBits(C->getType()), 0);
   C = cast<Constant>(C->stripAndAccumulateConstantOffsets(
           DL, Offset, /* AllowNonInbounds */ true));
 
@@ -708,6 +714,12 @@ Constant *llvm::ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
   }
 
   return nullptr;
+}
+
+Constant *llvm::ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
+                                             const DataLayout &DL) {
+  APInt Offset(DL.getIndexTypeSizeInBits(C->getType()), 0);
+  return ConstantFoldLoadFromConstPtr(C, Ty, Offset, DL);
 }
 
 namespace {
@@ -1372,6 +1384,10 @@ Constant *llvm::ConstantFoldLoadThroughGEPConstantExpr(Constant *C,
   return ConstantFoldLoadThroughBitcast(C, Ty, DL);
 }
 
+#if INTEL_CUSTOMIZATION
+// Following function has been removed from llorg as of commit c5b5b7f. Keeping
+// it here because it is still needed by
+// llvm/lib/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.cpp
 Constant *
 llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
                                         ArrayRef<Constant *> Indices) {
@@ -1384,6 +1400,7 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
   }
   return C;
 }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 // FIXME: We should have a more general interface for the imf attributes.
@@ -2070,7 +2087,7 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
     /// the host native double versions.  Float versions are not called
     /// directly but for all these it is true (float)(f((double)arg)) ==
     /// f(arg).  Long double not supported yet.
-    APFloat APF = Op->getValueAPF();
+    const APFloat &APF = Op->getValueAPF();
 
     switch (IntrinsicID) {
       default: break;
@@ -2121,7 +2138,9 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       return nullptr;
 
     LibFunc Func = NotLibFunc;
-    TLI->getLibFunc(Name, Func);
+    if (!TLI->getLibFunc(Name, Func))
+      return nullptr;
+
     switch (Func) {
     default:
       break;
@@ -2374,12 +2393,12 @@ static Constant *ConstantFoldScalarCall2(StringRef Name,
   if (const auto *Op1 = dyn_cast<ConstantFP>(Operands[0])) {
     if (!Ty->isFloatingPointTy())
       return nullptr;
-    APFloat Op1V = Op1->getValueAPF();
+    const APFloat &Op1V = Op1->getValueAPF();
 
     if (const auto *Op2 = dyn_cast<ConstantFP>(Operands[1])) {
       if (Op2->getType() != Op1->getType())
         return nullptr;
-      APFloat Op2V = Op2->getValueAPF();
+      const APFloat &Op2V = Op2->getValueAPF();
 
       if (const auto *ConstrIntr = dyn_cast<ConstrainedFPIntrinsic>(Call)) {
         RoundingMode RM = getEvaluationRoundingMode(ConstrIntr);
@@ -2445,7 +2464,9 @@ static Constant *ConstantFoldScalarCall2(StringRef Name,
         return nullptr;
 
       LibFunc Func = NotLibFunc;
-      TLI->getLibFunc(Name, Func);
+      if (!TLI->getLibFunc(Name, Func))
+        return nullptr;
+
       switch (Func) {
       default:
         break;

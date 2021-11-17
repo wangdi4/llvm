@@ -117,7 +117,7 @@ if (CLANG_BUILD_EXAMPLES)
     Attribute
     AnnotateFunctions
     CallSuperAttr
-    clang-interpreter
+    PluginsOrder
     PrintFunctionNames
     )
 endif ()
@@ -130,6 +130,7 @@ if( NOT CLANG_BUILT_STANDALONE )
   list(APPEND CLANG_TEST_DEPS
     llvm-config
     FileCheck count not
+    append-file
     llc
     llvm-ar
     llvm-as

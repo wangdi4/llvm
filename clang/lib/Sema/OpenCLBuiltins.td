@@ -85,27 +85,25 @@ def FuncExtKhrGlMsaaSharing              : FunctionExtension<"cl_khr_gl_msaa_sha
 
 def FuncExtOpenCLCPipes                  : FunctionExtension<"__opencl_c_pipes">;
 def FuncExtOpenCLCWGCollectiveFunctions  : FunctionExtension<"__opencl_c_work_group_collective_functions">;
-#if INTEL_CUSTOMIZATION
 def FuncExtFloatAtomicsFp16GlobalLoadStore  : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_global_atomic_load_store">;
 def FuncExtFloatAtomicsFp16LocalLoadStore   : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_load_store">;
 def FuncExtFloatAtomicsFp16GenericLoadStore : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_global_atomic_load_store __opencl_c_ext_fp16_local_atomic_load_store">;
 def FuncExtFloatAtomicsFp16GlobalAdd     : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_global_atomic_add">;
-def FuncExtFloatAtomicsFp16LocalAdd      : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_add">;
-def FuncExtFloatAtomicsFp16GenericAdd    : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_add __opencl_c_ext_fp16_global_atomic_add">;
-def FuncExtFloatAtomicsFp16GlobalMinMax  : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_global_atomic_min_max">;
-def FuncExtFloatAtomicsFp16LocalMinMax   : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_min_max">;
-def FuncExtFloatAtomicsFp16GenericMinMax : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_min_max __opencl_c_ext_fp16_global_atomic_min_max">;
-#endif // INTEL_CUSTOMIZATION
 def FuncExtFloatAtomicsFp32GlobalAdd     : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp32_global_atomic_add">;
 def FuncExtFloatAtomicsFp64GlobalAdd     : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp64_global_atomic_add">;
+def FuncExtFloatAtomicsFp16LocalAdd      : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_add">;
 def FuncExtFloatAtomicsFp32LocalAdd      : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp32_local_atomic_add">;
 def FuncExtFloatAtomicsFp64LocalAdd      : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp64_local_atomic_add">;
+def FuncExtFloatAtomicsFp16GenericAdd    : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_add __opencl_c_ext_fp16_global_atomic_add">;
 def FuncExtFloatAtomicsFp32GenericAdd    : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp32_local_atomic_add __opencl_c_ext_fp32_global_atomic_add">;
-def FuncExtFloatAtomicsFp64GenericAdd    : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp64_global_atomic_add __opencl_c_ext_fp64_local_atomic_add">;
+def FuncExtFloatAtomicsFp64GenericAdd    : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp64_local_atomic_add __opencl_c_ext_fp64_global_atomic_add">;
+def FuncExtFloatAtomicsFp16GlobalMinMax  : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_global_atomic_min_max">;
 def FuncExtFloatAtomicsFp32GlobalMinMax  : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp32_global_atomic_min_max">;
 def FuncExtFloatAtomicsFp64GlobalMinMax  : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp64_global_atomic_min_max">;
+def FuncExtFloatAtomicsFp16LocalMinMax   : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_min_max">;
 def FuncExtFloatAtomicsFp32LocalMinMax   : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp32_local_atomic_min_max">;
 def FuncExtFloatAtomicsFp64LocalMinMax   : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp64_local_atomic_min_max">;
+def FuncExtFloatAtomicsFp16GenericMinMax : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp16_local_atomic_min_max __opencl_c_ext_fp16_global_atomic_min_max">;
 def FuncExtFloatAtomicsFp32GenericMinMax : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp32_local_atomic_min_max __opencl_c_ext_fp32_global_atomic_min_max">;
 def FuncExtFloatAtomicsFp64GenericMinMax : FunctionExtension<"cl_ext_float_atomics __opencl_c_ext_fp64_local_atomic_min_max __opencl_c_ext_fp64_global_atomic_min_max">;
 
@@ -373,11 +371,9 @@ def AtomicInt             : Type<"atomic_int", QualType<"Context.getAtomicType(C
 def AtomicUInt            : Type<"atomic_uint", QualType<"Context.getAtomicType(Context.UnsignedIntTy)">>;
 def AtomicLong            : Type<"atomic_long", QualType<"Context.getAtomicType(Context.LongTy)">>;
 def AtomicULong           : Type<"atomic_ulong", QualType<"Context.getAtomicType(Context.UnsignedLongTy)">>;
-#if INTEL_CUSTOMIZATION
-def AtomicHalf            : Type<"atomic_half", QualType<"Context.getAtomicType(Context.HalfTy)">>;
-#endif // INTEL_CUSTOMIZATION
 def AtomicFloat           : Type<"atomic_float", QualType<"Context.getAtomicType(Context.FloatTy)">>;
 def AtomicDouble          : Type<"atomic_double", QualType<"Context.getAtomicType(Context.DoubleTy)">>;
+def AtomicHalf            : Type<"atomic_half", QualType<"Context.getAtomicType(Context.HalfTy)">>;
 def AtomicIntPtr          : Type<"atomic_intptr_t", QualType<"Context.getAtomicType(Context.getIntPtrType())">>;
 def AtomicUIntPtr         : Type<"atomic_uintptr_t", QualType<"Context.getAtomicType(Context.getUIntPtrType())">>;
 def AtomicSize            : Type<"atomic_size_t", QualType<"Context.getAtomicType(Context.getSizeType())">>;
@@ -1122,7 +1118,6 @@ let MinVersion = CL20 in {
 
 // The functionality added by cl_ext_float_atomics extension
 let MinVersion = CL20 in {
-#if INTEL_CUSTOMIZATION
   let Extension = FuncExtFloatAtomicsFp16GlobalLoadStore in {
     def : Builtin<"atomic_store",
         [Void, PointerType<VolatileType<AtomicHalf>, GlobalAS>, AtomicHalf]>;
@@ -1183,9 +1178,7 @@ let MinVersion = CL20 in {
     def : Builtin<"atomic_exchange_explicit",
         [Half, PointerType<VolatileType<AtomicHalf>, GenericAS>, Half, MemoryOrder, MemoryScope]>;
   }
-#endif // INTEL_CUSTOMIZATION
   foreach ModOp = ["add", "sub"] in {
-#if INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp16GlobalAdd in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Half, PointerType<VolatileType<AtomicFloat>, GlobalAS>, Half]>;
@@ -1194,7 +1187,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Half, PointerType<VolatileType<AtomicFloat>, GlobalAS>, Half, MemoryOrder, MemoryScope]>;
     }
-#endif // INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp32GlobalAdd in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Float, PointerType<VolatileType<AtomicFloat>, GlobalAS>, Float]>;
@@ -1211,7 +1203,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Double, PointerType<VolatileType<AtomicDouble>, GlobalAS>, Double, MemoryOrder, MemoryScope]>;
     }
-#if INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp16LocalAdd in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Half, PointerType<VolatileType<AtomicFloat>, LocalAS>, Half]>;
@@ -1220,7 +1211,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Half, PointerType<VolatileType<AtomicFloat>, LocalAS>, Half, MemoryOrder, MemoryScope]>;
     }
-#endif // INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp32LocalAdd in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Float, PointerType<VolatileType<AtomicFloat>, LocalAS>, Float]>;
@@ -1237,7 +1227,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Double, PointerType<VolatileType<AtomicDouble>, LocalAS>, Double, MemoryOrder, MemoryScope]>;
     }
-#if INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp16GenericAdd in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Half, PointerType<VolatileType<AtomicFloat>, GenericAS>, Half]>;
@@ -1246,7 +1235,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Half, PointerType<VolatileType<AtomicFloat>, GenericAS>, Half, MemoryOrder, MemoryScope]>;
     }
-#endif // INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp32GenericAdd in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Float, PointerType<VolatileType<AtomicFloat>, GenericAS>, Float]>;
@@ -1265,7 +1253,6 @@ let MinVersion = CL20 in {
     }
   }
   foreach ModOp = ["min", "max"] in {
-#if INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp16GlobalMinMax in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Half, PointerType<VolatileType<AtomicHalf>, GlobalAS>, Half]>;
@@ -1274,7 +1261,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Half, PointerType<VolatileType<AtomicHalf>, GlobalAS>, Half, MemoryOrder, MemoryScope]>;
     }
-#endif // INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp32GlobalMinMax in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Float, PointerType<VolatileType<AtomicFloat>, GlobalAS>, Float]>;
@@ -1291,7 +1277,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Double, PointerType<VolatileType<AtomicDouble>, GlobalAS>, Double, MemoryOrder, MemoryScope]>;
     }
-#if INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp16LocalMinMax in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Half, PointerType<VolatileType<AtomicHalf>, LocalAS>, Half]>;
@@ -1300,7 +1285,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Half, PointerType<VolatileType<AtomicHalf>, LocalAS>, Half, MemoryOrder, MemoryScope]>;
     }
-#endif // INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp32LocalMinMax in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Float, PointerType<VolatileType<AtomicFloat>, LocalAS>, Float]>;
@@ -1317,7 +1301,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Double, PointerType<VolatileType<AtomicDouble>, LocalAS>, Double, MemoryOrder, MemoryScope]>;
     }
-#if INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp16GenericMinMax in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Half, PointerType<VolatileType<AtomicHalf>, GenericAS>, Half]>;
@@ -1326,7 +1309,6 @@ let MinVersion = CL20 in {
       def : Builtin<"atomic_fetch_" # ModOp # "_explicit",
           [Half, PointerType<VolatileType<AtomicHalf>, GenericAS>, Half, MemoryOrder, MemoryScope]>;
     }
-#endif // INTEL_CUSTOMIZATION
     let Extension = FuncExtFloatAtomicsFp32GenericMinMax in {
       def : Builtin<"atomic_fetch_" # ModOp,
           [Float, PointerType<VolatileType<AtomicFloat>, GenericAS>, Float]>;

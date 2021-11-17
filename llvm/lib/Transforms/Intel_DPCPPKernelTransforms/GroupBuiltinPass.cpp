@@ -368,7 +368,7 @@ bool GroupBuiltinPass::runImpl(Module &M) {
     }
 
     // Info about this function call.
-    unsigned NumArgs = WGCallInst->getNumArgOperands();
+    unsigned NumArgs = WGCallInst->arg_size();
     Function *Callee = WGCallInst->getCalledFunction();
     assert(Callee && "Unexpected indirect function invocation");
     StringRef FuncName = Callee->getName();

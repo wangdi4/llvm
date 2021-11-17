@@ -2078,10 +2078,8 @@ void DevirtModule::scanTypeTestUsers(
   // points to a member of the type identifier %md. Group calls by (type ID,
   // offset) pair (effectively the identity of the virtual function) and store
   // to CallSlots.
-  for (auto I = TypeTestFunc->use_begin(), E = TypeTestFunc->use_end();
-       I != E;) {
-    auto CI = dyn_cast<CallInst>(I->getUser());
-    ++I;
+  for (Use &U : llvm::make_early_inc_range(TypeTestFunc->uses())) {
+    auto *CI = dyn_cast<CallInst>(U.getUser());
     if (!CI)
       continue;
 
@@ -2156,11 +2154,8 @@ void DevirtModule::scanTypeTestUsers(
 void DevirtModule::scanTypeCheckedLoadUsers(Function *TypeCheckedLoadFunc) {
   Function *TypeTestFunc = Intrinsic::getDeclaration(&M, Intrinsic::type_test);
 
-  for (auto I = TypeCheckedLoadFunc->use_begin(),
-            E = TypeCheckedLoadFunc->use_end();
-       I != E;) {
-    auto CI = dyn_cast<CallInst>(I->getUser());
-    ++I;
+  for (Use &U : llvm::make_early_inc_range(TypeCheckedLoadFunc->uses())) {
+    auto *CI = dyn_cast<CallInst>(U.getUser());
     if (!CI)
       continue;
 

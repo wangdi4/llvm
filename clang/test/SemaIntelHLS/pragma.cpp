@@ -68,7 +68,7 @@ void foo_coalesce()
   #pragma loop_coalesce -1
   for (int i=0;i<32;++i) {}
 
-  // expected-error@+1 {{invalid argument of type 'const char [8]'; expected an integer type}}
+  // expected-error@+1 {{invalid argument of type 'const char[8]'; expected an integer type}}
   #pragma loop_coalesce "test123"
   for (int i=0;i<32;++i) {}
 }
@@ -110,7 +110,7 @@ void foo_ii()
   #pragma ii -1
   for (int i=0;i<32;++i) {}
 
-  // expected-error@+1 {{invalid argument of type 'const char [8]'; expected an integer type}}
+  // expected-error@+1 {{invalid argument of type 'const char[8]'; expected an integer type}}
   #pragma ii "test123"
   for (int i=0;i<32;++i) {}
 
@@ -154,7 +154,7 @@ void foo_max_concurrency()
   #pragma max_concurrency -1
   for (int i=0;i<32;++i) {}
 
-  // expected-error@+1 {{invalid argument of type 'const char [8]'; expected an integer type}}
+  // expected-error@+1 {{invalid argument of type 'const char[8]'; expected an integer type}}
   #pragma max_concurrency "test123"
   for (int i=0;i<32;++i) {}
 
@@ -198,7 +198,7 @@ void foo_max_interleaving()
   #pragma max_interleaving -1
   for (int i=0;i<32;++i) {}
 
-  // expected-error@+1 {{invalid argument of type 'const char [8]'; expected an integer type}}
+  // expected-error@+1 {{invalid argument of type 'const char[8]'; expected an integer type}}
   #pragma max_interleaving "test123"
   for (int i=0;i<32;++i) {}
 
@@ -507,7 +507,7 @@ void foo_speculated_iterations()
   #pragma speculated_iterations (2,4)
   for (int i=0;i<32;++i) {}
 
-  // expected-error@+1 {{invalid argument of type 'const char [8]'; expected an integer type}}
+  // expected-error@+1 {{invalid argument of type 'const char[8]'; expected an integer type}}
   #pragma speculated_iterations "test123"
   for (int i=0;i<32;++i) {}
 }

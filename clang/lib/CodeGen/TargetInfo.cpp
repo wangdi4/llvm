@@ -2718,7 +2718,7 @@ static std::string qualifyWindowsLibrary(llvm::StringRef Lib) {
   // If the argument does not end in .lib, automatically add the suffix.
   // If the argument contains a space, enclose it in quotes.
   // This matches the behavior of MSVC.
-  bool Quote = (Lib.find(' ') != StringRef::npos);
+  bool Quote = Lib.contains(' ');
   std::string ArgStr = Quote ? "\"" : "";
   ArgStr += Lib;
   if (!Lib.endswith_insensitive(".lib") && !Lib.endswith_insensitive(".a"))
@@ -3492,6 +3492,9 @@ static llvm::Type *getFPTypeAtOffset(llvm::Type *IRType, unsigned IROffset,
 
   // If this is a struct, recurse into the field at the specified offset.
   if (llvm::StructType *STy = dyn_cast<llvm::StructType>(IRType)) {
+    if (!STy->getNumContainedTypes())
+      return nullptr;
+
     const llvm::StructLayout *SL = TD.getStructLayout(STy);
     unsigned Elt = SL->getElementContainingOffset(IROffset);
     IROffset -= SL->getElementOffset(Elt);
@@ -10291,14 +10294,16 @@ void XCoreTargetCodeGenInfo::emitTargetMetadata(
     }
   }
 }
+
 //===----------------------------------------------------------------------===//
-// SPIR ABI Implementation
+// Base ABI and target codegen info implementation common between SPIR and
+// SPIR-V.
 //===----------------------------------------------------------------------===//
 
 namespace {
-class SPIRABIInfo : public DefaultABIInfo {
+class CommonSPIRABIInfo : public DefaultABIInfo {
 public:
-  SPIRABIInfo(CodeGenTypes &CGT) : DefaultABIInfo(CGT) { setCCs(); }
+  CommonSPIRABIInfo(CodeGenTypes &CGT) : DefaultABIInfo(CGT) { setCCs(); }
 
   ABIArgInfo classifyKernelArgumentType(QualType Ty) const;
 
@@ -10308,7 +10313,7 @@ private:
   void setCCs();
 };
 
-ABIArgInfo SPIRABIInfo::classifyKernelArgumentType(QualType Ty) const {
+ABIArgInfo CommonSPIRABIInfo::classifyKernelArgumentType(QualType Ty) const {
   Ty = useFirstFieldIfTransparentUnion(Ty);
 
   if (getContext().getLangOpts().SYCLIsDevice && isAggregateTypeForABI(Ty)) {
@@ -10319,7 +10324,7 @@ ABIArgInfo SPIRABIInfo::classifyKernelArgumentType(QualType Ty) const {
   return DefaultABIInfo::classifyArgumentType(Ty);
 }
 
-void SPIRABIInfo::computeInfo(CGFunctionInfo &FI) const {
+void CommonSPIRABIInfo::computeInfo(CGFunctionInfo &FI) const {
   llvm::CallingConv::ID CC = FI.getCallingConvention();
 
   if (!getCXXABI().classifyReturnType(FI))
@@ -10336,22 +10341,23 @@ void SPIRABIInfo::computeInfo(CGFunctionInfo &FI) const {
 
 } // end anonymous namespace
 namespace {
-class SPIRTargetCodeGenInfo : public TargetCodeGenInfo {
+class CommonSPIRTargetCodeGenInfo : public TargetCodeGenInfo {
 public:
-  SPIRTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT)
-      : TargetCodeGenInfo(std::make_unique<SPIRABIInfo>(CGT)) {}
-  unsigned getOpenCLKernelCallingConv() const override;
+  CommonSPIRTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT)
+      : TargetCodeGenInfo(std::make_unique<CommonSPIRABIInfo>(CGT)) {}
 
   LangAS getASTAllocaAddressSpace() const override {
     return getLangASFromTargetAS(
         getABIInfo().getDataLayout().getAllocaAddrSpace());
   }
 
+  unsigned getOpenCLKernelCallingConv() const override;
+
   bool shouldEmitStaticExternCAliases() const override;
 };
 
 } // End anonymous namespace.
-void SPIRABIInfo::setCCs() {
+void CommonSPIRABIInfo::setCCs() {
   assert(getRuntimeCC() == llvm::CallingConv::C);
   RuntimeCC = llvm::CallingConv::SPIR_FUNC;
 }
@@ -10359,17 +10365,17 @@ void SPIRABIInfo::setCCs() {
 namespace clang {
 namespace CodeGen {
 void computeSPIRKernelABIInfo(CodeGenModule &CGM, CGFunctionInfo &FI) {
-  SPIRABIInfo SPIRABI(CGM.getTypes());
+  CommonSPIRABIInfo SPIRABI(CGM.getTypes());
   SPIRABI.computeInfo(FI);
 }
 }
 }
 
-unsigned SPIRTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
+unsigned CommonSPIRTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
   return llvm::CallingConv::SPIR_KERNEL;
 }
 
-bool SPIRTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
+bool CommonSPIRTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
   return false;
 }
 
@@ -11438,7 +11444,9 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
     return SetCGInfo(new ARCTargetCodeGenInfo(Types));
   case llvm::Triple::spir:
   case llvm::Triple::spir64:
-    return SetCGInfo(new SPIRTargetCodeGenInfo(Types));
+  case llvm::Triple::spirv32:
+  case llvm::Triple::spirv64:
+    return SetCGInfo(new CommonSPIRTargetCodeGenInfo(Types));
   case llvm::Triple::ve:
     return SetCGInfo(new VETargetCodeGenInfo(Types));
   }

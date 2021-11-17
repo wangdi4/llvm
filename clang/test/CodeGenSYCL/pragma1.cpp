@@ -71,7 +71,7 @@ void foo_ivdep(int select, SIVDep &SV, SIVDep2 &SV2, SIVDep2 *Sv2p)
   for (int i=0;i<32;++i) { SV.A[i] = ibar(i); }
 
   //CHECK: %[[PTRLOAD2:.+]] = load %struct.{{.*}}SIVDep2 addrspace(4)*, %struct.{{.*}}SIVDep2 addrspace(4)* addrspace(4)* %Sv2p.addr.ascast, align 8
-  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds %struct.{{.*}}.SIVDep2, %struct.{{.*}}.SIVDep2 addrspace(4)* %[[PTRLOAD2]], i32 0, i32 0
+  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds %struct.{{.*}}SIVDep2, %struct.{{.*}}SIVDep2 addrspace(4)* %[[PTRLOAD2]], i32 0, i32 0
   //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [8 x [16 x %struct.{{.*}}SIVDep]], [8 x [16 x %struct.{{.*}}SIVDep]] addrspace(4)* %[[PTRIDX]], i64 0, i64 2
   //CHECK: %[[ARRAYIDX1:.+]] = getelementptr inbounds [16 x %struct.{{.*}}SIVDep], [16 x %struct.{{.*}}SIVDep] addrspace(4)* %[[ARRAYIDX]], i64 0, i64 3
   //CHECK: %[[PTRIDX1:.+]] = getelementptr inbounds %struct.{{.*}}SIVDep, %struct.{{.*}}SIVDep addrspace(4)* %[[ARRAYIDX1]], i32 0, i32 0

@@ -618,20 +618,28 @@ bool LLParser::parseUnnamedGlobal() {
       parseOptionalThreadLocal(TLM) || parseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
-  if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
+  switch (Lex.getKind()) {
 #if INTEL_COLLAB
+  default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                        IsThreadPrivate, IsTargetDeclare);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+  case lltok::kw_alias:
+  case lltok::kw_ifunc:
+    return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                              IsThreadPrivate, IsTargetDeclare);
 #else // INTEL_COLLAB
+  default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+
+  case lltok::kw_alias:
+  case lltok::kw_ifunc:
+    return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
 #endif // INTEL_COLLAB
+  }
 }
 
 /// parseNamedGlobal:
@@ -664,20 +672,28 @@ bool LLParser::parseNamedGlobal() {
       parseOptionalThreadLocal(TLM) || parseOptionalUnnamedAddr(UnnamedAddr))
     return true;
 
-  if (Lex.getKind() != lltok::kw_alias && Lex.getKind() != lltok::kw_ifunc)
+  switch (Lex.getKind()) {
 #if INTEL_COLLAB
+  default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                        IsThreadPrivate, IsTargetDeclare);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+  case lltok::kw_alias:
+  case lltok::kw_ifunc:
+    return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                              IsThreadPrivate, IsTargetDeclare);
-#else
+#else // INTEL_COLLAB
+  default:
     return parseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
-  return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
+
+  case lltok::kw_alias:
+  case lltok::kw_ifunc:
+    return parseAliasOrIFunc(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
 #endif // INTEL_COLLAB
+  }
 }
 
 bool LLParser::parseComdat() {
@@ -950,31 +966,30 @@ static std::string typeComparisonErrorMessage(StringRef Message, Type *Ty1,
   return ErrOS.str();
 }
 
-/// parseIndirectSymbol:
+/// parseAliasOrIFunc:
 ///   ::= GlobalVar '=' OptionalLinkage OptionalPreemptionSpecifier
 ///                     OptionalVisibility OptionalDLLStorageClass
 ///                     OptionalThreadLocal OptionalUnnamedAddr
-///                     'alias|ifunc' IndirectSymbol IndirectSymbolAttr*
+///                     'alias|ifunc' AliaseeOrResolver SymbolAttrs*
 ///
-/// IndirectSymbol
+/// AliaseeOrResolver
 ///   ::= TypeAndValue
 ///
-/// IndirectSymbolAttr
+/// SymbolAttrs
 ///   ::= ',' 'partition' StringConstant
 ///
 /// Everything through OptionalUnnamedAddr has already been parsed.
 ///
-bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
-                                   unsigned L, unsigned Visibility,
-                                   unsigned DLLStorageClass, bool DSOLocal,
-                                   GlobalVariable::ThreadLocalMode TLM,
+bool LLParser::parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
+                                 unsigned L, unsigned Visibility,
+                                 unsigned DLLStorageClass, bool DSOLocal,
+                                 GlobalVariable::ThreadLocalMode TLM,
 #if INTEL_COLLAB
                                    GlobalVariable::UnnamedAddr UnnamedAddr,
                                    bool IsThreadPrivate,
                                    bool IsTargetDeclare) {
 #else
-                                   GlobalVariable::UnnamedAddr UnnamedAddr) {
-
+                                 GlobalVariable::UnnamedAddr UnnamedAddr) {
 #endif // INTEL_COLLAB
   bool IsAlias;
   if (Lex.getKind() == lltok::kw_alias)
@@ -1057,25 +1072,30 @@ bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
     }
   }
 
-  // Okay, create the alias but do not insert it into the module yet.
-  std::unique_ptr<GlobalIndirectSymbol> GA;
-  if (IsAlias)
+  // Okay, create the alias/ifunc but do not insert it into the module yet.
+  std::unique_ptr<GlobalAlias> GA;
+  std::unique_ptr<GlobalIFunc> GI;
+  GlobalValue *GV;
+  if (IsAlias) {
     GA.reset(GlobalAlias::create(Ty, AddrSpace,
                                  (GlobalValue::LinkageTypes)Linkage, Name,
                                  Aliasee, /*Parent*/ nullptr));
-  else
-    GA.reset(GlobalIFunc::create(Ty, AddrSpace,
+    GV = GA.get();
+  } else {
+    GI.reset(GlobalIFunc::create(Ty, AddrSpace,
                                  (GlobalValue::LinkageTypes)Linkage, Name,
                                  Aliasee, /*Parent*/ nullptr));
-  GA->setThreadLocalMode(TLM);
+    GV = GI.get();
+  }
+  GV->setThreadLocalMode(TLM);
 #if INTEL_COLLAB
-  GA->setThreadPrivate(IsThreadPrivate);
-  GA->setTargetDeclare(IsTargetDeclare);
+  GV->setThreadPrivate(IsThreadPrivate);
+  GV->setTargetDeclare(IsTargetDeclare);
 #endif // INTEL_COLLAB
-  GA->setVisibility((GlobalValue::VisibilityTypes)Visibility);
-  GA->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
-  GA->setUnnamedAddr(UnnamedAddr);
-  maybeSetDSOLocal(DSOLocal, *GA);
+  GV->setVisibility((GlobalValue::VisibilityTypes)Visibility);
+  GV->setDLLStorageClass((GlobalValue::DLLStorageClassTypes)DLLStorageClass);
+  GV->setUnnamedAddr(UnnamedAddr);
+  maybeSetDSOLocal(DSOLocal, *GV);
 
   // At this point we've parsed everything except for the IndirectSymbolAttrs.
   // Now parse them if there are any.
@@ -1084,7 +1104,7 @@ bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
 
     if (Lex.getKind() == lltok::kw_partition) {
       Lex.Lex();
-      GA->setPartition(Lex.getStrVal());
+      GV->setPartition(Lex.getStrVal());
       if (parseToken(lltok::StringConstant, "expected partition string"))
         return true;
     } else {
@@ -1093,30 +1113,27 @@ bool LLParser::parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
   }
 
   if (Name.empty())
-    NumberedVals.push_back(GA.get());
+    NumberedVals.push_back(GV);
 
   if (GVal) {
     // Verify that types agree.
-    if (GVal->getType() != GA->getType())
+    if (GVal->getType() != GV->getType())
       return error(
           ExplicitTypeLoc,
           "forward reference and definition of alias have different types");
 
     // If they agree, just RAUW the old value with the alias and remove the
     // forward ref info.
-    GVal->replaceAllUsesWith(GA.get());
+    GVal->replaceAllUsesWith(GV);
     GVal->eraseFromParent();
   }
 
   // Insert into the module, we know its name won't collide now.
   if (IsAlias)
-    M->getAliasList().push_back(cast<GlobalAlias>(GA.get()));
+    M->getAliasList().push_back(GA.release());
   else
-    M->getIFuncList().push_back(cast<GlobalIFunc>(GA.get()));
-  assert(GA->getName() == Name && "Should not be a name conflict!");
-
-  // The module owns this now
-  GA.release();
+    M->getIFuncList().push_back(GI.release());
+  assert(GV->getName() == Name && "Should not be a name conflict!");
 
   return false;
 }
@@ -2025,7 +2042,7 @@ bool LLParser::parseOptionalAlignment(MaybeAlign &Alignment, bool AllowParens) {
   if (!EatIfPresent(lltok::kw_align))
     return false;
   LocTy AlignLoc = Lex.getLoc();
-  uint32_t Value = 0;
+  uint64_t Value = 0;
 
   LocTy ParenLoc = Lex.getLoc();
   bool HaveParens = false;
@@ -2034,13 +2051,13 @@ bool LLParser::parseOptionalAlignment(MaybeAlign &Alignment, bool AllowParens) {
       HaveParens = true;
   }
 
-  if (parseUInt32(Value))
+  if (parseUInt64(Value))
     return true;
 
   if (HaveParens && !EatIfPresent(lltok::rparen))
     return error(ParenLoc, "expected ')'");
 
-  if (!isPowerOf2_32(Value))
+  if (!isPowerOf2_64(Value))
     return error(AlignLoc, "alignment is not a power of two");
   if (Value > Value::MaximumAlignment)
     return error(AlignLoc, "huge alignments are not supported yet");

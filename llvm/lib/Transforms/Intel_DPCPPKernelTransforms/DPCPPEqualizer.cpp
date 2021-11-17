@@ -136,7 +136,7 @@ private:
     }
     assert(PipesModule && "Module containing pipe built-ins not found");
 
-    assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
+    assert(CI->arg_size() == 4 && "Unexpected number of arguments");
     SmallVector<Value *, 4> NewArgs;
     NewArgs.push_back(CI->getArgOperand(0));
 
@@ -158,7 +158,7 @@ private:
     }
 
     // Copy rest arguments.
-    for (size_t I = 2; I < CI->getNumArgOperands(); ++I)
+    for (size_t I = 2; I < CI->arg_size(); ++I)
       NewArgs.push_back(CI->getArgOperand(I));
 
     // Add _fpga suffix to pipe built-ins.

@@ -65,11 +65,11 @@ void foo() {
 
   long l;
 // CHECK: !DILocalVariable(name: "l",{{.*}} type: [[L:![0-9]+]])
-// CHECK: [[L]] = !DIBasicType(name: "long int", size: 64, encoding: DW_ATE_signed)
+// CHECK: [[L]] = !DIBasicType(name: "long", size: 64, encoding: DW_ATE_signed)
 
   unsigned long unl;
 // CHECK: !DILocalVariable(name: "unl",{{.*}} type: [[UNL:![0-9]+]])
-// CHECK: [[UNL]] = !DIBasicType(name: "long unsigned int", size: 64, encoding: DW_ATE_unsigned)
+// CHECK: [[UNL]] = !DIBasicType(name: "unsigned long", size: 64, encoding: DW_ATE_unsigned)
 
   ulong ul;
 // CHECK: !DILocalVariable(name: "ul",{{.*}} type: [[UL:![0-9]+]])

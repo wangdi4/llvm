@@ -162,7 +162,7 @@ bool AddImplicitArgsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
     Value **CallArgs = It.second;
 
     unsigned ImplicitArgStart =
-        CI->getNumArgOperands() - ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
+        CI->arg_size() - ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
     for (unsigned i = ImplicitArgStart, j = 0;
          j < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i, ++j)
       CI->setArgOperand(i, CallArgs[j]);
@@ -318,7 +318,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
         auto *CalledF = dyn_cast<Function>(Callee);
         if (!CalledF)
           continue;
-        for (int i = 0, e = CI->getNumArgOperands(); i < e; ++i) {
+        for (int i = 0, e = CI->arg_size(); i < e; ++i) {
           if (CI->getArgOperand(i) != Cast)
             continue;
           assert(llvm::all_of(CalledF->getArg(i)->users(),

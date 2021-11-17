@@ -1427,8 +1427,6 @@ static bool valueCoversEntireFragment(Type *ValTy, DbgVariableIntrinsic *DII) {
     if (auto *AI =
             dyn_cast_or_null<AllocaInst>(DII->getVariableLocationOp(0))) {
       if (Optional<TypeSize> FragmentSize = AI->getAllocationSizeInBits(DL)) {
-        assert(ValueSize.isScalable() == FragmentSize->isScalable() &&
-               "Both sizes should agree on the scalable flag.");
         return TypeSize::isKnownGE(ValueSize, *FragmentSize);
       }
     }
@@ -1747,9 +1745,11 @@ void llvm::salvageDebugInfo(Instruction &I) {
 
 void llvm::salvageDebugInfoForDbgValues(
     Instruction &I, ArrayRef<DbgVariableIntrinsic *> DbgUsers) {
-  // This is an arbitrary chosen limit on the maximum number of values we can
-  // salvage up to in a DIArgList, used for performance reasons.
+  // These are arbitrary chosen limits on the maximum number of values and the
+  // maximum size of a debug expression we can salvage up to, used for
+  // performance reasons.
   const unsigned MaxDebugArgs = 16;
+  const unsigned MaxExpressionSize = 128;
   bool Salvaged = false;
 
   for (auto *DII : DbgUsers) {
@@ -1786,9 +1786,10 @@ void llvm::salvageDebugInfoForDbgValues(
       break;
 
     DII->replaceVariableLocationOp(&I, Op0);
-    if (AdditionalValues.empty()) {
+    bool IsValidSalvageExpr = SalvagedExpr->getNumElements() <= MaxExpressionSize;
+    if (AdditionalValues.empty() && IsValidSalvageExpr) {
       DII->setExpression(SalvagedExpr);
-    } else if (isa<DbgValueInst>(DII) &&
+    } else if (isa<DbgValueInst>(DII) && IsValidSalvageExpr &&
                DII->getNumVariableLocationOps() + AdditionalValues.size() <=
                    MaxDebugArgs) {
       DII->addVariableLocationOps(AdditionalValues, SalvagedExpr);
@@ -2209,6 +2210,26 @@ void llvm::changeToCall(InvokeInst *II, DomTreeUpdater *DTU) {
   II->eraseFromParent();
   if (DTU)
     DTU->applyUpdates({{DominatorTree::Delete, BB, UnwindDestBB}});
+}
+
+void llvm::createUnreachableSwitchDefault(SwitchInst *Switch,
+                                          DomTreeUpdater *DTU) {
+  LLVM_DEBUG(dbgs() << "SimplifyCFG: switch default is dead.\n");
+  auto *BB = Switch->getParent();
+  auto *OrigDefaultBlock = Switch->getDefaultDest();
+  OrigDefaultBlock->removePredecessor(BB);
+  BasicBlock *NewDefaultBlock = BasicBlock::Create(
+      BB->getContext(), BB->getName() + ".unreachabledefault", BB->getParent(),
+      OrigDefaultBlock);
+  new UnreachableInst(Switch->getContext(), NewDefaultBlock);
+  Switch->setDefaultDest(&*NewDefaultBlock);
+  if (DTU) {
+    SmallVector<DominatorTree::UpdateType, 2> Updates;
+    Updates.push_back({DominatorTree::Insert, BB, &*NewDefaultBlock});
+    if (!is_contained(successors(BB), OrigDefaultBlock))
+      Updates.push_back({DominatorTree::Delete, BB, &*OrigDefaultBlock});
+    DTU->applyUpdates(Updates);
+  }
 }
 
 BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,

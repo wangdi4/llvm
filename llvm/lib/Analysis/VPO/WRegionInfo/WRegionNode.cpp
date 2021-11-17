@@ -295,7 +295,7 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
           if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
             CallInst *Call = cast<CallInst>(&I);
             // LLVM_DEBUG(dbgs() << "Found Call: " << *Call << "\n");
-            assert(Call->getNumArgOperands()==2 &&
+            assert(Call->arg_size()==2 &&
                    "__read_pipe_2_bl_intel() is expected to have 2 operands");
             Value *V = Call->getArgOperand(1); // second operand
             AllocaInst *Alloca = VPOAnalysisUtils::findAllocaInst(V);

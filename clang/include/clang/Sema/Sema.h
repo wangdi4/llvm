@@ -628,8 +628,8 @@ public:
   ///
   /// This is the greatest alignment value supported by load, store, and alloca
   /// instructions, and global values.
-  static const unsigned MaxAlignmentExponent = 30;
-  static const unsigned MaximumAlignment = 1u << MaxAlignmentExponent;
+  static const unsigned MaxAlignmentExponent = 32;
+  static const uint64_t MaximumAlignment = 1ull << MaxAlignmentExponent;
 
 #if INTEL_CUSTOMIZATION
   friend void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S);
@@ -1390,6 +1390,10 @@ public:
   /// The C++ "std::coroutine_traits" template, which is defined in
   /// \<coroutine_traits>
   ClassTemplateDecl *StdCoroutineTraitsCache;
+  /// The namespace where coroutine components are defined. In standard,
+  /// they are defined in std namespace. And in the previous implementation,
+  /// they are defined in std::experimental namespace.
+  NamespaceDecl *CoroTraitsNamespaceCache;
 
   /// The C++ "type_info" declaration, which is defined in \<typeinfo>.
   RecordDecl *CXXTypeInfoDecl;
@@ -3745,7 +3749,7 @@ public:
   EnforceTCBAttr *mergeEnforceTCBAttr(Decl *D, const EnforceTCBAttr &AL);
   EnforceTCBLeafAttr *mergeEnforceTCBLeafAttr(Decl *D,
                                               const EnforceTCBLeafAttr &AL);
-  BTFTagAttr *mergeBTFTagAttr(Decl *D, const BTFTagAttr &AL);
+  BTFDeclTagAttr *mergeBTFDeclTagAttr(Decl *D, const BTFDeclTagAttr &AL);
 
 #if INTEL_CUSTOMIZATION
   void AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI, Expr *P1,
@@ -6117,6 +6121,7 @@ public:
   NamespaceDecl *getOrCreateStdNamespace();
 
   NamespaceDecl *lookupStdExperimentalNamespace();
+  NamespaceDecl *getCachedCoroNamespace() { return CoroTraitsNamespaceCache; }
 
   CXXRecordDecl *getStdBadAlloc() const;
   EnumDecl *getStdAlignValT() const;
@@ -10778,8 +10783,11 @@ public:
   bool buildCoroutineParameterMoves(SourceLocation Loc);
   VarDecl *buildCoroutinePromise(SourceLocation Loc);
   void CheckCompletedCoroutineBody(FunctionDecl *FD, Stmt *&Body);
+  /// Lookup 'coroutine_traits' in std namespace and std::experimental
+  /// namespace. The namespace found is recorded in Namespace.
   ClassTemplateDecl *lookupCoroutineTraits(SourceLocation KwLoc,
-                                           SourceLocation FuncLoc);
+                                           SourceLocation FuncLoc,
+                                           NamespaceDecl *&Namespace);
   /// Check that the expression co_await promise.final_suspend() shall not be
   /// potentially-throwing.
   bool checkFinalSuspendNoThrow(const Stmt *FinalSuspend);
@@ -11209,11 +11217,6 @@ public:
   StmtResult ActOnOpenMPTargetVariantDispatchDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc);
-  /// Called on well-formed '\#pragma omp loop' after parsing of the
-  /// associated statement.
-  StmtResult ActOnOpenMPGenericLoopDirective(
-      ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
-      SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
   /// Called on well-formed '\#pragma omp teams loop' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPTeamsGenericLoopDirective(
@@ -11505,6 +11508,12 @@ public:
                                         Stmt *AStmt, SourceLocation StartLoc,
                                         SourceLocation EndLoc);
 
+  /// Called on well-formed '\#pragma omp loop' after parsing of the
+  /// associated statement.
+  StmtResult ActOnOpenMPGenericLoopDirective(
+      ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+      SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
+
   /// Checks correctness of linear modifiers.
   bool CheckOpenMPLinearModifier(OpenMPLinearClauseKind LinKind,
                                  SourceLocation LinLoc);
@@ -11529,14 +11538,14 @@ public:
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
   /// \param TI The trait info object representing the match clause.
+  /// \param NumAppendArgs The number of omp_interop_t arguments to account for
+  /// in checking.
   /// \returns None, if the function/variant function are not compatible with
   /// the pragma, pair of original function/variant ref expression otherwise.
   Optional<std::pair<FunctionDecl *, Expr *>>
   checkOpenMPDeclareVariantFunction(DeclGroupPtrTy DG, Expr *VariantRef,
-#if INTEL_COLLAB
-                                    unsigned NumAppendArgs,
-#endif // INTEL_COLLAB
-                                    OMPTraitInfo &TI, SourceRange SR);
+                                    OMPTraitInfo &TI, unsigned NumAppendArgs,
+                                    SourceRange SR);
 
   /// Called on well-formed '\#pragma omp declare variant' after parsing of
   /// the associated method/function.
@@ -11545,14 +11554,19 @@ public:
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
   /// \param TI The context traits associated with the function variant.
-  void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
-#if INTEL_COLLAB
-      MutableArrayRef<Expr *> AdjustArgsNothing,
-      MutableArrayRef<Expr *> AdjustArgsNeedDevicePtr,
-      MutableArrayRef<OMPDeclareVariantAttr::InteropType> AdjustArgs,
+  /// \param AdjustArgsNothing The list of 'nothing' arguments.
+  /// \param AdjustArgsNeedDevicePtr The list of 'need_device_ptr' arguments.
+  /// \param AppendArgs The list of 'append_args' arguments.
+  /// \param AdjustArgsLoc The Location of an 'adjust_args' clause.
+  /// \param AppendArgsLoc The Location of an 'append_args' clause.
+  /// \param SR The SourceRange of the 'declare variant' directive.
+  void ActOnOpenMPDeclareVariantDirective(
+      FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
+      ArrayRef<Expr *> AdjustArgsNothing,
+      ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
+      ArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
       SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
-#endif // INTEL_COLLAB
-                                          OMPTraitInfo &TI, SourceRange SR);
+      SourceRange SR);
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,
@@ -11581,12 +11595,6 @@ public:
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
 #if INTEL_COLLAB
-  /// Called on a well-formed 'bind' clause.
-  OMPClause *ActOnOpenMPBindClause(llvm::omp::BindKind Kind,
-                                   SourceLocation KindLoc,
-                                   SourceLocation StartLoc,
-                                   SourceLocation LParenLoc,
-                                   SourceLocation EndLoc);
   /// Called on well-formed 'subdevice' clause.
   OMPClause *ActOnOpenMPSubdeviceClause(Expr *Level,
                                         Expr *Start,
@@ -11608,11 +11616,6 @@ public:
                                    ArrayRef<Expr *> NumElements,
                                    SourceLocation StartLoc,
                                    SourceLocation EndLoc);
-  /// Called on well-formed 'align' clause.
-  OMPClause *ActOnOpenMPAlignClause(Expr *Alignment,
-                                    SourceLocation StartLoc,
-                                    SourceLocation LParenLoc,
-                                    SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Called on well-formed 'tile' clause.
@@ -11629,6 +11632,10 @@ public:
                                        SourceLocation EndLoc);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  /// Called on well-formed 'align' clause.
+  OMPClause *ActOnOpenMPAlignClause(Expr *Alignment, SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
   /// Called on well-formed 'safelen' clause.
   OMPClause *ActOnOpenMPSafelenClause(Expr *Length,
                                       SourceLocation StartLoc,
@@ -12032,6 +12039,12 @@ public:
                                        SourceLocation ColonLoc,
                                        SourceLocation EndLoc, Expr *Modifier,
                                        ArrayRef<Expr *> Locators);
+  /// Called on a well-formed 'bind' clause.
+  OMPClause *ActOnOpenMPBindClause(OpenMPBindClauseKind Kind,
+                                   SourceLocation KindLoc,
+                                   SourceLocation StartLoc,
+                                   SourceLocation LParenLoc,
+                                   SourceLocation EndLoc);
 
   /// The kind of conversion being performed.
   enum CheckedConversionKind {
@@ -12867,9 +12880,9 @@ public:
     return targetDiag(Loc, PD.getDiagID(), FD) << PD;
   }
 
-  /// Check if the expression is allowed to be used in expressions for the
-  /// offloading devices.
-  void checkDeviceDecl(ValueDecl *D, SourceLocation Loc);
+  /// Check if the type is allowed to be used for the current target.
+  void checkTypeSupport(QualType Ty, SourceLocation Loc,
+                        ValueDecl *D = nullptr);
 
   enum CUDAFunctionTarget {
     CFT_Device,
@@ -13397,6 +13410,10 @@ private:
                              const char *TypeDesc);
 
   bool CheckPPCMMAType(QualType Type, SourceLocation TypeLoc);
+
+  bool SemaBuiltinElementwiseMath(CallExpr *TheCall);
+  bool SemaBuiltinElementwiseMathOneArg(CallExpr *TheCall);
+  bool SemaBuiltinReduceMath(CallExpr *TheCall);
 
   // Matrix builtin handling.
   ExprResult SemaBuiltinMatrixTranspose(CallExpr *TheCall,

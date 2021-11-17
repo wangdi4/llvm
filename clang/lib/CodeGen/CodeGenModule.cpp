@@ -19,11 +19,10 @@
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
-#include "CGOpenMPRuntimeAMDGCN.h"
-#include "CGOpenMPRuntimeNVPTX.h"
 #include "intel/CGSPIRMetadataAdder.h" // INTEL
 #include "CGRecordLayout.h" // INTEL
 #include "CGSYCLRuntime.h"
+#include "CGOpenMPRuntimeGPU.h"
 #include "CodeGenFunction.h"
 #include "CodeGenPGO.h"
 #include "ConstantEmitter.h"
@@ -306,14 +305,10 @@ void CodeGenModule::createOpenMPRuntime() {
   switch (getTriple().getArch()) {
   case llvm::Triple::nvptx:
   case llvm::Triple::nvptx64:
-    assert(getLangOpts().OpenMPIsDevice &&
-           "OpenMP NVPTX is only prepared to deal with device code.");
-    OpenMPRuntime.reset(new CGOpenMPRuntimeNVPTX(*this));
-    break;
   case llvm::Triple::amdgcn:
     assert(getLangOpts().OpenMPIsDevice &&
-           "OpenMP AMDGCN is only prepared to deal with device code.");
-    OpenMPRuntime.reset(new CGOpenMPRuntimeAMDGCN(*this));
+           "OpenMP AMDGPU/NVPTX is only prepared to deal with device code.");
+    OpenMPRuntime.reset(new CGOpenMPRuntimeGPU(*this));
     break;
   default:
     if (LangOpts.OpenMPSimd)
@@ -383,21 +378,21 @@ void CodeGenModule::applyGlobalValReplacements() {
 
 // This is only used in aliases that we created and we know they have a
 // linear structure.
-static const llvm::GlobalObject *getAliasedGlobal(
-    const llvm::GlobalIndirectSymbol &GIS) {
-  llvm::SmallPtrSet<const llvm::GlobalIndirectSymbol*, 4> Visited;
-  const llvm::Constant *C = &GIS;
+static const llvm::GlobalValue *getAliasedGlobal(const llvm::GlobalValue *GV) {
+  llvm::SmallPtrSet<const llvm::GlobalValue *, 4> Visited;
   for (;;) {
-    C = C->stripPointerCasts();
-    if (auto *GO = dyn_cast<llvm::GlobalObject>(C))
-      return GO;
-    // stripPointerCasts will not walk over weak aliases.
-    auto *GIS2 = dyn_cast<llvm::GlobalIndirectSymbol>(C);
-    if (!GIS2)
+    if (!GV || !Visited.insert(GV).second)
       return nullptr;
-    if (!Visited.insert(GIS2).second)
-      return nullptr;
-    C = GIS2->getIndirectSymbol();
+
+    const llvm::Constant *C;
+    if (auto *GA = dyn_cast<llvm::GlobalAlias>(GV))
+      C = GA->getAliasee();
+    else if (auto *GI = dyn_cast<llvm::GlobalIFunc>(GV))
+      C = GI->getResolver();
+    else
+      return GV;
+
+    GV = dyn_cast<llvm::GlobalValue>(C->stripPointerCasts());
   }
 }
 
@@ -416,9 +411,8 @@ void CodeGenModule::checkAliases() {
     else
       llvm_unreachable("Not an alias or ifunc?");
     StringRef MangledName = getMangledName(GD);
-    llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
-    auto *Alias  = cast<llvm::GlobalIndirectSymbol>(Entry);
-    const llvm::GlobalValue *GV = getAliasedGlobal(*Alias);
+    llvm::GlobalValue *Alias = GetGlobalValue(MangledName);
+    const llvm::GlobalValue *GV = getAliasedGlobal(Alias);
     if (!GV) {
       Error = true;
       Diags.Report(Location, diag::err_cyclic_alias) << IsIFunc;
@@ -435,7 +429,10 @@ void CodeGenModule::checkAliases() {
         Diags.Report(Location, diag::err_ifunc_resolver_return);
     }
 
-    llvm::Constant *Aliasee = Alias->getIndirectSymbol();
+    llvm::Constant *Aliasee =
+        IsIFunc ? cast<llvm::GlobalIFunc>(Alias)->getResolver()
+                : cast<llvm::GlobalAlias>(Alias)->getAliasee();
+
     llvm::GlobalValue *AliaseeGV;
     if (auto CE = dyn_cast<llvm::ConstantExpr>(Aliasee))
       AliaseeGV = cast<llvm::GlobalValue>(CE->getOperand(0));
@@ -454,13 +451,17 @@ void CodeGenModule::checkAliases() {
     // compatibility with gcc we implement it by just pointing the alias
     // to its aliasee's aliasee. We also warn, since the user is probably
     // expecting the link to be weak.
-    if (auto GA = dyn_cast<llvm::GlobalIndirectSymbol>(AliaseeGV)) {
+    if (auto *GA = dyn_cast<llvm::GlobalAlias>(AliaseeGV)) {
       if (GA->isInterposable()) {
         Diags.Report(Location, diag::warn_alias_to_weak_alias)
             << GV->getName() << GA->getName() << IsIFunc;
         Aliasee = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-            GA->getIndirectSymbol(), Alias->getType());
-        Alias->setIndirectSymbol(Aliasee);
+            GA->getAliasee(), Alias->getType());
+
+        if (IsIFunc)
+          cast<llvm::GlobalIFunc>(Alias)->setResolver(Aliasee);
+        else
+          cast<llvm::GlobalAlias>(Alias)->setAliasee(Aliasee);
       }
     }
   }
@@ -469,8 +470,7 @@ void CodeGenModule::checkAliases() {
 
   for (const GlobalDecl &GD : Aliases) {
     StringRef MangledName = getMangledName(GD);
-    llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
-    auto *Alias = cast<llvm::GlobalIndirectSymbol>(Entry);
+    llvm::GlobalValue *Alias = GetGlobalValue(MangledName);
     Alias->replaceAllUsesWith(llvm::UndefValue::get(Alias->getType()));
     Alias->eraseFromParent();
   }
@@ -2792,9 +2792,9 @@ static void addLinkOptionsPostorder(CodeGenModule &CGM, Module *Mod,
   }
 
   // Import this module's dependencies.
-  for (unsigned I = Mod->Imports.size(); I > 0; --I) {
-    if (Visited.insert(Mod->Imports[I - 1]).second)
-      addLinkOptionsPostorder(CGM, Mod->Imports[I-1], Metadata, Visited);
+  for (Module *Import : llvm::reverse(Mod->Imports)) {
+    if (Visited.insert(Import).second)
+      addLinkOptionsPostorder(CGM, Import, Metadata, Visited);
   }
 
   // Add linker options to link against the libraries/frameworks
@@ -2807,13 +2807,12 @@ static void addLinkOptionsPostorder(CodeGenModule &CGM, Module *Mod,
   if (Mod->UseExportAsModuleLinkName)
     return;
 
-  for (unsigned I = Mod->LinkLibraries.size(); I > 0; --I) {
+  for (const Module::LinkLibrary &LL : llvm::reverse(Mod->LinkLibraries)) {
     // Link against a framework.  Frameworks are currently Darwin only, so we
     // don't to ask TargetCodeGenInfo for the spelling of the linker option.
-    if (Mod->LinkLibraries[I-1].IsFramework) {
-      llvm::Metadata *Args[2] = {
-          llvm::MDString::get(Context, "-framework"),
-          llvm::MDString::get(Context, Mod->LinkLibraries[I - 1].Library)};
+    if (LL.IsFramework) {
+      llvm::Metadata *Args[2] = {llvm::MDString::get(Context, "-framework"),
+                                 llvm::MDString::get(Context, LL.Library)};
 
       Metadata.push_back(llvm::MDNode::get(Context, Args));
       continue;
@@ -2823,13 +2822,12 @@ static void addLinkOptionsPostorder(CodeGenModule &CGM, Module *Mod,
     if (IsELF) {
       llvm::Metadata *Args[2] = {
           llvm::MDString::get(Context, "lib"),
-          llvm::MDString::get(Context, Mod->LinkLibraries[I - 1].Library),
+          llvm::MDString::get(Context, LL.Library),
       };
       Metadata.push_back(llvm::MDNode::get(Context, Args));
     } else {
       llvm::SmallString<24> Opt;
-      CGM.getTargetCodeGenInfo().getDependentLibraryOption(
-          Mod->LinkLibraries[I - 1].Library, Opt);
+      CGM.getTargetCodeGenInfo().getDependentLibraryOption(LL.Library, Opt);
       auto *OptString = llvm::MDString::get(Context, Opt);
       Metadata.push_back(llvm::MDNode::get(Context, OptString));
     }
@@ -4032,10 +4030,9 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
     // using LibIRC.
     if (!getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
 #endif // INTEL_CUSTOMIZATION
-    Features.erase(std::remove_if(
-        Features.begin(), Features.end(), [&Target](StringRef Feat) {
-          return !Target.validateCpuSupports(Feat);
-        }), Features.end());
+    llvm::erase_if(Features, [&Target](StringRef Feat) {
+      return !Target.validateCpuSupports(Feat);
+    });
     Options.emplace_back(cast<llvm::Function>(Func), StringRef{}, Features);
     ++Index;
   }
@@ -6135,8 +6132,9 @@ void CodeGenModule::emitIFuncDefinition(GlobalDecl GD) {
   Aliases.push_back(GD);
 
   llvm::Type *DeclTy = getTypes().ConvertTypeForMem(D->getType());
+  llvm::Type *ResolverTy = llvm::GlobalIFunc::getResolverFunctionType(DeclTy);
   llvm::Constant *Resolver =
-      GetOrCreateLLVMFunction(IFA->getResolver(), DeclTy, GD,
+      GetOrCreateLLVMFunction(IFA->getResolver(), ResolverTy, GD,
                               /*ForVTable=*/false);
   llvm::GlobalIFunc *GIF =
       llvm::GlobalIFunc::create(DeclTy, 0, llvm::Function::ExternalLinkage,
@@ -6512,7 +6510,7 @@ CodeGenModule::GetAddrOfConstantStringFromLiteral(const StringLiteral *S,
   if (!LangOpts.WritableStrings) {
     Entry = &ConstantStringMap[C];
     if (auto GV = *Entry) {
-      if (Alignment.getQuantity() > GV->getAlignment())
+      if (uint64_t(Alignment.getQuantity()) > GV->getAlignment())
         GV->setAlignment(Alignment.getAsAlign());
       return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
                              Alignment);
@@ -6575,7 +6573,7 @@ ConstantAddress CodeGenModule::GetAddrOfConstantCString(
   if (!LangOpts.WritableStrings) {
     Entry = &ConstantStringMap[C];
     if (auto GV = *Entry) {
-      if (Alignment.getQuantity() > GV->getAlignment())
+      if (uint64_t(Alignment.getQuantity()) > GV->getAlignment())
         GV->setAlignment(Alignment.getAsAlign());
       return ConstantAddress(castStringLiteralToDefaultAddressSpace(*this, GV),
                              Alignment);

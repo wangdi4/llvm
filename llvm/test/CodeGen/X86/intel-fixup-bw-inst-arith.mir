@@ -71,12 +71,12 @@ body:             |
     ; CHECK: $eax = ADD32ri undef $eax, 2, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
     ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
     ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
-    ; CHECK: RETQ
+    ; CHECK: RET64
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = ADD16ri killed renamable $ax, 2, implicit-def dead $eflags
     MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
     MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
-    RETQ
+    RET64
 
 ...
 ---
@@ -99,12 +99,12 @@ body:             |
     ; CHECK: $eax = SUB32ri undef $eax, 2, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
     ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
     ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
-    ; CHECK: RETQ
+    ; CHECK: RET64
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = SUB16ri killed renamable $ax, 2, implicit-def dead $eflags
     MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
     MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
-    RETQ
+    RET64
 
 ...
 ---
@@ -127,12 +127,12 @@ body:             |
     ; CHECK: $eax = AND32ri undef $eax, -2, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
     ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
     ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
-    ; CHECK: RETQ
+    ; CHECK: RET64
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = AND16ri killed renamable $ax, -2, implicit-def dead $eflags
     MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
     MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
-    RETQ
+    RET64
 
 ...
 ---
@@ -155,12 +155,12 @@ body:             |
     ; CHECK: $eax = OR32ri undef $eax, 1, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
     ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
     ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
-    ; CHECK: RETQ
+    ; CHECK: RET64
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = OR16ri killed renamable $ax, 1, implicit-def dead $eflags
     MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
     MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
-    RETQ
+    RET64
 
 ...
 ---
@@ -183,11 +183,11 @@ body:             |
     ; CHECK: $eax = XOR32ri undef $eax, 1, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
     ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
     ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
-    ; CHECK: RETQ
+    ; CHECK: RET64
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = XOR16ri killed renamable $ax, 1, implicit-def dead $eflags
     MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
     MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
-    RETQ
+    RET64
 
 ...

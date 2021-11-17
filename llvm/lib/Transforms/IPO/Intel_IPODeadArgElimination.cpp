@@ -394,7 +394,7 @@ bool IPDeadArgElimination::analyzeOneArgument(
     // Find the formal argument in the new candidate. It must be unique.
     unsigned TempArgNo = 0;
     bool ArgFound = false;
-    for (unsigned I = 0, E = Call->getNumArgOperands(); I < E; I++) {
+    for (unsigned I = 0, E = Call->arg_size(); I < E; I++) {
       if (Call->getArgOperand(I) == ActualArg) {
         if (ArgFound)
           return false;

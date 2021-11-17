@@ -31,10 +31,10 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <memory>
@@ -1758,8 +1758,8 @@ bool X86AsmParser::CreateMemForMSInlineAsm(
   // It is widely common for MS InlineAsm to use a global variable and one/two
   // registers in a mmory expression, and though unaccessible via rip/eip.
   if (IsGlobalLV && (BaseReg || IndexReg)) {
-    Operands.push_back(
-        X86Operand::CreateMem(getPointerWidth(), Disp, Start, End, Size));
+    Operands.push_back(X86Operand::CreateMem(getPointerWidth(), Disp, Start,
+                                             End, Size, Identifier, Decl));
     return false;
   }
   // Otherwise, we set the base register to a non-zero value
@@ -2557,6 +2557,8 @@ bool X86AsmParser::ParseIntelOperand(OperandVector &Operands) {
   StringRef ErrMsg;
   unsigned BaseReg = SM.getBaseReg();
   unsigned IndexReg = SM.getIndexReg();
+  if (IndexReg && BaseReg == X86::RIP)
+    BaseReg = 0;
   unsigned Scale = SM.getScale();
   if (!PtrInOperand)
     Size = SM.getElementSize() << 3;
@@ -4151,12 +4153,12 @@ void X86AsmParser::applyLVICFIMitigation(MCInst &Inst, MCStreamer &Out) {
   // be found here:
   // https://software.intel.com/security-software-guidance/insights/deep-dive-load-value-injection#specialinstructions
   switch (Inst.getOpcode()) {
-  case X86::RETW:
-  case X86::RETL:
-  case X86::RETQ:
-  case X86::RETIL:
-  case X86::RETIQ:
-  case X86::RETIW: {
+  case X86::RET16:
+  case X86::RET32:
+  case X86::RET64:
+  case X86::RETI16:
+  case X86::RETI32:
+  case X86::RETI64: {
     MCInst ShlInst, FenceInst;
     bool Parse32 = is32BitMode() || Code16GCC;
     unsigned Basereg =

@@ -313,16 +313,16 @@ namespace llvm {
 #else // INTEL_COLLAB
                      GlobalVariable::UnnamedAddr UnnamedAddr);
 #endif // INTEL_COLLAB
-    bool parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
-                             unsigned L, unsigned Visibility,
-                             unsigned DLLStorageClass, bool DSOLocal,
-                             GlobalVariable::ThreadLocalMode TLM,
+    bool parseAliasOrIFunc(const std::string &Name, LocTy NameLoc,
+                           unsigned L, unsigned Visibility,
+                           unsigned DLLStorageClass, bool DSOLocal,
+                           GlobalVariable::ThreadLocalMode TLM,
 #if INTEL_COLLAB
-                             GlobalVariable::UnnamedAddr UnnamedAddr,
-                             bool IsThreadPrivate,
-                             bool IsTargetDeclare);
+                           GlobalVariable::UnnamedAddr UnnamedAddr,
+                           bool IsThreadPrivate,
+                           bool IsTargetDeclare);
 #else // INTEL_COLLAB
-                             GlobalVariable::UnnamedAddr UnnamedAddr);
+                           GlobalVariable::UnnamedAddr UnnamedAddr);
 #endif // INTEL_COLLAB
     bool parseComdat();
     bool parseStandaloneMetadata();

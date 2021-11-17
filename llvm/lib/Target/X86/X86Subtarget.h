@@ -54,8 +54,7 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   // are not a good idea. We should be migrating away from these.
   enum X86ProcFamilyEnum {
     Others,
-    IntelAtom,
-    IntelSLM
+    IntelAtom
   };
 
   enum X86SSEEnum {
@@ -705,6 +704,10 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// loads from being used maliciously.
   bool UseLVILoadHardening = false;
 
+  /// Use an instruction sequence for taking the address of a global that allows
+  /// a memory tag in the upper address bits.
+  bool AllowTaggedGlobals = false;
+
   /// Use software floating point for code generation.
   bool UseSoftFloat = false;
 
@@ -735,6 +738,9 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor supports Decoded Stream Buffer.
   X86DSBEnum DSBSize = NoDSB;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Use Silvermont specific arithmetic costs.
+  bool UseSLMArithCosts = false;
 
   /// Use Goldmont specific floating point div/sqrt costs.
   bool UseGLMDivSqrtCosts = false;
@@ -1249,8 +1255,10 @@ public:
   }
 
   bool preferMaskRegisters() const { return PreferMaskRegisters; }
+  bool useSLMArithCosts() const { return UseSLMArithCosts; }
   bool useGLMDivSqrtCosts() const { return UseGLMDivSqrtCosts; }
   bool useLVIControlFlowIntegrity() const { return UseLVIControlFlowIntegrity; }
+  bool allowTaggedGlobals() const { return AllowTaggedGlobals; }
   bool useLVILoadHardening() const { return UseLVILoadHardening; }
   bool useSpeculativeExecutionSideEffectSuppression() const {
     return UseSpeculativeExecutionSideEffectSuppression;
@@ -1296,7 +1304,6 @@ public:
 
   /// TODO: to be removed later and replaced with suitable properties
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
-  bool isSLM() const { return X86ProcFamily == IntelSLM; }
   bool useSoftFloat() const { return UseSoftFloat; }
   bool useAA() const override { return UseAA; }
 

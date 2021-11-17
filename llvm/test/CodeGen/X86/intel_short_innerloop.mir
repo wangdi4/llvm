@@ -206,7 +206,7 @@ body:             |
   ; X64:   CMP64rr renamable $rdx, renamable $rax, implicit-def $eflags
   ; X64:   JCC_1 %bb.1, 5, implicit killed $eflags
   ; X64: bb.5.region.return:
-  ; X64:   RETQ
+  ; X64:   RET64
   bb.0.entry:
     successors: %bb.3(0x80000000)
     liveins: $ecx, $rdi, $rdx, $rsi, $r8
@@ -253,6 +253,6 @@ body:             |
     JCC_1 %bb.1, 5, implicit killed $eflags
 
   bb.5.region.return:
-    RETQ
+    RET64
 
 ...

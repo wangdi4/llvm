@@ -14,7 +14,6 @@
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
-#include "llvm/Analysis/ReplayInlineAdvisor.h"
 #include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/ADT/SmallSet.h"    // INTEL
 #include "llvm/IR/PassManager.h"

@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: uniformDivergent:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: uniformDivergent:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
@@ -75,7 +75,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest2) {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: storesToUniformAddrs:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: storesToUniformAddrs:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
@@ -139,7 +139,7 @@ DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
 
 define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: gatherScatter:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: gatherScatter:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
@@ -205,7 +205,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: simpleReduction:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: simpleReduction:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
@@ -271,7 +271,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: phiUsedByPhi:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: phiUsedByPhi:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
@@ -350,7 +350,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %if.end
 
 define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: svmlFnCall:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: svmlFnCall:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
@@ -414,7 +414,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
 
 define dso_local void @serialCallRepeatArgs(float* nocapture %a) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: serialCallRepeatArgs:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: serialCallRepeatArgs:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF={{[2|4|8|16|32]}} UF=1 (SVAOpBits )

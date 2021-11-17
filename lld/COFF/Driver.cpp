@@ -1066,7 +1066,7 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
 
   std::vector<StringRef> objFiles;
   if (!ctx.bitcodeFileInstances.empty())
-    objFiles = ctx.symtab.compileBitcodeFiles();
+    objFiles = ctx.symtab.compileBitcodeFilesForMSVCLinker();
 
   runMSVCLinker(rsp, objFiles);
 
@@ -1621,6 +1621,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       config->pdbPath = arg->getValue();
     if (auto *arg = args.getLastArg(OPT_pdbaltpath))
       config->pdbAltPath = arg->getValue();
+    if (auto *arg = args.getLastArg(OPT_pdbpagesize))
+      parsePDBPageSize(arg->getValue());
     if (args.hasArg(OPT_natvis))
       config->natvisFiles = args.getAllArgValues(OPT_natvis);
     if (args.hasArg(OPT_pdbstream)) {
@@ -2358,11 +2360,11 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   // Do LTO by compiling bitcode input files to a set of native COFF files then
   // link those files (unless -thinlto-index-only was given, in which case we
   // resolve symbols and write indices, but don't generate native code or link).
-  ctx.symtab.addCombinedLTOObjects();
+  ctx.symtab.compileBitcodeFiles();
 
   // If -thinlto-index-only is given, we should create only "index
   // files" and not object files. Index file creation is already done
-  // in addCombinedLTOObject, so we are done if that's the case.
+  // in compileBitcodeFiles, so we are done if that's the case.
   if (config->thinLTOIndexOnly)
     return;
 

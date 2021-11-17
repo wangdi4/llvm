@@ -803,7 +803,7 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty,
     break;
   }
 
-  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty, FMF);
+  return RecurrenceDescriptor::getConstRecurrenceIdentity(RDKind, Ty, FMF);
 }
 
 const DebugLoc HLInst::getDebugLoc() const {

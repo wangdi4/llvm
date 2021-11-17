@@ -180,6 +180,12 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   if (LE->hasInMemoryReductionInduction() || LE->hasInMemoryLiveoutPrivate())
     return false;
 
+  // Check whether all reductions are supported
+  for (auto Red : LE->vpreductions())
+    if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
+        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
+      return false;
+
   // All checks passed.
   return true;
 }

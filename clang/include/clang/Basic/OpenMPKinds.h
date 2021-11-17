@@ -186,13 +186,6 @@ bool isAllowedInSPIRSubset(OpenMPDirectiveKind DKind);
 #endif //INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-/// OpenMP adjust-op kinds for 'adjust_args' clause.
-enum OpenMPAdjustArgsOpKind {
-#define OPENMP_ADJUST_ARGS_KIND(Name) OMPC_ADJUST_ARGS_##Name,
-#include "clang/Basic/OpenMPKinds.def"
-  OMPC_ADJUST_ARGS_unknown
-};
-
 /// OpenMP modifiers for 'allocate' clause.
 enum OpenMPAllocateClauseModifier {
 #define OPENMP_ALLOCATE_MODIFIER(Name) OMPC_ALLOCATE_##Name,
@@ -207,6 +200,20 @@ enum OpenMPOmpxPlacesClauseModifier {
   OMPC_OMPX_PLACES_unknown,
 };
 #endif // INTEL_COLLAB
+
+/// OpenMP adjust-op kinds for 'adjust_args' clause.
+enum OpenMPAdjustArgsOpKind {
+#define OPENMP_ADJUST_ARGS_KIND(Name) OMPC_ADJUST_ARGS_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_ADJUST_ARGS_unknown,
+};
+
+/// OpenMP bindings for the 'bind' clause.
+enum OpenMPBindClauseKind {
+#define OPENMP_BIND_KIND(Name) OMPC_BIND_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_BIND_unknown
+};
 
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,
                                    const LangOptions &LangOpts);
@@ -287,14 +294,12 @@ bool isOpenMPDistributeDirective(OpenMPDirectiveKind DKind);
 /// otherwise - false.
 bool isOpenMPNestingDistributeDirective(OpenMPDirectiveKind DKind);
 
-#if INTEL_COLLAB
-/// Checks if the specified directive constitutes a loop directive in the
-// /outermost nest.  For example, 'omp teams loop' or 'omp loop'.
+/// Checks if the specified directive constitutes a 'loop' directive in the
+/// outermost nest.  For example, 'omp teams loop' or 'omp loop'.
 /// \param DKind Specified directive.
 /// \return true - the directive has loop on the outermost nest.
 /// otherwise - false.
 bool isOpenMPGenericLoopDirective(OpenMPDirectiveKind DKind);
-#endif // INTEL_COLLAB
 
 /// Checks if the specified clause is one of private clauses like
 /// 'private', 'firstprivate', 'reduction' etc..

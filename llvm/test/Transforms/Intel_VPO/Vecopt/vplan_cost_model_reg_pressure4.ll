@@ -56,9 +56,9 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-CM-AVX2-NEXT:    Cost 16000 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 444876
+; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 456876
 ; VPLAN-CM-AVX2-NEXT:  Block total cost includes GS Cost: 320000
 ; VPLAN-CM-AVX2-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 176000
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]]
@@ -68,10 +68,10 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-CM-AVX2-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-CM-AVX2-NEXT:  Base Cost: 444876
+; VPLAN-CM-AVX2-NEXT:  Base Cost: 456876
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Gather/Scatter heuristic is 640000
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 176000
-; VPLAN-CM-AVX2-NEXT:  Total Cost: 1260876
+; VPLAN-CM-AVX2-NEXT:  Total Cost: 1272876
 ;
 ; VPLAN-CM-AVX512-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 16:
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]

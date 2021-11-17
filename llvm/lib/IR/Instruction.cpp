@@ -200,6 +200,9 @@ void Instruction::dropPoisonGeneratingFlags() {
     break;
   }
   // TODO: FastMathFlags!
+
+  assert(!cast<Operator>(this)->hasPoisonGeneratingFlags() &&
+         "must be kept in sync");
 }
 
 void Instruction::dropUndefImplyingAttrsAndUnknownMetadata(

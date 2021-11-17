@@ -3832,6 +3832,10 @@ bool TokenAnnotator::mustBreakBefore(const AnnotatedLine &Line,
       Style.AllowShortBlocksOnASingleLine == FormatStyle::SBS_Never)
     return true;
 
+  // Ensure wrapping after __attribute__((XX)) and @interface etc.
+  if (Left.is(TT_AttributeParen) && Right.is(TT_ObjCDecl))
+    return true;
+
   if (Left.is(TT_LambdaLBrace)) {
     if (IsFunctionArgument(Left) &&
         Style.AllowShortLambdasOnASingleLine == FormatStyle::SLS_Inline)
@@ -4057,7 +4061,7 @@ bool TokenAnnotator::canBreakBefore(const AnnotatedLine &Line,
                       Keywords.kw_interface, Keywords.kw_type, Keywords.kw_var,
                       Keywords.kw_let, tok::kw_const))
       // See grammar for 'declare' statements at:
-      // https://github.com/Microsoft/TypeScript/blob/master/doc/spec.md#A.10
+      // https://github.com/Microsoft/TypeScript/blob/main/doc/spec-ARCHIVED.md#A.10
       return false;
     if (Left.isOneOf(Keywords.kw_module, tok::kw_namespace) &&
         Right.isOneOf(tok::identifier, tok::string_literal))

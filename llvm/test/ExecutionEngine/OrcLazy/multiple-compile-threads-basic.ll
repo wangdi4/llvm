@@ -4,6 +4,9 @@
 ; UNSUPPORTED: intel_use_sanitizers
 ; end INTEL_CUSTOMIZATION
 ;
+; FIXME: Something hangs here.
+; UNSUPPORTED: use_msan_with_origins
+;
 ; CHECK: Hello
 
 @.str = private unnamed_addr constant [7 x i8] c"Hello\0A\00", align 1

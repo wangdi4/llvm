@@ -570,6 +570,12 @@ def err_expected_init_in_condition_lparen : Error<
   "variable declaration in condition cannot have a parenthesized initializer">;
 def err_extraneous_rparen_in_condition : Error<
   "extraneous ')' after condition, expected a statement">;
+def ext_alias_in_init_statement : ExtWarn<
+  "alias declaration in this context is a C++2b extension">,
+  InGroup<CXX2b>;
+def warn_cxx20_alias_in_init_statement  : Warning<
+  "alias declaration in this context is incompatible with C++ standards before C++2b">,
+  DefaultIgnore, InGroup<CXXPre2bCompat>;
 def warn_dangling_else : Warning<
   "add explicit braces to avoid dangling else">,
   InGroup<DanglingElse>;
@@ -973,6 +979,9 @@ def err_duplicate_class_virt_specifier : Error<
 def err_duplicate_virt_specifier : Error<
   "class member already marked '%0'">;
 
+def err_virt_specifier_outside_class : Error<
+  "'%0' specifier is not allowed outside a class definition">;
+
 def err_expected_parameter_pack : Error<
   "expected the name of a parameter pack">;
 def err_paren_sizeof_parameter_pack : Error<
@@ -1131,6 +1140,9 @@ def warn_pragma_expected_integer : Warning<
 def warn_pragma_ms_struct : Warning<
   "incorrect use of '#pragma ms_struct on|off' - ignored">,
   InGroup<IgnoredPragmas>;
+def warn_pragma_ms_fenv_access : Warning<
+  "incorrect use of '#pragma fenv_access (on|off)' - ignored">,
+  InGroup<IgnoredPragmas>;
 def warn_pragma_extra_tokens_at_eol : Warning<
   "extra tokens at end of '#pragma %0' - ignored">,
   InGroup<IgnoredPragmas>;
@@ -1196,9 +1208,6 @@ def ext_stdc_pragma_ignored : ExtWarn<"unknown pragma in STDC namespace">,
 // The C standard 7.6.1p2 says "The [FENV_ACCESS] pragma shall occur either
 // outside external declarations or preceding all explicit declarations and
 // statements inside a compound statement.
-def err_pragma_stdc_fenv_access_scope : Error<
-  "'#pragma STDC FENV_ACCESS' can only appear at file scope or at the start of"
-  " a compound statement">;
 def warn_stdc_fenv_round_not_supported :
    Warning<"pragma STDC FENV_ROUND is not supported">,
    InGroup<UnknownPragmas>;
@@ -1409,16 +1418,11 @@ def err_omp_mapper_illegal_identifier : Error<
   "illegal OpenMP user-defined mapper identifier">;
 def err_omp_mapper_expected_declarator : Error<
   "expected declarator on 'omp declare mapper' directive">;
-#if INTEL_COLLAB
 def err_omp_unexpected_append_op : Error<
-  "unexpected append-op in 'append_args' clause, expected 'interop'">;
+  "unexpected operation specified in 'append_args' clause, expected 'interop'">;
 def err_omp_declare_variant_wrong_clause : Error<
-  "expected %select{'match'|'match',  'adjust_args', or 'append_args'}0 clause on "
-  "'omp declare variant' directive">;
-#else // INTEL_COLLAB
-def err_omp_declare_variant_wrong_clause : Error<
-  "expected '%0' clause on 'omp declare variant' directive">;
-#endif // INTEL_COLLAB
+  "expected %select{'match'|'match', 'adjust_args', or 'append_args'}0 clause "
+  "on 'omp declare variant' directive">;
 def err_omp_declare_variant_duplicate_nested_trait : Error<
   "nested OpenMP context selector contains duplicated trait '%0'"
   " in selector '%1' and set '%2' with different score">;
@@ -1550,7 +1554,7 @@ def warn_pragma_unroll_cuda_value_in_parens : Warning<
   InGroup<CudaCompat>;
 
 def warn_cuda_attr_lambda_position : Warning<
-  "nvcc does not allow '__%0__' to appear after '()' in lambdas">,
+  "nvcc does not allow '__%0__' to appear after the parameter list in lambdas">,
   InGroup<CudaCompat>;
 def warn_pragma_force_cuda_host_device_bad_arg : Warning<
   "incorrect use of #pragma clang force_cuda_host_device begin|end">,

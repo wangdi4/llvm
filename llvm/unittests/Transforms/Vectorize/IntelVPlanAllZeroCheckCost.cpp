@@ -14,7 +14,7 @@
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h"
 #include "IntelVPlanTestBase.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "gtest/gtest.h"

@@ -1,8 +1,8 @@
 // INTEL
 
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=CHECK-DEFAULT
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -fopenmp-target-simd %s -### 2>&1 \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=CHECK-SIMD
 
 // CHECK-DEFAULT: llvm-spirv{{.*}}"-spirv-ext=-all
@@ -31,7 +31,8 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_memory_access_aliasing
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_bfloat16_conversion
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_joint_matrix"
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_joint_matrix
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_hw_thread_queries"
 // CHECK-SIMD: llvm-spirv{{.*}}"-spirv-ext=-all
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_add
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_min_max
@@ -56,4 +57,5 @@
 // CHECK-SIMD-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-SIMD-SAME:,+SPV_INTEL_token_type
 // CHECK-SIMD-SAME:,+SPV_INTEL_bfloat16_conversion
-// CHECK-SIMD-SAME:,+SPV_INTEL_joint_matrix"
+// CHECK-SIMD-SAME:,+SPV_INTEL_joint_matrix
+// CHECK-SIND-SAME:,+SPV_INTEL_hw_thread_queries"

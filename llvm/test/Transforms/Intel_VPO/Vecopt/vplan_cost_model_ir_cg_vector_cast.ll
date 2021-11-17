@@ -34,9 +34,9 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:    Cost 1000 for <2 x float> [[VP_SIFPTR:%.*]] = fptrunc <2 x double> [[VP_SIFPEX]] to <2 x float>
 ; CHECK-NEXT:    Cost 1000 for <2 x float> [[VP_UIFPTR:%.*]] = fptrunc <2 x double> [[VP_UIFPEX]] to <2 x float>
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:    Cost 4000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
-; CHECK-NEXT:  [[BB2]]: base cost: 14188
+; CHECK-NEXT:  [[BB2]]: base cost: 17188
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -44,7 +44,7 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 14188
+; CHECK-NEXT:  Base Cost: 17188
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

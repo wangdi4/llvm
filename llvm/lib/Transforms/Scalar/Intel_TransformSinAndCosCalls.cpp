@@ -130,7 +130,7 @@ static bool isPairedSinCos(CallInst *CI,
                            DominatorTree &DT,
                            TargetLibraryInfo &TLI) {
 
-  assert(CI->getNumArgOperands() == 1 && "Single argument call expected.");
+  assert(CI->arg_size() == 1 && "Single argument call expected.");
 
   Value *Arg = CI->getOperand(0);
   bool IsSinf, IsCosf, IsSin, IsCos;
@@ -177,7 +177,7 @@ static bool doConvertToSinpiOrCospi(CallInst *CI,
                                     LoopInfo &LI,
                                     TargetLibraryInfo &TLI) {
 
-  assert(CI->getNumArgOperands() == 1 && "Single argument call expected.");
+  assert(CI->arg_size() == 1 && "Single argument call expected.");
 
   // -ffast-math must be specified.
   if (! CI->isFast())
@@ -302,7 +302,7 @@ static bool convertToSinpiOrCospi(CallInst *CI, TargetLibraryInfo &TLI) {
   Value *NewConst, *NewMulConst, *NewAddConst;
   bool PatternMatch = false;
 
-  if (CI->getNumArgOperands() != 1)
+  if (CI->arg_size() != 1)
     return false;
 
   if ((! ArgType->isFloatTy()) && (! ArgType->isDoubleTy()))

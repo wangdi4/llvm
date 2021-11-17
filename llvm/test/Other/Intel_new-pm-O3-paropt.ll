@@ -25,6 +25,7 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
+;CHECK-DAG:  Running analysis: TargetIRAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on foo ;INTEL
@@ -50,7 +51,6 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
-;CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo ;INTEL
 ;            Running pass: LowerExpectIntrinsicPass on foo
 ;            Running pass: SimplifyCFGPass on foo
@@ -83,7 +83,8 @@
 ;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{llvm::ModuleAnalysisManager|llvm::AnalysisManager<llvm::Module>}}, {{llvm::LazyCallGraph::SCC|LazyCallGraph::SCC}}, llvm::LazyCallGraph{{&| &}}> on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
-;CHECK-NEXT: Running pass: SROA on foo
+;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis on [module]
+;CHECK-NEXT: Running pass: SROAPass on foo
 ;CHECK-NEXT: Running pass: SimplifyCFGPass on foo
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
@@ -146,12 +147,12 @@
 ;            Running analysis: XmainOptLevelAnalysis on foo ;INTEL
 ;            Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function> on foo
 ;            Running analysis: AssumptionAnalysis on foo
+;            Running analysis: TargetIRAnalysis on foo
 ;            Running analysis: DominatorTreeAnalysis on foo
 ;            Running analysis: ScopedNoAliasAA on foo
 ;            Running analysis: TypeBasedAA on foo
 ;            Running analysis: StdContainerAA on foo
 ;            Running pass: ArgumentPromotionPass on (foo)
-;            Running analysis: TargetIRAnalysis on foo
 ;            Running pass: OpenMPOptCGSCCPass on (foo)
 ;            Running pass: TbaaMDPropagationPass on foo ;INTEL
 ;            Running pass: RequireAnalysisPass<llvm::OptReportOptionsAnalysis, llvm::Function> on foo ;INTEL

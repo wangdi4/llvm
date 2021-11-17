@@ -3,9 +3,9 @@
 // RUN: -fenable-variant-virtual-calls \
 // RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 
-// CHECK: @"_ZN1C3zooEv$SIMDTable" = weak global [1 x void (%struct._ZTS1C.C addrspace(4)*)*] [void (%struct._ZTS1C.C addrspace(4)*)* @_ZN1C3zooEv], align 8
+// CHECK: @"_ZN1C3zooEv$SIMDTable" = weak global [1 x void (%struct.C addrspace(4)*)*] [void (%struct.C addrspace(4)*)* @_ZN1C3zooEv], align 8
 // CHECK: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [{{.+}} ({{.+}} ({{.+}} @_ZTI4Base to i8*) {{.+}}), {{.+}} ({{.+}}({{.+}} @"_ZN4Base1fEi$SIMDTable" to i8*) {{.+}})] }
-// CHECK: @"_ZN4Base1fEi$SIMDTable" =  weak global [1 x void (%struct._ZTS4Base.Base addrspace(4)*, i32)*] [void (%struct._ZTS4Base.Base addrspace(4)*, i32)* @_ZN4Base1fEi]
+// CHECK: @"_ZN4Base1fEi$SIMDTable" =  weak global [1 x void (%struct.Base addrspace(4)*, i32)*] [void (%struct.Base addrspace(4)*, i32)* @_ZN4Base1fEi]
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
   kernelFunc();
@@ -76,7 +76,7 @@ int main() {
 // CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 10000)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 2)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 3)
-// CHECK: store { i64, i64 } { i64 ptrtoint ([1 x void (%struct._ZTS1C.C addrspace(4)*)*]* @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, { i64, i64 } addrspace(4)* %pf.ascast
+// CHECK: store { i64, i64 } { i64 ptrtoint ([1 x void (%struct.C addrspace(4)*)*]* @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, { i64, i64 } addrspace(4)* %pf.ascast
 // CHECK: ret void
 
 // CHECK: define dso_local spir_func void{{.+}}aoo{{.+}}
@@ -96,7 +96,7 @@ int main() {
 // CHECK: ret void
 
 // CHECK: define dso_local spir_func void {{.+}}test_2{{.+}}
-// CHECK: [[L10:%.*]] = phi void (%struct._ZTS1C.C addrspace(4)*)* [ %memptr.virtualfn, %memptr.virtual ], [ %memptr.nonvirtualfn, %memptr.nonvirtual ]
-// CHECK: [[L11:%.*]] = addrspacecast void (%struct._ZTS1C.C addrspace(4)*)* [[L10]] to void (%struct._ZTS1C.C addrspace(4)*)* addrspace(4)*
-// CHECk: call void @__intel_indirect_call_1({{.+}}[[L11]], %struct._ZTS1C.C addrspace(4)* %this.adjusted)
+// CHECK: [[L10:%.*]] = phi void (%struct.C addrspace(4)*)* [ %memptr.virtualfn, %memptr.virtual ], [ %memptr.nonvirtualfn, %memptr.nonvirtual ]
+// CHECK: [[L11:%.*]] = addrspacecast void (%struct.C addrspace(4)*)* [[L10]] to void (%struct.C addrspace(4)*)* addrspace(4)*
+// CHECk: call void @__intel_indirect_call_1({{.+}}[[L11]], %struct.C addrspace(4)* %this.adjusted)
 // CHECK: ret void

@@ -24,6 +24,9 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+namespace {
+#include "flang/Optimizer/Dialect/CanonicalizationPatterns.inc"
+} // namespace
 using namespace fir;
 
 /// Return true if a sequence type is of some incomplete size or a record type
@@ -345,10 +348,14 @@ static mlir::LogicalResult verify(fir::ArrayCoorOp op) {
       return op.emitOpError("number of indices do not match dim rank");
   }
 
-  if (auto sliceOp = op.slice())
+  if (auto sliceOp = op.slice()) {
+    if (auto sl = mlir::dyn_cast_or_null<fir::SliceOp>(sliceOp.getDefiningOp()))
+      if (!sl.substr().empty())
+        return op.emitOpError("array_coor cannot take a slice with substring");
     if (auto sliceTy = sliceOp.getType().dyn_cast<fir::SliceType>())
       if (sliceTy.getRank() != arrDim)
         return op.emitOpError("rank of dimension in slice mismatched");
+  }
 
   return mlir::success();
 }
@@ -404,10 +411,14 @@ static mlir::LogicalResult verify(fir::ArrayLoadOp op) {
       return op.emitOpError("rank of dimension mismatched");
   }
 
-  if (auto sliceOp = op.slice())
+  if (auto sliceOp = op.slice()) {
+    if (auto sl = mlir::dyn_cast_or_null<fir::SliceOp>(sliceOp.getDefiningOp()))
+      if (!sl.substr().empty())
+        return op.emitOpError("array_load cannot take a slice with substring");
     if (auto sliceTy = sliceOp.getType().dyn_cast<fir::SliceType>())
       if (sliceTy.getRank() != arrDim)
         return op.emitOpError("rank of dimension in slice mismatched");
+  }
 
   return mlir::success();
 }
@@ -420,8 +431,11 @@ static mlir::LogicalResult verify(fir::ArrayMergeStoreOp op) {
   if (!isa<ArrayLoadOp>(op.original().getDefiningOp()))
     return op.emitOpError("operand #0 must be result of a fir.array_load op");
   if (auto sl = op.slice()) {
-    if (auto *slOp = sl.getDefiningOp()) {
-      auto sliceOp = mlir::cast<fir::SliceOp>(slOp);
+    if (auto sliceOp =
+            mlir::dyn_cast_or_null<fir::SliceOp>(sl.getDefiningOp())) {
+      if (!sliceOp.substr().empty())
+        return op.emitOpError(
+            "array_merge_store cannot take a slice with substring");
       if (!sliceOp.fields().empty()) {
         // This is an intra-object merge, where the slice is projecting the
         // subfields that are to be overwritten by the merge operation.
@@ -623,7 +637,8 @@ void fir::CallOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
                         llvm::ArrayRef<mlir::Type> results,
                         mlir::ValueRange operands) {
   result.addOperands(operands);
-  result.addAttribute(getCalleeAttrName(), callee);
+  if (callee)
+    result.addAttribute(getCalleeAttrName(), callee);
   result.addTypes(results);
 }
 
@@ -634,12 +649,13 @@ void fir::CallOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
 template <typename OPTY>
 static void printCmpOp(OpAsmPrinter &p, OPTY op) {
   p << ' ';
-  auto predSym = mlir::symbolizeCmpFPredicate(
+  auto predSym = mlir::arith::symbolizeCmpFPredicate(
       op->template getAttrOfType<mlir::IntegerAttr>(
             OPTY::getPredicateAttrName())
           .getInt());
   assert(predSym.hasValue() && "invalid symbol value for predicate");
-  p << '"' << mlir::stringifyCmpFPredicate(predSym.getValue()) << '"' << ", ";
+  p << '"' << mlir::arith::stringifyCmpFPredicate(predSym.getValue()) << '"'
+    << ", ";
   p.printOperand(op.lhs());
   p << ", ";
   p.printOperand(op.rhs());
@@ -702,7 +718,7 @@ static mlir::LogicalResult verify(fir::CharConvertOp op) {
 //===----------------------------------------------------------------------===//
 
 void fir::buildCmpCOp(OpBuilder &builder, OperationState &result,
-                      CmpFPredicate predicate, Value lhs, Value rhs) {
+                      arith::CmpFPredicate predicate, Value lhs, Value rhs) {
   result.addOperands({lhs, rhs});
   result.types.push_back(builder.getI1Type());
   result.addAttribute(
@@ -710,8 +726,9 @@ void fir::buildCmpCOp(OpBuilder &builder, OperationState &result,
       builder.getI64IntegerAttr(static_cast<int64_t>(predicate)));
 }
 
-mlir::CmpFPredicate fir::CmpcOp::getPredicateByName(llvm::StringRef name) {
-  auto pred = mlir::symbolizeCmpFPredicate(name);
+mlir::arith::CmpFPredicate
+fir::CmpcOp::getPredicateByName(llvm::StringRef name) {
+  auto pred = mlir::arith::symbolizeCmpFPredicate(name);
   assert(pred.hasValue() && "invalid predicate name");
   return pred.getValue();
 }
@@ -772,7 +789,11 @@ static mlir::LogicalResult verify(fir::ConstcOp &op) {
 //===----------------------------------------------------------------------===//
 
 void fir::ConvertOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {}
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<ConvertConvertOptPattern, RedundantConvertOptPattern,
+                 CombineConvertOptPattern, ForwardConstantConvertPattern>(
+      context);
+}
 
 mlir::OpFoldResult fir::ConvertOp::fold(llvm::ArrayRef<mlir::Attribute> opnds) {
   if (value().getType() == getType())
@@ -1264,42 +1285,13 @@ mlir::ParseResult fir::GlobalOp::verifyValidLinkage(StringRef linkage) {
   return mlir::success(llvm::is_contained(validNames, linkage));
 }
 
-template <bool AllowFields>
-static void appendAsAttribute(llvm::SmallVectorImpl<mlir::Attribute> &attrs,
-                              mlir::Value val) {
-  if (auto *op = val.getDefiningOp()) {
-    if (auto cop = mlir::dyn_cast<mlir::ConstantOp>(op)) {
-      // append the integer constant value
-      if (auto iattr = cop.getValue().dyn_cast<mlir::IntegerAttr>()) {
-        attrs.push_back(iattr);
-        return;
-      }
-    } else if (auto fld = mlir::dyn_cast<fir::FieldIndexOp>(op)) {
-      if constexpr (AllowFields) {
-        // append the field name and the record type
-        attrs.push_back(fld.field_idAttr());
-        attrs.push_back(fld.on_typeAttr());
-        return;
-      }
-    }
-  }
-  llvm::report_fatal_error("cannot build Op with these arguments");
-}
-
-template <bool AllowFields = true>
-static mlir::ArrayAttr collectAsAttributes(mlir::MLIRContext *ctxt,
-                                           OperationState &result,
-                                           llvm::ArrayRef<mlir::Value> inds) {
-  llvm::SmallVector<mlir::Attribute> attrs;
-  for (auto v : inds)
-    appendAsAttribute<AllowFields>(attrs, v);
-  assert(!attrs.empty());
-  return mlir::ArrayAttr::get(ctxt, attrs);
-}
-
 //===----------------------------------------------------------------------===//
 // GlobalLenOp
 //===----------------------------------------------------------------------===//
+
+mlir::Type fir::GlobalOp::resultType() {
+  return wrapAllocaResultType(getType());
+}
 
 static mlir::ParseResult parseGlobalLenOp(mlir::OpAsmParser &parser,
                                           mlir::OperationState &result) {
@@ -1324,18 +1316,6 @@ static mlir::ParseResult parseGlobalLenOp(mlir::OpAsmParser &parser,
 static void print(mlir::OpAsmPrinter &p, fir::GlobalLenOp &op) {
   p << ' ' << op.getOperation()->getAttr(fir::GlobalLenOp::lenParamAttrName())
     << ", " << op.getOperation()->getAttr(fir::GlobalLenOp::intAttrName());
-}
-
-//===----------------------------------------------------------------------===//
-// ExtractValueOp
-//===----------------------------------------------------------------------===//
-
-void fir::ExtractValueOp::build(mlir::OpBuilder &builder,
-                                OperationState &result, mlir::Type resTy,
-                                mlir::Value aggVal,
-                                llvm::ArrayRef<mlir::Value> inds) {
-  auto aa = collectAsAttributes<>(builder.getContext(), result, inds);
-  build(builder, result, resTy, aggVal, aa);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1405,16 +1385,10 @@ void fir::FieldIndexOp::build(mlir::OpBuilder &builder,
 // InsertOnRangeOp
 //===----------------------------------------------------------------------===//
 
-void fir::InsertOnRangeOp::build(mlir::OpBuilder &builder,
-                                 OperationState &result, mlir::Type resTy,
-                                 mlir::Value aggVal, mlir::Value eleVal,
-                                 llvm::ArrayRef<mlir::Value> inds) {
-  auto aa = collectAsAttributes<false>(builder.getContext(), result, inds);
-  build(builder, result, resTy, aggVal, eleVal, aa);
-}
-
 /// Range bounds must be nonnegative, and the range must not be empty.
 static mlir::LogicalResult verify(fir::InsertOnRangeOp op) {
+  if (fir::hasDynamicSize(op.seq().getType()))
+    return op.emitOpError("must have constant shape and size");
   if (op.coor().size() < 2 || op.coor().size() % 2 != 0)
     return op.emitOpError("has uneven number of values in ranges");
   bool rangeIsKnownToBeNonempty = false;
@@ -1435,14 +1409,6 @@ static mlir::LogicalResult verify(fir::InsertOnRangeOp op) {
 //===----------------------------------------------------------------------===//
 // InsertValueOp
 //===----------------------------------------------------------------------===//
-
-void fir::InsertValueOp::build(mlir::OpBuilder &builder, OperationState &result,
-                               mlir::Type resTy, mlir::Value aggVal,
-                               mlir::Value eleVal,
-                               llvm::ArrayRef<mlir::Value> inds) {
-  auto aa = collectAsAttributes<>(builder.getContext(), result, inds);
-  build(builder, result, resTy, aggVal, eleVal, aa);
-}
 
 static bool checkIsIntegerConstant(mlir::Attribute attr, int64_t conVal) {
   if (auto iattr = attr.dyn_cast<mlir::IntegerAttr>())
@@ -1497,8 +1463,8 @@ struct UndoComplexPattern : public mlir::RewritePattern {
 
 void fir::InsertValueOp::getCanonicalizationPatterns(
     mlir::OwningRewritePatternList &results, mlir::MLIRContext *context) {
-  results.insert<UndoComplexPattern<mlir::AddFOp, fir::AddcOp>,
-                 UndoComplexPattern<mlir::SubFOp, fir::SubcOp>>(context);
+  results.insert<UndoComplexPattern<mlir::arith::AddFOp, fir::AddcOp>,
+                 UndoComplexPattern<mlir::arith::SubFOp, fir::SubcOp>>(context);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2298,6 +2264,15 @@ fir::SelectOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
 
+llvm::Optional<mlir::ValueRange>
+fir::SelectOp::getSuccessorOperands(mlir::ValueRange operands, unsigned oper) {
+  auto a =
+      (*this)->getAttrOfType<mlir::DenseIntElementsAttr>(getTargetOffsetAttr());
+  auto segments = (*this)->getAttrOfType<mlir::DenseIntElementsAttr>(
+      getOperandSegmentSizeAttr());
+  return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
+}
+
 unsigned fir::SelectOp::targetOffsetSize() {
   return denseElementsSize((*this)->getAttrOfType<mlir::DenseIntElementsAttr>(
       getTargetOffsetAttr()));
@@ -2591,6 +2566,16 @@ fir::SelectRankOp::getSuccessorOperands(llvm::ArrayRef<mlir::Value> operands,
   return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
 }
 
+llvm::Optional<mlir::ValueRange>
+fir::SelectRankOp::getSuccessorOperands(mlir::ValueRange operands,
+                                        unsigned oper) {
+  auto a =
+      (*this)->getAttrOfType<mlir::DenseIntElementsAttr>(getTargetOffsetAttr());
+  auto segments = (*this)->getAttrOfType<mlir::DenseIntElementsAttr>(
+      getOperandSegmentSizeAttr());
+  return {getSubOperands(oper, getSubOperands(2, operands, segments), a)};
+}
+
 unsigned fir::SelectRankOp::targetOffsetSize() {
   return denseElementsSize((*this)->getAttrOfType<mlir::DenseIntElementsAttr>(
       getTargetOffsetAttr()));
@@ -2797,13 +2782,21 @@ static mlir::LogicalResult verify(fir::ShiftOp &op) {
 // SliceOp
 //===----------------------------------------------------------------------===//
 
+void fir::SliceOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
+                         mlir::ValueRange trips, mlir::ValueRange path,
+                         mlir::ValueRange substr) {
+  const auto rank = trips.size() / 3;
+  auto sliceTy = fir::SliceType::get(builder.getContext(), rank);
+  build(builder, result, sliceTy, trips, path, substr);
+}
+
 /// Return the output rank of a slice op. The output rank must be between 1 and
 /// the rank of the array being sliced (inclusive).
 unsigned fir::SliceOp::getOutputRank(mlir::ValueRange triples) {
   unsigned rank = 0;
   if (!triples.empty()) {
     for (unsigned i = 1, end = triples.size(); i < end; i += 3) {
-      auto op = triples[i].getDefiningOp();
+      auto *op = triples[i].getDefiningOp();
       if (!mlir::isa_and_nonnull<fir::UndefOp>(op))
         ++rank;
     }
@@ -3166,7 +3159,7 @@ mlir::FuncOp fir::createFuncOp(mlir::Location loc, mlir::ModuleOp module,
   if (auto f = module.lookupSymbol<mlir::FuncOp>(name))
     return f;
   mlir::OpBuilder modBuilder(module.getBodyRegion());
-  modBuilder.setInsertionPoint(module.getBody()->getTerminator());
+  modBuilder.setInsertionPointToEnd(module.getBody());
   auto result = modBuilder.create<mlir::FuncOp>(loc, name, type, attrs);
   result.setVisibility(mlir::SymbolTable::Visibility::Private);
   return result;
@@ -3231,7 +3224,7 @@ mlir::Type fir::applyPathToType(mlir::Type eleTy, mlir::ValueRange path) {
                   if (auto *op = (*i++).getDefiningOp()) {
                     if (auto off = mlir::dyn_cast<fir::FieldIndexOp>(op))
                       return ty.getType(off.getFieldName());
-                    if (auto off = mlir::dyn_cast<mlir::ConstantOp>(op))
+                    if (auto off = mlir::dyn_cast<mlir::arith::ConstantOp>(op))
                       return ty.getType(fir::toInt(off));
                   }
                   return mlir::Type{};
@@ -3246,7 +3239,7 @@ mlir::Type fir::applyPathToType(mlir::Type eleTy, mlir::ValueRange path) {
                 })
                 .Case<mlir::TupleType>([&](mlir::TupleType ty) {
                   if (auto *op = (*i++).getDefiningOp())
-                    if (auto off = mlir::dyn_cast<mlir::ConstantOp>(op))
+                    if (auto off = mlir::dyn_cast<mlir::arith::ConstantOp>(op))
                       return ty.getType(fir::toInt(off));
                   return mlir::Type{};
                 })

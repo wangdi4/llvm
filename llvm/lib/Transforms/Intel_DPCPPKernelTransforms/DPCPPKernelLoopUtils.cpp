@@ -94,7 +94,7 @@ void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
 
   for (CallInst *CI : AllDimTIDCalls) {
     unsigned Dim = 0;
-    if (CI->getNumArgOperands() == 0) {
+    if (CI->arg_size() == 0) {
       // No-operand version - does not really matter what dimension we will be
       // vectorizing over. Some examples:
       //   * <something>_linear_id,
@@ -104,7 +104,7 @@ void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
       // vectorizing over 0-dimension only.
       Dim = 0;
     } else {
-      assert(CI->getNumArgOperands() == 1 && "Expected one-operand call!");
+      assert(CI->arg_size() == 1 && "Expected one-operand call!");
       ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
       // Do not expect a non-const arg in current DPCPP HOST impl.
       assert(C && "tid arg must be constant");

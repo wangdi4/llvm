@@ -19,6 +19,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
@@ -755,6 +756,20 @@ public:
   using PredicateField =
       Bitfield::Element<Predicate, 0, 6, LAST_ICMP_PREDICATE>;
 
+  /// Returns the sequence of all FCmp predicates.
+  static auto FCmpPredicates() {
+    return enum_seq_inclusive(Predicate::FIRST_FCMP_PREDICATE,
+                              Predicate::LAST_FCMP_PREDICATE,
+                              force_iteration_on_noniterable_enum);
+  }
+
+  /// Returns the sequence of all ICmp predicates.
+  static auto ICmpPredicates() {
+    return enum_seq_inclusive(Predicate::FIRST_ICMP_PREDICATE,
+                              Predicate::LAST_ICMP_PREDICATE,
+                              force_iteration_on_noniterable_enum);
+  }
+
 protected:
   CmpInst(Type *ty, Instruction::OtherOps op, Predicate pred,
           Value *LHS, Value *RHS, const Twine &Name = "",
@@ -1324,16 +1339,6 @@ public:
   }
   bool arg_empty() const { return arg_end() == arg_begin(); }
   unsigned arg_size() const { return arg_end() - arg_begin(); }
-
-  // Legacy API names that duplicate the above and will be removed once users
-  // are migrated.
-  iterator_range<User::op_iterator> arg_operands() {
-    return make_range(arg_begin(), arg_end());
-  }
-  iterator_range<User::const_op_iterator> arg_operands() const {
-    return make_range(arg_begin(), arg_end());
-  }
-  unsigned getNumArgOperands() const { return arg_size(); }
 
   Value *getArgOperand(unsigned i) const {
     assert(i < arg_size() && "Out of bounds!");

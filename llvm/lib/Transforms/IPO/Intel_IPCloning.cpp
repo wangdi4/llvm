@@ -2424,7 +2424,7 @@ void CallbackCloner::createCompleteArgSets() {
     auto CFIt = CFAAS.find(Index);
     if (CFIt == CFAAS.end()) {
      std::vector<std::pair<unsigned, Value *>> ConstantArgs;
-     for (unsigned J = 0, JE = CI->getNumArgOperands(); J != JE; ++J)
+     for (unsigned J = 0, JE = CI->arg_size(); J != JE; ++J)
        if (auto C = dyn_cast<Constant>(CI->getArgOperand(J)))
          ConstantArgs.push_back(std::make_pair(J, C));
      auto &CArgs = CFAAS[Index];
@@ -2432,7 +2432,7 @@ void CallbackCloner::createCompleteArgSets() {
          std::back_inserter(CArgs));
    } else {
      auto &CArgs = CFIt->second;
-     for (unsigned J = 0, JE = CI->getNumArgOperands(); J != JE; ++J)
+     for (unsigned J = 0, JE = CI->arg_size(); J != JE; ++J)
        if (auto C = dyn_cast<Constant>(CI->getArgOperand(J)))
          for (unsigned K = 0, KE = CArgs.size(); K != KE; ++K)
            if (CArgs[K].first == J) {
@@ -3309,7 +3309,7 @@ static bool isManyRecCallsCloneCandidate(Function &F, SmallArgumentSet &IfArgs,
       if (!CB)
         continue;
       unsigned Position = 0;
-      for (Value *V : CB->arg_operands()) {
+      for (Value *V : CB->args()) {
         auto CI = dyn_cast<ConstantInt>(V);
         if (CI)
           ConstArgs.insert(F.getArg(Position));
@@ -3986,7 +3986,7 @@ bool Splitter::canReloadPHI(PHINode *PHIN) {
         Function *F = CI->getCalledFunction();
         if (!F || F->isVarArg())
           return false;
-        for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I)
+        for (unsigned I = 0, E = CI->arg_size(); I < E; ++I)
           if (CI->getArgOperand(I) == Arg && CouldMod(F->getArg(I)))
             return false;
       }
@@ -4573,7 +4573,7 @@ void Splitter::markForInlining() {
                         << F1->getName() << "\n");
     }
     unsigned Count = 0;
-    for (unsigned I = 0, E = CB->getNumArgOperands(); I < E; ++I) {
+    for (unsigned I = 0, E = CB->arg_size(); I < E; ++I) {
       auto CI = dyn_cast<ConstantInt>(CB->getArgOperand(I));
       if (CI && CI->isOne())
         Count++;

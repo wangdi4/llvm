@@ -281,8 +281,8 @@ MachineBasicBlock::getLastNonDebugInstr(bool SkipPseudoOp) {
 }
 
 bool MachineBasicBlock::hasEHPadSuccessor() const {
-  for (const_succ_iterator I = succ_begin(), E = succ_end(); I != E; ++I)
-    if ((*I)->isEHPad())
+  for (const MachineBasicBlock *Succ : successors())
+    if (Succ->isEHPad())
       return true;
   return false;
 }
@@ -515,6 +515,11 @@ void MachineBasicBlock::printName(raw_ostream &os, unsigned printNameFlags,
     if (isEHPad()) {
       os << (hasAttributes ? ", " : " (");
       os << "landing-pad";
+      hasAttributes = true;
+    }
+    if (isInlineAsmBrIndirectTarget()) {
+      os << (hasAttributes ? ", " : " (");
+      os << "inlineasm-br-indirect-target";
       hasAttributes = true;
     }
     if (isEHFuncletEntry()) {

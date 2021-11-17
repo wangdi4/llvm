@@ -126,6 +126,7 @@ set (SUPPORT_SOURCES
   BranchProbability.cpp
   BuryPointer.cpp
   CachePruning.cpp
+  Caching.cpp
   circular_raw_ostream.cpp
   Chrono.cpp
   COM.cpp
@@ -192,6 +193,7 @@ set (SUPPORT_SOURCES
   Regex.cpp
   RISCVAttributes.cpp
   RISCVAttributeParser.cpp
+  RISCVISAInfo.cpp
   ScaledNumber.cpp
   ScopedPrinter.cpp
   SHA1.cpp
@@ -251,7 +253,6 @@ set (SUPPORT_SOURCES
   Program.cpp
   RWMutex.cpp
   Signals.cpp
-  TargetRegistry.cpp
   ThreadLocal.cpp
   Threading.cpp
   Valgrind.cpp

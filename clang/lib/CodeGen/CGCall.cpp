@@ -1588,14 +1588,14 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
     default:
       return false;
     case BuiltinType::Float:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::Float);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::Float);
     case BuiltinType::Double:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::Double);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::Double);
     case BuiltinType::LongDouble:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::LongDouble);
 #if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
-      return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
+      return getTarget().useObjCFPRetForRealType(FloatModeKind::Float128);
 #endif  // INTEL_CUSTOMIZATION
     }
   }
@@ -2268,6 +2268,8 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
     if (LangOpts.NoHonorNaNs && !LangOpts.HonorNaNCompares)
 #endif
       FuncAttrs.addAttribute("no-nans-fp-math", "true");
+    if (LangOpts.ApproxFunc)
+      FuncAttrs.addAttribute("approx-func-fp-math", "true");
     if (LangOpts.UnsafeFPMath)
       FuncAttrs.addAttribute("unsafe-fp-math", "true");
     if (CodeGenOpts.SoftFloat)
@@ -3236,7 +3238,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
             // so the UBSAN check could function.
             llvm::ConstantInt *AlignmentCI =
                 cast<llvm::ConstantInt>(EmitScalarExpr(AVAttr->getAlignment()));
-            unsigned AlignmentInt =
+            uint64_t AlignmentInt =
                 AlignmentCI->getLimitedValue(llvm::Value::MaximumAlignment);
             if (AI->getParamAlign().valueOrOne() < AlignmentInt) {
               AI->removeAttr(llvm::Attribute::AttrKind::Alignment);
@@ -5504,12 +5506,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         auto scalarAlign = CGM.getDataLayout().getPrefTypeAlignment(scalarType);
 
         // Materialize to a temporary.
-        addr = CreateTempAlloca(
-            RV.getScalarVal()->getType(),
-            CharUnits::fromQuantity(std::max(
-                (unsigned)layout->getAlignment().value(), scalarAlign)),
-            "tmp",
-            /*ArraySize=*/nullptr, &AllocaAddr);
+        addr =
+            CreateTempAlloca(RV.getScalarVal()->getType(),
+                             CharUnits::fromQuantity(std::max(
+                                 layout->getAlignment().value(), scalarAlign)),
+                             "tmp",
+                             /*ArraySize=*/nullptr, &AllocaAddr);
         tempSize = EmitLifetimeStart(scalarSize, AllocaAddr.getPointer());
 
         Builder.CreateStore(RV.getScalarVal(), addr);

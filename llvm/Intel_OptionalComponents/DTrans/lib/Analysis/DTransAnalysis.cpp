@@ -2863,11 +2863,11 @@ DTransBadCastingAnalyzer::findStoreTypeForwardCall(CallInst *CI,
     return std::make_pair(false, nullptr);
   // Exclude varargs and other cases like legacy Fortran and C code where
   // we can have more actual arguments than formal arguments.
-  if (CI->getNumArgOperands() != F->arg_size())
+  if (CI->arg_size() != F->arg_size())
     return std::make_pair(false, nullptr);
   unsigned ArgIndex = 0;
   bool ArgIndexFound = false;
-  for (unsigned I = 0; I < CI->getNumArgOperands(); ++I)
+  for (unsigned I = 0; I < CI->arg_size(); ++I)
     if (CI->getArgOperand(I) == GEPI->getPointerOperand()) {
       ArgIndex = I;
       ArgIndexFound = true;
@@ -3242,7 +3242,7 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
     auto LI2 = dyn_cast<LoadInst>(CI->getCalledOperand());
     if (!LI2)
       return false;
-    if (CI->getNumArgOperands() < VoidArgumentIndex + 1 ||
+    if (CI->arg_size() < VoidArgumentIndex + 1 ||
         CI->getOperand(VoidArgumentIndex) != LI)
       return false;
     auto GEPI2 = dyn_cast<GetElementPtrInst>(LI2->getPointerOperand());
@@ -3844,7 +3844,7 @@ public:
     }
 
     // The intrinsic was not handled, mark all parameters as unhandled uses.
-    for (Value *Arg : I.arg_operands()) {
+    for (Value *Arg : I.args()) {
       if (isValueOfInterest(Arg)) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use --  IntrinsicInst: "
                           << I << " value passed as argument.\n"
@@ -4127,8 +4127,8 @@ public:
             // Found a unique FunctionType for F.  Use it in the
             // test for an indirect call match.
             unsigned PC = FT->getNumParams();
-            if ((PC == Call->getNumArgOperands()) ||
-                (FT->isVarArg() && (PC <= Call->getNumArgOperands()))) {
+            if ((PC == Call->arg_size()) ||
+                (FT->isVarArg() && (PC <= Call->arg_size()))) {
               unsigned I = 0;
               bool IsFunctionMatch = true;
               for (; I < PC; ++I) {
@@ -4152,8 +4152,8 @@ public:
           }
         }
         // The standard test for an indirect call match.
-        if ((F.arg_size() == Call->getNumArgOperands()) ||
-            (F.isVarArg() && (F.arg_size() <= Call->getNumArgOperands()))) {
+        if ((F.arg_size() == Call->arg_size()) ||
+            (F.isVarArg() && (F.arg_size() <= Call->arg_size()))) {
           unsigned I = 0;
           bool IsFunctionMatch = true;
           for (auto &Arg : F.args()) {
@@ -7275,7 +7275,7 @@ private:
       if (!F || F->isDeclaration() || F->isVarArg() || F->isIntrinsic())
         return false;
 
-      for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; I++) {
+      for (unsigned I = 0, E = CI->arg_size(); I < E; I++) {
         if (BC == CI->getArgOperand(I)) {
           Argument *FormalArg = F->getArg(I);
           if (!FormalArg->user_empty())
@@ -8909,7 +8909,7 @@ private:
 
     LLVM_DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I
                       << "\n");
-    assert(I.getNumArgOperands() >= 2);
+    assert(I.arg_size() >= 2);
 
     auto *DestArg = I.getArgOperand(0);
     auto *SrcArg = I.getArgOperand(1);

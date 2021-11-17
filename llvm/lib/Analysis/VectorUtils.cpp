@@ -664,7 +664,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
                                           const TargetLibraryInfo *TLI,
                                           ScalarEvolution *SE, Loop *OrigLoop)
 {
-  for (unsigned I = 0; I < CI->getNumArgOperands(); ++I) {
+  for (unsigned I = 0; I < CI->arg_size(); ++I) {
 
     Value *CallArg = CI->getArgOperand(I);
     GetElementPtrInst *ArgGep = dyn_cast<GetElementPtrInst>(CallArg);
@@ -1386,6 +1386,23 @@ llvm::SmallVector<int, 16> llvm::createSequentialMask(unsigned Start,
     Mask.push_back(-1);
 
   return Mask;
+}
+
+llvm::SmallVector<int, 16> llvm::createUnaryMask(ArrayRef<int> Mask,
+                                                 unsigned NumElts) {
+  // Avoid casts in the loop and make sure we have a reasonable number.
+  int NumEltsSigned = NumElts;
+  assert(NumEltsSigned > 0 && "Expected smaller or non-zero element count");
+
+  // If the mask chooses an element from operand 1, reduce it to choose from the
+  // corresponding element of operand 0. Undef mask elements are unchanged.
+  SmallVector<int, 16> UnaryMask;
+  for (int MaskElt : Mask) {
+    assert((MaskElt < NumEltsSigned * 2) && "Expected valid shuffle mask");
+    int UnaryElt = MaskElt >= NumEltsSigned ? MaskElt - NumEltsSigned : MaskElt;
+    UnaryMask.push_back(UnaryElt);
+  }
+  return UnaryMask;
 }
 
 /// A helper function for concatenating vectors. This function concatenates two

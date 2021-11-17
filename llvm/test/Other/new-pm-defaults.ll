@@ -89,7 +89,7 @@
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-O-NEXT: Running pass: SROA
+; CHECK-O-NEXT: Running pass: SROAPass
 ; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
@@ -142,7 +142,7 @@
 ; CHECK-O-NEXT: Running pass: TbaaMDPropagationPass ;INTEL
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptReportOptionsAnalysis ;INTEL
 ; CHECK-O-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
-; CHECK-O-NEXT: Running pass: SROA
+; CHECK-O-NEXT: Running pass: SROAPass
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
@@ -184,10 +184,10 @@
 ; CHECK-O-NEXT: Running pass: LoopFullUnrollPass
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-EP-LOOP-END-NEXT: Running pass: NoOpLoopPass
-; CHECK-O-NEXT: Running pass: SROA on foo
+; CHECK-O-NEXT: Running pass: SROAPass on foo
 ; CHECK-MATRIX: Running pass: VectorCombinePass
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-O23SZ-NEXT: Running pass: GVN
+; CHECK-O23SZ-NEXT: Running pass: GVNPass
 ; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O1-NEXT: Running pass: MemCpyOptPass
@@ -214,6 +214,7 @@
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-PEEPHOLE-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
+; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
@@ -233,6 +234,7 @@
 ; CHECK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O-NEXT: Running pass: LCSSAPass
 ; CHECK-O-NEXT: Running pass: LoopRotatePass
+; CHECK-O-NEXT: Running pass: LoopDeletionPass
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
 ; CHECK-O-NEXT: Running pass: InjectTLIMappings
 ; CHECK-O-NEXT: Running pass: LoopVectorizePass

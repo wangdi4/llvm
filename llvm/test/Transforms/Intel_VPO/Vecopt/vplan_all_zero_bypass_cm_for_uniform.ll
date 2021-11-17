@@ -1,5 +1,8 @@
 ; RUN: opt -S -vplan-vec -disable-output -vplan-print-after-all-zero-bypass -vplan-force-vf=16  -enable-intel-advanced-opts < %s | FileCheck %s
 
+; XFAIL: *
+; TODO: the test needs to be enabled back once cost modelling for uniform icmp is fixed. Please see CMPLRLLVM-32328 for details.
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

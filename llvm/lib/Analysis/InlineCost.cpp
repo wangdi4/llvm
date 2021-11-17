@@ -458,6 +458,7 @@ protected:
   bool simplifyCallSite(Function *F, CallBase &Call);
   template <typename Callable>
   bool simplifyInstruction(Instruction &I, Callable Evaluate);
+  bool simplifyIntrinsicCallIsConstant(CallBase &CB);
   ConstantInt *stripAndComputeInBoundsConstantOffsets(Value *&V);
 
   /// Return true if the given argument to the function being considered for
@@ -620,6 +621,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // The static size of live but cold basic blocks.  This is "static" in the
   // sense that it's not weighted by profile counts at all.
   int ColdSize = 0;
+
+  // Whether inlining is decided by cost-threshold analysis.
+  bool DecidedByCostThreshold = false;
 
   // Whether inlining is decided by cost-benefit analysis.
   bool DecidedByCostBenefit = false;
@@ -1028,13 +1032,16 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     InlineReason Reason =
         IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
                      : bestInlineReason(NoReasonVector, NinlrNotProfitable);
+    if (!IgnoreThreshold) {
+      // Ensure that Cost < tested Threshold value so that the ! operator
+      // for InlineCost yields the correct result.
+      Threshold =  std::max(1, Threshold);
+      DecidedByCostThreshold = true;
+    }
     if (!IsProfitable)
       return InlineResult::failure("not profitable").setIntelInlReason(Reason);
     return InlineResult::success().setIntelInlReason(Reason);
 #endif // INTEL_CUSTOMIZATION
-    if (IgnoreThreshold || Cost < std::max(1, Threshold))
-      return InlineResult::success();
-    return InlineResult::failure("Cost over threshold.");
   }
 
   bool shouldStop() override {
@@ -1042,8 +1049,10 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // the cost, but only when undercounting doesn't matter.
 #if INTEL_CUSTOMIZATION
     if (!IgnoreThreshold && Cost >= Threshold) {
-      if (!ComputeFullInlineCost)
+      if (!ComputeFullInlineCost) {
+         DecidedByCostThreshold = true;
          return true;
+      }
       if (EarlyExitCost == INT_MAX) {
          EarlyExitCost = Cost;
          EarlyExitThreshold = Threshold;
@@ -1194,7 +1203,7 @@ public:
 
   // Prints the same analysis as dump(), but its definition is not dependent
   // on the build.
-  void print();
+  void print(raw_ostream &OS);
 
   Optional<InstructionCostDetail> getCostDetails(const Instruction *I) {
     if (InstructionCostDetailMap.find(I) != InstructionCostDetailMap.end())
@@ -1213,6 +1222,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   bool wasDecidedByCostBenefit() const { return DecidedByCostBenefit; }
+  bool wasDecidedByCostThreshold() const { return DecidedByCostThreshold; }
 };
 
 class InlineCostFeaturesAnalyzer final : public CallAnalyzer {
@@ -1746,6 +1756,27 @@ bool CallAnalyzer::simplifyInstruction(Instruction &I, Callable Evaluate) {
   return true;
 }
 
+/// Try to simplify a call to llvm.is.constant.
+///
+/// Duplicate the argument checking from CallAnalyzer::simplifyCallSite since
+/// we expect calls of this specific intrinsic to be infrequent.
+///
+/// FIXME: Given that we know CB's parent (F) caller
+/// (CandidateCall->getParent()->getParent()), we might be able to determine
+/// whether inlining F into F's caller would change how the call to
+/// llvm.is.constant would evaluate.
+bool CallAnalyzer::simplifyIntrinsicCallIsConstant(CallBase &CB) {
+  Value *Arg = CB.getArgOperand(0);
+  auto *C = dyn_cast<Constant>(Arg);
+
+  if (!C)
+    C = dyn_cast_or_null<Constant>(SimplifiedValues.lookup(Arg));
+
+  Type *RT = CB.getFunctionType()->getReturnType();
+  SimplifiedValues[&CB] = ConstantInt::get(RT, C ? 1 : 0);
+  return true;
+}
+
 bool CallAnalyzer::visitBitCast(BitCastInst &I) {
   // Propagate constants through bitcasts.
   if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
@@ -2083,7 +2114,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
        (F.hasLocalLinkage()
   // CQ370998: Added link once ODR linkage case.
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-       F.hasOneUse() && &F == Call.getCalledFunction()
+       F.hasOneLiveUse() && &F == Call.getCalledFunction()
 #if INTEL_FEATURE_SW_ADVANCED
        && !isHugeFunction(&F, ILIC)
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -2388,6 +2419,8 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
       if (auto *SROAArg = getSROAArgForValueOrNull(II->getOperand(0)))
         SROAArgValues[II] = SROAArg;
       return true;
+    case Intrinsic::is_constant:
+      return simplifyIntrinsicCallIsConstant(Call);
     }
   }
 
@@ -2603,11 +2636,8 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // inlining due to debug symbols. Eventually, the number of unsimplified
     // instructions shouldn't factor into the cost computation, but until then,
     // hack around it here.
-    if (isa<DbgInfoIntrinsic>(I))
-      continue;
-
-    // Skip pseudo-probes.
-    if (isa<PseudoProbeInst>(I))
+    // Similarly, skip pseudo-probes.
+    if (I.isDebugOrPseudoInst())
       continue;
 
     // Skip ephemeral values.
@@ -2927,7 +2957,7 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
   bool OnlyOneCallAndLocalLinkage =
       (F.hasLocalLinkage()
        || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-      F.hasOneUse() && &F == CandidateCall.getCalledFunction();
+      F.hasOneLiveUse() && &F == CandidateCall.getCalledFunction();
 #endif // INTEL_CUSTOMIZATION
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
@@ -2948,10 +2978,11 @@ bool InlineCostCallAnalyzer::onDynamicAllocaInstException(AllocaInst &I) {
   return ReturnValue;
 }
 #endif // INTEL_CUSTOMIZATION
-void InlineCostCallAnalyzer::print() {
-#define DEBUG_PRINT_STAT(x) dbgs() << "      " #x ": " << x << "\n"
+
+void InlineCostCallAnalyzer::print(raw_ostream &OS) {
+#define DEBUG_PRINT_STAT(x) OS << "      " #x ": " << x << "\n"
   if (PrintInstructionComments)
-    F.print(dbgs(), &Writer);
+    F.print(OS, &Writer);
   DEBUG_PRINT_STAT(NumConstantArgs);
   DEBUG_PRINT_STAT(NumConstantOffsetPtrArgs);
   DEBUG_PRINT_STAT(NumAllocaArgs);
@@ -2970,7 +3001,7 @@ void InlineCostCallAnalyzer::print() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Dump stats about this call's analysis.
-LLVM_DUMP_METHOD void InlineCostCallAnalyzer::dump() { print(); }
+LLVM_DUMP_METHOD void InlineCostCallAnalyzer::dump() { print(dbgs()); }
 #endif
 
 /// Test that there are no attribute conflicts between Caller and Callee
@@ -3282,18 +3313,18 @@ InlineCost llvm::getInlineCost(
       return InlineCost::getNever("cost over benefit", CA.getCostBenefitPair());
   }
 
-  // Check if there was a reason to force inlining or no inlining.
-  if (!ShouldInline.isSuccess() && CA.getCost() < CA.getThreshold())
-    return InlineCost::getNever(ShouldInline.getFailureReason(), // INTEL
-                                Reason);                         // INTEL
-  if (ShouldInline.isSuccess() && CA.getCost() >= CA.getThreshold())
-    return InlineCost::getAlways("empty function", Reason);    // INTEL
-
 #if INTEL_CUSTOMIZATION
-  return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
-      ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
-      CA.getEarlyExitThreshold());
+  if (CA.wasDecidedByCostThreshold())
+    return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), nullptr,
+        ShouldInline.isSuccess(), Reason, CA.getEarlyExitCost(),
+        CA.getEarlyExitThreshold());
 #endif // INTEL_CUSTOMIZATION
+
+  // No details on how the decision was made, simply return always or never.
+  return ShouldInline.isSuccess()
+             ? InlineCost::getAlways("empty function", Reason)       // INTEL
+             : InlineCost::getNever(ShouldInline.getFailureReason(), // INTEL
+                                    Reason);                         // INTEL
 }
 
 InlineResult llvm::isInlineViable(Function &F) {
@@ -3509,7 +3540,8 @@ InlineCostAnnotationPrinterPass::run(Function &F,
         ICCA.analyze(TTI); // INTEL
         OS << "      Analyzing call of " << CalledFunction->getName()
            << "... (caller:" << CI->getCaller()->getName() << ")\n";
-        ICCA.print();
+        ICCA.print(OS);
+        OS << "\n";
       }
     }
   }

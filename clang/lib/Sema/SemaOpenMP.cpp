@@ -515,7 +515,7 @@ public:
   /// Checks if the specified declaration was used in the inner scan directive.
   bool isUsedInScanDirective(ValueDecl *D) const {
     if (const SharingMapTy *Stack = getTopOfStackOrNull())
-      return Stack->UsedInScanDirective.count(D) > 0;
+      return Stack->UsedInScanDirective.contains(D);
     return false;
   }
 
@@ -1040,7 +1040,7 @@ public:
   // Return set of mapped classes types
   bool isClassPreviouslyMapped(QualType QT) const {
     const SharingMapTy &StackElem = getTopOfStack();
-    return StackElem.MappedClassesQualTypes.count(QT) != 0;
+    return StackElem.MappedClassesQualTypes.contains(QT);
   }
 
   /// Adds global declare target to the parent target region.
@@ -1079,7 +1079,7 @@ public:
   }
   /// Checks if the decl is implicitly firstprivate in the task-based region.
   bool isImplicitTaskFirstprivate(Decl *D) const {
-    return getTopOfStack().ImplicitTaskFirstprivates.count(D) > 0;
+    return getTopOfStack().ImplicitTaskFirstprivates.contains(D);
   }
 
   /// Marks decl as used in uses_allocators clause as the allocator.
@@ -3198,32 +3198,22 @@ static bool checkPreviousOMPAllocateAttribute(
 static void
 applyOMPAllocateAttribute(Sema &S, VarDecl *VD,
                           OMPAllocateDeclAttr::AllocatorTypeTy AllocatorKind,
-#if INTEL_COLLAB
                           Expr *Allocator, Expr *Alignment, SourceRange SR) {
-#else // INTEL_COLLAB
-                          Expr *Allocator, SourceRange SR) {
-#endif // INTEL_COLLAB
   if (VD->hasAttr<OMPAllocateDeclAttr>())
     return;
-#if INTEL_COLLAB
   if (Alignment &&
       (Alignment->isTypeDependent() || Alignment->isValueDependent() ||
        Alignment->isInstantiationDependent() ||
        Alignment->containsUnexpandedParameterPack()))
     // Apply later when we have a usable value.
     return;
-#endif // INTEL_COLLAB
   if (Allocator &&
       (Allocator->isTypeDependent() || Allocator->isValueDependent() ||
        Allocator->isInstantiationDependent() ||
        Allocator->containsUnexpandedParameterPack()))
     return;
   auto *A = OMPAllocateDeclAttr::CreateImplicit(S.Context, AllocatorKind,
-#if INTEL_COLLAB
                                                 Allocator, Alignment, SR);
-#else // INTEL_COLLAB
-                                                Allocator, SR);
-#endif // INTEL_COLLAB
   VD->addAttr(A);
   if (ASTMutationListener *ML = S.Context.getASTMutationListener())
     ML->DeclarationMarkedOpenMPAllocate(VD, A);
@@ -3232,12 +3222,8 @@ applyOMPAllocateAttribute(Sema &S, VarDecl *VD,
 Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
     SourceLocation Loc, ArrayRef<Expr *> VarList,
     ArrayRef<OMPClause *> Clauses, DeclContext *Owner) {
-#if INTEL_COLLAB
   assert(Clauses.size() <= 2 && "Expected at most two clauses.");
   Expr *Alignment = nullptr;
-#else // INTEL_COLLAB
-   assert(Clauses.size() <= 1 && "Expected at most one clause.");
-#endif // INTEL_COLLAB
   Expr *Allocator = nullptr;
   if (Clauses.empty()) {
     // OpenMP 5.0, 2.11.3 allocate Directive, Restrictions.
@@ -3248,7 +3234,6 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
         !DSAStack->hasRequiresDeclWithClause<OMPDynamicAllocatorsClause>())
       targetDiag(Loc, diag::err_expected_allocator_clause);
   } else {
-#if INTEL_COLLAB
     for (const OMPClause *C : Clauses)
       if (const auto *AC = dyn_cast<OMPAllocatorClause>(C))
         Allocator = AC->getAllocator();
@@ -3256,9 +3241,6 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
         Alignment = AC->getAlignment();
       else
         llvm_unreachable("Unexpected clause on allocate directive");
-#else // INTEL_COLLAB
-    Allocator = cast<OMPAllocatorClause>(Clauses.back())->getAllocator();
-#endif // INTEL_COLLAB
   }
   OMPAllocateDeclAttr::AllocatorTypeTy AllocatorKind =
       getAllocatorKind(*this, DSAStack, Allocator);
@@ -3315,10 +3297,7 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
     }
 
     Vars.push_back(RefExpr);
-    applyOMPAllocateAttribute(*this, VD, AllocatorKind, Allocator,
-#if INTEL_COLLAB
-                              Alignment,
-#endif // INTEL_COLLAB
+    applyOMPAllocateAttribute(*this, VD, AllocatorKind, Allocator, Alignment,
                               DE->getSourceRange());
   }
   if (Vars.empty())
@@ -3944,13 +3923,8 @@ public:
     VisitSubCaptures(S);
   }
 
-  void VisitOMPTileDirective(OMPTileDirective *S) {
-    // #pragma omp tile does not introduce data sharing.
-    VisitStmt(S);
-  }
-
-  void VisitOMPUnrollDirective(OMPUnrollDirective *S) {
-    // #pragma omp unroll does not introduce data sharing.
+  void VisitOMPLoopTransformationDirective(OMPLoopTransformationDirective *S) {
+    // Loop transformation directives do not introduce data sharing
     VisitStmt(S);
   }
 
@@ -4142,6 +4116,11 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_tile:
   case OMPD_unroll:
     break;
+#if !INTEL_COLLAB
+  case OMPD_loop:
+    // TODO: 'loop' may require additional parameters depending on the binding.
+    // Treat similar to OMPD_simd/OMPD_for for now.
+#endif // !INTEL_COLLAB
   case OMPD_simd:
   case OMPD_for:
   case OMPD_for_simd:
@@ -4912,9 +4891,7 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
                                   OpenMPDirectiveKind CurrentRegion,
                                   const DeclarationNameInfo &CurrentName,
                                   OpenMPDirectiveKind CancelRegion,
-#if INTEL_COLLAB
-                                  const OMPBindClause *BindClause,
-#endif // INTEL_COLLAB
+                                  OpenMPBindClauseKind BindKind,
                                   SourceLocation StartLoc) {
   if (Stack->getCurScope()) {
     OpenMPDirectiveKind ParentRegion = Stack->getParentDirective();
@@ -4930,30 +4907,6 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       ShouldBeInTeamsRegion,
       ShouldBeInLoopSimdRegion,
     } Recommend = NoRecommend;
-#if INTEL_COLLAB
-    // OpenMP 5.0 [2.9.5 loop construct]
-    // If a loop construct is not nested inside another OpenMP construct and
-    // it appears in a procedure, the bind clause must be present.
-    if (CurrentRegion == OMPD_loop && ParentRegion == OMPD_unknown &&
-        !BindClause) {
-      SemaRef.Diag(StartLoc, diag::err_omp_loop_directive_without_bind);
-      return true;
-    }
-    // OpenMP 5.0 [2.9.5 loop construct]
-    // The only constructs that may be nested inside a loop region are the
-    // loop construct, the parallel construct, the simd construct, and
-    // combined constructs for which the first construct is a parallel
-    // construct.
-    if (isOpenMPGenericLoopDirective(ParentRegion)) {
-      if (CurrentRegion != OMPD_loop && CurrentRegion != OMPD_simd &&
-          CurrentRegion != OMPD_atomic &&
-          !isOpenMPParallelDirective(CurrentRegion)) {
-        SemaRef.Diag(StartLoc, diag::err_omp_prohibited_region)
-          << 0 << getOpenMPDirectiveName(ParentRegion) << 0;
-        return true;
-      }
-    }
-#endif // INTEL_COLLAB
     if (isOpenMPSimdDirective(ParentRegion) &&
         ((SemaRef.LangOpts.OpenMP <= 45 && CurrentRegion != OMPD_ordered) ||
          (SemaRef.LangOpts.OpenMP >= 50 && CurrentRegion != OMPD_ordered &&
@@ -5043,9 +4996,7 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       // A masked region may not be closely nested inside a worksharing, loop,
       // atomic, task, or taskloop region.
       NestingProhibited = isOpenMPWorksharingDirective(ParentRegion) ||
-#if INTEL_COLLAB
                           isOpenMPGenericLoopDirective(ParentRegion) ||
-#endif // INTEL_COLLAB
                           isOpenMPTaskingDirective(ParentRegion);
     } else if (CurrentRegion == OMPD_critical && CurrentName.getName()) {
       // OpenMP [2.16, Nesting of Regions]
@@ -5086,9 +5037,7 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       // task, taskloop, critical, ordered, atomic, or masked region.
       NestingProhibited =
           isOpenMPWorksharingDirective(ParentRegion) ||
-#if INTEL_COLLAB
           isOpenMPGenericLoopDirective(ParentRegion) ||
-#endif // INTEL_COLLAB
           isOpenMPTaskingDirective(ParentRegion) ||
           ParentRegion == OMPD_master || ParentRegion == OMPD_masked ||
           ParentRegion == OMPD_parallel_master ||
@@ -5102,9 +5051,7 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       // critical, ordered, atomic, or masked region.
       NestingProhibited =
           isOpenMPWorksharingDirective(ParentRegion) ||
-#if INTEL_COLLAB
           isOpenMPGenericLoopDirective(ParentRegion) ||
-#endif // INTEL_COLLAB
           isOpenMPTaskingDirective(ParentRegion) ||
           ParentRegion == OMPD_master || ParentRegion == OMPD_masked ||
           ParentRegion == OMPD_parallel_master ||
@@ -5154,29 +5101,28 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
           SemaRef.getLangOpts().OpenMPLateOutline) &&
 #endif // INTEL_COLLAB
         (ParentRegion == OMPD_teams || ParentRegion == OMPD_target_teams)) {
-      // OpenMP [2.16, Nesting of Regions]
-      // distribute, parallel, parallel sections, parallel workshare, and the
-      // parallel loop and parallel loop SIMD constructs are the only OpenMP
-      // constructs that can be closely nested in the teams region.
+      // OpenMP [5.1, 2.22, Nesting of Regions]
+      // distribute, distribute simd, distribute parallel worksharing-loop,
+      // distribute parallel worksharing-loop SIMD, loop, parallel regions,
+      // including any parallel regions arising from combined constructs,
+      // omp_get_num_teams() regions, and omp_get_team_num() regions are the
+      // only OpenMP regions that may be strictly nested inside the teams
+      // region.
       NestingProhibited = !isOpenMPParallelDirective(CurrentRegion) &&
-#if INTEL_COLLAB
-                          CurrentRegion != OMPD_loop &&
-#endif // INTEL_COLLAB
-                          !isOpenMPDistributeDirective(CurrentRegion);
+                          !isOpenMPDistributeDirective(CurrentRegion) &&
+                          CurrentRegion != OMPD_loop;
       Recommend = ShouldBeInParallelRegion;
     }
-#if INTEL_COLLAB
     if (!NestingProhibited && CurrentRegion == OMPD_loop) {
-      // OpenMP 5.0 [2.9.5 loop construct]
-      // If the bind clause is present and binding is teams, the loop region
-      // corresponding to the loop construct must be strictly nested inside a
-      // teams region.
-      NestingProhibited =
-          BindClause && BindClause->getBindKind() == OMP_BIND_teams &&
-          ParentRegion != OMPD_teams && ParentRegion != OMPD_target_teams;
+      // OpenMP [5.1, 2.11.7, loop Construct, Restrictions]
+      // If the bind clause is present on the loop construct and binding is
+      // teams then the corresponding loop region must be strictly nested inside
+      // a teams region.
+      NestingProhibited = BindKind == OMPC_BIND_teams &&
+                          ParentRegion != OMPD_teams &&
+                          ParentRegion != OMPD_target_teams;
       Recommend = ShouldBeInTeamsRegion;
     }
-#endif // INTEL_COLLAB
     if (!NestingProhibited &&
         isOpenMPNestingDistributeDirective(CurrentRegion)) {
       // OpenMP 4.5 [2.17 Nesting of Regions]
@@ -5253,14 +5199,7 @@ static bool checkIfClauses(Sema &S, OpenMPDirectiveKind Kind,
       // directive.
       // At most one if clause with the particular directive-name-modifier can
       // appear on the directive.
-      bool MatchFound = false;
-      for (auto NM : AllowedNameModifiers) {
-        if (CurNM == NM) {
-          MatchFound = true;
-          break;
-        }
-      }
-      if (!MatchFound) {
+      if (!llvm::is_contained(AllowedNameModifiers, CurNM)) {
         S.Diag(IC->getNameModifierLoc(),
                diag::err_omp_wrong_if_directive_name_modifier)
             << getOpenMPDirectiveName(CurNM) << getOpenMPDirectiveName(Kind);
@@ -5504,11 +5443,10 @@ static void checkAllocateClauses(Sema &S, DSAStackTy *Stack,
       if (checkPreviousOMPAllocateAttribute(S, Stack, E, PrivateVD,
                                             AllocatorKind, AC->getAllocator()))
         continue;
+      // Placeholder until allocate clause supports align modifier.
+      Expr *Alignment = nullptr;
       applyOMPAllocateAttribute(S, PrivateVD, AllocatorKind, AC->getAllocator(),
-#if INTEL_COLLAB
-                                AC->getAlignment(),
-#endif // INTEL_COLLAB
-                                E->getSourceRange());
+                                Alignment, E->getSourceRange());
     }
   }
 }
@@ -6060,21 +5998,14 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
     Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc) {
   StmtResult Res = StmtError();
-#if INTEL_COLLAB
-  const OMPBindClause *BindClause = nullptr;
-  for (auto *BC :
-       OMPExecutableDirective::getClausesOfKind<OMPBindClause>(Clauses)) {
-    BindClause = BC;
-    break;
-  }
-#endif // INTEL_COLLAB
+  OpenMPBindClauseKind BindKind = OMPC_BIND_unknown;
+  if (const OMPBindClause *BC =
+          OMPExecutableDirective::getSingleClause<OMPBindClause>(Clauses))
+    BindKind = BC->getBindKind();
   // First check CancelRegion which is then used in checkNestingOfRegions.
   if (checkCancelRegion(*this, Kind, CancelRegion, StartLoc) ||
       checkNestingOfRegions(*this, DSAStack, Kind, DirName, CancelRegion,
-#if INTEL_COLLAB
-      BindClause,
-#endif // INTEL_COLLAB
-                            StartLoc))
+                            BindKind, StartLoc))
     return StmtError();
 
   llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
@@ -6320,10 +6251,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       AllowedNameModifiers.push_back(OMPD_simd);
     break;
 #if INTEL_COLLAB
-  case OMPD_loop:
-    Res = ActOnOpenMPGenericLoopDirective(ClausesWithImplicit, AStmt, StartLoc,
-                                          EndLoc, VarsWithInheritedDSA);
-    break;
   case OMPD_teams_loop:
     Res = ActOnOpenMPTeamsGenericLoopDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
@@ -6617,6 +6544,10 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPDispatchDirective(ClausesWithImplicit, AStmt, StartLoc,
                                        EndLoc);
     break;
+  case OMPD_loop:
+    Res = ActOnOpenMPGenericLoopDirective(ClausesWithImplicit, AStmt, StartLoc,
+                                          EndLoc, VarsWithInheritedDSA);
+    break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_threadprivate:
@@ -6723,9 +6654,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_inclusive:
       case OMPC_exclusive:
       case OMPC_uses_allocators:
-#if INTEL_COLLAB
-      case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -6733,6 +6661,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
       case OMPC_affinity:
+      case OMPC_bind:
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -7126,9 +7055,11 @@ void Sema::ActOnStartOfFunctionDefinitionInOpenMPDeclareVariantScope(
   for (auto *Candidate : Lookup) {
     auto *CandidateDecl = Candidate->getUnderlyingDecl();
     FunctionDecl *UDecl = nullptr;
-    if (IsTemplated && isa<FunctionTemplateDecl>(CandidateDecl))
-      UDecl = cast<FunctionTemplateDecl>(CandidateDecl)->getTemplatedDecl();
-    else if (!IsTemplated)
+    if (IsTemplated && isa<FunctionTemplateDecl>(CandidateDecl)) {
+      auto *FTD = cast<FunctionTemplateDecl>(CandidateDecl);
+      if (FTD->getTemplateParameters()->size() == TemplateParamLists.size())
+        UDecl = FTD->getTemplatedDecl();
+    } else if (!IsTemplated)
       UDecl = dyn_cast<FunctionDecl>(CandidateDecl);
     if (!UDecl)
       continue;
@@ -7196,14 +7127,10 @@ void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
 
   OMPDeclareVariantScope &DVScope = OMPDeclareVariantScopes.back();
   auto *OMPDeclareVariantA = OMPDeclareVariantAttr::CreateImplicit(
-#if INTEL_COLLAB
       Context, VariantFuncRef, DVScope.TI,
       /*NothingArgs=*/nullptr, /*NothingArgsSize=*/0,
       /*NeedDevicePtrArgs=*/nullptr, /*NeedDevicePtrArgsSize=*/0,
       /*AppendArgs=*/nullptr, /*AppendArgsSize=*/0);
-#else // INTEL_COLLAB
-      Context, VariantFuncRef, DVScope.TI);
-#endif // INTEL_COLLAB
   for (FunctionDecl *BaseFD : Bases)
     BaseFD->addAttr(OMPDeclareVariantA);
 }
@@ -7316,13 +7243,8 @@ ExprResult Sema::ActOnOpenMPCall(ExprResult Call, Scope *Scope,
 
 Optional<std::pair<FunctionDecl *, Expr *>>
 Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
-#if INTEL_COLLAB
-                                        Expr *VariantRef,
-                                        unsigned NumAppendArgs,
-                                        OMPTraitInfo &TI,
-#else // INTEL_COLLAB
                                         Expr *VariantRef, OMPTraitInfo &TI,
-#endif // INTEL_COLLAB
+                                        unsigned NumAppendArgs,
                                         SourceRange SR) {
   if (!DG || DG.get().isNull())
     return None;
@@ -7459,51 +7381,46 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
       if (MergedType.isNull()) {
         Diag(VariantRef->getExprLoc(),
              diag::err_omp_declare_variant_incompat_types)
-#if INTEL_COLLAB
             << VariantRef->getType() << FD->getType() << (NumAppendArgs ? 1 : 0)
-#else // INTEL_COLLAB
-            << VariantRef->getType() << FD->getType()
-#endif // INTEL_COLLAB
             << VariantRef->getSourceRange();
         return None;
       }
     }
   }
+#endif // INTEL_COLLAB
 
-  auto AdjustFunctionTypeForAppendArgs = [&](QualType FT, unsigned NumArgs) {
-    if (NumArgs == 0)
-      return FT;
-    auto *PTy = dyn_cast<FunctionProtoType>(FT);
-    auto *FTy = dyn_cast<FunctionNoProtoType>(FT);
-    if (!PTy && FTy) {
-      FunctionType::ExtInfo Ext = FTy->getExtInfo();
-      FunctionProtoType::ExtProtoInfo EPI;
-      EPI.ExtInfo = Ext;
-      QualType RetTy = Context.VoidTy;
-      PTy = dyn_cast<FunctionProtoType>(
-          Context.getFunctionType(RetTy, None, EPI));
+  QualType AdjustedFnType = FD->getType();
+  if (NumAppendArgs) {
+    if (isa<FunctionNoProtoType>(FD->getType())) {
+      Diag(FD->getLocation(), diag::err_omp_declare_variant_prototype_required)
+          << SR;
+      return None;
     }
-    llvm::SmallVector<QualType, 8> Params;
-    Params.append(PTy->param_type_begin(), PTy->param_type_end());
-
-    // Add omp_interop_t for each append_arg.
-    QualType InteropType = Context.VoidPtrTy;
+    // Adjust the function type to account for an extra omp_interop_t for each
+    // specified in the append_args clause.
+    const TypeDecl *TD = nullptr;
     LookupResult Result(*this, &Context.Idents.get("omp_interop_t"),
                         SR.getBegin(), Sema::LookupOrdinaryName);
     if (LookupName(Result, getCurScope())) {
       NamedDecl *ND = Result.getFoundDecl();
-      if (const auto *TD = dyn_cast<TypeDecl>(ND))
-        InteropType = QualType(TD->getTypeForDecl(), 0);
+      TD = dyn_cast_or_null<TypeDecl>(ND);
     }
-    Params.insert(Params.end(), NumArgs, InteropType);
-
-    QualType NewFnTy = Context.getFunctionType(PTy->getReturnType(), Params,
-                                               PTy->getExtProtoInfo());
-    return NewFnTy;
-  };
-  QualType AdjustedFnType =
-        AdjustFunctionTypeForAppendArgs(FD->getType(), NumAppendArgs);
-#endif // INTEL_COLLAB
+    if (!TD) {
+      Diag(SR.getBegin(), diag::err_omp_interop_type_not_found) << SR;
+      return None;
+    }
+    QualType InteropType = QualType(TD->getTypeForDecl(), 0);
+    auto *PTy = cast<FunctionProtoType>(FD->getType());
+    if (PTy->isVariadic()) {
+      Diag(FD->getLocation(), diag::err_omp_append_args_with_varargs) << SR;
+      return None;
+    }
+    llvm::SmallVector<QualType, 8> Params;
+    Params.append(PTy->param_type_begin(), PTy->param_type_end());
+    Params.insert(Params.end(), NumAppendArgs, InteropType);
+    AdjustedFnType = Context.getFunctionType(PTy->getReturnType(), Params,
+                                             PTy->getExtProtoInfo());
+  }
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
@@ -7518,11 +7435,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
     if (Method && !Method->isStatic()) {
       const Type *ClassType =
           Context.getTypeDeclType(Method->getParent()).getTypePtr();
-#if INTEL_COLLAB
       FnPtrType = Context.getMemberPointerType(AdjustedFnType, ClassType);
-#else // INTEL_COLLAB
-      FnPtrType = Context.getMemberPointerType(FD->getType(), ClassType);
-#endif // INTEL_COLLAB
       ExprResult ER;
       {
         // Build adrr_of unary op to correctly handle type checks for member
@@ -7538,11 +7451,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
       }
       VariantRef = ER.get();
     } else {
-#if INTEL_COLLAB
       FnPtrType = Context.getPointerType(AdjustedFnType);
-#else // INTEL_COLLAB
-      FnPtrType = Context.getPointerType(FD->getType());
-#endif // INTEL_COLLAB
     }
     QualType VarianPtrType = Context.getPointerType(VariantRef->getType());
     if (VarianPtrType.getUnqualifiedType() != FnPtrType.getUnqualifiedType()) {
@@ -7557,11 +7466,7 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
              diag::err_omp_declare_variant_incompat_types)
             << VariantRef->getType()
             << ((Method && !Method->isStatic()) ? FnPtrType : FD->getType())
-#if INTEL_COLLAB
             << (NumAppendArgs ? 1 : 0) << VariantRef->getSourceRange();
-#else // INTEL_COLLAB
-            << VariantRef->getSourceRange();
-#endif // INTEL_COLLAB
         return None;
       }
       VariantRefCast = PerformImplicitConversion(
@@ -7607,20 +7512,12 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   if (!LangOpts.CPlusPlus) {
 #endif // INTEL_COLLAB
     QualType NewType =
-#if INTEL_COLLAB
         Context.mergeFunctionTypes(AdjustedFnType, NewFD->getType());
-#else // INTEL_COLLAB
-        Context.mergeFunctionTypes(FD->getType(), NewFD->getType());
-#endif // INTEL_COLLAB
     if (NewType.isNull()) {
       Diag(VariantRef->getExprLoc(),
            diag::err_omp_declare_variant_incompat_types)
-#if INTEL_COLLAB
           << NewFD->getType() << FD->getType() << (NumAppendArgs ? 1 : 0)
           << VariantRef->getSourceRange();
-#else // INTEL_COLLAB
-          << NewFD->getType() << FD->getType() << VariantRef->getSourceRange();
-#endif // INTEL_COLLAB
       return None;
     }
     if (NewType->isFunctionProtoType()) {
@@ -7706,17 +7603,14 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   return std::make_pair(FD, cast<Expr>(DRE));
 }
 
-void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
-                                              Expr *VariantRef,
-#if INTEL_COLLAB
-    MutableArrayRef<Expr *> AdjustArgsNothing,
-    MutableArrayRef<Expr *> AdjustArgsNeedDevicePtr,
-    MutableArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
+void Sema::ActOnOpenMPDeclareVariantDirective(
+    FunctionDecl *FD, Expr *VariantRef, OMPTraitInfo &TI,
+    ArrayRef<Expr *> AdjustArgsNothing,
+    ArrayRef<Expr *> AdjustArgsNeedDevicePtr,
+    ArrayRef<OMPDeclareVariantAttr::InteropType> AppendArgs,
     SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
-#endif // INTEL_COLLAB
-                                              OMPTraitInfo &TI,
-                                              SourceRange SR) {
-#if INTEL_COLLAB
+    SourceRange SR) {
+
   // OpenMP 5.1 [2.3.5, declare variant directive, Restrictions]
   // An adjust_args clause or append_args clause can only be specified if the
   // dispatch selector of the construct selector set appears in the match
@@ -7728,14 +7622,10 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
 
   if (!AllAdjustArgs.empty() || !AppendArgs.empty()) {
     VariantMatchInfo VMI;
-    bool Found = false;
     TI.getAsVariantMatchInfo(Context, VMI);
-    for (TraitProperty Property : VMI.ConstructTraits)
-      if (Property == llvm::omp::TraitProperty::construct_dispatch_dispatch) {
-        Found = true;
-        break;
-      }
-    if (!Found) {
+    if (!llvm::is_contained(
+            VMI.ConstructTraits,
+            llvm::omp::TraitProperty::construct_dispatch_dispatch)) {
       if (!AllAdjustArgs.empty())
         Diag(AdjustArgsLoc, diag::err_omp_clause_requires_dispatch_construct)
             << getOpenMPClauseName(OMPC_adjust_args);
@@ -7770,19 +7660,17 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
       }
     }
     // Anything that is not a function parameter is an error.
-    Diag(E->getExprLoc(), diag::err_omp_param_or_this_in_clause)
-        << FD->getDeclName() << 0;
+    Diag(E->getExprLoc(), diag::err_omp_param_or_this_in_clause) << FD << 0;
     return;
   }
 
   auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-      Context, VariantRef, &TI, AdjustArgsNothing.data(),
-      AdjustArgsNothing.size(), AdjustArgsNeedDevicePtr.data(),
-      AdjustArgsNeedDevicePtr.size(), AppendArgs.data(), AppendArgs.size(), SR);
-#else // INTEL_COLLAB
-  auto *NewAttr =
-      OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, &TI, SR);
-#endif // INTEL_COLLAB
+      Context, VariantRef, &TI, const_cast<Expr **>(AdjustArgsNothing.data()),
+      AdjustArgsNothing.size(),
+      const_cast<Expr **>(AdjustArgsNeedDevicePtr.data()),
+      AdjustArgsNeedDevicePtr.size(),
+      const_cast<OMPDeclareVariantAttr::InteropType *>(AppendArgs.data()),
+      AppendArgs.size(), SR);
   FD->addAttr(NewAttr);
 }
 
@@ -9344,9 +9232,7 @@ static bool checkOpenMPIterationSpace(
   ResultIterSpaces[CurrentNestedLoopCount].NumIterations =
       ISC.buildNumIterations(DSA.getCurScope(), ResultIterSpaces,
                              (isOpenMPWorksharingDirective(DKind) ||
-#if INTEL_COLLAB
                               isOpenMPGenericLoopDirective(DKind) ||
-#endif // INTEL_COLLAB
                               isOpenMPTaskLoopDirective(DKind) ||
                               isOpenMPDistributeDirective(DKind) ||
                               isOpenMPLoopTransformationDirective(DKind)),
@@ -9718,15 +9604,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
             }
             return false;
           },
-          [&SemaRef, &Captures](OMPLoopBasedDirective *Transform) {
-            Stmt *DependentPreInits;
-            if (auto *Dir = dyn_cast<OMPTileDirective>(Transform)) {
-              DependentPreInits = Dir->getPreInits();
-            } else if (auto *Dir = dyn_cast<OMPUnrollDirective>(Transform)) {
-              DependentPreInits = Dir->getPreInits();
-            } else {
-              llvm_unreachable("Unexpected loop transformation");
-            }
+          [&SemaRef, &Captures](OMPLoopTransformationDirective *Transform) {
+            Stmt *DependentPreInits = Transform->getPreInits();
             if (!DependentPreInits)
               return;
             for (Decl *C : cast<DeclStmt>(DependentPreInits)->getDeclGroup()) {
@@ -9898,6 +9777,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       isOpenMPGenericLoopDirective(DKind) ||
 #endif // INTEL_COLLAB
       isOpenMPDistributeDirective(DKind) ||
+      isOpenMPGenericLoopDirective(DKind) ||
       isOpenMPLoopTransformationDirective(DKind)) {
     // Lower bound variable, initialized with zero.
     VarDecl *LBDecl = buildVarDecl(SemaRef, InitLoc, VType, ".omp.lb");
@@ -9999,9 +9879,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
     VarDecl *IVDecl = buildVarDecl(SemaRef, InitLoc, RealVType, ".omp.iv");
     IV = buildDeclRefExpr(SemaRef, IVDecl, RealVType, InitLoc);
     Expr *RHS = (isOpenMPWorksharingDirective(DKind) ||
-#if INTEL_COLLAB
                  isOpenMPGenericLoopDirective(DKind) ||
-#endif // INTEL_COLLAB
                  isOpenMPTaskLoopDirective(DKind) ||
                  isOpenMPDistributeDirective(DKind) ||
                  isOpenMPLoopTransformationDirective(DKind))
@@ -10013,9 +9891,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
     if (isOpenMPLoopBoundSharingDirective(DKind)) {
       Expr *CombRHS =
           (isOpenMPWorksharingDirective(DKind) ||
-#if INTEL_COLLAB
            isOpenMPGenericLoopDirective(DKind) ||
-#endif // INTEL_COLLAB
            isOpenMPTaskLoopDirective(DKind) ||
            isOpenMPDistributeDirective(DKind))
               ? CombLB.get()
@@ -10047,9 +9923,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   }
   ExprResult Cond =
       (isOpenMPWorksharingDirective(DKind) ||
-#if INTEL_COLLAB
        isOpenMPGenericLoopDirective(DKind) ||
-#endif // INTEL_COLLAB
        isOpenMPTaskLoopDirective(DKind) || isOpenMPDistributeDirective(DKind) ||
        isOpenMPLoopTransformationDirective(DKind))
           ? SemaRef.BuildBinOp(CurScope, CondLoc,
@@ -10105,9 +9979,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   // base variables for the update
   ExprResult NextLB, NextUB, CombNextLB, CombNextUB;
   if (isOpenMPWorksharingDirective(DKind) || isOpenMPTaskLoopDirective(DKind) ||
-#if INTEL_COLLAB
       isOpenMPGenericLoopDirective(DKind) ||
-#endif // INTEL_COLLAB
       isOpenMPDistributeDirective(DKind) ||
       isOpenMPLoopTransformationDirective(DKind)) {
     // LB + ST
@@ -10736,56 +10608,6 @@ StmtResult Sema::ActOnOpenMPSectionDirective(Stmt *AStmt,
 }
 
 #if INTEL_COLLAB
-StmtResult Sema::ActOnOpenMPGenericLoopDirective(
-    ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
-    SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
-  if (!AStmt)
-    return StmtError();
-
-  // OpenMP 5.0 [2.9.5, loop construct]
-  // A list item may not appear in a lastprivate clause unless it is the
-  // loop iteration variable of a loop that is associated with the construct.
-  for (OMPClause *C : Clauses) {
-    if (auto *LPC = dyn_cast<OMPLastprivateClause>(C)) {
-      for (Expr *RefExpr : LPC->varlists()) {
-        SourceLocation ELoc;
-        SourceRange ERange;
-        Expr *SimpleRefExpr = RefExpr;
-        auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
-        ValueDecl *D = Res.first;
-        auto &&Info = DSAStack->isLoopControlVariable(D);
-        if (!Info.first) {
-          Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration);
-          return StmtError();
-        }
-      }
-    }
-  }
-
-  auto *CS = cast<CapturedStmt>(AStmt);
-  // 1.2.2 OpenMP Language Terminology
-  // Structured block - An executable statement with a single entry at the
-  // top and a single exit at the bottom.
-  // The point of exit cannot be a branch out of the structured block.
-  // longjmp() and throw() must not violate the entry/exit criteria.
-  CS->getCapturedDecl()->setNothrow();
-
-  OMPLoopDirective::HelperExprs B;
-  // In presence of clause 'collapse', it will define the nested loops number.
-  unsigned NestedLoopCount = checkOpenMPLoop(
-      OMPD_loop, getCollapseNumberExpr(Clauses), getOrderedNumberExpr(Clauses),
-      AStmt, *this, *DSAStack, VarsWithImplicitDSA, B);
-  if (NestedLoopCount == 0)
-    return StmtError();
-
-  assert((CurContext->isDependentContext() || B.builtAll()) &&
-         "omp loop exprs were not built");
-
-  setFunctionHasBranchProtectedScope();
-  return OMPGenericLoopDirective::Create(Context, StartLoc, EndLoc,
-                                         NestedLoopCount, Clauses, AStmt, B);
-}
-
 StmtResult Sema::ActOnOpenMPTeamsGenericLoopDirective(
     ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
     SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
@@ -11111,6 +10933,57 @@ StmtResult Sema::ActOnOpenMPDispatchDirective(ArrayRef<OMPClause *> Clauses,
 
   return OMPDispatchDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
                                       TargetCallLoc);
+}
+
+StmtResult Sema::ActOnOpenMPGenericLoopDirective(
+    ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+    SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA) {
+  if (!AStmt)
+    return StmtError();
+
+  // OpenMP 5.1 [2.11.7, loop construct]
+  // A list item may not appear in a lastprivate clause unless it is the
+  // loop iteration variable of a loop that is associated with the construct.
+  for (OMPClause *C : Clauses) {
+    if (auto *LPC = dyn_cast<OMPLastprivateClause>(C)) {
+      for (Expr *RefExpr : LPC->varlists()) {
+        SourceLocation ELoc;
+        SourceRange ERange;
+        Expr *SimpleRefExpr = RefExpr;
+        auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
+        if (ValueDecl *D = Res.first) {
+          auto &&Info = DSAStack->isLoopControlVariable(D);
+          if (!Info.first) {
+            Diag(ELoc, diag::err_omp_lastprivate_loop_var_non_loop_iteration);
+            return StmtError();
+          }
+        }
+      }
+    }
+  }
+
+  auto *CS = cast<CapturedStmt>(AStmt);
+  // 1.2.2 OpenMP Language Terminology
+  // Structured block - An executable statement with a single entry at the
+  // top and a single exit at the bottom.
+  // The point of exit cannot be a branch out of the structured block.
+  // longjmp() and throw() must not violate the entry/exit criteria.
+  CS->getCapturedDecl()->setNothrow();
+
+  OMPLoopDirective::HelperExprs B;
+  // In presence of clause 'collapse', it will define the nested loops number.
+  unsigned NestedLoopCount = checkOpenMPLoop(
+      OMPD_loop, getCollapseNumberExpr(Clauses), getOrderedNumberExpr(Clauses),
+      AStmt, *this, *DSAStack, VarsWithImplicitDSA, B);
+  if (NestedLoopCount == 0)
+    return StmtError();
+
+  assert((CurContext->isDependentContext() || B.builtAll()) &&
+         "omp loop exprs were not built");
+
+  setFunctionHasBranchProtectedScope();
+  return OMPGenericLoopDirective::Create(Context, StartLoc, EndLoc,
+                                         NestedLoopCount, Clauses, AStmt, B);
 }
 
 StmtResult Sema::ActOnOpenMPSingleDirective(ArrayRef<OMPClause *> Clauses,
@@ -14971,10 +14844,12 @@ StmtResult Sema::ActOnOpenMPUnrollDirective(ArrayRef<OMPClause *> Clauses,
                                   Body, OriginalInits))
     return StmtError();
 
+  unsigned NumGeneratedLoops = PartialClause ? 1 : 0;
+
   // Delay unrolling to when template is completely instantiated.
   if (CurContext->isDependentContext())
     return OMPUnrollDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
-                                      nullptr, nullptr);
+                                      NumGeneratedLoops, nullptr, nullptr);
 
   OMPLoopBasedDirective::HelperExprs &LoopHelper = LoopHelpers.front();
 
@@ -14993,9 +14868,9 @@ StmtResult Sema::ActOnOpenMPUnrollDirective(ArrayRef<OMPClause *> Clauses,
   // The generated loop may only be passed to other loop-associated directive
   // when a partial clause is specified. Without the requirement it is
   // sufficient to generate loop unroll metadata at code-generation.
-  if (!PartialClause)
+  if (NumGeneratedLoops == 0)
     return OMPUnrollDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
-                                      nullptr, nullptr);
+                                      NumGeneratedLoops, nullptr, nullptr);
 
   // Otherwise, we need to provide a de-sugared/transformed AST that can be
   // associated with another loop directive.
@@ -15217,7 +15092,8 @@ StmtResult Sema::ActOnOpenMPUnrollDirective(ArrayRef<OMPClause *> Clauses,
               LoopHelper.Init->getBeginLoc(), LoopHelper.Inc->getEndLoc());
 
   return OMPUnrollDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
-                                    OuterFor, buildPreInits(Context, PreInits));
+                                    NumGeneratedLoops, OuterFor,
+                                    buildPreInits(Context, PreInits));
 }
 
 OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
@@ -15241,11 +15117,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_allocator:
     Res = ActOnOpenMPAllocatorClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
-#if INTEL_COLLAB
-  case OMPC_align:
-    Res = ActOnOpenMPAlignClause(Expr, StartLoc, LParenLoc, EndLoc);
-    break;
-#endif // INTEL_COLLAB
   case OMPC_collapse:
     Res = ActOnOpenMPCollapseClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
@@ -15287,6 +15158,9 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
     break;
   case OMPC_partial:
     Res = ActOnOpenMPPartialClause(Expr, StartLoc, LParenLoc, EndLoc);
+    break;
+  case OMPC_align:
+    Res = ActOnOpenMPAlignClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
   case OMPC_device:
   case OMPC_if:
@@ -15347,9 +15221,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -15358,6 +15229,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
 #endif // INTEL_CUSTOMIZATION
   case OMPC_affinity:
   case OMPC_when:
+  case OMPC_bind:
   default:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -15506,8 +15378,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-#if INTEL_COLLAB
     case OMPD_loop:
+#if INTEL_COLLAB
     case OMPD_teams_loop:
     case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
@@ -15596,8 +15468,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-#if INTEL_COLLAB
     case OMPD_loop:
+#if INTEL_COLLAB
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
     case OMPD_target_variant_dispatch:
@@ -15692,8 +15564,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-#if INTEL_COLLAB
     case OMPD_loop:
+#if INTEL_COLLAB
     case OMPD_parallel_loop:
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
@@ -15785,8 +15657,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-#if INTEL_COLLAB
     case OMPD_loop:
+#if INTEL_COLLAB
     case OMPD_parallel_loop:
     case OMPD_target_parallel_loop:
     case OMPD_target_variant_dispatch:
@@ -15873,8 +15745,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-#if INTEL_COLLAB
     case OMPD_loop:
+#if INTEL_COLLAB
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
@@ -15961,8 +15833,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-#if INTEL_COLLAB
     case OMPD_loop:
+#if INTEL_COLLAB
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
@@ -16041,7 +15913,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
 #if INTEL_COLLAB
-    case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_parallel_loop:
 #endif // INTEL_COLLAB
@@ -16062,6 +15933,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+    case OMPD_loop:
     case OMPD_simd:
     case OMPD_tile:
     case OMPD_unroll:
@@ -16217,7 +16089,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_sections:
     case OMPD_parallel_for:
     case OMPD_parallel_for_simd:
-    case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_parallel_loop:
     case OMPD_threadprivate:
@@ -16237,6 +16108,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+    case OMPD_loop:
     case OMPD_simd:
     case OMPD_unroll:
     case OMPD_for:
@@ -16401,8 +16273,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-#if INTEL_COLLAB
     case OMPD_loop:
+#if INTEL_COLLAB
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
@@ -16467,9 +16339,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_simdlen:
   case OMPC_sizes:
   case OMPC_allocator:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
   case OMPC_tile:      // INTEL
   case OMPC_collapse:
   case OMPC_private:
@@ -16523,6 +16392,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+  case OMPC_bind:
   default:
     llvm_unreachable("Unexpected OpenMP clause.");
   }
@@ -16772,11 +16642,7 @@ ExprResult Sema::VerifyPositiveIntegerConstantInClause(Expr *E,
         << E->getSourceRange();
     return ExprError();
   }
-#if INTEL_COLLAB
   if ((CKind == OMPC_aligned || CKind == OMPC_align) && !Result.isPowerOf2()) {
-#else // INTEL_COLLAB
-  if (CKind == OMPC_aligned && !Result.isPowerOf2()) {
-#endif // INTEL_COLLAB
     Diag(E->getExprLoc(), diag::warn_omp_alignment_not_power_of_two)
         << E->getSourceRange();
     return ExprError();
@@ -16887,19 +16753,6 @@ OMPClause *Sema::ActOnOpenMPAllocatorClause(Expr *A, SourceLocation StartLoc,
       OMPAllocatorClause(Allocator.get(), StartLoc, LParenLoc, EndLoc);
 }
 
-#if INTEL_COLLAB
-OMPClause *Sema::ActOnOpenMPAlignClause(Expr *A, SourceLocation StartLoc,
-                                        SourceLocation LParenLoc,
-                                        SourceLocation EndLoc) {
-  ExprResult AlignVal;
-  AlignVal = VerifyPositiveIntegerConstantInClause(A, OMPC_align);
-  if (AlignVal.isInvalid())
-    return nullptr;
-  return new (Context)
-      OMPAlignClause(AlignVal.get(), StartLoc, LParenLoc, EndLoc);
-}
-#endif // INTEL_COLLAB
-
 OMPClause *Sema::ActOnOpenMPCollapseClause(Expr *NumForLoops,
                                            SourceLocation StartLoc,
                                            SourceLocation LParenLoc,
@@ -16951,12 +16804,6 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
     Res = ActOnOpenMPDefaultClause(static_cast<DefaultKind>(Argument),
                                    ArgumentLoc, StartLoc, LParenLoc, EndLoc);
     break;
-#if INTEL_COLLAB
-  case OMPC_bind:
-    Res = ActOnOpenMPBindClause(static_cast<BindKind>(Argument), ArgumentLoc,
-                                StartLoc, LParenLoc, EndLoc);
-    break;
-#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     Res = ActOnOpenMPProcBindClause(static_cast<ProcBindKind>(Argument),
                                     ArgumentLoc, StartLoc, LParenLoc, EndLoc);
@@ -16973,6 +16820,10 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_update:
     Res = ActOnOpenMPUpdateClause(static_cast<OpenMPDependClauseKind>(Argument),
                                   ArgumentLoc, StartLoc, LParenLoc, EndLoc);
+    break;
+  case OMPC_bind:
+    Res = ActOnOpenMPBindClause(static_cast<OpenMPBindClauseKind>(Argument),
+                                ArgumentLoc, StartLoc, LParenLoc, EndLoc);
     break;
   case OMPC_if:
   case OMPC_final:
@@ -17230,6 +17081,17 @@ OMPClause *Sema::ActOnOpenMPPartialClause(Expr *FactorExpr,
                                   FactorExpr);
 }
 
+OMPClause *Sema::ActOnOpenMPAlignClause(Expr *A, SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation EndLoc) {
+  ExprResult AlignVal;
+  AlignVal = VerifyPositiveIntegerConstantInClause(A, OMPC_align);
+  if (AlignVal.isInvalid())
+    return nullptr;
+  return OMPAlignClause::Create(Context, AlignVal.get(), StartLoc, LParenLoc,
+                                EndLoc);
+}
+
 OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
     OpenMPClauseKind Kind, ArrayRef<unsigned> Argument, Expr *Expr,
     SourceLocation StartLoc, SourceLocation LParenLoc,
@@ -17344,9 +17206,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -17355,6 +17214,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
 #endif // INTEL_CUSTOMIZATION
   case OMPC_affinity:
   case OMPC_when:
+  case OMPC_bind:
   default:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -18176,9 +18036,6 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_nocontext:
   case OMPC_detach:
   case OMPC_uses_allocators:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -18186,6 +18043,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case OMPC_when:
+  case OMPC_bind:
   default:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -18346,29 +18204,6 @@ OMPClause *Sema::ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
 
   return OMPPrivateClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars,
                                   PrivateCopies);
-}
-
-namespace {
-class DiagsUninitializedSeveretyRAII {
-private:
-  DiagnosticsEngine &Diags;
-  SourceLocation SavedLoc;
-  bool IsIgnored = false;
-
-public:
-  DiagsUninitializedSeveretyRAII(DiagnosticsEngine &Diags, SourceLocation Loc,
-                                 bool IsIgnored)
-      : Diags(Diags), SavedLoc(Loc), IsIgnored(IsIgnored) {
-    if (!IsIgnored) {
-      Diags.setSeverity(/*Diag*/ diag::warn_uninit_self_reference_in_init,
-                        /*Map*/ diag::Severity::Ignored, Loc);
-    }
-  }
-  ~DiagsUninitializedSeveretyRAII() {
-    if (!IsIgnored)
-      Diags.popMappings(SavedLoc);
-  }
-};
 }
 
 OMPClause *Sema::ActOnOpenMPFirstprivateClause(ArrayRef<Expr *> VarList,
@@ -21969,8 +21804,7 @@ static void checkMappableExpressionList(
   Expr *UnresolvedMapper = nullptr;
 
   bool HasHoldModifier =
-      Modifiers.end() != std::find(Modifiers.begin(), Modifiers.end(),
-                                   OMPC_MAP_MODIFIER_ompx_hold);
+      llvm::is_contained(Modifiers, OMPC_MAP_MODIFIER_ompx_hold);
 
   // Keep track of the mappable components and base declarations in this clause.
   // Each entry in the list is going to have a list of components associated. We
@@ -22270,7 +22104,7 @@ OMPClause *Sema::ActOnOpenMPMapClause(
   unsigned Count = 0;
   for (unsigned I = 0, E = MapTypeModifiers.size(); I < E; ++I) {
     if (MapTypeModifiers[I] != OMPC_MAP_MODIFIER_unknown &&
-        llvm::find(Modifiers, MapTypeModifiers[I]) != std::end(Modifiers)) {
+        llvm::is_contained(Modifiers, MapTypeModifiers[I])) {
       Diag(MapTypeModifiersLoc[I], diag::err_omp_duplicate_map_type_modifier);
       continue;
     }
@@ -23264,7 +23098,7 @@ OMPClause *Sema::ActOnOpenMPToClause(
   unsigned Count = 0;
   for (unsigned I = 0, E = MotionModifiers.size(); I < E; ++I) {
     if (MotionModifiers[I] != OMPC_MOTION_MODIFIER_unknown &&
-        llvm::find(Modifiers, MotionModifiers[I]) != std::end(Modifiers)) {
+        llvm::is_contained(Modifiers, MotionModifiers[I])) {
       Diag(MotionModifiersLoc[I], diag::err_omp_duplicate_motion_modifier);
       continue;
     }
@@ -23301,7 +23135,7 @@ OMPClause *Sema::ActOnOpenMPFromClause(
   unsigned Count = 0;
   for (unsigned I = 0, E = MotionModifiers.size(); I < E; ++I) {
     if (MotionModifiers[I] != OMPC_MOTION_MODIFIER_unknown &&
-        llvm::find(Modifiers, MotionModifiers[I]) != std::end(Modifiers)) {
+        llvm::is_contained(Modifiers, MotionModifiers[I])) {
       Diag(MotionModifiersLoc[I], diag::err_omp_duplicate_motion_modifier);
       continue;
     }
@@ -23679,22 +23513,6 @@ OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
 }
 
 #if INTEL_COLLAB
-OMPClause *Sema::ActOnOpenMPBindClause(BindKind Kind, SourceLocation KindKwLoc,
-                                       SourceLocation StartLoc,
-                                       SourceLocation LParenLoc,
-                                       SourceLocation EndLoc) {
-  if (Kind == OMP_BIND_unknown) {
-    Diag(KindKwLoc, diag::err_omp_unexpected_clause_value)
-        << getListOfPossibleValues(OMPC_bind, /*First=*/0,
-                                   /*Last=*/unsigned(OMP_BIND_unknown))
-        << getOpenMPClauseName(OMPC_bind);
-    return nullptr;
-  }
-
-  return new (Context)
-      OMPBindClause(Kind, KindKwLoc, StartLoc, LParenLoc, EndLoc);
-}
-
 OMPClause *Sema::ActOnOpenMPSubdeviceClause(Expr *Level,
                                             Expr *Start,
                                             Expr *Length,
@@ -24233,4 +24051,21 @@ OMPClause *Sema::ActOnOpenMPAffinityClause(
 
   return OMPAffinityClause::Create(Context, StartLoc, LParenLoc, ColonLoc,
                                    EndLoc, Modifier, Vars);
+}
+
+OMPClause *Sema::ActOnOpenMPBindClause(OpenMPBindClauseKind Kind,
+                                       SourceLocation KindLoc,
+                                       SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation EndLoc) {
+  if (Kind == OMPC_BIND_unknown) {
+    Diag(KindLoc, diag::err_omp_unexpected_clause_value)
+        << getListOfPossibleValues(OMPC_bind, /*First=*/0,
+                                   /*Last=*/unsigned(OMPC_BIND_unknown))
+        << getOpenMPClauseName(OMPC_bind);
+    return nullptr;
+  }
+
+  return OMPBindClause::Create(Context, Kind, KindLoc, StartLoc, LParenLoc,
+                               EndLoc);
 }

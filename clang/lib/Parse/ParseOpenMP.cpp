@@ -1440,72 +1440,109 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
   OMPTraitInfo *ParentTI = Actions.getOMPTraitInfoForSurroundingScope();
   ASTContext &ASTCtx = Actions.getASTContext();
   OMPTraitInfo &TI = ASTCtx.getNewOMPTraitInfo();
-#if INTEL_COLLAB
   SmallVector<Expr *, 6> AdjustNothing;
   SmallVector<Expr *, 6> AdjustNeedDevicePtr;
   SmallVector<OMPDeclareVariantAttr::InteropType, 3> AppendArgs;
   SourceLocation AdjustArgsLoc, AppendArgsLoc;
-  do {
-    if (parseOMPDeclareVariantAnyClause(Loc, TI, ParentTI, AdjustNothing,
-                                        AdjustNeedDevicePtr, AppendArgs,
-                                        AdjustArgsLoc, AppendArgsLoc))
+
+  // At least one clause is required.
+  if (Tok.is(tok::annot_pragma_openmp_end)) {
+    Diag(Tok.getLocation(), diag::err_omp_declare_variant_wrong_clause)
+        << (getLangOpts().OpenMP < 51 ? 0 : 1);
+  }
+
+  bool IsError = false;
+  while (Tok.isNot(tok::annot_pragma_openmp_end)) {
+    OpenMPClauseKind CKind = Tok.isAnnotation()
+                                 ? OMPC_unknown
+                                 : getOpenMPClauseKind(PP.getSpelling(Tok));
+    if (!isAllowedClauseForDirective(OMPD_declare_variant, CKind,
+                                     getLangOpts().OpenMP)) {
+      Diag(Tok.getLocation(), diag::err_omp_declare_variant_wrong_clause)
+          << (getLangOpts().OpenMP < 51 ? 0 : 1);
+      IsError = true;
+    }
+    if (!IsError) {
+      switch (CKind) {
+      case OMPC_match:
+        IsError = parseOMPDeclareVariantMatchClause(Loc, TI, ParentTI);
+        break;
+      case OMPC_adjust_args: {
+        AdjustArgsLoc = Tok.getLocation();
+        ConsumeToken();
+        Parser::OpenMPVarListDataTy Data;
+        SmallVector<Expr *> Vars;
+        IsError = ParseOpenMPVarList(OMPD_declare_variant, OMPC_adjust_args,
+                                     Vars, Data);
+        if (!IsError)
+          llvm::append_range(Data.ExtraModifier == OMPC_ADJUST_ARGS_nothing
+                                 ? AdjustNothing
+                                 : AdjustNeedDevicePtr,
+                             Vars);
+        break;
+      }
+      case OMPC_append_args:
+        if (!AppendArgs.empty()) {
+          Diag(AppendArgsLoc, diag::err_omp_more_one_clause)
+              << getOpenMPDirectiveName(OMPD_declare_variant)
+              << getOpenMPClauseName(CKind) << 0;
+          IsError = true;
+        }
+        if (!IsError) {
+          AppendArgsLoc = Tok.getLocation();
+          ConsumeToken();
+          IsError = parseOpenMPAppendArgs(AppendArgs);
+        }
+        break;
+      default:
+        llvm_unreachable("Unexpected clause for declare variant.");
+      }
+    }
+    if (IsError) {
+      while (!SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch))
+        ;
+      // Skip the last annot_pragma_openmp_end.
+      (void)ConsumeAnnotationToken();
       return;
+    }
     // Skip ',' if any.
     if (Tok.is(tok::comma))
       ConsumeToken();
-  } while (Tok.isNot(tok::annot_pragma_openmp_end));
-#else  // INTEL_COLLAB
-  if (parseOMPDeclareVariantMatchClause(Loc, TI, ParentTI))
-    return;
-#endif // INTEL_COLLAB
+  }
 
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       Actions.checkOpenMPDeclareVariantFunction(
-#if INTEL_COLLAB
-          Ptr, AssociatedFunction.get(), AppendArgs.size(), TI,
-#else // INTEL_COLLAB
-          Ptr, AssociatedFunction.get(), TI,
-#endif // INTEL_COLLAB
+          Ptr, AssociatedFunction.get(), TI, AppendArgs.size(),
           SourceRange(Loc, Tok.getLocation()));
 
-  // Skip last tokens.
-  while (Tok.isNot(tok::annot_pragma_openmp_end))
-    ConsumeAnyToken();
   if (DeclVarData && !TI.Sets.empty())
     Actions.ActOnOpenMPDeclareVariantDirective(
-#if INTEL_COLLAB
-        DeclVarData->first, DeclVarData->second,
-        AdjustNothing, AdjustNeedDevicePtr, AppendArgs, AdjustArgsLoc,
-        AppendArgsLoc, TI,
-#else  // INTEL_COLLAB
-        DeclVarData->first, DeclVarData->second, TI,
-#endif // INTEL_COLLAB
+        DeclVarData->first, DeclVarData->second, TI, AdjustNothing,
+        AdjustNeedDevicePtr, AppendArgs, AdjustArgsLoc, AppendArgsLoc,
         SourceRange(Loc, Tok.getLocation()));
 
   // Skip the last annot_pragma_openmp_end.
   (void)ConsumeAnnotationToken();
 }
 
-#if INTEL_COLLAB
 /// Parse a list of interop-types. These are 'target' and 'targetsync'. Both
-/// are allowed but duplication of either is not meaningful.  Return the
-/// value pair when a valid list is specified.
-static llvm::Optional<std::pair<bool, bool>> parseInteropTypeList(Parser &P) {
+/// are allowed but duplication of either is not meaningful.
+static Optional<OMPDeclareVariantAttr::InteropType>
+parseInteropTypeList(Parser &P) {
   const Token &Tok = P.getCurToken();
-  Preprocessor &PP = P.getPreprocessor();
   bool HasError = false;
   bool IsTarget = false;
   bool IsTargetSync = false;
 
   while (Tok.is(tok::identifier)) {
-    if (PP.getSpelling(Tok) == "target") {
+    if (Tok.getIdentifierInfo()->isStr("target")) {
       // OpenMP 5.1 [2.15.1, interop Construct, Restrictions]
       // Each interop-type may be specified on an action-clause at most
       // once.
       if (IsTarget)
         P.Diag(Tok, diag::warn_omp_more_one_interop_type) << "target";
       IsTarget = true;
-    } else if (PP.getSpelling(Tok) == "targetsync") {
+    } else if (Tok.getIdentifierInfo()->isStr("targetsync")) {
       if (IsTargetSync)
         P.Diag(Tok, diag::warn_omp_more_one_interop_type) << "targetsync";
       IsTargetSync = true;
@@ -1527,11 +1564,16 @@ static llvm::Optional<std::pair<bool, bool>> parseInteropTypeList(Parser &P) {
     return None;
   }
 
-  return std::make_pair(IsTarget, IsTargetSync);
+  // As of OpenMP 5.1,there are two interop-types, "target" and
+  // "targetsync". Either or both are allowed for a single interop.
+  if (IsTarget && IsTargetSync)
+    return OMPDeclareVariantAttr::Target_TargetSync;
+  if (IsTarget)
+    return OMPDeclareVariantAttr::Target;
+  return OMPDeclareVariantAttr::TargetSync;
 }
 
-bool Parser::ParseOpenMPAppendArgs(
-    OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
+bool Parser::parseOpenMPAppendArgs(
     SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes) {
   bool HasError = false;
   // Parse '('.
@@ -1542,7 +1584,7 @@ bool Parser::ParseOpenMPAppendArgs(
 
   // Parse the list of append-ops, each is;
   // interop(interop-type[,interop-type]...)
-  while (Tok.is(tok::identifier) && PP.getSpelling(Tok) == "interop") {
+  while (Tok.is(tok::identifier) && Tok.getIdentifierInfo()->isStr("interop")) {
     ConsumeToken();
     BalancedDelimiterTracker IT(*this, tok::l_paren,
                                 tok::annot_pragma_openmp_end);
@@ -1550,20 +1592,12 @@ bool Parser::ParseOpenMPAppendArgs(
       return true;
 
     // Parse the interop-types.
-    if (Optional<std::pair<bool, bool>> InteropTypes =
-            parseInteropTypeList(*this)) {
-      bool IsTarget = InteropTypes->first;
-      bool IsTargetSync = InteropTypes->second;
-      if (IsTarget && IsTargetSync)
-        InterOpTypes.push_back(
-            OMPDeclareVariantAttr::InteropType::Target_TargetSync);
-      else if (IsTarget)
-        InterOpTypes.push_back(OMPDeclareVariantAttr::InteropType::Target);
-      else if (IsTargetSync)
-        InterOpTypes.push_back(OMPDeclareVariantAttr::InteropType::TargetSync);
-    } else {
+    if (Optional<OMPDeclareVariantAttr::InteropType> IType =
+            parseInteropTypeList(*this))
+      InterOpTypes.push_back(IType.getValue());
+    else
       HasError = true;
-    }
+
     IT.consumeClose();
     if (Tok.is(tok::comma))
       ConsumeToken();
@@ -1578,74 +1612,6 @@ bool Parser::ParseOpenMPAppendArgs(
   return HasError;
 }
 
-bool Parser::parseOMPDeclareVariantAnyClause(
-    SourceLocation Loc, OMPTraitInfo &TI, OMPTraitInfo *ParentTI,
-    SmallVectorImpl<Expr *> &AdjustNothing,
-    SmallVectorImpl<Expr *> &AdjustNeedDevicePtr,
-    SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &AppendArgs,
-    SourceLocation &AdjustArgsLoc, SourceLocation &AppendArgsLoc) {
-  OpenMPClauseKind CKind = Tok.isAnnotation()
-                               ? OMPC_unknown
-                               : getOpenMPClauseKind(PP.getSpelling(Tok));
-  if (CKind == OMPC_adjust_args &&
-      isAllowedClauseForDirective(OMPD_declare_variant, CKind,
-                                  getLangOpts().OpenMP)) {
-    AdjustArgsLoc = Tok.getLocation();
-    bool IsError = false;
-    ConsumeToken();
-    Parser::OpenMPVarListDataTy Data;
-    SmallVector<Expr *> Vars;
-
-    if (ParseOpenMPVarList(OMPD_declare_variant, OMPC_adjust_args, Vars, Data))
-      IsError = true;
-
-    if (!IsError) {
-      if (Data.ExtraModifier == OMPC_ADJUST_ARGS_nothing)
-        llvm::append_range(AdjustNothing, Vars);
-      else
-        llvm::append_range(AdjustNeedDevicePtr, Vars);
-    }
-    return false;
-  }
-  if (CKind == OMPC_append_args &&
-      isAllowedClauseForDirective(OMPD_declare_variant, CKind,
-                                  getLangOpts().OpenMP)) {
-    AppendArgsLoc = Tok.getLocation();
-    if (!AppendArgs.empty()) {
-      Diag(AppendArgsLoc, diag::err_omp_more_one_clause)
-          << getOpenMPDirectiveName(OMPD_declare_variant)
-          << getOpenMPClauseName(CKind) << 0;
-      while (!SkipUntil(tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
-        ;
-      // Skip the last annot_pragma_openmp_end.
-      (void)ConsumeAnnotationToken();
-      return true;
-    }
-    ConsumeToken();
-    SmallVector<OMPDeclareVariantAttr::InteropType, 8> InterOpTypes;
-    bool IsError = false;
-
-    if (ParseOpenMPAppendArgs(OMPD_declare_variant, OMPC_append_args,
-                              InterOpTypes))
-      IsError = true;
-
-    if (!IsError)
-      llvm::append_range(AppendArgs, InterOpTypes);
-    return false;
-  }
-  if (CKind != OMPC_match) {
-    Diag(Tok.getLocation(), diag::err_omp_declare_variant_wrong_clause)
-        << (getLangOpts().OpenMP < 51 ? 0 : 1);
-    while (!SkipUntil(tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
-      ;
-    // Skip the last annot_pragma_openmp_end.
-    (void)ConsumeAnnotationToken();
-    return true;
-  }
-  return parseOMPDeclareVariantMatchClause(Loc, TI, ParentTI);
-}
-#endif // INTEL_COLLAB
-
 bool Parser::parseOMPDeclareVariantMatchClause(SourceLocation Loc,
                                                OMPTraitInfo &TI,
                                                OMPTraitInfo *ParentTI) {
@@ -1655,28 +1621,15 @@ bool Parser::parseOMPDeclareVariantMatchClause(SourceLocation Loc,
                                : getOpenMPClauseKind(PP.getSpelling(Tok));
   if (CKind != OMPC_match) {
     Diag(Tok.getLocation(), diag::err_omp_declare_variant_wrong_clause)
-#if INTEL_COLLAB
         << (getLangOpts().OpenMP < 51 ? 0 : 1);
-#else // INTEL_COLLAB
-        << getOpenMPClauseName(OMPC_match);
-#endif // INTEL_COLLAB
-    while (!SkipUntil(tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
-      ;
-    // Skip the last annot_pragma_openmp_end.
-    (void)ConsumeAnnotationToken();
     return true;
   }
   (void)ConsumeToken();
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
   if (T.expectAndConsume(diag::err_expected_lparen_after,
-                         getOpenMPClauseName(OMPC_match).data())) {
-    while (!SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch))
-      ;
-    // Skip the last annot_pragma_openmp_end.
-    (void)ConsumeAnnotationToken();
+                         getOpenMPClauseName(OMPC_match).data()))
     return true;
-  }
 
   // Parse inner context selectors.
   parseOMPContextSelectors(Loc, TI);
@@ -2341,8 +2294,13 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     OMPTraitInfo *ParentTI = Actions.getOMPTraitInfoForSurroundingScope();
     ASTContext &ASTCtx = Actions.getASTContext();
     OMPTraitInfo &TI = ASTCtx.getNewOMPTraitInfo();
-    if (parseOMPDeclareVariantMatchClause(Loc, TI, ParentTI))
+    if (parseOMPDeclareVariantMatchClause(Loc, TI, ParentTI)) {
+      while (!SkipUntil(tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
+        ;
+      // Skip the last annot_pragma_openmp_end.
+      (void)ConsumeAnnotationToken();
       break;
+    }
 
     // Skip last tokens.
     skipUntilPragmaOpenMPEnd(OMPD_begin_declare_variant);
@@ -2557,7 +2515,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_parallel_for_simd:
   case OMPD_target_simd:
 #if INTEL_COLLAB
-  case OMPD_loop:
   case OMPD_teams_loop:
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
@@ -2577,6 +2534,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_dispatch:
   case OMPD_masked:
   case OMPD_metadirective:
+  case OMPD_loop:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -3035,8 +2993,8 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_data:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
-#if INTEL_COLLAB
   case OMPD_loop:
+#if INTEL_COLLAB
   case OMPD_teams_loop:
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
@@ -3403,7 +3361,7 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
 ///    clause:
 ///       if-clause | final-clause | num_threads-clause | safelen-clause |
 ///       default-clause | private-clause | firstprivate-clause | shared-clause
-///       | linear-clause | aligned-clause | collapse-clause |
+///       | linear-clause | aligned-clause | collapse-clause | bind-clause |
 ///       lastprivate-clause | reduction-clause | proc_bind-clause |
 ///       schedule-clause | copyin-clause | copyprivate-clause | untied-clause |
 ///       mergeable-clause | flush-clause | read-clause | write-clause |
@@ -3480,7 +3438,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 #if INTEL_COLLAB
   case OMPC_subdevice:
   case OMPC_ompx_places:
-  case OMPC_align:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
@@ -3490,6 +3447,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 #endif // INTEL_CUSTOMIZATION
   case OMPC_filter:
   case OMPC_partial:
+  case OMPC_align:
     // OpenMP [2.5, Restrictions]
     //  At most one num_threads clause can appear on the directive.
     // OpenMP [2.8.1, simd construct, Restrictions]
@@ -3556,6 +3514,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_proc_bind:
   case OMPC_atomic_default_mem_order:
   case OMPC_order:
+  case OMPC_bind:
     // OpenMP [2.14.3.1, Restrictions]
     //  Only a single default clause may be specified on a parallel, task or
     //  teams directive.
@@ -3564,6 +3523,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     // OpenMP [5.0, Requires directive, Restrictions]
     //  At most one atomic_default_mem_order clause can appear
     //  on the directive
+    // OpenMP 5.1, 2.11.7 loop Construct, Restrictions.
+    // At most one bind clause can appear on a loop directive.
     if (!FirstClause && CKind != OMPC_order) {
       Diag(Tok, diag::err_omp_more_one_clause)
           << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
@@ -3573,10 +3534,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     Clause = ParseOpenMPSimpleClause(CKind, WrongDirective);
     break;
 #if INTEL_COLLAB
-    case OMPC_bind:
-    // 5.0 Spec doesn't specify if multiple bind clauses are allowed.
-    Clause = ParseOpenMPSimpleClause(CKind, WrongDirective);
-    break;
     case OMPC_data:
       Clause = ParseOpenMPDataClause(WrongDirective);
       break;
@@ -3788,11 +3745,9 @@ ExprResult Parser::ParseOpenMPParensExpr(StringRef ClauseName,
 ///    detach-clause:
 ///      'detach' '(' event-handler-expression ')'
 ///
-#if INTEL_COLLAB
 ///    align-clause
-///      'align' '(' integer-constant ')'
+///      'align' '(' positive-integer-constant ')'
 ///
-#endif // INTEL_COLLAB
 OMPClause *Parser::ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                                bool ParseOnly) {
   SourceLocation Loc = ConsumeToken();
@@ -3882,48 +3837,15 @@ OMPClause *Parser::ParseOpenMPInteropClause(OpenMPClauseKind Kind,
     }
 
     // Parse the interop-types.
-#if INTEL_COLLAB
-    if (Optional<std::pair<bool, bool>> InteropTypes =
+    if (Optional<OMPDeclareVariantAttr::InteropType> IType =
             parseInteropTypeList(*this)) {
-      IsTarget = InteropTypes->first;
-      IsTargetSync = InteropTypes->second;
+      IsTarget = IType != OMPDeclareVariantAttr::TargetSync;
+      IsTargetSync = IType != OMPDeclareVariantAttr::Target;
       if (Tok.isNot(tok::colon))
         Diag(Tok, diag::warn_pragma_expected_colon) << "interop types";
     }
     if (Tok.is(tok::colon))
       ConsumeToken();
-#else // INTEL_COLLAB
-    bool HasError = false;
-    while (Tok.is(tok::identifier)) {
-      if (PP.getSpelling(Tok) == "target") {
-        // OpenMP 5.1 [2.15.1, interop Construct, Restrictions]
-        // Each interop-type may be specified on an action-clause at most
-        // once.
-        if (IsTarget)
-          Diag(Tok, diag::warn_omp_more_one_interop_type) << "target";
-        IsTarget = true;
-      } else if (PP.getSpelling(Tok) == "targetsync") {
-        if (IsTargetSync)
-          Diag(Tok, diag::warn_omp_more_one_interop_type) << "targetsync";
-        IsTargetSync = true;
-      } else {
-        HasError = true;
-        Diag(Tok, diag::err_omp_expected_interop_type);
-      }
-      ConsumeToken();
-
-      if (!Tok.is(tok::comma))
-        break;
-      ConsumeToken();
-    }
-    if (!HasError && !IsTarget && !IsTargetSync)
-      Diag(Tok, diag::err_omp_expected_interop_type);
-
-    if (Tok.is(tok::colon))
-      ConsumeToken();
-    else if (IsTarget || IsTargetSync)
-      Diag(Tok, diag::warn_pragma_expected_colon) << "interop types";
-#endif // INTEL_COLLAB
   }
 
   // Parse the variable.
@@ -3970,6 +3892,9 @@ OMPClause *Parser::ParseOpenMPInteropClause(OpenMPClauseKind Kind,
 #endif // INTEL_COLLAB
 ///    proc_bind-clause:
 ///         'proc_bind' '(' 'master' | 'close' | 'spread' ')'
+///
+///    bind-clause:
+///         'bind' '(' 'teams' | 'parallel' | 'thread' ')'
 ///
 ///    update-clause:
 ///         'update' '(' 'in' | 'out' | 'inout' | 'mutexinoutset' ')'
@@ -4797,6 +4722,7 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
     } else if (ParseOpenMPAllocateModifiers(DKind, Kind, Data,
                                             T.getOpenLocation()))
       return true;
+#endif // INTEL_COLLAB
   } else if (Kind == OMPC_adjust_args) {
     // Handle adjust-op for adjust_args clause.
     ColonProtectionRAIIObject ColonRAII(*this);
@@ -4810,11 +4736,10 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
     } else {
       ConsumeToken();
       if (Tok.is(tok::colon))
-        Data.ColonLoc = ConsumeToken();
-      else
-        Diag(Tok, diag::warn_pragma_expected_colon) << "adjust-op";
+        Data.ColonLoc = Tok.getLocation();
+      ExpectAndConsume(tok::colon, diag::warn_pragma_expected_colon,
+                       "adjust-op");
     }
-#endif // INTEL_COLLAB
   }
 
   bool IsComma =
@@ -4822,12 +4747,9 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
        Kind != OMPC_in_reduction && Kind != OMPC_depend && Kind != OMPC_map) ||
       (Kind == OMPC_reduction && !InvalidReductionId) ||
       (Kind == OMPC_map && Data.ExtraModifier != OMPC_MAP_unknown) ||
-      (Kind == OMPC_depend && Data.ExtraModifier != OMPC_DEPEND_unknown)
-#if INTEL_COLLAB
-      || (Kind == OMPC_adjust_args &&
-          Data.ExtraModifier != OMPC_ADJUST_ARGS_unknown)
-#endif // INTEL_COLLAB
-      ;
+      (Kind == OMPC_depend && Data.ExtraModifier != OMPC_DEPEND_unknown) ||
+      (Kind == OMPC_adjust_args &&
+       Data.ExtraModifier != OMPC_ADJUST_ARGS_unknown);
   const bool MayHaveTail = (Kind == OMPC_linear || Kind == OMPC_aligned);
   while (IsComma || (Tok.isNot(tok::r_paren) && Tok.isNot(tok::colon) &&
                      Tok.isNot(tok::annot_pragma_openmp_end))) {

@@ -199,6 +199,7 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> MSRuntimeChecks;
   std::unique_ptr<PragmaHandler> MSIntrinsic;
   std::unique_ptr<PragmaHandler> MSOptimize;
+  std::unique_ptr<PragmaHandler> MSFenvAccess;
   std::unique_ptr<PragmaHandler> CUDAForceHostDeviceHandler;
   std::unique_ptr<PragmaHandler> OptimizeHandler;
   std::unique_ptr<PragmaHandler> LoopHintHandler;
@@ -2029,6 +2030,9 @@ private:
                                           Sema::ConditionKind CK,
                                           ForRangeInfo *FRI = nullptr,
                                           bool EnterForConditionScope = false);
+  DeclGroupPtrTy
+  ParseAliasDeclarationInInitStatement(DeclaratorContext Context,
+                                       ParsedAttributesWithRange &Attrs);
 
   //===--------------------------------------------------------------------===//
   // C++ Coroutines
@@ -2516,7 +2520,8 @@ private:
     if (getLangOpts().OpenMP)
       Actions.startOpenMPLoop();
     if (getLangOpts().CPlusPlus)
-      return isCXXSimpleDeclaration(AllowForRangeDecl);         //***INTEL
+      return Tok.is(tok::kw_using) ||
+             isCXXSimpleDeclaration(/*AllowForRangeDecl=*/true); //***INTEL
     return isDeclarationSpecifier(true);
   }
 
@@ -3322,21 +3327,9 @@ private:
   /// Parses OpenMP context selectors.
   bool parseOMPContextSelectors(SourceLocation Loc, OMPTraitInfo &TI);
 
-#if INTEL_COLLAB
-  /// Parse a `match`, 'adjust_args', or 'append_args' clause for an
-  /// '#pragma omp declare variant'. Return true if there was an error.
-  bool parseOMPDeclareVariantAnyClause(
-      SourceLocation Loc, OMPTraitInfo &TI, OMPTraitInfo *ParentTI,
-      SmallVectorImpl<Expr *> &AdjustNothing,
-      SmallVectorImpl<Expr *> &AdjustNeedDevicePtr,
-      SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &AppendArgs,
-      SourceLocation &AdjustArgsLoc, SourceLocation &AppendArgsLoc);
-
-  // Parse 'append_args' clause.
-  bool ParseOpenMPAppendArgs(
-      OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
+  /// Parse an 'append_args' clause for '#pragma omp declare variant'.
+  bool parseOpenMPAppendArgs(
       SmallVectorImpl<OMPDeclareVariantAttr::InteropType> &InterOpTypes);
-#endif // INTEL_COLLAB
 
   /// Parse a `match` clause for an '#pragma omp declare variant'. Return true
   /// if there was an error.

@@ -8,9 +8,9 @@
 ; SCEV after: (640000 + (8 * (sext i32 {{{(200560000 + (40000 * %tmp9)),+,40000}<%bb14>,+,200}<%bb19>,+,1}<%bb25> to i64))<nsw> + %arg2)
 ;
 ;
-; SCEV before: (24 + (8 * (sext i32 (16 + (20 * ({{(-80000 + (40000 * %tmp9)),+,40000}<%bb14>,+,200}<nw><%bb19> + %tmp53))) to i64))<nsw> + %arg2)
+; SCEV before: (152 + (8 * (sext i32 (20 * ({{(-80000 + (40000 * %tmp9)),+,40000}<%bb14>,+,200}<nw><%bb19> + %tmp53))<nsw> to i64))<nsw> + %arg2)
 ;
-; SCEV after: (254080000 + (8 * (sext i32 ({{(168880000 + (40000 * %tmp9)),+,40000}<%bb14>,+,200}<nw><%bb19> + %tmp53) to i64))<nsw> + %arg2)
+; SCEV after: (1605760000 + (8 * (sext i32 ({{(-80000 + (40000 * %tmp9)),+,40000}<%bb14>,+,200}<nw><%bb19> + %tmp53) to i64))<nsw> + %arg2)
 
 ; RUN: opt < %s -ip-array-transpose-heuristic=false -iparraytranspose -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -ip-array-transpose-heuristic=false -passes='module(iparraytranspose)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
@@ -22,41 +22,42 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: define i32 @main()
 ; CHECK:  call void @kmp_set_blocktime(i32 0)
 
+; CHECK: define void @foo
+
 ; CHECK: bb12:
 ; CHECK: [[M0:%[0-9]+]] = mul i32 %tmp9, 40000
 ; CHECK: [[A0:%[0-9]+]] = add i32 [[M0]], 200560000
 ; CHECK: [[Z0:%[0-9]+]] = zext i32 [[A0]] to i64
-; CHECK: [[A1:%[0-9]+]] = add i32 [[M0]], 168880000
-; CHECK: [[Z1:%[0-9]+]] = zext i32 [[A1]] to i64
+;
 ; CHECK: bb14:
 ; CHECK: [[P0:%[a-z0-9]+]] = phi i64 [ [[I0:%[a-z.0-9]+]], %bb38 ], [ 0, %bb12 ]
 ; CHECK: [[M1:%[0-9]+]] = mul nuw nsw i64 [[P0]], 40000
-; CHECK: [[A2:%[0-9]+]] = add i64 [[Z0]], [[M1]]
-; CHECK: [[A3:%[0-9]+]] = add i64 [[Z1]], [[M1]]
+; CHECK: [[A1:%[0-9]+]] = add i64 [[Z0]], [[M1]]
+;
 ; CHECK: bb19:
 ; CHECK: [[P1:%[a-z0-9]+]] = phi i64 [ [[I1:%[a-z.0-9]+]], %bb46 ], [ 0, %bb14 ]
 ; CHECK: [[M2:%[0-9]+]] = mul nuw nsw i64 [[P1]], 200
-; CHECK: [[A4:%[0-9]+]]  = add i64 [[A2]], [[M2]]
-; CHECK: [[A5:%[0-9]+]] = add i64 [[A3]], [[M2]]
-; CHECK: [[T0:%[0-9]+]]  = trunc i64 [[A5]] to i32
+; CHECK: [[A2:%[0-9]+]]  = add i64 [[A1]], [[M2]]
+;
 ; CHECK: bb25:
 ; CHECK: [[G0:%[a-z0-9]+]] = getelementptr double, double* %arg2, i64 80000
-; CHECK: [[A6:%[0-9]+]] = add i64 [[A4]], %tmp26
-; CHECK: [[T1:%[0-9]+]] = trunc i64 [[A6]] to i32
-; CHECK: [[S0:%[0-9]+]] = sext i32 [[T1]] to i64
-; CHECK: [[G3:%[a-z0-9]+]] = getelementptr double, double* [[G0]], i64 [[S0]]
-; CHECK:  %tmp34 = load double, double* [[G3]], align 4
-
+; CHECK: [[A3:%[0-9]+]]  = add i64 [[A2]], %tmp26
+; CHECK: [[T0:%[0-9]+]]  = trunc i64 [[A3]] to i32
+; CHECK: [[S1:%[0-9]+]] = sext i32 [[T0]] to i64
+; CHECK: [[G1:%[a-z0-9]+]] = getelementptr double, double* [[G0]], i64 [[S1]]
+; CHECK:  %tmp34 = load double, double* [[G1]], align 4
+;
+; CHECK: bb38:
 ; CHECK:   [[I0]] = add i64 [[P0]], 1
 
+; CHECK: bb46:
 ; CHECK:   [[I1]] = add i64 [[P1]], 1
 
 ; CHECK: bb52:
-; CHECK: [[G4:%[a-z0-9]+]] = getelementptr double, double* %arg2, i64 31760000
-; CHECK: [[A7:%[0-9]+]] = add i32 [[T0]], %tmp53
-; CHECK: [[S1:%[0-9]+]] = sext i32 [[A7]] to i64
-; CHECK: [[G5:%[a-z0-9]+]] = getelementptr double, double* [[G4]], i64 [[S1]]
-; CHECK: [[B1:%[0-9]+]] = bitcast double* [[G5]] to i32*
+; CHECK: [[G2:%[a-z0-9]+]] = getelementptr double, double* %arg2, i64 200720000
+; CHECK: [[S1:%[0-9]+]] = sext i32 %tmp54 to i64
+; CHECK: [[G3:%[a-z0-9]+]] = getelementptr double, double* [[G2]], i64 [[S1]]
+; CHECK: [[B1:%[0-9]+]] = bitcast double* [[G3]] to i32*
 ; CHECK: store i32 1, i32* [[B1]], align 4
 
 

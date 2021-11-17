@@ -9859,7 +9859,7 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
       IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
   ConstantInt *NumArgs =
-      ConstantInt::get(Type::getInt32Ty(C), CI->getNumArgOperands() - 2);
+      ConstantInt::get(Type::getInt32Ty(C), CI->arg_size() - 2);
 
   std::vector<Value *> Params;
   Params.push_back(KmpcLoc);

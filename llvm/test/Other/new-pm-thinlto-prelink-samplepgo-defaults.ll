@@ -40,7 +40,7 @@
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-O-NEXT: Running pass: SROA
+; CHECK-O-NEXT: Running pass: SROAPass
 ; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
@@ -90,7 +90,7 @@
 ; CHECK-O3-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass
-; CHECK-O-NEXT: Running pass: SROA
+; CHECK-O-NEXT: Running pass: SROAPass
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
@@ -125,21 +125,21 @@
 ; CHECK-O-NEXT: Running pass: LoopIdiomRecognizePass
 ; CHECK-O-NEXT: Running pass: IndVarSimplifyPass
 ; CHECK-O-NEXT: Running pass: LoopDeletionPass
-; CHECK-O-NEXT: Running pass: SROA on foo
+; CHECK-O-NEXT: Running pass: SROAPass on foo
 ; CHECK-Os-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-Os-NEXT: Running pass: GVN
+; CHECK-Os-NEXT: Running pass: GVNPass
 ; CHECK-Os-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-Os-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-Oz-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-Oz-NEXT: Running pass: GVN
+; CHECK-Oz-NEXT: Running pass: GVNPass
 ; CHECK-Oz-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-Oz-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O2-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-O2-NEXT: Running pass: GVN
+; CHECK-O2-NEXT: Running pass: GVNPass
 ; CHECK-O2-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O2-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O3-NEXT: Running pass: MergedLoadStoreMotionPass
-; CHECK-O3-NEXT: Running pass: GVN
+; CHECK-O3-NEXT: Running pass: GVNPass
 ; CHECK-O3-NEXT: Running analysis: MemoryDependenceAnalysis
 ; CHECK-O3-NEXT: Running analysis: PhiValuesAnalysis
 ; CHECK-O1-NEXT: Running pass: MemCpyOptPass
@@ -165,6 +165,7 @@
 ; CHECK-O3-NEXT: Running analysis: RegionInfoAnalysis on foo
 ; CHECK-O3-NEXT: Running analysis: DominanceFrontierAnalysis on foo
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
+; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo

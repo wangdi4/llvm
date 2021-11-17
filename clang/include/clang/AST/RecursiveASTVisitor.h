@@ -1689,10 +1689,7 @@ bool RecursiveASTVisitor<Derived>::TraverseTemplateInstantiations(
     ClassTemplateDecl *D) {
   for (auto *SD : D->specializations()) {
     for (auto *RD : SD->redecls()) {
-      // We don't want to visit injected-class-names in this traversal.
-      if (cast<CXXRecordDecl>(RD)->isInjectedClassName())
-        continue;
-
+      assert(!cast<CXXRecordDecl>(RD)->isInjectedClassName());
       switch (
           cast<ClassTemplateSpecializationDecl>(RD)->getSpecializationKind()) {
       // Visit the implicit instantiations with the requested pattern.
@@ -1871,10 +1868,9 @@ DEF_TRAVERSE_DECL(UnresolvedUsingIfExistsDecl, {})
 DEF_TRAVERSE_DECL(EnumDecl, {
   TRY_TO(TraverseDeclTemplateParameterLists(D));
 
-  if (D->getTypeForDecl())
-    TRY_TO(TraverseType(QualType(D->getTypeForDecl(), 0)));
-
   TRY_TO(TraverseNestedNameSpecifierLoc(D->getQualifierLoc()));
+  if (auto *TSI = D->getIntegerTypeSourceInfo())
+    TRY_TO(TraverseTypeLoc(TSI->getTypeLoc()));
   // The enumerators are already traversed by
   // decls_begin()/decls_end().
 })
@@ -2895,9 +2891,6 @@ DEF_TRAVERSE_STMT(OMPSectionDirective,
 #if INTEL_COLLAB
 DEF_TRAVERSE_STMT(OMPTargetVariantDispatchDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
-
-DEF_TRAVERSE_STMT(OMPGenericLoopDirective,
-                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPTeamsGenericLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPTargetTeamsGenericLoopDirective,
@@ -3067,6 +3060,9 @@ DEF_TRAVERSE_STMT(OMPDispatchDirective,
 DEF_TRAVERSE_STMT(OMPMaskedDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPGenericLoopDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 // OpenMP clauses.
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseOMPClause(OMPClause *C) {
@@ -3142,11 +3138,6 @@ RecursiveASTVisitor<Derived>::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
 
 #if INTEL_COLLAB
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPBindClause(OMPBindClause *C) {
-  return true;
-}
-
-template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   TRY_TO(VisitOMPClauseWithPreInit(C));
@@ -3176,11 +3167,6 @@ RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
   return true;
 }
 
-template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPAlignClause(OMPAlignClause *C) {
-  TRY_TO(TraverseStmt(C->getAlignment()));
-  return true;
-}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
@@ -3203,6 +3189,12 @@ RecursiveASTVisitor<Derived>::VisitOMPDataflowClause(OMPDataflowClause *C) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPAlignClause(OMPAlignClause *C) {
+  TRY_TO(TraverseStmt(C->getAlignment()));
+  return true;
+}
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPSafelenClause(OMPSafelenClause *C) {
@@ -3791,6 +3783,11 @@ template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPFilterClause(OMPFilterClause *C) {
   TRY_TO(VisitOMPClauseWithPreInit(C));
   TRY_TO(TraverseStmt(C->getThreadID()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPBindClause(OMPBindClause *C) {
   return true;
 }
 

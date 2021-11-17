@@ -5,6 +5,7 @@
 // end INTEL_CUSTOMIZATION
 
 // UNSUPPORTED: amdgcn-amd-amdhsa
+// UNSUPPORTED: amdgcn-amd-amdhsa-newRTL
 
 #include <cassert>
 #include <iostream>

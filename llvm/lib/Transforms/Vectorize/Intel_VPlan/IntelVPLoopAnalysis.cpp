@@ -433,7 +433,7 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::And:
   case RecurKind::FMul:
   case RecurKind::FAdd: {
-    Constant *C = VPReduction::getRecurrenceIdentity(Red->getRecurrenceKind(),
+    Constant *C = VPReduction::getConstRecurrenceIdentity(Red->getRecurrenceKind(),
                                                      Red->getRecurrenceType(),
                                                      Red->getFastMathFlags());
     return Plan.getVPConstant(C);
@@ -444,6 +444,8 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::UMax:
   case RecurKind::FMin:
   case RecurKind::FMax:
+  case RecurKind::SelectICmp:
+  case RecurKind::SelectFCmp:
     return Red->getRecurrenceStartValue();
   default:
     llvm_unreachable("Unknown recurrence kind");

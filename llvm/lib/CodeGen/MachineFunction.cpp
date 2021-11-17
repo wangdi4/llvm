@@ -99,6 +99,7 @@ static const char *getPropertyName(MachineFunctionProperties::Property Prop) {
   case P::Selected: return "Selected";
   case P::TracksLiveness: return "TracksLiveness";
   case P::TiedOpsRewritten: return "TiedOpsRewritten";
+  case P::FailsVerification: return "FailsVerification";
   }
   llvm_unreachable("Invalid machine function property");
 }
@@ -973,6 +974,9 @@ void MachineFunction::makeDebugValueSubstitution(DebugInstrOperandPair A,
                                                  unsigned Subreg) {
   // Catch any accidental self-loops.
   assert(A.first != B.first);
+  // Don't allow any substitutions _from_ the memory operand number.
+  assert(A.second != DebugOperandMemNumber);
+
   DebugValueSubstitutions.push_back({A, B, Subreg});
 }
 
@@ -1158,7 +1162,7 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
   // Create DBG_PHI for specified physreg.
   auto Builder = BuildMI(InsertBB, InsertBB.getFirstNonPHI(), DebugLoc(),
                          TII.get(TargetOpcode::DBG_PHI));
-  Builder.addReg(State.first, RegState::Debug);
+  Builder.addReg(State.first);
   unsigned NewNum = getNewDebugInstrNum();
   Builder.addImm(NewNum);
   return ApplySubregisters({NewNum, 0u});
@@ -1171,7 +1175,6 @@ void MachineFunction::finalizeDebugInstrRefs() {
     const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_VALUE);
     MI.setDesc(RefII);
     MI.getOperand(1).ChangeToRegister(0, false);
-    MI.getOperand(0).setIsDebug();
   };
 
   if (!useDebugInstrRef())
@@ -1238,6 +1241,9 @@ bool MachineFunction::useDebugInstrRef() const {
 
   return false;
 }
+
+// Use one million as a high / reserved number.
+const unsigned MachineFunction::DebugOperandMemNumber = 1000000;
 
 /// \}
 

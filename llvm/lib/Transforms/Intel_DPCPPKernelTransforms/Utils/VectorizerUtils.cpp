@@ -614,7 +614,7 @@ Value *rootInputArgument(Value *Arg, Type *RootTy, CallInst *CI) {
 
 Value *rootInputArgumentBySignature(Value *Arg, unsigned int ParamNum,
                                     CallInst *CI) {
-  assert(ParamNum <= CI->getNumArgOperands() &&
+  assert(ParamNum <= CI->arg_size() &&
          "Requested type of parameter that does not exist");
 
   // Get the (reflection) type from the mangled name.

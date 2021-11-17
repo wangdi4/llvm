@@ -362,7 +362,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
       // Create the new call based on OCLSincosDecl and
       // insert it before the old call
 
-      SmallVector<Value *, 3> FnArgs(OldCall->arg_operands());
+      SmallVector<Value *, 3> FnArgs(OldCall->args());
       // arg[0]: Opnd;  arg[1]: SineVar;  arg[2]: CosineVar
 
       CallInst *NewCall = CallInst::Create(

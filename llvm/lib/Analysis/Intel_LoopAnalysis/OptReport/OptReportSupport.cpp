@@ -394,8 +394,8 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
       (void)CompressedBytes;
     } else {
       std::string ZlibErrorMsg(GOS.ZlibErrorMessage());
-      report_fatal_error("Failed to compress protobuf message (zlib error:" +
-                         ZlibErrorMsg + ")");
+      report_fatal_error(Twine("Failed to compress protobuf message (zlib error:" +
+                         ZlibErrorMsg + ")"));
     }
   } else {
     report_fatal_error("Failed to serialize protobuf message.");

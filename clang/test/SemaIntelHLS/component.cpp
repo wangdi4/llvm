@@ -132,7 +132,7 @@ __attribute__((scheduler_target_fmax_mhz(12)))
 void bar13() {
 }
 
-__attribute__((scheduler_target_fmax_mhz("sch"))) //expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char [4]'}}
+__attribute__((scheduler_target_fmax_mhz("sch"))) //expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char[4]'}}
 void bar14() {
 }
 

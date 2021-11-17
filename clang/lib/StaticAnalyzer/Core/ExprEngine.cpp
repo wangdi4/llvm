@@ -1246,7 +1246,6 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPSectionsDirectiveClass:
     case Stmt::OMPSectionDirectiveClass:
 #if INTEL_COLLAB
-    case Stmt::OMPGenericLoopDirectiveClass:
     case Stmt::OMPTeamsGenericLoopDirectiveClass:
     case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
     case Stmt::OMPParallelGenericLoopDirectiveClass:
@@ -1307,6 +1306,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPInteropDirectiveClass:
     case Stmt::OMPDispatchDirectiveClass:
     case Stmt::OMPMaskedDirectiveClass:
+    case Stmt::OMPGenericLoopDirectiveClass:
     case Stmt::CapturedStmtClass:
     case Stmt::OMPUnrollDirectiveClass:
     case Stmt::OMPMetaDirectiveClass: {
@@ -2003,8 +2003,7 @@ void ExprEngine::processCFGBlockEntrance(const BlockEdge &L,
   if (BlockCount == AMgr.options.maxBlockVisitOnPath - 1 &&
       AMgr.options.ShouldWidenLoops) {
     const Stmt *Term = nodeBuilder.getContext().getBlock()->getTerminatorStmt();
-    if (!(Term &&
-          (isa<ForStmt>(Term) || isa<WhileStmt>(Term) || isa<DoStmt>(Term))))
+    if (!isa_and_nonnull<ForStmt, WhileStmt, DoStmt>(Term))
       return;
     // Widen.
     const LocationContext *LCtx = Pred->getLocationContext();
@@ -2280,7 +2279,7 @@ void ExprEngine::processBranch(const Stmt *Condition,
       continue;
     }
     if (StTrue && StFalse)
-      assert(!isa<ObjCForCollectionStmt>(Condition));;
+      assert(!isa<ObjCForCollectionStmt>(Condition));
 
     // Process the true branch.
     if (builder.isFeasible(true)) {
@@ -2608,7 +2607,7 @@ void ExprEngine::VisitCommonDeclRefExpr(const Expr *Ex, const NamedDecl *D,
                       ProgramPoint::PostLValueKind);
     return;
   }
-  if (isa<FieldDecl>(D) || isa<IndirectFieldDecl>(D)) {
+  if (isa<FieldDecl, IndirectFieldDecl>(D)) {
     // Delegate all work related to pointer to members to the surrounding
     // operator&.
     return;
@@ -2685,7 +2684,7 @@ void ExprEngine::VisitMemberExpr(const MemberExpr *M, ExplodedNode *Pred,
 
   // Handle static member variables and enum constants accessed via
   // member syntax.
-  if (isa<VarDecl>(Member) || isa<EnumConstantDecl>(Member)) {
+  if (isa<VarDecl, EnumConstantDecl>(Member)) {
     for (const auto I : CheckedSet)
       VisitCommonDeclRefExpr(M, Member, I, EvalSet);
   } else {

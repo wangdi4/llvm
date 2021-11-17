@@ -123,7 +123,6 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_allocate:
   case OMPC_collapse:
 #if INTEL_COLLAB
-  case OMPC_bind:
   case OMPC_data:
 #endif // INTEL_COLLAB`
   case OMPC_tile:  // INTEL
@@ -181,6 +180,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_uses_allocators:
   case OMPC_affinity:
   case OMPC_when:
+  case OMPC_bind:
     break;
   default:
     break;
@@ -281,9 +281,6 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
-#if INTEL_COLLAB
-  case OMPC_bind:
-#endif //INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -291,6 +288,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case OMPC_when:
+  case OMPC_bind:
     break;
   default:
     break;
@@ -657,6 +655,13 @@ OMPAlignedClause *OMPAlignedClause::CreateEmpty(const ASTContext &C,
                                                 unsigned NumVars) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumVars + 1));
   return new (Mem) OMPAlignedClause(NumVars);
+}
+
+OMPAlignClause *OMPAlignClause::Create(const ASTContext &C, Expr *A,
+                                       SourceLocation StartLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation EndLoc) {
+  return new (C) OMPAlignClause(A, StartLoc, LParenLoc, EndLoc);
 }
 
 void OMPCopyinClause::setSourceExprs(ArrayRef<Expr *> SrcExprs) {
@@ -1700,6 +1705,16 @@ OMPInitClause *OMPInitClause::CreateEmpty(const ASTContext &C, unsigned N) {
   return new (Mem) OMPInitClause(N);
 }
 
+OMPBindClause *
+OMPBindClause::Create(const ASTContext &C, OpenMPBindClauseKind K,
+                      SourceLocation KLoc, SourceLocation StartLoc,
+                      SourceLocation LParenLoc, SourceLocation EndLoc) {
+  return new (C) OMPBindClause(K, KLoc, StartLoc, LParenLoc, EndLoc);
+}
+
+OMPBindClause *OMPBindClause::CreateEmpty(const ASTContext &C) {
+  return new (C) OMPBindClause();
+}
 //===----------------------------------------------------------------------===//
 //  OpenMP clauses printing methods
 //===----------------------------------------------------------------------===//
@@ -1725,12 +1740,6 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
 }
 
 #if INTEL_COLLAB
-void OMPClausePrinter::VisitOMPBindClause(OMPBindClause *Node) {
-  OS << "bind("
-     << getOpenMPSimpleClauseTypeName(OMPC_bind, unsigned(Node->getBindKind()))
-     << ")";
-}
-
 void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   OS << "subdevice(";
   if (auto *E = Node->getLevel()) {
@@ -1790,13 +1799,8 @@ void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
   }
   OS << ")";
 }
-
-void OMPClausePrinter::VisitOMPAlignClause(OMPAlignClause *Node) {
-  OS << "align(";
-  Node->getAlignment()->printPretty(OS, nullptr, Policy, 0);
-  OS << ")";
-}
 #endif // INTEL_COLLAB
+
 #if INTEL_CUSTOMIZATION
 void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {
   bool PrintComma = false;
@@ -1839,6 +1843,12 @@ void OMPClausePrinter::VisitOMPDataflowClause(OMPDataflowClause *Node) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+
+void OMPClausePrinter::VisitOMPAlignClause(OMPAlignClause *Node) {
+  OS << "align(";
+  Node->getAlignment()->printPretty(OS, nullptr, Policy, 0);
+  OS << ")";
+}
 
 void OMPClausePrinter::VisitOMPSafelenClause(OMPSafelenClause *Node) {
   OS << "safelen(";
@@ -2565,6 +2575,12 @@ void OMPClausePrinter::VisitOMPFilterClause(OMPFilterClause *Node) {
   OS << "filter(";
   Node->getThreadID()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPBindClause(OMPBindClause *Node) {
+  OS << "bind("
+     << getOpenMPSimpleClauseTypeName(OMPC_bind, unsigned(Node->getBindKind()))
+     << ")";
 }
 
 void OMPTraitInfo::getAsVariantMatchInfo(ASTContext &ASTCtx,

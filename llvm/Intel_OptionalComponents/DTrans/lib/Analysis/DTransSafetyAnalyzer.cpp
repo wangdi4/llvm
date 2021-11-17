@@ -3343,7 +3343,7 @@ public:
 
     // Mark all other intrinsic calls with UnhandledUse for the arguments that
     // are types of interest.
-    for (Value *Arg : I.arg_operands()) {
+    for (Value *Arg : I.args()) {
       ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
       if (!Info)
         continue;

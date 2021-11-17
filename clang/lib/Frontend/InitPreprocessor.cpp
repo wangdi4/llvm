@@ -371,7 +371,10 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   //      value is, are implementation-defined.
   // (Removed in C++20.)
   if (!LangOpts.CPlusPlus) {
-    if (LangOpts.C17)
+    // FIXME: Use correct value for C23.
+    if (LangOpts.C2x)
+      Builder.defineMacro("__STDC_VERSION__", "202000L");
+    else if (LangOpts.C17)
       Builder.defineMacro("__STDC_VERSION__", "201710L");
     else if (LangOpts.C11)
       Builder.defineMacro("__STDC_VERSION__", "201112L");
@@ -611,7 +614,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     //Builder.defineMacro("__cpp_consteval", "201811L");
     Builder.defineMacro("__cpp_constexpr_dynamic_alloc", "201907L");
     Builder.defineMacro("__cpp_constinit", "201907L");
-    //Builder.defineMacro("__cpp_coroutines", "201902L");
+    Builder.defineMacro("__cpp_impl_coroutine", "201902L");
     Builder.defineMacro("__cpp_designated_initializers", "201707L");
     Builder.defineMacro("__cpp_impl_three_way_comparison", "201907L");
     //Builder.defineMacro("__cpp_modules", "201907L");
@@ -1258,7 +1261,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.OpenCL) {
     InitializeOpenCLFeatureTestMacros(TI, LangOpts, Builder);
 
-    if (TI.getTriple().isSPIR())
+    if (TI.getTriple().isSPIR() || TI.getTriple().isSPIRV())
 #if INTEL_CUSTOMIZATION
       if (TI.getTriple().getEnvironment() != llvm::Triple::IntelFPGA)
 #endif // INTEL_CUSTOMIZATION

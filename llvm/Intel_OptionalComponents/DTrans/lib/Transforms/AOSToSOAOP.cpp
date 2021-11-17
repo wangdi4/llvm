@@ -821,7 +821,7 @@ void AOSCollector::visitCallBase(CallBase &I) {
 
   // Check for 'null' pointer values being passed. These need to be updated to
   // allow them to be converted to an integer index value.
-  unsigned NumOps = I.getNumArgOperands();
+  unsigned NumOps = I.arg_size();
   for (unsigned ArgNum = 0; ArgNum < NumOps; ++ArgNum)
     checkForConstantToConvert(&I, ArgNum);
 }

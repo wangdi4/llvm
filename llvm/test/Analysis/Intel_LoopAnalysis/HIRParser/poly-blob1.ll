@@ -6,13 +6,9 @@
 ; CHECK: |   %4 = 4 * i1  *  i1 + 4294967295;
 ; CHECK: |   %5 = %4  *  undef;
 ; CHECK: |   %6 = %5  /  3;
+; CHECK: |   %7 = i1  <<  1;
 ; CHECK: |   %11 = i1  -  1;
-
-; Parser reverse engineered %10 in terms of %11 instead of %7 (which more accurately represents incoming IR).
-; This is okay stability wise as they are mathematically equivalent but can it cause performance issues?
-; FIXME: Is it worth searching for an exact match before looking for an approximate match for SCEV value -> LLVM value mapping?
-
-; CHECK: |   %13 = trunc.i64.i32(((1 + sext.i32.i64((2 + (2 * trunc.i64.i32(%11))))) * %11));
+; CHECK: |   %13 = trunc.i64.i32(((1 + sext.i32.i64(%7)) * %11));
 ; CHECK: |   %18 = (%f)[0][sext.i32.i64((undef + %6 + %13)) + -1];
 ; CHECK: + END LOOP
 

@@ -265,7 +265,7 @@ void SymbolTable::loadMinGWSymbols() {
 
     if (config->machine == I386 && config->stdcallFixup) {
       // Check if we can resolve an undefined decorated symbol by finding
-      // the indended target as an undecorated symbol (only with a leading
+      // the intended target as an undecorated symbol (only with a leading
       // underscore).
       StringRef origName = name;
       StringRef baseName = name;
@@ -573,9 +573,11 @@ Symbol *SymbolTable::addUndefined(StringRef name, InputFile *f,
 }
 
 #if INTEL_CUSTOMIZATION
-// The original version of this function was removed in the community in D78221.
-// This is kept here so as to support calling runMSVCLinker from Driver.cpp.
-std::vector<StringRef> SymbolTable::compileBitcodeFiles() {
+// The Intel version of compileBitcodeFiles was renamed to
+// compileBitcodeFilesForMSVCLinker to prevent name collision after D112719.
+// The original version was removed by the community in D78221. We use it
+// to support calling runMSVCLinker from Driver.cpp.
+std::vector<StringRef> SymbolTable::compileBitcodeFilesForMSVCLinker() {
   lto.reset(new BitcodeCompiler);
   for (BitcodeFile *f : ctx.bitcodeFileInstances)
     lto->add(*f);
@@ -905,7 +907,7 @@ Symbol *SymbolTable::addUndefined(StringRef name) {
   return addUndefined(name, nullptr, false);
 }
 
-void SymbolTable::addCombinedLTOObjects() {
+void SymbolTable::compileBitcodeFiles() {
   if (ctx.bitcodeFileInstances.empty())
     return;
 

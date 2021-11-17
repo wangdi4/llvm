@@ -535,6 +535,7 @@ bool llvm::runIPSCCP(
           CB->removeFnAttrs(AttributesToRemove);
         }
       }
+      MadeChanges |= ReplacedPointerArg;
     }
 
     SmallPtrSet<Value *, 32> InsertedValues;

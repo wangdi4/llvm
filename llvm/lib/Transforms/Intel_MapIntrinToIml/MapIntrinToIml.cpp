@@ -662,7 +662,7 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
   for (unsigned I = 0; I < LogicalVL; ++I) {
     SmallVector<Value *, 4> ScalarCallArgs;
 
-    for (unsigned J = 0; J < CI->getNumArgOperands(); ++J) {
+    for (unsigned J = 0; J < CI->arg_size(); ++J) {
       Value *Parm = CI->getArgOperand(J);
       VectorType *VecParmType = dyn_cast<VectorType>(Parm->getType());
 

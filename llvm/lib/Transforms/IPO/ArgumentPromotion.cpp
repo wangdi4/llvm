@@ -1324,12 +1324,14 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   if (!Changed)
     return PreservedAnalyses::all();
 
-#if INTEL_CUSTOMIZATION
   PreservedAnalyses PA;
+  // We've cleared out analyses for deleted functions.
+  PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
+#if INTEL_CUSTOMIZATION
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
-  return PA;
 #endif // INTEL_CUSTOMIZATION
+  return PA;
 }
 
 namespace {

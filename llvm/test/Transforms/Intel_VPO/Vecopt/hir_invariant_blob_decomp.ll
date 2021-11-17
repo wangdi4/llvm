@@ -26,7 +26,7 @@ define void @foo(i64 %n1, i64 %n2) {
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@arr2}
 ; CHECK-DAG:     [[VP1:%.*]] = {@arr}
-; CHECK-DAG:     [[VP2:%.*]] = {(%n1 * %n2)}
+; CHECK-DAG:     [[VP2:%.*]] = {(%n1 * %n2)<nsw>}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]

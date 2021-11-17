@@ -1428,6 +1428,12 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   VPLoop *VPLp = *(Plan.getVPLoopInfo()->begin());
   VPBasicBlock *Header = VPLp->getHeader();
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
+  // Check whether all reductions are supported
+  for (auto Red : LE->vpreductions())
+    if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
+        Red->getRecurrenceKind() == RecurKind::SelectFCmp)
+      return false;
+
   // Check whether all header phis are recognized as entities.
   for (auto &Phi : Header->getVPPhis())
     if (!LE->getInduction(&Phi) && !LE->getReduction(&Phi) &&

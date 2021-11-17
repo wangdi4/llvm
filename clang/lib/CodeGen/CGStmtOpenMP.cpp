@@ -1866,9 +1866,7 @@ static void emitBody(CodeGenFunction &CGF, const Stmt *S, const Stmt *NextLoop,
     return;
   }
   if (SimplifiedS == NextLoop) {
-    if (auto *Dir = dyn_cast<OMPTileDirective>(SimplifiedS))
-      SimplifiedS = Dir->getTransformedStmt();
-    if (auto *Dir = dyn_cast<OMPUnrollDirective>(SimplifiedS))
+    if (auto *Dir = dyn_cast<OMPLoopTransformationDirective>(SimplifiedS))
       SimplifiedS = Dir->getTransformedStmt();
     if (const auto *CanonLoop = dyn_cast<OMPCanonicalLoop>(SimplifiedS))
       SimplifiedS = CanonLoop->getLoopStmt();
@@ -6142,13 +6140,9 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_uses_allocators:
   case OMPC_affinity:
 #if INTEL_COLLAB
-  case OMPC_bind:
   case OMPC_subdevice:
   case OMPC_ompx_places:
-  case OMPC_adjust_args:
-  case OMPC_append_args:
   case OMPC_data:
-  case OMPC_align:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
@@ -6165,6 +6159,11 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_nocontext:
   case OMPC_filter:
   case OMPC_when:
+  case OMPC_adjust_args:
+  case OMPC_append_args:
+  case OMPC_memory_order:
+  case OMPC_bind:
+  case OMPC_align:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }
@@ -7918,6 +7917,16 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
   }
 }
 #endif // INTEL_COLLAB
+
+void CodeGenFunction::EmitOMPGenericLoopDirective(
+    const OMPGenericLoopDirective &S) {
+  // Unimplemented, just inline the underlying statement for now.
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &Action) {
+    CGF.EmitStmt(cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
+  };
+  OMPLexicalScope Scope(*this, S, OMPD_unknown);
+  CGM.getOpenMPRuntime().emitInlinedDirective(*this, OMPD_loop, CodeGen);
+}
 
 void CodeGenFunction::EmitSimpleOMPExecutableDirective(
     const OMPExecutableDirective &D) {

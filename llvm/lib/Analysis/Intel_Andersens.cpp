@@ -5823,7 +5823,7 @@ IntelModRefImpl::getFormatCheckPosition(LibFunc &TheLibFunc) {
 unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
                                                        LibFunc TheLibFunc) {
   unsigned StringPos = getFormatCheckPosition(TheLibFunc);
-  unsigned ArgCount = Call->getNumArgOperands();
+  unsigned ArgCount = Call->arg_size();
   unsigned PrintfReadOnlyArgs = ArgCount;
 
   // Try to analyze the printf formatting string for any %n arguments. If the
@@ -5903,7 +5903,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
   if (LibFuncModel & LFMR_ARGS) {
     bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
     unsigned FuncArgCount = F->getFunctionType()->getNumParams();
-    unsigned ArgCount = Call->getNumArgOperands();
+    unsigned ArgCount = Call->arg_size();
     for (unsigned ArgNo = 0; ArgNo < ArgCount; ++ArgNo) {
       Value *Arg = Call->getArgOperand(ArgNo);
       if (!Arg->getType()->isPointerTy())

@@ -1345,7 +1345,8 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   // precise source location of the checked return statement.
   if (requiresReturnValueCheck()) {
     ReturnLocation = CreateDefaultAlignTempAlloca(Int8PtrTy, "return.sloc.ptr");
-    InitTempAlloca(ReturnLocation, llvm::ConstantPointerNull::get(Int8PtrTy));
+    Builder.CreateStore(llvm::ConstantPointerNull::get(Int8PtrTy),
+                        ReturnLocation);
   }
 
   // Emit subprogram debug descriptor.
@@ -1762,18 +1763,40 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // When generating code for a builtin with an inline declaration, use a
   // mangled name to hold the actual body, while keeping an external definition
   // in case the function pointer is referenced somewhere.
-  if (FD->isInlineBuiltinDeclaration() && Fn) {
-    std::string FDInlineName = (Fn->getName() + ".inline").str();
-    llvm::Module *M = Fn->getParent();
-    llvm::Function *Clone = M->getFunction(FDInlineName);
-    if (!Clone) {
-      Clone = llvm::Function::Create(Fn->getFunctionType(),
-                                     llvm::GlobalValue::InternalLinkage,
-                                     Fn->getAddressSpace(), FDInlineName, M);
-      Clone->addFnAttr(llvm::Attribute::AlwaysInline);
+  if (Fn) {
+    if (FD->isInlineBuiltinDeclaration()) {
+      std::string FDInlineName = (Fn->getName() + ".inline").str();
+      llvm::Module *M = Fn->getParent();
+      llvm::Function *Clone = M->getFunction(FDInlineName);
+      if (!Clone) {
+        Clone = llvm::Function::Create(Fn->getFunctionType(),
+                                       llvm::GlobalValue::InternalLinkage,
+                                       Fn->getAddressSpace(), FDInlineName, M);
+        Clone->addFnAttr(llvm::Attribute::AlwaysInline);
+      }
+      Fn->setLinkage(llvm::GlobalValue::ExternalLinkage);
+      Fn = Clone;
     }
-    Fn->setLinkage(llvm::GlobalValue::ExternalLinkage);
-    Fn = Clone;
+
+    // Detect the unusual situation where an inline version is shadowed by a
+    // non-inline version. In that case we should pick the external one
+    // everywhere. That's GCC behavior too. Unfortunately, I cannot find a way
+    // to detect that situation before we reach codegen, so do some late
+    // replacement.
+    else {
+      for (const FunctionDecl *PD = FD->getPreviousDecl(); PD;
+           PD = PD->getPreviousDecl()) {
+        if (LLVM_UNLIKELY(PD->isInlineBuiltinDeclaration())) {
+          std::string FDInlineName = (Fn->getName() + ".inline").str();
+          llvm::Module *M = Fn->getParent();
+          if (llvm::Function *Clone = M->getFunction(FDInlineName)) {
+            Clone->replaceAllUsesWith(Fn);
+            Clone->eraseFromParent();
+          }
+          break;
+        }
+      }
+    }
   }
 
   // Check if we should generate debug info for this function.
@@ -3120,8 +3143,7 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
     // Return if the builtin doesn't have any required features.
     if (FeatureList.empty())
       return;
-    assert(FeatureList.find(' ') == StringRef::npos &&
-           "Space in feature list");
+    assert(!FeatureList.contains(' ') && "Space in feature list");
     TargetFeatures TF(CallerFeatureMap);
     if (!TF.hasRequiredFeatures(FeatureList))
       CGM.getDiags().Report(Loc, diag::err_builtin_needs_feature)

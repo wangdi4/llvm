@@ -145,18 +145,11 @@ void f4() {
 
   // The finally cleanup has two threaded entrypoints after optimization:
 
-  // INTEL_CUSTOMIZATION
-  //
-  // The Intel-specific early jump threading pass causes the block ordering in
-  // the optimized LLVM IR to be different even though the final generated
-  // code is the same. There is no simple way to make this test tolerant of the
-  // ordering difference, so the test was changed to expect the new ordering.
-  // The 5 lines marked with INTEL below were moved verbatim from here.
-  // finally.no-call-exit:  Predecessor is when the catch throws. ;INTEL
-  // CHECK:      call i8* @objc_exception_extract([[EXNDATA_T]]* nonnull [[EXNDATA]]) ;INTEL
-  // CHECK-NEXT: call void @f4_help(i32 2) ;INTEL
-  // CHECK-NEXT: br label ;INTEL
-  //   -> rethrow ;INTEL
+  // finally.no-call-exit:  Predecessor is when the catch throws.
+  // CHECK:      call i8* @objc_exception_extract([[EXNDATA_T]]* nonnull [[EXNDATA]])
+  // CHECK-NEXT: call void @f4_help(i32 2)
+  // CHECK-NEXT: br label
+  //   -> rethrow
 
   // finally.call-exit:  Predecessors are the @try and @catch fallthroughs
   // as well as the no-match case in the catch mechanism.  The i1 is whether

@@ -1084,14 +1084,10 @@ namespace {
 
     void performLifetimeExtension() {
       // Disable the cleanups for lifetime-extended temporaries.
-      CleanupStack.erase(std::remove_if(CleanupStack.begin(),
-                                        CleanupStack.end(),
-                                        [](Cleanup &C) {
-                                          return !C.isDestroyedAtEndOf(
-                                              ScopeKind::FullExpression);
-                                        }),
-                         CleanupStack.end());
-     }
+      llvm::erase_if(CleanupStack, [](Cleanup &C) {
+        return !C.isDestroyedAtEndOf(ScopeKind::FullExpression);
+      });
+    }
 
     /// Throw away any remaining cleanups at the end of evaluation. If any
     /// cleanups would have had a side-effect, note that as an unmodeled
@@ -5322,6 +5318,11 @@ static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
         return ESR_Failed;
       return ESR;
     }
+
+    // In error-recovery cases it's possible to get here even if we failed to
+    // synthesize the __begin and __end variables.
+    if (!FS->getBeginStmt() || !FS->getEndStmt() || !FS->getCond())
+      return ESR_Failed;
 
     // Create the __begin and __end iterators.
     ESR = EvaluateStmt(Result, Info, FS->getBeginStmt());
@@ -15570,8 +15571,10 @@ bool Expr::isIntegerConstantExpr(const ASTContext &Ctx,
 Optional<llvm::APSInt> Expr::getIntegerConstantExpr(const ASTContext &Ctx,
                                                     SourceLocation *Loc,
                                                     bool isEvaluated) const {
-  assert(!isValueDependent() &&
-         "Expression evaluator can't be called on a dependent expression.");
+  if (isValueDependent()) {
+    // Expression evaluator can't succeed on a dependent expression.
+    return None;
+  }
 
   APSInt Value;
 

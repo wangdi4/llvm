@@ -2605,7 +2605,7 @@ namespace {
 // argument list.
 CallInst *specializeCallSite(CallInst *Call, Function *Clone,
                              const ParamIndSet &ConstArgs) {
-  unsigned NumArgs = Call->getNumArgOperands();
+  unsigned NumArgs = Call->arg_size();
   unsigned NumConstArgs = ConstArgs.count();
   SmallVector<Value *, EST_PARAM_LIST_SIZE> NewArgs;
   NewArgs.reserve(NumArgs - NumConstArgs);
@@ -3133,7 +3133,7 @@ bool PostProcessor::doPreliminaryTest(void) {
 
 bool PostProcessor::collectPPCallInst(CallInst *CI) {
   Function *Callee = CI->getCalledFunction();
-  if (!Callee || !CI->getNumArgOperands())
+  if (!Callee || !CI->arg_size())
     return false;
 
   // Bail out if the callee is in the seed-function list
@@ -3148,7 +3148,7 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
   // or
   // - any argument that is already constant?
   unsigned CFArgPos = 0;
-  for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I) {
+  for (unsigned I = 0, E = CI->arg_size(); I < E; ++I) {
     if (!Psets.haveIndex(I))
       continue;
 
@@ -3246,7 +3246,7 @@ bool PostProcessor::foldConstantAndReplWithClone(CallInst *&CI, unsigned Pos) {
 
   // 1.Fold constant, replace the Pos-index argument with the constant value
   //   (construct a ConstParams object implicitly for 2nd-stage use)
-  const unsigned NumArgs = CI->getNumArgOperands();
+  const unsigned NumArgs = CI->arg_size();
   ConstParamVec ConstParams;
   ConstParams.resize(NumArgs);
   bool IsBinOp = false;

@@ -177,7 +177,7 @@ static bool allUsersICmpEQorNE(CallInst *Call) {
 }
 
 bool OptimizeDynamicCastsPass::isTransformationApplicable(CallInst *Call) {
-  assert(Call->getNumArgOperands() == 4 &&
+  assert(Call->arg_size() == 4 &&
          "Unexpected number of operands in dynamic_cast call!");
 
   // The third operand of __dynamic_cast is a pointer to the type_info of

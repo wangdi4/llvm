@@ -453,8 +453,6 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
 }
 
 #if INTEL_COLLAB
-void OMPClauseProfiler::VisitOMPBindClause(const OMPBindClause *C) { }
-
 void OMPClauseProfiler::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   VistOMPClauseWithPreInit(C);
   if (C->getLevel())
@@ -481,12 +479,8 @@ void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
   for (auto *E : C->val_exprs())
     Profiler->VisitStmt(E);
 }
-
-void OMPClauseProfiler::VisitOMPAlignClause(const OMPAlignClause *C) {
-  if (C->getAlignment())
-    Profiler->VisitStmt(C->getAlignment());
-}
 #endif // INTEL_COLLAB
+
 #if INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
   for (auto *E : C->sizes())
@@ -504,6 +498,11 @@ void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+
+void OMPClauseProfiler::VisitOMPAlignClause(const OMPAlignClause *C) {
+  if (C->getAlignment())
+    Profiler->VisitStmt(C->getAlignment());
+}
 
 void OMPClauseProfiler::VisitOMPSafelenClause(const OMPSafelenClause *C) {
   if (C->getSafelen())
@@ -939,6 +938,7 @@ void OMPClauseProfiler::VisitOMPAffinityClause(const OMPAffinityClause *C) {
     Profiler->VisitStmt(E);
 }
 void OMPClauseProfiler::VisitOMPOrderClause(const OMPOrderClause *C) {}
+void OMPClauseProfiler::VisitOMPBindClause(const OMPBindClause *C) {}
 } // namespace
 
 void
@@ -976,12 +976,17 @@ void StmtProfiler::VisitOMPSimdDirective(const OMPSimdDirective *S) {
   VisitOMPLoopDirective(S);
 }
 
-void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
+void StmtProfiler::VisitOMPLoopTransformationDirective(
+    const OMPLoopTransformationDirective *S) {
   VisitOMPLoopBasedDirective(S);
 }
 
+void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
+  VisitOMPLoopTransformationDirective(S);
+}
+
 void StmtProfiler::VisitOMPUnrollDirective(const OMPUnrollDirective *S) {
-  VisitOMPLoopBasedDirective(S);
+  VisitOMPLoopTransformationDirective(S);
 }
 
 void StmtProfiler::VisitOMPForDirective(const OMPForDirective *S) {
@@ -1004,11 +1009,6 @@ void StmtProfiler::VisitOMPSectionDirective(const OMPSectionDirective *S) {
 void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
     const OMPTargetVariantDispatchDirective *S) {
   VisitOMPExecutableDirective(S);
-}
-
-void StmtProfiler::VisitOMPGenericLoopDirective(
-    const OMPGenericLoopDirective *S) {
-  VisitOMPLoopDirective(S);
 }
 
 void StmtProfiler::VisitOMPTeamsGenericLoopDirective(
@@ -1284,6 +1284,11 @@ void StmtProfiler::VisitOMPDispatchDirective(const OMPDispatchDirective *S) {
 
 void StmtProfiler::VisitOMPMaskedDirective(const OMPMaskedDirective *S) {
   VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPGenericLoopDirective(
+    const OMPGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
 }
 
 void StmtProfiler::VisitExpr(const Expr *S) {
@@ -2056,30 +2061,9 @@ StmtProfiler::VisitCXXTemporaryObjectExpr(const CXXTemporaryObjectExpr *S) {
 void
 StmtProfiler::VisitLambdaExpr(const LambdaExpr *S) {
   VisitExpr(S);
-  for (LambdaExpr::capture_iterator C = S->explicit_capture_begin(),
-                                 CEnd = S->explicit_capture_end();
-       C != CEnd; ++C) {
-    if (C->capturesVLAType())
-      continue;
-
-    ID.AddInteger(C->getCaptureKind());
-    switch (C->getCaptureKind()) {
-    case LCK_StarThis:
-    case LCK_This:
-      break;
-    case LCK_ByRef:
-    case LCK_ByCopy:
-      VisitDecl(C->getCapturedVar());
-      ID.AddBoolean(C->isPackExpansion());
-      break;
-    case LCK_VLAType:
-      llvm_unreachable("VLA type in explicit captures.");
-    }
-  }
-  // Note: If we actually needed to be able to match lambda
-  // expressions, we would have to consider parameters and return type
-  // here, among other things.
-  VisitStmt(S->getBody());
+  // C++20 [temp.over.link]p5:
+  //   Two lambda-expressions are never considered equivalent.
+  VisitDecl(S->getLambdaClass());
 }
 
 void

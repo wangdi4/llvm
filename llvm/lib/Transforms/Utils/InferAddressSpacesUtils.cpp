@@ -287,7 +287,7 @@ static void remangleOpenCLBuiltin(CallInst *CI,
    // space, it will be mangled several times, so we need to know
    // which occurence of FlatASMangling has to be replaced.
    unsigned PtrArgOccurence = 0;
-   for (Value *Op : CI->arg_operands()) {
+   for (Value *Op : CI->args()) {
      Type *OpTy = Op->getType();
      if (PointerType *OpPTy = dyn_cast<PointerType>(OpTy)) {
        if (OpPTy->getAddressSpace() == OldVTy->getAddressSpace()) {
@@ -381,7 +381,7 @@ static bool rewriteOpenCLBuiltinOperands(CallInst *CI,
 
   Type *RetTy = CI->getType();
   SmallVector<Type *, 4> NewTypes;
-  for (Value *Op : CI->arg_operands()) {
+  for (Value *Op : CI->args()) {
     NewTypes.push_back((Op == OldV) ? NewV->getType() : Op->getType());
   }
 
@@ -392,7 +392,7 @@ static bool rewriteOpenCLBuiltinOperands(CallInst *CI,
                             OldF->getFunctionType()->isVarArg()),
           OldF->getAttributes()).getCallee());
 
-  for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
+  for (unsigned i = 0; i < CI->arg_size(); ++i) {
     if (CI->getArgOperand(i) == OldV) {
       CI->setArgOperand(i, NewV);
       break;
@@ -536,7 +536,7 @@ InferAddressSpaces::collectFlatAddressExpressions(Function &F) const {
       if (!ASC->getType()->isVectorTy())
         PushPtrOperand(ASC->getPointerOperand());
     } else if (auto *CI = dyn_cast<CallInst>(&I)) {
-      for (Value *Op : CI->arg_operands()) {
+      for (Value *Op : CI->args()) {
         if (isa<PointerType>(Op->getType()))
           PushPtrOperand(Op);
       }
