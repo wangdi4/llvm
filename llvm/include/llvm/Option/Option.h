@@ -63,7 +63,10 @@ public:
     CommaJoinedClass,
     MultiArgClass,
     JoinedOrSeparateClass,
-    JoinedAndSeparateClass
+#if INTEL_CUSTOMIZATION
+    JoinedAndSeparateClass,
+    SeparateOrNoneClass
+#endif // INTEL_CUSTOMIZATION
   };
 
   enum RenderStyleKind {
@@ -173,6 +176,9 @@ public:
     case JoinedOrSeparateClass:
     case RemainingArgsClass:
     case RemainingArgsJoinedClass:
+#if INTEL_CUSTOMIZATION
+    case SeparateOrNoneClass:
+#endif // INTEL_CUSTOMIZATION
       return RenderSeparateStyle;
     }
     llvm_unreachable("Unexpected kind!");

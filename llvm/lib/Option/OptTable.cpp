@@ -565,6 +565,9 @@ static std::string getOptionHelpName(const OptTable &Opts, OptSpecifier Id) {
 
   case Option::SeparateClass: case Option::JoinedOrSeparateClass:
   case Option::RemainingArgsClass: case Option::RemainingArgsJoinedClass:
+#if INTEL_CUSTOMIZATION
+  case Option::SeparateOrNoneClass:
+#endif // INTEL_CUSTOMIZATION
     Name += ' ';
     LLVM_FALLTHROUGH;
   case Option::JoinedClass: case Option::CommaJoinedClass:
