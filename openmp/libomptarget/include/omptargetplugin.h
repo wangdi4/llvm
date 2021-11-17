@@ -343,6 +343,9 @@ EXTERN int32_t __tgt_rtl_command_batch_begin(int32_t ID, int32_t BatchLevel);
 
 // End data batch commands
 EXTERN int32_t __tgt_rtl_command_batch_end(int32_t ID, int32_t BatchLevel);
+
+EXTERN void __tgt_rtl_kernel_batch_begin(int32_t ID, uint32_t MaxKernels);
+EXTERN void __tgt_rtl_kernel_batch_end(int32_t ID);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);

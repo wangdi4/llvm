@@ -362,6 +362,42 @@ public:
   bool isActive() { return State > 0; }
 };
 
+struct KernelBatchTy {
+  uint32_t MaxCommands = 0;
+  uint32_t NumCommands = 0;
+  ze_command_list_handle_t CmdList = nullptr;
+  ze_command_queue_handle_t CmdQueue = nullptr;
+
+  void init(ze_command_list_handle_t _CmdList,
+            ze_command_queue_handle_t _CmdQueue) {
+    CmdList = _CmdList;
+    CmdQueue = _CmdQueue;
+  }
+
+  ~KernelBatchTy() {
+    if (CmdList)
+      CALL_ZE_RET_VOID(zeCommandListDestroy, CmdList);
+    if (CmdQueue)
+      CALL_ZE_RET_VOID(zeCommandQueueDestroy, CmdQueue);
+  }
+
+  int32_t run(std::mutex &DeviceMtx) {
+    std::lock_guard<std::mutex> Lock(DeviceMtx);
+    NumCommands++;
+    if (NumCommands >= MaxCommands) {
+      CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+      CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                       nullptr);
+      DP("Submitted %" PRIu32 " kernels to command queue " DPxMOD "\n",
+         NumCommands, DPxPTR(CmdQueue));
+      CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+      CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+      NumCommands = 0;
+    }
+    return OFFLOAD_SUCCESS;
+  }
+};
+
 class RTLProfileTy;
 
 /// All thread-local data used by RTL
@@ -1526,6 +1562,9 @@ public:
   // Command queue index for each device
   std::vector<uint32_t> CmdQueueIndices;
 
+  // Command lists/queues specialized for kernel batching
+  std::vector<KernelBatchTy> BatchCmdQueues;
+
   std::vector<std::list<FuncOrGblEntryTy>> FuncGblEntries;
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
@@ -2038,6 +2077,13 @@ public:
       else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
         Flags.ShowBuildLog = 0;
     }
+  }
+
+  void initBatchCmdQueue(int32_t DeviceId) {
+    BatchCmdQueues[DeviceId].init(
+        createCmdList(Context, Devices[DeviceId],
+                      CmdQueueGroupOrdinals[DeviceId], DeviceIdStr[DeviceId]),
+        createCommandQueue(DeviceId));
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -2623,6 +2669,8 @@ static void closeRTL() {
     for (auto &stat : DeviceInfo->MemStatDevice)
       stat.second.print();
   }
+
+  DeviceInfo->BatchCmdQueues.clear();
 
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.deinit();
@@ -3741,6 +3789,7 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
   DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumRootDevices, 0);
   DeviceInfo->ProgramData.resize(DeviceInfo->NumRootDevices);
+  DeviceInfo->BatchCmdQueues.resize(DeviceInfo->NumRootDevices);
 
   DeviceInfo->Mutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
   DeviceInfo->DataMutexes.reset(new std::mutex[DeviceInfo->NumDevices]);
@@ -3816,6 +3865,8 @@ EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
       subDeviceEvent.Events.push_back(event);
     }
   }
+
+  DeviceInfo->initBatchCmdQueue(DeviceId);
 
   DeviceInfo->Initialized[DeviceId] = true;
 
@@ -5280,6 +5331,14 @@ static int32_t runTargetTeamRegion(
       return OFFLOAD_FAIL;
     DP("Asynchronous execution started for kernel " DPxMOD "\n",
        DPxPTR(TgtEntryPtr));
+  } else if (DeviceInfo->BatchCmdQueues[DeviceId].MaxCommands > 0) {
+    auto &BatchQueue = DeviceInfo->BatchCmdQueues[DeviceId];
+    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, BatchQueue.CmdList,
+                     kernel, &groupCounts, nullptr, 0, nullptr);
+    kernelLock.unlock();
+    DP("Appended kernel " DPxMOD " to command list " DPxMOD "\n",
+       DPxPTR(kernel), DPxPTR(BatchQueue.CmdList));
+    BatchQueue.run(DeviceInfo->Mutexes[DeviceId]);
   } else {
     ze_event_handle_t event = nullptr;
     if (DeviceInfo->Flags.EnableProfile)
@@ -5749,6 +5808,15 @@ EXTERN int32_t __tgt_rtl_command_batch_end(
     return OFFLOAD_SUCCESS;
 
   return getTLS()->getCommandBatch().end();
+}
+
+EXTERN void __tgt_rtl_kernel_batch_begin(int32_t DeviceId,
+                                         uint32_t MaxKernels) {
+  DeviceInfo->BatchCmdQueues[DeviceId].MaxCommands = MaxKernels;
+}
+
+EXTERN void __tgt_rtl_kernel_batch_end(int32_t DeviceId) {
+  DeviceInfo->BatchCmdQueues[DeviceId].MaxCommands = 0;
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(

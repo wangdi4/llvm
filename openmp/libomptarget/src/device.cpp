@@ -1065,6 +1065,16 @@ int32_t DeviceTy::commandBatchEnd(int32_t BatchLevel) {
   else
     return OFFLOAD_SUCCESS;
 }
+
+void DeviceTy::kernelBatchBegin(uint32_t MaxKernels) {
+  if (RTL->kernel_batch_begin)
+    RTL->kernel_batch_begin(RTLDeviceID, MaxKernels);
+}
+
+void DeviceTy::kernelBatchEnd(void) {
+  if (RTL->kernel_batch_end)
+    RTL->kernel_batch_end(RTLDeviceID);
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly
