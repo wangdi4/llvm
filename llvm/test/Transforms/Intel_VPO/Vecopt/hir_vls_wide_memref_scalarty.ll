@@ -13,18 +13,28 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -tbaa -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -hir-details -hir-cg -S -tbaa -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s
 
 ; CHECK:        BEGIN REGION { modified }
-; CHECK-NEXT:         + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:         |   %.extended = shufflevector %p2,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
-; CHECK-NEXT:         |   %shuffle = shufflevector undef,  %.extended,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
-; CHECK-NEXT:         |   %.extended1 = shufflevector %p1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
-; CHECK-NEXT:         |   %shuffle2 = shufflevector %shuffle,  %.extended1,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
-; CHECK-NEXT:         |   %extract.0. = extractelement &((<4 x i8**>)(%arr)[i1 + <i64 0, i64 1, i64 2, i64 3>].0),  0;
-; CHECK-NEXT:         |   (<8 x i8*>*)(%extract.0.)[0] = %shuffle2;
-; CHECK-NEXT:         + END LOOP
-; CHECK-NEXT:   END REGION
+; CHECK:              + DO i64 i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK:              |   %.extended = shufflevector %p2,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
+; CHECK:              |   %shuffle = shufflevector undef,  %.extended,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
+; CHECK:              |   %.extended1 = shufflevector %p1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
+; CHECK:              |   %shuffle2 = shufflevector %shuffle,  %.extended1,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
+; CHECK:              |   %extract.0. = extractelement &((<4 x i8**>)(%arr)[i1 + <i64 0, i64 1, i64 2, i64 3>].0),  0;
+; CHECK:              |   (<8 x i8*>*)(%extract.0.)[0] = %shuffle2;
+; CHECK:              |   <LVAL-REG> {al:8}(<8 x i8*>*)(NON-LINEAR i8** %extract.0.)[i64 0] inbounds
+; CHECK:              + END LOOP
+; CHECK:        END REGION
+
+; Checks for LLVM-IR after HIR-CG
+; CHECK-LABEL: define hidden fastcc void @parse_value(%struct.hashtable_list* %arr, i8* %p1, i8* %p2)
+; CHECK:         [[EXTRACT:%.*]] = extractelement <4 x i8**> [[WIDE_GEP:%.*]], i64 0
+; CHECK-NEXT:    store i8** [[EXTRACT]], i8*** [[TEMP20:%.*]], align 8
+; CHECK-NEXT:    [[TEMP20_LD:%.*]] = load i8**, i8*** [[TEMP20]], align 8
+; CHECK-NEXT:    [[TEMP20_BC:%.*]] = bitcast i8** [[TEMP20_LD]] to <8 x i8*>*
+; CHECK-NEXT:    [[TEMP19_LD:%.*]] = load <8 x i8*>, <8 x i8*>* [[TEMP19:%.*]], align 64
+; CHECK-NEXT:    store <8 x i8*> [[TEMP19_LD]], <8 x i8*>* [[TEMP20_BC]], align 8
 
 target triple = "x86_64-unknown-linux-gnu"
 
