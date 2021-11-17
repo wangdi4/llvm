@@ -178,6 +178,9 @@ class ClientGDB(TestClient):
             logw("Timeout waiting for GDB prompt after startup")
             pass
 
+        # Disable GDB's color highlighting
+        self._command("set style enabled off")
+
         # Disable GDB's warning about unknown source locations (for JITted code)
         self._command("set breakpoint pending on")
 
