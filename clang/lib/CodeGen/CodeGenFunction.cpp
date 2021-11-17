@@ -1218,9 +1218,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       EmitOpenCLHLSComponentMetadata(FD, Fn);
   }
 #endif // INTEL_CUSTOMIZATION
-  if (getLangOpts().SYCLIsHost && D && D->hasAttr<SYCLKernelAttr>())
-    Fn->addFnAttr("sycl_kernel");
-
   if (getLangOpts().SYCLIsDevice && D) {
     if (const auto *A = D->getAttr<SYCLIntelLoopFuseAttr>()) {
       const auto *CE = cast<ConstantExpr>(A->getValue());
