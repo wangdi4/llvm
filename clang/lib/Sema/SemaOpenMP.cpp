@@ -16774,6 +16774,14 @@ OMPClause *Sema::ActOnOpenMPOrderedClause(SourceLocation StartLoc,
                                           SourceLocation EndLoc,
                                           SourceLocation LParenLoc,
                                           Expr *NumForLoops) {
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline &&
+      isInOpenMPTargetExecutionDirective() &&
+      Context.getTargetInfo().getTriple().isSPIR()) {
+    Diag(StartLoc, diag::err_omp_ordered_unsupported_in_target);
+    return nullptr;
+  }
+#endif // INTEL_COLLAB
   // OpenMP [2.7.1, loop construct, Description]
   // OpenMP [2.8.1, simd construct, Description]
   // OpenMP [2.9.6, distribute construct, Description]
