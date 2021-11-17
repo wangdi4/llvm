@@ -1,6 +1,9 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -target-feature +sse4.2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +sse4.2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
 // Check SVML calling conventions are assigned correctly when compiling 128-bit SVML functions.
 
 typedef long long __m128i __attribute__((__vector_size__(16), __aligned__(16)));
