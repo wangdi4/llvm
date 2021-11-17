@@ -445,10 +445,10 @@ public:
   RegDDRef *generateLoopInductionRef(Type *RefDestTy);
 
   // Given a pointer ref that is a selfblob, create and return memory reference
-  // for PtrRef[Index]. NumElements if greater than 1 is used to set the
+  // for PtrRef[Index]. IdxBcastFactor if greater than 1 is used to set the
   // destination type of canon expr corresponding to Index appropriately.
   RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, Type *ElementType, int Index,
-                                 unsigned NumElements);
+                                 unsigned IdxBcastFactor);
 
   // Returns the widened address-of DDRef for a pointer. The base pointer is
   // replicated and flattened if we are dealing with re-vectorization scenarios.
