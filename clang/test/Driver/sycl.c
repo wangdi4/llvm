@@ -58,40 +58,18 @@
 // RUN: %clangxx -### -target i386-unknown-linux-gnu -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir
 // RUN: %clang_cl -### --target=i386-pc-windows-msvc -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT -DSPIRARCH=spir
 
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// For 32-bit host compilers (xmainx86oclwin) the spir target defaults to
-// "spir" but for 64-bit compilers it is "spir64".
 // DEFAULT: "-triple" "[[SPIRARCH]]-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-sycl-std=2020"{{.*}} "-emit-llvm-bc"
-// end INTEL_CUSTOMIZATION
-=======
-// DEFAULT: "-triple" "[[SPIRARCH]]-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-sycl-std=2020"{{.*}} "-emit-llvm-bc"
->>>>>>> 7d16ef6ff37d3922ca2855e51de5962eba9bfb81
 // DEFAULT: "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"
 // DEFAULT: "-internal-isystem" "{{.*lib.*clang.*include}}"
 // DEFAULT: "-std=c++17"
 // DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}}
 // DEFAULT-NOT: "-std=c++11"
 // DEFAULT-NOT: "-std=c++14"
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// NO-BITCODE: "-triple" "[[SPIRARCH]]-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
-// end INTEL_CUSTOMIZATION
-// NO-BITCODE: "{{.*}}llvm-spirv"{{.*}}
-// INTEL_CUSTOMIZATION
-// In the "TARGET" case, we specified an explicit target triple on the
-// command line, so it will always be "spir64" here.
-// TARGET: "-triple" "[[SPIRARCH]]-unknown-linux"{{.*}} "-emit-llvm-bc"
-// COMBINED: "-triple" "[[SPIRARCH]]-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
-// TEXTUAL: "-triple" "[[SPIRARCH]]-unknown-{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm"
-// end INTEL_CUSTOMIZATION
-=======
 // NO-BITCODE: "-triple" "[[SPIRARCH]]-unknown-{{.*}}"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // NO-BITCODE: "{{.*}}llvm-spirv"{{.*}}
 // TARGET: "-triple" "[[SPIRARCH]]-unknown-linux"{{.*}} "-emit-llvm-bc"
 // COMBINED: "-triple" "[[SPIRARCH]]-unknown-{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // TEXTUAL: "-triple" "[[SPIRARCH]]-unknown-{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm"
->>>>>>> 7d16ef6ff37d3922ca2855e51de5962eba9bfb81
 
 // RUN: %clangxx -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA
 // RUN: %clang_cl -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA

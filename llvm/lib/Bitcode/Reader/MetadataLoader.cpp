@@ -2004,13 +2004,8 @@ Error MetadataLoader::MetadataLoaderImpl::parseOneMetadata(
     if (Error Err = upgradeDIExpression(Version, Elts, Buffer))
       return Err;
 
-<<<<<<< HEAD
     MetadataList.assignValue(GET_OR_DISTINCT(DIExpression, (Context, Elts)),
                              NextMetadataNo);
-=======
-    MetadataList.assignValue(
-        GET_OR_DISTINCT(DIExpression, (Context, Elts)), NextMetadataNo);
->>>>>>> 7d16ef6ff37d3922ca2855e51de5962eba9bfb81
     NextMetadataNo++;
     break;
   }
