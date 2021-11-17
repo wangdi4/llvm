@@ -196,14 +196,6 @@
 // RUN:   | FileCheck -DARCH=spir64_fpga -check-prefixes=CHK-UNUSED-ARG-WARNING,CHK-TARGET %s
 // CHK-UNUSED-ARG-WARNING-NOT: clang{{.*}} warning: argument unused during compilation: '-Xsycl-target-frontend={{.*}} -DFOO'
 // CHK-TARGET: clang{{.*}} "-cc1" "-triple" "[[ARCH]]-unknown-unknown"{{.*}} "-D" "FOO"
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// Do not check for unbundling of objects, as the objects in question are not
-// guaranteed to be available.
-// CHK-TARGETx: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-[[ARCH]]-unknown-unknown"
-// end INTEL_CUSTOMIZATION
-=======
->>>>>>> d8299572165134920e04a7337e9f82f5c867c7c0
 
 /// ###########################################################################
 
@@ -1149,16 +1141,9 @@
 // CHK-INCOMPATIBILITY: error: The option -fsycl conflicts with -ffreestanding
 
 /// Using -fsyntax-only with -fsycl should not emit IR
-<<<<<<< HEAD
-// RUN:   %clang -### -target x86_64-unknown-linux-gnu -fsycl -fsyntax-only %s 2>&1 \
-// RUN:   | FileCheck -check-prefixes=CHK-FSYNTAX-ONLY,CHK-NO-EMIT-IR %s
-// CHK-FSYNTAX-ONLY: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown"{{.*}} "-fsyntax-only"
-// CHK-NO-EMIT-IR-NOT: "-emit-llvm-bc"
-=======
 // RUN:   %clang -### -fsycl -fsyntax-only %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-FSYNTAX-ONLY %s
 // RUN:   %clang -### -fsycl -fsycl-device-only -fsyntax-only %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-FSYNTAX-ONLY %s
 // CHK-FSYNTAX-ONLY-NOT: "-emit-llvm-bc"
 // CHK-FSYNTAX-ONLY: "-fsyntax-only"
->>>>>>> d8299572165134920e04a7337e9f82f5c867c7c0
