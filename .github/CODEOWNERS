@@ -275,6 +275,7 @@
 /llvm/lib/Transforms/Utils/Intel_VecClone.cpp @mamasten @kmitropo @turinevgeny @skozhukh
 /llvm/test/Transforms/Intel_VecClone/ @mamasten @kmitropo @turinevgeny @skozhukh
 
+<<<<<<< HEAD
 /llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @alexey-bataev @valerydmit
 /llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @alexey-bataev @valerydmit
 /llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp @alexey-bataev @valerydmit
@@ -282,6 +283,18 @@
 /llvm/test/Transforms/Intel_VPO/Vecopt/slp/ @alexey-bataev @valerydmit
 /llvm/test/Transforms/Reassociate/Intel_addsub* @alexey-bataev @valerydmit
 /llvm/test/Transforms/SLPVectorizer/ @alexey-bataev @valerydmit
+=======
+# PI API
+sycl/include/CL/sycl/detail/pi.def @smaslov-intel
+sycl/include/CL/sycl/detail/pi.h   @smaslov-intel
+sycl/include/CL/sycl/detail/pi.hpp @smaslov-intel
+sycl/include/CL/sycl/detail/pi* @smaslov-intel
+sycl/plugins/ @smaslov-intel
+sycl/source/detail/pi.cpp @smaslov-intel
+sycl/source/detail/plugin.hpp @smaslov-intel
+sycl/source/detail/posix_pi.cpp @smaslov-intel
+sycl/source/detail/windows_pi.cpp @smaslov-intel
+>>>>>>> 3ac6f90719cf22102281d1a3b8f42d32bd289bfe
 
 /llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil 
 /llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
