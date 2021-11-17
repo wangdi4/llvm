@@ -88,6 +88,13 @@ static constexpr char GENX_SLM_OFFSET[] = "genx.slm.offset";
 #define SYCL_GLOBAL_AS 1
 #define SYCL_SLM_AS 3
 
+static uint32_t getElementSizeInBytes(Type *ETy, DataLayout &DL) {
+  uint32_t ebytes = (unsigned int)ETy->getPrimitiveSizeInBits() / 8;
+  if (ETy->isPointerTy())
+    ebytes = DL.getPointerTypeSize(ETy);
+  return ebytes;
+}
+
 // Newly created GenX intrinsic might have different return type than expected.
 // This helper function creates cast operation from GenX intrinsic return type
 // to currently expected. Returns pointer to created cast instruction if it
@@ -503,6 +510,7 @@ static Value *translateSVMLoad(LoadInst *LoadOp) {
   IRBuilder<> Builder(LoadOp);
   auto PtrV = LoadOp->getPointerOperand();
   auto DTy = LoadOp->getType();
+  auto DL = LoadOp->getModule()->getDataLayout();
   if (!DTy->isSingleValueType()) {
     Twine Msg("unable to lower LoadInst with non-single-value type");
     llvm::report_fatal_error(Msg, false /*no crash diag*/);
@@ -520,7 +528,7 @@ static Value *translateSVMLoad(LoadInst *LoadOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.gather";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     int NumBlks = 0; // (0/1/2/3 for num blocks 1/2/4/8)
     int RetLen = 1;
     auto EltTy = DTy;
@@ -649,6 +657,7 @@ static Instruction *formDoubleVector(Value *InputVector,
   auto VL = cast<VectorType>(VTy)->getNumElements();
   assert(VL == 16 || VL == 32);
   auto EltTy = cast<VectorType>(VTy)->getElementType();
+  assert(!EltTy->isPointerTy());
   auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
   auto Width = VL / 2;
   // read low half
@@ -682,6 +691,7 @@ static Instruction *disbandDoubleVector(Value *InputVector,
   auto VL = cast<VectorType>(VTy)->getNumElements();
   assert(VL == 16 || VL == 32);
   auto EltTy = cast<VectorType>(VTy)->getElementType();
+  assert(!EltTy->isPointerTy());
   auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
   auto Width = VL / 2;
   // read low elements
@@ -718,10 +728,11 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
   Value *RepI = nullptr;
   auto CIntTy = Type::getInt32Ty(CTX);
   auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
+  auto DL = LoadOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
     auto VL = cast<VectorType>(DTy)->getNumElements();
     auto EltTy = cast<VectorType>(DTy)->getElementType();
-    auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(EltTy, DL);
     // create constant for offset
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
     // create constant for predicate
@@ -774,7 +785,7 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "gather.scaled";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 || EltBytes == 8);
     int NumBlks = (EltBytes >= 4) ? 2 : (EltBytes - 1);
     auto EltTy = (EltBytes == 8) ? CIntTy : DTy;
@@ -839,6 +850,7 @@ static Value *translateSVMStore(StoreInst *StoreOp) {
     llvm::report_fatal_error(Msg, false /*no crash diag*/);
   }
   Value *RepI = nullptr;
+  auto DL = StoreOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.block.st";
@@ -852,7 +864,7 @@ static Value *translateSVMStore(StoreInst *StoreOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.scatter";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     int NumBlks = 0; // (0/1/2/3 for num blocks 1/2/4/8)
     int DataLen = 1;
     auto EltTy = DTy;
@@ -911,10 +923,11 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
   Value *RepI = nullptr;
   auto CIntTy = Type::getInt32Ty(CTX);
   auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
+  auto DL = StoreOp->getModule()->getDataLayout();
   if (DTy->isVectorTy()) {
     auto VL = cast<VectorType>(DTy)->getNumElements();
     auto EltTy = cast<VectorType>(DTy)->getElementType();
-    auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(EltTy, DL);
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
     // create constant for predicate
     auto PredVTy = llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), VL);
@@ -958,7 +971,7 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "scatter.scaled";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
-    auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
+    auto EltBytes = getElementSizeInBytes(DTy, DL);
     assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 || EltBytes == 8);
     int NumBlks = (EltBytes >= 4) ? 2 : (EltBytes - 1);
     auto EltTy = (EltBytes == 8) ? CIntTy : DTy;
@@ -1113,6 +1126,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
     // handle memory intrinsics
     // masked.gather, masked.scatter etc
     auto ID = CallOp->getIntrinsicID();
+    auto DL = CallOp->getModule()->getDataLayout();
     switch (ID) {
     case Intrinsic::masked_load: {
       auto PtrV = CallOp->getArgOperand(0);
@@ -1150,7 +1164,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
         auto PredV = CallOp->getArgOperand(2);
-        auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+        auto EltBytes = getElementSizeInBytes(EltTy, DL);
         // create constant for offset
         auto VOffset = getConstVector(CIntTy, VL, EltBytes);
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
@@ -1252,7 +1266,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
-        auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+        auto EltBytes = getElementSizeInBytes(EltTy, DL);
         auto PredV = CallOp->getArgOperand(3);
         auto VOffset = getConstVector(CIntTy, VL, EltBytes);
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
@@ -1315,7 +1329,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();
       auto NumElts = cast<VectorType>(DTy)->getNumElements();
-      auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+      auto EltBytes = getElementSizeInBytes(EltTy, DL);
       int EltsPerLane = 1;
       // for short or byte type, load-data is 4 bytes per lane
       if (EltBytes < 4) {
@@ -1370,7 +1384,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         return CallOp;
       auto EltTy = cast<VectorType>(DTy)->getElementType();
       auto NumElts = cast<VectorType>(DTy)->getNumElements();
-      auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+      auto EltBytes = getElementSizeInBytes(EltTy, DL);
       int EltsPerLane = 1;
       // for short or byte type, store-data is 4 bytes per lane
       if (EltBytes < 4) {
@@ -1447,16 +1461,16 @@ static Value *translateLLVMInst(Instruction *Inst) {
 }
 
 static unsigned int assignSLMOffset(Module &M) {
-  const DataLayout *DL = &M.getDataLayout();
+  auto DL = M.getDataLayout();
   unsigned SLMSize = 0;
   for (auto &&GV : M.getGlobalList()) {
     auto Ty = dyn_cast<PointerType>(GV.getType());
     if (Ty && Ty->getAddressSpace() == SYCL_SLM_AS) {
       auto DTy = GV.getValueType();
-      auto BufferSize = static_cast<size_t>(DL->getTypeAllocSize(DTy));
+      auto BufferSize = static_cast<size_t>(DL.getTypeAllocSize(DTy));
       auto align = GV.getAlignment();
       if (align == 0) {
-        int EltBytes = DTy->getScalarType()->getPrimitiveSizeInBits()/8;
+        int EltBytes = getElementSizeInBytes(DTy->getScalarType(), DL);
         align = (EltBytes > 0 && EltBytes < 8) ? EltBytes : 8;
       }
       SLMSize = ((SLMSize + align - 1) / align) * align;
