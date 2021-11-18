@@ -3634,10 +3634,40 @@ public:
               RegionDesc.IsCompleteAggregate = true;
               createMemcpyOrMemmoveCallInfo(I, ElemTy, Kind, RegionDesc,
                                             RegionDesc);
-              auto *ElemInfo = DTInfo.getTypeInfo(ElemTy);
-              assert(ElemInfo &&
+
+              auto *OuterInfo = cast_or_null<dtrans::StructInfo>(
+                  DTInfo.getTypeInfo(OuterStructType));
+              assert(OuterInfo &&
                      "visitModule() should create all TypeInfo objects");
-              markAllFieldsWritten(ElemInfo, I, FWT_ExistingValue);
+              auto *ElemInfo = DTInfo.getTypeInfo(ElemTy);
+              assert(ElemInfo && "visitModule() should create "
+                                 "all TypeInfo objects");
+
+              if (DstPtrToMember) {
+                // Mark the fields written, starting from the embedded
+                // structure field of the outer structure.
+                markStructFieldsWritten(OuterInfo, FieldNum, FieldNum, I,
+                                        FWT_ExistingValue);
+
+                if (ElemTy->isStructTy())
+                  markStructFieldReaders(
+                      cast<dtrans::StructInfo>(ElemInfo), 0,
+                      cast<DTransStructType>(ElemTy)->getNumFields() - 1,
+                      I.getFunction());
+
+              } else {
+                // Mark the fields in the embedded structure as written.
+                markAllFieldsWritten(ElemInfo, I, FWT_ExistingValue);
+
+                // NOTE: For memcpy/memmove, we do not mark the "Read" property
+                // in the FieldInfo objects. This is to allow for field deletion
+                // to identify the field as potentially unneeded. However, we
+                // need to add the function to the "Readers" list in the
+                // FieldInfo to record that the field may be referenced for the
+                // FieldModRef analysis.
+                markStructFieldReaders(OuterInfo, FieldNum, FieldNum,
+                                       I.getFunction());
+              }
               return;
             }
           }
@@ -3747,11 +3777,15 @@ public:
 
       // NOTE: For memcpy/memmove, we do not mark the "Read" property in the
       // FieldInfo objects. This is to allow for field deletion to identify the
-      // field as potentially unneeded.
-
-      // TODO: For ModRef information of the field, we add the function to the
-      // "Readers" list in the FieldInfo to record that the field may be
-      // referenced.
+      // field as potentially unneeded. However, we need to add the function to
+      // the "Readers" list in the FieldInfo to record that the field may be
+      // referenced for the FieldModRef analysis.
+      assert(SrcStructTy->isStructTy() && "Source should be structure");
+      auto *SI =
+          cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(SrcStructTy));
+      assert(SI && "visitModule() should create all TypeInfo objects");
+      markStructFieldReaders(SI, RegionDesc.FirstField, RegionDesc.LastField,
+                             I.getFunction());
       return;
     }
 
@@ -3796,9 +3830,18 @@ public:
       createMemcpyOrMemmoveCallInfo(I, DestPointeeTy, Kind,
                                     /*RegionDescDest=*/RegionDesc,
                                     /*RegionDescSrc=*/RegionDesc);
-      // TODO: For ModRef information of the field, we add the function to the
-      // "Readers" list in the FieldInfo to record that the field may be
-      // referenced.
+
+      auto *SrcPointeeType = SrcParentTy->getPointerElementType();
+      if (SrcPointeeType->isStructTy()) {
+        // For ModRef information of the field, we add the function to the
+        // "Readers" list in the FieldInfo to record that the field may be
+        // referenced.
+        auto *SI = cast_or_null<dtrans::StructInfo>(
+            DTInfo.getTypeInfo(SrcPointeeType));
+        assert(SI && "visitModule() should create all TypeInfo objects");
+        markStructFieldReaders(SI, 0, SI->getNumFields() - 1, I.getFunction());
+      }
+
       return;
     }
 
@@ -3814,9 +3857,18 @@ public:
                                       /*RegionDescDest=*/RegionDesc,
                                       /*RegionDescSrc=*/RegionDesc);
 
-        // TODO: For ModRef information of the field, we add the function to the
-        // "Readers" list in the FieldInfo to record that the field may be
-        // referenced.
+        auto *SrcPointeeType = SrcParentTy->getPointerElementType();
+        if (SrcPointeeType->isStructTy()) {
+          // For ModRef information of the field, we add the function to the
+          // "Readers" list in the FieldInfo to record that the field may be
+          // referenced.
+          auto *SI = cast_or_null<dtrans::StructInfo>(
+              DTInfo.getTypeInfo(SrcPointeeType));
+          assert(SI && "visitModule() should create all TypeInfo objects");
+          markStructFieldReaders(SI, RegionDesc.FirstField,
+                                 RegionDesc.LastField, I.getFunction());
+        }
+
         return;
       }
     }
@@ -4838,6 +4890,25 @@ private:
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
       assert(ComponentTI && "visitModule() should create all TypeInfo objects");
       markAllFieldsWritten(ComponentTI, I, WriteType);
+    }
+  }
+
+  // Update the fields of the structure \p StInfo from \p FirstField to \p
+  // LastField to indicate that a read occurs via a memcpy or memmove call
+  // within the function containing Instruction \p I.
+  void markStructFieldReaders(dtrans::StructInfo *StInfo,
+                              unsigned int FirstField, unsigned int LastField,
+                              Function *F) {
+    assert(LastField >= FirstField && LastField < StInfo->getNumFields() &&
+           "markStructFieldsRead with invalid field index");
+
+    for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
+      auto &FI = StInfo->getField(Idx);
+      FI.addReader(F);
+      dtrans::TypeInfo *FieldInfo = DTInfo.getTypeInfo(FI.getDTransType());
+      if (auto *FieldStInfo = dyn_cast<dtrans::StructInfo>(FieldInfo))
+        markStructFieldReaders(FieldStInfo, 0, FieldStInfo->getNumFields() - 1,
+                               F);
     }
   }
 

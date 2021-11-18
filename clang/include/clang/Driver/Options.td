@@ -6899,6 +6899,12 @@ def fintel_compatibility_unused : Flag<["-"], "fintel-compatibility-unused">,
       HelpText <"Emit a diagnostic when an Intel compatibility feature is "
                 "disabled and could have been used">,
       MarshallingInfoFlag<LangOpts<"ShowIntelCompatUnused">>;
+def keep_import_temps : Flag<["-"], "keep-import-temps">, 
+  Flags<[CC1Option, NoArgumentUnused]>,
+  MarshallingInfoFlag<LangOpts<"KeepImportTemps">>;
+def show_import_processing : Flag<["-"], "show-import-processing">, 
+  Flags<[CC1Option, NoArgumentUnused]>,
+  MarshallingInfoFlag<LangOpts<"ShowImportProcessing">>;
 // endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">,

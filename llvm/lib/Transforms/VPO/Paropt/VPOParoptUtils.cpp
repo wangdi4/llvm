@@ -4088,11 +4088,9 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   // -Variant after:  call void @foo2(%struct.A* byval(%struct.A) align 8 %AAA)
   for (unsigned ArgNum = 0; ArgNum < BaseCall->arg_size(); ++ArgNum) {
     if (BaseCall->isByValArgument(ArgNum)) {
-      Type *ArgType = FnArgTypes[ArgNum];
-      assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
       VariantCall->addParamAttr(
           ArgNum,
-          Attribute::getWithByValType(C, ArgType->getPointerElementType()));
+          Attribute::getWithByValType(C, BaseCall->getParamByValType(ArgNum)));
       // Byval arguments may have an alignment; propagate it too
       MaybeAlign MayAln = BaseCall->getParamAlign(ArgNum);
       Align Aln = MayAln.valueOrOne();

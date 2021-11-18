@@ -793,11 +793,11 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
   if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
     OS << " (ignored)";
   OS << "\n";
-  OS << "    Readers: ";
+  OS << "    Readers:" << (readers().empty() ? "" : " ");
   dtrans::printCollectionSorted(OS, readers().begin(), readers().end(), ", ",
                                 [](const Function *F) { return F->getName(); });
   OS << "\n";
-  OS << "    Writers: ";
+  OS << "    Writers:" << (writers().empty() ? "" : " ");
   dtrans::printCollectionSorted(OS, writers().begin(), writers().end(), ", ",
                                 [](const Function *F) { return F->getName(); });
   OS << "\n";

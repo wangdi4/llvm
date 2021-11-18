@@ -1197,7 +1197,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // promotion pass and the passes computing attributes fixes this problem.
   // Additionally adding SROA after the argument promotion to cleanup allocas
   // allows to get more accurate attributes for the promoted arguments.
-  if (Level.getSpeedupLevel() > 2) {
+  if (Level.getSpeedupLevel() > 1) {
     MainCGPipeline.addPass(ArgumentPromotionPass(true));
     MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(SROAPass()));
   }
@@ -1683,10 +1683,10 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
   FPM.addPass(VPORestoreOperandsPass());
   FPM.addPass(VPOCFGRestructuringPass());
 #if INTEL_CUSTOMIZATION
-  if (OptLevel > 2 && EnableVPOParoptSharedPrivatization) {
+  if (OptLevel > 1 && EnableVPOParoptSharedPrivatization) {
     // Shared privatization pass should be combined with the argument
-    // promotion pass (to do a cleanup) which currently runs only at O3,
-    // therefore it is limited to O3 as well.
+    // promotion pass (to do a cleanup) which currently runs only at O2,
+    // therefore it is limited to O2 as well.
     unsigned Mode = RunVPOParopt & vpo::OmpOffload;
     FPM.addPass(VPOParoptSharedPrivatizationPass(Mode));
   }
