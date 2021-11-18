@@ -465,7 +465,6 @@ struct ExtensionsTy {
   };
 
   std::vector<LibdeviceExtDescTy> LibdeviceExtensions = {
-#if ENABLE_LIBDEVICE_LINKING
     {
       "cl_intel_devicelib_cassert",
       "libomp-fallback-cassert.spv",
@@ -491,7 +490,11 @@ struct ExtensionsTy {
       "libomp-fallback-complex-fp64.spv",
       ExtensionStatusUnknown
     },
-#endif // ENABLE_LIBDEVICE_LINKING
+    {
+      "cl_intel_devicelib_cstring",
+      "libomp-fallback-cstring.spv",
+      ExtensionStatusUnknown
+    },
   };
 
   // Initialize extensions' statuses for the given device.
@@ -552,8 +555,9 @@ struct RTLFlagsTy {
   uint64_t UseSingleContext : 1;
   uint64_t UseImageOptions : 1;
   uint64_t ShowBuildLog : 1;
+  uint64_t LinkLibDevice : 1;
   // Add new flags here
-  uint64_t Reserved : 52;
+  uint64_t Reserved : 51;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -567,6 +571,7 @@ struct RTLFlagsTy {
       UseSingleContext(0),
       UseImageOptions(1),
       ShowBuildLog(0),
+      LinkLibDevice(0),
       Reserved(0) {}
 };
 
@@ -1094,6 +1099,13 @@ public:
         Flags.ShowBuildLog = 1;
       else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
         Flags.ShowBuildLog = 0;
+    }
+    // LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE
+    if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.LinkLibDevice = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.LinkLibDevice = 0;
     }
   }
 
@@ -2720,26 +2732,35 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
     programs.push_back(program);
 
-    // Link libdevice fallback implementations, if needed.
-    auto &libdevice_extensions =
-        DeviceInfo->Extensions[device_id].LibdeviceExtensions;
+    if (DeviceInfo->Flags.LinkLibDevice) {
+      // Link libdevice fallback implementations, if needed.
+      auto &libdevice_extensions =
+          DeviceInfo->Extensions[device_id].LibdeviceExtensions;
 
-    for (unsigned i = 0; i < libdevice_extensions.size(); ++i) {
-      auto &desc = libdevice_extensions[i];
-      if (desc.Status != ExtensionStatusEnabled) {
-        // Device runtime does not support this libdevice extension,
-        // so we have to link in the fallback implementation.
-        //
-        // TODO: the device image must specify which libdevice extensions
-        //       are actually required. We should link only the required
-        //       fallback implementations.
-        cl_program program =
-            createProgramFromFile(desc.FallbackLibName, device_id,
-                                  CompilationOptions);
-        if (program)
-          programs.push_back(program);
-      } else {
-        DP("Skipped device RTL: %s\n", desc.FallbackLibName);
+      for (unsigned i = 0; i < libdevice_extensions.size(); ++i) {
+        auto &desc = libdevice_extensions[i];
+        if (desc.Status != ExtensionStatusEnabled) {
+          // Device runtime does not support this libdevice extension,
+          // so we have to link in the fallback implementation.
+          //
+          // TODO: the device image must specify which libdevice extensions
+          //       are actually required. We should link only the required
+          //       fallback implementations.
+          cl_program program =
+              createProgramFromFile(desc.FallbackLibName, device_id,
+                                    CompilationOptions);
+          if (program) {
+            DP("Successfully compiled fallback libdevice %s\n",
+               desc.FallbackLibName);
+            programs.push_back(program);
+          } else {
+            DP("Error: Failed to compile fallback libdevice %s\n",
+               desc.FallbackLibName);
+            return NULL;
+          }
+        } else {
+          DP("Skipped device RTL: %s\n", desc.FallbackLibName);
+        }
       }
     }
     CompilationTimer.stop();

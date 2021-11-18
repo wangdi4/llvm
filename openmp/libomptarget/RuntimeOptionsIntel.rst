@@ -188,6 +188,15 @@ for the target programs.
 
 **Default**: Disabled
 
+``LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables fallback libdevice linking in the plugins.
+
+**Default**: Disabled
 
 Plugin LevelZero
 ----------------
