@@ -667,7 +667,7 @@ DTransVectorType *DTransTypeManager::getOrCreateVectorType(DTransType *ElemType,
 }
 
 DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
-    DTransType *DTRetTy, ArrayRef<DTransType *> ParamTypes,
+    DTransType *DTRetTy, SmallVectorImpl<DTransType *> &ParamTypes,
     bool IsVarArg) {
   llvm::FoldingSetNodeID Profile;
   DTransFunctionTypeNode::generateProfile(DTRetTy, ParamTypes, IsVarArg,
