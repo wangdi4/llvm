@@ -44,6 +44,13 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include <string>
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+
+#endif // INTEL_CUSTOMIZATION
 #define DEBUG_TYPE "vpo-paropt-utils"
 
 using namespace llvm;
@@ -173,6 +180,70 @@ VPOParoptUtils::getOrCreateStructType(Function *F, StringRef Name,
   return StructType::create(C, ElementTypes, Name, false);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+// Return DTrans type describing kmpc_micro function type:
+//   typedef void(*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
+dtransOP::DTransFunctionType *VPOParoptUtils::getKmpcMicroDTransType(
+    dtransOP::DTransTypeManager &TM) {
+  LLVMContext &C = TM.getContext();
+  dtransOP::DTransType *DVoidTy = TM.getOrCreateAtomicType(Type::getVoidTy(C));
+  dtransOP::DTransType *DInt32Ty =
+      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
+  dtransOP::DTransType *DInt32PtrTy =
+      TM.getOrCreatePointerType(DInt32Ty);
+  dtransOP::DTransType *ArgTypes[] = {DInt32PtrTy, DInt32PtrTy};
+  dtransOP::DTransFunctionType *DKmpcMicroTy =
+      TM.getOrCreateFunctionType(DVoidTy, ArgTypes, /*IsVarArg=*/true);
+  return DKmpcMicroTy;
+}
+
+// Return DTrans type describing ident_t type:
+//   typedef struct ident {
+//     kmp_int32 reserved_1;
+//     kmp_int32 flags;
+//     kmp_int32 reserved_2;
+//     kmp_int32 reserved_3;
+//     char const *psource;
+//   } ident_t;
+dtransOP::DTransStructType *VPOParoptUtils::getIdentStructDTransType(
+    dtransOP::DTransTypeManager &TM, StructType *IdentTy) {
+  // Check if the type already has DTrans type
+  // in the provided DTransTypeManager.
+  auto *DStructTy = TM.getStructType(IdentTy->getName());
+  if (DStructTy)
+    return DStructTy;
+
+  LLVMContext &C = TM.getContext();
+
+  // Create a representation of the ident_t in the DTrans type space.
+  DStructTy = TM.getOrCreateStructType(IdentTy);
+
+  // Get the DTransTypes for the fields.
+  dtransOP::DTransType *DInt32Ty =
+      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
+  dtransOP::DTransType *DInt8PtrTy =
+      TM.getOrCreateAtomicType(Type::getInt8Ty(C));
+  DInt8PtrTy = TM.getOrCreatePointerType(DInt8PtrTy);
+
+  dtransOP::DTransType *DTransDataTypes[] = {DInt32Ty,
+                                             DInt32Ty,
+                                             DInt32Ty,
+                                             DInt32Ty,
+                                             DInt8PtrTy};
+
+  // Populate the body of the structure,
+  // and then ask for a metadata encoding of it.
+  for (unsigned I = 0, NumFields = DStructTy->getNumFields();
+       I < NumFields; ++I) {
+    dtransOP::DTransFieldMember &Field = DStructTy->getField(I);
+    Field.addResolvedType(DTransDataTypes[I]);
+  }
+
+  return DStructTy;
+}
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 // Find any existing ident_t (LOC) struct in the module of F, and if found,
 // return it. If not, create an ident_t struct and return it.
 StructType *VPOParoptUtils::getIdentStructType(Function *F) {
@@ -187,8 +258,28 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
                          Type::getInt32Ty(C),        // reserved_3
                          Type::getInt8PtrTy(C, AS)}; // *psource
 
-  return VPOParoptUtils::getOrCreateStructType(F, "struct.ident_t",
-                                               IdentTyArgs);
+  StructType *IdentTy = getOrCreateStructType(F, "struct.ident_t",
+                                              IdentTyArgs);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  NamedMDNode *DTMDTypes =
+      dtransOP::TypeMetadataReader::getDTransTypesMetadata(*F->getParent());
+  if (!DTMDTypes) {
+    // If there is no DTrans types metadata (i.e. DTrans is not enabled
+    // with compiler options), then we should not be adding any either.
+    return IdentTy;
+  }
+  dtransOP::DTransTypeManager TM(C);
+  // Create a representation of the ident_t in the DTrans type space.
+  dtransOP::DTransStructType *NewDTransStructTy =
+      getIdentStructDTransType(TM, IdentTy);
+  MDNode *MD = NewDTransStructTy->createMetadataStructureDescriptor();
+  DTMDTypes->addOperand(MD);
+
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
+  return IdentTy;
 }
 
 // This function generates a runtime library call to __kmpc_begin(&loc, 0)
