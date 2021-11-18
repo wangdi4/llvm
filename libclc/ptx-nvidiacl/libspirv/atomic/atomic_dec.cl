@@ -6,19 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <clcmacro.h>
+#include <atomic_inc_dec_helpers.h>
 #include <spirv/spirv.h>
+#include <spirv/spirv_types.h>
 
-_CLC_DEFINE_BINARY_BUILTIN(float, __spirv_ocl_nextafter, __builtin_nextafterf,
-                           float, float)
+__CLC_NVVM_ATOMIC_INCDEC(unsigned int, j, IDecrement, -1)
+__CLC_NVVM_ATOMIC_INCDEC(unsigned long, m, IDecrement, -1)
 
-#ifdef cl_khr_fp64
-
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-
-_CLC_DEFINE_BINARY_BUILTIN(double, __spirv_ocl_nextafter, __builtin_nextafter,
-                           double, double)
-
-#endif
-
-#include "half_nextafter.inc"
+#undef __CLC_NVVM_ATOMIC_INCDEC_IMPL
+#undef __CLC_NVVM_ATOMIC_INCDEC
