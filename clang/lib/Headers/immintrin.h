@@ -1493,6 +1493,7 @@ __writemsr(unsigned int __register, unsigned long long __data) {
 #define _FEATURE_KL                  CPU_FEATURE_BIT_POS(74)
 #define _FEATURE_WIDE_KL             CPU_FEATURE_BIT_POS(75)
 
+#undef CPU_FEATURE_BIT_POS
 #pragma float_control(pop)
 /* end INTEL_CUSTOMIZATION */
 
