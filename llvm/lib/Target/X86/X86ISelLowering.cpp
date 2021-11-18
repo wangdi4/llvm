@@ -30584,9 +30584,23 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
     if (X86::isConstantSplat(Amt, APIntShiftAmt)) {
       uint64_t ShiftAmt = APIntShiftAmt.urem(EltSizeInBits);
       SDValue Imm = DAG.getTargetConstant(ShiftAmt, DL, MVT::i8);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+      if (Subtarget.hasAVXCOMPRESS())
+        return DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL,
+                           Op0.getSimpleValueType(), Op0, Op1, Imm);
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
       return getAVX512Node(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, VT,
                            {Op0, Op1, Imm}, DAG, Subtarget);
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    if (Subtarget.hasAVXCOMPRESS())
+      return DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL,
+                         Op0.getSimpleValueType(), Op0, Op1, Amt);
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
     return getAVX512Node(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
                          {Op0, Op1, Amt}, DAG, Subtarget);
   }
