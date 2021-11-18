@@ -1,7 +1,7 @@
-; RUN: opt -disable-output -vplan-vec -debug-only=vpo-ir-loop-vectorize-legality  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -vplan-vec -debug-only=vpo-ir-loop-vectorize-legality -debug-only=vplan-vec  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality -debug-only=vplan-vec  < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -22,6 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 
 ; CHECK:  User defined reductions are not supported
+; CHECK:  VD: Not vectorizing: Cannot prove legality.
 
 ; Function Attrs: nounwind uwtable
 define dso_local double @test_user_defined_reduction() local_unnamed_addr #0 {

@@ -2,17 +2,21 @@
 ; identified in incoming IR.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
 ; CHECK: VPlan LLVM-IR Driver for Function: test1
-; CHECK: VD: Not vectorizing: Cannot handle array reductions.
+; CHECK: Cannot handle array reductions.
+; CHECK: VD: Not vectorizing: Cannot prove legality.
 ; CHECK: VPlan LLVM-IR Driver for Function: test2
-; CHECK: VD: Not vectorizing: Cannot handle array reductions.
+; CHECK: Cannot handle array reductions.
+; CHECK: VD: Not vectorizing: Cannot prove legality.
 
 ; CHECK: define i32 @test1
 ; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"([8 x i32]* %sum) ]
 ; CHECK: define i32 @test2
 ; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %sum) ]
+
 
 define i32 @test1(i32* nocapture readonly %A, i64 %N, i32 %init) {
 entry:

@@ -33,6 +33,11 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+cl::opt<bool> ForceComplexTyReductionVec(
+    "vplan-force-complex-type-reduction-vectorization", cl::init(false),
+    cl::Hidden,
+    cl::desc("Force vectorization of reduction involving complex type."));
+
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
@@ -613,7 +618,29 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
 }
 
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
-                                            const CallInst *RegionEntry) {
+                                            const WRNVecLoopNode *WRLp) {
+  // Import explicit data from WRLoop.
+  // Decision about loop vectorization is based on this data.
+  EnterExplicitData(WRLp);
+
+  // Loop entities framework does not support array reductions idiom. Bailout to
+  // prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
+  if (hasArrayReduction()) {
+    LLVM_DEBUG(dbgs() << "Cannot handle array reductions.\n");
+    return false;
+  }
+  // Loop entities framework does not support nonPOD lastprivates array. Bailout
+  // to prevent incorrect vector code generatiion. TODO: CMPLRLLVM-30686.
+  if (hasArrayLastprivateNonPod()) {
+    LLVM_DEBUG(dbgs() << "Cannot handle nonPOD array lastprivates.\n");
+    return false;
+  }
+
+  if (!ForceComplexTyReductionVec && hasComplexTyReduction()) {
+    LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
+    return false;
+  }
+
   if (hasUserDefinedReduction()) {
     LLVM_DEBUG(dbgs() << "User defined reductions are not supported\n");
     return false;
@@ -648,6 +675,9 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
   }
 
   // Check if aliasing of privates is safe outside of the loop.
+  CallInst *RegionEntry =
+      WRLp ? cast<CallInst>(WRLp->getEntryDirective()) : nullptr;
+
   if (!isAliasingSafe(DT, RegionEntry)) {
     LLVM_DEBUG(dbgs() << "LV: Safety of aliasing of privates outside of the "
                          "loop cannot be accertained. \n");

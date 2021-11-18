@@ -156,12 +156,8 @@ public:
                            HIRDDAnalysis *DDA)
       : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
 
-  /// Import information from explicit OMP SIMD clauses.
-  void EnterExplicitData(const WRNVecLoopNode *WRLp) {
-    if (!WRLp)
-      return;
-    SimdLoopDataImporter.run(WRLp);
-  }
+  /// Returns true if it is legal to vectorize this loop.
+  bool canVectorize(const WRNVecLoopNode *WRLp);
 
   HIRSafeReductionAnalysis *getSRA() const { return SRA; }
   const HIRVectorIdioms *getVectorIdioms(HLLoop *Loop) const;
@@ -233,6 +229,13 @@ public:
   }
 
 private:
+  /// Import information from explicit OMP SIMD clauses.
+  void EnterExplicitData(const WRNVecLoopNode *WRLp) {
+    if (!WRLp)
+      return;
+    SimdLoopDataImporter.run(WRLp);
+  }
+
   /// Add explicit private.
   /// Add POD privates to PrivatesList
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, bool IsLast,

@@ -1,8 +1,10 @@
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
 ; CHECK: VPlan LLVM-IR Driver for Function: test1
-; CHECK: VD: Not vectorizing: Cannot handle nonPOD array lastprivates.
+; CHECK: Cannot handle nonPOD array lastprivates.
+; CHECK: VD: Not vectorizing: Cannot prove legality.
 
 ; CHECK: define void @test1
 ; CHECK: %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD"([12 x %struct.int_int]* %y3.lpriv, i8* null, void (%struct.int_int*, %struct.int_int*)* @_ZTS7int_int.omp.copy_assign, void (%struct.int_int*)* @_ZTS7int_int.omp.destr), "QUAL.OMP.LINEAR:IV"(i32* %i.priv, i32 1) ]
@@ -20,7 +22,7 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: noinline uwtable
-declare void @_ZTS7int_int.omp.copy_constr(%struct.int_int* %0, %struct.int_int* %1) 
+declare void @_ZTS7int_int.omp.copy_constr(%struct.int_int* %0, %struct.int_int* %1)
 
 ; Function Attrs: noinline uwtable
 declare void @_ZTS7int_int.omp.destr(%struct.int_int* %0)

@@ -123,11 +123,6 @@ static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
         "(-vplan-enable-peeling-hir) to be enabled. When false disables any "
         "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
-static cl::opt<bool> ForceComplexTyReductionVec(
-    "vplan-force-complex-type-reduction-vectorization", cl::init(false),
-    cl::Hidden,
-    cl::desc("Force vectorization of reduction involving complex type."));
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
@@ -377,38 +372,10 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (isOmpSIMDLoop)
     setLoopMD(Lp, "llvm.loop.vectorize.enable");
 
-  // Send explicit data from WRLoop to the Legality.
-  // The decision about possible loop vectorization is based
-  // on this data.
-  LVL.EnterExplicitData(WRLp);
-
-  // Loop entities framework does not support array reductions idiom. Bailout to
-  // prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
-  if (LVL.hasArrayReduction()) {
-    LLVM_DEBUG(
-        dbgs() << "VD: Not vectorizing: Cannot handle array reductions.\n");
-    return false;
-  }
-  // Loop entities framework does not support nonPOD lastprivates array. Bailout
-  // to prevent incorrect vector code generatiion. TODO: CMPLRLLVM-30686.
-  if (LVL.hasArrayLastprivateNonPod()) {
-    LLVM_DEBUG(
-        dbgs()
-        << "VD: Not vectorizing: Cannot handle nonPOD array lastprivates.\n");
-    return false;
-  }
-
-  if (!ForceComplexTyReductionVec && LVL.hasComplexTyReduction()) {
-    LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
-    return false;
-  }
-
   // The function canVectorize() collects information about induction
   // and reduction variables. It also verifies that the loop vectorization
   // is fully supported.
-  CallInst *RegionEntry =
-      (WRLp == nullptr) ? nullptr : cast<CallInst>(WRLp->getEntryDirective());
-  bool CanVectorize = LVL.canVectorize(*DT, RegionEntry);
+  bool CanVectorize = LVL.canVectorize(*DT, WRLp);
   if (!CanVectorize) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
 
@@ -1368,22 +1335,12 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
                                   &VLSA, LightWeightMode);
 
-  // Send explicit data from WRLoop to the Legality.
-  HIRVecLegal.EnterExplicitData(WRLp);
-  if (HIRVecLegal.hasF90DopeVectorPrivate()) {
-    LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
-    return false;
-  }
-  if (HIRVecLegal.hasF90DopeVectorReduction()) {
-    LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
-    return false;
-  }
-  if (!ForceComplexTyReductionVec && HIRVecLegal.hasComplexTyReduction()) {
-    LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
-    return false;
-  }
-  if (HIRVecLegal.hasUserDefinedReduction()) {
-    LLVM_DEBUG(dbgs() << "User defined reductions are not supported\n");
+  // Send explicit data from WRLoop to the Legality and check whether we can
+  // handle it.
+  bool CanVectorize = HIRVecLegal.canVectorize(WRLp);
+
+  if (!CanVectorize) {
+    LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
     return false;
   }
   // Find any DDRefs in loop pre-header that are aliases to the descriptor
