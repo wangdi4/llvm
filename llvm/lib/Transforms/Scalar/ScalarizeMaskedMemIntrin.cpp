@@ -45,6 +45,22 @@ using namespace llvm;
 
 #define DEBUG_TYPE "scalarize-masked-mem-intrin"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> MaxDepth(
+    "scalarize-masked-mem-intrin-max-depth", cl::Hidden, cl::init(4),
+    cl::desc("Maximum depth of checking isSplatAndConst. (default = 4)"));
+
+static cl::opt<unsigned>
+    MaxLoads("scalarize-masked-mem-intrin-max-loads", cl::Hidden, cl::init(1),
+             cl::desc("Maximum load count in GEP's elements when it can do "
+                      "tryScalarizeGEP. (default = 1)"));
+
+static cl::opt<unsigned>
+MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(1),
+  cl::desc("Maximum constant count in GEP's elements when it can do "
+    "tryScalarizeGEP. (default = 1)"));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 class ScalarizeMaskedMemIntrinLegacyPass : public FunctionPass {
@@ -515,6 +531,125 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
 }
 
 #if INTEL_CUSTOMIZATION
+
+// Return true if all elements are ConstantInts,
+// use the Constant for this element.
+static Constant *legalConst(Constant *C, unsigned &ConstCount) {
+  auto VT = cast<FixedVectorType>(C->getType());
+  if (!VT)
+    return nullptr;
+
+  unsigned NumElts = VT->getNumElements();
+  ++ConstCount;
+  if (ConstCount > MaxConst)
+    return nullptr;
+
+  for (unsigned j = 0; j != NumElts; ++j) {
+    Constant *Elt = C->getAggregateElement(j);
+    if (!Elt || !isa<ConstantInt>(Elt))
+      return nullptr;
+  }
+  return C;
+}
+
+// Return true iff all the leaf variables are splat vectors
+// and only constants are real vectors.
+static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
+                            unsigned &ConstCount) {
+  if (Depth > MaxDepth || LoadCount > MaxLoads || ConstCount > MaxConst)
+    return false;
+
+  if (auto Bin = dyn_cast<BinaryOperator>(V)) {
+    auto LHS = Bin->getOperand(0);
+    auto RHS = Bin->getOperand(1);
+
+    switch (Bin->getOpcode()) {
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::Mul:
+    case Instruction::Shl:
+      break;
+    default:
+      return false;
+    }
+
+    if (getSplatValue(LHS)) {
+      if (auto *C = dyn_cast<Constant>(RHS))
+        return legalConst(C, ConstCount);
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+    }
+    if (auto *C = dyn_cast<Constant>(LHS)) {
+      if (!legalConst(C, ConstCount))
+        return false;
+      if (getSplatValue(RHS))
+        return true;
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+    }
+    if (getSplatValue(RHS)) {
+      if (auto *C = dyn_cast<Constant>(LHS))
+        return legalConst(C, ConstCount);
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+    }
+    if (auto *C = dyn_cast<Constant>(RHS)) {
+      if (!legalConst(C, ConstCount))
+        return false;
+      if (getSplatValue(LHS))
+        return true;
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+    }
+  } else if (isa<LoadInst>(V)) {
+    ++LoadCount;
+    if (LoadCount < MaxLoads)
+      return true;
+  } else if (auto ZExt = dyn_cast<ZExtInst>(V))
+    return isSplatAndConst(ZExt->getOperand(0), Depth + 1, LoadCount,
+                           ConstCount);
+
+  return false;
+}
+
+static Value *createSplatAndConstExpr(Value *V, unsigned Element,
+                                      IRBuilder<> &Builder) {
+  auto createBinOpExpr = [](Value *&Op0, Value *&Op1, unsigned Element,
+                            IRBuilder<> &Builder) {
+    if (auto Splat = getSplatValue(Op0)) {
+      Op0 = Splat;
+      if (auto *C = dyn_cast<Constant>(Op1))
+        Op1 = C->getAggregateElement(Element);
+      else
+        Op1 = createSplatAndConstExpr(Op1, Element, Builder);
+      return true;
+    }
+    if (auto *C = dyn_cast<Constant>(Op0)) {
+      Op0 = C->getAggregateElement(Element);
+      if (auto Splat = getSplatValue(Op1))
+        Op1 = Splat;
+      else
+        Op1 = createSplatAndConstExpr(Op1, Element, Builder);
+      return true;
+    }
+    return false;
+  };
+  if (auto Bin = dyn_cast<BinaryOperator>(V)) {
+    auto LHS = Bin->getOperand(0);
+    auto RHS = Bin->getOperand(1);
+
+    if (createBinOpExpr(LHS, RHS, Element, Builder) ||
+        createBinOpExpr(RHS, LHS, Element, Builder))
+      return Builder.CreateBinOp(Bin->getOpcode(), LHS, RHS);
+  } else if (auto ZExt = dyn_cast<ZExtInst>(V)) {
+    auto Src = createSplatAndConstExpr(ZExt->getOperand(0), Element, Builder);
+    auto DstTy = dyn_cast<VectorType>(ZExt->getType());
+    assert(DstTy && "DstTy must be ");
+    auto ScalarDstTy = DstTy->getElementType();
+    return Builder.CreateZExt(Src, ScalarDstTy);
+  } else if (auto Load = dyn_cast<LoadInst>(V))
+    return Builder.CreateExtractElement(Load, Element);
+
+  llvm_unreachable("Not reachable.");
+  return nullptr;
+}
+
 // Look for GEP where the base pointer and all indices are made of scalars,
 // splats of scalars, or constant ints. These GEPs are trivially scalarizable.
 // This creates opportunities for the arithmetic to be folded into the address
@@ -524,6 +659,8 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
 static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
                               IRBuilder<> &Builder) {
   Value *Base = GEP->getPointerOperand();
+  unsigned LoadCount = 0;
+  unsigned ConstCount = 0;
 
   // Base should be a scalar, or a splatted scalar.
   if (Base->getType()->isVectorTy()) {
@@ -547,7 +684,10 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
       // We have some kind of non-splat vector.
       if (auto *C = dyn_cast<Constant>(GEPIdx)) {
         // If all elements are ConstantInts, use the Constant for this element.
-        unsigned NumElts = cast<VectorType>(C->getType())->getNumElements();
+        auto VT = dyn_cast<FixedVectorType>(C->getType());
+        if (!VT)
+          return nullptr;
+        unsigned NumElts = VT->getNumElements();
         for (unsigned j = 0; j != NumElts; ++j) {
           Constant *Elt = C->getAggregateElement(j);
           if (!Elt || !isa<ConstantInt>(Elt))
@@ -555,11 +695,21 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
         }
         Indices.push_back(C->getAggregateElement(Element));
         continue;
+      } else if (isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount)) {
+        Indices.push_back(nullptr);
+        continue;
       }
 
       // Don't know how to scalarize this yet.
       return nullptr;
     }
+  }
+
+  for (unsigned i = 1, e = GEP->getNumOperands(); i != e; ++i) {
+    Value *GEPIdx = GEP->getOperand(i);
+    if (Indices[i - 1] != nullptr)
+      continue;
+    Indices[i - 1] = createSplatAndConstExpr(GEPIdx, Element, Builder);
   }
 
   // Create a GEP from the scalar components.
