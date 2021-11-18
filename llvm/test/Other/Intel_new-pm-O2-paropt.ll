@@ -92,7 +92,7 @@
 ;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: BasicAA on foo
 ; INTEL_CUSTOMIZATION
-;CHECK-NEXT: Running pass: VPOParoptOptimizeDataSharingPass on foo
+;CHECK-NEXT: Running pass: VPOParoptSharedPrivatizationPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
@@ -100,6 +100,7 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
+;CHECK-NEXT: Running pass: VPOParoptOptimizeDataSharingPass on foo
 ;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
