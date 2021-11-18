@@ -36,4 +36,11 @@ def err_typelib_not_found : Error<
 
 def err_import_exec : Error<
   "could not process #import directive with %0">;
+
+def warn_generating_import_files : Warning<
+  "%select{wrapper|argument}1 file generated: %0">,
+  InGroup<IntelCompat>;
+
+def note_import_file_line : Note<
+  "added to %select{wrapper|argument}1 file: %0">;
 }

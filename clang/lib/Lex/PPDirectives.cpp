@@ -2793,6 +2793,15 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
 
   auto TypelibHeaderName = llvm::sys::path::filename(TypelibName);
 
+  // Enable logging of temporary file insertions.
+  enum TempFileTypes { TFT_wrapper = 0, TFT_argument = 1 };
+  auto AddLineToTempFile = [&](llvm::raw_fd_ostream &File, StringRef Line,
+                               TempFileTypes TFT) {
+    if (LangOpts.ShowImportProcessing)
+      Diag(FilenameTok, clang::diag::note_import_file_line) << Line << TFT;
+    File << Line << '\n';
+  };
+
   //
   // Create the wrapper file.  This file contains an accumulation of #import
   // directives we've seen so far (since they can depend on each other).
@@ -2808,6 +2817,10 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
       return;
     }
     WrapperFilename = std::string(WrapperFilenameImpl);
+    if (LangOpts.KeepImportTemps || LangOpts.ShowImportProcessing) {
+      Diag(FilenameTok, clang::diag::warn_generating_import_files)
+          << WrapperFilename << TFT_wrapper;
+    }
   } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
                  WrapperFilename, WrapperFileDesc,
                  llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::OF_Append)) {
@@ -2817,13 +2830,13 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   }
 
   // Add this #import to the end of the wrapper file
+  SmallString<128> WrapperBuffer;
   llvm::raw_fd_ostream WrapperFile(WrapperFileDesc, /*shouldClose=*/true);
-  WrapperFile << "#import ";
-  WrapperFile << Lexer::getSourceText({{Tokens.begin()->getLocation(),
-                                        Tokens.rbegin()->getLocation()},
-                                       true},
-                                      getSourceManager(), LangOpts)
-              << '\n';
+  WrapperBuffer = "#import ";
+  WrapperBuffer += Lexer::getSourceText(
+      {{Tokens.begin()->getLocation(), Tokens.rbegin()->getLocation()}, true},
+      getSourceManager(), LangOpts);
+  AddLineToTempFile(WrapperFile, WrapperBuffer, TFT_wrapper);
   WrapperFile.close();
 
   //
@@ -2839,6 +2852,10 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
         << ErrorCode.message();
     return;
   }
+  if (LangOpts.KeepImportTemps || LangOpts.ShowImportProcessing) {
+    Diag(FilenameTok, clang::diag::warn_generating_import_files)
+        << ArgFilename << TFT_argument;
+  }
 
   llvm::raw_fd_ostream ArgFile(ArgFileDesc, /*shouldClose=*/true);
 
@@ -2846,8 +2863,14 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   // includes normally, needs to be done explicitly to compile the generated
   // source.
   SourceManager &SM = getSourceManager();
-  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID()))
-    ArgFile << "/I\"" << MainFile->getDir()->getName() << "\"\n";
+  SmallString<256> ArgFileLine;
+
+  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+    ArgFileLine = "/I\"";
+    ArgFileLine += MainFile->getDir()->getName();
+    ArgFileLine += "\"";
+    AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
+  }
 
   // Add includes used in the original source, but remove Intel headers
   // since the MS compile isn't guaranteed to compile them.  The Intel
@@ -2855,16 +2878,28 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   auto HSOpts = HeaderInfo.getHeaderSearchOpts();
   for (const auto &Iter : HSOpts.UserEntries) {
     if (HSOpts.HeaderBasePath.empty() ||
-        Iter.Path.rfind(HSOpts.HeaderBasePath, 0) != 0)
-      ArgFile << "/I\"" << Iter.Path << "\"\n";
+        Iter.Path.rfind(HSOpts.HeaderBasePath, 0) != 0) {
+      ArgFileLine = "/I\"";
+      ArgFileLine += Iter.Path;
+      ArgFileLine += "\"";
+      AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
+    }
   }
 
   SmallString<128> OutputDir = getPreprocessorOpts().OutputFile;
   llvm::sys::path::remove_filename(OutputDir);
 
-  if (!OutputDir.empty())
-    ArgFile << "/Fo\"" << OutputDir << "/\"\n";
-  ArgFile << "\"" << WrapperFilename << "\"\n";
+  if (!OutputDir.empty()) {
+    ArgFileLine = "/Fo\"";
+    ArgFileLine += OutputDir;
+    ArgFileLine += "/\"";
+    AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
+  }
+
+  ArgFileLine = "\"";
+  ArgFileLine += WrapperFilename;
+  ArgFileLine += "\"";
+  AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
   ArgFile.close();
 
   std::string ErrMsg;
@@ -2884,7 +2919,8 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   }
 
   // Remove the arg and generated preprocessed file.
-  llvm::sys::fs::remove(ArgFilename);
+  if (!LangOpts.KeepImportTemps)
+    llvm::sys::fs::remove(ArgFilename);
   SmallString<128> OutputFilename = OutputDir;
   if (!OutputDir.empty())
     OutputFilename += "/";

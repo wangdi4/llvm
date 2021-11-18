@@ -685,7 +685,7 @@ void Preprocessor::EndSourceFile() {
   if (Callbacks)
     Callbacks->EndOfMainFile();
 #if INTEL_CUSTOMIZATION
-  if (!WrapperFilename.empty())
+  if (!WrapperFilename.empty() && !getLangOpts().KeepImportTemps)
     llvm::sys::fs::remove(WrapperFilename);
 #endif // INTEL_CUSTOMIZATION
 }
