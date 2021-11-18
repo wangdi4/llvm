@@ -422,15 +422,22 @@ bool KernelProperties::IsNonUniformWGSizeSupported() const
 
 void KernelProperties::Print() const {
   outs() << "[Kernel properties]\n";
+  // Number of spaces.
   unsigned NS = 4;
+  auto PrintArray = [&](StringRef Name, const size_t *A, unsigned Len) {
+    outs().indent(NS) << Name << ": {";
+    for (unsigned I = 0; I < Len; ++I)
+      outs() << A[I] << ((I < Len - 1) ? ", " : "");
+    outs() << "}\n";
+  };
   outs().indent(NS) << "hasBarrier: " << m_hasBarrier << "\n";
   outs().indent(NS) << "hasGlobalSync: " << m_hasGlobalSync << "\n";
   outs().indent(NS) << "useNativeSubgroups: " << m_useNativeSubgroups << "\n";
   outs().indent(NS) << "DAZ: " << m_DAZ << "\n";
   outs().indent(NS) << "CPUId: " << m_cpuId.str() << "\n";
   outs().indent(NS) << "optWGSize: " << m_optWGSize << "\n";
-  outs().indent(NS) << "reqdWGSize: " << m_reqdWGSize[MAX_WORK_DIM] << "\n";
-  outs().indent(NS) << "hintWGSize: " << m_hintWGSize[MAX_WORK_DIM] << "\n";
+  PrintArray("reqdWGSize", m_reqdWGSize, MAX_WORK_DIM);
+  PrintArray("hintWGSize", m_hintWGSize, MAX_WORK_DIM);
   outs().indent(NS) << "totalImplSize: " << m_totalImplSize << "\n";
   outs().indent(NS) << "barrierBufferSize: " << m_barrierBufferSize << "\n";
   outs().indent(NS) << "privateMemorySize: " << m_privateMemorySize << "\n";
