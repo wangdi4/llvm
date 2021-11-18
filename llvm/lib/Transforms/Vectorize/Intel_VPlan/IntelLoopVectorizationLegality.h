@@ -74,11 +74,24 @@ private:
           VPOParoptUtils::getItemInfo(I);
       assert(ElType && "Missed OMP clause item type!");
 
-      // TODO: account for supporting having num elements > 1.
       // NumElements == nullptr by convention means the number is 1.
-      // Any other value including non-constant is not supported yet.
-      // Zero constant seems to be illegal.
-      assert(!NumElements && "Unexpected number of elements");
+      // For NumElements == nullptr (i.e. 1 element), the original type
+      // (including array) is untouched. To handle arrays in private clause with
+      // non-null NumElements we convert  the type into 1D array:  ElType ->
+      // [NumElements x ElType]. Eg, "QUAL.OMP.PRIVATE:TYPED"([10 x i32]* %20,
+      // [10 x i32] zeroinitializer, i32 0) will give us [10 x i32] array type.
+      // "QUAL.OMP.PRIVATE:TYPED"([10 x i32]* %20, [10 x i32] zeroinitializer,
+      // i32 2520) will give us [2520 x [10 x i32]] array type. The resulting
+      // array then will be vectorized by our algorithms. Usually it will be
+      // transformed into [VF x ElType] array (unless SOA transformation is
+      // applied to it).
+      if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
+        if (CI->getValue().ugt(1)) {
+          ElType = ArrayType::get(ElType, CI->getZExtValue());
+          NumElements = nullptr;
+        }
+      }
+      assert(!NumElements && "Unsupported private array length");
       return ElType;
     };
 
