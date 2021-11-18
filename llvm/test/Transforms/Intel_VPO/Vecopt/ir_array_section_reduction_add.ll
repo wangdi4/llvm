@@ -2,10 +2,12 @@
 ; (using array sections) identified in incoming IR.
 
 ; REQUIRES: asserts
-; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
 ; CHECK: VPlan LLVM-IR Driver for Function: foo
-; CHECK: VD: Not vectorizing: Cannot handle array reductions.
+; CHECK: Cannot handle array reductions.
+; CHECK: VD: Not vectorizing: Cannot prove legality.
 
 ; CHECK: define i32 @foo
 ; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([100 x i32]* %a.red, i64 1, i64 0, i64 100, i64 1) ]

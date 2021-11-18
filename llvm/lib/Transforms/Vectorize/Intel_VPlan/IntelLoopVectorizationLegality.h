@@ -220,7 +220,7 @@ public:
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
 
   /// Returns true if it is legal to vectorize this loop.
-  bool canVectorize(DominatorTree &DT, const CallInst *RegionEntry);
+  bool canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp);
 
   using DescrValueTy = DescrValue<Value>;
   using DescrWithAliasesTy = DescrWithAliases<Value>;
@@ -391,16 +391,6 @@ private:
   bool IsSimdLoop = false;
 
 public:
-  /// Import information from explicit OMP SIMD clauses.
-  void EnterExplicitData(const WRNVecLoopNode *WRLp) {
-    if (!WRLp)
-      return;
-    IsSimdLoop = true;
-    SimdLoopDataImporter.run(WRLp);
-    collectPreLoopDescrAliases();
-    collectPostExitLoopDescrAliases();
-  }
-
   /// Add stride information for pointer \p Ptr.
   // Used for a temporary solution of teaching legality based on DA.
   // TODO: Is it okay to overwrite existing stride value?
@@ -479,6 +469,15 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  /// Import information from explicit OMP SIMD clauses.
+  void EnterExplicitData(const WRNVecLoopNode *WRLp) {
+    if (!WRLp)
+      return;
+    IsSimdLoop = true;
+    SimdLoopDataImporter.run(WRLp);
+    collectPreLoopDescrAliases();
+    collectPostExitLoopDescrAliases();
+  }
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
                       Function *Destr, Function *CopyAssign, bool IsLast) {
