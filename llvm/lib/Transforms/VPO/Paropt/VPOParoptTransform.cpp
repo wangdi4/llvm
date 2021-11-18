@@ -75,10 +75,6 @@
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypes.h"
-#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif  // INTEL_CUSTOMIZATION
@@ -9859,25 +9855,6 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
                                                 2, {-1, -1},
                                                 /*VarArgsArePassed=*/true)}));
   }
-#if INTEL_FEATURE_SW_DTRANS
-  if (dtransOP::TypeMetadataReader::getDTransTypesMetadata(*M)) {
-    dtransOP::DTransTypeManager TM(C);
-    dtransOP::DTransType *DVoidTy =
-        TM.getOrCreateAtomicType(Type::getVoidTy(C));
-    dtransOP::DTransType *DIdentPtrTy =
-        VPOParoptUtils::getIdentStructDTransType(TM, IdentTy);
-    DIdentPtrTy = TM.getOrCreatePointerType(DIdentPtrTy);
-    dtransOP::DTransType *DInt32Ty =
-        TM.getOrCreateAtomicType(Type::getInt32Ty(C));
-    dtransOP::DTransFunctionType *DKmpcMicroTy =
-        VPOParoptUtils::getKmpcMicroDTransType(TM);
-    dtransOP::DTransType *ArgTypes[] = {DIdentPtrTy, DInt32Ty,
-        TM.getOrCreatePointerType(DKmpcMicroTy)};
-    dtransOP::DTransFunctionType *DFTy =
-        TM.getOrCreateFunctionType(DVoidTy, ArgTypes, /*IsVarArg=*/true);
-    dtransOP::TypeMetadataReader::setDTransFuncMetadata(ForkCallFn, DFTy);
-  }
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   AttributeList ForkCallFnAttr;

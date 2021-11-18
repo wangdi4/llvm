@@ -39,12 +39,6 @@
 #include <unordered_map>
 #include <utility>
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransTypes.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-
-#endif // INTEL_CUSTOMIZATION
 // Use trampoline for internal microtasks
 #define KMP_IDENT_IMB              0x01
 
@@ -223,29 +217,6 @@ public:
   static StructType *getOrCreateStructType(Function *F, StringRef Name,
                                            ArrayRef<Type *> ElementTypes);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  /// Return DTrans type describing kmpc_micro function type
-  /// in the given DTransTypeManager \p TM:
-  ///   typedef void(*kmpc_micro)(kmp_int32 *global_tid,
-  ///                             kmp_int32 *bound_tid, ...)
-
-  static dtransOP::DTransFunctionType *getKmpcMicroDTransType(
-      dtransOP::DTransTypeManager &TM);
-
-  /// Return DTrans type describing given OpenMP ident_t type \p IdentTy
-  /// in the given DTransTypeManager \p TM:
-  ///   typedef struct ident {
-  ///     kmp_int32 reserved_1;
-  ///     kmp_int32 flags;
-  ///     kmp_int32 reserved_2;
-  ///     kmp_int32 reserved_3;
-  ///     char const *psource;
-  ///   } ident_t;
-  static dtransOP::DTransStructType *getIdentStructDTransType(
-      dtransOP::DTransTypeManager &TM, StructType *IdentTy);
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
   /// Find any existing ident_t (LOC) struct in the module of \p F, and if
   /// found, return it. If not, create an ident_t struct and return it.
   ///
