@@ -37,8 +37,6 @@ class Function;
 
 namespace vpo {
 class VPOVectorizationLegality;
-inline Type *getType(Value *V) { return V->getType(); }
-inline Type *getType(RegDDRef *V) { return V->getDestType(); }
 
 // Importer of WRNVecLoopNode (OMP SIMD Loop) items into Legality.
 template <typename LegalityTy>
@@ -54,6 +52,8 @@ class OMPSimdImporter {
   bool SeenF90DopeVectorPrivate = false;
   bool SeenF90DopeVectorReduction = false;
   bool SeenUserDefinedReduction = false;
+  bool SeenArrayReduction = false;
+  bool SeenArrayLastprivateNonPod = false;
 
 public:
   OMPSimdImporter(LegalityTy *L) : Legality(L) {}
@@ -83,27 +83,31 @@ private:
     };
 
     for (LastprivateItem *PrivItem : WRLp->getLpriv().items()) {
+      if (PrivItem->getIsF90DopeVector())
+        SeenF90DopeVectorPrivate = true;
       auto *PrivVal = PrivItem->getOrig<Kind>();
       Type *PrivTy = GetPrivateElementType(PrivItem);
 
-      if (PrivItem->getIsF90DopeVector())
-        SeenF90DopeVectorPrivate = true;
-
-      if (PrivItem->getIsNonPod())
+      if (PrivItem->getIsNonPod()) {
+        if (isa<ArrayType>(PrivTy)) {
+          SeenArrayLastprivateNonPod = true;
+          continue;
+        }
         Legality->addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
                                  PrivItem->getDestructor(),
                                  PrivItem->getCopyAssign(), true /* IsLast */);
-      else
-        Legality->addLoopPrivate(PrivVal, PrivTy, true /* IsLast */,
-                                 PrivItem->getIsConditional());
+        continue;
+      }
+      Legality->addLoopPrivate(PrivVal, PrivTy, true /* IsLast */,
+                               PrivItem->getIsConditional());
     }
 
     for (PrivateItem *PrivItem : WRLp->getPriv().items()) {
-      auto *PrivVal = PrivItem->getOrig<Kind>();
-      Type *PrivTy = GetPrivateElementType(PrivItem);
       if (PrivItem->getIsF90DopeVector())
         SeenF90DopeVectorPrivate = true;
 
+      auto *PrivVal = PrivItem->getOrig<Kind>();
+      Type *PrivTy = GetPrivateElementType(PrivItem);
       if (PrivItem->getIsNonPod())
         Legality->addLoopPrivate(PrivVal, PrivTy, PrivItem->getConstructor(),
                                  PrivItem->getDestructor(),
@@ -126,6 +130,7 @@ private:
 
       // NumElements == nullptr by convention means the number is 1.
       // Any other values including a non-constant are not supported.
+      // FIXME: bail out gracefully instead of assertion
       assert(!NumElements && "Unexpected number of elements");
       return ElType;
     };
@@ -168,6 +173,20 @@ private:
       }
     };
 
+    auto GetReductionElementType = [this](const Item *I) {
+      Type *ElType = nullptr;
+      Value *NumElements = nullptr;
+      std::tie(ElType, NumElements, /* AddrSpace */ std::ignore) =
+          VPOParoptUtils::getItemInfo(I);
+      assert(ElType && "Missed OMP clause item type!");
+
+      // NumElements == nullptr by convention means the number is 1.
+      // Any other values including a non-constant are not supported.
+      if (isa<ArrayType>(ElType) || NumElements)
+        SeenArrayReduction = true;
+      return ElType;
+    };
+
     for (ReductionItem *RedItem : WRLp->getRed().items()) {
       auto *V = RedItem->getOrig<Kind>();
       if (RedItem->getIsComplex())
@@ -179,14 +198,23 @@ private:
       if (RedItem->getType() == ReductionItem::WRNReductionUdr)
         SeenUserDefinedReduction = true;
 
-      RecurKind Kind =
-          GetRecurKind(RedItem, getType(V)->getPointerElementType());
+      if (RedItem->getIsArraySection()) {
+        SeenArrayReduction = true;
+        continue;
+      }
+
+      Type *ElType = GetReductionElementType(RedItem);
+      RecurKind Kind = GetRecurKind(RedItem, ElType);
       Legality->addReduction(V, Kind);
     }
   }
 };
 
 class VPOVectorizationLegality {
+  // Allow OMP Simd importer to directly call the legality private methods
+  // to populate privates, reductions and linears data structures.
+  friend class OMPSimdImporter<VPOVectorizationLegality>;
+
 public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
@@ -302,6 +330,13 @@ public:
   bool hasUserDefinedReduction() const {
     return SimdLoopDataImporter.SeenUserDefinedReduction;
   }
+  bool hasArrayReduction() const {
+    return SimdLoopDataImporter.SeenArrayReduction;
+  }
+  bool hasArrayLastprivateNonPod() const {
+    return SimdLoopDataImporter.SeenArrayLastprivateNonPod;
+  }
+
 private:
   /// The loop that we evaluate.
   Loop *TheLoop;
@@ -375,34 +410,6 @@ public:
   // Used for a temporary solution of teaching legality based on DA.
   void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
 
-  /// Add an in memory non-POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
-                      Function *Destr, Function *CopyAssign, bool IsLast) {
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    auto PrivItem = std::make_unique<PrivDescrNonPODTy>(
-        PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign);
-    Privates.insert({PrivVal, std::move(PrivItem)});
-  }
-
-  /// Add an in memory POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, Type *PrivTy, bool IsLast,
-                      bool IsConditional) {
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    if (IsConditional)
-      Kind = PrivateKindTy::Conditional;
-    auto PrivItem = std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind);
-    Privates.insert({PrivVal, std::move(PrivItem)});
-  }
-
-  /// Register explicit reduction variables provided from outside by finding
-  /// pattern inside the loop for matching the explicit reduction variable \p V
-  /// and the recurrence kind.
-  void addReduction(Value *V, RecurKind Kind);
-
   bool isExplicitReductionPhi(PHINode *Phi);
 
   // Return True if the specified value \p Val is reduction variable that
@@ -411,13 +418,6 @@ public:
 
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
-
-  // Add linear value to Linears map
-  void addLinear(Value *LinearVal, Type *EltTy, Value *StepValue) {
-    ConstantInt *CI = cast<ConstantInt>(StepValue);
-    int Step = *((CI->getValue()).getRawData());
-    Linears[LinearVal] = std::make_pair(EltTy, Step);
-  }
 
   // Add unit step linear value to UnitStepLinears map
   void addUnitStepLinear(Value *LinearVal, Value *NewVal, int Step) {
@@ -479,6 +479,41 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  /// Add an in memory non-POD private to the vector of private values.
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
+                      Function *Destr, Function *CopyAssign, bool IsLast) {
+    PrivateKindTy Kind = PrivateKindTy::NonLast;
+    if (IsLast)
+      Kind = PrivateKindTy::Last;
+    auto PrivItem = std::make_unique<PrivDescrNonPODTy>(
+        PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign);
+    Privates.insert({PrivVal, std::move(PrivItem)});
+  }
+
+  /// Add an in memory POD private to the vector of private values.
+  void addLoopPrivate(Value *PrivVal, Type *PrivTy, bool IsLast,
+                      bool IsConditional) {
+    PrivateKindTy Kind = PrivateKindTy::NonLast;
+    if (IsLast)
+      Kind = PrivateKindTy::Last;
+    if (IsConditional)
+      Kind = PrivateKindTy::Conditional;
+    auto PrivItem = std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind);
+    Privates.insert({PrivVal, std::move(PrivItem)});
+  }
+
+  /// Add linear value to Linears map
+  void addLinear(Value *LinearVal, Type *EltTy, Value *StepValue) {
+    ConstantInt *CI = cast<ConstantInt>(StepValue);
+    int Step = *((CI->getValue()).getRawData());
+    Linears[LinearVal] = std::make_pair(EltTy, Step);
+  }
+
+  /// Register explicit reduction variables provided from outside by finding
+  /// pattern inside the loop for matching the explicit reduction variable \p V
+  /// and the recurrence kind.
+  void addReduction(Value *V, RecurKind Kind);
+
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.
@@ -524,7 +559,6 @@ private:
   /// OMP.SIMD directive.
   bool isEndDirective(Instruction *I) const;
 };
-
 } // namespace vpo
 } // namespace llvm
 

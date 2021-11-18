@@ -37,7 +37,6 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/IR/OptBisect.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -62,14 +61,12 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "vplan-vec"
 
 using namespace llvm;
 using namespace llvm::vpo;
-using namespace llvm::loopopt; // INTEL
 
 static cl::opt<bool> DisableCodeGen(
     "disable-vplan-codegen", cl::init(false), cl::Hidden,
@@ -351,46 +348,6 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
              "private finalization instructions transformation", Plan);
 }
 
-/// Utility to check if given Item is an array type item.
-static bool isItemArrayType(const Item *I) {
-  Type *ElemType = nullptr;
-  Value *NumElements = nullptr;
-  std::tie(ElemType, NumElements, std::ignore) = VPOParoptUtils::getItemInfo(I);
-  if (isa<ArrayType>(ElemType) || NumElements != nullptr)
-    return true;
-  return false;
-}
-
-/// Utility to check if given WRegion loop has any array reduction idioms.
-static bool hasArrayReduction(WRNVecLoopNode *WRLp) {
-  // Visit each reduction clause in the WRegion loop and identify if any of them
-  // represents array reduction idiom.
-  ReductionClause &RedClause = WRLp->getRed();
-  for (ReductionItem *RedItem : RedClause.items()) {
-    if (RedItem->getIsArraySection())
-      return true;
-    if (isItemArrayType(RedItem))
-      return true;
-  }
-
-  // All checks failed, loop does not have array reductions.
-  return false;
-}
-
-/// Utility to check if given WRegion loop has any nonPOD lastprivate array.
-static bool hasArrayLastprivateNonPod(WRNVecLoopNode *WRLp) {
-  LastprivateClause &LPrivClause = WRLp->getLpriv();
-  for (LastprivateItem *LPrivItem : LPrivClause.items()) {
-    if (!LPrivItem->getIsNonPod())
-      continue;
-    if (isItemArrayType(LPrivItem))
-      return true;
-  }
-
-  // All checks failed, loop does not have array lastprivate.
-  return false;
-}
-
 #if INTEL_CUSTOMIZATION
 template <>
 bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
@@ -420,27 +377,27 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (isOmpSIMDLoop)
     setLoopMD(Lp, "llvm.loop.vectorize.enable");
 
+  // Send explicit data from WRLoop to the Legality.
+  // The decision about possible loop vectorization is based
+  // on this data.
+  LVL.EnterExplicitData(WRLp);
+
   // Loop entities framework does not support array reductions idiom. Bailout to
   // prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
-  if (WRLp && hasArrayReduction(WRLp)) {
+  if (LVL.hasArrayReduction()) {
     LLVM_DEBUG(
         dbgs() << "VD: Not vectorizing: Cannot handle array reductions.\n");
     return false;
   }
-
   // Loop entities framework does not support nonPOD lastprivates array. Bailout
   // to prevent incorrect vector code generatiion. TODO: CMPLRLLVM-30686.
-  if (WRLp && hasArrayLastprivateNonPod(WRLp)) {
+  if (LVL.hasArrayLastprivateNonPod()) {
     LLVM_DEBUG(
         dbgs()
         << "VD: Not vectorizing: Cannot handle nonPOD array lastprivates.\n");
     return false;
   }
 
-  // Send explicit data from WRLoop to the Legality.
-  // The decision about possible loop vectorization is based
-  // on this data.
-  LVL.EnterExplicitData(WRLp);
   if (!ForceComplexTyReductionVec && LVL.hasComplexTyReduction()) {
     LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
     return false;
