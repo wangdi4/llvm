@@ -1524,6 +1524,9 @@ public:
   ze_context_handle_t Context = nullptr;
   ze_api_version_t DriverAPIVersion = ZE_API_VERSION_CURRENT;
 
+  // Driver extensions
+  std::vector<ze_driver_extension_properties_t> DriverExtensions;
+
   // Events for kernel profiling
   KernelProfileEventsTy ProfileEvents;
 
@@ -2004,14 +2007,13 @@ public:
       parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
     }
 #endif // INTEL_INTERNAL_BUILD
-#if ENABLE_LIBDEVICE_LINKING
-    // Link libdevice
-    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_LINK_LIBDEVICE")) {
-      // TODO: turn this on by default when L0 issue is resolved.
+    // LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE
+    if (char *env = readEnvVar("LIBOMPTARGET_ONEAPI_LINK_LIBDEVICE")) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.LinkLibDevice = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.LinkLibDevice = 0;
     }
-#endif // ENABLE_LIBDEVICE_LINKING
     if (readEnvVar("INTEL_ENABLE_OFFLOAD_ANNOTATIONS")) {
       // To match SYCL RT behavior, we just need to check whether
       // INTEL_ENABLE_OFFLOAD_ANNOTATIONS is set. The actual value
@@ -2307,6 +2309,9 @@ public:
 
   /// Data delete
   int32_t dataDelete(int32_t DeviceId, void *Ptr);
+
+  /// Check if the driver supports the specified extension
+  bool isExtensionSupported(const char *ExtName);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -2331,42 +2336,195 @@ typedef struct {
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
 
+/// Read SPV from file name
+static int32_t readSPVFile(const char *FileName, std::vector<uint8_t> &OutSPV) {
+  // Resolve full path using the location of the plugin
+  std::string FullPath;
+#ifdef _WIN32
+  char RTLPath[_MAX_PATH];
+  HMODULE RTLModule = nullptr;
+  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          (LPCSTR) &DebugLevel, &RTLModule)) {
+    DP("Error: module creation failed -- cannot resolve full path\n");
+    return OFFLOAD_FAIL;
+  }
+  if (!GetModuleFileNameA(RTLModule, RTLPath, sizeof(RTLPath))) {
+    DP("Error: module creation failed -- cannot resolve full path\n");
+    return OFFLOAD_FAIL;
+  }
+  FullPath = RTLPath;
+#else // _WIN32
+  Dl_info RTLInfo;
+  if (!dladdr(&DebugLevel, &RTLInfo)) {
+    DP("Error: module creation failed -- cannot resolve full path\n");
+    return OFFLOAD_FAIL;
+  }
+  FullPath = RTLInfo.dli_fname;
+#endif // _WIN32
+  size_t PathSep = FullPath.find_last_of("/\\");
+  FullPath.replace(PathSep + 1, std::string::npos, FileName);
+  // Read from the full path
+  std::ifstream IFS(FullPath.c_str(), std::ios::binary);
+  if (!IFS.good())
+    return OFFLOAD_FAIL;
+  IFS.seekg(0, IFS.end);
+  size_t SPVSize = static_cast<size_t>(IFS.tellg());
+  OutSPV.resize(SPVSize);
+  IFS.seekg(0);
+  if (!IFS.read((char *)OutSPV.data(), SPVSize)) {
+    DP("Error: module creation failed -- cannot read %s\n", FullPath.c_str());
+    return OFFLOAD_FAIL;
+  }
+  return OFFLOAD_SUCCESS;
+}
+
+/// Create module with target program image and fallback libdevice.
+/// zeModuleDynamicLink does not seem stable now, so we use module program
+/// extension.
+static ze_module_handle_t createModuleWithLib(
+    ze_context_handle_t Context, ze_device_handle_t Device, size_t Size,
+    const uint8_t *Image, const char *Flags,
+    const ze_module_constants_t *Constants,
+    ze_module_build_log_handle_t *BuildLog, ze_result_t *RC) {
+  // Check if driver is capable of creating module from multiple SPV images.
+  if (!DeviceInfo->isExtensionSupported("ZE_experimental_module_program")) {
+    DP("Error: Module creation from multiple images is not supported\n");
+    return nullptr;
+  }
+
+  std::vector<const char *> LibDeviceNames {
+    "libomp-fallback-cassert.spv",
+    "libomp-fallback-cmath.spv",
+    "libomp-fallback-cmath-fp64.spv",
+    "libomp-fallback-complex.spv",
+    "libomp-fallback-complex-fp64.spv",
+    "libomp-fallback-cstring.spv"
+  };
+
+  uint32_t NumImages = LibDeviceNames.size() + 1;
+  std::vector<std::vector<uint8_t>> LibImages;
+  std::vector<size_t> SPVSizes;
+  std::vector<const uint8_t *> SPVImages;
+  std::vector<const char *> SPVFlags(NumImages, Flags);
+  std::vector<const ze_module_constants_t *> SPVConstants(NumImages, nullptr);
+
+  // Main program
+  SPVSizes.push_back(Size);
+  SPVImages.push_back(Image);
+  SPVConstants[0] = Constants;
+
+  // Read Library SPV files
+  for (auto *Name : LibDeviceNames) {
+    LibImages.emplace_back();
+    if (readSPVFile(Name, LibImages.back()) != OFFLOAD_SUCCESS)
+      return nullptr;
+    SPVSizes.push_back(LibImages.back().size());
+    SPVImages.push_back(LibImages.back().data());
+  }
+
+  DP("Building module with %" PRIu32 " SPIR-V images\n", NumImages);
+
+  ze_module_program_exp_desc_t ProgramDesc = {
+    ZE_STRUCTURE_TYPE_MODULE_PROGRAM_EXP_DESC,
+    nullptr,
+    NumImages,
+    SPVSizes.data(),
+    SPVImages.data(),
+    SPVFlags.data(),
+    SPVConstants.data()
+  };
+
+  ze_module_desc_t ModuleDesc = {
+    ZE_STRUCTURE_TYPE_MODULE_DESC,
+    &ProgramDesc,
+    ZE_MODULE_FORMAT_IL_SPIRV,
+    0,
+    nullptr,
+    nullptr,
+    nullptr
+  };
+
+  ze_module_handle_t Module = nullptr;
+  CALL_ZE_RC(*RC, zeModuleCreate, Context, Device, &ModuleDesc, &Module,
+             BuildLog);
+  return Module;
+}
+
 /// Create a module from SPIR-V
 static ze_module_handle_t createModule(
     ze_context_handle_t Context, ze_device_handle_t Device, size_t Size,
     const uint8_t *Image, const char *Flags, ze_module_format_t Format) {
   ze_module_constants_t specConstants =
       DeviceInfo->CommonSpecConstants.getModuleConstants();
-  ze_module_desc_t moduleDesc = {
-    ZE_STRUCTURE_TYPE_MODULE_DESC,
-    nullptr, // extension
-    Format,
-    Size,
-    Image,
-    Flags,
-    &specConstants
-  };
-  ze_module_handle_t module;
-  ze_module_build_log_handle_t buildLog;
+
+  ze_module_handle_t module = nullptr;
+  ze_module_build_log_handle_t buildLog = nullptr;
+  ze_module_build_log_handle_t linkLog = nullptr;
   ze_result_t rc;
-  CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
-             &buildLog);
+
+  if (DeviceInfo->Flags.LinkLibDevice && Format == ZE_MODULE_FORMAT_IL_SPIRV) {
+    module = createModuleWithLib(Context, Device, Size, Image, Flags,
+                                 &specConstants, &buildLog, &rc);
+  } else {
+    ze_module_desc_t moduleDesc = {
+      ZE_STRUCTURE_TYPE_MODULE_DESC,
+      nullptr, // extension
+      Format,
+      Size,
+      Image,
+      Flags,
+      &specConstants
+    };
+    CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
+               &buildLog);
+  }
+
   bool buildFailed = (rc != ZE_RESULT_SUCCESS);
+  bool linkFailed = false;
   bool showBuildLog = DeviceInfo->Flags.ShowBuildLog;
-  if (buildFailed || showBuildLog) {
-    if (buildFailed)
+
+  if (!buildFailed) {
+    // Module creation allows unresolved symbols, so module link is required to
+    // finalize module build if there is any imports.
+    ze_module_properties_t ModuleProperties = {
+      ZE_STRUCTURE_TYPE_MODULE_PROPERTIES, nullptr, 0
+    };
+    CALL_ZE_RET_NULL(zeModuleGetProperties, module, &ModuleProperties);
+    if (ModuleProperties.flags & ZE_MODULE_PROPERTY_FLAG_IMPORTS) {
+      CALL_ZE_RC(rc, zeModuleDynamicLink, 1, &module, &linkLog);
+      linkFailed = (rc != ZE_RESULT_SUCCESS);
+    }
+  }
+
+  if (buildFailed || linkFailed || showBuildLog) {
+    if (buildFailed || linkFailed)
       DP("Warning: module creation failed\n");
     if (DebugLevel > 0 || showBuildLog) {
-      size_t logSize = 0;
-      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
       MESSAGE0("Target build log:");
+      size_t logSize = 0;
+      size_t linkLogSize = 0;
+      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
+      if (linkLog)
+        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &linkLogSize,
+                         nullptr);
       // The build log is a null-terminated string, so it must be
       // longer than 1-character string to be non-empty.
-      if (logSize > 1) {
-        std::vector<char> logString(logSize);
-        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
-                         logString.data());
-        std::stringstream Str(logString.data());
+      if (logSize > 1 || linkLogSize > 1) {
+        std::string finalLog;
+        if (logSize > 1) {
+          std::vector<char> logString(logSize);
+          CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
+                           logString.data());
+          finalLog.append(logString.data());
+        }
+        if (linkLogSize > 1) {
+          std::vector<char> logString(linkLogSize);
+          CALL_ZE_RET_NULL(zeModuleBuildLogGetString, linkLog, &linkLogSize,
+                           logString.data());
+          finalLog.append(logString.data());
+        }
+        std::stringstream Str(finalLog);
         std::string Line;
         while (std::getline(Str, Line, '\n'))
           MESSAGE("  '%s'", Line.c_str());
@@ -2378,8 +2536,15 @@ static ze_module_handle_t createModule(
       CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
       return nullptr;
     }
+    if (linkFailed) {
+      CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
+      return nullptr;
+    }
   }
   CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
+  if (linkLog)
+    CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, linkLog);
+
   return module;
 }
 
@@ -3776,6 +3941,20 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
                    &DeviceInfo->DriverAPIVersion);
   DP("Driver API version is %" PRIx32 "\n", DeviceInfo->DriverAPIVersion);
   L0Interop::printInteropProperties();
+
+  // Check driver extensions.
+  uint32_t NumExtensions = 0;
+  CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, DeviceInfo->Driver,
+                   &NumExtensions, nullptr);
+  if (NumExtensions > 0) {
+    auto &Extensions = DeviceInfo->DriverExtensions;
+    Extensions.resize(NumExtensions);
+    CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, DeviceInfo->Driver,
+                     &NumExtensions, Extensions.data());
+    DP("Found driver extensions:\n");
+    for (auto &E : Extensions)
+      DP("-- %s\n", E.name);
+  }
 
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
@@ -6011,5 +6190,14 @@ void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
       delete[] E.Base.name;
 
   OffloadTables[DeviceId].clear();
+}
+
+bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
+  for (auto &E : DriverExtensions) {
+    std::string Supported(E.name);
+    if (Supported.find(ExtName) != std::string::npos)
+      return true;
+  }
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
