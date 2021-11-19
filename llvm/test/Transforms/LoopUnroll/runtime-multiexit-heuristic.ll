@@ -5,6 +5,11 @@
 ; this tests when unrolling multiple exit loop occurs by default (i.e. without specifying -unroll-runtime-multi-exit)
 
 ; the second exit block is a deopt block. The loop has one exiting block other than the latch.
+
+; INTEL_CUSTOMIZATION
+; commit 44c743ac prefers add instead of or
+; end INTEL_CUSTOMIZATION
+
 define i32 @test1(i32* nocapture %a, i64 %n) {
 ;
 ; CHECK-LABEL: @test1(
@@ -28,7 +33,9 @@ define i32 @test1(i32* nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP2]], [[SUM_02]]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT:%.*]] = or i64 [[INDVARS_IV]], 1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[INDVARS_IV_NEXT:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_EXITING_BLOCK_1:%.*]]
 ; CHECK:       for.exiting_block.1:
 ; CHECK-NEXT:    [[CMP_1:%.*]] = icmp eq i64 [[N]], 42
@@ -37,7 +44,9 @@ define i32 @test1(i32* nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[ARRAYIDX_1:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[ARRAYIDX_1]], align 4
 ; CHECK-NEXT:    [[ADD_1:%.*]] = add nsw i32 [[TMP3]], [[ADD]]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_1:%.*]] = or i64 [[INDVARS_IV]], 2
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_1:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 2
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_EXITING_BLOCK_2:%.*]]
 ; CHECK:       for.exiting_block.2:
 ; CHECK-NEXT:    [[CMP_2:%.*]] = icmp eq i64 [[N]], 42
@@ -46,7 +55,9 @@ define i32 @test1(i32* nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[ARRAYIDX_2:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT_1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[ARRAYIDX_2]], align 4
 ; CHECK-NEXT:    [[ADD_2:%.*]] = add nsw i32 [[TMP4]], [[ADD_1]]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_2:%.*]] = or i64 [[INDVARS_IV]], 3
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_2:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 3
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_EXITING_BLOCK_3:%.*]]
 ; CHECK:       for.exiting_block.3:
 ; CHECK-NEXT:    [[CMP_3:%.*]] = icmp eq i64 [[N]], 42
@@ -55,7 +66,9 @@ define i32 @test1(i32* nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[ARRAYIDX_3:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT_2]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i32, i32* [[ARRAYIDX_3]], align 4
 ; CHECK-NEXT:    [[ADD_3:%.*]] = add nsw i32 [[TMP5]], [[ADD_2]]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_3:%.*]] = or i64 [[INDVARS_IV]], 4
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_3:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 4
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_EXITING_BLOCK_4:%.*]]
 ; CHECK:       for.exiting_block.4:
 ; CHECK-NEXT:    [[CMP_4:%.*]] = icmp eq i64 [[N]], 42
@@ -64,7 +77,9 @@ define i32 @test1(i32* nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[ARRAYIDX_4:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT_3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* [[ARRAYIDX_4]], align 4
 ; CHECK-NEXT:    [[ADD_4:%.*]] = add nsw i32 [[TMP6]], [[ADD_3]]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_4:%.*]] = or i64 [[INDVARS_IV]], 5
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_4:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 5
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_EXITING_BLOCK_5:%.*]]
 ; CHECK:       for.exiting_block.5:
 ; CHECK-NEXT:    [[CMP_5:%.*]] = icmp eq i64 [[N]], 42
@@ -73,7 +88,9 @@ define i32 @test1(i32* nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[ARRAYIDX_5:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT_4]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = load i32, i32* [[ARRAYIDX_5]], align 4
 ; CHECK-NEXT:    [[ADD_5:%.*]] = add nsw i32 [[TMP7]], [[ADD_4]]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_5:%.*]] = or i64 [[INDVARS_IV]], 6
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_5:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 6
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_EXITING_BLOCK_6:%.*]]
 ; CHECK:       for.exiting_block.6:
 ; CHECK-NEXT:    [[CMP_6:%.*]] = icmp eq i64 [[N]], 42
@@ -82,7 +99,9 @@ define i32 @test1(i32* nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[ARRAYIDX_6:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV_NEXT_5]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* [[ARRAYIDX_6]], align 4
 ; CHECK-NEXT:    [[ADD_6:%.*]] = add nsw i32 [[TMP8]], [[ADD_5]]
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_6:%.*]] = or i64 [[INDVARS_IV]], 7
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_6:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 7
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_EXITING_BLOCK_7:%.*]]
 ; CHECK:       for.exiting_block.7:
 ; CHECK-NEXT:    [[CMP_7:%.*]] = icmp eq i64 [[N]], 42
