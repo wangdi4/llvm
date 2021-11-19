@@ -846,7 +846,7 @@ public:
   // Generate the fingerprint value for a DTransFunctionType that would be
   // created if a DTransFunctionType were created with the specified types.
   static void generateProfile(DTransType *DTRetTy,
-                              SmallVectorImpl<DTransType *> &ParamTypes,
+                              ArrayRef<DTransType *> ParamTypes,
                               bool IsVarArg, FoldingSetNodeID &ID) {
     // This must match the logic of the 'Profile' member so that the same
     // fingerprint will be generated once a DTransFunctionType object is
@@ -878,6 +878,9 @@ public:
   DTransTypeManager(DTransTypeManager &&) = delete;
   DTransTypeManager &operator=(const DTransTypeManager &) = delete;
   DTransTypeManager &operator=(DTransTypeManager &&) = delete;
+
+  // Return associated LLVMContext.
+  LLVMContext &getContext() const { return Ctx; }
 
   // Create a DTransAtomicType to represent a void type or first class llvm
   // type. Returns existing type, if one already exists.
@@ -913,7 +916,7 @@ public:
   // ParamTypes. Returns existing type, if one already exists.
   DTransFunctionType *
   getOrCreateFunctionType(DTransType *DTRetTy,
-                          SmallVectorImpl<DTransType *> &ParamTypes,
+                          ArrayRef<DTransType *> ParamTypes,
                           bool IsVarArg);
 
   // We don't supply a method for looking up a type based on an
