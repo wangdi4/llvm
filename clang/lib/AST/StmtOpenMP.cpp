@@ -1057,28 +1057,6 @@ OMPBarrierDirective *OMPBarrierDirective::CreateEmpty(const ASTContext &C,
   return new (C) OMPBarrierDirective();
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-OMPTaskwaitDirective *OMPTaskwaitDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    ArrayRef<OMPClause *> Clauses) {
-  return createDirective<OMPTaskwaitDirective>(
-      C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
-      EndLoc);
-}
-
-OMPTaskwaitDirective *OMPTaskwaitDirective::CreateEmpty(const ASTContext &C,
-                                                        unsigned NumClauses,
-                                                        EmptyShell) {
-  return createEmptyDirective<OMPTaskwaitDirective>(C, NumClauses,
-                                                    /*NumChildren=*/0);
-}
-#else // INTEL_COLLAB
-OMPTaskwaitDirective *OMPTaskwaitDirective::Create(const ASTContext &C,
-                                                   SourceLocation StartLoc,
-                                                   SourceLocation EndLoc) {
-  return new (C) OMPTaskwaitDirective(StartLoc, EndLoc);
-=======
 OMPTaskwaitDirective *
 OMPTaskwaitDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                              SourceLocation EndLoc,
@@ -1086,15 +1064,18 @@ OMPTaskwaitDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   return createDirective<OMPTaskwaitDirective>(
       C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
       EndLoc);
->>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
 }
 
 OMPTaskwaitDirective *OMPTaskwaitDirective::CreateEmpty(const ASTContext &C,
                                                         unsigned NumClauses,
                                                         EmptyShell) {
+#if INTEL_COLLAB
+  return createEmptyDirective<OMPTaskwaitDirective>(C, NumClauses,
+                                                    /*NumChildren=*/0);
+#else // INTEL_COLLAB
   return createEmptyDirective<OMPTaskwaitDirective>(C, NumClauses);
-}
 #endif // INTEL_COLLAB
+}
 
 OMPTaskgroupDirective *OMPTaskgroupDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,

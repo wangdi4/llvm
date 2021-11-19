@@ -6307,23 +6307,9 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPBarrierDirective(StartLoc, EndLoc);
     break;
   case OMPD_taskwait:
-<<<<<<< HEAD
-#if INTEL_COLLAB
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp taskwait' directive");
     Res = ActOnOpenMPTaskwaitDirective(ClausesWithImplicit, StartLoc, EndLoc);
-#else // INTEL_COLLAB
-    assert(ClausesWithImplicit.empty() &&
-           "No clauses are allowed for 'omp taskwait' directive");
-    assert(AStmt == nullptr &&
-           "No associated statement allowed for 'omp taskwait' directive");
-    Res = ActOnOpenMPTaskwaitDirective(StartLoc, EndLoc);
-#endif // INTEL_COLLAB
-=======
-    assert(AStmt == nullptr &&
-           "No associated statement allowed for 'omp taskwait' directive");
-    Res = ActOnOpenMPTaskwaitDirective(ClausesWithImplicit, StartLoc, EndLoc);
->>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
     break;
   case OMPD_taskgroup:
     Res = ActOnOpenMPTaskgroupDirective(ClausesWithImplicit, AStmt, StartLoc,
@@ -11313,20 +11299,12 @@ StmtResult Sema::ActOnOpenMPBarrierDirective(SourceLocation StartLoc,
   return OMPBarrierDirective::Create(Context, StartLoc, EndLoc);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static bool checkTaskwaitClauseUsage(Sema &S,
                                      const ArrayRef<OMPClause *> Clauses) {
   bool HasDepend = false;
   bool HasNowait = false;
   SourceLocation NowaitLoc;
-=======
-StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
-                                              SourceLocation StartLoc,
-                                              SourceLocation EndLoc) {
-  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
-}
->>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
 
   for (const OMPClause *Clause : Clauses) {
     if (auto *Depend = dyn_cast<OMPDependClause>(Clause)) {
@@ -11364,9 +11342,10 @@ StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
   return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
 #else // INTEL_COLLAB
-StmtResult Sema::ActOnOpenMPTaskwaitDirective(SourceLocation StartLoc,
+StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
+                                              SourceLocation StartLoc,
                                               SourceLocation EndLoc) {
-  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc);
+  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
 #endif // INTEL_COLLAB
 
