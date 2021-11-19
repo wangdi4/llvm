@@ -30,19 +30,25 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
+#define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
+
 using namespace llvm;
 using namespace llvm::vpo;
 
-cl::opt<bool> ForceComplexTyReductionVec(
-    "vplan-force-complex-type-reduction-vectorization", cl::init(false),
-    cl::Hidden,
+static cl::opt<bool, true> ForceComplexTyReductionVecOpt(
+    "vplan-force-complex-type-reduction-vectorization",
+    cl::location(ForceComplexTyReductionVec), cl::Hidden,
     cl::desc("Force vectorization of reduction involving complex type."));
 
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
 
-#define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
+namespace llvm {
+namespace vpo {
+bool ForceComplexTyReductionVec = false;
+} // namespace vpo
+} // namespace llvm
 
 /// The function collects Load and Store instruction that access the
 /// reduction variable \p RedVarPtr.
@@ -617,43 +623,23 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
 }
 
+bool VPOVectorizationLegality::bailout(BailoutReason Code) {
+  LLVM_DEBUG(dbgs() << getBailoutReasonStr(Code));
+  return false;
+}
+
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                                             const WRNVecLoopNode *WRLp) {
+    IsSimdLoop = WRLp;
+
   // Import explicit data from WRLoop.
   // Decision about loop vectorization is based on this data.
-  EnterExplicitData(WRLp);
+  if (!EnterExplicitData(WRLp))
+    return false;
 
-  // Loop entities framework does not support array reductions idiom. Bailout to
-  // prevent incorrect vector code generatiion. Check - CMPLRLLVM-20621.
-  if (hasArrayReduction()) {
-    LLVM_DEBUG(dbgs() << "Cannot handle array reductions.\n");
-    return false;
-  }
-  // Loop entities framework does not support nonPOD lastprivates array. Bailout
-  // to prevent incorrect vector code generatiion. TODO: CMPLRLLVM-30686.
-  if (hasArrayLastprivateNonPod()) {
-    LLVM_DEBUG(dbgs() << "Cannot handle nonPOD array lastprivates.\n");
-    return false;
-  }
-
-  if (!ForceComplexTyReductionVec && hasComplexTyReduction()) {
-    LLVM_DEBUG(dbgs() << "Complex type reductions are not supported\n");
-    return false;
-  }
-
-  if (hasUserDefinedReduction()) {
-    LLVM_DEBUG(dbgs() << "User defined reductions are not supported\n");
-    return false;
-  }
-
-  // TODO: implement Fortran dope vectors support (CMPLRLLVM-10783)
-  if (hasF90DopeVectorPrivate()) {
-    LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
-    return false;
-  }
-  if (hasF90DopeVectorReduction()) {
-    LLVM_DEBUG(dbgs() << "F90 dope vector reductions are not supported\n");
-    return false;
+  if (IsSimdLoop) {
+    collectPreLoopDescrAliases();
+    collectPostExitLoopDescrAliases();
   }
 
   if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock()) {

@@ -9,7 +9,7 @@
 %"QNCA_a0$i32*$rank2$" = type { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
 define void @sum_(float* %C2ptr, i64* %Nptr, i64* %Mptr) #0 {
-; CHECK:  F90 dope vector privates are not supported
+; CHECK:  F90 dope vector privates are not supported.
 ;
 ; CHECK:  define void @sum_(float* [[C2PTR0:%.*]], i64* [[NPTR0:%.*]], i64* [[MPTR0:%.*]]) #0 {
 ; CHECK-NEXT:  entry:
@@ -27,7 +27,7 @@ define void @sum_(float* %C2ptr, i64* %Nptr, i64* %Mptr) #0 {
 ; CHECK-NEXT:    br label [[LOOP_770:%.*]]
 ; CHECK-EMPTY:
 ;
-; HIR-CHECK:  F90 dope vector privates are not supported
+; HIR-CHECK:  F90 dope vector privates are not supported.
 ;
 ; HIR-CHECK:      BEGIN REGION { }
 ; HIR-CHECK-NEXT:       [[TOKEN10:%.*]] = @llvm.directive.region.entry()

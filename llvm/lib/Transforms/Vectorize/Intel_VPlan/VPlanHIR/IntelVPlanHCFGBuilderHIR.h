@@ -47,10 +47,9 @@ namespace vpo {
 // High-level class to capture and provide loop vectorization legality analysis
 // for incoming HIR. Currently various loop entities like reductions, inductions
 // and privates are identified and stored within this class.
-class HIRVectorizationLegality {
-  // Allow OMP Simd importer to directly call the legality private methods
-  // to populate privates, reductions and linears data structures.
-  friend class OMPSimdImporter<HIRVectorizationLegality>;
+class HIRVectorizationLegality final
+    : public VectorizationLegalityBase<HIRVectorizationLegality> {
+  template <typename LegalityTy> friend class VectorizationLegalityBase;
 
 public:
   struct CompareByDDRefSymbase {
@@ -128,7 +127,6 @@ public:
 
   using PrivDescrTy = PrivDescr<DDRef>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<DDRef>;
-  using PrivateKindTy = PrivDescrTy::PrivateKind;
   using PrivatesListTy = SmallVector<PrivDescrTy, 8>;
   using PrivatesNonPODListTy = SmallVector<PrivDescrNonPODTy, 8>;
   // Specialized class to represent linear descriptors specified explicitly via
@@ -209,68 +207,27 @@ public:
   void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  bool hasF90DopeVectorPrivate() const {
-    return SimdLoopDataImporter.SeenF90DopeVectorPrivate;
-  }
-  bool hasF90DopeVectorReduction() const {
-    return SimdLoopDataImporter.SeenF90DopeVectorReduction;
-  }
-  bool hasComplexTyReduction() const {
-    return SimdLoopDataImporter.SeenComplexTyReduction;
-  }
-  bool hasUserDefinedReduction() const {
-    return SimdLoopDataImporter.SeenUserDefinedReduction;
-  }
-  bool hasArrayReduction() const {
-    return SimdLoopDataImporter.SeenArrayReduction;
-  }
-  bool hasArrayLastprivateNonPod() const {
-    return SimdLoopDataImporter.SeenArrayLastprivateNonPod;
-  }
-
 private:
-  /// Import information from explicit OMP SIMD clauses.
-  void EnterExplicitData(const WRNVecLoopNode *WRLp) {
-    if (!WRLp)
-      return;
-    SimdLoopDataImporter.run(WRLp);
-  }
+  /// Reports a reason for vectorization bailout. Always returns false.
+  bool bailout(BailoutReason Code);
 
-  /// Add explicit private.
-  /// Add POD privates to PrivatesList
-  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, bool IsLast,
-                      bool IsConditional) {
-    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
-    if (IsConditional)
-      Kind = PrivateKindTy::Conditional;
-    PrivatesList.emplace_back(PrivVal, PrivTy, Kind);
-  }
-
-  /// Add non-POD privates to PrivatesList
+  /// Add an explicit non-POD private to PrivatesList
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
-                      Function *Destr, Function *CopyAssign, bool IsLast) {
+                      Function *Destr, Function *CopyAssign,
+                      PrivateKindTy Kind) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivateKindTy Kind = PrivateKindTy::NonLast;
-    if (IsLast)
-      Kind = PrivateKindTy::Last;
     PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr,
                                     CopyAssign);
   }
 
-  /// Register explicit reduction variables provided from outside.
-  void addReduction(RegDDRef *V, RecurKind Kind) {
-    assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
-
-    // TODO: Consider removing IsSigned field from RedDescr struct since it is
-    // unused and can basically be deducted from the recurrence kind.
-    ReductionList.emplace_back(V, Kind, false /*IsSigned*/);
+  /// Add an explicit POD private to PrivatesList
+  void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, PrivateKindTy Kind) {
+    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
+    PrivatesList.emplace_back(PrivVal, PrivTy, Kind);
   }
 
-  /// Add explicit linear.
+  /// Add an explicit linear.
   void addLinear(RegDDRef *LinearVal, Type * /* LinearTy */, RegDDRef *Step) {
     assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
 
@@ -279,6 +236,14 @@ private:
     // problems and is disabled. Once enabled this likely has to be revisited
     // too.
     LinearList.emplace_back(LinearVal, Step);
+  }
+  /// Add an explicit reduction variable
+  void addReduction(RegDDRef *V, RecurKind Kind) {
+    assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+
+    // TODO: Consider removing IsSigned field from RedDescr struct since it is
+    // unused and can basically be deducted from the recurrence kind.
+    ReductionList.emplace_back(V, Kind, false /*IsSigned*/);
   }
 
   /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
@@ -317,8 +282,6 @@ private:
   // list of idioms on the fly if no entry is found for a given loop. Check
   // getVectorIdioms(HLLoop*).
   mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
-
-  OMPSimdImporter<HIRVectorizationLegality> SimdLoopDataImporter = {this};
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {
