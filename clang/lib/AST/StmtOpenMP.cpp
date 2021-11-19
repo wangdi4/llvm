@@ -1069,12 +1069,7 @@ OMPTaskwaitDirective::Create(const ASTContext &C, SourceLocation StartLoc,
 OMPTaskwaitDirective *OMPTaskwaitDirective::CreateEmpty(const ASTContext &C,
                                                         unsigned NumClauses,
                                                         EmptyShell) {
-#if INTEL_COLLAB
-  return createEmptyDirective<OMPTaskwaitDirective>(C, NumClauses,
-                                                    /*NumChildren=*/0);
-#else // INTEL_COLLAB
   return createEmptyDirective<OMPTaskwaitDirective>(C, NumClauses);
-#endif // INTEL_COLLAB
 }
 
 OMPTaskgroupDirective *OMPTaskgroupDirective::Create(

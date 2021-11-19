@@ -11333,21 +11333,17 @@ static bool checkTaskwaitClauseUsage(Sema &S,
   }
   return false;
 }
+#endif // INTEL_COLLAB
 
 StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
                                               SourceLocation StartLoc,
                                               SourceLocation EndLoc) {
+#if INTEL_COLLAB
   if (checkTaskwaitClauseUsage(*this, Clauses))
     return StmtError();
-  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
-}
-#else // INTEL_COLLAB
-StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
-                                              SourceLocation StartLoc,
-                                              SourceLocation EndLoc) {
-  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
-}
 #endif // INTEL_COLLAB
+  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
+}
 
 StmtResult Sema::ActOnOpenMPTaskgroupDirective(ArrayRef<OMPClause *> Clauses,
                                                Stmt *AStmt,
