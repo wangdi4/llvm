@@ -1047,6 +1047,7 @@ static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
                                                          1);
 
     Lp->setUpperDDRef(NewUpperRef);
+    Lp->addLiveInTemp(NewUpperRef);
 
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
   }
