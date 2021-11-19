@@ -4,9 +4,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis -tbaa < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-vec-dir-insert -debug-only=parvec-analysis -tbaa < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
 
-; RUN: opt -S -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
+; RUN: opt -S -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
 
 ; CHECK-VCONFLICT: Idiom List
 ; CHECK-VCONFLICT: No idioms detected.
@@ -178,8 +178,7 @@ for.body4:                                        ; preds = %for.body, %for.body
 ; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Too many dependencies.
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM12:[0-9]+]]>         (%A)[i1] = %add7;
-; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM13:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -217,7 +216,6 @@ for.body:                                         ; preds = %entry, %for.body
 ; <15>               + END LOOP
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM14:[0-9]+]]>          (@K)[0][%0] = %add;
-; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM15:[0-9]+]]>          %1 = (@K)[0][%0];
 ; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Multidimensional arrays are not supported.
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
@@ -316,8 +314,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Too many dependencies.
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM24:[0-9]+]]>         (%A)[i1] = %conv10;
-; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM25:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -365,8 +362,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-VCONFLICT: [VConflict Idiom] Skipped: The output dependency is expected to be self-dependency.
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM28:[0-9]+]]>         (%A)[i1] = %add7;
-; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM29:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
@@ -511,7 +507,7 @@ attributes #0 = { nofree norecurse nounwind uwtable mustprogress "denormal-fp-ma
 ;<0>          END REGION
 
 ; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM34:[0-9]+]]>         (%C)[i1] = %2;
-; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Store address should have one flow-dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
 ; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM35:[0-9]+]]>         (%A)[%0] = %1;
 ; CHECK-VCONFLICT:  [VConflict Idiom] Depends(WAR) on:<[[NUM36:[0-9]+]]>         %2 = (%A)[%0];
 ; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Sink node is in a different IF-branch.
@@ -580,7 +576,7 @@ attributes #0 = { nofree norecurse nosync nounwind uwtable mustprogress "denorma
 ; CHECK-VCONFLICT:  [VConflict Idiom] Depends(WAR) on:<[[NUM38:[0-9]+]]>         %2 = (%A)[%0];
 ; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Sink node is in a different IF-branch.
 ; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM39:[0-9]+]]>         (%C)[i1] = %2;
-; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Store address should have one flow-dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
