@@ -1221,33 +1221,41 @@ static bool PaddedMallocGenerated(Module &M) {
 }
 
 // This identifies the following pattern in the code when the Malloc Padding
-// is active to facilitate the Load PRE:
+// is active to facilitate the Load PRE for xz:
 //
-//     %PHI = phi i32 [ %l, %if.else ], [ %l, %while.end ], [ %s, %if.else10 ]
-//     %0 = zext i32 %phi to i64
+//     %PHI = phi i32 ... [ 3 or 4 preds, 2 have same value ]
+//     %0 = zext i32 %phi to i64 ; optional
 //     %1 = getelementptr inbounds i8, i8* %a, i64 %0
 //     %2 = load i8, i8* %1, align 1, !tbaa !19
 //
 // It returns the PHI node if such Load is found,
 // otherwise nullptr.
 PHINode *PREProfitableWithPaddedMalloc(LoadInst *Load) {
-  if (!PaddedMallocGenerated(*(Load->getModule()))) {
+  if (!PaddedMallocGenerated(*(Load->getModule())))
     return nullptr;
-  }
 
-  if (!isa<GEPOperator>(Load->getPointerOperand())) {
+  if (!isa<GEPOperator>(Load->getPointerOperand()))
     return nullptr;
-  }
+
+  // Aggressive PRE may cause live range extension outside of loops, hard
+  // for HIR to deal with.
+  if (Load->getParent()->getParent()->isPreLoopOpt())
+    return nullptr;
 
   GEPOperator *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
-  if (GEP->getNumIndices() == 1 && isa<ZExtInst>(GEP->getOperand(1))) {
-    ZExtInst *ZEI = dyn_cast<ZExtInst>(GEP->getOperand(1));
-    if (isa<PHINode>(ZEI->getOperand(0))) {
-      PHINode *PH = dyn_cast<PHINode>(ZEI->getOperand(0));
-      if ((PH->getNumIncomingValues() == 3) &&
-          PH->getParent() == Load->getParent()) {
-        return PH;
-      }
+  if (GEP->getNumIndices() == 1) {
+    auto *GEPIdx = GEP->getOperand(1);
+    // skip 1 cast
+    if (auto *CI = dyn_cast<CastInst>(GEPIdx))
+      GEPIdx = CI->getOperand(0);
+    if (auto *PN = dyn_cast<PHINode>(GEPIdx)) {
+      unsigned NumPreds = PN->getNumIncomingValues();
+      // 3 or 4 preds, (0,1) or (1,2) have the same incoming value.
+      if (((NumPreds == 3) || (NumPreds == 4)) &&
+          PN->getParent() == Load->getParent() &&
+          (PN->getIncomingValue(1) == PN->getIncomingValue(0) ||
+           PN->getIncomingValue(1) == PN->getIncomingValue(2)))
+        return PN;
     }
   }
 
@@ -1580,20 +1588,41 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
          "Fully available value should already be eliminated!");
 
 #if INTEL_CUSTOMIZATION
+  // Check for xz load pattern (described above).
   PHINode *PH = PREProfitableWithPaddedMalloc(Load);
+  // Check for either 2 or 3 unavailable predecessors, 1 or 2 critical edges.
+  // PRE cannot handle a case with this kind of mix of multiple unavailable
+  // blocks and critical edges, so we fix the CFG here to a form that PRE can
+  // handle.
+  //
+  // We want to create a single new block that ties the unavailable and
+  // critical edges together. This block can be the landing zone for the PRE
+  // reload.
   if (PH) {
-    if (NumUnavailablePreds == 2 && CriticalEdgePred.size() == 2 &&
-        (PH->getIncomingValueForBlock(CriticalEdgePred[0]) ==
-         PH->getIncomingValueForBlock(CriticalEdgePred[1]))) {
-      BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, CriticalEdgePred,
+    if ((NumUnavailablePreds == 2 || NumUnavailablePreds == 3) &&
+      !CriticalEdgePred.empty() && CriticalEdgePred.size() <= 2) {
+      // Make a vector containing the head blocks of the incoming critical
+      // edges, and the blocks where the load is unavailable (PredLoads).
+      // Duplication is OK.
+      SmallVector<BasicBlock *, 2> BlocksToSplit;
+      BlocksToSplit.append(CriticalEdgePred);
+      for (auto &PredLoad : PredLoads)
+        BlocksToSplit.push_back(PredLoad.first);
+      // Insert a single empty block into all these edges.
+      BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, BlocksToSplit,
                                                  ".split", DT, this->LI,
                                                  MSSAU);
       if (NewBB) {
         LLVM_DEBUG(dbgs() << " ENABLING PRE BY SPLITTING BB for LOAD: " << *Load
                           << '\n');
+        // There are 0 critical edges now, and only 1 unavailable block
+        // (the new block). Update the lists.
+        // The PRE algorithm below is now free to move the loads into this
+        // block.
         CriticalEdgePred.clear();
+        PredLoads.clear();
         PredLoads[NewBB] = nullptr;
-        NumUnavailablePreds = PredLoads.size() + CriticalEdgePred.size();
+        NumUnavailablePreds = 1;
         if (MD)
           MD->invalidateCachedPredecessors();
         InvalidBlockRPONumbers = true;

@@ -5,14 +5,21 @@
 
 ; RUN: opt < %s -memoryssa -gvn -S | FileCheck %s
 
-; CHECK-LABEL: 26:
-; CHECK: icmp ult
-; CHECK: [[SEL:%[0-9]+]] = select i1
-; CHECK-NEXT: [[ZEXT:%[0-9]+]] = zext i32 [[SEL]]
-; CHECK: %.pre-phi = phi{{.*}}[[ZEXT]]
-; CHECK-DAG: [[GEP1:%[0-9]+]] = getelementptr{{.*}}%.pre-phi
-; CHECK-DAG: [[GEP2:%[0-9]+]] = getelementptr{{.*}}%.pre-phi
-; CHECK: load{{.*}}[[GEP2]]
+; Block 93 has the loads that we want to PRE. It will be split to ".split"
+; and "86".
+
+; CHECK-LABEL: .split
+; CHECK: [[PHITRANS2:%.*]] = getelementptr {{.*}} i64 %.ph
+; CHECK: [[PRE:%.*]] = load i8, i8* [[PHITRANS2]]
+; CHECK: [[PHITRANS4:%.*]] = getelementptr {{.*}} i64 %.ph
+; CHECK: [[PRE5:%.*]] = load i8, i8* [[PHITRANS4]]
+
+; Make sure all the loads are moved out of the original block.
+; CHECK-LABEL: 86:
+; CHECK: phi {{.*}} [[PRE5]], %.split
+; CHECK: phi {{.*}} [[PRE]], %.split
+; CHECK-NOT: load
+; CHECK-LABEL: 95
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -190,7 +197,7 @@ define dso_local fastcc %struct.lzma_match* @bt_find_func(i32 %0, i32 %1, i8* no
 ; Function Attrs: nounwind willreturn
 declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32, i8*) #1
 
-attributes #0 = { nofree noinline norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" "use-soft-float"="false" }
+attributes #0 = { nofree noinline norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { nounwind willreturn }
 
 
@@ -203,7 +210,7 @@ attributes #1 = { nounwind willreturn }
 !11 = !{!"struct@", !6, i64 0, !6, i64 4}
 !12 = !{!11, !6, i64 4}
 
-; This test just makes sure compiler doesn't crush during load PRE
+; This test just makes sure compiler doesn't crash during load PRE
 ; when load and phi node are in different basic blocks:
 ; bb1:
 ;  %phi = phi i32 [ %l, %if.else ], [ %l, %while.end ], [ %s, %if.else10 ]
@@ -212,8 +219,8 @@ attributes #1 = { nounwind willreturn }
 ;  %0 = zext i32 %phi to i64
 ;  %1 = getelementptr inbounds i8, i8* %a, i64 %0
 ;  %2 = load i8, i8* %1, align 1, !tbaa !19
-; CHECK-LABEL: @lzma_mf_bt2_find_no_crush
-define internal i32 @lzma_mf_bt2_find_no_crush(%struct.lzma_mf_s* nocapture %0, %struct.lzma_match* %1) {
+; CHECK-LABEL: @lzma_mf_bt2_find_no_crash
+define internal i32 @lzma_mf_bt2_find_no_crash(%struct.lzma_mf_s* nocapture %0, %struct.lzma_match* %1) {
   %3 = getelementptr %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 5
   %4 = load i32, i32* %3
   %5 = getelementptr %struct.lzma_mf_s, %struct.lzma_mf_s* %0, i64 0, i32 8
