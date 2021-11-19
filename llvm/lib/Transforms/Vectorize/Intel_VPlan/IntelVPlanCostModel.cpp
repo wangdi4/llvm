@@ -98,7 +98,8 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
   // DefaultPeelingVariant is expected to be set.
   assert(DefaultPeelingVariant && "PeelingVariant is not set.");
   bool NegativeStride = false;
-  if (isUnitStrideLoadStore(LoadStore, NegativeStride)) {
+  if (Plan->getVPlanSVA()->instNeedsVectorCode(LoadStore) &&
+      isUnitStrideLoadStore(LoadStore, NegativeStride)) {
     // VPAA method takes alignment from IR as a base.
     // Alignment computed by VPAA in most cases is not guaranteed if we skip
     // the peel loop at runtime.
@@ -142,6 +143,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
 
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
+  assert (Plan->getVPlanDA() && "DA is not established.");
   return Plan->getVPlanDA()->isUnitStridePtr(LoadStore->getPointerOperand(),
                                              LoadStore->getValueType(),
                                              NegativeStride);

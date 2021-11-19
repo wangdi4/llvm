@@ -425,7 +425,7 @@ void VPlanPeelingAnalysis::dump() {
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
     const VPLoadStoreInst &Memref, VPlanPeelingVariant *Peeling) const {
-  if (!Peeling)
+  if (!Peeling || VF == 1)
     return Memref.getAlignment();
   if (auto *SP = dyn_cast<VPlanStaticPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *SP);
