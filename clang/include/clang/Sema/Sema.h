@@ -11305,12 +11305,17 @@ public:
   StmtResult ActOnOpenMPBarrierDirective(SourceLocation StartLoc,
                                          SourceLocation EndLoc);
   /// Called on well-formed '\#pragma omp taskwait'.
+<<<<<<< HEAD
 #if INTEL_COLLAB
   StmtResult ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
                                           SourceLocation StartLoc,
                                           SourceLocation EndLoc);
 #else // INTEL_COLLAB
   StmtResult ActOnOpenMPTaskwaitDirective(SourceLocation StartLoc,
+=======
+  StmtResult ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
+                                          SourceLocation StartLoc,
+>>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
                                           SourceLocation EndLoc);
 #endif // INTEL_COLLAB
   /// Called on well-formed '\#pragma omp taskgroup'.

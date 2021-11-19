@@ -6307,6 +6307,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPBarrierDirective(StartLoc, EndLoc);
     break;
   case OMPD_taskwait:
+<<<<<<< HEAD
 #if INTEL_COLLAB
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp taskwait' directive");
@@ -6318,6 +6319,11 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
            "No associated statement allowed for 'omp taskwait' directive");
     Res = ActOnOpenMPTaskwaitDirective(StartLoc, EndLoc);
 #endif // INTEL_COLLAB
+=======
+    assert(AStmt == nullptr &&
+           "No associated statement allowed for 'omp taskwait' directive");
+    Res = ActOnOpenMPTaskwaitDirective(ClausesWithImplicit, StartLoc, EndLoc);
+>>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
     break;
   case OMPD_taskgroup:
     Res = ActOnOpenMPTaskgroupDirective(ClausesWithImplicit, AStmt, StartLoc,
@@ -11307,12 +11313,20 @@ StmtResult Sema::ActOnOpenMPBarrierDirective(SourceLocation StartLoc,
   return OMPBarrierDirective::Create(Context, StartLoc, EndLoc);
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 static bool checkTaskwaitClauseUsage(Sema &S,
                                      const ArrayRef<OMPClause *> Clauses) {
   bool HasDepend = false;
   bool HasNowait = false;
   SourceLocation NowaitLoc;
+=======
+StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
+                                              SourceLocation StartLoc,
+                                              SourceLocation EndLoc) {
+  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
+}
+>>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
 
   for (const OMPClause *Clause : Clauses) {
     if (auto *Depend = dyn_cast<OMPDependClause>(Clause)) {
@@ -20613,6 +20627,11 @@ Sema::ActOnOpenMPDependClause(Expr *DepModifier, OpenMPDependClauseKind DepKind,
       DepKind != OMPC_DEPEND_source && DepKind != OMPC_DEPEND_sink) {
     Diag(DepLoc, diag::err_omp_unexpected_clause_value)
         << "'source' or 'sink'" << getOpenMPClauseName(OMPC_depend);
+    return nullptr;
+  }
+  if (DSAStack->getCurrentDirective() == OMPD_taskwait &&
+      DepKind == OMPC_DEPEND_mutexinoutset) {
+    Diag(DepLoc, diag::err_omp_taskwait_depend_mutexinoutset_not_allowed);
     return nullptr;
   }
   if ((DSAStack->getCurrentDirective() != OMPD_ordered ||

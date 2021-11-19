@@ -3236,6 +3236,7 @@ public:
   /// \param C AST context.
   /// \param StartLoc Starting location of the directive kind.
   /// \param EndLoc Ending Location of the directive.
+<<<<<<< HEAD
 #if INTEL_COLLAB
   /// \param Clauses List of clauses.
 #endif // INTEL_COLLAB
@@ -3247,6 +3248,14 @@ public:
 #else // INTEL_COLLAB
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc);
 #endif // INTEL_COLLAB
+=======
+  /// \param Clauses List of clauses.
+  ///
+  static OMPTaskwaitDirective *Create(const ASTContext &C,
+                                      SourceLocation StartLoc,
+                                      SourceLocation EndLoc,
+                                      ArrayRef<OMPClause *> Clauses);
+>>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
 
 #if INTEL_COLLAB
   /// Creates an empty directive with the place for \a N clauses.
@@ -3260,9 +3269,15 @@ public:
   /// Creates an empty directive.
   ///
   /// \param C AST context.
+  /// \param NumClauses Number of clauses.
   ///
+<<<<<<< HEAD
   static OMPTaskwaitDirective *CreateEmpty(const ASTContext &C, EmptyShell);
 #endif // INTEL_COLLAB
+=======
+  static OMPTaskwaitDirective *CreateEmpty(const ASTContext &C,
+                                           unsigned NumClauses, EmptyShell);
+>>>>>>> 80256605f8c6aab8cb33ac3a3784aacd005087a3
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTaskwaitDirectiveClass;
