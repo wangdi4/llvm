@@ -324,8 +324,7 @@ public:
    * Serialization methods for the class (used by the serialization service)
    */
   virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-  virtual void Deserialize(IInputStream& ist, SerializationStatus* stats,
-                           size_t maxPrivateMemSize);
+  virtual void Deserialize(IInputStream &ist, SerializationStatus *stats);
 
 protected:
   void DebugPrintUniformKernelArgs(const UniformKernelArgs *Arguments,

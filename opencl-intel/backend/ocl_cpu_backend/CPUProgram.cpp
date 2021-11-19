@@ -141,13 +141,12 @@ cl_dev_err_code CPUProgram::Finalize() {
   return CL_DEV_SUCCESS;
 }
 
-void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats,
-                             size_t maxPrivateMemSize)
+void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     void* pModule = (nullptr != m_pIRCodeContainer) ? m_pIRCodeContainer->GetModule() : nullptr;
     stats->SetPointerMark("pModule", pModule);
     stats->SetPointerMark("pProgram", this);
-    Program::Deserialize(ist, stats, maxPrivateMemSize);
+    Program::Deserialize(ist, stats);
 }
 
 void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {

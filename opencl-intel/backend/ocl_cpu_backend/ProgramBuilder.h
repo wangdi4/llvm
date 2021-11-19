@@ -109,7 +109,6 @@ protected:
     IAbstractBackendFactory* m_pBackendFactory;
     std::unique_ptr<ICompilerConfig> m_config;
     DeviceMode m_targetDevice;
-    int m_forcedPrivateMemorySize;
 
 private:
     /// @brief Dump stats collected for module if requested

@@ -34,11 +34,9 @@ public:
 
     void SetVectorSize(unsigned int size){ m_vectorSize = size; }
     void SetUseVTune(bool value) { m_useVTune = value; }
-    void SetMaxPrivateMemorySize(size_t value) { m_maxPrivateMemorySize = value; }
 
     unsigned int GetVectorSize() const{ return m_vectorSize;}
     bool GetUseVTune() const          { return m_useVTune;}
-    size_t GetMaxPrivateMemorySize() const { return m_maxPrivateMemorySize; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -49,7 +47,6 @@ public:
 protected:
     bool m_useVTune;
     unsigned int m_vectorSize;
-    size_t m_maxPrivateMemorySize;
 };
 
 
@@ -275,8 +272,7 @@ public:
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats,
-                             size_t maxPrivateMemSize = 0);
+    virtual void Deserialize(IInputStream &ist, SerializationStatus *stats);
 
     /// Print all properties to llvm::outs().
     void Print() const override;

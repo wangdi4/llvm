@@ -254,8 +254,7 @@ public:
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats,
-                             size_t maxPrivateMemSize = 0);
+    virtual void Deserialize(IInputStream &ist, SerializationStatus *stats);
 
     /**
      * Checks if this program has an object binary to be loaded from

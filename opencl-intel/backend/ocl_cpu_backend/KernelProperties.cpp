@@ -23,9 +23,8 @@ using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-KernelJITProperties::KernelJITProperties():
-    m_useVTune(false), m_vectorSize(1), m_maxPrivateMemorySize(0)
-{}
+KernelJITProperties::KernelJITProperties()
+    : m_useVTune(false), m_vectorSize(1) {}
 
 KernelJITProperties::~KernelJITProperties()
 {}
@@ -88,6 +87,8 @@ void KernelProperties::Serialize(IOutputStream &ost,
   Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
   tmp = (unsigned long long int)m_privateMemorySize;
   Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  // There is no need to serialize m_maxPrivateMemorySize which is a runtime
+  // config. Its serialization is kept for backward compatibility.
   tmp = (unsigned long long int)m_maxPrivateMemorySize;
   Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
   tmp = (unsigned long long int)m_reqdNumSG;
@@ -116,8 +117,7 @@ void KernelProperties::Serialize(IOutputStream &ost,
 }
 
 void KernelProperties::Deserialize(IInputStream &ist,
-                                   SerializationStatus * /*stats*/,
-                                   size_t maxPrivateMemSize) {
+                                   SerializationStatus * /*stats*/) {
   // Need to revert dbgPrint flag
   // Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
   Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
@@ -150,7 +150,7 @@ void KernelProperties::Deserialize(IInputStream &ist,
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_privateMemorySize = (size_t)tmp;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-  m_maxPrivateMemorySize = maxPrivateMemSize ? maxPrivateMemSize : (size_t)tmp;
+  m_maxPrivateMemorySize = (size_t)tmp;
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_reqdNumSG = (size_t)tmp;
   Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
