@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_ISA_GPR_MOVGET
 //===---------------------*- tablegen -*-----------------------------------===//
 //=- Intel_X86InstrMOVGET.td - MOVGET Instruction Set Extension -*- tablegen -*=//
 //
@@ -21,7 +22,6 @@
 //===----------------------------------------------------------------------===//
 // MOVGET instructions
 
-#if INTEL_FEATURE_ISA_GPR_MOVGET
 let Predicates = [HasGPRMOVGET] in
   def MOVGET32rm : I<0xfa, MRMSrcMem, (outs GR32:$dst), (ins i32mem:$src),
                     "movget{l}\t{$src, $dst|$dst, $src}",

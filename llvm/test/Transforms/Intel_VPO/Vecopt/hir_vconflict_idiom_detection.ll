@@ -4,9 +4,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-vec-dir-insert -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
 
-; RUN: opt -S -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
+; RUN: opt -S -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
 
 ; <15>               + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; <3>                |   %0 = (%B)[i1];
@@ -133,7 +133,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; <20>         + END LOOP
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM9:[0-9]+]]>          (%E)[i1] = %0;
-; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store address should have one flow-dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store memory ref is linear
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM10:[0-9]+]]>         (%A)[%1] = %2 + 1;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM11:[0-9]+]]>          %2 = (%A)[%1];
 ; CHECK-VCONFLICT: [VConflict Idiom] Detected!
