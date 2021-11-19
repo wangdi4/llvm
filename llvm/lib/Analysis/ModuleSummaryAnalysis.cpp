@@ -654,8 +654,7 @@ static void computeIFuncSummary(ModuleSummaryIndex &Index,
                                         GIF.hasGlobalUnnamedAddr());
 
   auto AS = std::make_unique<AliasSummary>(Flags);
-  const Constant *Resolver = GIF.getResolver();
-  auto RF = cast<Function>(Resolver->stripPointerCasts());
+  auto *RF = GIF.getResolverFunction();
   auto ResolverVI = Index.getValueInfo(RF->getGUID());
   assert(ResolverVI && "Expects resolver GUID to be available");
   assert(ResolverVI.getSummaryList().size() == 1 &&
@@ -826,16 +825,16 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
     computeVariableSummary(Index, G, CantBePromoted, M, Types);
   }
 
-  // Compute summaries for all aliases defined in module, and save in the
-  // index.
-  for (const GlobalAlias &A : M.aliases())
-    computeAliasSummary(Index, A, CantBePromoted);
 #if INTEL_CUSTOMIZATION
 // This change and related changes could be ported back to the community
 // to fix CMPLRLLVM-26177.
   for (const GlobalIFunc &GIF : M.ifuncs())
     computeIFuncSummary(Index, GIF);
 #endif // INTEL_CUSTOMIZATION
+  // Compute summaries for all aliases defined in module, and save in the
+  // index.
+  for (const GlobalAlias &A : M.aliases())
+    computeAliasSummary(Index, A, CantBePromoted);
 
   for (auto *V : LocalsUsed) {
     auto *Summary = Index.getGlobalValueSummary(*V);

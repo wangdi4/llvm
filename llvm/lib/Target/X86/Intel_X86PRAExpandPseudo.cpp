@@ -1,6 +1,6 @@
-//====-- Intel_X86PRAExpandPseudo - X86 PreRegAlloc PSEUDO expansion ---------====
+//====-- Intel_X86PRAExpandPseudo - X86 PreRegAlloc PSEUDO expansion -------====
 //
-//      Copyright (c) 2016-2020 Intel Corporation.
+//      Copyright (c) 2016-2021 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -12,9 +12,9 @@
 //
 
 #include "X86.h"
-#include "X86Subtarget.h"
 #include "X86InstrInfo.h"
 #include "X86MachineFunctionInfo.h"
+#include "X86Subtarget.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/Passes.h"
 
@@ -26,72 +26,98 @@ namespace {
 
 class X86PRAExpandPseudoPass : public MachineFunctionPass {
 public:
-  X86PRAExpandPseudoPass() : MachineFunctionPass(ID) { }
+  X86PRAExpandPseudoPass() : MachineFunctionPass(ID) {}
 
+  const X86Subtarget *STI = nullptr;
+  const X86InstrInfo *TII = nullptr;
+  MachineRegisterInfo *MRI = nullptr;
+
+  bool runOnMachineFunction(MachineFunction &MF) override;
   StringRef getPassName() const override {
     return "X86 Pre-RA pseudo instruction expansion pass";
   }
 
-  bool runOnMachineFunction(MachineFunction &MF) override {
-    LLVM_DEBUG(dbgs() << "********** " << getPassName() << " : " << MF.getName()
-                      << " **********\n");
-
-    if (MF.begin() == MF.end())
-      // Nothing to do for a degenerate empty function...
-      return false;
-
-    const X86Subtarget *STI =
-        &static_cast<const X86Subtarget &>(MF.getSubtarget());
-    const X86InstrInfo *TII = STI->getInstrInfo();
-    MachineRegisterInfo &MRI = MF.getRegInfo();
-    bool Changed = false;
-
-    for (MachineBasicBlock &MBB : MF) {
-      for (MachineBasicBlock::iterator MBBI = MBB.begin(), MBBE = MBB.end();
-           MBBI != MBBE;) {
-        MachineInstr &MI = *MBBI++;
-        unsigned Opcode = MI.getOpcode();
-        if (Opcode != X86::KMOVBki && Opcode != X86::KMOVWki)
-          continue;
-        DebugLoc DL = MI.getDebugLoc();
-        bool IsKMOVB = Opcode == X86::KMOVBki;
-        Register Sub = MRI.createVirtualRegister(IsKMOVB ? &X86::GR8RegClass
-                                                         : &X86::GR16RegClass);
-        Register GR32 = MRI.createVirtualRegister(STI->is32Bit() && IsKMOVB
-                                                      ? &X86::GR32_ABCDRegClass
-                                                      : &X86::GR32RegClass);
-        Register UDef = MRI.createVirtualRegister(&X86::GR32RegClass);
-        BuildMI(MBB, MI, DL, TII->get(IsKMOVB ? X86::MOV8ri : X86::MOV16ri),
-                Sub)
-            .addImm(MI.getOperand(1).getImm());
-        BuildMI(MBB, MI, DL, TII->get(X86::IMPLICIT_DEF), UDef);
-        BuildMI(MBB, MI, DL, TII->get(X86::INSERT_SUBREG), GR32)
-            .addReg(UDef, RegState::Kill)
-            .addReg(Sub, RegState::Kill)
-            .addImm(IsKMOVB ? X86::sub_8bit : X86::sub_16bit);
-        BuildMI(MBB, MI, DL, TII->get(IsKMOVB ? X86::KMOVBkr : X86::KMOVWkr),
-                MI.getOperand(0).getReg())
-            .addReg(GR32, RegState::Kill);
-        MI.eraseFromParent();
-        Changed = true;
-      }
-    }
-
-    return Changed;
-  }
-
   /// Pass identification, replacement for typeid.
   static char ID;
+
+private:
+  bool ExpandMI(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI);
+  bool ExpandMBB(MachineBasicBlock &MBB);
 };
 
 } // end anonymous namespace
 
+bool X86PRAExpandPseudoPass::runOnMachineFunction(MachineFunction &MF) {
+  LLVM_DEBUG(dbgs() << "********** " << getPassName() << " : " << MF.getName()
+                    << " **********\n");
+
+  STI = &static_cast<const X86Subtarget &>(MF.getSubtarget());
+  TII = STI->getInstrInfo();
+  MRI = &MF.getRegInfo();
+
+  bool Changed = false;
+
+  for (MachineBasicBlock &MBB : MF)
+    Changed |= ExpandMBB(MBB);
+  return Changed;
+}
+
+// Expand all pseudo instructions contained in MBB.  Returns true if any
+// expansion occurred for MBB.
+bool X86PRAExpandPseudoPass::ExpandMBB(MachineBasicBlock &MBB) {
+  bool Modified = false;
+
+  // MBBI may be invalidated by the expansion.
+  MachineBasicBlock::iterator MBBI = MBB.begin(), E = MBB.end();
+  while (MBBI != E) {
+    MachineBasicBlock::iterator NMBBI = std::next(MBBI);
+    Modified |= ExpandMI(MBB, MBBI);
+    MBBI = NMBBI;
+  }
+
+  return Modified;
+}
+
+// If MBBI is a pseudo instruction, this method expands it to the corresponding
+// (sequence of) actual instruction(s). returns true if MBBI has been expanded.
+bool X86PRAExpandPseudoPass::ExpandMI(MachineBasicBlock &MBB,
+                                      MachineBasicBlock::iterator MBBI) {
+  MachineInstr &MI = *MBBI;
+  unsigned Opcode = MI.getOpcode();
+  const DebugLoc &DL = MBBI->getDebugLoc();
+  switch (Opcode) {
+  default:
+    return false;
+  case X86::KMOVBki:
+  case X86::KMOVWki: {
+    bool IsKMOVB = Opcode == X86::KMOVBki;
+    Register Sub = MRI->createVirtualRegister(IsKMOVB ? &X86::GR8RegClass
+                                                      : &X86::GR16RegClass);
+    Register GR32 = MRI->createVirtualRegister(STI->is32Bit() && IsKMOVB
+                                                   ? &X86::GR32_ABCDRegClass
+                                                   : &X86::GR32RegClass);
+    Register UDef = MRI->createVirtualRegister(&X86::GR32RegClass);
+    BuildMI(MBB, MI, DL, TII->get(IsKMOVB ? X86::MOV8ri : X86::MOV16ri), Sub)
+        .addImm(MI.getOperand(1).getImm());
+    BuildMI(MBB, MI, DL, TII->get(X86::IMPLICIT_DEF), UDef);
+    BuildMI(MBB, MI, DL, TII->get(X86::INSERT_SUBREG), GR32)
+        .addReg(UDef, RegState::Kill)
+        .addReg(Sub, RegState::Kill)
+        .addImm(IsKMOVB ? X86::sub_8bit : X86::sub_16bit);
+    BuildMI(MBB, MI, DL, TII->get(IsKMOVB ? X86::KMOVBkr : X86::KMOVWkr),
+            MI.getOperand(0).getReg())
+        .addReg(GR32, RegState::Kill);
+    MI.eraseFromParent();
+    return true;
+  }
+  } // end switch
+  llvm_unreachable("Previous switch has a fallthrough?");
+}
+
 char X86PRAExpandPseudoPass::ID = 0;
 
-INITIALIZE_PASS_BEGIN(X86PRAExpandPseudoPass, DEBUG_TYPE,
-                      "X86 Pre-RA pseudo instruction expanding", false, false)
-INITIALIZE_PASS_END(X86PRAExpandPseudoPass, DEBUG_TYPE,
-                    "X86 Pre-RA pseudo instruction expanding", false, false)
+INITIALIZE_PASS(X86PRAExpandPseudoPass, DEBUG_TYPE,
+                "X86 Pre-RA pseudo instruction expanding", false, false)
 
 FunctionPass *llvm::createX86PRAExpandPseudoPass() {
   return new X86PRAExpandPseudoPass();
