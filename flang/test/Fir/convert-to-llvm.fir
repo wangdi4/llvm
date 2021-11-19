@@ -397,7 +397,7 @@ func @fir_complex_add(%a: !fir.complex<16>, %b: !fir.complex<16>) -> !fir.comple
 }
 
 // CHECK-LABEL: llvm.func @fir_complex_add(
-// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>, 
+// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>,
 // CHECK-SAME:                             %[[ARG1:.*]]: !llvm.struct<(f128, f128)>) -> !llvm.struct<(f128, f128)> {
 // CHECK:         %[[X0:.*]] = llvm.extractvalue %[[ARG0]][0 : i32] : !llvm.struct<(f128, f128)>
 // CHECK:         %[[Y0:.*]] = llvm.extractvalue %[[ARG0]][1 : i32] : !llvm.struct<(f128, f128)>
@@ -422,7 +422,7 @@ func @fir_complex_sub(%a: !fir.complex<16>, %b: !fir.complex<16>) -> !fir.comple
 }
 
 // CHECK-LABEL: llvm.func @fir_complex_sub(
-// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>, 
+// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>,
 // CHECK-SAME:                             %[[ARG1:.*]]: !llvm.struct<(f128, f128)>) -> !llvm.struct<(f128, f128)> {
 // CHECK:         %[[X0:.*]] = llvm.extractvalue %[[ARG0]][0 : i32] : !llvm.struct<(f128, f128)>
 // CHECK:         %[[Y0:.*]] = llvm.extractvalue %[[ARG0]][1 : i32] : !llvm.struct<(f128, f128)>
@@ -447,7 +447,7 @@ func @fir_complex_mul(%a: !fir.complex<16>, %b: !fir.complex<16>) -> !fir.comple
 }
 
 // CHECK-LABEL: llvm.func @fir_complex_mul(
-// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>, 
+// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>,
 // CHECK-SAME:                             %[[ARG1:.*]]: !llvm.struct<(f128, f128)>) -> !llvm.struct<(f128, f128)> {
 // CHECK:         %[[X0:.*]] = llvm.extractvalue %[[ARG0]][0 : i32] : !llvm.struct<(f128, f128)>
 // CHECK:         %[[Y0:.*]] = llvm.extractvalue %[[ARG0]][1 : i32] : !llvm.struct<(f128, f128)>
@@ -476,7 +476,7 @@ func @fir_complex_div(%a: !fir.complex<16>, %b: !fir.complex<16>) -> !fir.comple
 }
 
 // CHECK-LABEL: llvm.func @fir_complex_div(
-// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>, 
+// CHECK-SAME:                             %[[ARG0:.*]]: !llvm.struct<(f128, f128)>,
 // CHECK-SAME:                             %[[ARG1:.*]]: !llvm.struct<(f128, f128)>) -> !llvm.struct<(f128, f128)> {
 // CHECK:         %[[X0:.*]] = llvm.extractvalue %[[ARG0]][0 : i32] : !llvm.struct<(f128, f128)>
 // CHECK:         %[[Y0:.*]] = llvm.extractvalue %[[ARG0]][1 : i32] : !llvm.struct<(f128, f128)>
@@ -865,7 +865,7 @@ func @box_isarray(%arg0: !fir.box<!fir.array<*:f64>>) -> i1 {
 // CHECK-SAME:                         %[[ARG0:.*]]: !llvm.ptr<struct<(ptr<f64>, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}})>>) -> i1
 // CHECK:         %[[C0:.*]] = llvm.mlir.constant(0 : i32) : i32
 // CHECK:         %[[RANKPOS:.*]] = llvm.mlir.constant(3 : i32) : i32
-// CHECK:         %[[GEP:.*]] = llvm.getelementptr %[[ARG0]][%[[C0]], %[[RANKPOS]]] : (!llvm.ptr<struct<(ptr<f64>, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}})>>, i32, i32) -> !llvm.ptr<i32> 
+// CHECK:         %[[GEP:.*]] = llvm.getelementptr %[[ARG0]][%[[C0]], %[[RANKPOS]]] : (!llvm.ptr<struct<(ptr<f64>, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}})>>, i32, i32) -> !llvm.ptr<i32>
 // CHECK:         %[[RANK:.*]] = llvm.load %[[GEP]] : !llvm.ptr<i32>
 // CHECK:         %[[C0_ISARRAY:.*]] = llvm.mlir.constant(0 : i32) : i32
 // CHECK:         %[[IS_ARRAY:.*]] = llvm.icmp "ne" %[[RANK]], %[[C0_ISARRAY]] : i32
@@ -1374,7 +1374,7 @@ func @box_tdesc(%arg0: !fir.box<f64>) {
 // Test `fir.embox` conversion.
 
 // Check basic creation of a descriptor and insertion of values.
-// The indices used to insert values into the descriptor correspond the 
+// The indices used to insert values into the descriptor correspond the
 // position of the fields in the descriptor as defined in `CFI_cdesc_t` in
 // flang/ISO_Fortran_binding.h.
 
@@ -1409,7 +1409,7 @@ func @embox0(%arg0: !fir.ref<!fir.array<100xi32>>) {
 // CHECK:         %[[DESC6:.*]] = llvm.insertvalue %[[ADDR]], %[[DESC5]][0 : i32] : !llvm.struct<(ptr<array<100 x i32>>, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}})>
 // CHECK:         llvm.store %[[DESC6]], %[[ALLOCA]] : !llvm.ptr<struct<(ptr<array<100 x i32>>, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}})>>
 
-// Check `fir.embox` in a `fir.global`. Descriptors created by `fir.embox` 
+// Check `fir.embox` in a `fir.global`. Descriptors created by `fir.embox`
 // conversion are not generating `alloca` instructions. This test make sure of
 // that.
 
@@ -1530,3 +1530,42 @@ func @embox1(%arg0: !fir.ref<!fir.type<_QMtest_dinitTtseq{i:i32}>>) {
 // CHECK:         %[[TDESC:.*]] = llvm.mlir.addressof @_QMtest_dinitE.dt.tseq : !llvm.ptr<i8>
 // CHECK:         %[[TDESC_CAST:.*]] = llvm.bitcast %22 : !llvm.ptr<i8> to !llvm.ptr<i8>
 // CHECK:         %{{.*}} = llvm.insertvalue %[[TDESC_CAST]], %{{.*}}[7 : i32] : !llvm.struct<(ptr<struct<"_QMtest_dinitTtseq", (i32)>>, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, i{{.*}}, ptr<i{{.*}}>, array<1 x i{{.*}}>)>
+
+// -----
+
+// Test `fir.field_index`
+
+func @field_index_static_size_1_elem() -> () {
+  %1 = fir.field_index i, !fir.type<t1{i:i32}>
+  return
+}
+
+// CHECK-LABEL: @field_index_static_size_1_elem
+// CHECK-NEXT:  %{{.*}} = llvm.mlir.constant(0 : i32) : i32
+// CHECK-NEXT:  llvm.return
+
+func @field_index_static_size_3_elems() -> () {
+  %1 = fir.field_index k, !fir.type<t2{i:i32, j:f32, k:i8}>
+  return
+}
+
+// CHECK-LABEL: @field_index_static_size_3_elems
+// CHECK-NEXT:  %{{.*}} = llvm.mlir.constant(2 : i32) : i32
+// CHECK-NEXT:  llvm.return
+
+//  When converting `fir.field_index` for a dynamically sized record, the
+//  offset will be calculated at runtime by calling methods like the ones
+//  below. Note that these methods would normally be generated by the compiler.
+func private @custom_typeP.field_1.offset() -> i32
+func private @custom_typeP.field_2.offset() -> i32
+
+func @field_index_dynamic_size() -> () {
+  %1 = fir.field_index field_1, !fir.type<custom_type{field_1:i32, field_2:!fir.array<?xf32>}>
+  %2 = fir.field_index field_2, !fir.type<custom_type{field_1:i32, field_2:!fir.array<?xf32>}>
+  return
+}
+
+// CHECK-LABEL: @field_index_dynamic_size
+// CHECK-NEXT: %{{.*}} = llvm.call @custom_typeP.field_1.offset() {field = 0 : i64} : () -> i32
+// CHECK-NEXT: %{{.*}} = llvm.call @custom_typeP.field_2.offset() {field = 1 : i64} : () -> i32
+// CHECK-NEXT:  llvm.return
