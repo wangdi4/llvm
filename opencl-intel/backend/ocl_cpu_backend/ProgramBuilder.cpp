@@ -141,14 +141,7 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
                                std::unique_ptr<ICompilerConfig> config)
     : m_pBackendFactory(pBackendFactory), m_config(std::move(config)),
       m_targetDevice(m_config->TargetDevice()),
-      m_forcedPrivateMemorySize(m_config->GetForcedPrivateMemorySize()),
       m_dumpFilenamePrefix(m_config->GetDumpFilenamePrefix()) {
-  if (m_forcedPrivateMemorySize == 0) {
-    if (m_targetDevice == FPGA_EMU_DEVICE && m_config->UseAutoMemory())
-      m_forcedPrivateMemorySize = FPGA_DEV_MAX_WG_PRIVATE_SIZE;
-    else
-      m_forcedPrivateMemorySize = CPU_DEV_MAX_WG_PRIVATE_SIZE;
-  }
   // prepare default base file name for stat file in the following cases:
   // stats are enabled but the user didn't set up the base file name
   // the user set up as base file name only a directory name, i.e. it ends
@@ -342,7 +335,6 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
     KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
     pProps->SetUseVTune(m_config->GetUseVTune());
     pProps->SetVectorSize(vectorSize);
-    pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
     return pProps;
 }
 
@@ -559,7 +551,6 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   //   GetPrivateMemorySize returns the min. required private memory
   //   size per work-item even if there are no work-group level built-ins.
   pProps->SetPrivateMemorySize(privateMemorySize);
-  pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
 
   // set isBlock property
   pProps->SetIsBlock(CompilationUtils::isBlockInvocationKernel(func));

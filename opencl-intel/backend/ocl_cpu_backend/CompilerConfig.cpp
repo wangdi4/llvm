@@ -252,6 +252,13 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
             CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
     m_debugPassManager = pBackendOptions->GetStringValue(
         (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
+
+    // Adjust m_forcedPrivateMemorySize if it is not set.
+    if (m_forcedPrivateMemorySize == 0)
+      m_forcedPrivateMemorySize =
+          (m_targetDevice == FPGA_EMU_DEVICE && m_useAutoMemory)
+              ? FPGA_DEV_MAX_WG_PRIVATE_SIZE
+              : CPU_DEV_MAX_WG_PRIVATE_SIZE;
 }
 
 }}}

@@ -208,12 +208,9 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // deserialize the management objects
     std::unique_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
-    pCPUSerializationService->ReloadProgram(
-        SERIALIZE_PERSISTENT_IMAGE,
-        pProgram,
-        serializationBuffer,
-        serializationSize,
-        m_forcedPrivateMemorySize);
+    pCPUSerializationService->ReloadProgram(SERIALIZE_PERSISTENT_IMAGE,
+                                            pProgram, serializationBuffer,
+                                            serializationSize);
 
     // init refcounted runtime service shared storage between program and kernels
     RuntimeServiceSharedPtr lRuntimeService =

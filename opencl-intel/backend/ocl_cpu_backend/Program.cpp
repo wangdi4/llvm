@@ -247,7 +247,7 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
         Serializer::SerialString(dtor, ost);
 }
 
-void Program::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t maxPrivateMemSize)
+void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     Serializer::DeserialString(m_buildLog, ist);
 
@@ -261,7 +261,7 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t 
         if(nullptr != currentKernel)
         {
             currentKernel = stats->GetBackendFactory()->CreateKernel();
-            currentKernel->Deserialize(ist, stats, maxPrivateMemSize);
+            currentKernel->Deserialize(ist, stats);
             m_kernels->AddKernel(currentKernel);
         }
     }

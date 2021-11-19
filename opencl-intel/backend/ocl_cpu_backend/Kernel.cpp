@@ -859,10 +859,11 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
 void Kernel::SetRuntimeConfig(const ICompilerConfig *Config) {
   if (Config->GetSerializeWorkGroups())
     m_pProps->SetNeedSerializeWGs(true);
+
+  m_pProps->SetMaxPrivateMemorySize(Config->GetForcedPrivateMemorySize());
 }
 
-void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t maxPrivateMemSize)
-{
+void Kernel::Deserialize(IInputStream &ist, SerializationStatus *stats) {
   Serializer::DeserialString(m_name, ist);
 
   // Deserialize the CSRMask and CSRFlags
@@ -895,7 +896,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t m
   if (nullptr != m_pProps) {
     m_pProps =
         stats->GetBackendFactory()->CreateKernelProperties();
-    m_pProps->Deserialize(ist, stats, maxPrivateMemSize);
+    m_pProps->Deserialize(ist, stats);
   }
 
   Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
@@ -909,7 +910,6 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t m
     }
     m_JITs.push_back(currentArgument);
   }
-
 }
 
 KernelSet::KernelSet() : m_kernels(0), m_blockKernelsCount(0)
