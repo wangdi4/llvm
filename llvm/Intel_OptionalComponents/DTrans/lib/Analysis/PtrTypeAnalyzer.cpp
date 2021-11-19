@@ -664,6 +664,13 @@ public:
   //     %Cmp = icmp sgt i64 %Count, 1
   //     br i1 %Cmp, label %Block2, label %ExitBlock
   //
+  //
+  // There are a couple of forms of the comparison instruction supported for
+  // this pattern. In the form shown above, the current loop iteration %Count
+  // value is being compared, but a form that compares the %NextCount variable
+  // as greater than 0 is also supported. In both cases, we can also support an
+  // unsigned greater than comparison type.
+  //
   // For i8 swaps, it looks similar without the bitcasts in Block1 and with
   // a count constant of 8 rather than 2.
   //
@@ -757,9 +764,10 @@ public:
                               << "Not matched. icmp not using constant int!\n");
         return false;
       }
-      if (Pred != CmpInst::Predicate::ICMP_SGT) {
+      if (Pred != CmpInst::Predicate::ICMP_SGT &&
+          Pred != CmpInst::Predicate::ICMP_UGT) {
         DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
-                          dbgs() << "Not matched. icmp predicate isn't sgt!\n");
+                          dbgs() << "Not matched. icmp predicate isn't sgt/ugt!\n");
         return false;
       }
 

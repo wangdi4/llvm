@@ -4909,13 +4909,18 @@ void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
 
 // Emit Constructor call and insert it after PrivAlloca
 CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
-                                             Value* PrivAlloca) {
+                                             Value *PrivAlloca,
+                                             bool IsTargetSPIRV) {
   if (Ctor == nullptr)
     return nullptr;
 
   Type *ValType = V->getType();
-  CallInst *Call = genCall(Ctor->getParent(), Ctor, {V}, {ValType}, nullptr);
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
+  if (IsTargetSPIRV)
+    V = VPOParoptUtils::genAddrSpaceCast(
+        V, InsertAfterPt, Ctor->getArg(0)->getType()->getPointerAddressSpace());
+
+  CallInst *Call = genCall(Ctor->getParent(), Ctor, {V}, {ValType}, nullptr);
   Call->insertAfter(InsertAfterPt);
   Call->setDebugLoc(InsertAfterPt->getDebugLoc());
   Call->addFnAttr(Attribute::get(Call->getContext(),
@@ -4926,9 +4931,15 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
 
 // Emit Destructor call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
-                                            Instruction *InsertBeforePt) {
+                                            Instruction *InsertBeforePt,
+                                            bool IsTargetSPIRV) {
   if (Dtor == nullptr)
     return nullptr;
+
+  if (IsTargetSPIRV)
+    V = VPOParoptUtils::genAddrSpaceCast(
+        V, InsertBeforePt,
+        Dtor->getArg(0)->getType()->getPointerAddressSpace());
 
   Type *ArgTy = Dtor->getFunctionType()->getParamType(0);
   Type *ValType = V->getType();
@@ -4948,12 +4959,23 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
 
 // Emit Copy Constructor call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
-                                  Value *S, Instruction *InsertBeforePt) {
+                                                 Value *S,
+                                                 Instruction *InsertBeforePt,
+                                                 bool IsTargetSPIRV) {
   if (Cctor == nullptr)
     return nullptr;
 
   Type *DTy = D->getType();
   Type *STy = S->getType();
+
+  if (IsTargetSPIRV) {
+    auto Arg0 = Cctor->getArg(0);
+    auto Arg1 = Cctor->getArg(1);
+    D = VPOParoptUtils::genAddrSpaceCast(
+        D, InsertBeforePt, Arg0->getType()->getPointerAddressSpace());
+    S = VPOParoptUtils::genAddrSpaceCast(
+        S, InsertBeforePt, Arg1->getType()->getPointerAddressSpace());
+  }
 
   CallInst *Call =
       genCall(Cctor->getParent(), Cctor, {D,S}, {DTy, STy}, nullptr);
@@ -4965,15 +4987,24 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
   return Call;
 }
 
-
 // Emit Copy Assign call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
-                                            Instruction *InsertBeforePt) {
+                                            Instruction *InsertBeforePt,
+                                            bool IsTargetSPIRV) {
   if (Cp == nullptr)
     return nullptr;
 
   Type *DTy = D->getType();
   Type *STy = S->getType();
+
+  if (IsTargetSPIRV) {
+    auto Arg0 = Cp->getArg(0);
+    auto Arg1 = Cp->getArg(1);
+    D = VPOParoptUtils::genAddrSpaceCast(
+        D, InsertBeforePt, Arg0->getType()->getPointerAddressSpace());
+    S = VPOParoptUtils::genAddrSpaceCast(
+        S, InsertBeforePt, Arg1->getType()->getPointerAddressSpace());
+  }
 
   CallInst *Call = genCall(Cp->getParent(), Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
