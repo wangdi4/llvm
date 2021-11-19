@@ -7089,7 +7089,7 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   if (W->canHaveReduction())
     for (ReductionItem *RI : W->getRed().items())
       VPOParoptUtils::genDestructorCall(RI->getDestructor(), RI->getNew(),
-                                        InsertBeforePt);
+                                        InsertBeforePt, isTargetSPIRV());
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
@@ -8343,16 +8343,17 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
                                                 "priv.cpy.src.inc");
 
   if (FuncKind == FK_Ctor)
-    VPOParoptUtils::genConstructorCall(Fn, DestElementPHI,
-                                       DestElementPHI); // (7)
+    VPOParoptUtils::genConstructorCall(Fn, DestElementPHI, DestElementPHI,
+                                       isTargetSPIRV()); // (7)
   else if (FuncKind == FK_Dtor)
-    VPOParoptUtils::genDestructorCall(Fn, DestElementPHI, DestElementNext);
+    VPOParoptUtils::genDestructorCall(Fn, DestElementPHI, DestElementNext,
+                                      isTargetSPIRV());
   else if (FuncKind == FK_CopyAssign)
     VPOParoptUtils::genCopyAssignCall(Fn, DestElementPHI, SrcElementPHI,
-                                      DestElementNext);
+                                      DestElementNext, isTargetSPIRV());
   else
     VPOParoptUtils::genCopyConstructorCall(Fn, DestElementPHI, SrcElementPHI,
-                                           DestElementNext);
+                                           DestElementNext, isTargetSPIRV());
 
   auto Done =
       Builder.CreateICmpEQ(DestElementNext, DestEnd, "priv.cpy.done"); // (9)
@@ -8399,13 +8400,15 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
   }
 
   if (FuncKind == FK_Ctor)
-    VPOParoptUtils::genConstructorCall(Fn, DestVal, InsertPt);
+    VPOParoptUtils::genConstructorCall(Fn, DestVal, InsertPt, isTargetSPIRV());
   else if (FuncKind == FK_Dtor)
-    VPOParoptUtils::genDestructorCall(Fn, DestVal, InsertPt);
+    VPOParoptUtils::genDestructorCall(Fn, DestVal, InsertPt, isTargetSPIRV());
   else if (FuncKind == FK_CopyAssign)
-    VPOParoptUtils::genCopyAssignCall(Fn, DestVal, SrcVal, InsertPt);
+    VPOParoptUtils::genCopyAssignCall(Fn, DestVal, SrcVal, InsertPt,
+                                      isTargetSPIRV());
   else
-    VPOParoptUtils::genCopyConstructorCall(Fn, DestVal, SrcVal, InsertPt);
+    VPOParoptUtils::genCopyConstructorCall(Fn, DestVal, SrcVal, InsertPt,
+                                           isTargetSPIRV());
 }
 
 // returns true if the input item is either a Vla or a variable size array

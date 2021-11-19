@@ -920,13 +920,16 @@ public:
   static void genConstructorCall(Function *Ctor, Value *V,
                                  IRBuilder<> &Builder);
   static CallInst *genConstructorCall(Function *Ctor, Value *V,
-                                      Value *PrivAlloca);
+                                      Value *PrivAlloca, bool IsTargetSPIRV);
   static CallInst *genDestructorCall(Function *Dtor, Value *V,
-                                     Instruction *InsertBeforePt);
+                                     Instruction *InsertBeforePt,
+                                     bool IsTargetSPIRV);
   static CallInst *genCopyConstructorCall(Function *Cctor, Value *D, Value *S,
-                                          Instruction *InsertBeforePt);
+                                          Instruction *InsertBeforePt,
+                                          bool IsTargetSPIRV);
   static CallInst *genCopyAssignCall(Function *Cp, Value *D, Value *S,
-                                     Instruction *InsertBeforePt);
+                                     Instruction *InsertBeforePt,
+                                     bool IsTargetSPIRV);
   /// @}
 
   /// Generate an optionally addrspacecast'ed pointer Value for an array
