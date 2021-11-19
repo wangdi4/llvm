@@ -599,7 +599,7 @@ static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
     }
   } else if (isa<LoadInst>(V)) {
     ++LoadCount;
-    if (LoadCount < MaxLoads)
+    if (LoadCount <= MaxLoads)
       return true;
   } else if (auto ZExt = dyn_cast<ZExtInst>(V))
     return isSplatAndConst(ZExt->getOperand(0), Depth + 1, LoadCount,
