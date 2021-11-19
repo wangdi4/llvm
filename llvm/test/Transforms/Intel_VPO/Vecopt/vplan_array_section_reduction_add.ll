@@ -5,12 +5,22 @@
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 
+; Note that the test represents two nested loop and SIMD region applies to the outer loop.
+; Here outer loop vectorization is enabled for reason to not bailout too early.
+; RUN: opt -enable-vplan-outer-loop-hir -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -enable-vplan-outer-loop-hir -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+
+
 ; CHECK: VPlan LLVM-IR Driver for Function: foo
 ; CHECK: Cannot handle array reductions.
 ; CHECK: VD: Not vectorizing: Cannot prove legality.
 
 ; CHECK: define i32 @foo
 ; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([100 x i32]* %a.red, i64 1, i64 0, i64 100, i64 1) ]
+
+; HIR: Cannot handle array reductions.
+; HIR: VD: Not vectorizing: Cannot prove legality.
+; HIR: Function: foo
 
 define i32 @foo([100 x [100 x i32]]* %b) #0 {
 entry:

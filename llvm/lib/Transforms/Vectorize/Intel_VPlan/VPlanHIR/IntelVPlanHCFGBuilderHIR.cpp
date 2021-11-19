@@ -63,8 +63,6 @@
 using namespace llvm;
 using namespace vpo;
 
-extern cl::opt<bool> ForceComplexTyReductionVec;
-
 static LoopVPlanDumpControl VPlanHIRDecomposerControl("hir-decomposer",
                                                       "VPlanHIRDecomposer");
 
@@ -214,30 +212,14 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   }
 }
 
+bool HIRVectorizationLegality::bailout(BailoutReason Code) {
+    DEBUG_WITH_TYPE("HIRLegality", dbgs() << getBailoutReasonStr(Code));
+    return false;
+}
+
 bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
   // Send explicit data from WRLoop to the Legality.
-  EnterExplicitData(WRLp);
-  if (hasF90DopeVectorPrivate()) {
-    DEBUG_WITH_TYPE("HIRLegality",
-                    dbgs() << "F90 dope vector privates are not supported\n");
-    return false;
-  }
-  if (hasF90DopeVectorReduction()) {
-    DEBUG_WITH_TYPE("HIRLegality",
-                    dbgs() << "F90 dope vector reductions are not supported\n");
-    return false;
-  }
-  if (!ForceComplexTyReductionVec && hasComplexTyReduction()) {
-    DEBUG_WITH_TYPE("HIRLegality",
-                    dbgs() << "Complex type reductions are not supported\n");
-    return false;
-  }
-  if (hasUserDefinedReduction()) {
-    DEBUG_WITH_TYPE("HIRLegality",
-                    dbgs() << "User defined reductions are not supported\n");
-    return false;
-  }
-  return true;
+  return EnterExplicitData(WRLp);
 }
 
 void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,

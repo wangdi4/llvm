@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %"QNCA_a0$i32*$rank1$" = type { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
 define void @cq417019b_IP_test_() {
-; CHECK:  F90 dope vector reductions are not supported
+; CHECK:  F90 dope vector reductions are not supported.
 ;
 ; CHECK:  define void @cq417019b_IP_test_() {
 ; CHECK-NEXT:  alloca_1:
@@ -23,7 +23,7 @@ define void @cq417019b_IP_test_() {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; HIR-CHECK:      F90 dope vector reductions are not supported
+; HIR-CHECK:      F90 dope vector reductions are not supported.
 ;
 ; HIR-CHECK:      BEGIN REGION { }
 ; HIR-CHECK-NEXT:       [[TMP2:%.*]] = @llvm.directive.region.entry()

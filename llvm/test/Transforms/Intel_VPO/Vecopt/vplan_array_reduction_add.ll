@@ -4,6 +4,8 @@
 ; REQUIRES: asserts
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; CHECK: VPlan LLVM-IR Driver for Function: test1
 ; CHECK: Cannot handle array reductions.
@@ -17,6 +19,14 @@
 ; CHECK: define i32 @test2
 ; CHECK: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %sum) ]
 
+; HIR: VPlan HIR Driver for Function: test1
+; HIR: Cannot handle array reductions.
+; HIR: VD: Not vectorizing: Cannot prove legality.
+; HIR: Function: test1
+; HIR: VPlan HIR Driver for Function: test2
+; HIR: Cannot handle array reductions.
+; HIR: VD: Not vectorizing: Cannot prove legality.
+; HIR: Function: test2
 
 define i32 @test1(i32* nocapture readonly %A, i64 %N, i32 %init) {
 entry:

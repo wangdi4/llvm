@@ -1,6 +1,8 @@
 ; REQUIRES: asserts
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; CHECK: VPlan LLVM-IR Driver for Function: test1
 ; CHECK: Cannot handle nonPOD array lastprivates.
@@ -8,6 +10,12 @@
 
 ; CHECK: define void @test1
 ; CHECK: %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD"([12 x %struct.int_int]* %y3.lpriv, i8* null, void (%struct.int_int*, %struct.int_int*)* @_ZTS7int_int.omp.copy_assign, void (%struct.int_int*)* @_ZTS7int_int.omp.destr), "QUAL.OMP.LINEAR:IV"(i32* %i.priv, i32 1) ]
+
+; HIR: VPlan HIR Driver for Function: test1
+; HIR: Cannot handle nonPOD array lastprivates.
+; HIR: VD: Not vectorizing: Cannot prove legality.
+; HIR: Function: test1
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -66,7 +74,7 @@ if.then:
 
 omp.inner.for.inc:
   %add8 = add nsw i32 %.omp.iv.local.027, 1
-  %cmp = icmp sle i32 %add8, %ub.new
+  %cmp = icmp slt i32 %add8, %ub.new
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.exit
 
 omp.inner.for.exit:
