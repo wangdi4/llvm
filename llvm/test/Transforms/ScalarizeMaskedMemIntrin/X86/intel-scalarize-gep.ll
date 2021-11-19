@@ -31,6 +31,33 @@ header:
   ret <2 x i32> %2
 }
 
+; Function Attrs: mustprogress norecurse uwtable
+define dso_local <2 x i32> @test_gather_load(i64 %offset, <2 x i64>* %index_ptr) local_unnamed_addr {
+; CHECK-LABEL: @test_gather_load(
+; CHECK-NEXT:  header:
+; CHECK-NEXT:    [[INDEX:%.*]] = load <2 x i64>, <2 x i64>* [[INDEX_PTR:%.*]], align 16
+; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <2 x i64> [[INDEX]], i64 0
+; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP0]], 0
+; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP1]], i64 0
+; CHECK-NEXT:    [[LOAD0:%.*]] = load i32, i32* [[PTR0]], align 4
+; CHECK-NEXT:    [[RES0:%.*]] = insertelement <2 x i32> undef, i32 [[LOAD0]], i64 0
+; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i64> [[INDEX]], i64 1
+; CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], 1
+; CHECK-NEXT:    [[PTR1:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP3]], i64 0
+; CHECK-NEXT:    [[LOAD1:%.*]] = load i32, i32* [[PTR1]], align 4
+; CHECK-NEXT:    [[RES1:%.*]] = insertelement <2 x i32> [[RES0]], i32 [[LOAD1]], i64 1
+; CHECK-NEXT:    ret <2 x i32> [[RES1]]
+;
+header:
+  %.splatinsert55 = insertelement <2 x i64> poison, i64 0, i32 0
+  %.splat56 = shufflevector <2 x i64> %.splatinsert55, <2 x i64> poison, <2 x i32> zeroinitializer
+  %index = load <2 x i64>, <2 x i64>* %index_ptr
+  %0 = add <2 x i64> %index, <i64 0, i64 1>
+  %1 = getelementptr inbounds [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, <2 x i64> %0, <2 x i64> %.splat56
+  %2 = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> %1, i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> undef)
+  ret <2 x i32> %2
+}
+
 define dso_local void @test_scatter(i64 %offset, <2 x i32> %data) local_unnamed_addr {
 ; CHECK-LABEL: @test_scatter(
 ; CHECK-NEXT:  header:
@@ -50,6 +77,32 @@ header:
   %.splatinsert53 = insertelement <2 x i64> poison, i64 %offset, i32 0
   %.splat54 = shufflevector <2 x i64> %.splatinsert53, <2 x i64> poison, <2 x i32> zeroinitializer
   %0 = sub <2 x i64> %.splat54, <i64 0, i64 1>
+  %1 = getelementptr inbounds [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, <2 x i64> %0, <2 x i64> %.splat56
+  call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> %data, <2 x i32*> %1, i32 4, <2 x i1> <i1 true, i1 true>)
+  ret void
+}
+
+define dso_local void @test_scatter_load(i64 %offset, <2 x i32> %data, <2 x i64>* %index_ptr) local_unnamed_addr {
+; CHECK-LABEL: @test_scatter_load(
+; CHECK-NEXT:  header:
+; CHECK-NEXT:    [[INDEX:%.*]] = load <2 x i64>, <2 x i64>* [[INDEX_PTR:%.*]], align 16
+; CHECK-NEXT:    [[ELT0:%.*]] = extractelement <2 x i32> [[DATA:%.*]], i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <2 x i64> [[INDEX]], i64 0
+; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[TMP0]], 0
+; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP1]], i64 0
+; CHECK-NEXT:    store i32 [[ELT0]], i32* [[PTR0]], align 4
+; CHECK-NEXT:    [[ELT1:%.*]] = extractelement <2 x i32> [[DATA]], i64 1
+; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i64> [[INDEX]], i64 1
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP2]], 1
+; CHECK-NEXT:    [[PTR1:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP3]], i64 0
+; CHECK-NEXT:    store i32 [[ELT1]], i32* [[PTR1]], align 4
+; CHECK-NEXT:    ret void
+;
+header:
+  %.splatinsert55 = insertelement <2 x i64> poison, i64 0, i32 0
+  %.splat56 = shufflevector <2 x i64> %.splatinsert55, <2 x i64> poison, <2 x i32> zeroinitializer
+  %index = load <2 x i64>, <2 x i64>* %index_ptr
+  %0 = sub <2 x i64> %index, <i64 0, i64 1>
   %1 = getelementptr inbounds [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, <2 x i64> %0, <2 x i64> %.splat56
   call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> %data, <2 x i32*> %1, i32 4, <2 x i1> <i1 true, i1 true>)
   ret void
