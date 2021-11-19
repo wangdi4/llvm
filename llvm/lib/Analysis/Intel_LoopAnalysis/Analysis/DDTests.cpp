@@ -3893,6 +3893,11 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
                             SmallVectorImpl<Subscript> &Pair,
                             bool ForDDGBuild) {
 
+  // Do not try to delinearise non-linear dd refs.
+  if (SrcDDRef->isNonLinear() || DstDDRef->isNonLinear()) {
+    return false;
+  }
+
   // Without loss of generailty, a 3-dim array is used for illustration
   //    A[n1][n2][n3]
   //    do i1=0, n1-1
