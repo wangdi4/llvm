@@ -4084,7 +4084,7 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
     auto *Summary = Index->getGlobalValueSummary(GIF);
     AliasSummary *AS = cast<AliasSummary>(Summary);
     NameVals.push_back(getEncodedGVSummaryFlags(AS->flags()));
-    auto RF = cast<Function>(GIF.getResolver()->stripPointerCasts());
+    auto RF = GIF.getResolverFunction();
     NameVals.push_back(VE.getValueID(RF));
     Stream.EmitRecord(bitc::FS_ALIAS, NameVals, FSAliasAbbrev);
     NameVals.clear();

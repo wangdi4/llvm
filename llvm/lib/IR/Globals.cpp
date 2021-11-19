@@ -292,12 +292,6 @@ bool GlobalObject::canIncreaseAlignment() const {
 
 static const GlobalObject *
 findBaseObject(const Constant *C, DenseSet<const GlobalAlias *> &Aliases) {
-#if INTEL_CUSTOMIZATION
-  // Handle GlobalIFunc before GlobalObject since GlobalIFunc inherits
-  // from GlobalObject now.
-  if (auto *GI = dyn_cast<GlobalIFunc>(C))
-    return findBaseObject(GI->getOperand(0), Aliases);
-#endif // INTEL_CUSTOMIZATION
   if (auto *GO = dyn_cast<GlobalObject>(C))
     return GO;
   if (auto *GA = dyn_cast<GlobalAlias>(C))
