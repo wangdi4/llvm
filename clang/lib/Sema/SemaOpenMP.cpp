@@ -6307,17 +6307,9 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPBarrierDirective(StartLoc, EndLoc);
     break;
   case OMPD_taskwait:
-#if INTEL_COLLAB
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp taskwait' directive");
     Res = ActOnOpenMPTaskwaitDirective(ClausesWithImplicit, StartLoc, EndLoc);
-#else // INTEL_COLLAB
-    assert(ClausesWithImplicit.empty() &&
-           "No clauses are allowed for 'omp taskwait' directive");
-    assert(AStmt == nullptr &&
-           "No associated statement allowed for 'omp taskwait' directive");
-    Res = ActOnOpenMPTaskwaitDirective(StartLoc, EndLoc);
-#endif // INTEL_COLLAB
     break;
   case OMPD_taskgroup:
     Res = ActOnOpenMPTaskgroupDirective(ClausesWithImplicit, AStmt, StartLoc,
@@ -11350,9 +11342,10 @@ StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
   return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
 #else // INTEL_COLLAB
-StmtResult Sema::ActOnOpenMPTaskwaitDirective(SourceLocation StartLoc,
+StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
+                                              SourceLocation StartLoc,
                                               SourceLocation EndLoc) {
-  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc);
+  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
 #endif // INTEL_COLLAB
 
@@ -20613,6 +20606,11 @@ Sema::ActOnOpenMPDependClause(Expr *DepModifier, OpenMPDependClauseKind DepKind,
       DepKind != OMPC_DEPEND_source && DepKind != OMPC_DEPEND_sink) {
     Diag(DepLoc, diag::err_omp_unexpected_clause_value)
         << "'source' or 'sink'" << getOpenMPClauseName(OMPC_depend);
+    return nullptr;
+  }
+  if (DSAStack->getCurrentDirective() == OMPD_taskwait &&
+      DepKind == OMPC_DEPEND_mutexinoutset) {
+    Diag(DepLoc, diag::err_omp_taskwait_depend_mutexinoutset_not_allowed);
     return nullptr;
   }
   if ((DSAStack->getCurrentDirective() != OMPD_ordered ||
