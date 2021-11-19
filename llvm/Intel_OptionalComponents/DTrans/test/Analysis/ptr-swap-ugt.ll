@@ -1,9 +1,10 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that we are able to identify a couple of idioms for
-; swapping pointer values in a dynamic array of pointers
+; swapping pointer values in a dynamic array of pointers when the loop
+; control predicate uses an unsigned comparison operation.
 
 ; Swap pointers in 32-bit chunks.
 %struct.test01 = type { i32, i32 }
@@ -30,7 +31,7 @@ swap:
   %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
   store i32 %HalfVal1, i32* %HalfPtr2
   %NextCount = add nsw i64 %Count, -1
-  %Cmp = icmp sgt i64 %Count, 1
+  %Cmp = icmp ugt i64 %Count, 1
   br i1 %Cmp, label %swap, label %exit
 
 exit:
@@ -60,7 +61,7 @@ swap:
   %NextPart2 = getelementptr inbounds i8, i8* %PartPtr2, i64 1
   store i8 %PartVal1, i8* %PartPtr2
   %NextCount = add nsw i64 %Count, -1
-  %Cmp = icmp sgt i64 %Count, 1
+  %Cmp = icmp ugt i64 %Count, 1
   br i1 %Cmp, label %swap, label %exit
 
 exit:
@@ -97,7 +98,7 @@ swap:
   %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
   store i32 %HalfVal1, i32* %HalfPtr2
   %NextCount = add nsw i64 %Count, -1
-  %Cmp = icmp sgt i64 %Count, 1
+  %Cmp = icmp ugt i64 %Count, 1
   br i1 %Cmp, label %swap, label %exit
 
 exit:
@@ -201,7 +202,7 @@ swap:
   %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 2
   store i32 %HalfVal1, i32* %HalfPtr2
   %NextCount = add nsw i64 %Count, -1
-  %Cmp = icmp sgt i64 %Count, 1
+  %Cmp = icmp ugt i64 %Count, 1
   br i1 %Cmp, label %swap, label %exit
 
 exit:
@@ -239,7 +240,7 @@ swap:
   %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
   store i32 %HalfVal1, i32* %HalfPtr2
   %NextCount = add nsw i64 %Count, -1
-  %Cmp = icmp sgt i64 %NextCount, 0
+  %Cmp = icmp ugt i64 %NextCount, 0
   br i1 %Cmp, label %swap, label %exit
 
 exit:
@@ -275,7 +276,7 @@ swap:
   %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
   store i32 %HalfVal1, i32* %HalfPtr2
   %NextCount = add nsw i32 %Count, -1
-  %Cmp = icmp sgt i32 %Count, 1
+  %Cmp = icmp ugt i32 %Count, 1
   br i1 %Cmp, label %swap, label %exit
 
 exit:
@@ -312,7 +313,7 @@ swap:
   %NextHalf2 = getelementptr inbounds i32, i32* %HalfPtr2, i64 1
   store i32 %HalfVal1, i32* %HalfPtr2
   %NextCount = add nsw i32 -1, %Count
-  %Cmp = icmp sgt i32 %Count, 1
+  %Cmp = icmp ugt i32 %Count, 1
   br i1 %Cmp, label %swap, label %exit
 
 exit:
