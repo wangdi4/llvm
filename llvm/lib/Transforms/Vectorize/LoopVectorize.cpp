@@ -9427,7 +9427,9 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     if (VPBB)
       VPBlockUtils::insertBlockAfter(FirstVPBBForBB, VPBB);
     else {
-      Plan->setEntry(FirstVPBBForBB);
+      auto *TopRegion = new VPRegionBlock("vector loop");
+      TopRegion->setEntry(FirstVPBBForBB);
+      Plan->setEntry(TopRegion);
       HeaderVPBB = FirstVPBBForBB;
     }
     VPBB = FirstVPBBForBB;
@@ -9499,9 +9501,11 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     }
   }
 
-  assert(isa<VPBasicBlock>(Plan->getEntry()) &&
+  assert(isa<VPRegionBlock>(Plan->getEntry()) &&
          !Plan->getEntry()->getEntryBasicBlock()->empty() &&
-         "entry block must be set to a non-empty VPBasicBlock");
+         "entry block must be set to a VPRegionBlock having a non-empty entry "
+         "VPBasicBlock");
+  cast<VPRegionBlock>(Plan->getEntry())->setExit(VPBB);
   RecipeBuilder.fixHeaderPhis();
 
   // ---------------------------------------------------------------------------
