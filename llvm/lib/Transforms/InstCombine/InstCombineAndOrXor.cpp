@@ -2061,7 +2061,14 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
   if (Instruction *CastedAnd = foldCastedBitwiseLogic(I))
     return CastedAnd;
 
+  if (Instruction *Sel = foldBinopOfSextBoolToSelect(I))
+    return Sel;
+
   // and(sext(A), B) / and(B, sext(A)) --> A ? B : 0, where A is i1 or <N x i1>.
+  // TODO: Move this into foldBinopOfSextBoolToSelect as a more generalized fold
+  //       with binop identity constant. But creating a select with non-constant
+  //       arm may not be reversible due to poison semantics. Is that a good
+  //       canonicalization?
   Value *A;
   if (match(Op0, m_OneUse(m_SExt(m_Value(A)))) &&
       A->getType()->isIntOrIntVectorTy(1))
@@ -2793,6 +2800,9 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
   if (Instruction *CastedOr = foldCastedBitwiseLogic(I))
     return CastedOr;
 
+  if (Instruction *Sel = foldBinopOfSextBoolToSelect(I))
+    return Sel;
+
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-9154: suppress the following transform when loopopt is enabled
   // ("pre_loopopt" attribute) as vectorizer and other loop transformations
@@ -2812,6 +2822,10 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
 
   if (!SuppressSextOpt) {   // INTEL
   // or(sext(A), B) / or(B, sext(A)) --> A ? -1 : B, where A is i1 or <N x i1>.
+  // TODO: Move this into foldBinopOfSextBoolToSelect as a more generalized fold
+  //       with binop identity constant. But creating a select with non-constant
+  //       arm may not be reversible due to poison semantics. Is that a good
+  //       canonicalization?
   if (match(Op0, m_OneUse(m_SExt(m_Value(A)))) &&
       A->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(A, ConstantInt::getSigned(I.getType(), -1), Op1);
