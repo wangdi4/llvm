@@ -2800,7 +2800,9 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
   if (Instruction *CastedOr = foldCastedBitwiseLogic(I))
     return CastedOr;
 
-<<<<<<< HEAD
+  if (Instruction *Sel = foldBinopOfSextBoolToSelect(I))
+    return Sel;
+
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-9154: suppress the following transform when loopopt is enabled
   // ("pre_loopopt" attribute) as vectorizer and other loop transformations
@@ -2819,11 +2821,6 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
 #endif  //INTEL_CUSTOMIZATION
 
   if (!SuppressSextOpt) {   // INTEL
-=======
-  if (Instruction *Sel = foldBinopOfSextBoolToSelect(I))
-    return Sel;
-
->>>>>>> 337948ac6e2260fc4d5a1901b4f667a2a0a52ee3
   // or(sext(A), B) / or(B, sext(A)) --> A ? -1 : B, where A is i1 or <N x i1>.
   // TODO: Move this into foldBinopOfSextBoolToSelect as a more generalized fold
   //       with binop identity constant. But creating a select with non-constant
