@@ -181,8 +181,8 @@ public:
     SAFKind = SAFK_Single;
     SingleAllocFunction = F;
   }
-  void setMultipleValue() { SVKind = SVK_Incomplete; }
-  void setIAMultipleValue() { SVIAKind = SVK_Incomplete; }
+  void setIncompleteValueSet() { SVKind = SVK_Incomplete; }
+  void setIAIncompleteValueSet() { SVIAKind = SVK_Incomplete; }
   void setBottomAllocFunction() {
     SAFKind = SAFK_Bottom;
     SingleAllocFunction = nullptr;

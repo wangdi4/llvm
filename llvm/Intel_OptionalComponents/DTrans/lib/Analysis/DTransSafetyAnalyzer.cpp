@@ -1436,16 +1436,16 @@ public:
               dtrans::FieldInfo &FI = Field.value();
               FI.setWritten(I);
               updateFieldFrequency(FI, I);
-              if (!FI.isMultipleValue()) {
-                FI.setMultipleValue();
-                DEBUG_WITH_TYPE(SAFETY_VALUES, {
+              DEBUG_WITH_TYPE(SAFETY_VALUES, {
+                if (!FI.isValueSetComplete()) {
                   dbgs() << "dtrans-values: ";
                   SI->getDTransType()->print(dbgs(), /*Detailed=*/false);
-                  dbgs() << "@" << Field.index() << ": <MULTIPLE>\n  ";
+                  dbgs() << "@" << Field.index() << ": <INCOMPLETE>\n  ";
                   printValue(dbgs(), &I);
                   dbgs() << "\n";
-                });
-              }
+                }
+              });
+              FI.setIncompleteValueSet();
             }
           }
         }
@@ -2043,14 +2043,14 @@ public:
         dtrans::FieldInfo &FI = Field.value();
         FI.setWritten(I);
         updateFieldFrequency(FI, I);
-        if (!FI.isMultipleValue()) {
-          FI.setMultipleValue();
-          DEBUG_WITH_TYPE(SAFETY_VALUES, {
+        DEBUG_WITH_TYPE(SAFETY_VALUES, {
+          if (!FI.isValueSetComplete()) {
             dbgs() << "dtrans-values (whole-structure-write): ";
             StInfo->getDTransType()->print(dbgs(), /*Detailed=*/false);
-            dbgs() << "@" << Field.index() << ": <MULTIPLE>\n";
-          });
-        }
+            dbgs() << "@" << Field.index() << ": <INCOMPLETE>\n";
+          }
+        });
+        FI.setIncompleteValueSet();
       }
       return;
     }
@@ -2092,16 +2092,16 @@ public:
                                 dtrans::FieldInfo &FI, size_t FieldNum,
                                 Constant *C, Value *Consumer) {
     if (!C) {
-      if (!FI.isMultipleValue()) {
-        FI.setMultipleValue();
-        DEBUG_WITH_TYPE(SAFETY_VALUES, {
+      DEBUG_WITH_TYPE(SAFETY_VALUES, {
+        if (!FI.isValueSetComplete()) {
           dbgs() << "dtrans-values: ";
           StInfo.getDTransType()->print(dbgs(), /*Detailed=*/false);
-          dbgs() << "@" << FieldNum << ": <MULTIPLE>\n  ";
+          dbgs() << "@" << FieldNum << ": <INCOMPLETE>\n  ";
           printValue(dbgs(), Consumer);
           dbgs() << "\n";
-        });
-      }
+        }
+      });
+      FI.setIncompleteValueSet();
       return;
     }
 
@@ -5643,7 +5643,7 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
       if (FSV_Unsafe ||
           (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()) ||
           StInfo->getField(I).getLLVMType()->isAggregateType())
-        StInfo->getField(I).setMultipleValue();
+        StInfo->getField(I).setIncompleteValueSet();
       if (FSAF_Unsafe ||
           (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()))
         StInfo->updateSingleAllocFuncToBottom(I);

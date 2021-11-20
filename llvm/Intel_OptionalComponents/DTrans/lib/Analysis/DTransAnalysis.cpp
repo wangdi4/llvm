@@ -8251,11 +8251,11 @@ private:
               CheckWriteValue(ConstVal, FI, ElementNum, ParentStInfo);
             } else if (auto *Call = dyn_cast<CallBase>(WriteVal)) {
               DEBUG_WITH_TYPE(DTRANS_FSV, {
-                if (!FI.isMultipleValue())
+                if (!FI.isValueSetComplete())
                   dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                         << " [" << ElementNum << "] <MULTIPLE>\n";
+                         << " [" << ElementNum << "] <INCOMPLETE>\n";
               });
-              FI.setMultipleValue();
+              FI.setIncompleteValueSet();
               if (isSafeStoreForSingleAllocFunction(Call)) {
                 Function *Callee = Call->getCalledFunction();
                 if (FI.processNewSingleAllocFunction(Callee)) {
@@ -8285,11 +8285,11 @@ private:
                               ElementNum, ParentStInfo);
             } else {
               DEBUG_WITH_TYPE(DTRANS_FSV, {
-                if (!FI.isMultipleValue())
+                if (!FI.isValueSetComplete())
                   dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                         << " [" << ElementNum << "] <MULTIPLE>\n";
+                         << " [" << ElementNum << "] <INCOMPLETE>\n";
               });
-              FI.setMultipleValue();
+              FI.setIncompleteValueSet();
               DEBUG_WITH_TYPE(DTRANS_FSAF, {
                 if (!FI.isBottomAllocFunction())
                   dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
@@ -8712,7 +8712,7 @@ private:
                    << FieldNum << "] <BOTTOM>\n";
         });
         FInfo.setBottomAllocFunction();
-        FInfo.setMultipleValue();
+        FInfo.setIncompleteValueSet();
         markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()));
       }
     }
@@ -9560,8 +9560,8 @@ private:
               DTRANS_FSV,
               dbgs() << (FI.isMultipleValue() ? " <MULTIPLE>\n" : "\n"));
         } else {
-          DEBUG_WITH_TYPE(DTRANS_FSV, dbgs() << "<MULTIPLE>\n");
-          FI.setMultipleValue();
+          DEBUG_WITH_TYPE(DTRANS_FSV, dbgs() << "<INCOMPLETE>\n");
+          FI.setIncompleteValueSet();
         }
         if (!isa<ConstantPointerNull>(ConstVal)) {
           DEBUG_WITH_TYPE(DTRANS_FSAF, {
@@ -9600,7 +9600,7 @@ private:
       for (auto &FI : StInfo->getFields()) {
         DEBUG_WITH_TYPE(DTRANS_FSV,
                         dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())
-                               << " [" << Count << "] <MULTIPLE>\n");
+                               << " [" << Count << "] <INCOMPLETE>\n");
         if (IsNullValue)
           FI.processNewSingleValue(Constant::getNullValue(FI.getLLVMType()));
         else {
@@ -9610,7 +9610,7 @@ private:
                      << Count << "] <BOTTOM>\n";
           });
           FI.setBottomAllocFunction();
-          FI.setMultipleValue();
+          FI.setIncompleteValueSet();
         }
 
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getLLVMType());
@@ -11054,7 +11054,7 @@ bool DTransAnalysisInfo::analyzeModule(
         // In case of DTransOutOfBoundsOK == false we change to 'incomplete'
         // only those fields that are marked as address taken (if any).
         if (SD_FSV || (IsInBounds && StInfo->getField(I).isAddressTaken()))
-          StInfo->getField(I).setMultipleValue();
+          StInfo->getField(I).setIncompleteValueSet();
         // Mark the field as 'Bottom alloc function' if safety conditions are
         // not met. In case of DTransOutOfBoundsOK == false we set 'Bottom alloc
         // function' only to the fields marked as address taken (if any).
@@ -11081,7 +11081,7 @@ bool DTransAnalysisInfo::analyzeModule(
           continue;
 
         if (StInfo->getField(I).getLLVMType()->isAggregateType()) {
-          StInfo->getField(I).setMultipleValue();
+          StInfo->getField(I).setIncompleteValueSet();
           DEBUG_WITH_TYPE(DTRANS_FSAF, {
             if (!StInfo->getField(I).isBottomAllocFunction())
               dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
