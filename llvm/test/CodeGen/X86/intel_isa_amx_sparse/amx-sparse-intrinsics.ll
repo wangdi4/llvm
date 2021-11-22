@@ -6,7 +6,6 @@ define void @test_tdpsbssd() nounwind {
 ; CHECK-LABEL: test_tdpsbssd:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tdpsbssd %tmm4, %tmm2, %tmm0 # encoding: [0xc4,0xe2,0xdb,0x5e,0xc2]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tdpsbssd(i8 0, i8 2, i8 4)
   ret  void
@@ -17,7 +16,6 @@ define void @test_tdpsbsud() nounwind {
 ; CHECK-LABEL: test_tdpsbsud:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tdpsbsud %tmm4, %tmm2, %tmm0 # encoding: [0xc4,0xe2,0xda,0x5e,0xc2]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tdpsbsud(i8 0, i8 2, i8 4)
   ret  void
@@ -28,7 +26,6 @@ define void @test_tdpsbusd() nounwind {
 ; CHECK-LABEL: test_tdpsbusd:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tdpsbusd %tmm4, %tmm2, %tmm0 # encoding: [0xc4,0xe2,0xd9,0x5e,0xc2]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tdpsbusd(i8 0, i8 2, i8 4)
   ret  void
@@ -39,7 +36,6 @@ define void @test_tdpsbuud() nounwind {
 ; CHECK-LABEL: test_tdpsbuud:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tdpsbuud %tmm4, %tmm2, %tmm0 # encoding: [0xc4,0xe2,0xd8,0x5e,0xc2]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tdpsbuud(i8 0, i8 2, i8 4)
   ret  void
@@ -50,7 +46,6 @@ define void @test_tdpsbf16ps() nounwind {
 ; CHECK-LABEL: test_tdpsbf16ps:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tdpsbf16ps %tmm4, %tmm2, %tmm0 # encoding: [0xc4,0xe2,0xda,0x5c,0xc2]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tdpsbf16ps(i8 0, i8 2, i8 4)
   ret  void
@@ -61,7 +56,6 @@ define void @test_tdpsfp16ps() nounwind {
 ; CHECK-LABEL: test_tdpsfp16ps:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tdpsfp16ps %tmm4, %tmm2, %tmm0 # encoding: [0xc4,0xe2,0xdb,0x5c,0xc2]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tdpsfp16ps(i8 0, i8 2, i8 4)
   ret  void
@@ -72,7 +66,6 @@ define void @test_tldexpandb(i8* %A, i64 %B, i32 %C) nounwind {
 ; CHECK-LABEL: test_tldexpandb:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tldexpandb %edx, (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x6a,0x69,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tldexpandb(i8 1, i8* %A, i64 %B, i32 %C)
   ret  void
@@ -83,7 +76,6 @@ define void @test_tldexpandbt1(i8* %A, i64 %B, i32 %C) nounwind {
 ; CHECK-LABEL: test_tldexpandbt1:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tldexpandbt1 %edx, (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x6b,0x69,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tldexpandbt1(i8 1, i8* %A, i64 %B, i32 %C)
   ret  void
@@ -94,7 +86,6 @@ define void @test_tldexpandw(i8* %A, i64 %B, i32 %C) nounwind {
 ; CHECK-LABEL: test_tldexpandw:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tldexpandw %edx, (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x68,0x69,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tldexpandw(i8 1, i8* %A, i64 %B, i32 %C)
   ret  void
@@ -105,7 +96,6 @@ define void @test_tldexpandwt1(i8* %A, i64 %B, i32 %C) nounwind {
 ; CHECK-LABEL: test_tldexpandwt1:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tldexpandwt1 %edx, (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x69,0x69,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tldexpandwt1(i8 1, i8* %A, i64 %B, i32 %C)
   ret  void

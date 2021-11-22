@@ -6,7 +6,6 @@ define void @test_tloadtransposed(i8* %A, i64 %B) nounwind {
 ; CHECK-LABEL: test_tloadtransposed:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tloadtransposed (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x7a,0x5f,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tloadtransposed(i8 1, i8* %A, i64 %B)
   ret  void
@@ -17,7 +16,6 @@ define void @test_tloadtransposedt1(i8* %A, i64 %B) nounwind {
 ; CHECK-LABEL: test_tloadtransposedt1:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tloadtransposedt1 (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x78,0x5f,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tloadtransposedt1(i8 1, i8* %A, i64 %B)
   ret  void
@@ -28,7 +26,6 @@ define void @test_trpntlvwz0(i8* %A, i64 %B) nounwind {
 ; CHECK-LABEL: test_trpntlvwz0:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    trpntlvwz0 (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x7b,0x6e,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.trpntlvwz0(i8 1, i8* %A, i64 %B)
   ret  void
@@ -39,7 +36,6 @@ define void @test_trpntlvwz0t1(i8* %A, i64 %B) nounwind {
 ; CHECK-LABEL: test_trpntlvwz0t1:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    trpntlvwz0t1 (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x7b,0x6f,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.trpntlvwz0t1(i8 1, i8* %A, i64 %B)
   ret  void
@@ -50,7 +46,6 @@ define void @test_trpntlvwz1(i8* %A, i64 %B) nounwind {
 ; CHECK-LABEL: test_trpntlvwz1:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    trpntlvwz1 (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x7a,0x6e,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.trpntlvwz1(i8 1, i8* %A, i64 %B)
   ret  void
@@ -61,7 +56,6 @@ define void @test_trpntlvwz1t1(i8* %A, i64 %B) nounwind {
 ; CHECK-LABEL: test_trpntlvwz1t1:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    trpntlvwz1t1 (%rdi,%rsi), %tmm1 # encoding: [0xc4,0xe2,0x7a,0x6f,0x0c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.trpntlvwz1t1(i8 1, i8* %A, i64 %B)
   ret  void
@@ -72,7 +66,6 @@ define void @test_tstoretransposed(i8* %A, i64 %B) nounwind {
 ; CHECK-LABEL: test_tstoretransposed:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tstoretransposed %tmm3, (%rdi,%rsi) # encoding: [0xc4,0xe2,0x79,0x5f,0x1c,0x37]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tstoretransposed(i8* %A, i64 %B, i8 3)
   ret  void
