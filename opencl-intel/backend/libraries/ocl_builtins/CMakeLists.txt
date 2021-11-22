@@ -462,7 +462,7 @@ add_custom_command(OUTPUT clbltpipe.obj
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
 
   COMMAND ${OPT} -dpcpp-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
-  -dpcpp-kernel-builtin-import pipes.bc
+  -dpcpp-kernel-builtin-import -O3 -disable-intel-proprietary-opts pipes.bc
   -o pipes-opt.bc
 
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc
