@@ -245,9 +245,9 @@ define i32 @trunc_vXi1() {
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i16 = trunc <3 x i16> undef to <3 x i1>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i16 = trunc <7 x i16> undef to <7 x i1>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i16 = trunc <9 x i16> undef to <9 x i1>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i16 = trunc <33 x i16> undef to <33 x i1>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i16 = trunc <63 x i16> undef to <63 x i1>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 134 for instruction: %V67i16 = trunc <67 x i16> undef to <67 x i1>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V33i16 = trunc <33 x i16> undef to <33 x i1>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V63i16 = trunc <63 x i16> undef to <63 x i1>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V67i16 = trunc <67 x i16> undef to <67 x i1>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i8 = trunc <3 x i8> undef to <3 x i1>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i8 = trunc <7 x i8> undef to <7 x i1>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i8 = trunc <9 x i8> undef to <9 x i1>
