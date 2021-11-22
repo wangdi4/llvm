@@ -2505,39 +2505,6 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
   EVT SrcTy = TLI->getValueType(DL, Src);
   EVT DstTy = TLI->getValueType(DL, Dst);
 
-#if INTEL_CUSTOMIZATION
-  // Get the widen VT if VT is vector, and the element
-  // count is non-power of 2.
-  auto getWidenVT = [&](Type* Ty, EVT& VT) {
-    auto* VTy = dyn_cast<FixedVectorType>(Ty);
-    if (!VTy) return false;
-
-    unsigned NumElem = VTy->getNumElements();
-    Type* ScalarTy = VTy->getScalarType();
-
-    if (isPowerOf2_32(NumElem))
-      return false;
-
-    EVT ScalarVT = TLI->getValueType(DL, ScalarTy);
-
-    if (!ScalarVT.isSimple())
-      return false;
-
-    Type* NewTy = FixedVectorType::get(ScalarTy, NextPowerOf2(NumElem));
-    VT = TLI->getValueType(DL, NewTy);
-
-    return true;
-  };
-
-  EVT NSrcTy = SrcTy;
-  EVT NDstTy = DstTy;
-
-  if (getWidenVT(Src, NSrcTy) && getWidenVT(Dst, NDstTy)) {
-    SrcTy = NSrcTy;
-    DstTy = NDstTy;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // The function getSimpleVT only handles simple value types.
   if (SrcTy.isSimple() && DstTy.isSimple()) {
     MVT SimpleSrcTy = SrcTy.getSimpleVT();
