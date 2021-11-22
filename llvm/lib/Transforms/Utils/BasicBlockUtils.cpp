@@ -1104,7 +1104,7 @@ static void RemoveCatchSwitchOMPPreds(BasicBlock *ExitBB,
   // edges by converting invoke to call.
   for (auto *PredBB : SplitPreds) {
     auto *Term = PredBB->getTerminator();
-    if (!isa<InvokeInst>(Term) ||
+    if (!isa<InvokeInst>(Term) || !DT->getNode(PredBB) ||
         !VPOUtils::enclosingBeginDirective(PredBB->getTerminator(), DT)) {
       LLVM_DEBUG(
           dbgs()
@@ -1408,7 +1408,10 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
       // OpenMP loop. Otherwise we can't fix it without changing program
       // semantics.
       LLVM_DEBUG(dbgs() << "Catchswitch pred: " << *CSI << "\n");
-      if (!VPOUtils::enclosingBeginDirective(CSI, DT)) {
+      if (!DT->getNode(PredBB)) {
+        LLVM_DEBUG(dbgs() << "Unreachable, does not block rotation\n");
+        continue;
+      } else if (!VPOUtils::enclosingBeginDirective(CSI, DT)) {
         LLVM_DEBUG(dbgs() << "Cannot rotate.\n");
         return;
       } else {
