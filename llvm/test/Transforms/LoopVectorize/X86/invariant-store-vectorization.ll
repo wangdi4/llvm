@@ -286,30 +286,17 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    br label [[VEC_EPILOG_VECTOR_BODY:%.*]]
 ; CHECK:       vec.epilog.vector.body:
 ; CHECK-NEXT:    [[INDEX25:%.*]] = phi i64 [ [[VEC_EPILOG_RESUME_VAL]], [[VEC_EPILOG_PH]] ], [ [[INDEX_NEXT26:%.*]], [[VEC_EPILOG_VECTOR_BODY]] ]
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[INDEX25]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = bitcast i32* [[TMP8]] to <8 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD28:%.*]] = load <8 x i32>, <8 x i32>* [[TMP9]], align 8
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq <8 x i32> [[WIDE_LOAD28]], [[BROADCAST_SPLAT30]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = bitcast i32* [[TMP8]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[BROADCAST_SPLAT32]], <8 x i32>* [[TMP11]], align 4
-; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, i32* [[C]], i64 [[INDEX25]]
+; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr i32, i32* [[C]], i64 [[INDEX25]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[TMP12]] to <8 x i32>*
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD33:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[TMP13]], i32 8, <8 x i1> [[TMP10]], <8 x i32> poison)
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr i32, i32* [[A]], <8 x i64> zeroinitializer
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> [[WIDE_MASKED_LOAD33]], <8 x i32*> [[TMP14]], i32 4, <8 x i1> [[TMP10]])
-=======
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[INDEX25]]
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[TMP7]] to <8 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD28:%.*]] = load <8 x i32>, <8 x i32>* [[TMP8]], align 8
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq <8 x i32> [[WIDE_LOAD28]], [[BROADCAST_SPLAT30]]
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[TMP7]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[BROADCAST_SPLAT32]], <8 x i32>* [[TMP10]], align 4
-; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i32, i32* [[C]], i64 [[INDEX25]]
-; CHECK-NEXT:    [[TMP12:%.*]] = bitcast i32* [[TMP11]] to <8 x i32>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD33:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[TMP12]], i32 8, <8 x i1> [[TMP9]], <8 x i32> poison)
-; CHECK-NEXT:    call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> [[WIDE_MASKED_LOAD33]], <8 x i32*> [[BROADCAST_SPLAT35]], i32 4, <8 x i1> [[TMP9]])
->>>>>>> 4348cd42c385e71b63e5da7e492172cff6a79d7b
 ; CHECK-NEXT:    [[INDEX_NEXT26]] = add nuw i64 [[INDEX25]], 8
 ; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i64 [[INDEX_NEXT26]], [[N_VEC24]]
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[VEC_EPILOG_MIDDLE_BLOCK:%.*]], label [[VEC_EPILOG_VECTOR_BODY]], !llvm.loop [[LOOP25:![0-9]+]]
