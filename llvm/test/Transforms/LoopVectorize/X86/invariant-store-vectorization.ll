@@ -260,7 +260,7 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <16 x i32> [[WIDE_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[TMP0]] to <16 x i32>*
 ; CHECK-NEXT:    store <16 x i32> [[BROADCAST_SPLAT19]], <16 x i32>* [[TMP3]], align 4, !alias.scope !17, !noalias !20
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* [[C]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr i32, i32* [[C]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[TMP4]] to <16 x i32>*
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <16 x i32> @llvm.masked.load.v16i32.p0v16i32(<16 x i32>* [[TMP5]], i32 8, <16 x i1> [[TMP2]], <16 x i32> poison), !alias.scope !23
 ; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i32, i32* [[A]], <16 x i64> zeroinitializer
@@ -292,7 +292,7 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq <8 x i32> [[WIDE_LOAD28]], [[BROADCAST_SPLAT30]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = bitcast i32* [[TMP8]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[BROADCAST_SPLAT32]], <8 x i32>* [[TMP11]], align 4
-; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, i32* [[C]], i64 [[INDEX25]]
+; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr i32, i32* [[C]], i64 [[INDEX25]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[TMP12]] to <8 x i32>*
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD33:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[TMP13]], i32 8, <8 x i1> [[TMP10]], <8 x i32> poison)
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr i32, i32* [[A]], <8 x i64> zeroinitializer
