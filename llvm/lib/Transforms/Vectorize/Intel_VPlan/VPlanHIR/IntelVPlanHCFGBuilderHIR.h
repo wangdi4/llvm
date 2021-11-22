@@ -49,7 +49,9 @@ namespace vpo {
 // and privates are identified and stored within this class.
 class HIRVectorizationLegality final
     : public VectorizationLegalityBase<HIRVectorizationLegality> {
-  template <typename LegalityTy> friend class VectorizationLegalityBase;
+  // Explicit vpo:: to workaround gcc bug
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
+  template <typename LegalityTy> friend class vpo::VectorizationLegalityBase;
 
 public:
   struct CompareByDDRefSymbase {
