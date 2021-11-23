@@ -34,8 +34,16 @@ static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
     cl::desc("The number of spills/fills generated on average for each HW "
              "register spilled and restored."));
 
+// These are two experimentally set thresholds we use by default for desktop
+// and HPC programs.
+// TODO: There is no fundamental reason why those thresholds can not be the
+// same. We might want to tune CM to match them.
+unsigned const CMGatherScatterDefaultThreshold = 50;
+unsigned const CMGatherScatterDefaultThresholdZMM = 70;
+
 static cl::opt<unsigned> CMGatherScatterThreshold(
-  "vplan-cm-gather-scatter-threshold", cl::init(50),
+  "vplan-cm-gather-scatter-threshold",
+  cl::init(CMGatherScatterDefaultThreshold),
   cl::desc("If gather/scatter cost is more than CMGatherScatterThreshold "
            "percent of whole loop price the price of gather/scatter is "
            "doubled to make it harder to choose in favor of "
@@ -612,9 +620,18 @@ void HeuristicGatherScatter::apply(
     // correctly scale the cost of the basic block.
     GSCost += (*this)(Block);
 
-  // Double GatherScatter cost contribution in case Gathers/Scatters take too
-  // much to make it harder to choose this VF.
-  if (TTICost * CMGatherScatterThreshold < GSCost * 100)
+  unsigned CGThreshold = CMGatherScatterDefaultThreshold;
+
+  // If CMGatherScatterThreshold is not specified in the command line the
+  // default value for heuristic is different in ZMM-enabled context.
+  if (CMGatherScatterThreshold.getNumOccurrences() == 0 &&
+      CM->VPTTI.getRegisterBitWidth(
+          TargetTransformInfo::RGK_FixedWidthVector) >= 512)
+    CGThreshold = CMGatherScatterDefaultThresholdZMM;
+
+  // Increase GatherScatter cost contribution in case Gathers/Scatters take too
+  // much.
+  if (TTICost * CGThreshold < GSCost * 100)
     Cost += CMGatherScatterPenaltyFactor * GSCost;
 }
 

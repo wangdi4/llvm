@@ -115,8 +115,6 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-CM-AVX512-NEXT:  [[BB4]]: base cost: 0
 ; VPLAN-CM-AVX512-NEXT:  Base Cost: 206938
-; VPLAN-CM-AVX512-NEXT:  Extra cost due to Gather/Scatter heuristic is 288000
-; VPLAN-CM-AVX512-NEXT:  Total Cost: 494938
 ;
 entry:
   br label %for.body
