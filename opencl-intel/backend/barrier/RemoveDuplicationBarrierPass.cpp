@@ -39,7 +39,7 @@ namespace intel {
     m_util.init(&M);
 
     //Find all synchronize instructions
-    InstVector &syncInstructions = m_util.getAllSynchronizeInstructions();
+    InstVector syncInstructions = m_util.getAllSynchronizeInstructions();
 
     //This will hold all synchronyze instructions that will be removed
     InstVector toRemoveInstructions;

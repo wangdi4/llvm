@@ -138,7 +138,7 @@ bool SGBuiltin::insertSGBarrierForWGBarriers(Module &M) {
   llvm::BarrierUtils Utils;
   Utils.init(&M);
   bool Changed = false;
-  auto &WGBarrierCalls = Utils.getAllSynchronizeInstructions();
+  auto WGBarrierCalls = Utils.getAllSynchronizeInstructions();
   for (auto *WGBarrierCall : WGBarrierCalls) {
     auto *PF = WGBarrierCall->getFunction();
     // This call is in a vectorized function, skip it.
