@@ -3786,12 +3786,14 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
     Assert(CStride->getBitWidth() <= PointerSize,
            "Constant stride is too big for pointer size", &I, PointerSize);
 
+    // Check that the Elementtype Size evenly divides Const Stride. Size is
+    // unsigned, but Scale may be negative, so we must make sure to use a
+    // signed remainder.
     int64_t Scale = CStride->getSExtValue();
-
-    // Check that the Elementtype Size evenly divides Const Stride
-    Assert(Scale % DL.getTypeAllocSize(I.getElementType()) == 0,
-           "llvm.intel.subscript incompatible Stride for ElemTy!", Scale,
-           DL.getTypeAllocSize(I.getElementType()));
+    int64_t ElSize = (int64_t)DL.getTypeAllocSize(I.getElementType());
+    Assert(Scale % ElSize == 0,
+           "llvm.intel.subscript incompatible Stride for ElemTy!",
+           Scale, ElSize);
     if (const ConstantInt *CIdx = dyn_cast<ConstantInt>(Index))
       if (const ConstantInt *CLb = dyn_cast<ConstantInt>(Lower)) {
         int64_t Offset = Scale * (CIdx->getSExtValue() - CLb->getSExtValue());
