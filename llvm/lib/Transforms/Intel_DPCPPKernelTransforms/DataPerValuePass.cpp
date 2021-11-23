@@ -73,7 +73,7 @@ void DataPerValue::analyze(Module &M) {
     runOnFunction(F);
 
   // Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
 
   // Collect data for each function with synchronize instruction.
   for (Function *F : FunctionsWithSync)

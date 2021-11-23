@@ -2165,7 +2165,9 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     // doesn't seem to be a good fit we could look at adding a more descriptive
     // partitioning type.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/239.
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     struct {
       pi_device_partition_property Arr[2];
@@ -2331,35 +2333,45 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   }
   case PI_DEVICE_INFO_IMAGE2D_MAX_WIDTH:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // Until Level Zero provides needed info, hardcode default minimum values
     // required by the SYCL specification.
     return ReturnValue(size_t{8192});
   case PI_DEVICE_INFO_IMAGE2D_MAX_HEIGHT:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // Until Level Zero provides needed info, hardcode default minimum values
     // required by the SYCL specification.
     return ReturnValue(size_t{8192});
   case PI_DEVICE_INFO_IMAGE3D_MAX_WIDTH:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // Until Level Zero provides needed info, hardcode default minimum values
     // required by the SYCL specification.
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE3D_MAX_HEIGHT:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // Until Level Zero provides needed info, hardcode default minimum values
     // required by the SYCL specification.
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE3D_MAX_DEPTH:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // Until Level Zero provides needed info, hardcode default minimum values
     // required by the SYCL specification.
@@ -2373,7 +2385,9 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   // Handle SIMD widths.
   // TODO: can we do better than this?
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/239
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   case PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_CHAR:
   case PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_CHAR:
@@ -2411,7 +2425,9 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   case PI_DEVICE_INFO_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS: {
     // TODO: Not supported yet. Needs to be updated after support is added.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/338
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     return ReturnValue(pi_bool{false});
   }
@@ -4854,7 +4870,11 @@ pi_result piEventGetInfo(pi_event Event, pi_event_info ParamName,
     // TODO: We don't know if the status is queued, submitted or running.
     //       For now return "running", as others are unlikely to be of
     //       interest.
-    //       https://gitlab.devtools.intel.com/one-api/level_zero/issues/243 // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
+    //       https://gitlab.devtools.intel.com/one-api/level_zero/issues/243
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
     return getInfo(ParamValueSize, ParamValue, ParamValueSizeRet,
                    pi_int32{CL_RUNNING});
   }
@@ -4917,7 +4937,11 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
   case PI_PROFILING_INFO_COMMAND_QUEUED:
   case PI_PROFILING_INFO_COMMAND_SUBMIT:
     // TODO: Support these when Level Zero supported is added.
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373 // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
     return ReturnValue(uint64_t{0});
   default:
     zePrint("piEventGetProfilingInfo: not supported ParamName\n");
@@ -6205,7 +6229,11 @@ static pi_result enqueueMemImageCommandHelper(
       return Result;
 
       // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
-      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SHARED_SW_ADVANCED
+      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303
+#endif // INTEL_FEATURE_SHARED_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
       // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
     PI_ASSERT(DstMem->isImage(), PI_INVALID_MEM_OBJECT);

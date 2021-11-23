@@ -1401,6 +1401,10 @@ namespace llvm {
     bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
                                            Type *Ty) const override;
 
+#if INTEL_CUSTOMIZATION
+    bool isForceMergeMultiUseInputChain(const int ISDNode) const override;
+#endif // INTEL_CUSTOMIZATION
+
     bool reduceSelectOfFPConstantLoads(EVT CmpOpVT) const override;
 
     bool convertSelectOfConstantsToMath(EVT VT) const override;

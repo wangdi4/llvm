@@ -39,7 +39,7 @@ bool SplitBBonBarrier::runImpl(Module &M) {
   Utils.init(&M);
 
   // Find all synchronize instructions.
-  InstVector &SyncInsts = Utils.getAllSynchronizeInstructions();
+  InstVector SyncInsts = Utils.getAllSynchronizeInstructions();
 
   bool Changed = false;
 

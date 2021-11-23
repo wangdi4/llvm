@@ -51,14 +51,14 @@ typedef enum {
   CALL_BI_NUM
 } CALL_BI_TYPE;
 
-using InstVector = SmallVector<llvm::Instruction *, 8>;
-using ValueVector = SmallVector<llvm::Value *, 8>;
-using FuncVector = SmallVector<llvm::Function *, 8>;
-using BasicBlockVector = SmallVector<llvm::BasicBlock *, 8>;
+using InstVector = SmallVector<Instruction *, 8>;
+using ValueVector = SmallVector<Value *, 8>;
+using FuncVector = SmallVector<Function *, 8>;
+using BasicBlockVector = SmallVector<BasicBlock *, 8>;
 
-using InstSet = SetVector<llvm::Instruction *>;
-using FuncSet = SetVector<llvm::Function *>;
-using BasicBlockSet = SetVector<llvm::BasicBlock *>;
+using InstSet = SetVector<Instruction *>;
+using FuncSet = SetVector<Function *>;
+using BasicBlockSet = SetVector<BasicBlock *>;
 
 using FunctionToUnsigned = std::map<const Function *, unsigned>;
 
@@ -66,10 +66,8 @@ using FunctionToUnsigned = std::map<const Function *, unsigned>;
 /// and processes several functionality on a given module
 class BarrierUtils {
 public:
-  /// \brief C'tor
   BarrierUtils();
 
-  /// \brief D'tor
   ~BarrierUtils() {}
 
   /// \brief Initialize Barrier Utils with given module to process data on
@@ -96,11 +94,11 @@ public:
 
   /// \brief return all synchronize instructions in the module
   /// \returns container with all synchronize instructions
-  InstVector &getAllSynchronizeInstructions();
+  InstVector getAllSynchronizeInstructions();
 
   /// \brief Find all functions  in the module that contain synchronize
   /// instructions \returns InstSet container with found functions
-  FuncSet &getAllFunctionsWithSynchronization();
+  FuncSet getAllFunctionsWithSynchronization();
 
   /// @bried return all functions which both call recursive functions and
   ///        synchronize functions.
@@ -109,7 +107,7 @@ public:
   /// \brief Find calls to WG functions upon their type
   /// \param type - type of WG functions to find
   /// \returns container with calls to WG functions of requested type
-  InstVector &getWGCallInstructions(CALL_BI_TYPE type);
+  InstVector getWGCallInstructions(CALL_BI_TYPE type);
 
   /// \brief Collect all kernels and vectorized counterparts
   /// \param KernelList - list of kernels
@@ -119,7 +117,7 @@ public:
 
   /// \brief Find all kernel functions in the module
   /// \returns FuncVector container with found functions
-  FuncVector &getAllKernelsWithBarrier();
+  FuncVector getAllKernelsWithBarrier();
 
   unsigned getFunctionVectorizationWidth(const Function *F) const;
 
@@ -195,8 +193,6 @@ public:
   /// \param F Function.
   inst_range findDummyRegion(Function &F);
 
-  Type *getInt32Ty() const { return I32Ty; }
-
   Type *getSizetTy() const { return SizetTy; }
 
 private:
@@ -211,15 +207,15 @@ private:
   /// \brief Find all instructions in the module, which use function with given
   /// name \param name the given function name \param usesSet container to
   /// insert all found usage instructions into
-  void findAllUsesOfFunc(const llvm::StringRef &name, InstSet &usesSet);
+  void findAllUsesOfFunc(StringRef name, InstSet &usesSet);
 
   /// \brief Create function declaration with given name and type specification
   /// \param name the given function name
   /// \param pResult type of return value of the function
   /// \param funcTyArgs types vector of all arguments values of the function
   /// \returns Function new declared function
-  Function *createFunctionDeclaration(const llvm::Twine &name, Type *pResult,
-                                      std::vector<Type *> &funcTyArgs);
+  Function *createFunctionDeclaration(const Twine &name, Type *pResult,
+                                      ArrayRef<Type *> funcTyArgs);
 
   /// \brief Add ReadNone attribute to given function.
   /// \param Func the given function.
@@ -252,16 +248,8 @@ private:
   /// This holds the get_base_global_id() function
   Function *GetBaseGIDFunc;
 
-  /// This holds the all sync instructions of the module
-  InstVector SyncInstructions;
   /// This holds the all sync basic blocks of the module
   BasicBlockVector SyncBasicBlocks;
-  /// This holds the all functions of the module with sync instruction
-  FuncSet SyncFunctions;
-  /// This holds the all kernel functions of the module
-  FuncVector KernelFunctions;
-  /// This holds all the WG function calls in the module
-  InstVector WGcallInstructions;
   FunctionToUnsigned KernelVectorizationWidths;
 
   /// This indecator for synchronize data initialization

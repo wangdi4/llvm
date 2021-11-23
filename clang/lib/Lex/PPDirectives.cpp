@@ -2714,9 +2714,9 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   while (true) {
     Token Tok;
     LexUnexpandedToken(Tok);
+    Tokens.push_back(Tok);
     if (Tok.is(tok::eod))
       break;
-    Tokens.push_back(Tok);
 
     IdentifierInfo *II = nullptr;
     if (Tok.is(tok::identifier))
@@ -2879,14 +2879,17 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   // since the MS compile isn't guaranteed to compile them.  The Intel
   // headers start with HeaderBasePath.
   auto HSOpts = HeaderInfo.getHeaderSearchOpts();
+  std::string HeaderBasePathSlash =
+      llvm::sys::path::convert_to_slash(HSOpts.HeaderBasePath);
   for (const auto &Iter : HSOpts.UserEntries) {
-    if (HSOpts.HeaderBasePath.empty() ||
-        Iter.Path.rfind(HSOpts.HeaderBasePath, 0) != 0) {
-      ArgFileLine = "/I\"";
-      ArgFileLine += Iter.Path;
-      ArgFileLine += "\"";
-      AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
-    }
+    if (!HSOpts.HeaderBasePath.empty() &&
+        (Iter.Path.rfind(HSOpts.HeaderBasePath, 0) == 0 ||
+         Iter.Path.rfind(HeaderBasePathSlash, 0) == 0))
+      continue;
+    ArgFileLine = "/I\"";
+    ArgFileLine += Iter.Path;
+    ArgFileLine += "\"";
+    AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
   }
 
   SmallString<128> OutputDir = getPreprocessorOpts().OutputFile;

@@ -3274,6 +3274,9 @@ void SelectionDAGISel::SelectCodeCommon(SDNode *NodeToMatch,
       // FIXME: What if other value results of the node have uses not matched
       // by this pattern?
       if (ChainNodesMatched.back() != NodeToMatch &&
+#if INTEL_CUSTOMIZATION
+          TLI->isForceMergeMultiUseInputChain(NodeToMatch->getOpcode()) &&
+#endif // INTEL_CUSTOMIZATION
           !RecordedNodes[RecNo].first.hasOneUse()) {
         ChainNodesMatched.clear();
         break;
