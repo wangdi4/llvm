@@ -4822,10 +4822,16 @@ void HIRParser::phase2Parse() {
   }
 
   for (auto *Call : DistributePoints) {
-    assert(!HLNodeUtils::isLexicalLastChildOfParent(Call) &&
-           "Could not find next node of distribute point intrinsic!");
+    // It is possible for scalar opt to generate incoming IR where
+    // redundant instructions after the DistPoint has been removed. This
+    // should be equivalent as distpoint at the beginning of the loop.
+    HLNode *NextNode;
+    if (HLNodeUtils::isLexicalLastChildOfParent(Call)) {
+      NextNode = Call->getParentLoop()->getFirstChild();
+    } else {
+      NextNode = &*std::next(Call->getIterator());
+    }
 
-    auto *NextNode = &*std::next(Call->getIterator());
     assert(isa<HLDDNode>(NextNode) &&
            "Next node of distribute point intrinsic is not a HLDDNode!");
 
