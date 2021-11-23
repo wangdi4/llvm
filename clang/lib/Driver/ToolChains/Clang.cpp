@@ -10053,7 +10053,6 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
                        getToolChain().getTriple().isSPIR();
-#endif // INTEL_CUSTOMIZATION
 
   // For OpenMP offload, -split=* should not be used
   if (!IsOpenMPSPIRV) {
@@ -10068,15 +10067,13 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
         addArgs(CmdArgs, TCArgs, {"-split=auto"});
       else { // Device code split is off
       }
-    } else {
-      // auto is the default split mode
+    } else if (getToolChain().getTriple().getArchName() != "spir64_fpga") {
+      // for FPGA targets, off is the default split mode,
+      // otherwise auto is the default split mode
       addArgs(CmdArgs, TCArgs, {"-split=auto"});
     }
-  } else if (getToolChain().getTriple().getArchName() != "spir64_fpga") {
-    // for FPGA targets, off is the default split mode,
-    // otherwise auto is the default split mode
-    addArgs(CmdArgs, TCArgs, {"-split=auto"});
   }
+#endif // INTEL_CUSTOMIZATION
 
   // On FPGA target we don't need non-kernel functions as entry points, because
   // it only increases amount of code for device compiler to handle, without any
