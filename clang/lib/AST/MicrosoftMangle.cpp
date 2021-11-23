@@ -567,7 +567,6 @@ void MicrosoftCXXNameMangler::mangle(GlobalDecl GD, StringRef Prefix) {
 
   // <mangled-name> ::= ? <name> <type-encoding>
   Out << Prefix;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (getASTContext().getLangOpts().IntelCompat)
     if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
@@ -576,10 +575,7 @@ void MicrosoftCXXNameMangler::mangle(GlobalDecl GD, StringRef Prefix) {
         Out << "__regcall3__";
     }
 #endif  // INTEL_CUSTOMIZATION
-  mangleName(D);
-=======
   mangleName(GD);
->>>>>>> b472bd855ed85691d0d03ef1808c82b780d23721
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
     mangleFunctionEncoding(GD, Context.shouldMangleDeclName(FD));
   else if (const VarDecl *VD = dyn_cast<VarDecl>(D))
