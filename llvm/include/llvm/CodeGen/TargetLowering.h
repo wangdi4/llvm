@@ -425,6 +425,12 @@ public:
     return true;
   }
 
+#if INTEL_CUSTOMIZATION
+  virtual bool isForceMergeMultiUseInputChain(const int ISDNode) const {
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Return true if it is profitable to convert a select of FP constants into
   /// a constant pool load whose address depends on the select condition. The
   /// parameter may be used to differentiate a select with FP compare from

@@ -94,6 +94,13 @@ static cl::opt<bool> ExperimentalUnorderedISEL(
              "stores respectively."),
     cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableForceEmitMemoryFormBasicShuffle(
+    "x86-force-emit-mem-form-basic-shuffle",
+    cl::desc("Forcely emitting vmov{sl,sh,d}dup from memory."), cl::init(false),
+    cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
+
 /// Call this when the user attempts to do something unsupported, like
 /// returning a double without SSE2 enabled on x86_64. This is not fatal, unlike
 /// report_fatal_error, so calling code should attempt to recover without
@@ -5859,6 +5866,15 @@ bool X86TargetLowering::shouldConvertConstantLoadToIntImm(const APInt &Imm,
     return false;
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+bool X86TargetLowering::isForceMergeMultiUseInputChain(
+    const int ISDNode) const {
+  return !EnableForceEmitMemoryFormBasicShuffle ||
+         !(ISDNode == X86ISD::MOVSLDUP || ISDNode == X86ISD::MOVSHDUP ||
+           ISDNode == X86ISD::MOVDDUP);
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86TargetLowering::reduceSelectOfFPConstantLoads(EVT CmpOpVT) const {
   // If we are using XMM registers in the ABI and the condition of the select is
