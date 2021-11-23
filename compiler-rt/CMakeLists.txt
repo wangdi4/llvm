@@ -207,6 +207,14 @@ macro(handle_default_cxx_lib var)
   endif()
 endmacro()
 
+# INTEL_CUSTOMIZATION
+# Avoid libc++ libarary dependency in compiler-rt
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "-stdlib=libstdc++" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
+# end INTEL_CUSTOMIZATION
+
 # This is either directly the C++ ABI library or the full C++ library
 # which pulls in the ABI transitively.
 set(SANITIZER_CXX_ABI "default" CACHE STRING
