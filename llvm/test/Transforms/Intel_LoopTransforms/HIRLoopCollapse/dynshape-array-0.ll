@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-loop-collapse -hir-details -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; *** Source Code ***
 ;subroutine sub (A, N1,N2,N3)
@@ -14,25 +14,33 @@
 ;*** IR Dump Before HIR Loop Collapse ***
 ;Function: sub_
 
-;CHECK:      BEGIN REGION { }
-;CHECK:            + DO i1 = 0, zext.i32.i64(%"sub_$N3_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
-;CHECK:            |   + DO i2 = 0, sext.i32.i64(%"sub_$N2_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
-;CHECK:            |   |   + DO i3 = 0, sext.i32.i64(%"sub_$N1_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
-;CHECK:            |   |   |   (%"sub_$A")[i1][i2][i3] = 0.000000e+00;
-;CHECK:            |   |   + END LOOP
-;CHECK:            |   + END LOOP
-;CHECK:            + END LOOP
-;CHECK:      END REGION
+;      BEGIN REGION { }
+;            + Ztt: No
+;            + DO i1 = 0, zext.i32.i64(%"sub_$N3_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;            |
+;            |   + Ztt: if (%"sub_$N2_fetch" >= 1)
+;            |   + DO i2 = 0, sext.i32.i64(%"sub_$N2_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;            |   |
+;            |   |   + Ztt: if (%"sub_$N1_fetch" >= 1)
+;            |   |   + DO i3 = 0, sext.i32.i64(%"sub_$N1_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;            |   |   |   (%"sub_$A")[i1][i2][i3] = 0.000000e+00;
+;            |   |   + END LOOP
+;            |   + END LOOP
+;            + END LOOP
+;      END REGION
 
 
 ;*** IR Dump After HIR Loop Collapse ***
 ;Function: sub_
 
 ;CHECK:      BEGIN REGION { modified }
-;CHECK:            + DO i1 = 0, (zext.i32.i64(%"sub_$N3_fetch") * sext.i32.i64(%"sub_$N1_fetch") * sext.i32.i64(%"sub_$N2_fetch")) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;
+;CHECK:            + Ztt: if (%"sub_$N1_fetch" >= 1 && %"sub_$N2_fetch" >= 1)
+;CHECK:            + DO i64 i1 = 0, (zext.i32.i64(%"sub_$N3_fetch") * sext.i32.i64(%"sub_$N1_fetch") * sext.i32.i64(%"sub_$N2_fetch")) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;CHECK:            |   (%"sub_$A")[0][0][i1] = 0.000000e+00;
 ;CHECK:            + END LOOP
 ;CHECK:      END REGION
+
 
 ; [Note]
 ; Below are the detailed dump (-hir-details-dims) for both before and after collapsing.
