@@ -407,8 +407,8 @@ bool ISD::isVPOpcode(unsigned Opcode) {
   switch (Opcode) {
   default:
     return false;
-#define BEGIN_REGISTER_VP_SDNODE(SDOPC, ...)                                   \
-  case ISD::SDOPC:                                                             \
+#define BEGIN_REGISTER_VP_SDNODE(VPSD, ...)                                    \
+  case ISD::VPSD:                                                              \
     return true;
 #include "llvm/IR/VPIntrinsics.def"
   }
@@ -417,23 +417,25 @@ bool ISD::isVPOpcode(unsigned Opcode) {
 bool ISD::isVPBinaryOp(unsigned Opcode) {
   switch (Opcode) {
   default:
-    return false;
-#define PROPERTY_VP_BINARYOP_SDNODE(SDOPC)                                     \
-  case ISD::SDOPC:                                                             \
-    return true;
+    break;
+#define BEGIN_REGISTER_VP_SDNODE(VPSD, ...) case ISD::VPSD:
+#define VP_PROPERTY_BINARYOP return true;
+#define END_REGISTER_VP_SDNODE(VPSD) break;
 #include "llvm/IR/VPIntrinsics.def"
   }
+  return false;
 }
 
 bool ISD::isVPReduction(unsigned Opcode) {
   switch (Opcode) {
   default:
-    return false;
-#define PROPERTY_VP_REDUCTION_SDNODE(SDOPC)                                    \
-  case ISD::SDOPC:                                                             \
-    return true;
+    break;
+#define BEGIN_REGISTER_VP_SDNODE(VPSD, ...) case ISD::VPSD:
+#define VP_PROPERTY_REDUCTION(STARTPOS, ...) return true;
+#define END_REGISTER_VP_SDNODE(VPSD) break;
 #include "llvm/IR/VPIntrinsics.def"
   }
+  return false;
 }
 
 /// The operand position of the vector mask.
@@ -441,8 +443,8 @@ Optional<unsigned> ISD::getVPMaskIdx(unsigned Opcode) {
   switch (Opcode) {
   default:
     return None;
-#define BEGIN_REGISTER_VP_SDNODE(SDOPC, LEGALPOS, TDNAME, MASKPOS, ...)        \
-  case ISD::SDOPC:                                                             \
+#define BEGIN_REGISTER_VP_SDNODE(VPSD, LEGALPOS, TDNAME, MASKPOS, ...)         \
+  case ISD::VPSD:                                                              \
     return MASKPOS;
 #include "llvm/IR/VPIntrinsics.def"
   }
@@ -453,8 +455,8 @@ Optional<unsigned> ISD::getVPExplicitVectorLengthIdx(unsigned Opcode) {
   switch (Opcode) {
   default:
     return None;
-#define BEGIN_REGISTER_VP_SDNODE(SDOPC, LEGALPOS, TDNAME, MASKPOS, EVLPOS)     \
-  case ISD::SDOPC:                                                             \
+#define BEGIN_REGISTER_VP_SDNODE(VPSD, LEGALPOS, TDNAME, MASKPOS, EVLPOS)      \
+  case ISD::VPSD:                                                              \
     return EVLPOS;
 #include "llvm/IR/VPIntrinsics.def"
   }
