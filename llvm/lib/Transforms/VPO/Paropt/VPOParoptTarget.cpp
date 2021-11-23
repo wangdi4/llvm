@@ -3818,8 +3818,8 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 #endif // INTEL_CUSTOMIZATION
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchs, llvm::Optional<uint64_t> &InteropPositionOut,
-    StringRef &NeedDevicePtrStr, StringRef &InteropStr) {
+    uint64_t &DeviceArchsOut, llvm::Optional<uint64_t> &InteropPositionOut,
+    StringRef &NeedDevicePtrStrOut, StringRef &InteropStrOut) {
 
   assert(BaseCall && "BaseCall is null");
   Function *BaseFunc = BaseCall->getCalledFunction();
@@ -3883,10 +3883,11 @@ StringRef VPOParoptTransform::getVariantInfo(
   SmallVector<StringRef, 1> Variants;  // holds <variant> substrings
   SmallVector<StringRef, 3> Fields;    // holds <field>:<value> substrings
   SmallVector<StringRef, 2> FV;        // FV[0]= <field>; FV[1]= <value>
-  StringRef VariantName;               // string to return
+  StringRef VariantNameOut;            // string to return
   bool FoundConstruct = false;
   bool FoundArch = false;
   bool FoundName = false;
+  uint64_t DeviceArchs = 0u;
 
   auto matchDeviceArch = [&DeviceArchs](StringRef &ArchList) {
     // ArchList is of the form <arch>[,<arch>[,<arch>...]]
@@ -3937,6 +3938,12 @@ StringRef VPOParoptTransform::getVariantInfo(
     FoundConstruct = false;
     FoundArch = false;
     FoundName = false;
+    StringRef VariantName;
+    StringRef InteropStr;
+    StringRef NeedDevicePtrStr;
+    DeviceArchs = 0u;
+    uint64_t InteropPosition = 0u;
+
     for (StringRef &Field : Fields) {
       // LLVM_DEBUG(dbgs() << __FUNCTION__ << ":   Field: " << Field << "\n");
 
@@ -3945,32 +3952,32 @@ StringRef VPOParoptTransform::getVariantInfo(
       Field.split(FV, ":");
       assert(FV.size() == 2 &&
              "Malformed <field>:<value> in openmp-variant attribute");
-      if (FV[0] == "construct" && FV[1] == MatchConstruct)
+      if (FV[0] == "construct") {
+        // The same function can have multiple variants matching different
+        // constructs (e.g. dispatch and variant dispatch).
+        if (FV[1] != MatchConstruct)
+          break;
         FoundConstruct = true;
-      else if (FV[0] == "arch" && matchDeviceArch(FV[1]))
+      } else if (FV[0] == "arch" && matchDeviceArch(FV[1])) {
         FoundArch = true;
-      else if (FV[0] == "name") {
+      } else if (FV[0] == "name") {
         VariantName = FV[1];
         FoundName = true;
-      }
-      else if (FV[0] == "need_device_ptr") {
+      } else if (FV[0] == "need_device_ptr") {
         NeedDevicePtrStr = FV[1];
-      }
-      else if (FV[0] == "interop") {
+      } else if (FV[0] == "interop") {
         InteropStr = FV[1];
-      }
-      else if (FV[0] == "interop_position") {
+      } else if (FV[0] == "interop_position") {
         uint64_t Position = 0u;
         if (FV[1].getAsInteger(10, Position)) {
           // getAsInteger() returns true on error
           llvm_unreachable("Interop position must be an unsigned integer");
         } else if (Position > 0) {
-          InteropPositionOut.emplace(Position);
+          InteropPosition = Position;
         } else {
           llvm_unreachable("Interop position must be positive");
         }
-      }
-      else {
+      } else {
         F->getContext().diagnose(DiagnosticInfoUnsupported(
             *F, "Found unsupported field in the openmp-variant attribute.",
             W->getEntryDirective()->getDebugLoc()));
@@ -3981,6 +3988,14 @@ StringRef VPOParoptTransform::getVariantInfo(
 
     if (FoundConstruct) {
       if (FoundName) {
+        // Found a variant matching the construct. Update the output fields.
+        VariantNameOut = VariantName;
+        DeviceArchsOut = DeviceArchs;
+        NeedDevicePtrStrOut = NeedDevicePtrStr;
+        InteropStrOut = InteropStr;
+        if (InteropPosition > 0)
+          InteropPositionOut.emplace(InteropPosition);
+
         if (CountDeclareVariantsForDispatch > 1) {
           emitWarning(W, "Found multiple variants for " + MatchConstruct +
                              ". Only one will be used in the current "
@@ -3997,15 +4012,17 @@ StringRef VPOParoptTransform::getVariantInfo(
 
   if (FoundConstruct && FoundName) {
     LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Found variant function: " << VariantName);
+                      << ": Found variant function: " << VariantNameOut);
     if (FoundArch)
-      LLVM_DEBUG(dbgs() << " and device bits " << llvm::format_hex(DeviceArchs, 6, true) << "\n");
+      LLVM_DEBUG(dbgs() << " and device bits "
+                        << llvm::format_hex(DeviceArchsOut, 6, true));
     else
-      LLVM_DEBUG(dbgs() << " with no device arch specified\n");
+      LLVM_DEBUG(dbgs() << " with no device arch specified");
   } else {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found");
   }
-  return VariantName;
+  LLVM_DEBUG(dbgs() << " for construct '" << MatchConstruct << "'\n");
+  return VariantNameOut;
 }
 
 // This interface is for target variant dispatch, which does not need
