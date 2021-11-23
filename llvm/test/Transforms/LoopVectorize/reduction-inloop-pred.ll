@@ -1366,18 +1366,12 @@ define float @reduction_conditional(float* %A, float* %B, float* %C, float %S) {
 ; CHECK-NEXT:    [[TMP11:%.*]] = and <4 x i1> [[TMP8]], [[TMP10]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = xor <4 x i1> [[TMP5]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    [[PREDPHI_V:%.*]] = select <4 x i1> [[TMP9]], <4 x float> [[WIDE_LOAD1]], <4 x float> [[WIDE_LOAD]]
-<<<<<<< HEAD
-; CHECK-NEXT:    [[PREDPHI:%.*]] = fadd fast <4 x float> [[VEC_PHI]], [[PREDPHI_V]]
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[DOTFR:%.*]] = freeze <4 x i1> [[TMP11]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = or <4 x i1> [[DOTFR]], [[TMP12]]
 ; end INTEL_CUSTOMIZTION
-; CHECK-NEXT:    [[PREDPHI3]] = select <4 x i1> [[TMP13]], <4 x float> [[VEC_PHI]], <4 x float> [[PREDPHI]]
-=======
-; CHECK-NEXT:    [[TMP13:%.*]] = select <4 x i1> [[TMP12]], <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i1> [[TMP11]]
 ; CHECK-NEXT:    [[PREDPHI2:%.*]] = select <4 x i1> [[TMP13]], <4 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, <4 x float> [[PREDPHI_V]]
 ; CHECK-NEXT:    [[PREDPHI3]] = fadd fast <4 x float> [[VEC_PHI]], [[PREDPHI2]]
->>>>>>> 9cd7c534e27c2558ef16e14d4440bd838320334b
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[INDEX_NEXT]], 128
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP28:![0-9]+]]
