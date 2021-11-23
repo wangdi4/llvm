@@ -1416,8 +1416,8 @@ public:
       CurrLoopOrRegion = Loop->getParentRegion();
     }
 
-    // Remove liveout SBs that might have been folded away. Valid liveout temps
-    // should have been marked during loop traversal
+    // Remove liveout SBs that might have been folded away. Valid liveout
+    // temps should have been marked during loop traversal
     SmallVector<unsigned, 4> DeadSBs;
     for (unsigned SB :
          make_range(Loop->live_out_begin(), Loop->live_out_end())) {
@@ -1564,7 +1564,8 @@ void ConstantPropagater::addConstPropDef(RegDDRef *LRef, RegDDRef *RRef) {
   IndexToRefMap[Index] = RRef;
 }
 
-// Attempts to fold the instruction, and checks candidate for future progation.
+// Attempts to fold the instruction, and checks candidate for future
+// propagation.
 std::pair<bool, HLInst *> ConstantPropagater::constantFold(HLInst *Inst) {
   auto isRefConst = [](RegDDRef *Ref) { return Ref->isFoldableConstant(); };
   bool HasConstTerm = std::any_of(Inst->rval_op_ddref_begin(),
@@ -1611,7 +1612,8 @@ std::pair<bool, HLInst *> ConstantPropagater::constantFold(HLInst *Inst) {
 void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
   bool IsLvalTerminalRef = false;
 
-  // Bailout for Lval Selfblobs and skip any Lval TerminalRefs defined as const
+  // Bailout for Lval Selfblobs and skip any Lval TerminalRefs defined as
+  // const
   if (Ref->isLval()) {
     if (Ref->isSelfBlob()) {
       return;
@@ -1885,8 +1887,8 @@ HLDDNode *HIRTransformUtils::replaceOperand(RegDDRef *OldRef,
     }
 
   }
-  // Replacing non-memref by memref in copy/gep/load inst. We need to replace it
-  // by load/store.
+  // Replacing non-memref by memref in copy/gep/load inst. We need to replace
+  // it by load/store.
   else if (!OldRef->isMemRef() && NewRef->isMemRef()) {
 
     if (HInst->isCopyInst() || isa<GetElementPtrInst>(LLVMInst) ||
@@ -1965,8 +1967,8 @@ bool HIRTransformUtils::doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp,
 
   // Do legal that HInst* (a mod operator) can sink into SinkLp
   //
-  // It is legal to sink the HInst* into SinkLp if&f the HInst* remains loop-inv
-  // after sinking.
+  // It is legal to sink the HInst* into SinkLp if&f the HInst* remains
+  // loop-inv after sinking.
   //
   // That is :
   // (1) HInst's Lval Ref is not redefined in SinkLp

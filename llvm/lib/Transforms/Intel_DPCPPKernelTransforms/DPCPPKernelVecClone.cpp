@@ -615,8 +615,8 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     // This condition isn't expected to happen, but do the right thing anyway.
     if (Call->hasFnAttr("vector-variants"))
-      Variants =
-          std::string(Call->getFnAttr("vector-variants").getValueAsString());
+      Variants = std::string(
+          Call->getCallSiteOrFuncAttr("vector-variants").getValueAsString());
 
     // Indicates the call must have mask arg.
     bool HasMask = true;

@@ -159,7 +159,7 @@ bool VectorVariantFillIn::runImpl(Module &M) {
         continue;
 
       // Replace the simd variant creation with an explicit function pointer.
-      Attribute Attr = Call.getFnAttr("vector-variants");
+      Attribute Attr = Call.getCallSiteOrFuncAttr("vector-variants");
       Function *Fn = M.getFunction(Attr.getValueAsString());
       assert(Fn && "Function expected to be exist");
 

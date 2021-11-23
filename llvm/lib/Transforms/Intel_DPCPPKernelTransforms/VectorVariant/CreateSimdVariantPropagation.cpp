@@ -59,7 +59,7 @@ bool CreateSimdVariantPropagation::runImpl(Module &M) {
       Function *FPtr = cast<Function>(Arg);
 
       assert(Call->hasFnAttr("vector-variants"));
-      Attribute Attr = Call->getFnAttr("vector-variants");
+      Attribute Attr = Call->getCallSiteOrFuncAttr("vector-variants");
       StringRef VarsStr = Attr.getValueAsString();
       VariantsToAdd[FPtr].insert(VarsStr.str());
     }
