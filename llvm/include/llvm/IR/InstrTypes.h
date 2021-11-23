@@ -1492,7 +1492,15 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Return the Attribute associated with this call or an empty Attribute if
   /// none of this \p Kind is set.
-  Attribute getFnAttr(StringRef Kind) const { return getFnAttrImpl(Kind); }
+  Attribute getCallSiteOrFuncAttr(StringRef Kind) const {
+    return getCallSiteOrFuncAttrImpl(Kind);
+  }
+  // FIXME: This should be restored to the upstream version that only considers
+  // the attributes directly assigned to the CallBase. Doing it in two steps
+  // because update crosses multiple repositories.
+  Attribute getFnAttr(StringRef Kind) const {
+    return getCallSiteOrFuncAttrImpl(Kind);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // TODO: remove non-AtIndex versions of these methods.
@@ -2314,7 +2322,8 @@ private:
   }
 
 #if INTEL_CUSTOMIZATION
-  template <typename AttrKind> Attribute getFnAttrImpl(AttrKind Kind) const {
+  template <typename AttrKind>
+  Attribute getCallSiteOrFuncAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))
       return Attrs.getFnAttr(Kind);
 
