@@ -438,6 +438,13 @@ static bool isSelect01(const APInt &C1I, const APInt &C2I) {
 /// optimization.
 Instruction *InstCombinerImpl::foldSelectIntoOp(SelectInst &SI, Value *TrueVal,
                                                 Value *FalseVal) {
+#if INTEL_CUSTOMIZATION
+  // This transformation is not good for masking instruction.
+  if (getTargetTransformInfo().isAdvancedOptEnabled(
+    TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512))
+    if (SI.getType()->isVectorTy())
+      return nullptr;
+#endif
   // See the comment above GetSelectFoldableOperands for a description of the
   // transformation we are doing here.
   if (auto *TVI = dyn_cast<BinaryOperator>(TrueVal)) {
