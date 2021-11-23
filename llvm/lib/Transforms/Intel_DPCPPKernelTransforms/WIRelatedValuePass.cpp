@@ -412,7 +412,7 @@ void WIRelatedValue::calculateCallingOrder() {
 
   // Initialize functionToHandle container with functions that need to be
   // analyzed Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
   // Collect data for each function with synchronize instruction.
   for (Function *Func : FunctionsWithSync)
     FunctionsToHandle.insert(Func);

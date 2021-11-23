@@ -23,7 +23,6 @@ class DataPerBarrier {
 public:
   typedef struct {
     InstSet RelatedBarriers;
-    bool HasFiberRelated;
   } BarrierRelated;
   typedef struct {
     unsigned int ID;
@@ -98,23 +97,13 @@ public:
     return BarrierPredecessorsMap[I];
   }
 
-  /// Return true if given function contains fiber instruction.
-  /// F pointer to Function.
-  /// Returns true if and only if given function contains fiber instruction.
-  bool hasFiberInstruction(Function *F) {
-    // TODO: currently this function returns false if module has no fiber
-    // and true otherwise. If needed change it to answer per function!
-    return HasFiber;
-  }
-
   /// Return true if given function contains synchronize instruction.
   /// F pointer to Function.
   /// Returns true if and only if given function contains synchronize
   /// instruction.
   bool hasSyncInstruction(Function *F) {
-    if (!SyncsPerFuncMap.count(F))
-      return false;
-    return (SyncsPerFuncMap[F].size() > 0);
+    auto It = SyncsPerFuncMap.find(F);
+    return It != SyncsPerFuncMap.end() && It->second.size() > 0;
   }
 
 private:
@@ -148,7 +137,6 @@ private:
   BasicBlock2BasicBlockSetMap PredecessorMap;
   BasicBlock2BasicBlockSetMap SuccessorMap;
   Barrier2BarrierSetMap BarrierPredecessorsMap;
-  bool HasFiber;
 };
 
 /// DataPerBarrierWrapper pass for legacy pass manager.

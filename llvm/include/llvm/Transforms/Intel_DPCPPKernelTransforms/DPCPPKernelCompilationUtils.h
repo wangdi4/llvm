@@ -31,7 +31,7 @@ namespace llvm {
 // 3. mangled vector variant name
 using VectItem = std::tuple<const char *, const char *, const char *>;
 
-enum class SyncType { None, Barrier, DummyBarrier, Fiber };
+enum class SyncType { None, Barrier, DummyBarrier };
 
 namespace KernelAttribute {
 // Attributes

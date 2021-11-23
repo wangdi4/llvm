@@ -39,22 +39,14 @@ DataPerBarrier::DataPerBarrier(Module &M) {
 void DataPerBarrier::InitSynchronizeData() {
   // Internal Data used to calculate user Analysis Data.
   unsigned int CurrentAvailableID = 0;
-  // Set hasFiber to false till we find a fiber.
-  HasFiber = false;
 
   // Find all synchronize instructions.
-  InstVector &SyncInstructions = Utils.getAllSynchronizeInstructions();
+  InstVector SyncInstructions = Utils.getAllSynchronizeInstructions();
 
   for (Instruction *I : SyncInstructions) {
     SyncType InstSyncType = Utils.getSyncType(I);
     assert(SyncType::None != InstSyncType &&
            "Sync list contains non sync instruction!");
-
-    if (SyncType::Fiber == InstSyncType) {
-      // Module is using fiber instruction.
-      // TODO: do we need this information per Function?
-      HasFiber = true;
-    }
 
     // Save id and type of current sync instruction.
     DataPerBarrierMap[I].ID = CurrentAvailableID++;
@@ -143,7 +135,6 @@ void DataPerBarrier::FindBarrierPredecessors(Instruction *I) {
   std::vector<BasicBlock *> BasicBlocksToHandle;
   BasicBlockSet BasicBlocksAddedForHandle;
 
-  InstBarrierRelated.HasFiberRelated = false;
   BarrierPredecessors.clear();
   BasicBlocksToHandle.push_back(BB);
 
@@ -161,10 +152,6 @@ void DataPerBarrier::FindBarrierPredecessors(Instruction *I) {
       if (BarrierBBSet.count(Inst)) {
         // This predecessor basic block conatins a barrier.
         BarrierPredecessors.insert(Inst);
-        if (DataPerBarrierMap[Inst].Type == SyncType::Fiber) {
-          // predecessor is a fiber instruction, update barrier related data.
-          InstBarrierRelated.HasFiberRelated = true;
-        }
       } else {
         // Add it to the BasicBlocksToHandle to calculate its predecessors.
         BasicBlocksToHandle.push_back(PredBB);
@@ -234,8 +221,6 @@ void DataPerBarrier::print(raw_ostream &OS, const Module *M) const {
     const BasicBlock *BBB = Inst->getParent();
     // Print barrier basic block name
     OS << "+" << BBB->getName() << "\n";
-    OS << "has fiber instruction as predecessors: " << KV.second.HasFiberRelated
-       << "\n";
     const InstSet &IVec = KV.second.RelatedBarriers;
     for (const Instruction *InstPred : IVec) {
       const BasicBlock *BB = InstPred->getParent();
