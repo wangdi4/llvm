@@ -8668,7 +8668,8 @@ void EpilogueVectorizerMainLoop::printDebugTracesAtStart() {
 
 void EpilogueVectorizerMainLoop::printDebugTracesAtEnd() {
   DEBUG_WITH_TYPE(VerboseDebug, {
-    dbgs() << "intermediate fn:\n" << *Induction->getFunction() << "\n";
+    dbgs() << "intermediate fn:\n"
+           << *OrigLoop->getHeader()->getParent() << "\n";
   });
 }
 
@@ -8866,7 +8867,7 @@ void EpilogueVectorizerEpilogueLoop::printDebugTracesAtStart() {
 
 void EpilogueVectorizerEpilogueLoop::printDebugTracesAtEnd() {
   DEBUG_WITH_TYPE(VerboseDebug, {
-    dbgs() << "final fn:\n" << *Induction->getFunction() << "\n";
+    dbgs() << "final fn:\n" << *OrigLoop->getHeader()->getParent() << "\n";
   });
 }
 
