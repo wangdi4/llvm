@@ -177,18 +177,16 @@ bool GEPOrSubsOperator::accumulateConstantOffset(const DataLayout &DL,
   const SubscriptInst *Subs = cast<SubscriptInst>(this);
   ConstantInt *IndexC = dyn_cast<ConstantInt>(Subs->getIndex());
   ConstantInt *StrideC = dyn_cast<ConstantInt>(Subs->getStride());
+  ConstantInt *LowerC = dyn_cast<ConstantInt>(Subs->getLowerBound());
 
-  if (!IndexC || !StrideC)
+  if (!IndexC || !StrideC || !LowerC)
     return false;
 
-  if (IndexC->isZero())
-    return true;
-
-  // Multiply Index by the Stride.
   APInt Index = IndexC->getValue().sextOrTrunc(Offset.getBitWidth());
+  APInt Lower = LowerC->getValue().sextOrTrunc(Offset.getBitWidth());
   APInt Stride = StrideC->getValue().sextOrTrunc(Offset.getBitWidth());
 
-  Offset += Index * Stride;
+  Offset += (Index - Lower) * Stride;
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
