@@ -13,14 +13,12 @@
 #endif // INTEL_COLLAB
 
 #ifdef __SPIR__
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #include <cstdint>
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
 
 static void *__devicelib_memcpy_uint8_aligned(void *dest, const void *src,
                                               size_t n) {
@@ -53,7 +51,6 @@ static void *__devicelib_memcpy_uint32_aligned(void *dest, const void *src,
   return dest;
 }
 
->>>>>>> cb5e8ae54d2e55e9edc0bad35b57fcad39e4f090
 DEVICE_EXTERN_C
 void *__devicelib_memcpy(void *dest, const void *src, size_t n) {
   if (dest == NULL || src == NULL || n == 0)
