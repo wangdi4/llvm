@@ -15,8 +15,12 @@
 #ifndef LLVM_TRANSFORMS_IPO_INTEL_DEVIRTMULTIVERSIONING_H
 #define LLVM_TRANSFORMS_IPO_INTEL_DEVIRTMULTIVERSIONING_H
 
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
@@ -30,7 +34,7 @@ class IntelDevirtMultiversion {
 public:
   IntelDevirtMultiversion(
       Module &M, WholeProgramInfo &WPInfo,
-      std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+      std::function<const TargetLibraryInfo &(const Function &F)> GetTLI);
 
   // Try to generate multiple targets with if and else instructions
   // rather than a branch funnel
@@ -85,7 +89,7 @@ private:
 
   Module &M;
   WholeProgramInfo &WPInfo;
-  std::function<const TargetLibraryInfo &(Function &F)> GetTLI;
+  std::function<const TargetLibraryInfo &(const Function &F)> GetTLI;
   bool EnableDevirtMultiversion;
 
   // Metadata node that will be used to mark a function call as being
@@ -140,7 +144,16 @@ private:
                                                  //   false
   };
 
+  void collectAssumeCallSitesNonOpaque(Function *AssumeFunc,
+      std::vector<CallBase *> &AssumesVector);
+
+  void collectAssumeCallSitesOpaque(Function *AssumeFunc,
+    std::vector<CallBase *> &AssumesVector,
+    dtransOP::PtrTypeAnalyzer &Analyzer);
+
   VirtualCallsDataForMV VCallsData;
+
+  SetVector<CallBase *> VCallsWithDefaultCase;
 };
 
 } // namespace llvm

@@ -788,7 +788,7 @@ struct WholeProgramDevirt : public ModulePass {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
@@ -864,8 +864,8 @@ PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   auto WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(F);
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
 
   IntelDevirtMultiversion IntelDevirtMV(M, WPInfo, GetTLI);
@@ -2518,6 +2518,7 @@ bool DevirtModule::run() {
   IntelDevirtMV.runDevirtVerifier(M);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+
   return true;
 }
 

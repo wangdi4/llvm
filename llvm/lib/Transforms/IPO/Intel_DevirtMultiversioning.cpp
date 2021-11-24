@@ -131,6 +131,7 @@
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
+using namespace dtransOP;
 
 // Allows us to perform the multiversioning for the devirtualization
 // as opposed to generating the branch funnels
@@ -148,9 +149,14 @@ static cl::opt<bool>
     WPDevirtMultiversionVerify("wholeprogramdevirt-multiversion-verify",
                                cl::init(false), cl::ReallyHidden);
 
+// Enable downcasting filtering for opaque pointers and DTrans metadata
+static cl::opt<bool>
+    WPDevirtDownCastingFilteringForOP("wholeprogramdevirt-downcasting-filter",
+                                      cl::init(false), cl::ReallyHidden);
+
 IntelDevirtMultiversion::IntelDevirtMultiversion(
     Module &M, WholeProgramInfo &WPInfo,
-    std::function<const TargetLibraryInfo &(Function &F)> GetTLI)
+    std::function<const TargetLibraryInfo &(const Function &F)> GetTLI)
     : M(M), WPInfo(WPInfo), GetTLI(GetTLI),
       EnableDevirtMultiversion(WPDevirtMultiversion) {
 
@@ -448,6 +454,9 @@ void IntelDevirtMultiversion::generateBranching(
 
   Builder.SetInsertPoint(MainBB);
 
+  // NOTE: For now we are going to use getInt8PtrTy to create an i8* pointer.
+  // It also supports opaque pointers. If the community decides to remove its
+  // support then we need to update it.
   PointerType *Int8PtrTy = Type::getInt8PtrTy(M.getContext());
 
   BitCastInst *DefaultAddress =
@@ -633,9 +642,9 @@ void IntelDevirtMultiversion::multiversionVCallSite(
 }
 
 // Return true if the caller function or the target function for the input
-// virtual call site are libfuncs. If at least one of them is a libfunc or an
-// external function then apply the multiversioning with the default target.
-// Else, return false.
+// virtual call site are libfuncs, or we couldn't prove the legality of the
+// downcasting. In this case, we are going to multiversion the call with the
+// default target included. Else, return false.
 bool IntelDevirtMultiversion::tryAddingDefaultTargetIntoVCallSite(
     CallBase *VCallSite, Function *TargetFunc, Function *CallerFunc) {
 
@@ -645,8 +654,13 @@ bool IntelDevirtMultiversion::tryAddingDefaultTargetIntoVCallSite(
   if (!VCallSite || !TargetFunc || !CallerFunc)
     return false;
 
-  if (!functionIsLibFuncOrExternal(TargetFunc) &&
-      !functionIsLibFuncOrExternal(CallerFunc))
+  bool LibFuncFound = functionIsLibFuncOrExternal(TargetFunc) ||
+                      functionIsLibFuncOrExternal(CallerFunc);
+  bool TypeNotAvailable = VCallsWithDefaultCase.contains(VCallSite);
+
+  // If the caller is a libfunc, the call is a libfunc or a virtual call site
+  // that requires the default case, then we need to multiversion.
+  if (!LibFuncFound && !TypeNotAvailable)
     return false;
 
   SetVector<Function *> TargetFunction;
@@ -685,7 +699,8 @@ bool IntelDevirtMultiversion::tryMultiVersionDevirt() {
     // default case in the multiversioning.
     auto CallerFunc = VCallSite->getCaller();
     bool DefaultTargetNeeded = VCallsData.HasLibFuncAsTarget ||
-                               functionIsLibFuncOrExternal(CallerFunc);
+                               functionIsLibFuncOrExternal(CallerFunc) ||
+                               VCallsWithDefaultCase.contains(VCallSite);
 
     multiversionVCallSite(M, VCallSite, DefaultTargetNeeded,
                           VCallsData.TargetFunctions);
@@ -715,38 +730,28 @@ bool IntelDevirtMultiversion::functionIsLibFuncOrExternal(Function *F) {
   return false;
 }
 
-// Prevent devirtualization on those virtual call sites that are related to
-// downcasting. A possible downcasting occurs when a pointer from a base class
-// is cast to a derived class. For example:
-//
-//   %"class.Base" = type { i32 (...)** }
-//   %"class.DerivedA" = type { %"class.Base" }
-//   %"class.DerivedB" = type { %"class.Base" }
-//
-//   %2 = bitcast %"class.Base"* %1 to i32 (%"class.DerivedA"*)***
-//   %3 = load i32 (%"class.Base"*)**, i32 (%"class.DerivedA"*)*** %2
-//   %4 = bitcast i32 (%"class.DerivedA"*)** %3 to i8*
-//   %5 = call i1 @llvm.type.test(i8* %4, metadata !"_ZTS8DerivedA")
-//   call void @llvm.assume(i1 %5)
-//
-// The types %"class.DerivedA" and %"class.DerivedB" have Base as element.
-// This means that the classes DerivedA and DerivedB could be derived from
-// Base. Consider that %1 is a Value and its type is %"class.Base". The
-// bitcasting in %2 converts the %1 into a function pointer. This casting goes
-// from %"class.Base" to %"class.DerivedA". This could cause that the
-// devirtualization process to convert the virtual call into an incorrect
-// direct call.
+// Return true if SrcType is one of the elements of DestType, else
+// return false.
+static bool DowncastingFound(StructType *SrcType, StructType *DestType) {
+  if (!SrcType || !DestType)
+    return false;
 
-// The following function will identify the bitcasting mentioned above by
-// tracing from the assume call site up to the bitcasting (%2). Then it will
-// check if the source type of the casting (%"class.Base") is an element of
-// the destination type (%"class.DerivedA"). If so, then remove the assume
-// intrinsic, which will prevent the devirtualization.
-void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
-  if (!WPInfo.isWholeProgramSafe() || !AssumeFunc || AssumeFunc->use_empty() ||
-      !AssumeFunc->isIntrinsic() ||
-      AssumeFunc->getIntrinsicID() != Intrinsic::assume)
-    return;
+  unsigned NumElem = DestType->getNumElements();
+  if (NumElem == 0)
+    return false;
+
+  for (unsigned CurrElem = 0; CurrElem < NumElem; CurrElem++)
+    if (DestType->getElementType(CurrElem) == SrcType)
+      return true;
+
+  return false;
+}
+
+// Collect the calls to the assume function that may produce a downcasting.
+// This is used in the case of non-opaque pointers where we can identify
+// the pointer types casting.
+void IntelDevirtMultiversion::collectAssumeCallSitesNonOpaque(
+    Function *AssumeFunc, std::vector<CallBase *> &AssumesVector) {
 
   // Given a Type, find the first non-pointer type that it points-to.
   auto GetElemType = [](llvm::Type *InputType) {
@@ -757,6 +762,7 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
 
     RootType = InputType;
 
+    // We can use getElementType here since we have typed pointers.
     while (RootType && RootType->isPointerTy()) {
       PointerType *PtrTy = cast<PointerType>(RootType);
       RootType = PtrTy->getElementType();
@@ -765,25 +771,13 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
     return RootType;
   };
 
-  // Return true if SrcType is one of the elements of DestType, else
-  // return false.
-  auto DowncastingFound = [](StructType *SrcType, StructType *DestType) {
-    if (!SrcType || !DestType)
-      return false;
+  if (!AssumeFunc || !AssumeFunc->isIntrinsic() ||
+      AssumeFunc->getIntrinsicID() != Intrinsic::assume)
+    return;
 
-    unsigned NumElem = DestType->getNumElements();
-    if (NumElem == 0)
-      return false;
-
-    for (unsigned CurrElem = 0; CurrElem < NumElem; CurrElem++)
-      if (DestType->getElementType(CurrElem) == SrcType)
-        return true;
-
-    return false;
-  };
-
-  // Vector that holds the assume callsites that will be removed
-  std::vector<CallBase *> AssumesVector;
+  // This process is for typed pointers only
+  if (!AssumeFunc->getParent()->getContext().supportsTypedPointers())
+    return;
 
   // Go through each of the users for the intrinsic assume
   for (User *User : AssumeFunc->users()) {
@@ -843,11 +837,227 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
       }
     }
   }
+}
+
+// Collect the calls to the assume function that may produce a downcasting.
+// This is used in the case of opaque pointers where we need to do a pointer
+// analysis in order to collect the information.
+void IntelDevirtMultiversion::collectAssumeCallSitesOpaque(
+    Function *AssumeFunc, std::vector<CallBase *> &AssumesVector,
+    dtransOP::PtrTypeAnalyzer &Analyzer) {
+
+  auto FindVirtualCall = [](LoadInst *FieldLoaded, Value *Ptr) -> CallBase * {
+    for (auto *LU : FieldLoaded->users()) {
+      auto *Call = dyn_cast<CallBase>(LU);
+      if (!Call)
+        continue;
+
+      if (Call->arg_size() == 0)
+        continue;
+
+      // The loaded pointer is the called function
+      if (Call->getCalledOperand() != FieldLoaded)
+        continue;
+
+      Value *ThisPtr = Call->getArgOperand(0);
+      // Make sure that the pointer is "this"
+      if (isa<BitCastInst>(Ptr) && isa<BitCastInst>(ThisPtr)) {
+        auto *BcPtr = cast<BitCastInst>(Ptr);
+        auto *BcThisPtr = cast<BitCastInst>(ThisPtr);
+        if (BcPtr->getOperand(0) == BcThisPtr->getOperand(0))
+          return Call;
+      }
+      else if (Ptr == ThisPtr) {
+        return Call;
+      }
+    }
+    return nullptr;
+  };
+
+  if (!AssumeFunc || !AssumeFunc->isIntrinsic() ||
+      AssumeFunc->getIntrinsicID() != Intrinsic::assume)
+    return;
+
+  // Go through each of the users for the intrinsic assume
+  for (User *User : AssumeFunc->users()) {
+
+    CallBase *AssumeCall = dyn_cast<CallBase>(User);
+    if (!AssumeCall)
+      continue;
+
+    // Collect type.test intrinsic
+    CallBase *TestCall = dyn_cast<CallBase>(AssumeCall->getArgOperand(0));
+    if (!TestCall)
+      continue;
+
+    Function *TestFunc = TestCall->getCalledFunction();
+    if (!TestFunc)
+      continue;
+
+    if (!TestFunc->isIntrinsic() ||
+        TestFunc->getIntrinsicID() != Intrinsic::type_test)
+      continue;
+
+    Value *VTablePtr = TestCall->getArgOperand(0);
+
+    // Bitcast instructions won't be available in the case of opaque pointers.
+    // This check was added if we have typed pointers and DTrans metadata.
+    if (auto *BC = dyn_cast<BitCastInst>(VTablePtr))
+      VTablePtr = BC->getOperand(0);
+
+    // Collect the VTable that the metadata is being assigned to
+    LoadInst *VTableLoadInst = dyn_cast<LoadInst>(VTablePtr);
+    if (!VTableLoadInst)
+      continue;
+
+    // Collect the pointer used in the VTable
+    Value *Ptr = VTableLoadInst->getOperand(0);
+
+    CallBase *VCall = nullptr;
+    // Prove that the pointer and the vtable is used in an indirect call
+    for (auto *U : VTableLoadInst->users()) {
+      // Virtual functions are part of a class, they are going to be accessed
+      // like a field of a class. This means that there could be an GEP for
+      // non-zero element access, or a direct load for the zero element access.
+      auto *CurrUser = U;
+      if (isa<GetElementPtrInst>(CurrUser)) {
+        if (!CurrUser->hasOneUser())
+          continue;
+        CurrUser = CurrUser->user_back();
+      }
+
+      auto *Load = dyn_cast<LoadInst>(CurrUser);
+      if (!Load)
+        continue;
+
+      VCall = FindVirtualCall(Load, Ptr);
+      if (VCall)
+        break;
+    }
+
+    if (!VCall)
+      continue;
+
+    Value *ThisPtr = VCall->getArgOperand(0);
+    ValueTypeInfo *Info = Analyzer.getValueTypeInfo(ThisPtr);
+    if (!Info)
+      return;
+
+    // Collect the dominant type, which should be a base structure
+    auto *DominantTy = dyn_cast_or_null<DTransPointerType>(
+        Analyzer.getDominantType(*Info, ValueTypeInfo::VAT_Decl));
+    if (!DominantTy) {
+      VCallsWithDefaultCase.insert(VCall);
+      continue;
+    }
+
+    StructType *SourceTy =
+      dyn_cast<StructType>(DominantTy->getPointerElementType()->getLLVMType());
+    if (!SourceTy)
+      continue;
+
+    // Now check if a derived type is part of the pointer aliases.
+    for (auto *Ty : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      auto *PtrTy = dyn_cast<DTransPointerType>(Ty);
+      if (!PtrTy)
+        continue;
+
+      StructType *DstUseType =
+        dyn_cast<StructType>(PtrTy->getPointerElementType()->getLLVMType());
+      if (!DstUseType)
+        continue;
+
+      if (DstUseType == SourceTy)
+        continue;
+
+      if (DowncastingFound(SourceTy, DstUseType)) {
+        AssumesVector.push_back(AssumeCall);
+        break;
+      }
+    }
+  }
+}
+
+// Prevent devirtualization on those virtual call sites that are related to
+// downcasting. A possible downcasting occurs when a pointer from a base class
+// is cast to a derived class. For example:
+//
+//   %"class.Base" = type { i32 (...)** }
+//   %"class.DerivedA" = type { %"class.Base" }
+//   %"class.DerivedB" = type { %"class.Base" }
+//
+//   %2 = bitcast %"class.Base"* %1 to i32 (%"class.DerivedA"*)***
+//   %3 = load i32 (%"class.Base"*)**, i32 (%"class.DerivedA"*)*** %2
+//   %4 = bitcast i32 (%"class.DerivedA"*)** %3 to i8*
+//   %5 = call i1 @llvm.type.test(i8* %4, metadata !"_ZTS8DerivedA")
+//   call void @llvm.assume(i1 %5)
+//
+// The types %"class.DerivedA" and %"class.DerivedB" have Base as element.
+// This means that the classes DerivedA and DerivedB could be derived from
+// Base. Consider that %1 is a Value and its type is %"class.Base". The
+// bitcasting in %2 converts the %1 into a function pointer. This casting goes
+// from %"class.Base" to %"class.DerivedA". This could cause that the
+// devirtualization process to convert the virtual call into an incorrect
+// direct call.
+
+// The following function will identify the bitcasting mentioned above by
+// tracing from the assume call site up to the bitcasting (%2). Then it will
+// check if the source type of the casting (%"class.Base") is an element of
+// the destination type (%"class.DerivedA"). If so, then remove the assume
+// intrinsic, which will prevent the devirtualization.
+void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
+  if (!WPInfo.isWholeProgramSafe() || !AssumeFunc || AssumeFunc->use_empty() ||
+      !AssumeFunc->isIntrinsic() ||
+      AssumeFunc->getIntrinsicID() != Intrinsic::assume)
+    return;
+
+  // Vector that holds the assume callsites that will be removed
+  std::vector<CallBase *> AssumesVector;
+
+  // TODO: The downcasting filtering for opaque pointers is turned off by
+  // default until we fix CMPLRLLVM-32994.
+  if (WPDevirtDownCastingFilteringForOP) {
+    // If we have DTrans metadata then we are going to collect the information
+    // from the DTrans pointer analyzer. In the case of opaque pointers the
+    // pattern will look as follows:
+    //
+    //   %tmp = load ptr, ptr %p, align 8, !tbaa !75
+    //   %tmp2 = tail call i1 @llvm.type.test(ptr %tmp,
+    //                                        metadata !"_ZTS8DerivedB")
+    //   tail call void @llvm.assume(i1 %tmp2)
+    //   %tmp3 = load ptr, ptr %tmp, align 8
+    //   tail call void %tmp3(ptr nonnull align 8 dereferenceable(8) %p)
+    //
+    // Basically, there is going to be a loaded pointer (vtable %tmp) and will
+    // be used to check the type.test metadata. Then the virtual function is
+    // loaded (%tmp3). What we are looking for is if we have a dominant type
+    // for the vtable, then the derived type should not be in the list of
+    // dominant types. If we can't prove that there is a dominant type, then
+    // the virtual call will be multiversioned with the default case included.
+    NamedMDNode *DTransMDTypes = M.getNamedMetadata("intel.dtrans.types");
+    if (DTransMDTypes) {
+      LLVMContext &Ctx = M.getContext();
+      DTransTypeManager TM(Ctx);
+      TypeMetadataReader Reader(TM);
+      if (Reader.initialize(M)) {
+        const DataLayout &DL = M.getDataLayout();
+        dtransOP::PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
+        Analyzer.run(M);
+        collectAssumeCallSitesOpaque(AssumeFunc, AssumesVector, Analyzer);
+      }
+    }
+  }
+
+  // Collect the calls to the assume function in the case of typed pointers.
+  // This function will look for the pattern mentioned before that produces
+  // a downcasting.
+  if (AssumesVector.empty() && VCallsWithDefaultCase.empty())
+    collectAssumeCallSitesNonOpaque(AssumeFunc, AssumesVector);
 
   // Remove the assumes related to downcasting
   for (CallBase *AssumeCall : AssumesVector) {
     CallBase *TestCall = cast<CallBase>(AssumeCall->getArgOperand(0));
-    BitCastInst *VTableBCInst = cast<BitCastInst>(TestCall->getArgOperand(0));
+    Instruction *TestCallArg = dyn_cast<Instruction>(TestCall->getArgOperand(0));
 
     // Delete the call to assume
     AssumeCall->eraseFromParent();
@@ -857,8 +1067,8 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
       TestCall->eraseFromParent();
 
     // Delete the bitcast for the vtable
-    if (VTableBCInst->use_empty())
-      VTableBCInst->eraseFromParent();
+    if (TestCallArg && TestCallArg->use_empty())
+      TestCallArg->eraseFromParent();
   }
 }
 
