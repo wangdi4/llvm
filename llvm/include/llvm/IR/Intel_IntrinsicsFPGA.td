@@ -125,10 +125,10 @@ def int_fpga_reg
     : Intrinsic<
           [ llvm_any_ty ],
           [ LLVMMatchType<0> ],
-          []>;
+          [IntrInaccessibleMemOnly, IntrWillReturn, IntrNoFree]>;
 /// Signature: void (T*, T*)
 def int_fpga_reg_struct
     : Intrinsic<
           [],
           [ llvm_any_ty, LLVMMatchType<0> ],
-          []>;
+          [IntrWillReturn, IntrNoFree]>;
