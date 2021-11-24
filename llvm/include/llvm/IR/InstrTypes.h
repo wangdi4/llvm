@@ -1495,12 +1495,6 @@ public:
   Attribute getCallSiteOrFuncAttr(StringRef Kind) const {
     return getCallSiteOrFuncAttrImpl(Kind);
   }
-  // FIXME: This should be restored to the upstream version that only considers
-  // the attributes directly assigned to the CallBase. Doing it in two steps
-  // because update crosses multiple repositories.
-  Attribute getFnAttr(StringRef Kind) const {
-    return getCallSiteOrFuncAttrImpl(Kind);
-  }
 #endif // INTEL_CUSTOMIZATION
 
   // TODO: remove non-AtIndex versions of these methods.
@@ -1640,6 +1634,11 @@ public:
   /// Get the attribute of a given kind at a position.
   Attribute getAttributeAtIndex(unsigned i, StringRef Kind) const {
     return getAttributes().getAttributeAtIndex(i, Kind);
+  }
+
+  /// Get the attribute of a given kind for the function.
+  Attribute getFnAttr(StringRef Kind) const {
+    return getAttributes().getFnAttr(Kind);
   }
 
   /// Get the attribute of a given kind for the function.
