@@ -599,7 +599,7 @@ void SGValueWiden::widenCalls() {
     IRBuilder<> Builder(CI);
     // Get vector-variants attribute
     StringRef VecVariantStringValue =
-        CI->getFnAttr("vector-variants").getValueAsString();
+        CI->getCallSiteOrFuncAttr("vector-variants").getValueAsString();
     SmallVector<StringRef, 4> VariantStrs;
     VecVariantStringValue.split(VariantStrs, ",");
 
