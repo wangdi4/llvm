@@ -57,7 +57,6 @@ class MDNode;
 class MemorySSAUpdater;
 class PHINode;
 class StoreInst;
-class SwitchInst;
 class TargetLibraryInfo;
 class TargetTransformInfo;
 
@@ -239,10 +238,6 @@ CallInst *createCallMatchingInvoke(InvokeInst *II);
 
 /// This function converts the specified invoek into a normall call.
 void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
-
-/// This function removes the default destination from the specified switch.
-void createUnreachableSwitchDefault(SwitchInst *Switch,
-                                    DomTreeUpdater *DTU = nullptr);
 
 #if INTEL_CUSTOMIZATION
 namespace {
