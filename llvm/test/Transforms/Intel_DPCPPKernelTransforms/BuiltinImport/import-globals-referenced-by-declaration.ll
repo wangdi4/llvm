@@ -43,7 +43,9 @@ entry:
 declare i32 @_Z12native_ilogbd(double)
 
 
-; CHECK:  define linkonce_odr i32 @__ocl_trunc_v1i64_v1i32(i64 %x)
-; CHECK:  define linkonce_odr i32 @_Z12native_ilogbd(double %x)
+; CHECK:  define internal i32 @__ocl_trunc_v1i64_v1i32(i64 %x)
+; CHECK:  define internal i32 @_Z12native_ilogbd(double %x)
 
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function __ocl_trunc_v1i64_v1i32
+; DEBUGIFY-COUNT-12: WARNING: Instruction with empty DebugLoc in function _Z12native_ilogbd
 ; DEBUGIFY-NOT: WARNING

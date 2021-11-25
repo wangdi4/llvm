@@ -461,6 +461,13 @@ def LMSW16m : I<0x01, MRM6m, (outs), (ins i16mem:$src),
 
 let Defs = [EAX, EBX, ECX, EDX], Uses = [EAX, ECX] in
   def CPUID : I<0xA2, RawFrm, (outs), (ins), "cpuid", []>, TB;
+
+#if INTEL_CUSTOMIZATION
+// Use a virtual register as cpuid ebx result since this result may be exchanged
+// to other register to prevent ebx being used as base ptr.
+let Defs = [EAX, ECX, EDX], Uses = [EAX, ECX] in
+  def CPUID_G : PseudoI<(outs GR32:$dst), (ins), []>;
+#endif // INTEL_CUSTOMIZATION
 } // SchedRW
 
 //===----------------------------------------------------------------------===//

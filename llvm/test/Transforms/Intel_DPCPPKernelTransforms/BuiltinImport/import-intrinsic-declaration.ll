@@ -30,7 +30,8 @@ entry:
 declare <4 x double> @function_from_rtl(<4 x double>) nounwind
 
 
-; CHECK:  define linkonce_odr <4 x double> @function_from_rtl(<4 x double> %in)
+; CHECK:  define internal <4 x double> @function_from_rtl(<4 x double> %in)
 ; CHECK:  declare void @llvm.lifetime.start
 
+; DEBUGIFY-COUNT-3: WARNING: Instruction with empty DebugLoc in function function_from_rtl
 ; DEBUGIFY-NOT: WARNING

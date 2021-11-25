@@ -33,7 +33,7 @@ entry:
   ret void
 }
 ;; "min-legal-vector-width" of the callee builtin is reset according to its caller function.
-; CHECK-DAG: define linkonce_odr <16 x i32> @builtin_without_restriction{{.*}} #[[#ATTR:]]
+; CHECK-DAG: define internal <16 x i32> @builtin_without_restriction{{.*}} #[[#ATTR:]]
 
 define void @kernel4() {
 ; CHECK-DAG: define void @kernel4() #[[#ATTR:]]
@@ -42,12 +42,15 @@ entry:
   ret void
 }
 ;; "min-legal-vector-width" of the callee builtin is reset because it calls builtin_requires_zmm
-; CHECK-DAG: define linkonce_odr <16 x i32> @builtin_calling_other_builtin{{.*}} #[[#ATTR:]]
+; CHECK-DAG: define internal <16 x i32> @builtin_calling_other_builtin{{.*}} #[[#ATTR:]]
 
 attributes #0 = { "min-legal-vector-width"="0" }
 attributes #1 = { "min-legal-vector-width"="512" }
 
 ; CHECK: attributes #[[#ATTR]] = { "min-legal-vector-width"="512" }
 
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function builtin_requires_zmm
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function builtin_calling_other_builtin
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function builtin_without_restriction
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: PASS

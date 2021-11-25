@@ -87,6 +87,7 @@ static constexpr char GENX_SLM_OFFSET[] = "genx.slm.offset";
 
 #define SYCL_GLOBAL_AS 1
 #define SYCL_SLM_AS 3
+#define SYCL_GENERIC_AS 4
 
 static uint32_t getElementSizeInBytes(Type *ETy, DataLayout &DL) {
   uint32_t ebytes = (unsigned int)ETy->getPrimitiveSizeInBits() / 8;
@@ -1132,6 +1133,10 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrV = CallOp->getArgOperand(0);
       assert(PtrV->getType()->isPointerTy());
       auto AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      }
       if (AS == 0) { // thread private memory
                      // convert to load then select
         auto VecDT =
@@ -1227,6 +1232,10 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrV = CallOp->getArgOperand(1);
       assert(PtrV->getType()->isPointerTy());
       auto AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        AS = cast<PointerType>(PtrV->getType())->getAddressSpace();
+      }
       auto DTV = CallOp->getArgOperand(0);
       if (AS == 0) { // thread private memory
                      // convert to load then select then store
@@ -1324,6 +1333,11 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
+        AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      }
       assert(AS != SYCL_SLM_AS && "yet to support masked SLM gather");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
@@ -1379,6 +1393,11 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
       assert(PtrETy->isPointerTy());
       auto AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      if (isa<AddrSpaceCastInst>(PtrV) && AS == SYCL_GENERIC_AS) {
+        PtrV = cast<Instruction>(PtrV)->getOperand(0);
+        PtrETy = cast<VectorType>(PtrV->getType())->getElementType();
+        AS = cast<PointerType>(PtrETy)->getAddressSpace();
+      }
       assert(AS != SYCL_SLM_AS && "yet to support masked SLM scatter");
       if (AS != SYCL_GLOBAL_AS)
         return CallOp;
@@ -1601,6 +1620,11 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
   }
   for (auto *CI : SimdToErases) {
     CI->eraseFromParent();
+  }
+  for (auto I = inst_begin(F), E = inst_end(F); I != E;) {
+    auto *CI = dyn_cast<AddrSpaceCastInst>(&*I++);
+    if (CI && CI->use_empty())
+      CI->eraseFromParent();
   }
 
   return PreservedAnalyses::none();

@@ -62,6 +62,15 @@ let TargetPrefix = "x86" in {
               Intrinsic<[llvm_i32_ty], [], []>;
 }
 
+#if INTEL_CUSTOMIZATION
+// Read CPUID.
+let TargetPrefix = "x86" in {
+  def int_x86_cpuid
+      : Intrinsic<[llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+                  [llvm_i32_ty, llvm_i32_ty], []>;
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // CET SS
 let TargetPrefix = "x86" in {

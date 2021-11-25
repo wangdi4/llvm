@@ -28,11 +28,17 @@ entry:
 }
 
 ; CHECK: define i8* @test_bgra8888
-; CHECK: define linkonce_odr <4 x i32> @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i
-; CHECK: define linkonce_odr <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i
-; CHECK: define linkonce_odr <4 x i32> @_Z3minDv4_iS_
-; CHECK: define linkonce_odr <4 x i32> @_Z3maxDv4_iS_
-; CHECK: define linkonce_odr i8* @_Z11read_imagef14ocl_image2d_ro11ocl_samplerDv2_i
-; CHECK: define linkonce_odr i8* @call_coord_translate_i_callback
+; CHECK: define internal <4 x i32> @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i
+; CHECK: define internal <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i
+; CHECK: define internal <4 x i32> @_Z3minDv4_iS_
+; CHECK: define internal <4 x i32> @_Z3maxDv4_iS_
+; CHECK: define internal i8* @_Z11read_imagef14ocl_image2d_ro11ocl_samplerDv2_i
+; CHECK: define internal i8* @call_coord_translate_i_callback
 
+; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc in function _Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z25trans_coord_int_UNDEFINEDPvDv4_i
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function _Z3minDv4_iS_
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function _Z3maxDv4_iS_
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function _Z11read_imagef14ocl_image2d_ro11ocl_samplerDv2_i
+; DEBUGIFY-COUNT-5: WARNING: Instruction with empty DebugLoc in function call_coord_translate_i_callback
 ; DEBUGIFY-NOT: WARNING

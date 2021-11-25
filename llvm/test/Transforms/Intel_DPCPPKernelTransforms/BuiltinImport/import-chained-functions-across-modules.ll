@@ -34,8 +34,11 @@ entry:
 declare <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
 
 
-; CHECK:  define linkonce_odr <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
-; CHECK:  define linkonce_odr <3 x i8> @_Z18convert_short3_satDv3_i(<3 x i32> %x)
-; CHECK:  define linkonce_odr <3 x i8> @_Z17convert_char3_satDv3_i(<3 x i32> %x)
+; CHECK: define internal <3 x i8> @_Z21convert_char3_sat_rteDv3_i(<3 x i32> %x)
+; CHECK: define internal <3 x i8> @_Z18convert_short3_satDv3_i(<3 x i32> %x)
+; CHECK: define internal <3 x i8> @_Z17convert_char3_satDv3_i(<3 x i32> %x)
 
+; DEBUGIFY-COUNT-3: WARNING: Instruction with empty DebugLoc in function _Z21convert_char3_sat_rteDv3_i
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function _Z18convert_short3_satDv3_i
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function _Z17convert_char3_satDv3_i
 ; DEBUGIFY-NOT: WARNING
