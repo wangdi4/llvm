@@ -27623,6 +27623,33 @@ static void getReadTimeStampCounter(SDNode *N, const SDLoc &DL, unsigned Opcode,
   Results.push_back(ecx.getValue(1));
 }
 
+#if INTEL_CUSTOMIZATION
+static SmallVector<SDValue, 8> getCPUID(SDNode *N, const SDLoc &DL,
+                                        SelectionDAG &DAG) {
+  SDValue Glue, Chain = N->getOperand(0);
+  Chain = DAG.getCopyToReg(Chain, DL, X86::EAX, N->getOperand(2), Glue);
+  Chain = DAG.getCopyToReg(Chain, DL, X86::ECX, N->getOperand(3),
+                           Chain.getValue(1));
+  Glue = Chain.getValue(1);
+
+  // Use pseudo instruction CPUID_G to preserve rbx.
+  SDVTList Tys = DAG.getVTList(MVT::i32, MVT::Other, MVT::Glue);
+  SDNode *N1 = DAG.getMachineNode(X86::CPUID_G, DL, Tys, {Chain, Glue});
+
+  // CPUID_G returns ebx value as the first def.
+  SDValue ValueEBX = SDValue(N1, 0);
+  Chain = SDValue(N1, 1);
+  Glue = SDValue(N1, 2);
+
+  SDValue ValueEAX = DAG.getCopyFromReg(Chain, DL, X86::EAX, MVT::i32, Glue);
+  SDValue ValueECX = DAG.getCopyFromReg(ValueEAX.getValue(1), DL, X86::ECX,
+                                        MVT::i32, ValueEAX.getValue(2));
+  SDValue ValueEDX = DAG.getCopyFromReg(ValueECX.getValue(1), DL, X86::EDX,
+                                        MVT::i32, ValueECX.getValue(2));
+  return {ValueEAX, ValueEBX, ValueECX, ValueEDX, ValueEDX.getValue(1)};
+}
+#endif // INTEL_CUSTOMIZATION
+
 static SDValue LowerREADCYCLECOUNTER(SDValue Op, const X86Subtarget &Subtarget,
                                      SelectionDAG &DAG) {
   SmallVector<SDValue, 3> Results;
@@ -27723,6 +27750,12 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       // Don't do anything here, we will expand these intrinsics out later.
       return Op;
     }
+#if INTEL_CUSTOMIZATION
+    case llvm::Intrinsic::x86_cpuid: {
+      SDLoc DL(Op);
+      return DAG.getMergeValues(getCPUID(Op.getNode(), DL, DAG), DL);
+    }
+#endif // INTEL_CUSTOMIZATION
     case llvm::Intrinsic::x86_flags_read_u32:
     case llvm::Intrinsic::x86_flags_read_u64:
     case llvm::Intrinsic::x86_flags_write_u32:

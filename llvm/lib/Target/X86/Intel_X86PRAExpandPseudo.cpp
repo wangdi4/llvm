@@ -30,6 +30,7 @@ public:
 
   const X86Subtarget *STI = nullptr;
   const X86InstrInfo *TII = nullptr;
+  const X86RegisterInfo *TRI = nullptr;
   MachineRegisterInfo *MRI = nullptr;
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -53,6 +54,7 @@ bool X86PRAExpandPseudoPass::runOnMachineFunction(MachineFunction &MF) {
 
   STI = &static_cast<const X86Subtarget &>(MF.getSubtarget());
   TII = STI->getInstrInfo();
+  TRI = STI->getRegisterInfo();
   MRI = &MF.getRegInfo();
 
   bool Changed = false;
@@ -88,6 +90,31 @@ bool X86PRAExpandPseudoPass::ExpandMI(MachineBasicBlock &MBB,
   switch (Opcode) {
   default:
     return false;
+  case X86::CPUID_G: {
+    MachineInstr *CpuId =
+        BuildMI(MBB, MBBI, DL, TII->get(X86::CPUID)).getInstr();
+    Register VEBX = MBBI->getOperand(0).getReg();
+
+    if (TRI->getReservedRegs(*MI.getMF()).test(X86::EBX)) {
+      assert(STI->is64Bit() && "EBX is only presered on 64bit");
+      Register PHReg0 = MRI->createVirtualRegister(&X86::GR64RegClass);
+      Register PHReg1 = MRI->cloneVirtualRegister(PHReg0);
+
+      // Use MOV64rr instead of COPY to prevent being killed.
+      BuildMI(MBB, CpuId, DL, TII->get(X86::MOV64rr), PHReg0)
+          .addUse(X86::RBX, RegState::Undef);
+      BuildMI(MBB, MBBI, DL, TII->get(X86::XCHG64rr), X86::RBX)
+          .addDef(PHReg1)
+          .addUse(X86::RBX)
+          .addUse(PHReg0);
+      BuildMI(MBB, MBBI, DL, TII->get(X86::COPY), VEBX)
+          .addUse(PHReg1, 0, X86::sub_32bit);
+    } else {
+      BuildMI(MBB, MBBI, DL, TII->get(X86::COPY), VEBX).addUse(X86::EBX);
+    }
+    MI.eraseFromParent();
+    return true;
+  }
   case X86::KMOVBki:
   case X86::KMOVWki: {
     bool IsKMOVB = Opcode == X86::KMOVBki;
