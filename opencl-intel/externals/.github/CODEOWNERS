@@ -1,4 +1,5 @@
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence
 #
-* @intel-innersource/xmain-gatekeeper
+# JIRA: CMPLRLLVM->OCL CPU RT
+* @intel-innersource/cmplrllvm-ocl-cpu-rt
