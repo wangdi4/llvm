@@ -9670,6 +9670,9 @@ TEST_F(FormatTest, UnderstandsUsesOfStarAndAmp) {
   verifyFormat("void f() { a->operator()(a & a); }");
   verifyFormat("void f() { a.operator()(*a & *a); }");
   verifyFormat("void f() { a->operator()(*a * *a); }");
+
+  verifyFormat("int operator()(T (&&)[N]) { return 1; }");
+  verifyFormat("int operator()(T (&)[N]) { return 0; }");
 }
 
 TEST_F(FormatTest, UnderstandsAttributes) {
@@ -21876,6 +21879,7 @@ TEST_F(FormatTest, OperatorSpacing) {
   verifyFormat("Foo::operator&(void &);", Style);
   verifyFormat("Foo::operator&();", Style);
   verifyFormat("operator&(int (&)(), class Foo);", Style);
+  verifyFormat("operator&&(int (&)(), class Foo);", Style);
 
   verifyFormat("Foo::operator&&();", Style);
   verifyFormat("Foo::operator**();", Style);
@@ -21884,7 +21888,7 @@ TEST_F(FormatTest, OperatorSpacing) {
   verifyFormat("Foo::operator()(void &&);", Style);
   verifyFormat("Foo::operator&&(void &&);", Style);
   verifyFormat("Foo::operator&&();", Style);
-  verifyFormat("operator&&(int(&&)(), class Foo);", Style);
+  verifyFormat("operator&&(int (&&)(), class Foo);", Style);
   verifyFormat("operator const nsTArrayRight<E> &()", Style);
   verifyFormat("[[nodiscard]] operator const nsTArrayRight<E, Allocator> &()",
                Style);
@@ -21935,6 +21939,8 @@ TEST_F(FormatTest, OperatorSpacing) {
   verifyFormat("Foo::operator&(void&);", Style);
   verifyFormat("Foo::operator&();", Style);
   verifyFormat("operator&(int (&)(), class Foo);", Style);
+  verifyFormat("operator&(int (&&)(), class Foo);", Style);
+  verifyFormat("operator&&(int (&&)(), class Foo);", Style);
 
   verifyFormat("Foo::operator&&();", Style);
   verifyFormat("Foo::operator void&&();", Style);
@@ -21945,7 +21951,7 @@ TEST_F(FormatTest, OperatorSpacing) {
   verifyFormat("Foo::operator()(void&&);", Style);
   verifyFormat("Foo::operator&&(void&&);", Style);
   verifyFormat("Foo::operator&&();", Style);
-  verifyFormat("operator&&(int(&&)(), class Foo);", Style);
+  verifyFormat("operator&&(int (&&)(), class Foo);", Style);
   verifyFormat("operator const nsTArrayLeft<E>&()", Style);
   verifyFormat("[[nodiscard]] operator const nsTArrayLeft<E, Allocator>&()",
                Style);
@@ -21986,7 +21992,7 @@ TEST_F(FormatTest, OperatorSpacing) {
   verifyFormat("Foo::operator()(void &&);", Style);
   verifyFormat("Foo::operator&&(void &&);", Style);
   verifyFormat("Foo::operator&&();", Style);
-  verifyFormat("operator&&(int(&&)(), class Foo);", Style);
+  verifyFormat("operator&&(int (&&)(), class Foo);", Style);
 }
 
 TEST_F(FormatTest, OperatorPassedAsAFunctionPtr) {
@@ -22608,6 +22614,71 @@ TEST_F(FormatTest, FormatDecayCopy) {
   verifyFormat("integral auto(x) = y;"); // actually a declaration, but this is
                                          // clearly the user's own fault
   verifyFormat("auto(*p)() = f;");       // actually a declaration; TODO FIXME
+}
+
+TEST_F(FormatTest, Cpp20ModulesSupport) {
+  FormatStyle Style = getLLVMStyle();
+  Style.AllowShortBlocksOnASingleLine = FormatStyle::SBS_Never;
+  Style.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_None;
+
+  verifyFormat("export import foo;", Style);
+  verifyFormat("export import foo:bar;", Style);
+  verifyFormat("export import foo.bar;", Style);
+  verifyFormat("export import foo.bar:baz;", Style);
+  verifyFormat("export import :bar;", Style);
+  verifyFormat("export module foo:bar;", Style);
+  verifyFormat("export module foo;", Style);
+  verifyFormat("export module foo.bar;", Style);
+  verifyFormat("export module foo.bar:baz;", Style);
+  verifyFormat("export import <string_view>;", Style);
+
+  verifyFormat("export type_name var;", Style);
+  verifyFormat("template <class T> export using A = B<T>;", Style);
+  verifyFormat("export using A = B;", Style);
+  verifyFormat("export int func() {\n"
+               "  foo();\n"
+               "}",
+               Style);
+  verifyFormat("export struct {\n"
+               "  int foo;\n"
+               "};",
+               Style);
+  verifyFormat("export {\n"
+               "  int foo;\n"
+               "};",
+               Style);
+  verifyFormat("export export char const *hello() { return \"hello\"; }");
+
+  verifyFormat("import bar;", Style);
+  verifyFormat("import foo.bar;", Style);
+  verifyFormat("import foo:bar;", Style);
+  verifyFormat("import :bar;", Style);
+  verifyFormat("import <ctime>;", Style);
+  verifyFormat("import \"header\";", Style);
+
+  verifyFormat("module foo;", Style);
+  verifyFormat("module foo:bar;", Style);
+  verifyFormat("module foo.bar;", Style);
+  verifyFormat("module;", Style);
+
+  verifyFormat("export namespace hi {\n"
+               "const char *sayhi();\n"
+               "}",
+               Style);
+
+  verifyFormat("module :private;", Style);
+  verifyFormat("import <foo/bar.h>;", Style);
+  verifyFormat("import foo...bar;", Style);
+  verifyFormat("import ..........;", Style);
+  verifyFormat("module foo:private;", Style);
+  verifyFormat("import a", Style);
+  verifyFormat("module a", Style);
+  verifyFormat("export import a", Style);
+  verifyFormat("export module a", Style);
+
+  verifyFormat("import", Style);
+  verifyFormat("module", Style);
+  verifyFormat("export", Style);
 }
 
 } // namespace
