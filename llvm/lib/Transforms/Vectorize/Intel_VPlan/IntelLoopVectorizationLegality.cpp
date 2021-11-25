@@ -24,6 +24,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
@@ -59,7 +60,7 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
       Users.push_back(U);
     else if (isa<BitCastInst>(U)) {
       Value *Ptr = getPtrThruCast<BitCastInst>(RedVarPtr);
-      if (Ptr && Ptr != RedVarPtr)
+      if (Ptr != RedVarPtr)
         for (auto U : Ptr->users())
           if (isa<LoadInst>(U) || isa<StoreInst>(U))
             Users.push_back(U);
@@ -68,30 +69,25 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
 }
 
 static bool checkCombinerOp(Value *CombinerV, RecurKind Kind) {
+  auto *CombinerInst = dyn_cast<Instruction>(CombinerV);
+  if (!CombinerInst)
+    return false;
+  unsigned Opcode = CombinerInst->getOpcode();
   switch (Kind) {
   case RecurKind::FAdd:
-    return isa<Instruction>(CombinerV) &&
-           (cast<Instruction>(CombinerV)->getOpcode() == Instruction::FAdd ||
-            cast<Instruction>(CombinerV)->getOpcode() == Instruction::FSub);
+    return Opcode == Instruction::FAdd || Opcode == Instruction::FSub;
   case RecurKind::Add:
-    return isa<Instruction>(CombinerV) &&
-           (cast<Instruction>(CombinerV)->getOpcode() == Instruction::Add ||
-            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Sub);
+    return Opcode == Instruction::Add || Opcode == Instruction::Sub;
   case RecurKind::Mul:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::Mul;
+    return Opcode == Instruction::Mul;
   case RecurKind::FMul:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::FMul;
+    return Opcode == Instruction::FMul;
   case RecurKind::And:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::And;
+    return Opcode == Instruction::And;
   case RecurKind::Or:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::Or;
+    return Opcode == Instruction::Or;
   case RecurKind::Xor:
-    return isa<Instruction>(CombinerV) &&
-           cast<Instruction>(CombinerV)->getOpcode() == Instruction::Xor;
+    return Opcode == Instruction::Xor;
   default:
     break;
   }
@@ -135,7 +131,6 @@ static bool isOrHasScalableTy(Type *InTy) {
 }
 
 static bool isSupportedInstructionType(const Instruction &I) {
-
   Type *Ty = I.getType();
 
   if (isOrHasScalableTy(Ty)) {
@@ -151,8 +146,8 @@ static bool isSupportedInstructionType(const Instruction &I) {
     return true;
 
   bool InstrOperandsAreNonScalableType =
-      all_of(I.operands(),
-             [](const Value *V) { return !isOrHasScalableTy(V->getType()); });
+      none_of(I.operands(),
+              [](const Value *V) { return isOrHasScalableTy(V->getType()); });
 
   return VecTy->getElementType()->isSingleValueType() &&
          InstrOperandsAreNonScalableType;
@@ -175,14 +170,6 @@ static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
       }
     }
   return false;
-}
-
-static bool isUsedInReductionScheme(
-    PHINode *Phi,
-    VPOVectorizationLegality::ExplicitReductionList &ReductionPhis) {
-  return std::any_of(Phi->users().begin(), Phi->users().end(), [&](User *U) {
-    return isa<PHINode>(U) && ReductionPhis.count(cast<PHINode>(U));
-  });
 }
 
 static Type *convertPointerToIntegerType(const DataLayout &DL, Type *Ty) {
@@ -387,16 +374,16 @@ void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
     for (auto &I : *CurBB) {
       if (isEndDirective(&I))
         return;
-      if (!isa<StoreInst>(&I))
+      auto *SI = dyn_cast<StoreInst>(&I);
+      if (!SI)
         continue;
-      LLVM_DEBUG(dbgs() << "VPOLegal: StoreInst: "; I.dump());
-      Value *StorePtrOp = cast<StoreInst>(&I)->getPointerOperand();
+      LLVM_DEBUG(dbgs() << "VPOLegal: StoreInst: "; SI->dump());
+      Value *StorePtrOp = SI->getPointerOperand();
       if (!Privates.count(StorePtrOp))
         continue;
 
       std::unique_ptr<PrivDescrTy> &Descr = Privates.find(StorePtrOp)->second;
-      const Instruction *StoreOp =
-          dyn_cast<Instruction>(cast<StoreInst>(&I)->getValueOperand());
+      auto *StoreOp = dyn_cast<Instruction>(SI->getValueOperand());
       if (!StoreOp)
         continue;
       if (!TheLoop->contains(StoreOp)) {
@@ -409,25 +396,22 @@ void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
       }
       LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
                  StoreOp->dump());
-      Descr->addAlias(StoreOp, std::make_unique<DescrValueTy>(
-                                    const_cast<Instruction *>(StoreOp)));
+      Descr->addAlias(StoreOp, std::make_unique<DescrValueTy>(StoreOp));
     }
   }
 }
 
-// Check the safety of aliasing of particular class of clause-variables in \p
-// Range outside of the loop.
 template <typename LoopEntitiesRange>
 bool VPOVectorizationLegality::isEntityAliasingSafe(
     const LoopEntitiesRange &LERange,
-    std::function<bool(const Instruction *)> IsAliasInRelevantScope) {
+    function_ref<bool(const Instruction *)> IsAliasInRelevantScope) {
   for (auto *En : LERange) {
     SetVector<const Value *> WL;
     WL.insert(En);
     while (!WL.empty()) {
       auto *HeadI = WL.pop_back_val();
       for (auto *Use : HeadI->users()) {
-        const Instruction *UseInst = cast<Instruction>(Use);
+        const auto *UseInst = cast<Instruction>(Use);
 
         // We only want to analyze the blocks between the region-entry and the
         // loop-block (typically just simd.loop.preheader). This means we won't
@@ -438,7 +422,7 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
         // If this is a store of private pointer or any of its alias to an
         // external memory, treat the loop as unsafe for vectorization and
         // return false.
-        if (const StoreInst *SI = dyn_cast<StoreInst>(UseInst))
+        if (const auto *SI = dyn_cast<StoreInst>(UseInst))
           if (SI->getValueOperand() == HeadI)
             return false;
         if (isTrivialPointerAliasingInst(UseInst))
@@ -528,21 +512,16 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
   Value *StartV = nullptr;
   StoreInst *ReductionStore = nullptr;
   if (doesReductionUsePhiNodes(RedVarPtr, LoopHeaderPhiNode, StartV)) {
-    for (auto PnUser : LoopHeaderPhiNode->users()) {
-      if (TheLoop->isLoopInvariant(PnUser))
-        continue;
-      if (auto Phi = dyn_cast<PHINode>(PnUser))
-        MinMaxResultInst = Phi;
-      else if (auto Select = dyn_cast<SelectInst>(PnUser))
-        MinMaxResultInst = Select;
-      else if (auto *II = dyn_cast<IntrinsicInst>(PnUser)) {
-        auto ID = II->getIntrinsicID();
-        if (ID == Intrinsic::maxnum || ID == Intrinsic::minnum)
-          MinMaxResultInst = II;
-      }
-      if (MinMaxResultInst != nullptr)
-        break;
-    }
+    using namespace PatternMatch;
+    auto It = find_if(LoopHeaderPhiNode->users(), [this](auto *U) {
+      return !TheLoop->isLoopInvariant(U) &&
+             (isa<PHINode>(U) || isa<SelectInst>(U) ||
+              match(U, m_CombineOr(m_Intrinsic<Intrinsic::maxnum>(),
+                                   m_Intrinsic<Intrinsic::minnum>())));
+    });
+    if (It != LoopHeaderPhiNode->user_end())
+      MinMaxResultInst = cast<Instruction>(*It);
+
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     RecurrenceDescriptor RD(StartV, MinMaxResultInst, Kind, FMF, nullptr,
@@ -687,8 +666,14 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           // identified reduction value with an outside user.
           if (!hasOutsideLoopUser(TheLoop, Phi, AllowedExit))
             continue;
-          if (isUsedInReductionScheme(Phi, ExplicitReductions))
+
+          if (any_of(Phi->users(), [&](User *U) {
+                return isa<PHINode>(U) &&
+                       ExplicitReductions.count(cast<PHINode>(U));
+              }))
+            // Used in reduction scheme.
             continue;
+
           if (checkAndAddAliasForSimdLastPrivate(Phi))
             continue;
 
@@ -882,11 +867,11 @@ void VPOVectorizationLegality::addInductionPhi(
       WidestIndTy = getWiderType(DL, PhiTy, WidestIndTy);
   }
 
+  using namespace PatternMatch;
   // Int inductions are special because we only allow one IV.
   if (ID.getKind() == InductionDescriptor::IK_IntInduction &&
-      ID.getConstIntStepValue() && ID.getConstIntStepValue()->isOne() &&
-      isa<Constant>(ID.getStartValue()) &&
-      cast<Constant>(ID.getStartValue())->isNullValue()) {
+      ID.getConstIntStepValue() && match(ID.getConstIntStepValue(), m_One()) &&
+      match(ID.getStartValue(), m_Zero())) {
 
     // Use the phi node with the widest type as induction. Use the last
     // one if there are multiple (no good reason for doing this other
@@ -903,14 +888,6 @@ void VPOVectorizationLegality::addInductionPhi(
 
   LLVM_DEBUG(dbgs() << "LV: Found an induction variable.\n");
   return;
-}
-
-bool VPOVectorizationLegality::isLoopInvariant(Value *V) {
-  // Each lane gets its own copy of the private value
-  if (isLoopPrivate(V))
-    return false;
-
-  return LoopInvariants.count(V);
 }
 
 bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
