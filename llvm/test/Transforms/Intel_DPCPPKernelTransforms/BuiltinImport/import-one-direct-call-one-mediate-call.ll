@@ -36,8 +36,10 @@ entry:
   ret <4 x double> %call02
 }
 
-; CHECK: define linkonce_odr <4 x double> @function_module_1_foo_1(<4 x double> %in)
-; CHECK: define linkonce_odr <4 x double> @function_module_2_foo(<4 x double> %in)
+; CHECK: define internal <4 x double> @function_module_1_foo_1(<4 x double> %in)
+; CHECK: define internal <4 x double> @function_module_2_foo(<4 x double> %in)
 ; CHECK-NOT: declare <4 x double> @function_module_2_foo[0-9]+(<4 x double>)
 
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function function_module_1_foo_1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function function_module_2_foo
 ; DEBUGIFY-NOT: WARNING

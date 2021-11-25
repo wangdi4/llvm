@@ -521,7 +521,7 @@ bool BuiltinImportPass::runImpl(Module &M) {
   // Allow removal of function from module after it is inlined.
   for (auto &F : M)
     if (!UserModuleFunctions.count(&F) && !F.isDeclaration())
-      F.setLinkage(GlobalVariable::LinkOnceODRLinkage);
+      F.setLinkage(GlobalVariable::InternalLinkage);
 
   // At link time we have a shared.rtl (with common built-ins) compiled for
   // SSE and target.rtl compiled for SSE, AVX or AVX2. Built-ins from

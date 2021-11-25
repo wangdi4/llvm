@@ -26,4 +26,6 @@ define %opencl.reserve_id_t* @caller(%opencl.pipe_t addrspace(1)* nocapture %p, 
   ret %opencl.reserve_id_t* %ret
 }
 
+; DEBUGIFY-COUNT-10: WARNING: Instruction with empty DebugLoc in function callee
+; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function load
 ; DEBUGIFY-NOT: WARNING
