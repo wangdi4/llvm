@@ -1760,6 +1760,17 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
       auto *GV = cast<llvm::GlobalVariable>(Ptr);
       GV->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
 
+#if INTEL_COLLAB
+      if (CGM.getLangOpts().OpenMPLateOutline)
+        GV->setTargetDeclare(true);
+      if (CGM.getLangOpts().OpenMPLateOutline &&
+          !CGM.getLangOpts().OpenMPIsDevice) {
+        llvm::GlobalVariable *OGV =
+            dyn_cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobal(VD));
+        OGV->setTargetDeclare(false);
+        GV->setInitializer(OGV);
+      } else
+#endif  // INTEL_COLLAB
       if (!CGM.getLangOpts().OpenMPIsDevice)
         GV->setInitializer(CGM.GetAddrOfGlobal(VD));
       registerTargetGlobalVariable(VD, cast<llvm::Constant>(Ptr));
@@ -11605,6 +11616,11 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 
     if (CGM.getLangOpts().OpenMPIsDevice) {
       VarName = Addr->getName();
+#if INTEL_COLLAB
+      if (CGM.getLangOpts().OpenMPLateOutline)
+        Addr = cast<llvm::Constant>(getAddrOfDeclareTargetVar(VD).getPointer());
+      else
+#endif // INTEL_COLLAB
       Addr = nullptr;
     } else {
       VarName = getAddrOfDeclareTargetVar(VD).getName();
