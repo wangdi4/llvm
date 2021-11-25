@@ -414,9 +414,6 @@ public:
   /// Returns True if V is an induction variable in this loop.
   bool isInductionVariable(const Value *V);
 
-  /// Returns true if the value \p V is loop invariant.
-  bool isLoopInvariant(Value *V);
-
   /// Returns True if PN is a reduction variable in this loop.
   bool isReductionVariable(PHINode *PN) const {
     return ExplicitReductions.count(PN) || Reductions.count(PN);
@@ -483,16 +480,6 @@ private:
   /// Map of pointer values and stride
   DenseMap<Value *, int> PtrStrides;
 
-  /// Set of loop invariants - currently only GEP operands and select condition
-  /// are checked for invariance.
-  SmallPtrSet<Value *, 8> LoopInvariants;
-
-  /// Map of linear items in original loop and the scalar linear item in the
-  /// vector loop along with linear Step. This map is maintained only for
-  /// step values 1 and -1 and is used to generate unit-stride loads/stores
-  /// when possible
-  std::map<Value *, std::pair<Value *, int>> UnitStepLinears;
-
   bool IsSimdLoop = false;
 
 public:
@@ -513,11 +500,6 @@ public:
 
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
-
-  // Add unit step linear value to UnitStepLinears map
-  void addUnitStepLinear(Value *LinearVal, Value *NewVal, int Step) {
-    UnitStepLinears[LinearVal] = std::make_pair(NewVal, Step);
-  }
 
   // Return pointer to Linears map
   LinearListTy *getLinears() { return &Linears; }
@@ -547,13 +529,9 @@ public:
   // Return the iterator-range to the list of explicit reduction variables which
   // are of 'Pointer Type'.
   inline decltype(auto) explicitReductionVals() const {
-    return map_range(
-        make_filter_range(
-            make_range(ExplicitReductions.begin(), ExplicitReductions.end()),
-            [](auto &PHIRecDesc) {
-              return isa<PointerType>(PHIRecDesc.second.second->getType());
-            }),
-        [](auto &PHIRecDesc) { return PHIRecDesc.second.second; });
+    return make_filter_range(
+        make_second_range(make_second_range(ExplicitReductions)),
+        [](auto *Val) { return Val->getType()->isPointerTy(); });
   }
 
   // Return the iterator-range to the list of in-memory reduction variables.
@@ -616,6 +594,11 @@ private:
   /// Return operand of the \p Phi which is live-out. Live out phi or
   /// a Recurrence phi is expected.
   const Instruction *getLiveOutPhiOperand(const PHINode *Phi) const;
+  Instruction *getLiveOutPhiOperand(PHINode *Phi) const {
+    return const_cast<Instruction *>(
+        // std::as_const is C++17.
+        getLiveOutPhiOperand(const_cast<const PHINode *>(Phi)));
+  }
 
   /// Check whether Phi can be private or private alias, update private
   /// descriptor and return true if so. Otherwise return false. Live out phi or
@@ -637,7 +620,7 @@ private:
   template <typename LoopEntitiesRange>
   bool isEntityAliasingSafe(
       const LoopEntitiesRange &LERange,
-      std::function<bool(const Instruction *)> IsAliasInRelevantScope);
+      function_ref<bool(const Instruction *)> IsAliasInRelevantScope);
 
   /// Utility function to check whether given Instruction is end directive of
   /// OMP.SIMD directive.
