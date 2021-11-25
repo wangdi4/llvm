@@ -8748,7 +8748,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         RetValue = Builder.CreateShuffleVector(RetValue, E->ReuseShuffleIndices,
                                                "SplitLoadReuseShuffle");
         if (auto *I = dyn_cast<Instruction>(RetValue)) {
-          GatherSeq.insert(I);
+          GatherShuffleSeq.insert(I);
           CSEBlocks.insert(I->getParent());
         }
       }
