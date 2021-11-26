@@ -990,29 +990,13 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   if (IsEsimd && LowerEsimd)
     lowerEsimdConstructs(*M);
 
-<<<<<<< HEAD
-  EntryPointGroupMap GMap;
-
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
   bool DoMakeOmpGlobalsStatic = MakeOmpGlobalsStatic.getNumOccurrences() > 0;
   bool DoSortOmpOffloadEntries = SortOmpOffloadEntries.getNumOccurrences() > 0;
   bool DoEnableOmpExplicitSimd = EnableOmpExplicitSimd.getNumOccurrences() > 0;
-#endif // INTEL_COLLAB
 
-  bool DoSplit = SplitMode.getNumOccurrences() > 0;
-
-  if (DoSplit || DoSymGen) {
-    EntryPointsGroupScope Scope = selectDeviceCodeGroupScope(*M);
-    groupEntryPoints(*M, GMap, Scope);
-  }
-
-  StringRef FileSuffix = IsEsimd ? "esimd_" : "";
-
-  std::vector<ResultModule> ResultModules;
-
-#if INTEL_COLLAB
   if (DoEnableOmpExplicitSimd) {
     legacy::PassManager Passes;
     Passes.add(createVPOParoptLowerSimdPass());
@@ -1037,15 +1021,6 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
-  if (DoSplit)
-    ResultModules = splitModule(*M, GMap);
-  // post-link always produces a code result, even if it is unmodified input
-  if (ResultModules.empty())
-    ResultModules.push_back({GLOBAL_SCOPE_NAME, std::move(M)});
-
-  bool DoSpecConst = SpecConstLower.getNumOccurrences() > 0;
-  bool SpecConstsMet = false;
-=======
   EntryPointsGroupScope Scope = selectDeviceCodeGroupScope(*M);
   bool DoSplit = (SplitMode.getNumOccurrences() > 0);
   ModuleSplitter MSplit(std::move(M), DoSplit, Scope);
@@ -1056,7 +1031,6 @@ TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
     std::unique_ptr<Module> ResM;
     EntryPointGroup SplitModuleEntryPoints;
     std::tie(ResM, SplitModuleEntryPoints) = MSplit.nextSplit();
->>>>>>> 626682032ac4f711cea9c73715b474c739b99b38
 
     bool SpecConstsMet = processSpecConstants(*ResM);
 
