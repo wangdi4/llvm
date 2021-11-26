@@ -657,7 +657,7 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
 // the scalars into vector registers, doing the address arithmetic there, and
 // then extracting the address for each element.
 static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
-                              IRBuilder<> &Builder) {
+                              IRBuilder<> &Builder, const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
   unsigned LoadCount = 0;
   unsigned ConstCount = 0;
@@ -695,7 +695,9 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
         }
         Indices.push_back(C->getAggregateElement(Element));
         continue;
-      } else if (isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount)) {
+      } else if (TTI.isAdvancedOptEnabled(
+              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) &&
+              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount)) {
         Indices.push_back(nullptr);
         continue;
       }
@@ -719,9 +721,10 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
 }
 
 static Value *getScalarAddress(Value *Ptrs, unsigned Element,
-                               IRBuilder<> &Builder) {
+                               IRBuilder<> &Builder,
+                               const TargetTransformInfo &TTI) {
   if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
-    if (Value *V = tryScalarizeGEP(GEP, Element, Builder))
+    if (Value *V = tryScalarizeGEP(GEP, Element, Builder, TTI))
       return V;
 
   return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
@@ -758,7 +761,8 @@ static Value *getScalarAddress(Value *Ptrs, unsigned Element,
 // %Result = select <16 x i1> %Mask, <16 x i32> %res.phi.select, <16 x i32> %Src
 // ret <16 x i32> %Result
 static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
-                                  DomTreeUpdater *DTU, bool &ModifiedDT) {
+                                  DomTreeUpdater *DTU, bool &ModifiedDT, // INTEL
+                                  const TargetTransformInfo &TTI) {      // INTEL
   Value *Ptrs = CI->getArgOperand(0);
   Value *Alignment = CI->getArgOperand(1);
   Value *Mask = CI->getArgOperand(2);
@@ -784,7 +788,7 @@ static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
-      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
       LoadInst *Load =
           Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
       VResult =
@@ -840,7 +844,7 @@ static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
     CondBlock->setName("cond.load");
 
     Builder.SetInsertPoint(CondBlock->getTerminator());
-    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
     LoadInst *Load =
         Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
     Value *NewVResult =
@@ -893,7 +897,8 @@ static void scalarizeMaskedGather(const DataLayout &DL, CallInst *CI,
 // br label %else2
 //   . . .
 static void scalarizeMaskedScatter(const DataLayout &DL, CallInst *CI,
-                                   DomTreeUpdater *DTU, bool &ModifiedDT) {
+                                   DomTreeUpdater *DTU, bool &ModifiedDT, // INTEL
+                                   const TargetTransformInfo &TTI) {      // INTEL
   Value *Src = CI->getArgOperand(0);
   Value *Ptrs = CI->getArgOperand(1);
   Value *Alignment = CI->getArgOperand(2);
@@ -921,7 +926,7 @@ static void scalarizeMaskedScatter(const DataLayout &DL, CallInst *CI,
         continue;
       Value *OneElt =
           Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
       Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
     }
     CI->eraseFromParent();
@@ -973,7 +978,7 @@ static void scalarizeMaskedScatter(const DataLayout &DL, CallInst *CI,
 
     Builder.SetInsertPoint(CondBlock->getTerminator());
     Value *OneElt = Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
+    Value *Ptr = getScalarAddress(Ptrs, Idx, Builder, TTI); // INTEL
     Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
 
     // Create "else" block, fill it in the next iteration
@@ -1313,7 +1318,7 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
       if (!TTI.shouldScalarizeMaskedGather(CI))
 #endif // INTEL_CUSTOMIZATION
         return false;
-      scalarizeMaskedGather(DL, CI, DTU, ModifiedDT);
+      scalarizeMaskedGather(DL, CI, DTU, ModifiedDT, TTI);
       return true;
     }
     case Intrinsic::masked_scatter: {
@@ -1324,7 +1329,7 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
                                                       StoreTy->getScalarType());
       if (TTI.isLegalMaskedScatter(StoreTy, Alignment))
         return false;
-      scalarizeMaskedScatter(DL, CI, DTU, ModifiedDT);
+      scalarizeMaskedScatter(DL, CI, DTU, ModifiedDT, TTI);
       return true;
     }
     case Intrinsic::masked_expandload:
