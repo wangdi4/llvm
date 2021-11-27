@@ -2033,11 +2033,10 @@ protected: // INTEL
                       SCEV::NoWrapFlags &Flags);
 
   /// Drop memoized information for all \p SCEVs.
-  void forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs,
-                             bool SkipUnknownPhis = false);
+  void forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs);
 
   /// Helper for forgetMemoizedResults.
-  void forgetMemoizedResultsImpl(const SCEV *S, bool SkipUnknownPhis = false);
+  void forgetMemoizedResultsImpl(const SCEV *S);
 
   /// Return an existing SCEV for V if there is one, otherwise return nullptr.
   const SCEV *getExistingSCEV(Value *V);

@@ -8603,16 +8603,17 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   // Now that we know more about the trip count for this loop, forget any
   // existing SCEV values for PHI nodes in this loop since they are only
   // conservative estimates made without the benefit of trip count
-  // information. This is similar to the code in forgetLoop, except that
-  // it handles SCEVUnknown PHI nodes specially.
+  // information. This invalidation is not necessary for correctness, and is
+  // only done to produce more precise results.
   if (Result.hasAnyInfo()) {
-    SmallVector<Instruction *, 16> Worklist;
-    SmallPtrSet<Instruction *, 8> Discovered;
+    // Invalidate any expression using an addrec in this loop.
     SmallVector<const SCEV *, 8> ToForget;
-    PushLoopPHIs(L, Worklist, Discovered);
-    while (!Worklist.empty()) {
-      Instruction *I = Worklist.pop_back_val();
+    auto LoopUsersIt = LoopUsers.find(L);
+    if (LoopUsersIt != LoopUsers.end())
+      append_range(ToForget, LoopUsersIt->second);
+    forgetMemoizedResults(ToForget);
 
+<<<<<<< HEAD
       ValueExprMapType::iterator It =
           ValueExprMap.find_as(static_cast<Value *>(I));
       if (It != ValueExprMap.end()) {
@@ -8659,6 +8660,11 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
         }
     }
     forgetMemoizedResults(ToForget, /* SkipUnknownPhis */ true);
+=======
+    // Invalidate constant-evolved loop header phis.
+    for (PHINode &PN : L->getHeader()->phis())
+      ConstantEvolutionLoopExitValue.erase(&PN);
+>>>>>>> c2550e342732d029c3a8ae1eff764d68b1abfc59
   }
 
   // Re-lookup the insert position, since the call to
@@ -14842,8 +14848,7 @@ bool ScalarEvolution::hasOperand(const SCEV *S, const SCEV *Op) const {
   return SCEVExprContains(S, [&](const SCEV *Expr) { return Expr == Op; });
 }
 
-void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs,
-                                            bool SkipUnknownPhis) {
+void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
   SmallPtrSet<const SCEV *, 8> ToForget(SCEVs.begin(), SCEVs.end());
   SmallVector<const SCEV *, 8> Worklist(ToForget.begin(), ToForget.end());
 
@@ -14857,7 +14862,7 @@ void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs,
   }
 
   for (auto *S : ToForget)
-    forgetMemoizedResultsImpl(S, SkipUnknownPhis);
+    forgetMemoizedResultsImpl(S);
 
   for (auto I = PredicatedSCEVRewrites.begin();
        I != PredicatedSCEVRewrites.end();) {
@@ -14884,8 +14889,7 @@ void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs,
   RemoveSCEVFromBackedgeMap(PredicatedBackedgeTakenCounts);
 }
 
-void ScalarEvolution::forgetMemoizedResultsImpl(const SCEV *S,
-                                                bool SkipUnknownPhis) {
+void ScalarEvolution::forgetMemoizedResultsImpl(const SCEV *S) {
   ValuesAtScopes.erase(S);
   LoopDispositions.erase(S);
   BlockDispositions.erase(S);
@@ -14897,12 +14901,6 @@ void ScalarEvolution::forgetMemoizedResultsImpl(const SCEV *S,
   auto ExprIt = ExprValueMap.find(S);
   if (ExprIt != ExprValueMap.end()) {
     for (auto &ValueAndOffset : ExprIt->second) {
-      // For some invalidations, it's important that symbolic SCEVUnknown
-      // placeholders do not get removed.
-      if (SkipUnknownPhis && isa<SCEVUnknown>(S) &&
-          isa<PHINode>(ValueAndOffset.first))
-        continue;
-
       if (ValueAndOffset.second == nullptr) {
         auto ValueIt = ValueExprMap.find_as(ValueAndOffset.first);
         if (ValueIt != ValueExprMap.end())
