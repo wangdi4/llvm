@@ -8613,58 +8613,9 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
       append_range(ToForget, LoopUsersIt->second);
     forgetMemoizedResults(ToForget);
 
-<<<<<<< HEAD
-      ValueExprMapType::iterator It =
-          ValueExprMap.find_as(static_cast<Value *>(I));
-      if (It != ValueExprMap.end()) {
-        const SCEV *Old = It->second;
-
-        // SCEVUnknown for a PHI either means that it has an unrecognized
-        // structure, or it's a PHI that's in the progress of being computed
-        // by createNodeForPHI.  In the former case, additional loop trip
-        // count information isn't going to change anything. In the later
-        // case, createNodeForPHI will perform the necessary updates on its
-        // own when it gets to that point.
-        if (!isa<PHINode>(I) || !isa<SCEVUnknown>(Old)) {
-          eraseValueFromMap(It->first);
-          ToForget.push_back(Old);
-        }
-        if (PHINode *PN = dyn_cast<PHINode>(I))
-          ConstantEvolutionLoopExitValue.erase(PN);
-      }
-
-      // Since we don't need to invalidate anything for correctness and we're
-      // only invalidating to make SCEV's results more precise, we get to stop
-      // early to avoid invalidating too much.  This is especially important in
-      // cases like:
-      //
-      //   %v = f(pn0, pn1) // pn0 and pn1 used through some other phi node
-      // loop0:
-      //   %pn0 = phi
-      //   ...
-      // loop1:
-      //   %pn1 = phi
-      //   ...
-      //
-      // where both loop0 and loop1's backedge taken count uses the SCEV
-      // expression for %v.  If we don't have the early stop below then in cases
-      // like the above, getBackedgeTakenInfo(loop1) will clear out the trip
-      // count for loop0 and getBackedgeTakenInfo(loop0) will clear out the trip
-      // count for loop1, effectively nullifying SCEV's trip count cache.
-      for (auto *U : I->users())
-        if (auto *I = dyn_cast<Instruction>(U)) {
-          auto *LoopForUser = LI.getLoopFor(I->getParent());
-          if (LoopForUser && L->contains(LoopForUser) &&
-              Discovered.insert(I).second)
-            Worklist.push_back(I);
-        }
-    }
-    forgetMemoizedResults(ToForget, /* SkipUnknownPhis */ true);
-=======
     // Invalidate constant-evolved loop header phis.
     for (PHINode &PN : L->getHeader()->phis())
       ConstantEvolutionLoopExitValue.erase(&PN);
->>>>>>> c2550e342732d029c3a8ae1eff764d68b1abfc59
   }
 
   // Re-lookup the insert position, since the call to
