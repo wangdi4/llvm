@@ -399,7 +399,9 @@ for.end:
 ; CHECK-NOT: LV: Found uniform instruction: %p = phi i32* [ %tmp3, %for.body ], [ %a, %entry ]
 ; CHECK:     LV: Found uniform instruction: %q = phi i32** [ %tmp4, %for.body ], [ %b, %entry ]
 ; CHECK:     vector.body
+; CHECK:       %pointer.phi = phi i32* [ %a, %vector.ph ], [ %ptr.ind, %vector.body ]
 ; CHECK:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
+<<<<<<< HEAD
 ; CHECK:       %next.gep = getelementptr i32, i32* %a, i64 %index
 ; CHECK:       %[[I1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
 ; CHECK:       %next.gep10 = getelementptr i32, i32* %a, i64 %[[I1]]
@@ -416,6 +418,13 @@ for.end:
 ; CHECK-NOT:   getelementptr
 ; CHECK:       %[[B0:.+]] = bitcast i32** %next.gep13 to <4 x i32*>*
 ; CHECK:       store <4 x i32*> %[[V3]], <4 x i32*>* %[[B0]], align 8
+=======
+; CHECK:       %[[PTRVEC:.+]] = getelementptr i32, i32* %pointer.phi, <4 x i64> <i64 0, i64 1, i64 2, i64 3>
+; CHECK:       %next.gep = getelementptr i32*, i32** %b, i64 %index
+; CHECK:       %[[NEXTGEPBC:.+]] = bitcast i32** %next.gep to <4 x i32*>*
+; CHECK:       store <4 x i32*> %[[PTRVEC]], <4 x i32*>* %[[NEXTGEPBC]], align 8
+; CHECK:       %ptr.ind = getelementptr i32, i32* %pointer.phi, i64 4
+>>>>>>> 28a4deab921d2d9a1e27d520fc3f745eb8d9aa02
 ; CHECK:       br i1 {{.*}}, label %middle.block, label %vector.body
 ;
 define i32 @pointer_iv_mixed(i32* %a, i32** %b, i64 %n) {
