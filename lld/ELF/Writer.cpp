@@ -281,7 +281,10 @@ static OutputSection *findSection(StringRef name, unsigned partition = 1) {
 template <class ELFT> void elf::createSyntheticSections() {
   // Initialize all pointers with NULL. This is needed because
   // you can call lld::elf::main more than once as a library.
-  memset(&Out::first, 0, sizeof(Out));
+  Out::tlsPhdr = nullptr;
+  Out::preinitArray = nullptr;
+  Out::initArray = nullptr;
+  Out::finiArray = nullptr;
 
   // Add the .interp section first because it is not a SyntheticSection.
   // The removeUnusedSyntheticSections() function relies on the
@@ -2028,11 +2031,14 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
 
   sortSections();
 
-  // Now that we have the final list, create a list of all the
-  // OutputSections for convenience.
+  // Create a list of OutputSections, assign sectionIndex, and populate
+  // in.shStrTab.
   for (SectionCommand *cmd : script->sectionCommands)
-    if (auto *sec = dyn_cast<OutputSection>(cmd))
-      outputSections.push_back(sec);
+    if (auto *osec = dyn_cast<OutputSection>(cmd)) {
+      outputSections.push_back(osec);
+      osec->sectionIndex = outputSections.size();
+      osec->shName = in.shStrTab->addString(osec->name);
+    }
 
   // Prefer command line supplied address over other constraints.
   for (OutputSection *sec : outputSections) {
@@ -2054,12 +2060,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   // to 1 to make __ehdr_start defined. The section number is not
   // particularly relevant.
   Out::elfHeader->sectionIndex = 1;
-
-  for (size_t i = 0, e = outputSections.size(); i != e; ++i) {
-    OutputSection *sec = outputSections[i];
-    sec->sectionIndex = i + 1;
-    sec->shName = in.shStrTab->addString(sec->name);
-  }
+  Out::elfHeader->size = sizeof(typename ELFT::Ehdr);
 
   // Binary and relocatable output does not have PHDRS.
   // The headers have to be created before finalize as that can influence the
