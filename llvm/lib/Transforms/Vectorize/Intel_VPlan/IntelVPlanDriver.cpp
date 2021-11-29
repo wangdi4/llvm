@@ -1393,6 +1393,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
          "same.");
   if (!processVConflictIdiom(*LVP.getAllVPlans().begin()->second.MainPlan.get(),
                              Fn)) {
+    // PassManager will invoke LLVM-IR based VPlan when HIR auto-vec fails.
+    // TODO: remove call to erase the loop intrinsics after VPlan supports
+    // conflict idioms for LLVM-IR side of things.
+    if (WRLp->getIsAutoVec())
+      eraseLoopIntrins(Lp, WRLp);
     LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
     return false;
   }
