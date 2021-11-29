@@ -72,10 +72,15 @@
 #define CPU_MIN_VECTOR_SIZE             16
 #define CPU_MAX_PRINTF_BUFFER_SIZE      1024*1024
 
-// We'd like TBB worker thread stack size to be 6MB.
+// We'd like TBB worker thread stack size to be 8MB on 64-bit system and 4MB on
+// 32-bit system.
 // Application can use CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE and
 // CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE to change TBB stack size.
-#define CPU_DEV_TBB_STACK_SIZE          (6 * 1024 * 1024)
+#if defined(__x86_64__) || defined(_M_X64)
+#define CPU_DEV_TBB_STACK_SIZE          (8 * 1024 * 1024)
+#else
+#define CPU_DEV_TBB_STACK_SIZE          (4 * 1024 * 1024)
+#endif
 
 // CPU_DEV_MAX_WG_STACK_SIZE is the maximum stack size that could be allocated
 // for WG execution. It takes both master thread and TBB worker threads into
