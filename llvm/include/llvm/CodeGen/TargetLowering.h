@@ -425,11 +425,19 @@ public:
     return true;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual bool isForceMergeMultiUseInputChain(const int ISDNode) const {
     return true;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Return true if the @llvm.get.active.lane.mask intrinsic should be expanded
+  /// using generic code in SelectionDAGBuilder.
+  virtual bool shouldExpandGetActiveLaneMask(EVT VT, EVT OpVT) const {
+    return true;
+  }
+>>>>>>> a31f4bdfe8211ecb38741c4fd570baf0d6e16f76
 
   /// Return true if it is profitable to convert a select of FP constants into
   /// a constant pool load whose address depends on the select condition. The
