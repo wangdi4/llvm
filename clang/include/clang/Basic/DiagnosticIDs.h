@@ -30,8 +30,13 @@ namespace clang {
     // Size of each of the diagnostic categories.
     enum {
       DIAG_SIZE_COMMON        =  300,
+<<<<<<< HEAD
       DIAG_SIZE_DRIVER        =  300, // INTEL
       DIAG_SIZE_FRONTEND      =  250, // INTEL
+=======
+      DIAG_SIZE_DRIVER        =  300,
+      DIAG_SIZE_FRONTEND      =  150,
+>>>>>>> 241daf4764cc0391d405453c06f2a88a8a4bc0c3
       DIAG_SIZE_SERIALIZATION =  120,
       DIAG_SIZE_LEX           =  400,
       DIAG_SIZE_PARSE         =  800, // INTEL
