@@ -1,5 +1,5 @@
-; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt --vpo-paropt-atomic-free-reduction-ctrl=1 -vpo-paropt-atomic-free-red-local-buf-size=0 -S | FileCheck %s
-; RUN: opt < %s -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' --vpo-paropt-atomic-free-reduction-ctrl=1 -vpo-paropt-atomic-free-red-local-buf-size=0 -S | FileCheck %s
+; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt --vpo-paropt-atomic-free-reduction-ctrl=1 -vpo-paropt-atomic-free-red-local-buf-size=1024 -S | FileCheck %s
+; RUN: opt < %s -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' --vpo-paropt-atomic-free-reduction-ctrl=1 -vpo-paropt-atomic-free-red-local-buf-size=1024 -S | FileCheck %s
 
 
 ;
@@ -22,28 +22,57 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64"
 target device_triples = "spir64"
 
-; CHECK: %[[GLOBAL_SUM_CAST:[^,]+]] = addrspacecast i32 addrspace(1)* %[[GLOBAL_SUM:[^,]+]] to i32 addrspace(4)*
-; CHECK-LABEL: atomic.free.red.local.update.update.header:
-; CHECK: %[[IDX_PHI:[^,]+]] = phi
-; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
+; CHECK-LABEL: DIR.OMP.END.PARALLEL.LOOP.{{[0-9]+}}
 ; CHECK: %[[LOCAL_SIZE:[^,]+]] = call spir_func i64 @_Z14get_local_sizej(i32 0)
-; CHECK: %[[CMP0:[^,]+]] = icmp uge i64 %[[IDX_PHI]], %[[LOCAL_SIZE]]
+; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
+; CHECK: lshr i64 %[[LOCAL_SIZE]], 1
+; CHECK: sub i64 %{{[0-9]+}}, 1
+; CHECK: lshr i64 %{{[0-9]+}}, 1
+; CHECK: or i64
+; CHECK: lshr i64 %{{[0-9]+}}, 2
+; CHECK: or i64
+; CHECK: lshr i64 %{{[0-9]+}}, 4
+; CHECK: or i64
+; CHECK: lshr i64 %{{[0-9]+}}, 8
+; CHECK: or i64
+; CHECK: lshr i64 %{{[0-9]+}}, 16
+; CHECK: or i64
+; CHECK: lshr i64 %{{[0-9]+}}, 32
+; CHECK: or i64
+; CHECK-NEXT: %[[TREE_LOOP_UB:[^,]+]] = add i64 %{{[0-9]+}}, 1
+; CHECK: %[[LOCAL_BUF_PTR:[^,]+]] = getelementptr inbounds [1024 x i32], [1024 x i32] addrspace(3)* @red_local_buf, i32 0, i64 %[[LOCAL_ID]]
+; CHECK: %[[PRIV_VAL:[^,]+]] = load i32, i32* %sum.ascast.red, align 4
+; CHECK: store i32 %[[PRIV_VAL]], i32 addrspace(3)* %[[LOCAL_BUF_PTR]], align 4
+; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
+; CHECK-LABEL: atomic.free.red.local.update.update.header:
+; CHECK: %[[IDX_PHI:[^,]+]] = phi i64 [ %[[TREE_LOOP_UB]]
+; CHECK: %[[CMP0:[^,]+]] = icmp eq i64 %[[IDX_PHI]], 0
 ; CHECK: br i1 %[[CMP0]], label %atomic.free.red.local.update.update.exit, label %atomic.free.red.local.update.update.idcheck
 ; CHECK-LABEL: atomic.free.red.local.update.update.idcheck:
-; CHECK: %[[CMP1:[^,]+]] = icmp eq i64 %[[LOCAL_ID]], %[[IDX_PHI]]
-; CHECK: br i1 %[[CMP1]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
+; CHECK: %[[CMP1:[^,]+]] = icmp ult i64 %[[LOCAL_ID]], %[[IDX_PHI]]
+; CHECK: %[[RHS_IDX:[^,]+]] = add i64 %[[LOCAL_ID]], %[[IDX_PHI]]
+; CHECK: %[[CMP2:[^,]+]] = icmp ult i64 %[[RHS_IDX]], %[[LOCAL_SIZE]]
+; CHECK: %[[UPD_COND:[^,]+]] = select i1 %[[CMP1]], i1 %[[CMP2]], i1 false
+; CHECK: br i1 %[[UPD_COND]], label %atomic.free.red.local.update.update.body, label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
-; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load
-; CHECK: %[[GLOBAL_SUM_VAL:[^,]+]] = load volatile i32, i32 addrspace(4)* %[[GLOBAL_SUM_CAST]]
-; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[GLOBAL_SUM_VAL]], %[[LOCAL_SUM_VAL]]
-; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(1)* %[[GLOBAL_SUM]]
+; CHECK: %[[LOCAL_BUF_PTR_PLUS:[^,]+]] = getelementptr inbounds i32, i32 addrspace(3)* %[[LOCAL_BUF_PTR]], i64 %[[IDX_PHI]]
+; CHECK: %[[LOCAL_SUM_OLD:[^,]+]] = load i32, i32 addrspace(3)* %[[LOCAL_BUF_PTR_PLUS]]
+; CHECK: %[[LOCAL_SUM_NEW:[^,]+]] = load volatile i32, i32 addrspace(3)* %[[LOCAL_BUF_PTR]]
+; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[LOCAL_SUM_NEW]], %[[LOCAL_SUM_OLD]]
+; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(3)* %[[LOCAL_BUF_PTR]]
 ; CHECK: br label %atomic.free.red.local.update.update.latch
 ; CHECK-LABEL: atomic.free.red.local.update.update.latch:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
-; CHECK: add i64 %[[IDX_PHI]], 1
+; CHECK: lshr i64 %[[IDX_PHI]], 1
 ; CHECK: br label %atomic.free.red.local.update.update.header
 ; CHECK-LABEL: atomic.free.red.local.update.update.exit:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+; CHECK: %[[MTT:[^,]+]] = icmp ne i64 %[[LOCAL_ID]], 0
+; CHECK: %[[LOCAL_VAL:[^,]+]] = load i32, i32 addrspace(3)* %[[LOCAL_BUF_PTR]]
+; CHECK: %[[CUR_GLOBAL_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_PTR:[^,]+]], align 4
+; CHECK: br i1 %[[MTT]]
+; CHECK: %[[NEW_GLOBAL_VAL:[^,]+]] = add i32 %[[CUR_GLOBAL_VAL]], %[[LOCAL_VAL]]
+; CHECK: store i32 %[[NEW_GLOBAL_VAL]], i32 addrspace(1)* %[[GLOBAL_PTR]]
 ; CHECK-NOT: call spir_func void @__kmpc_atomic_{{.*}}_add(
 
 ; Function Attrs: convergent noinline nounwind

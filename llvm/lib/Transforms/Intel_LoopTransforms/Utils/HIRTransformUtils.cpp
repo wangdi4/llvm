@@ -476,6 +476,56 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
   LLVM_DEBUG(OrigLoop->dump());
 }
 
+HLIf *HIRTransformUtils::createZttIf(const HLLoop *Loop, bool IsSigned) {
+  // Trip > 0
+  RegDDRef *LBRef = Loop->getLowerDDRef()->clone();
+  RegDDRef *UBRef = Loop->getUpperDDRef()->clone();
+
+  // The ZTT will look like [ LB < UB + 1 ]. This form is the safest one as UB
+  // can not be MAX_VALUE and it's safe to add 1. Transformations are free to do
+  // UB - 1.
+  UBRef->getSingleCanonExpr()->addConstant(1, true);
+
+  HLIf *ZttIf = Loop->getHLNodeUtils().createHLIf(
+      IsSigned ? PredicateTy::ICMP_SLT : PredicateTy::ICMP_ULT, LBRef, UBRef);
+
+  return ZttIf;
+}
+
+void HIRTransformUtils::addExplicitZttIf(HLLoop *Loop) {
+  HLIf *ZttIf = createZttIf(Loop, Loop->hasSignedIV());
+  HLNodeUtils::insertBefore(Loop, ZttIf);
+  HLNodeUtils::moveAsLastThenChild(ZttIf, Loop);
+
+  // Make Consistent of If's predicate
+  for (auto PI = ZttIf->pred_begin(), PE = ZttIf->pred_end(); PI != PE; ++PI) {
+    ZttIf->getPredicateOperandDDRef(PI, true)->makeConsistent(
+        {Loop->getUpperDDRef()});
+    ZttIf->getPredicateOperandDDRef(PI, false)->makeConsistent(
+        {Loop->getUpperDDRef()});
+  }
+}
+
+static bool isPostiveTCGuaranteed(const HLLoop* Loop) {
+
+  if (Loop->hasZtt() || Loop->isConstTripLoop())
+    return true;
+
+  // Note that following check sometimes doesn't work.
+  //    Loop->getUpperCanonExpr()->isUnsignedDiv()
+  // For example, %t + -2, isUnsignedDiv() can be true.
+  // Thus, explicit check using scev form is used to
+  // recognize udiv. (e.g. ((%t + %t2*%a) /u %t3)).
+  const CanonExpr *UCE = Loop->getUpperCanonExpr();
+  if (UCE->numBlobs() == 1 && UCE->getDenominator() > 0 &&
+      isa<SCEVUDivExpr>(
+        (UCE->getBlobUtils()).getBlob(UCE->getSingleBlobIndex()))) {
+    return true;
+  }
+
+  return false;
+}
+
 HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
     OptReportBuilder &ORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
@@ -504,9 +554,24 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     // outside the loop.
     OrigLoop->extractZtt();
     // TODO: Profiling info for peel loop?
+    // CreateZttIf is not applicable here because generatePeelLoop aleady
+    // called extractZtt..()
   } else {
 
+    // See if ztt should be created before unroll to be safe
+    // Notice that HIR LMM or LastValueComputation passes
+    // can add instructions in Preheader and Postexit,
+    // into the loop that did not have Ztt. The passes
+    // generally doesn't createZtt. That is alright with
+    // those passes, but a bug can occur if the loop
+    // is later unrolled and the trip count is zero.
+    // hasPreheader might be alright.
+    // !OrigLoop->hasZtt() will be maintained after the call.
+    if (OrigLoop->hasPostexit() && !isPostiveTCGuaranteed(OrigLoop))
+      addExplicitZttIf(OrigLoop);
+
     // Extract Ztt, preheader, and postexit.
+    // Notice that if OrigLoop hasZtt() was not true, no effect.
     OrigLoop->extractZttPreheaderAndPostexit();
   }
 

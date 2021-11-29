@@ -289,10 +289,16 @@ private:
   /// Atomic-free reduction global buffers per reduction item.
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
 
+  struct LocalUpdateInfo {
+    BasicBlock *UpdateBB = nullptr;
+    BasicBlock *ExitBB = nullptr;
+    Value *IVPhi = nullptr;
+    Instruction *LocalId = nullptr;
+  };
   /// BBs that perform updates within the atomic-free reduction loops.
-  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedLocalUpdateBBs;
-  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedLocalExitBBs;
+  DenseMap<WRegionNode *, LocalUpdateInfo> AtomicFreeRedLocalUpdateInfos;
   DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedGlobalUpdateBBs;
+  DenseSet<WRNTargetNode *> UsedLocalTreeReduction;
 
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.
@@ -697,6 +703,7 @@ private:
 
   /// Generate local update loop for atomic-free GPU reduction
   bool genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
+                                       LoadInst *Rhs1, LoadInst *Rhs2,
                                        StoreInst *RedStore,
                                        IRBuilder<> &Builder, DominatorTree *DT);
 
@@ -750,6 +757,14 @@ private:
                               Value *ReductionVar, Value *ReductionValueLoc,
                               Type *ScalarTy, IRBuilder<> &Builder,
                               DominatorTree *DT);
+
+  /// Generate the reduction operator with the given arguments \p Rhs1
+  /// and \p Rhs2 and the operator in \p RedI.
+  /// Handles both LLVM scalar types and also complex ones.
+  /// May emit > 1 instructions depending on the item's type and the
+  /// reduction operator.
+  Value *genReductionScalarOp(ReductionItem *RedI, IRBuilder<> &Builder,
+                              Type *ScalarTy, Value *Rhs1, Value *Rhs2);
 
   /// Generate the reduction initialization/update for array.
   /// Returns true iff critical section is required around the generated

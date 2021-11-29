@@ -9,7 +9,7 @@
 ;}
 
 ; Check that the HasTeamsReduction (0x1) attribute is set:
-; CHECK: @__omp_offloading_805_b43487__Z3foo_l3_kernel_info = weak target_declare addrspace(1) constant %0 { i32 3, i32 1, [1 x %1] [%1 { i32 0, i32 8 }], i64 1, i64 0 }
+; CHECK: @__omp_offloading_805_b43487__Z3foo_l3_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 1, [1 x %1] [%1 { i32 0, i32 8 }], i64 1, i64 0, i64 0 }
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

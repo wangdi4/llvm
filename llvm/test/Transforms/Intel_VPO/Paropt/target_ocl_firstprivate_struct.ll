@@ -20,7 +20,7 @@
 ;}
 
 ; By default both arguments must be passed by value:
-; DEF: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 3, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 1, i32 8 }], i64 0, i64 0 }
+; DEF: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 1, i32 8 }], i64 0, i64 0, i64 0 }
 ; DEF: define weak dso_local spir_kernel void @__omp_offloading_805_be228f__Z3foo_l10(
 ; DEF-SAME: { [1 x i1] }* byval({ [1 x i1] }){{[% A-Za-z_.0-9]*}},
 ; DEF-SAME: { [8 x i1] }* byval({ [8 x i1] }){{[% A-Za-z_.0-9]*}})
@@ -28,14 +28,14 @@
 ; By value passing is disabled:
 ; DIS: %struct.s1 = type { i8 }
 ; DIS: %struct.s2 = type { double }
-; DIS: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 3, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0 }
+; DIS: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 ; DIS: define weak dso_local spir_kernel void @__omp_offloading_805_be228f__Z3foo_l10(
 ; DIS-SAME: %struct.s1 addrspace(1)*{{[% A-Za-z_.0-9]*}},
 ; DIS-SAME: %struct.s2 addrspace(1)*{{[% A-Za-z_.0-9]*}})
 
 ; Only the first argument must be passed by value:
 ; PART: %struct.s2 = type { double }
-; PART: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 3, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 0, i32 8 }], i64 0, i64 0 }
+; PART: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 ; PART: define weak dso_local spir_kernel void @__omp_offloading_805_be228f__Z3foo_l10(
 ; PART-SAME: { [1 x i1] }* byval({ [1 x i1] }){{[% A-Za-z_.0-9]*}},
 ; PART-SAME: %struct.s2 addrspace(1)*{{[% A-Za-z_.0-9]*}})

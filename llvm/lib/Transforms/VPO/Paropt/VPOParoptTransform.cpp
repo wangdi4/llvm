@@ -168,6 +168,7 @@ cl::opt<bool>
     AtomicFreeReductionUseSLM("vpo-paropt-atomic-free-reduction-slm",
                               cl::Hidden, cl::init(true),
                               cl::desc("Keep intra-WG reduction items in SLM"));
+extern cl::opt<uint32_t> AtomicFreeRedLocalBufSize;
 
 static cl::opt<bool> EmitTargetFPCtorDtors(
     "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
@@ -2899,53 +2900,169 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
   return minmax;
 }
 
-// Generate local update loop for fast GPU reduction.
+// Generate local update loop for atomic-free reduction.
 // NOTE: Current compiler & RT implementation supports LWS with
 // only 1 dimension > 1 that's why we're only iterating over
 // 0th dimension here. Once that changes the loop nest for all the
 // 3 dimensions will be required.
 //
-// for (int i = 0; i < get_local_size(0); ++i) {
-//   if (get_local_id(0) == i) {
-//     // perform non-atomic updates of the local reduction value
+// This function generates 2 variants of the local update:
+// 1. Serial loop
+//   for (int i = 0; i < get_local_size(0); ++i) {
+//     if (get_local_id(0) == i) {
+//       // perform non-atomic updates of the local reduction value
+//     }
+//     workgroup_barrier();
 //   }
 //   workgroup_barrier();
-// }
-// workgroup_barrier();
+// 2. Tree-like pattern.
+//    This is a default approach which also enforces maximun number of the WIs
+//    to be lower than provided thru AtomicFreeRedLocalBufSize option (1024 by default).
+//
+//   NOTE: IR assumes reduction op is +
+//   // store private reditem value to this thread's cell in the local array
+//   workgroup_barrier();
+//   for (int i = RoundToTheNextPow2(get_local_size(0)); i > 0; i >>= 1) {
+//     if (get_local_id(0) < i && get_local_id(0) + i < get_local_size(0))
+//       local_buf[get_local_id(0)] += local_buf[get_local_id(0) + i]
+//     workgroup_barrier();
+//   }
+//   workgroup_barrier();
+//   if (is_master_thread)
+//     // store local_buf[0] to the actual reditem's target location
 bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
                                                          ReductionItem *RedI,
+                                                         LoadInst *Rhs1,
+                                                         LoadInst *Rhs2,
                                                          StoreInst *RedStore,
                                                          IRBuilder<> &Builder,
                                                          DominatorTree *DT) {
+  bool GenTreeUpdate = AtomicFreeRedLocalBufSize > 0;
   // do not generate another loop if we already have one
   // for the same WRegion
-  if (AtomicFreeRedLocalUpdateBBs.count(W))
+  if (AtomicFreeRedLocalUpdateInfos.count(W)) {
+    if (GenTreeUpdate) {
+      Builder.SetInsertPoint(AtomicFreeRedLocalUpdateInfos.lookup(W)
+                                 .LocalId->getParent()
+                                 ->getTerminator());
+      Type *BufTy = nullptr;
+      std::tie(BufTy, std::ignore, std::ignore) =
+          VPOParoptUtils::getItemInfo(RedI);
+      BufTy = ArrayType::get(BufTy, AtomicFreeRedLocalBufSize);
+      auto *LocalBuf =
+          new GlobalVariable(*F->getParent(), BufTy, false,
+                             GlobalValue::LinkageTypes::InternalLinkage,
+                             Constant::getNullValue(BufTy), "red_local_buf",
+                             nullptr, GlobalValue::NotThreadLocal,
+                             isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
+      auto *LocalPtr = Builder.CreateInBoundsGEP(
+          LocalBuf->getValueType(), LocalBuf,
+          {Builder.getInt32(0), AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId});
+      Rhs1->setOperand(0, LocalPtr);
+      auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
+      Builder.CreateStore(Rhs2Copy, LocalPtr);
+
+      Builder.SetInsertPoint(
+          AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB,
+          AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB->begin());
+      auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
+          RedStore->getOperand(0)->getType(), LocalPtr,
+          AtomicFreeRedLocalUpdateInfos.lookup(W).IVPhi);
+      Rhs2->setOperand(0, LocalPtrPlus);
+
+      Builder.SetInsertPoint(
+          AtomicFreeRedLocalUpdateInfos.lookup(W).ExitBB->getTerminator());
+      auto *Final =
+          Builder.CreateLoad(RedStore->getOperand(0)->getType(), LocalPtr);
+      Builder.CreateStore(Final, RedStore->getPointerOperand());
+      RedStore->setOperand(1, LocalPtr);
+    }
     return false;
+  }
   auto *SizeTy = cast<IntegerType>(GeneralUtils::getSizeTTy(F));
   auto *UpdateBB = RedStore->getParent();
-  AtomicFreeRedLocalUpdateBBs[W] = UpdateBB;
+  AtomicFreeRedLocalUpdateInfos[W].UpdateBB = UpdateBB;
   auto *ExitBB = UpdateBB->getSingleSuccessor();
   assert(ExitBB);
   ExitBB->setName("atomic.free.red.local.update.update.exit");
+  auto *EntryBB = UpdateBB->getSinglePredecessor();
+  assert(EntryBB);
   auto *LocalSize = VPOParoptUtils::genOCLGenericCall(
       "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
       UpdateBB->getFirstNonPHI());
+  auto *LocalId = VPOParoptUtils::genOCLGenericCall(
+      "_Z12get_local_idj", SizeTy, Builder.getInt32(0), LocalSize);
   auto *HeaderBB =
       SplitBlock(UpdateBB, LocalSize->getNextNode(), DT, LI, nullptr, "", true);
   HeaderBB->setName("atomic.free.red.local.update.update.header");
+
+  Value *IVInit = ConstantInt::getNullValue(SizeTy);
+  Value *LocalPtr = nullptr;
+  if (GenTreeUpdate) {
+    auto *WTarget = cast<WRNTargetNode>(
+        WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
+    assert(WTarget);
+    UsedLocalTreeReduction.insert(WTarget);
+
+    Builder.SetInsertPoint(EntryBB->getTerminator());
+    LocalSize->moveBefore(EntryBB->getTerminator());
+    LocalId->moveBefore(EntryBB->getTerminator());
+    IVInit = cast<Instruction>(Builder.CreateLShr(
+        LocalSize, ConstantInt::get(LocalSize->getType(), 1)));
+    // Round up to the next highest power of 2 using bitwise ops
+    // NOTE: it assumes 32-bit integer (currently difficult to imagine
+    // HW platform allowing more than MAX_UINT). To support 64 need to add
+    // one more (lshr 32 + or) pair.
+    // TODO: consider replacing with 1 << (32 - _Z15__spirv_ocl_clzl(x - 1))
+    // whenever possible and benefitial
+    auto RoundToPow2 = [&Builder](Value *V) {
+      V = Builder.CreateSub(V, Builder.getInt64(1));
+      for (int i = 1; i <= 32; i <<= 1) {
+        auto *BitV = Builder.CreateLShr(V, Builder.getInt64(i));
+        V = Builder.CreateOr(V, BitV);
+      }
+      V = Builder.CreateAdd(V, Builder.getInt64(1));
+      return V;
+    };
+    IVInit = cast<Instruction>(RoundToPow2(IVInit));
+    Type *BufTy = nullptr;
+    std::tie(BufTy, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(RedI);
+    BufTy = ArrayType::get(BufTy, AtomicFreeRedLocalBufSize);
+    auto *LocalBuf =
+        new GlobalVariable(*F->getParent(), BufTy, false,
+                           GlobalValue::LinkageTypes::InternalLinkage,
+                           Constant::getNullValue(BufTy), "red_local_buf",
+                           nullptr, GlobalValue::NotThreadLocal,
+                           isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
+    LocalPtr = Builder.CreateInBoundsGEP(
+        LocalBuf->getValueType(), LocalBuf, {Builder.getInt32(0), LocalId});
+    Rhs1->setOperand(0, LocalPtr);
+    auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
+    Builder.CreateStore(Rhs2Copy, LocalPtr);
+    VPOParoptUtils::genCall(
+        "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
+        {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+         ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+         ConstantInt::get(Builder.getInt32Ty(), spirv::SequentiallyConsistent |
+                                                    spirv::WorkgroupMemory)},
+        EntryBB->getTerminator());
+  }
+
   Builder.SetInsertPoint(HeaderBB, HeaderBB->begin());
   auto *IVPhi = Builder.CreatePHI(SizeTy, 0);
   for (const auto &Pred : predecessors(HeaderBB))
-    IVPhi->addIncoming(ConstantInt::getNullValue(SizeTy), Pred);
+    IVPhi->addIncoming(IVInit, Pred);
   for (const auto &Pred : predecessors(UpdateBB))
     if (Pred != HeaderBB)
-      IVPhi->addIncoming(ConstantInt::getNullValue(SizeTy), Pred);
+      IVPhi->addIncoming(IVInit, Pred);
 
   Builder.SetInsertPoint(UpdateBB);
   UpdateBB->getTerminator()->eraseFromParent();
   UpdateBB->setName("atomic.free.red.local.update.update.body");
   auto *IVNext = cast<BinaryOperator>(
-      Builder.CreateAdd(IVPhi, ConstantInt::get(SizeTy, 1)));
+      GenTreeUpdate ? Builder.CreateLShr(IVPhi, ConstantInt::get(SizeTy, 1))
+                    : Builder.CreateAdd(IVPhi, ConstantInt::get(SizeTy, 1)));
 
   bool IsGlobalMem = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams) == nullptr;
   CallInst *BarrierCI = VPOParoptUtils::genCall(
@@ -2966,15 +3083,15 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   IVPhi->addIncoming(IVNext, LatchBB);
 
   Builder.SetInsertPoint(UpdateBB, UpdateBB->begin());
-  auto *ShouldUpdate =
-      cast<CmpInst>(Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, IVPhi,
-                                      // this is a fake value since we have to
-                                      // insert a call to get_local_id before
-                                      // some existing instruction in this BB
-                                      ConstantInt::getAllOnesValue(SizeTy)));
-  auto *LocalId = VPOParoptUtils::genOCLGenericCall(
-      "_Z12get_local_idj", SizeTy, Builder.getInt32(0), ShouldUpdate);
-  ShouldUpdate->setOperand(1, LocalId);
+  Instruction *ShouldUpdate = cast<CmpInst>(
+      Builder.CreateCmp(GenTreeUpdate ? CmpInst::Predicate::ICMP_ULT
+                                      : CmpInst::Predicate::ICMP_EQ,
+                        LocalId, IVPhi));
+  if (GenTreeUpdate) {
+    Instruction *CondCheck = cast<Instruction>(Builder.CreateAdd(LocalId, IVPhi));
+    auto *ShouldUpdateSafe = Builder.CreateCmp(CmpInst::Predicate::ICMP_ULT, CondCheck, LocalSize);
+    ShouldUpdate = cast<Instruction>(Builder.CreateLogicalAnd(ShouldUpdate, ShouldUpdateSafe));
+  }
   auto *IdCheckBB = SplitBlock(UpdateBB, ShouldUpdate->getNextNode(), DT, LI,
                                nullptr, "", true);
   IdCheckBB->getTerminator()->eraseFromParent();
@@ -2982,10 +3099,19 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   Builder.SetInsertPoint(IdCheckBB);
   Builder.CreateCondBr(ShouldUpdate, UpdateBB, LatchBB);
 
+  if (GenTreeUpdate) {
+    Builder.SetInsertPoint(UpdateBB, UpdateBB->begin());
+    auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
+        RedStore->getOperand(0)->getType(), LocalPtr, IVPhi);
+    Rhs2->setOperand(0, LocalPtrPlus);
+  }
+
   Builder.SetInsertPoint(HeaderBB);
   HeaderBB->getTerminator()->eraseFromParent();
   auto *ExitCond = cast<CmpInst>(
-      Builder.CreateCmp(CmpInst::Predicate::ICMP_UGE, IVPhi, LocalSize));
+      GenTreeUpdate
+          ? Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, IVPhi, ConstantInt::getNullValue(SizeTy))
+          : Builder.CreateCmp(CmpInst::Predicate::ICMP_UGE, IVPhi, LocalSize));
   Builder.CreateCondBr(ExitCond, ExitBB, IdCheckBB);
 
   CallInst *ExitBarrierCI = VPOParoptUtils::genCall(
@@ -2998,15 +3124,45 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
                (IsGlobalMem ? spirv::CrossWorkgroupMemory : spirv::None))},
       ExitBB->getFirstNonPHI());
   ExitBarrierCI->getCalledFunction()->setConvergent();
-  // no kmpc_critical required
   Builder.SetInsertPoint(ExitBB);
 
   if (!DT->getNode(ExitBB))
     DT->addNewBlock(ExitBB, HeaderBB);
+
+  if (GenTreeUpdate) {
+    Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
+    auto *LocalVal =
+        Builder.CreateLoad(RedStore->getValueOperand()->getType(), LocalPtr);
+    auto *CurLocal = Builder.CreateLoad(RedStore->getValueOperand()->getType(),
+                                        RedStore->getPointerOperand());
+    auto *RedOp = cast<Instruction>(genReductionScalarOp(RedI, Builder,
+                                       RedStore->getValueOperand()->getType(),
+                                       CurLocal, LocalVal));
+    auto *St = Builder.CreateStore(RedOp, RedStore->getPointerOperand());
+    auto *ExitBB2 = SplitBlock(ExitBB, St->getNextNode(), DT, LI);
+    RedStore->setOperand(1, LocalPtr);
+    Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
+    auto *MTC =
+        Builder.CreateICmpNE(LocalId, ConstantInt::getNullValue(SizeTy));
+    SplitBlockAndInsertIfThen(MTC, RedOp, false, nullptr, DT, LI, ExitBB2);
+    Builder.SetInsertPoint(ExitBB2);
+    auto *ExitBB1 = ExitBB->getTerminator()->getSuccessor(1);
+
+    AtomicFreeRedLocalUpdateInfos[W].IVPhi = IVPhi;
+    AtomicFreeRedLocalUpdateInfos[W].LocalId = LocalId;
+    // ExitBB is the actual block we want to append the store to
+    // so it's already covered by the master-thread check
+    AtomicFreeRedLocalUpdateInfos[W].ExitBB = ExitBB1;
+    if (!DT->getNode(ExitBB1))
+      DT->addNewBlock(ExitBB1, ExitBB);
+    if (!DT->getNode(ExitBB2))
+      DT->addNewBlock(ExitBB2, ExitBB);
+  }
   assert(DT->properlyDominates(HeaderBB, IdCheckBB));
   assert(DT->properlyDominates(HeaderBB, UpdateBB));
   assert(DT->properlyDominates(IdCheckBB, UpdateBB));
   assert(DT->properlyDominates(IdCheckBB, LatchBB));
+  // no kmpc_critical required
   return false;
 }
 
@@ -3226,6 +3382,88 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
   return false;
 }
 
+// Generate the actual reduction operation.
+Value *VPOParoptTransform::genReductionScalarOp(ReductionItem *RedI,
+                                                IRBuilder<> &Builder,
+                                                Type *ScalarTy, Value *Rhs1,
+                                                Value *Rhs2) {
+  Value *Res = nullptr;
+  switch (RedI->getType()) {
+  case ReductionItem::WRNReductionAdd:
+  case ReductionItem::WRNReductionSub:
+    if (RedI->getIsComplex()) {
+      Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
+      Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
+      Value *ResReal = Builder.CreateFAdd(Rhs1Real, Rhs2Real, "add");
+      Value *Rhs1Img = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
+      Value *Rhs2Img = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
+      Value *ResImaginary = Builder.CreateFAdd(Rhs1Img, Rhs2Img, "add");
+      Res = ConstantAggregateZero::get(Rhs1->getType());
+      Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
+      Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
+    } else {
+      Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
+                                           : Builder.CreateFAdd(Rhs1, Rhs2);
+    }
+    break;
+  case ReductionItem::WRNReductionMult:
+    if (RedI->getIsComplex()) {
+      // multiply two complex variables (N1=a+bi, N2=c+di) is equal to:
+      //   N1*N2 = (ac-bd) + (ad+cb)i
+      Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
+      Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
+      Value *Rhs1Imaginary = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
+      Value *Rhs2Imaginary = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
+      Value *Mult00 = Builder.CreateFMul(Rhs1Real, Rhs2Real, "mul");
+      Value *Mult11 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Imaginary, "mul");
+      Value *Mult01 = Builder.CreateFMul(Rhs1Real, Rhs2Imaginary, "mul");
+      Value *Mult10 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Real, "mul");
+      Value *ResReal = Builder.CreateFSub(Mult00, Mult11, "sub");
+      Value *ResImaginary = Builder.CreateFAdd(Mult01, Mult10, "add");
+      Res = ConstantAggregateZero::get(Rhs1->getType());
+      Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
+      Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
+    } else {
+      Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateMul(Rhs1, Rhs2)
+                                           : Builder.CreateFMul(Rhs1, Rhs2);
+    }
+    break;
+  case ReductionItem::WRNReductionBand:
+    Res = Builder.CreateAnd(Rhs1, Rhs2);
+    break;
+  case ReductionItem::WRNReductionBor:
+    Res = Builder.CreateOr(Rhs1, Rhs2);
+    break;
+  case ReductionItem::WRNReductionBxor:
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionNeqv:
+#endif // INTEL_CUSTOMIZATION
+    Res = Builder.CreateXor(Rhs1, Rhs2);
+    break;
+  case ReductionItem::WRNReductionAnd:
+    Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, true);
+    break;
+  case ReductionItem::WRNReductionOr:
+    Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, false);
+    break;
+  case ReductionItem::WRNReductionMax:
+    Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, true);
+    break;
+  case ReductionItem::WRNReductionMin:
+    Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, false);
+    break;
+#if INTEL_CUSTOMIZATION
+  case ReductionItem::WRNReductionEqv:
+    Res = Builder.CreateXor(Rhs1, Rhs2);
+    Res = Builder.CreateNot(Res);
+    break;
+#endif // INTEL_CUSTOMIZATION
+  default:
+    llvm_unreachable("Reduction operator not yet supported!");
+  }
+  return Res;
+}
+
 // Generate the reduction update instructions.
 bool VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
@@ -3258,13 +3496,13 @@ bool VPOParoptTransform::genReductionScalarFini(
   }
 
   bool UseExistingLocalLoop =
-      UseLocalUpdates && AtomicFreeRedLocalUpdateBBs.count(W);
+      UseLocalUpdates && AtomicFreeRedLocalUpdateInfos.count(W);
   bool UseExistingGlobalLoop =
       UseGlobalUpdates && AtomicFreeRedGlobalUpdateBBs.count(W);
 
   if (UseExistingLocalLoop)
     Builder.SetInsertPoint(
-        AtomicFreeRedLocalUpdateBBs.lookup(W)->getTerminator());
+        AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB->getTerminator());
   else if (UseExistingGlobalLoop)
     Builder.SetInsertPoint(
         AtomicFreeRedGlobalUpdateBBs.lookup(W)->getTerminator());
@@ -3275,84 +3513,6 @@ bool VPOParoptTransform::genReductionScalarFini(
 
   auto *SumPhi = PHINode::Create(RedElemType, 0);
 
-  auto GenerateRedOp = [&RedI, &Builder, &ScalarTy,
-                        this](Value *Rhs1, Value *Rhs2) -> Value * {
-    Value *Res = nullptr;
-    switch (RedI->getType()) {
-    case ReductionItem::WRNReductionAdd:
-    case ReductionItem::WRNReductionSub:
-      if (RedI->getIsComplex()) {
-        Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
-        Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
-        Value *ResReal = Builder.CreateFAdd(Rhs1Real, Rhs2Real, "add");
-        Value *Rhs1Img = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
-        Value *Rhs2Img = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
-        Value *ResImaginary = Builder.CreateFAdd(Rhs1Img, Rhs2Img, "add");
-        Res = ConstantAggregateZero::get(Rhs1->getType());
-        Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
-        Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
-      } else {
-        Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateAdd(Rhs1, Rhs2)
-                                             : Builder.CreateFAdd(Rhs1, Rhs2);
-      }
-      break;
-    case ReductionItem::WRNReductionMult:
-      if (RedI->getIsComplex()) {
-        // multiply two complex variables (N1=a+bi, N2=c+di) is equal to:
-        //   N1*N2 = (ac-bd) + (ad+cb)i
-        Value *Rhs1Real = Builder.CreateExtractValue(Rhs1, 0, "complex_0");
-        Value *Rhs2Real = Builder.CreateExtractValue(Rhs2, 0, "complex_0");
-        Value *Rhs1Imaginary = Builder.CreateExtractValue(Rhs1, 1, "complex_1");
-        Value *Rhs2Imaginary = Builder.CreateExtractValue(Rhs2, 1, "complex_1");
-        Value *Mult00 = Builder.CreateFMul(Rhs1Real, Rhs2Real, "mul");
-        Value *Mult11 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Imaginary, "mul");
-        Value *Mult01 = Builder.CreateFMul(Rhs1Real, Rhs2Imaginary, "mul");
-        Value *Mult10 = Builder.CreateFMul(Rhs1Imaginary, Rhs2Real, "mul");
-        Value *ResReal = Builder.CreateFSub(Mult00, Mult11, "sub");
-        Value *ResImaginary = Builder.CreateFAdd(Mult01, Mult10, "add");
-        Res = ConstantAggregateZero::get(Rhs1->getType());
-        Res = Builder.CreateInsertValue(Res, ResReal, 0, "insertval");
-        Res = Builder.CreateInsertValue(Res, ResImaginary, 1, "insertval");
-      } else {
-        Res = ScalarTy->isIntOrIntVectorTy() ? Builder.CreateMul(Rhs1, Rhs2)
-                                             : Builder.CreateFMul(Rhs1, Rhs2);
-      }
-      break;
-    case ReductionItem::WRNReductionBand:
-      Res = Builder.CreateAnd(Rhs1, Rhs2);
-      break;
-    case ReductionItem::WRNReductionBor:
-      Res = Builder.CreateOr(Rhs1, Rhs2);
-      break;
-    case ReductionItem::WRNReductionBxor:
-#if INTEL_CUSTOMIZATION
-    case ReductionItem::WRNReductionNeqv:
-#endif // INTEL_CUSTOMIZATION
-      Res = Builder.CreateXor(Rhs1, Rhs2);
-      break;
-    case ReductionItem::WRNReductionAnd:
-      Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, true);
-      break;
-    case ReductionItem::WRNReductionOr:
-      Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, false);
-      break;
-    case ReductionItem::WRNReductionMax:
-      Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, true);
-      break;
-    case ReductionItem::WRNReductionMin:
-      Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, false);
-      break;
-#if INTEL_CUSTOMIZATION
-    case ReductionItem::WRNReductionEqv:
-      Res = Builder.CreateXor(Rhs1, Rhs2);
-      Res = Builder.CreateNot(Res);
-      break;
-#endif // INTEL_CUSTOMIZATION
-    default:
-      llvm_unreachable("Reduction operator not yet supported!");
-    }
-    return Res;
-  };
   // NOTE: due to some weird load elimination + phi translation by GVN we want
   // to generate volatile load from the reduction variable for the local
   // update loop. The load from ReductionValueLoc doesn't need to be volatile
@@ -3361,7 +3521,7 @@ bool VPOParoptTransform::genReductionScalarFini(
   auto *Rhs1 = UseGlobalUpdates
       ? cast<Instruction>(SumPhi)
       : Builder.CreateLoad(ScalarTy, ReductionVar, UseLocalUpdates);
-  auto *Res = GenerateRedOp(Rhs1, Rhs2);
+  auto *Res = genReductionScalarOp(RedI, Builder, ScalarTy, Rhs1, Rhs2);
   auto *Tmp0 = Builder.CreateStore(Res, ReductionVar);
 
   if (isa<WRNVecLoopNode>(W))
@@ -3373,7 +3533,11 @@ bool VPOParoptTransform::genReductionScalarFini(
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
     if (UseLocalUpdates) {
-      return genAtomicFreeReductionLocalFini(W, RedI, Tmp0, Builder, DT);
+      // Although in general Rhs1 may be either PHINode or LoadInst,
+      // the former is possible only when UseGlobalUpdates==true =>
+      // UseLocalUpdates==false and the cast is safe
+      return genAtomicFreeReductionLocalFini(W, RedI, cast<LoadInst>(Rhs1),
+                                             Rhs2, Tmp0, Builder, DT);
     } else if (UseGlobalUpdates) {
       return genAtomicFreeReductionGlobalFini(
           W, RedI, Tmp0, ReductionValueLoc, Rhs2, SumPhi, UseExistingGlobalLoop,
@@ -3492,15 +3656,18 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
 #endif // INTEL_CUSTOMIZATION
 
   if (LocalRedVar) {
-    auto *ExistingBBToInsertInto = AtomicFreeRedLocalExitBBs.lookup(W);
-    if (ExistingBBToInsertInto)
-      Builder.SetInsertPoint(ExistingBBToInsertInto->getTerminator());
-    else
-      AtomicFreeRedLocalExitBBs[W] = InsertPt->getParent();
+    if (AtomicFreeRedLocalUpdateInfos.count(W)) {
+      const auto &ExistingBBToInsertInto =
+          AtomicFreeRedLocalUpdateInfos.lookup(W);
+      assert(ExistingBBToInsertInto.UpdateBB);
+      Builder.SetInsertPoint(ExistingBBToInsertInto.UpdateBB->getTerminator());
+    } else {
+      AtomicFreeRedLocalUpdateInfos[W].UpdateBB = InsertPt->getParent();
+    }
     auto *LocalLoad = Builder.CreateLoad(AllocaTy, LocalRedVar);
     assert(AtomicFreeRedGlobalBufs.count(RedI));
     Builder.CreateStore(LocalLoad, NewV);
-    if (ExistingBBToInsertInto)
+    if (AtomicFreeRedLocalUpdateInfos.count(W))
       Builder.SetInsertPoint(InsertPt);
   }
 

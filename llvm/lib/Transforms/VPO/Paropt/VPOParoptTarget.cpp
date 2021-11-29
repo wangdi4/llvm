@@ -111,6 +111,12 @@ static cl::opt<uint32_t> AtomicFreeRedGlobalBufSize(
     "vpo-paropt-atomic-free-red-global-buf-size", cl::Hidden, cl::init(1024),
     cl::desc("Maximum number of elements (and teams) in the global buffer for "
              "atomic-free reduction"));
+cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
+    "vpo-paropt-atomic-free-red-local-buf-size", cl::Hidden, cl::init(1024),
+    cl::desc("Maximum number of elements (and hence workitems) in the local "
+             "buffer used for tree-like local update in"
+             "atomic-free reduction"));
+
 
 extern cl::opt<bool> AtomicFreeReduction;
 extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
@@ -361,7 +367,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   // Generate '<kernel-name>_kernel_info' global variable that specifies
   // whether a kernel argument is passed by value or not.
-  // Versions 1-3 of the data structure use the following format:
+  // Versions 1-4 of the data structure use the following format:
   //   struct KernelInfoTy {
   //     uint32_t Version = [1 .. 2];
   //     uint32_t ArgsNum = <number of the kernel arguments>;
@@ -371,9 +377,10 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   //     } ArgsDesc[ArgsNum];
   //     uint64_t Attributes1; // Since version 2.
   //     uint64_t WGNum;       // Since version 3.
+  //     uint64_t WINum;       // Since version 4.
   //   };
   auto GenerateKernelArgInfoVar =
-      [](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
+      [this, &WT](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
          Function *Fn, bool HasTeamsReduction) {
         auto &C = Fn->getContext();
         size_t ArgsNum = KernelArgInfo.size();
@@ -387,7 +394,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         // The current version is 3.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt32Ty(C), 3));
+            ConstantInt::get(Type::getInt32Ty(C), 4));
         // Specify the number of kernel argument.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
@@ -428,14 +435,26 @@ Function *VPOParoptTransform::finalizeKernelFunction(
             ConstantInt::get(Type::getInt64Ty(C), Attributes1));
 
         uint64_t UseGPURedWGLimit =
-            (HasTeamsReduction && AtomicFreeReduction &&
+            (HasTeamsReduction && (AtomicFreeReduction ||
              (AtomicFreeReductionCtrl &
-              VPOParoptAtomicFreeReduction::Kind_Global))
+              VPOParoptAtomicFreeReduction::Kind_Global)))
                 ? AtomicFreeRedGlobalBufSize
                 : 0;
         KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
         KernelInfoInitBuffer.push_back(
             ConstantInt::get(Type::getInt64Ty(C), UseGPURedWGLimit));
+
+        uint64_t UseGPURedWILimit =
+            (HasTeamsReduction &&
+             (AtomicFreeReduction ||
+              (AtomicFreeReductionCtrl &
+               VPOParoptAtomicFreeReduction::Kind_Local)) &&
+             UsedLocalTreeReduction.count(WT))
+                ? AtomicFreeRedLocalBufSize
+                : 0;
+        KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
+        KernelInfoInitBuffer.push_back(
+            ConstantInt::get(Type::getInt64Ty(C), UseGPURedWILimit));
 
         KernelInfoInitTy = StructType::create(KernelInfoInitMemberTypes);
         Constant *KernelInfoInit =
