@@ -230,6 +230,7 @@ class KernelInfoTy {
   uint32_t Version = 0;
   uint64_t Attributes1 = 0;
   uint64_t WGNum = 0;
+  uint64_t WINum = 0;
 
   struct KernelArgInfoTy {
     bool IsLiteral = false;
@@ -274,6 +275,12 @@ public:
   }
   uint64_t getWGNum() const {
     return WGNum;
+  }
+  void setWINum(uint64_t Val) {
+    WINum = Val;
+  }
+  uint64_t getWINum() const {
+    return WINum;
   }
 };
 
@@ -1928,7 +1935,7 @@ bool RTLDeviceInfoTy::readKernelInfo(
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
   }
-  if (Version > 3) {
+  if (Version > 4) {
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
        Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
@@ -1942,6 +1949,9 @@ bool RTLDeviceInfoTy::readKernelInfo(
     ExpectedInfoVarSize += 8;
   // Support WGNum since version 3.
   if (Version > 2)
+    ExpectedInfoVarSize += 8;
+  // Support WINum since version 4.
+  if (Version > 3)
     ExpectedInfoVarSize += 8;
   if (InfoVarSize != ExpectedInfoVarSize) {
     DP("Error: expected kernel info variable size %zu - got %zu\n",
@@ -1969,6 +1979,13 @@ bool RTLDeviceInfoTy::readKernelInfo(
     // Read 8-byte WGNum since version 3.
     uint32_t WGNum = llvm::support::endian::read64le(ReadPtr);
     Info.setWGNum(WGNum);
+    ReadPtr += 8;
+  }
+
+  if (Version > 3) {
+    // Read 8-byte WGNum since version 3.
+    uint32_t WINum = llvm::support::endian::read64le(ReadPtr);
+    Info.setWINum(WINum);
     ReadPtr += 8;
   }
 
@@ -4018,6 +4035,13 @@ static void decideKernelGroupArguments(
   GroupSizes[0] = maxGroupSize;
   GroupSizes[1] = GroupSizes[2] = 1;
 
+  if (KInfo && KInfo->getWINum()) {
+    GroupSizes[0] =
+        (std::min)(KInfo->getWINum(), static_cast<uint64_t>(GroupSizes[0]));
+    DP("Capping maximum thread group size to %" PRIu64
+       " due to kernel constraints (reduction).\n", KInfo->getWINum());
+  }
+
   GroupCounts[0] = maxGroupCount;
   GroupCounts[1] = GroupCounts[2] = 1;
   if (!maxGroupCountForced) {
@@ -4035,12 +4059,13 @@ static void decideKernelGroupArguments(
       GroupCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
   }
-  // cannot use std::min as some std Windows header
-  // define min as a macro
-  if (KInfo && KInfo->getWGNum())
-    GroupCounts[0] = (KInfo->getWGNum() < static_cast<uint64_t>(GroupCounts[0]))
-                         ? KInfo->getWGNum()
-                         : static_cast<uint64_t>(GroupCounts[0]);
+
+  if (KInfo && KInfo->getWGNum()) {
+    GroupCounts[0] =
+        (std::min)(KInfo->getWGNum(), static_cast<uint64_t>(GroupCounts[0]));
+    DP("Capping maximum thread groups count to %" PRIu64
+       " due to kernel constraints (reduction).\n", KInfo->getWGNum());
+  }
 }
 
 static inline int32_t runTargetTeamNDRegion(
