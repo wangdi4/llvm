@@ -7,6 +7,7 @@ target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
 define float @ashr_expansion_valid(i64 %x, float* %ptr) {
 ; CHECK-LABEL: @ashr_expansion_valid(
 ; CHECK-NEXT:  entry:
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; SCEV is parsing ashr exact to smax/smin. It doesn't seem to harm performance
 ; for loop exit conditions.
@@ -18,6 +19,10 @@ define float @ashr_expansion_valid(i64 %x, float* %ptr) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = mul nsw i64 [[SMIN]], [[TMP1]]
 ; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[TMP2]], i64 1)
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[BOUND:%.*]] = ashr i64 [[X:%.*]], 4
+; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[BOUND]], i64 1)
+>>>>>>> 8906a0fe64abf1a9c8641ee51908bba7cbf8ec54
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
@@ -56,6 +61,7 @@ define float @ashr_equivalent_expansion(i64 %x, float* %ptr) {
 ; CHECK-LABEL: @ashr_equivalent_expansion(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ABS_X:%.*]] = call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 false)
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Because we match SCEV flags with the original Values, SCEV prefers to reuse
 ; rather than rewrite. The div and mul are unchanged. CMPLRLLVM-28014
@@ -65,6 +71,13 @@ define float @ashr_equivalent_expansion(i64 %x, float* %ptr) {
 ; CHECK-NEXT:    [[BOUND:%.*]] = mul nsw i64 [[DIV]], [[T1]]
 ; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[BOUND]], i64 1)
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[DIV:%.*]] = udiv exact i64 [[ABS_X]], 16
+; CHECK-NEXT:    [[T0:%.*]] = call i64 @llvm.smax.i64(i64 [[X]], i64 -1)
+; CHECK-NEXT:    [[T1:%.*]] = call i64 @llvm.smin.i64(i64 [[T0]], i64 1)
+; CHECK-NEXT:    [[BOUND:%.*]] = mul i64 [[DIV]], [[T1]]
+; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[BOUND]], i64 1)
+>>>>>>> 8906a0fe64abf1a9c8641ee51908bba7cbf8ec54
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
@@ -111,12 +124,17 @@ define float @no_ashr_due_to_missing_exact_udiv(i64 %x, float* %ptr) {
 ; CHECK-NEXT:    [[DIV:%.*]] = udiv i64 [[ABS_X]], 16
 ; CHECK-NEXT:    [[T0:%.*]] = call i64 @llvm.smax.i64(i64 [[X]], i64 -1)
 ; CHECK-NEXT:    [[T1:%.*]] = call i64 @llvm.smin.i64(i64 [[T0]], i64 1)
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Because we match SCEV flags with the original Values, SCEV prefers to reuse
 ; rather than rewrite. BOUND is used instead of T1. CMPLRLLVM-28014
 ; CHECK-NEXT:    [[BOUND:%.*]] = mul nsw i64 [[DIV]], [[T1]]
 ; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[BOUND]], i64 1)
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[BOUND:%.*]] = mul i64 [[DIV]], [[T1]]
+; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[BOUND]], i64 1)
+>>>>>>> 8906a0fe64abf1a9c8641ee51908bba7cbf8ec54
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
@@ -163,12 +181,17 @@ define float @no_ashr_due_to_different_ops(i64 %x, i64 %y, float* %ptr) {
 ; CHECK-NEXT:    [[DIV:%.*]] = udiv i64 [[ABS_X]], 16
 ; CHECK-NEXT:    [[T0:%.*]] = call i64 @llvm.smax.i64(i64 [[Y:%.*]], i64 -1)
 ; CHECK-NEXT:    [[T1:%.*]] = call i64 @llvm.smin.i64(i64 [[T0]], i64 1)
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Because we match SCEV flags with the original Values, SCEV prefers to reuse
 ; rather than rewrite. BOUND is used instead of T1. CMPLRLLVM-28014
 ; CHECK-NEXT:    [[BOUND:%.*]] = mul nsw i64 [[DIV]], [[T1]]
 ; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[BOUND]], i64 1)
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    [[BOUND:%.*]] = mul i64 [[DIV]], [[T1]]
+; CHECK-NEXT:    [[UMAX:%.*]] = call i64 @llvm.umax.i64(i64 [[BOUND]], i64 1)
+>>>>>>> 8906a0fe64abf1a9c8641ee51908bba7cbf8ec54
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
