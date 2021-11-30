@@ -141,6 +141,7 @@ bool getEnableMachineFunctionSplitter();
 bool getEnableDebugEntryValues();
 
 bool getValueTrackingVariableLocations();
+Optional<bool> getExplicitValueTrackingVariableLocations();
 
 bool getForceDwarfFrameSection();
 
@@ -181,6 +182,10 @@ void setFunctionAttributes(StringRef CPU, StringRef Features, Function &F);
 /// Set function attributes of functions in Module M based on CPU,
 /// Features, and command line flags.
 void setFunctionAttributes(StringRef CPU, StringRef Features, Module &M);
+
+/// Should value-tracking variable locations / instruction referencing be
+/// enabled by default for this triple?
+bool getDefaultValueTrackingVariableLocations(const llvm::Triple &T);
 } // namespace codegen
 } // namespace llvm
 
