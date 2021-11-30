@@ -37,6 +37,7 @@
 #include "Intel_DTrans/Transforms/DynClone.h"
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Transforms/MemInitTrimDown.h"
+#include "Intel_DTrans/Transforms/MemInitTrimDownOP.h"
 #include "Intel_DTrans/Transforms/MemManageTrans.h"
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"
