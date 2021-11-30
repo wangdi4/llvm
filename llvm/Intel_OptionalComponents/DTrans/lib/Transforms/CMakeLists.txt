@@ -30,6 +30,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   DTransOptUtils.cpp
   DTransPaddedMalloc.cpp
   MemInitTrimDown.cpp
+  MemInitTrimDownOP.cpp
   MemManageTrans.cpp
   PaddedPtrPropagation.cpp
   SOAToAOS.cpp
@@ -39,6 +40,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   SOAToAOSEffects.cpp
   SOAToAOSOP.cpp
   SOAToAOSOPArrays.cpp
+  SOAToAOSOPClassInfo.cpp
   SOAToAOSOPCommon.cpp
   SOAToAOSOPEffects.cpp
   SOAToAOSOPStruct.cpp

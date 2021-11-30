@@ -36,6 +36,7 @@
 ; Verify the DTrans passes get run next
 ; CHECK-NEXT: Running pass: dtransOP::CommuteCondOPPass
 ; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
+; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
 ; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
