@@ -142,11 +142,6 @@ static cl::opt<bool> DisableReplaceByFirstIteration(
     cl::Hidden,
     cl::desc("Disable replace by first iteration in HIR General Unroll"));
 
-// This sets the maximum loop depth for switch transformation of remainder loops.
-static cl::opt<unsigned> MaxSwitchLoopDepthThreshold(
-    "hir-swith-loop-depth-threshold", cl::init(3), cl::Hidden,
-    cl::desc("Maximum Loop Depth threshold that enables switch generation"));
-
 namespace {
 
 class HIRGeneralUnroll {
@@ -351,14 +346,6 @@ static bool isSwitchGenerationProfitable(HLLoop *RemainderLoop,
   }
 
   if (UnrollFactor > 8) {
-    return false;
-  }
-
-  // TODO: investigate further profitability heuristics. This check returns false
-  // for loops that are deeply nested, implying higher register pressure that
-  // may cause degradations.
-  unsigned LoopDepth = RemainderLoop->getNestingLevel();
-  if (LoopDepth > MaxSwitchLoopDepthThreshold) {
     return false;
   }
 
