@@ -2488,6 +2488,11 @@ def fimf_domain_exclusion_EQ : Joined<["-"],"fimf-domain-exclusion=">, Group<f_G
 def fimf_precision_EQ : Joined<["-"],"fimf-precision=">,Group<f_Group>,
   Flags<[NoXarchOption]>, HelpText<"Defines the accuracy (precision) "
   "for math library functions.">;
+def fimf_use_svml_EQ : Joined<["-"], "fimf-use-svml=">, Group<f_Group>,
+  Flags<[NoXarchOption]>, HelpText<"Instruct the compiler to implement math "
+  "library functions using the Short Vector Math Library(SVML)">;
+def fimf_use_svml : Flag<["-"], "fimf-use-svml">, Alias<fimf_use_svml_EQ>,
+  AliasArgs<["true"]>;
 def fmax_errors_EQ : Joined<["-"], "fmax-errors=">, Alias<ferror_limit_EQ>;
 #endif // INTEL_CUSTOMIZATION
 def fmodules_ts : Flag <["-"], "fmodules-ts">, Group<f_Group>,
@@ -7716,6 +7721,13 @@ def _SLASH_Qimf_precision_EQ : CLJoined<"Qimf-precision=">,
 def _SLASH_Qimf_precision_COL : CLJoined<"Qimf-precision:">,
   Alias<fimf_precision_EQ>,HelpText<"Defines the accuracy (precision) "
   "for math library functions.">;
+def _SLASH_Qimf_use_svml_EQ : CLJoined<"Qimf-use-svml=">,
+  Alias<fimf_use_svml_EQ>;
+def _SLASH_Qimf_use_svml_COL : CLJoined<"Qimf-use-svml:">,
+  Alias<fimf_use_svml_EQ>, HelpText<"Instruct the compiler to implement math "
+  "library functions using the Short Vector Math Library(SVML)">;
+def _SLASH_Qimf_use_svml : CLFlag<"Qimf-use-svml">, Alias<fimf_use_svml_EQ>,
+  AliasArgs<["true"]>;
 def _SLASH_Qtemplate_depth_COL : CLJoined<"Qtemplate-depth:">,
   Alias<ftemplate_depth_EQ>, HelpText<"Control the depth in which recursive"
   " templates are expanded">;
