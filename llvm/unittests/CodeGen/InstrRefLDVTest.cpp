@@ -49,6 +49,7 @@ public:
   DILocalVariable *FuncVariable;
   DIBasicType *LongInt;
   DIExpression *EmptyExpr;
+  LiveDebugValues::OverlapMap Overlaps;
 
   DebugLoc OutermostLoc, InBlockLoc, NotNestedBlockLoc, InlinedLoc;
 
@@ -169,7 +170,7 @@ public:
 
   void addVTracker() {
     ASSERT_TRUE(LDV);
-    VTracker = std::make_unique<VLocTracker>();
+    VTracker = std::make_unique<VLocTracker>(Overlaps, EmptyExpr);
     LDV->VTracker = &*VTracker;
   }
 
@@ -2523,7 +2524,7 @@ TEST_F(InstrRefLDVTest, VLocSingleBlock) {
   AssignBlocks.insert(MBB0);
 
   SmallVector<VLocTracker, 1> VLocs;
-  VLocs.resize(1);
+  VLocs.resize(1, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
 
@@ -2587,7 +2588,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   AssignBlocks.insert(MBB3);
 
   SmallVector<VLocTracker, 1> VLocs;
-  VLocs.resize(4);
+  VLocs.resize(4, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
 
@@ -2800,7 +2801,7 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   AssignBlocks.insert(MBB2);
 
   SmallVector<VLocTracker, 3> VLocs;
-  VLocs.resize(3);
+  VLocs.resize(3, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
 
@@ -3056,7 +3057,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   AssignBlocks.insert(MBB4);
 
   SmallVector<VLocTracker, 5> VLocs;
-  VLocs.resize(5);
+  VLocs.resize(5, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
 

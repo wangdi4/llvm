@@ -201,7 +201,8 @@ class RAGreedy : public MachineFunctionPass,
   struct RegInfo {
     LiveRangeStage Stage = RS_New;
 
-    // Cascade - Eviction loop prevention. See canEvictInterference().
+    // Cascade - Eviction loop prevention. See
+    // canEvictInterferenceBasedOnCost().
     unsigned Cascade = 0;
 
     RegInfo() = default;
@@ -412,8 +413,11 @@ private:
   void calcGapWeights(MCRegister, SmallVectorImpl<float> &);
   Register canReassign(LiveInterval &VirtReg, Register PrevReg) const;
   bool shouldEvict(LiveInterval &A, bool, LiveInterval &B, bool) const;
-  bool canEvictInterference(LiveInterval &, MCRegister, bool, EvictionCost &,
-                            const SmallVirtRegSet &) const;
+  bool canEvictInterferenceBasedOnCost(LiveInterval &, MCRegister, bool,
+                                       EvictionCost &,
+                                       const SmallVirtRegSet &) const;
+  bool canEvictHintInterference(LiveInterval &, MCRegister,
+                                const SmallVirtRegSet &) const;
   bool canEvictInterferenceInRange(const LiveInterval &VirtReg,
                                    MCRegister PhysReg, SlotIndex Start,
                                    SlotIndex End, EvictionCost &MaxCost) const;
@@ -782,10 +786,8 @@ MCRegister RAGreedy::tryAssign(LiveInterval &VirtReg,
     if (Order.isHint(Hint)) {
       MCRegister PhysHint = Hint.asMCReg();
       LLVM_DEBUG(dbgs() << "missed hint " << printReg(PhysHint, TRI) << '\n');
-      EvictionCost MaxCost;
-      MaxCost.setBrokenHints(1);
-      if (canEvictInterference(VirtReg, PhysHint, true, MaxCost,
-                               FixedRegisters)) {
+
+      if (canEvictHintInterference(VirtReg, PhysHint, FixedRegisters)) {
         evictInterference(VirtReg, PhysHint, NewVRegs);
         return PhysHint;
       }
@@ -871,8 +873,19 @@ bool RAGreedy::shouldEvict(LiveInterval &A, bool IsHint,
   return false;
 }
 
-/// canEvictInterference - Return true if all interferences between VirtReg and
-/// PhysReg can be evicted.
+/// canEvictHintInterference - return true if the interference for VirtReg
+/// on the PhysReg, which is VirtReg's hint, can be evicted in favor of VirtReg.
+bool RAGreedy::canEvictHintInterference(
+    LiveInterval &VirtReg, MCRegister PhysReg,
+    const SmallVirtRegSet &FixedRegisters) const {
+  EvictionCost MaxCost;
+  MaxCost.setBrokenHints(1);
+  return canEvictInterferenceBasedOnCost(VirtReg, PhysReg, true, MaxCost,
+                                         FixedRegisters);
+}
+
+/// canEvictInterferenceBasedOnCost - Return true if all interferences between
+/// VirtReg and PhysReg can be evicted.
 ///
 /// @param VirtReg Live range that is about to be assigned.
 /// @param PhysReg Desired register for assignment.
@@ -880,7 +893,7 @@ bool RAGreedy::shouldEvict(LiveInterval &A, bool IsHint,
 /// @param MaxCost Only look for cheaper candidates and update with new cost
 ///                when returning true.
 /// @returns True when interference can be evicted cheaper than MaxCost.
-bool RAGreedy::canEvictInterference(
+bool RAGreedy::canEvictInterferenceBasedOnCost(
     LiveInterval &VirtReg, MCRegister PhysReg, bool IsHint,
     EvictionCost &MaxCost, const SmallVirtRegSet &FixedRegisters) const {
   // It is only possible to evict virtual register interference.
@@ -1157,8 +1170,8 @@ MCRegister RAGreedy::tryFindEvictionCandidate(
       continue;
     }
 
-    if (!canEvictInterference(VirtReg, PhysReg, false, BestCost,
-                              FixedRegisters))
+    if (!canEvictInterferenceBasedOnCost(VirtReg, PhysReg, false, BestCost,
+                                         FixedRegisters))
       continue;
 
     // Best so far.
