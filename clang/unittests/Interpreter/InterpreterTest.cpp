@@ -215,14 +215,15 @@ TEST(IncrementalProcessing, InstantiateTemplate) {
   // active PTU which causes an assert.
   std::vector<const char *> Args = {"-fno-delayed-template-parsing"};
   std::unique_ptr<Interpreter> Interp = createInterpreter(Args);
-
+// INTEL_CUSTOMIZATION
   llvm::cantFail(Interp->Parse("void* operator new(__SIZE_TYPE__, void* __p);"
                                "extern \"C\" int printf(const char*,...);"
                                "class A {};"
                                "struct B {"
                                "  template<typename T>"
-                               "  int callme(T) { return 42; }"
+                               "  static int callme(T) { return 42; }"
                                "};"));
+// end INTEL_CUSTOMIZATION
   auto &PTU = llvm::cantFail(Interp->Parse("auto _t = &B::callme<A*>;"));
   auto PTUDeclRange = PTU.TUPart->decls();
   EXPECT_EQ(1, std::distance(PTUDeclRange.begin(), PTUDeclRange.end()));
