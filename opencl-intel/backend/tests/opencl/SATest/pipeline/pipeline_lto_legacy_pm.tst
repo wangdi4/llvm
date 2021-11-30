@@ -58,6 +58,7 @@
 ; CHECK-NEXT:     Intel Kernel WIRelatedValue Analysis
 ; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT:     Intel Kernel Barrier
+; CHECK:          Recognize loop idioms
 ; CHECK:          ImplicitArgsAnalysisLegacy
 ; CHECK:          LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     AddImplicitArgsLegacy
