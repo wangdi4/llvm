@@ -170,8 +170,8 @@ define <2 x i1> @constant_op1_i64_not_undef_lane(i64 %x) {
 define <2 x i1> @constant_op1_i64_load(i64* %p) {
 ; CHECK-LABEL: @constant_op1_i64_load(
 ; CHECK-NEXT:    [[LD:%.*]] = load i64, i64* [[P:%.*]], align 4
-; CHECK-NEXT:    [[INS:%.*]] = insertelement <2 x i64> undef, i64 [[LD]], i32 0
-; CHECK-NEXT:    [[R:%.*]] = icmp eq <2 x i64> [[INS]], <i64 42, i64 -42>
+; CHECK-NEXT:    [[R_SCALAR:%.*]] = icmp eq i64 [[LD]], 42 ;INTEL
+; CHECK-NEXT:    [[R:%.*]] = insertelement <2 x i1> undef, i1 [[R_SCALAR]], i64 0 ;INTEL
 ; CHECK-NEXT:    ret <2 x i1> [[R]]
 ;
   %ld = load i64, i64* %p
