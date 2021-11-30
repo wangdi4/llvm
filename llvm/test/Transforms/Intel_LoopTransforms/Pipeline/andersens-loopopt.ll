@@ -1,7 +1,6 @@
-; FIXME: Remove XFAIL upon long-term resolution of CMPLRLLVM-31841
-; XFAIL: *
-; RUN: opt -loopopt -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
-; RUN: opt -loopopt -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details -enable-andersen=false < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
+; RUN: opt -o %t < %s
+; RUN: llvm-lto %t -o %r -exported-symbol=main -O3 -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
+; RUN: llvm-lto %t -o %r -exported-symbol=main -O3 -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details -enable-andersen=false 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
 
 ; This test is checking that Andersen's AA results are available for the loopopt.
 ;
@@ -143,6 +142,8 @@ entry:
   %1 = bitcast i8* %call.i13 to float*
   %call2 = tail call i32 @foo(float* %0, float* %1, i32 %argc)
   %call3 = tail call i32 @bar(float* %0, float* %1, i32 %argc)
+  %call4 = tail call i32 @foo(float* null, float* null, i32 %argc)
+  %call5 = tail call i32 @bar(float* null, float* null, i32 %argc)
   %add = add nsw i32 %call3, %call2
   ret i32 %add
 }
