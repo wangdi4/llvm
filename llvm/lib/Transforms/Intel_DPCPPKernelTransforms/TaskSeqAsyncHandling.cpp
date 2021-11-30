@@ -99,7 +99,7 @@ private:
   StructType *getLiteralType(Function *F) {
     auto It = LiteralMap.find(F);
     assert(It != LiteralMap.end() && "Cannot find corresponding literal type. "
-                                     "Is F a task_sequence::__async?");
+                                     "Is F a __spirv_TaskSequenceAsync?");
     return It->second;
   }
 
@@ -173,12 +173,10 @@ size_t getRetTypeSizeOfAsyncFunction(Function *F) {
 }
 
 FunctionCallee Impl::getBackendCreateTaskSeq() {
-  // void *__create_task_sequence(size_t return_type_size,
-  //                              unsigned max_outstanding)
+  // void *__create_task_sequence(size_t return_type_size)
   auto *SizeTTy = Type::getIntNTy(Ctx, sizeof(size_t) * 8);
-  auto *UnsignedTy = Type::getIntNTy(Ctx, sizeof(unsigned) * 8);
   auto *RetTy = Type::getInt8PtrTy(Ctx);
-  auto *FTy = FunctionType::get(RetTy, {SizeTTy, UnsignedTy}, false);
+  auto *FTy = FunctionType::get(RetTy, {SizeTTy}, false);
   return M.getOrInsertFunction(BackendCreateTaskSeqName, FTy);
 }
 
@@ -191,18 +189,21 @@ FunctionCallee Impl::getBackendReleaseTaskSeq() {
 }
 
 FunctionCallee Impl::getBackendGet() {
-  // void *__get(void *task_seq)
+  // void *__get(void *task_seq, unsigned capacity)
   auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *I32Ty = Type::getInt32Ty(Ctx);
   auto *RetTy = PtrTy;
-  auto *FTy = FunctionType::get(RetTy, {PtrTy}, false);
+  auto *FTy = FunctionType::get(RetTy, {PtrTy, I32Ty}, false);
   return M.getOrInsertFunction(BackendGetName, FTy);
 }
 
 FunctionCallee Impl::getBackendAsync() {
-  // void __async(void *task_seq, void *block_invoke, void *block_literal)
+  // void __async(void *task_seq, unsigned capacity,
+  //              void *block_invoke, void *block_literal)
   auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *I32Ty = Type::getInt32Ty(Ctx);
   auto *RetTy = Type::getVoidTy(Ctx);
-  auto *FTy = FunctionType::get(RetTy, {PtrTy, PtrTy, PtrTy}, false);
+  auto *FTy = FunctionType::get(RetTy, {PtrTy, I32Ty, PtrTy, PtrTy}, false);
   return M.getOrInsertFunction(BackendAsyncName, FTy);
 }
 
@@ -210,10 +211,9 @@ void Impl::generateCreateTaskSeqBodies() {
   if (Creates.empty())
     return;
 
-  // size_t __spirv_create_task_sequence(
-  //     task_sequence *obj, f_t *f, unsigned max_outstanding) {
+  // size_t __spirv_TaskSequenceCreateINTEL(task_sequence *obj, f_t *f) {
   //   // Parse return_type_size from f_t
-  //   void *impl = __create_task_sequence(return_type_size, max_outstanding);
+  //   void *impl = __create_task_sequence(return_type_size);
   //   return (size_t)impl;
   // }
   FunctionCallee BackendCreateTaskSeq = getBackendCreateTaskSeq();
@@ -224,9 +224,7 @@ void Impl::generateCreateTaskSeqBodies() {
     IRB.SetInsertPoint(Entry);
     size_t RetTypeSize = getRetTypeSizeOfAsyncFunction(F);
     auto *RetTypeSizeVal = ConstantInt::get(RetTypeSizeTy, RetTypeSize);
-    auto *MaxOutstanding = F->getArg(2);
-    SmallVector<Value *, 2> Args{RetTypeSizeVal, MaxOutstanding};
-    auto *CI = IRB.CreateCall(BackendCreateTaskSeq, Args);
+    auto *CI = IRB.CreateCall(BackendCreateTaskSeq, {RetTypeSizeVal});
     auto *RetBC = IRB.CreatePointerCast(CI, F->getReturnType());
     IRB.CreateRet(RetBC);
     F->setLinkage(GlobalValue::InternalLinkage);
@@ -238,7 +236,7 @@ void Impl::generateReleaseTaskSeqBodies() {
   if (Releases.empty())
     return;
 
-  // void __spirv_release_task_sequence(task_sequence *obj) {
+  // void __spirv_TaskSequenceReleaseINTEL(task_sequence *obj) {
   //   __release_task_sequence((void *)obj);
   // }
   FunctionCallee BackendReleaseTaskSeq = getBackendReleaseTaskSeq();
@@ -259,8 +257,9 @@ void Impl::generateGetBodies() {
   if (Gets.empty())
     return;
 
-  // ReturnT __spirv_get(task_sequence *obj, f_t *f, unsigned capacity) {
-  //   void *ret = __get((void *)obj);
+  // ReturnT __spirv_TaskSequenceGetINTEL(task_sequence *obj, f_t *f,
+  //                                      size_t id, unsigned capacity) {
+  //   void *ret = __get((void *)obj, capacity);
   //   return *(ReturnT *)ret;
   // }
   FunctionCallee BackendGet = getBackendGet();
@@ -270,7 +269,8 @@ void Impl::generateGetBodies() {
     Entry->insertInto(F);
     IRB.SetInsertPoint(Entry);
     auto *Cast = IRB.CreatePointerCast(F->getArg(0), Arg0Ty);
-    auto *CI = IRB.CreateCall(BackendGet, {Cast});
+    auto *Capacity = F->getArg(3);
+    auto *CI = IRB.CreateCall(BackendGet, {Cast, Capacity});
     auto *RetTy = F->getReturnType();
     Value *RetVal;
     if (RetTy->isVoidTy())
@@ -289,11 +289,11 @@ void Impl::generateAsyncBodies() {
   if (Asyncs.empty())
     return;
 
-  // void __spirv_async(task_sequence *obj, f_t *f, size_t id,
-  //                    unsigned capacity, ...) {
+  // void __spirv_TaskSequenceAsyncINTEL(
+  //     task_sequence *obj, f_t *f, size_t id, unsigned capacity, ...) {
   //   // Get invoke;
   //   // Create literal;
-  //   __async((void *)obj, (void *)invoke, (void *)literal);
+  //   __async((void *)obj, capacity, (void *)invoke, (void *)literal);
   // }
   auto *Int32Ty = Type::getInt32Ty(Ctx);
   auto *Zero = ConstantInt::get(Int32Ty, 0);
@@ -303,6 +303,8 @@ void Impl::generateAsyncBodies() {
     StructType *LiteralType = getLiteralType(F);
     Function *AsyncFunc = getCalledAsyncFunc(F);
     Function *AsyncInvoke = M.getFunction(getInovkeName(AsyncFunc));
+    assert(AsyncInvoke &&
+           "No invoke function found. Is createAsyncFunctionInvokes called?");
 
     auto *Entry = BasicBlock::Create(Ctx);
     Entry->insertInto(F);
@@ -357,8 +359,10 @@ void Impl::generateAsyncBodies() {
     auto *TaskSeqObjBC = IRB.CreatePointerCast(F->getArg(0), VoidPtrTy);
     auto *AsyncInvBC = IRB.CreatePointerCast(AsyncInvoke, VoidPtrTy);
     auto *LiteralBC = IRB.CreatePointerCast(Literal, VoidPtrTy);
+    auto *Capacity = F->getArg(3);
 
-    IRB.CreateCall(BackendAsync, {TaskSeqObjBC, AsyncInvBC, LiteralBC});
+    IRB.CreateCall(BackendAsync,
+                   {TaskSeqObjBC, Capacity, AsyncInvBC, LiteralBC});
     IRB.CreateRetVoid();
     F->setLinkage(GlobalValue::InternalLinkage);
   }
