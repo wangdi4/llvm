@@ -549,6 +549,10 @@ public:
     return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end;
   }
 
+  // Set "llvm.loop.isvectorized" on outgoing scalar HLLoops that already have
+  // "llvm.loop.vectorize.enable" metadata.
+  void setIsVecMDForHLLoops();
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -699,6 +703,8 @@ private:
   SmallPtrSet<const VPBasicBlock *, 2> LoopHeaderBlocks;
   SmallPtrSet<const VPBasicBlock *, 2> LoopExitBlocks;
   SmallDenseMap<const VPLoop *, HLLoop *> VPLoopHLLoopMap;
+  // Set of scalar HLLoops generated for outgoing HIR.
+  SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }

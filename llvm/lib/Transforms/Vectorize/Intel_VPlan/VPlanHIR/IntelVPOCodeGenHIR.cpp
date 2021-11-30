@@ -1175,6 +1175,11 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
 
     // Mark parent for invalidation
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(MainLoop);
+  } else {
+    // For non-merged CFG path, just track the scalar HLLoops emitted -
+    // remainder is stored in OrigLoop.
+    OutgoingScalarHLLoops.insert(OrigLoop);
+    OutgoingScalarHLLoops.insert(PeelLoop);
   }
 
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
@@ -4238,6 +4243,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ScalarPeelHIR: {
     auto *VPPeelLp = cast<VPScalarPeelHIR>(VPInst);
     HLLoop *ScalarPeel = VPPeelLp->getLoop()->clone();
+    OutgoingScalarHLLoops.insert(ScalarPeel);
 
     // Emit scalar peel loop at current insertion point and initialize UB temp.
     // We also set scalar loop's upper bound captured in corresponding
@@ -4283,6 +4289,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ScalarRemainderHIR: {
     auto *VPRemLp = cast<VPScalarRemainderHIR>(VPInst);
     HLLoop *ScalarRem = VPRemLp->getLoop()->clone();
+    OutgoingScalarHLLoops.insert(ScalarRem);
 
     // Emit scalar remainder loop at current insertion point and initialize
     // required live-in temps before the loop. We also set scalar loop's lower
@@ -5815,5 +5822,14 @@ void VPOCodeGenHIR::eliminateRedundantGotosLabels(void) {
 
   LLVM_DEBUG(dbgs() << "Loop after redundant gotos/labels removal: \n");
   LLVM_DEBUG(MainLoop->getParent()->dump());
+}
+
+void VPOCodeGenHIR::setIsVecMDForHLLoops() {
+  for (auto *HLp : OutgoingScalarHLLoops) {
+    if (HLp && HLp->isAttached()) {
+      if (HLp->getLoopStringMetadata("llvm.loop.vectorize.enable") != nullptr)
+        setHLLoopMD(HLp, "llvm.loop.isvectorized");
+    }
+  }
 }
 } // end namespace llvm

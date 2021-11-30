@@ -220,37 +220,6 @@ static bool isSupportedRec(Loop *Lp) {
   return true;
 }
 
-// This function adds new SzAddMD metadata string to the loop. We use it set
-// llvm.loop.vectorize.enable and llvm.loop.isvectorized metadata attributes:
-//   llvm.loop.vectorize.enable - is added by the front-end (called without
-//   -fiopenmp option) or VPlan Vectorizer if pragma simd is specified the
-//   the loop.
-//   llvm.loop.isvectorized - is added by vectorizer for vectorized loops.
-static void setLoopMD(const Loop *const Lp, const char *const SzAddMD) {
-  if (!Lp)
-    return;
-  LLVMContext &Context = Lp->getHeader()->getContext();
-  MDNode *AddMD = MDNode::get(
-      Context,
-      {MDString::get(Context, SzAddMD),
-       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
-  MDNode *LoopID = Lp->getLoopID();
-  MDNode *NewLoopID =
-      makePostTransformationMetadata(Context, LoopID, {SzAddMD}, {AddMD});
-  Lp->setLoopID(NewLoopID);
-}
-
-static void setHLLoopMD(HLLoop *const Lp, const char *const SzAddMD,
-                        LLVMContext &Context) {
-  if (!Lp)
-    return;
-  MDNode *AddMD = MDNode::get(
-      Context,
-      {MDString::get(Context, SzAddMD),
-       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
-  Lp->addLoopMetadata({AddMD});
-}
-
 static bool canProcessMaskedVariant(const VPlan &P) {
   for (const VPInstruction &I : vpinstructions(&P))
     switch (I.getOpcode()) {
@@ -1323,7 +1292,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // so that WarnMissedTransforms pass will detect that this loop is not
   // vectorized later
   if (isOmpSIMDLoop)
-    setHLLoopMD(Lp, "llvm.loop.vectorize.enable", Fn.getContext());
+    setHLLoopMD(Lp, "llvm.loop.vectorize.enable");
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization
@@ -1476,13 +1445,14 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         ModifiedLoop = true;
         VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
             WRLp, VPORBuilder, &VCodeGen);
-        // Mark source and vectorized loops with isvectorized directive so that
+        // Mark loops with "vectorize.enable" metadata as "isvectorized" so that
         // WarnMissedTransforms pass will not complain that this loop is not
         // vectorized. We also tag the main vector loop based on
         // simd/auto-vectorization scenarios. This tag will be reflected in
         // downstream HIR dumps.
         if (isOmpSIMDLoop) {
-          setHLLoopMD(Lp, "llvm.loop.isvectorized", Fn.getContext());
+          setHLLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
+          VCodeGen.setIsVecMDForHLLoops();
           VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::SIMD);
         } else {
           VCodeGen.getMainLoop()->setVecTag(HLLoop::VecTagTy::AUTOVEC);

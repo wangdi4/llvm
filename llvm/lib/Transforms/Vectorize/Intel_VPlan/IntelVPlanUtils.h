@@ -274,6 +274,38 @@ inline bool getStrideUsingHIR(const loopopt::RegDDRef *MemRef,
 
   return MemRef->getConstStrideAtLevel(HLoop->getNestingLevel(), &Stride);
 }
+
+// This function adds new SzAddMD metadata string to the loop. We use it to set
+// llvm.loop.vectorize.enable and llvm.loop.isvectorized metadata attributes:
+//   llvm.loop.vectorize.enable - is added by the front-end (called without
+//   -fiopenmp option) or VPlan Vectorizer if pragma simd is specified on
+//   the loop.
+//   llvm.loop.isvectorized - is added by vectorizer for vectorized loops.
+inline void setLoopMD(const Loop *const Lp, const char *const SzAddMD) {
+  if (!Lp)
+    return;
+  LLVMContext &Context = Lp->getHeader()->getContext();
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  MDNode *LoopID = Lp->getLoopID();
+  MDNode *NewLoopID =
+      makePostTransformationMetadata(Context, LoopID, {SzAddMD}, {AddMD});
+  Lp->setLoopID(NewLoopID);
+}
+
+// Same functionality as above method - specialized for HIR loops.
+inline void setHLLoopMD(loopopt::HLLoop *Lp, const char *SzAddMD) {
+  if (!Lp)
+    return;
+  LLVMContext &Context = Lp->getHLNodeUtils().getContext();
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  Lp->addLoopMetadata({AddMD});
+}
 #endif // INTEL_CUSTOMIZATION
 
 // Add a new depth-first iterator (sese_df_iterator) for traversing the blocks
