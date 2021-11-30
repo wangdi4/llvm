@@ -186,6 +186,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         // Barrier passes end.
 
         MPM.add(createLICMPass());
+        MPM.add(createLoopIdiomPass());
         MPM.add(createCFGSimplificationPass());
         MPM.add(createAddImplicitArgsLegacyPass());
         MPM.add(createResolveWICallLegacyPass(false, false));
