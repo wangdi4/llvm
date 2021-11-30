@@ -9,8 +9,8 @@ define <2 x double> @svml_cc_v2i1(<2 x double> %x, <2 x i64> %mask) {
 ; SSE-NEXT:    pushq %rax
 ; SSE-NEXT:    .cfi_def_cfa_offset 16
 ; SSE-NEXT:    pxor %xmm2, %xmm2
-; SSE-NEXT:    pcmpeqd %xmm1, %xmm2
-; SSE-NEXT:    pshufd {{.*#+}} xmm1 = xmm2[1,0,3,2]
+; SSE-NEXT:    pcmpeqd %xmm2, %xmm1
+; SSE-NEXT:    pshufd {{.*#+}} xmm2 = xmm1[1,0,3,2]
 ; SSE-NEXT:    pand %xmm2, %xmm1
 ; SSE-NEXT:    callq *mysvml_v2f64_v2i1@GOTPCREL(%rip)
 ; SSE-NEXT:    popq %rax
