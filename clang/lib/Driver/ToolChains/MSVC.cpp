@@ -1392,6 +1392,14 @@ bool MSVCToolChain::getUniversalCRTLibraryPath(const ArgList &Args,
   return true;
 }
 
+static VersionTuple getMSVCVersionFromTriple(const llvm::Triple &Triple) {
+  unsigned Major, Minor, Micro;
+  Triple.getEnvironmentVersion(Major, Minor, Micro);
+  if (Major || Minor || Micro)
+    return VersionTuple(Major, Minor, Micro);
+  return VersionTuple();
+}
+
 static VersionTuple getMSVCVersionFromExe(const std::string &BinDir) {
   VersionTuple Version;
 #ifdef _WIN32
@@ -1592,7 +1600,7 @@ VersionTuple MSVCToolChain::computeMSVCVersion(const Driver *D,
   bool IsWindowsMSVC = getTriple().isWindowsMSVCEnvironment();
   VersionTuple MSVT = ToolChain::computeMSVCVersion(D, Args);
   if (MSVT.empty())
-    MSVT = getTriple().getEnvironmentVersion();
+    MSVT = getMSVCVersionFromTriple(getTriple());
   if (MSVT.empty() && IsWindowsMSVC)
     MSVT = getMSVCVersionFromExe(getSubDirectoryPath(SubDirectoryType::Bin));
   if (MSVT.empty() &&

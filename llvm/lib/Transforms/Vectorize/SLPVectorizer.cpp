@@ -11851,44 +11851,6 @@ bool SLPVectorizerPass::vectorizeInsertElementInst(InsertElementInst *IEI,
   return tryToVectorizeList(BuildVectorInsts, R);
 }
 
-bool SLPVectorizerPass::vectorizeSimpleInstructions(
-    SmallVectorImpl<Instruction *> &Instructions, BasicBlock *BB, BoUpSLP &R,
-    bool AtTerminator) {
-  bool OpsChanged = false;
-  SmallVector<Instruction *, 4> PostponedCmps;
-  for (auto *I : reverse(Instructions)) {
-    if (R.isDeleted(I))
-      continue;
-    if (auto *LastInsertValue = dyn_cast<InsertValueInst>(I))
-      OpsChanged |= vectorizeInsertValueInst(LastInsertValue, BB, R);
-    else if (auto *LastInsertElem = dyn_cast<InsertElementInst>(I))
-      OpsChanged |= vectorizeInsertElementInst(LastInsertElem, BB, R);
-    else if (isa<CmpInst>(I))
-      PostponedCmps.push_back(I);
-  }
-  if (AtTerminator) {
-    // Try to find reductions first.
-    for (Instruction *I : PostponedCmps) {
-      if (R.isDeleted(I))
-        continue;
-      for (Value *Op : I->operands())
-        OpsChanged |= vectorizeRootInstruction(nullptr, Op, BB, R, TTI);
-    }
-    // Try to vectorize operands as vector bundles.
-    for (Instruction *I : PostponedCmps) {
-      if (R.isDeleted(I))
-        continue;
-      OpsChanged |= tryToVectorize(I, R);
-    }
-    Instructions.clear();
-  } else {
-    // Insert in reverse order since the PostponedCmps vector was filled in
-    // reverse order.
-    Instructions.assign(PostponedCmps.rbegin(), PostponedCmps.rend());
-  }
-  return OpsChanged;
-}
-
 template <typename T>
 static bool
 tryToVectorizeSequence(SmallVectorImpl<T *> &Incoming,
@@ -11959,6 +11921,44 @@ tryToVectorizeSequence(SmallVectorImpl<T *> &Incoming,
     IncIt = SameTypeIt;
   }
   return Changed;
+}
+
+bool SLPVectorizerPass::vectorizeSimpleInstructions(
+    SmallVectorImpl<Instruction *> &Instructions, BasicBlock *BB, BoUpSLP &R,
+    bool AtTerminator) {
+  bool OpsChanged = false;
+  SmallVector<Instruction *, 4> PostponedCmps;
+  for (auto *I : reverse(Instructions)) {
+    if (R.isDeleted(I))
+      continue;
+    if (auto *LastInsertValue = dyn_cast<InsertValueInst>(I))
+      OpsChanged |= vectorizeInsertValueInst(LastInsertValue, BB, R);
+    else if (auto *LastInsertElem = dyn_cast<InsertElementInst>(I))
+      OpsChanged |= vectorizeInsertElementInst(LastInsertElem, BB, R);
+    else if (isa<CmpInst>(I))
+      PostponedCmps.push_back(I);
+  }
+  if (AtTerminator) {
+    // Try to find reductions first.
+    for (Instruction *I : PostponedCmps) {
+      if (R.isDeleted(I))
+        continue;
+      for (Value *Op : I->operands())
+        OpsChanged |= vectorizeRootInstruction(nullptr, Op, BB, R, TTI);
+    }
+    // Try to vectorize operands as vector bundles.
+    for (Instruction *I : PostponedCmps) {
+      if (R.isDeleted(I))
+        continue;
+      OpsChanged |= tryToVectorize(I, R);
+    }
+    Instructions.clear();
+  } else {
+    // Insert in reverse order since the PostponedCmps vector was filled in
+    // reverse order.
+    Instructions.assign(PostponedCmps.rbegin(), PostponedCmps.rend());
+  }
+  return OpsChanged;
 }
 
 bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
