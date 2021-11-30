@@ -7845,7 +7845,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
     // variable in the region. This is not a big deal, since
     // normalized induction variable *is* private for the region.
     Type *ElementTy = W->getWRNLoopInfo().getNormIVElemTy(Index);
-    assert(ElementTy->isIntegerTy() && "IV must have integer type.");
+    assert(ElementTy && ElementTy->isIntegerTy() &&
+           "IV must have integer type.");
     auto *NewAlloca = genRegionPrivateValue(W, OrigAlloca,
                                             ElementTy,
                                             ConstantInt::get(ElementTy, 1));
@@ -7888,7 +7889,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
     //        do not propagate non-constant ones.
     auto *OrigAlloca = W->getWRNLoopInfo().getNormUB(Index);
     Type *ElementTy = W->getWRNLoopInfo().getNormUBElemTy(Index);
-    assert(ElementTy->isIntegerTy() && "UB must have integer type.");
+    assert(ElementTy && ElementTy->isIntegerTy() &&
+           "UB must have integer type.");
     auto *NewAlloca = genRegionPrivateValue(
         W, OrigAlloca, ElementTy, ConstantInt::get(ElementTy, 1), true);
     // The original load/stores from/to the normalized upper bound
