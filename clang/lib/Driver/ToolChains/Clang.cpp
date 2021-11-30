@@ -6001,6 +6001,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-fintel-long-double-size=80");
   }
 
+  // FIXME: need to combine all imf options into one -mGLOB_imf_attr=,
+  // e.g. "-mGLOB_imf_attr=arch-consistency:foo max-error:bar"
   for (const Arg *A : Args) {
     unsigned OptionID = A->getOption().getID();
     switch (OptionID) {
@@ -6031,6 +6033,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       break;
     case options::OPT_fimf_precision_EQ:
       CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=precision:") +
+                                           A->getValue()));
+      A->claim();
+      break;
+    case options::OPT_fimf_use_svml_EQ:
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=use-svml:") +
                                            A->getValue()));
       A->claim();
       break;

@@ -792,3 +792,15 @@
 // RUN: %clang_cl -### --intel /Qftz- -O1 -c %s 2>&1 | FileCheck -check-prefix=NO-FTZ %s
 // FTZ: "-fdenormal-fp-math=preserve-sign,preserve-sign"
 // NO-FTZ-NOT: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+
+// -fimf-use-svml and /Qimf-use-svml
+// RUN: %clang -### -fimf-use-svml -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang -### -fimf-use-svml=true -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang -### -fimf-use-svml=true:sin -c %s 2>&1 | FileCheck -DVALUE=true:sin --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// RUN: %clang -### -fimf-use-svml=false:sqrtf -c %s 2>&1 | FileCheck -DVALUE=false:sqrtf --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// RUN: %clang_cl -### /Qimf-use-svml -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang_cl -### /Qimf-use-svml:true -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang_cl -### /Qimf-use-svml:true:sin -c %s 2>&1 | FileCheck -DVALUE=true:sin --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// RUN: %clang_cl -### /Qimf-use-svml:false:sqrtf -c %s 2>&1 | FileCheck -DVALUE=false:sqrtf --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
+// CHECK-FIMF-USE-SVML-TRUE: "-mGLOB_imf_attr=use-svml:true"
+// CHECK-FIMF-USE-SVML-VALUE: "-mGLOB_imf_attr=use-svml:[[VALUE]]"
