@@ -2071,10 +2071,9 @@ unsigned RAGreedy::tryBlockSplit(LiveInterval &VirtReg, AllocationOrder &Order,
   // Sort out the new intervals created by splitting. The remainder interval
   // goes straight to spilling, the new local ranges get to stay RS_New.
   for (unsigned I = 0, E = LREdit.size(); I != E; ++I) {
-<<<<<<< HEAD
-    LiveInterval &LI = LIS->getInterval(LREdit.get(I));
+   const LiveInterval &LI = LIS->getInterval(LREdit.get(I));
 #if INTEL_CUSTOMIZATION
-    if (getStage(LI) == RS_New && IntvMap[I] == 0) {
+    if (getOrInitStage(LI.reg()) == RS_New && IntvMap[I] == 0) {
       bool EnableMemoryStage = false;
       if (EnableHeuristic) {
         int LoopOpts = 0;
@@ -2100,11 +2099,6 @@ unsigned RAGreedy::tryBlockSplit(LiveInterval &VirtReg, AllocationOrder &Order,
         setStage(LI, RS_Spill);
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    const LiveInterval &LI = LIS->getInterval(LREdit.get(I));
-    if (getOrInitStage(LI.reg()) == RS_New && IntvMap[I] == 0)
-      setStage(LI, RS_Spill);
->>>>>>> a503cb00d105b75744444c987fd159b05180c383
   }
 
   if (VerifyEnabled)
