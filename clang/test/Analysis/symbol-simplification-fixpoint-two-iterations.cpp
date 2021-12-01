@@ -1,5 +1,5 @@
 // INTEL_CUSTOMIZATION
-// XFAIL: *
+// Restore expected fail here if needed
 // CMPLRLLVM-33174
 // There is some nondeterministic behavior in the Clang static analyzer's
 // constraint solver, that gives a different ordering for the results below.
