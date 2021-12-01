@@ -843,8 +843,6 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_GRAINSIZE:
     case QUAL_OMP_NUM_TASKS:
     case QUAL_OMP_PRIORITY:
-    case QUAL_OMP_NUM_TEAMS:
-    case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
     case QUAL_OMP_FILTER:
     case QUAL_OMP_OFFLOAD_ENTRY_IDX:

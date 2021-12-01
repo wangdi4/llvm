@@ -479,17 +479,19 @@ WRNScheduleKind VPOParoptUtils::getDistLoopScheduleKind(WRegionNode *W)
 // via a pointer or as a Constant.
 // The resulting value is casted to the given type.
 Value *VPOParoptUtils::getOrLoadClauseArgValueWithSext(
-    Value *Arg, Type *Ty, IRBuilder<> &Builder) {
+    Value *Arg, Type *ArgElementTy, Type *Ty, IRBuilder<> &Builder) {
   if (!Arg)
     return nullptr;
 
   assert(Ty && Ty->isIntegerTy() && "Expected integer type.");
 
-  if (Arg->getType()->isPointerTy())
-    Arg = Builder.CreateLoad(Arg->getType()->getPointerElementType(), Arg);
-  else
+  if (Arg->getType()->isPointerTy()) {
+    assert(ArgElementTy && "ArgElementTy is null.");
+    Arg = Builder.CreateLoad(ArgElementTy, Arg);
+  } else {
     assert(isa<Constant>(Arg) &&
            "The clause argument must be either pointer or Constant Value.");
+  }
 
   return Builder.CreateSExtOrTrunc(Arg, Ty);
 }
@@ -505,8 +507,9 @@ Value *VPOParoptUtils::getOrLoadClauseArgValueWithSext(
 /// \endcode
 CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
                                               StructType *IdentTy, Value *Tid,
-                                              Value *NumTeams,
+                                              Value *NumTeams, Type *NumTeamsTy,
                                               Value *NumThreads,
+                                              Type *NumThreadsTy,
                                               Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -538,12 +541,14 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NumTeams)
-    NumTeams = getOrLoadClauseArgValueWithSext(NumTeams, Int32Ty, Builder);
+    NumTeams = getOrLoadClauseArgValueWithSext(NumTeams, NumTeamsTy,
+                                               Int32Ty, Builder);
   else
     NumTeams = ConstantInt::get(Int32Ty, 0);
 
   if (NumThreads)
-    NumThreads = getOrLoadClauseArgValueWithSext(NumThreads, Int32Ty, Builder);
+    NumThreads = getOrLoadClauseArgValueWithSext(NumThreads, NumThreadsTy,
+                                                 Int32Ty, Builder);
   else
     NumThreads = ConstantInt::get(Int32Ty, 0);
 
@@ -758,15 +763,18 @@ VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr, int NumArgs,
     SubdeviceI  = Subdevice.front();
 
   Value *NumTeamsPtr = W->getNumTeams();
+  Type *NumTeamsTy = W->getNumTeamsType();
 
   assert((!useSPMDMode(W) || !NumTeamsPtr) &&
          "SPMD mode cannot be used with num_teams.");
 
   Value *ThreadLimitPtr = W->getThreadLimit();
+  Type *ThreadLimitTy = W->getThreadLimitType();
   CallInst *Call =
       genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs, ArgsBase, Args,
                  ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
-                 HostAddr, NumTeamsPtr, ThreadLimitPtr, SubdeviceI);
+                 HostAddr, NumTeamsPtr, NumTeamsTy, ThreadLimitPtr,
+                 ThreadLimitTy, SubdeviceI);
   return Call;
 }
 
@@ -892,7 +900,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
                                      Value *ArgsSize, Value *ArgsMaptype,
                                      Value *ArgsNames, Value *ArgsMappers,
                                      Instruction *InsertPt, Value *HostAddr,
-                                     Value *NumTeamsPtr, Value *ThreadLimitPtr,
+                                     Value *NumTeamsPtr, Type *NumTeamsTy,
+                                     Value *ThreadLimitPtr, Type *ThreadLimitTy,
                                      SubdeviceItem *SubdeviceI) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = InsertPt->getParent();
@@ -943,14 +952,15 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
       if (NumTeamsPtr == nullptr)
         NumTeams = Builder.getInt32(0);
       else
-        NumTeams =
-            getOrLoadClauseArgValueWithSext(NumTeamsPtr, Int32Ty, Builder);
+        NumTeams = getOrLoadClauseArgValueWithSext(NumTeamsPtr, NumTeamsTy,
+                                                   Int32Ty, Builder);
 
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
-        ThreadLimit =
-            getOrLoadClauseArgValueWithSext(ThreadLimitPtr, Int32Ty, Builder);
+        ThreadLimit = getOrLoadClauseArgValueWithSext(ThreadLimitPtr,
+                                                      ThreadLimitTy,
+                                                      Int32Ty, Builder);
 #if INTEL_CUSTOMIZATION
       uint64_t KernelThreadLimit = W->getConfiguredThreadLimit();
       if (KernelThreadLimit > 0)

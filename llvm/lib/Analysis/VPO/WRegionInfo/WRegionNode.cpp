@@ -837,7 +837,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_NUM_THREADS:
     setNumThreads(V);
     break;
-    break;
   case QUAL_OMP_FINAL:
     setFinal(V);
     break;
@@ -849,12 +848,6 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     break;
   case QUAL_OMP_PRIORITY:
     setPriority(V);
-    break;
-  case QUAL_OMP_NUM_TEAMS:
-    setNumTeams(V);
-    break;
-  case QUAL_OMP_THREAD_LIMIT:
-    setThreadLimit(V);
     break;
   case QUAL_OMP_DEVICE:
     setDevice(V);
@@ -1930,6 +1923,42 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     // It may exist after VPO Paropt prepare and before
     // VPO Paropt transform to guarantee that DCE does not
     // remove unreachable region exit directives.
+    break;
+  case QUAL_OMP_NUM_TEAMS:
+    if (!ClauseInfo.getIsTyped()) {
+      assert(NumArgs == 1 && "NUM_TEAMS must have one argument.");
+      setNumTeams(Args[0]);
+      Type *ItemTy = Args[0]->getType();
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
+        // OPAQUEPOINTER: replace this with llvm_unreachable.
+        assert(!PtrTy->isOpaque() &&
+               "NUM_TEAMS must be typed, when opaque pointers are enabled.");
+        ItemTy = PtrTy->getPointerElementType();
+      }
+      setNumTeamsType(ItemTy);
+      break;
+    }
+    assert(NumArgs == 2 && "NUM_TEAMS:TYPED must have two arguments.");
+    setNumTeams(Args[0]);
+    setNumTeamsType(Args[1]->getType());
+    break;
+  case QUAL_OMP_THREAD_LIMIT:
+    if (!ClauseInfo.getIsTyped()) {
+      assert(NumArgs == 1 && "THREAD_LIMIT must have one argument.");
+      setThreadLimit(Args[0]);
+      Type *ItemTy = Args[0]->getType();
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
+        // OPAQUEPOINTER: replace this with llvm_unreachable.
+        assert(!PtrTy->isOpaque() &&
+               "THREAD_LIMIT must be typed, when opaque pointers are enabled.");
+        ItemTy = PtrTy->getPointerElementType();
+      }
+      setThreadLimitType(ItemTy);
+      break;
+    }
+    assert(NumArgs == 2 && "THREAD_LIMIT:TYPED must have two arguments.");
+    setThreadLimit(Args[0]);
+    setThreadLimitType(Args[1]->getType());
     break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
