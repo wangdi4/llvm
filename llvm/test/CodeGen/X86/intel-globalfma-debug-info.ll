@@ -1,4 +1,4 @@
-; RUN: llc < %s -print-after=global-fma -o /dev/null 2>&1 | FileCheck %s
+; RUN: llc < %s -print-after=global-fma -experimental-debug-variable-locations=false -o /dev/null 2>&1 | FileCheck %s
 
 ; Check global FMA does not crash due to debuginfo in other BB
 
