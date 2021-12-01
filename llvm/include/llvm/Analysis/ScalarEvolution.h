@@ -1461,6 +1461,8 @@ protected: // INTEL
   /// includes an exact count and a maximum count.
   ///
   class BackedgeTakenInfo {
+    friend class ScalarEvolution;
+
     /// A list of computable exits and their not-taken counts.  Loops almost
     /// never have more than one computable exit.
     SmallVector<ExitNotTakenInfo, 1> ExitNotTaken;
@@ -1480,9 +1482,6 @@ protected: // INTEL
 
     /// True iff the backedge is taken either exactly Max or zero times.
     bool MaxOrZero = false;
-
-    /// SCEV expressions used in any of the ExitNotTakenInfo counts.
-    SmallPtrSet<const SCEV *, 4> Operands;
 
     bool isComplete() const { return IsComplete; }
     const SCEV *getConstantMax() const { return ConstantMax; }
@@ -1549,10 +1548,6 @@ protected: // INTEL
     /// Return true if the number of times this backedge is taken is either the
     /// value returned by getConstantMax or zero.
     bool isConstantMaxOrZero(ScalarEvolution *SE) const;
-
-    /// Return true if any backedge taken count expressions refer to the given
-    /// subexpression.
-    bool hasOperand(const SCEV *S) const;
   };
 
   /// Cache the backedge-taken count of the loops for this function as they
@@ -1562,6 +1557,10 @@ protected: // INTEL
   /// Cache the predicated backedge-taken count of the loops for this
   /// function as they are computed.
   DenseMap<const Loop *, BackedgeTakenInfo> PredicatedBackedgeTakenCounts;
+
+  /// Loops whose backedge taken counts directly use this non-constant SCEV.
+  DenseMap<const SCEV *, SmallPtrSet<PointerIntPair<const Loop *, 1, bool>, 4>>
+      BECountUsers;
 
   /// This map contains entries for all of the PHI instructions that we
   /// attempt to compute constant evolutions for.  This allows us to avoid
@@ -2031,6 +2030,9 @@ protected: // INTEL
   /// Try to match the Expr as "(L + R)<Flags>".
   bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
                       SCEV::NoWrapFlags &Flags);
+
+  /// Forget predicated/non-predicated backedge taken counts for the given loop.
+  void forgetBackedgeTakenCounts(const Loop *L, bool Predicated);
 
   /// Drop memoized information for all \p SCEVs.
   void forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs);
