@@ -3367,29 +3367,13 @@ static void handleOpenCLDepthAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-<<<<<<< HEAD
   llvm::APSInt Depth = Result.Val.getInt();
   int DepthVal = Depth.getExtValue();
   if (DepthVal < 0) {
     S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
         << Attr << "0";
     return;
-=======
-  TargetInfo::BranchProtectionInfo BPI;
-  StringRef DiagMsg;
-  if (ParsedAttrs.BranchProtection.empty())
-    return false;
-  if (!Context.getTargetInfo().validateBranchProtection(
-          ParsedAttrs.BranchProtection, BPI, DiagMsg)) {
-    if (DiagMsg.empty())
-      return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
-             << Unsupported << None << "branch-protection" << Target;
-    return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
-           << DiagMsg;
->>>>>>> e3b2f0226bc09f16d5cdba9b94d1db3f15ee7d4a
   }
-  if (!DiagMsg.empty())
-    Diag(LiteralLoc, diag::warn_unsupported_branch_protection_spec) << DiagMsg;
 
   D->addAttr(::new (S.Context) OpenCLDepthAttr(S.Context, Attr, DepthVal));
 }
@@ -5044,18 +5028,19 @@ bool Sema::checkTargetAttr(SourceLocation LiteralLoc, StringRef AttrStr) {
   }
 
   TargetInfo::BranchProtectionInfo BPI;
-  StringRef Error;
-  if (!ParsedAttrs.BranchProtection.empty() &&
-      !Context.getTargetInfo().validateBranchProtection(
-          ParsedAttrs.BranchProtection, BPI, Error)) {
-    if (Error.empty())
+  StringRef DiagMsg;
+  if (ParsedAttrs.BranchProtection.empty())
+    return false;
+  if (!Context.getTargetInfo().validateBranchProtection(
+          ParsedAttrs.BranchProtection, BPI, DiagMsg)) {
+    if (DiagMsg.empty())
       return Diag(LiteralLoc, diag::warn_unsupported_target_attribute)
              << Unsupported << None << "branch-protection" << Target;
-    else
-      return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
-             << Error;
+    return Diag(LiteralLoc, diag::err_invalid_branch_protection_spec)
+           << DiagMsg;
   }
-
+  if (!DiagMsg.empty())
+    Diag(LiteralLoc, diag::warn_unsupported_branch_protection_spec) << DiagMsg;
   return false;
 }
 
