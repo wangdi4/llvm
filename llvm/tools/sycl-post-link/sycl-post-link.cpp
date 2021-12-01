@@ -338,9 +338,8 @@ bool isSpirvSyclBuiltin(StringRef FName) {
 }
 
 bool isEntryPoint(const Function &F) {
-  // Skip declarations, if any: they should not be included into a map of entry
-  // points groups or otherwise we will end up with incorrectly generated list
-  // of symbols.
+  // Skip declarations, if any: they should not be included into KernelModuleMap
+  // or otherwise we will end up with incorrectly generated list of symbols.
   if (F.isDeclaration())
     return false;
 
