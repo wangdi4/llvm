@@ -413,20 +413,23 @@ bool BuiltinImportPass::runImpl(Module &M) {
               [](auto &BIModule) { return BIModule.get(); });
   }
 
-  DPCPPKernelCompilationUtils::FuncSet UserModuleFunctions;
   // Remember user module function pointers, so we could set linkonce_odr
   // to only imported functions.
-  for (auto &F : M)
-    if (!F.isDeclaration())
-      UserModuleFunctions.insert(&F);
+  FuncSet UserModuleFunctions;
 
   SetVector<GlobalValue *> UsedFunctions;
   SetVector<GlobalVariable *> UsedGlobals;
   FuncVec SvmlFunctions; // shared svml functions
 
-  for (auto &F : M)
-    ExploreUses(&F, BuiltinModules, UsedFunctions, UsedGlobals, SvmlFunctions);
-
+  for (auto &F : M) {
+    if (F.isDeclaration()) {
+      if (!F.use_empty())
+        ExploreUses(&F, BuiltinModules, UsedFunctions, UsedGlobals,
+                    SvmlFunctions);
+    } else {
+      UserModuleFunctions.insert(&F);
+    }
+  }
   // Globals can have other function calls in their initializers, which can have
   // other globals in their bodies, so we must loop until no new globals
   // discovered.
