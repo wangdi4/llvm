@@ -255,14 +255,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -D__IMAGE_SUPPORT__=1";
   }
 
-  // In case of compilation with '-cl-opt-disable' option clang generates
-  // 'optnone' attribute for all functions including kernels.
-  // It conflicts with some optimizations we need to keep functional correctness
-  // Pass '-disable-0O-optnone' to disable the implicit 'optnone'
-  if (bNoOpts) {
-    optionsEx << " -disable-O0-optnone";
-  }
-
 #ifndef INTEL_PRODUCT_RELEASE
   std::string IntermediateType;
   Intel::OpenCL::Utils::getEnvVar(IntermediateType, "OCL_INTERMEDIATE");
