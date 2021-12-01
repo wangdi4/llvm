@@ -2,8 +2,8 @@
 ; Test to check correctness of decomposed HCFG when external definition of a
 ; DDRef is killed by an instruction inside the HLLoop being decomposed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <0>     BEGIN REGION { }
@@ -26,31 +26,6 @@
 ; <33>          ret %add426 + %add824 + 42;
 ; <0>     END REGION
 
-; In the above HIR, node <15> kills the external definition of %add824 for its use in node <17>,
-; hence the valid number of reaching definitions for %add824 in node <17> and <19> is just 1.
-
-; ******* NOTE *******
-; The loop is not a valid SIMD loop. %add824 is not a valid reduction. VPlan
-; snippet after linearization:
-; BB2:
-;   [DA: Div] i32 %vp28560 = reduction-init i32 0 i32 %add426
-;   [DA: Div] i64 %vp31776 = induction-init{add} i64 0 i64 1
-;   [DA: Uni] i64 %vp880 = induction-init-step{add} i64 1
-;  SUCCESSORS(1):BB3
-;  PREDECESSORS(1): BB1
-;
-; BB3:
-;   [DA: Div] i32 %vp24800 = phi  [ i32 %vp28560, BB2 ],  [ i32 %vp25152, BB3 ]
-;   [DA: Div] i32 %vp20032 = phi  [ i32 %add824, BB2 ],  [ i32 %vp25808, BB3 ]
-;   [DA: Div] i64 %vp15728 = phi  [ i64 %vp31776, BB2 ],  [ i64 %vp26208, BB3 ]
-;
-; As can be seen, %vp20032 is not an induction or a reduction. We silently
-; generate bad code but we recently started generating code for all
-; PHIs that are not inductions/reductions and we expect them to be
-; deconstructed. Until we decide how to handle such invalid SIMD loops, we
-; now bail out during code generation.
-; ******* NOTE *******
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -58,39 +33,69 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3foov() local_unnamed_addr {
-; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: _Z3foov:HIR
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
+; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: _Z3foov:HIR.#{{[0-9]+}}
+; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:  Reduction list
+; CHECK-NEXT:   (+) Start: i32 [[ADD4260:%.*]] Exit: i32 [[VP0:%.*]]
+; CHECK-NEXT:    Linked values: i32 [[VP1:%.*]], i32 [[VP0]], i32 [[VP_RED_INIT:%.*]], i32 [[VP_RED_FINAL:%.*]],
+; CHECK-EMPTY:
+; CHECK-NEXT:   (+) Start: i32 [[ADD8240:%.*]] Exit: i32 [[VP2:%.*]]
+; CHECK-NEXT:    Linked values: i32 [[VP3:%.*]], i32 [[VP2]], i32 [[VP_RED_INIT_1:%.*]], i32 [[VP_RED_FINAL_1:%.*]],
+; CHECK:       Induction list
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1023 BinOp: i64 [[VP4:%.*]] = add i64 [[VP5:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:    Linked values: i64 [[VP5]], i64 [[VP4]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
+; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[ADD4260:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP2:%.*]] = phi  [ i32 [[ADD8240:%.*]], [[BB1]] ],  [ i32 [[VP3:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32 [[VP6:%.*]] = mul i32 [[VP_LOAD]] i32 2
-; CHECK-NEXT:     i32 [[VP7:%.*]] = trunc i64 [[VP4]] to i32
-; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP6]] i32 [[VP7]]
-; CHECK-NEXT:     i32 [[VP9:%.*]] = add i32 [[VP8]] i32 [[VP2]]
-; CHECK-NEXT:     i32 [[VP1]] = add i32 [[VP0]] i32 [[VP9]]
-; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP_LOAD]] i32 64
-; CHECK-NEXT:     i32 [[VP3]] = add i32 [[VP10]] i32 [[VP9]]
-; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp slt i64 [[VP5]] i64 1024
-; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     br <External Block>
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     i32 [[VP_RED_INIT]] = reduction-init i32 0 i32 [[ADD4260]]
+; CHECK-NEXT:     i32 [[VP_RED_INIT_1]] = reduction-init i32 0 i32 [[ADD8240]]
+; CHECK-NEXT:     i64 [[VP__IND_INIT]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     br [[BB0]]
 ;
-; Check that the loop is not vectorized.
-; CHECK:  DO i1 = 0, 1023, 1   <DO_LOOP>
+; CHECK:         [[BB3:BB[0-9]+]]: # preds: [[BB0]]
+; CHECK-NEXT:     i32 [[VP_RED_FINAL]] = reduction-final{u_add} i32 [[VP0]]
+; CHECK-NEXT:     i32 [[VP_RED_FINAL_1]] = reduction-final{u_add} i32 [[VP2]]
+; CHECK-NEXT:     i64 [[VP__IND_FINAL]] = induction-final{add} i64 0 i64 1
+;
+; CHECK:       External Uses:
+; CHECK-NEXT:  Id: 0   i32 [[VP_RED_FINAL_1]] -> [[VP12:%.*]] = {%add824}
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   i32 [[VP_RED_FINAL]] -> [[VP13:%.*]] = {%add426}
+
+; Check the generated code
+; CHECK:  Function: _Z3foov
+; CHECK:                BEGIN REGION { modified }
+; CHECK-NEXT:        ([[S2_RED0:%.*]])[0] = 0
+; CHECK-NEXT:        ([[S_RED0:%.*]])[0] = 0
+; CHECK-NEXT:        [[ADD4260]] = 0
+; CHECK-NEXT:        [[ADD8240]] = 0
+; CHECK-NEXT:        [[RED_INIT0:%.*]] = 0
+; CHECK-NEXT:        [[RED_INIT_INSERT0:%.*]] = insertelement [[RED_INIT0]],  [[ADD4260]],  0
+; CHECK-NEXT:        [[RED_INIT30:%.*]] = 0
+; CHECK-NEXT:        [[RED_INIT_INSERT40:%.*]] = insertelement [[RED_INIT30]],  [[ADD8240]],  0
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[RED_INIT_INSERT0]]
+; CHECK-NEXT:        [[PHI_TEMP50:%.*]] = [[RED_INIT_INSERT40]]
+; CHECK:             + DO i1 = 0, 1023, 16   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<16 x i32>*)(@a)[0][i1]
+; CHECK-NEXT:        |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  *  2
+; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = i1 + [[DOTVEC70]] + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>  +  [[PHI_TEMP50]]
+; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = [[PHI_TEMP0]]  +  [[DOTVEC80]]
+; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = [[DOTVEC0]] + 64  +  [[DOTVEC80]]
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[DOTVEC90]]
+; CHECK-NEXT:        |   [[PHI_TEMP50]] = [[DOTVEC100]]
+; CHECK-NEXT:        + END LOOP
+; CHECK:             [[ADD4260]] = @llvm.vector.reduce.add.v16i32([[DOTVEC90]])
+; CHECK-NEXT:        [[ADD8240]] = @llvm.vector.reduce.add.v16i32([[DOTVEC100]])
+; CHECK-NEXT:        ([[S_RED0]])[0] = [[ADD8240]]
+; CHECK-NEXT:        ([[S2_RED0]])[0] = [[ADD4260]]
+; CHECK-NEXT:        ret [[ADD4260]] + [[ADD8240]] + 42
+; CHECK-NEXT:  END REGION
+;
+
 omp.inner.for.body.lr.ph:
   %s2.red = alloca i32, align 4
   %s.red = alloca i32, align 4

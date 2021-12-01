@@ -1709,8 +1709,7 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
 
       // Reduction's StartPhi will be in loop's header block and blends a
       // live-in or const operand.
-      if (checkInstructionInLoop(PhiUser, Loop) &&
-          PhiUser->getParent() == Loop->getHeader() &&
+      if (PhiUser->getParent() == Loop->getHeader() &&
           getLiveInOrConstOperand(PhiUser, *Loop)) {
         StartPhi = PhiUser;
         break;
@@ -1866,10 +1865,16 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
     if (allUpdatesAreStores(UpdateVPInsts))
       return nullptr; // In-memory reduction
 
-    // TODO: Multiple valid updates
-    assert(false &&
-           "Multiple valid updates code not fully implemented, unable to "
-           "find test case.");
+    auto IsLiveOut = [Loop](const VPInstruction *I) {
+      return Loop->isLiveOut(I);
+    };
+
+    auto Iter = llvm::find_if(UpdateVPInsts, IsLiveOut);
+    if (Iter != UpdateVPInsts.end()) {
+      assert(llvm::count_if(UpdateVPInsts, IsLiveOut) == 1 &&
+             "non-single liveout reduction value");
+      LoopExitVPI = *Iter;
+    }
   }
 
   // Live-out analysis tests for LoopExit

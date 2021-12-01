@@ -156,10 +156,14 @@ public:
   virtual void print(raw_ostream &OS, unsigned Indent = 0) const {
     OS << "Ref: ";
     Ref->dump();
-    OS.indent(Indent + 2) << "UpdateInstruction: ";
-    for (auto &V : UpdateInstructions) {
-      V->dump();
-    }
+    OS << "\n";
+    OS.indent(Indent + 2) << "UpdateInstructions:\n";
+    if (UpdateInstructions.empty())
+      OS.indent(Indent + 2) << "none\n";
+    else
+      for (auto &V : UpdateInstructions) {
+        OS.indent(Indent + 2); V->dump();
+      }
   }
   void dump() const { print(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -223,8 +227,8 @@ public:
 
   /// Add new alias for private value.
   void addAlias(const Value *RefV, std::unique_ptr<DescrValue<Value>> Descr) {
-    assert(!findAlias(RefV) && "Alias already added to aliases.");
-    Aliases.push_back(std::move(Descr));
+    if (!findAlias(RefV)) // don't add second time
+      Aliases.push_back(std::move(Descr));
   }
 
   /// Return alias for specific value. If no alias is found return nullptr.

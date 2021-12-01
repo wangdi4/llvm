@@ -1312,9 +1312,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
     return false;
   }
-  // Find any DDRefs in loop pre-header that are aliases to the descriptor
-  // variables
-  HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), HLoop);
+  // Find any DDRefs in loop pre-header/post-exit that are aliases to the
+  // descriptor variables
+  HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), WRLp->getExitHLNode(),
+                              HLoop);
   std::string VPlanName = "";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Lp->getNumber() is not used here because it returns HLNode number, not

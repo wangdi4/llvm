@@ -3,12 +3,19 @@
 
 ; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec  -vplan-print-after-plain-cfg -vplan-entities-dump -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
 
+
+; Function Attrs: nounwind uwtable
+define void @test_hir_debug(i32* nocapture readonly %iarr)  {
 ; Check legality dumps
 ; CHECK-LABEL:  HIRLegality Descriptor Lists
 ; CHECK:       HIRLegality PrivatesList:
-; CHECK-NEXT:  Ref: &(([[A20:%.*]])[0])  UpdateInstruction: <10>         ([[A20]])[0] = [[TMP0:%.*]]
+; CHECK-NEXT:  Ref: &(([[A20:%.*]])[0])
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:             ([[A20]])[0] = [[TMP0:%.*]]
 ; CHECK-NEXT:  PrivDescr: {IsCond: 0, IsLast: 0, Type: i32}
-
+; CHECK:       HIRLegality PrivatesNonPODList:
+; CHECK:       HIRLegality LinearList:
+; CHECK:       HIRLegality ReductionList:
 ; Check LoopEntities dump
 ; CHECK:       VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: test_hir_debug:HIR
@@ -22,9 +29,7 @@
 ; CHECK-NEXT:    Private tag: InMemory
 ; CHECK-NEXT:    Linked values: i32* [[A20]],
 ; CHECK-NEXT:   Memory: i32* [[A20]]
-
-; Function Attrs: nounwind uwtable
-define void @test_hir_debug(i32* nocapture readonly %iarr)  {
+;
 entry:
   %a2 = alloca i32, align 4
   br label %DIR.OMP.SIMD.1

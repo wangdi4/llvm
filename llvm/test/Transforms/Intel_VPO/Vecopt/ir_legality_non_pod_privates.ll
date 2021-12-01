@@ -3,27 +3,6 @@
 ; RUN: opt -S -vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=LLVMIR
 ; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen < %s 2>&1 | FileCheck %s -check-prefix=HIR
 
-; LLVMIR: VPOLegality PrivateList:
-; LLVMIR-NEXT: Ref:   %myPoint2.priv = alloca %struct.point2d, align 4
-; LLVMIR: PrivDescr: {IsCond: 0, IsLast: 0, Type: %struct.point2d = type { i32, i32 }}
-; LLVMIR-NEXT: PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
-
-; LLVMIR:       Private list
-; LLVMIR-EMPTY:
-; LLVMIR-NEXT:    Private tag: Non-POD
-; LLVMIR-NEXT:    Linked values: %struct.point2d* %myPoint2.priv,
-; LLVMIR-NEXT:   Memory: %struct.point2d* %myPoint2.priv
-
-; HIR: HIRLegality PrivatesNonPODList:
-; HIR-NEXT: Ref: &((%myPoint2.priv)[0])  UpdateInstruction: PrivDescr: {IsCond: 0, IsLast: 0, Type: %struct.point2d = type { i32, i32 }}
-; HIR-NEXT: PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
-
-; HIR:       Private list
-; HIR-EMPTY:
-; HIR-NEXT:    Private tag: Non-POD
-; HIR-NEXT:    Linked values: %struct.point2d* %myPoint2.priv,
-; HIR-NEXT:   Memory: %struct.point2d* %myPoint2.priv
-
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -31,6 +10,33 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @test_debug_info(%struct.point2d* nocapture readonly %src, %struct.point2d* nocapture %dst) {
+; LLVMIR:       VPOLegality PrivateList:
+; LLVMIR-NEXT:  Ref:   [[MYPOINT2_PRIV0:%.*]] = alloca [[STRUCT_POINT2D0:%.*]], align 4
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:    UpdateInstructions:
+; LLVMIR-NEXT:    none
+; LLVMIR-NEXT:  PrivDescr: {IsCond: 0, IsLast: 0, Type: [[STRUCT_POINT2D0]] = type { i32, i32 }}
+; LLVMIR-NEXT:  PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
+
+; LLVMIR:       Private list
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:    Private tag: Non-POD
+; LLVMIR-NEXT:    Linked values: %struct.point2d* [[MYPOINT2_PRIV0]],
+; LLVMIR-NEXT:   Memory: %struct.point2d* [[MYPOINT2_PRIV0]]
+
+; HIR:       HIRLegality PrivatesNonPODList:
+; HIR-NEXT:  Ref: &(([[MYPOINT2_PRIV0:%.*]])[0])
+; HIR-NEXT:    UpdateInstructions:
+; HIR-NEXT:    none
+; HIR-NEXT:  PrivDescr: {IsCond: 0, IsLast: 0, Type: [[STRUCT_POINT2D0:%.*]] = type { i32, i32 }}
+; HIR-NEXT:  PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
+
+; HIR:       Private list
+; HIR-EMPTY:
+; HIR-NEXT:    Private tag: Non-POD
+; HIR-NEXT:    Linked values: %struct.point2d* [[MYPOINT2_PRIV0]],
+; HIR-NEXT:   Memory: %struct.point2d* [[MYPOINT2_PRIV0]]
+;
 omp.inner.for.body.lr.ph:
   %i.linear.iv = alloca i32, align 4
   %myPoint2.priv = alloca %struct.point2d, align 4

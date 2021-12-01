@@ -10,11 +10,20 @@ define dso_local double @test_preheader_aliases() local_unnamed_addr #3 {
 ; CHECK-LABEL:  VPOLegality Descriptor Lists
 ; CHECK:       VPOLegality PrivateList:
 ; CHECK-NEXT:  Ref:   [[D_LPRIV0:%.*]] = alloca double, align 8
-; CHECK-NEXT:    UpdateInstruction:
+; CHECK-EMPTY:
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+; CHECK-EMPTY:
 ; CHECK-NEXT:    AliasRef:   [[D_LPRIV_PROMOTED0:%.*]] = load double, double* [[D_LPRIV0]], align 8
-; CHECK-NEXT:      UpdateInstruction:
-; CHECK-NEXT:    AliasRef:   [[CONV735_LCSSA0:%.*]] = phi double [ [[CONV7350:%.*]], [[IF_END0:%.*]] ]
-; CHECK-NEXT:      UpdateInstruction:
+; CHECK-EMPTY:
+; CHECK-NEXT:      UpdateInstructions:
+; CHECK-NEXT:      none
+; CHECK-EMPTY:
+; CHECK-NEXT:    AliasRef:   [[CONV7350:%.*]] = phi double [ [[CONV7340:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], [ [[ADD60:%.*]], [[IF_THEN0:%.*]] ]
+; CHECK-EMPTY:
+; CHECK-NEXT:      UpdateInstructions:
+; CHECK-NEXT:      none
+; CHECK-EMPTY:
 ; CHECK-NEXT:  PrivDescr: {IsCond: 1, IsLast: 1, Type: double}
 ;
 entry:

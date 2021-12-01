@@ -28,9 +28,11 @@ cl::opt<bool>
     AllowMemorySpeculation("allow-memory-speculation", cl::init(false),
                            cl::desc("Enable speculative vector unit loads."));
 
+#if INTEL_FEATURE_SW_DTRANS
 static cl::opt<bool>
     UsePaddingInformation("vplan-use-padding-info", cl::init(true),
                           cl::desc("Enable use of IPO's padding information"));
+#endif // INTEL_FEATURE_SW_DTRANS
 
 namespace llvm {
 

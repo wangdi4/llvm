@@ -96,19 +96,12 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void print(raw_ostream &OS, unsigned Indent = 0) const override {
-      OS << "Ref: ";
-      DescrValueTy::getRef()->dump();
-      OS << "\n";
+      DescrWithAliasesTy::print(OS);
       if (InitValue) {
         OS.indent(Indent + 2) << "InitValue: ";
         InitValue->dump();
         OS << "\n";
       }
-      OS.indent(Indent + 2) << "UpdateInstruction: ";
-      for (auto &V : DescrValueTy::getUpdateInstructions()) {
-        V->dump();
-      }
-      DescrWithAliasesTy::print(OS);
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   };
@@ -186,9 +179,9 @@ public:
   /// recognized for a loop \p HLoop.
   bool isMinMaxIdiomTemp(const DDRef *Ref, HLLoop *HLoop) const;
 
-  /// Identify any DDRefs in the \p HLoop's pre-loop nodes which alias the OMP
-  /// SIMD clause descriptor DDRefs
-  void findAliasDDRefs(HLNode *ClauseNode, HLLoop *HLoop);
+  /// Identify any DDRefs in the \p HLoop's pre/post-loop nodes which alias the
+  /// OMP SIMD clause descriptor DDRefs
+  void findAliasDDRefs(HLNode *BeginNode, HLNode *EndNode, HLLoop *HLoop);
 
   /// Check if the given DDRef \p Ref corresponds to any linear/reduction
   /// HIRLegality descriptors. If found, then update the corresponding
