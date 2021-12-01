@@ -3,17 +3,37 @@
 #
 * @intel-restricted/xmain-gatekeeper
 
+# JIRA: N/A
+# Core parts of LLVM owned by the architecture group
+/llvm/lib/BinaryFormat/ @andykaylor
+/llvm/lib/Bitcode/ @andykaylor
+/llvm/lib/IR/ @andykaylor
+/llvm/lib/IRReader/ @andykaylor
+/llvm/lib/Option/ @andykaylor
+/llvm/lib/Passes/ @andykaylor
+/llvm/lib/Support/ @andykaylor
+/llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor
+/llvm/include/llvm/ @andykaylor
+/llvm/include/llvm/ADT/ @andykaylor
+/llvm/include/llvm/AsmParser/ @andykaylor
+/llvm/include/llvm/BinaryFormat/ @andykaylor
+/llvm/include/llvm/Bitcode/ @andykaylor
+/llvm/include/llvm/Config/ @andykaylor
+/llvm/include/llvm/IR/ @andykaylor
+/llvm/include/llvm/IRReader/ @andykaylor
+/llvm/include/llvm/Option/ @andykaylor
+/llvm/include/llvm/Passes/ @andykaylor
+/llvm/include/llvm/Support/ @andykaylor
+
 # JIRA: CMPLRLLVM->LLVM Driver
 /clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver
 
-# FIXME: uncomment lines below, when the groups are enabled
-#        for intel-restricted.
 # DPC++ runtime library
-# sycl/ @intel-restricted/llvm-reviewers-runtime
+sycl/ @intel-restricted/llvm-reviewers-runtime
 # Documentation
-# sycl/doc/extensions/ @intel-restricted/dpcpp-specification-reviewers
+sycl/doc/extensions/ @intel-restricted/llvm-reviewers-runtime
 # CUDA plugin
-# sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-cuda
+sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 
 # JIRA: CMPLRLLVM->LLVM Code Generator
 /clang/lib/Headers/ @LuoYuanke @phoebewang @williamweixiao
@@ -209,11 +229,9 @@
 /llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
 
 # JIRA: ???
-# FIXME: uncomment lines below, when the group is enabled
-#        for intel-restricted.
-#/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
-#/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
-#/llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
 /llvm/docs/Intel/VPO/ @sguggill @skozhukh @alexey-bataev
@@ -326,28 +344,6 @@
 
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
-
-# JIRA: N/A
-# Core parts of LLVM owned by the architecture group
-/llvm/lib/BinaryFormat/ @andykaylor
-/llvm/lib/Bitcode/ @andykaylor
-/llvm/lib/IR/ @andykaylor
-/llvm/lib/IRReader/ @andykaylor
-/llvm/lib/Option/ @andykaylor
-/llvm/lib/Passes/ @andykaylor
-/llvm/lib/Support/ @andykaylor
-/llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor
-/llvm/include/llvm/ @andykaylor
-/llvm/include/llvm/ADT/ @andykaylor
-/llvm/include/llvm/AsmParser/ @andykaylor
-/llvm/include/llvm/BinaryFormat/ @andykaylor
-/llvm/include/llvm/Bitcode/ @andykaylor
-/llvm/include/llvm/Config/ @andykaylor
-/llvm/include/llvm/IR/ @andykaylor
-/llvm/include/llvm/IRReader/ @andykaylor
-/llvm/include/llvm/Option/ @andykaylor
-/llvm/include/llvm/Passes/ @andykaylor
-/llvm/include/llvm/Support/ @andykaylor
 
 # JIRA: CMPLRLLVM->LLVM Scalar Optimizer
 /llvm/lib/IR/ConstantFold.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
