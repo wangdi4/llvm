@@ -1895,12 +1895,18 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   return TaskAllocCall;
 }
 
-// build the CFG for if clause.
+// Build the CFG for if clause and update the DT.
 void VPOParoptUtils::buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
                                          Instruction *&ElseTerm,
                                          Instruction *InsertPt,
                                          DominatorTree *DT) {
   BasicBlock *SplitBeforeBB = InsertPt->getParent();
+  // After we split the block into a diamond, the new "if.end" block must
+  // dominate everything that the original block did. Save the original
+  // immediate children here.
+  DomTreeNode *OldNode = DT->getNode(SplitBeforeBB);
+  SmallVector<DomTreeNode *, 4> DomChildren(OldNode->begin(), OldNode->end());
+
   SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
   ThenTerm->getParent()->setName("if.then");
   ElseTerm->getParent()->setName("if.else");
@@ -1908,14 +1914,10 @@ void VPOParoptUtils::buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
 
   DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
   DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
-  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
-
-  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
-  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
-  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
-
-  if (NextBB && NextBB->getUniquePredecessor())
-    DT->changeImmediateDominator(NextBB, InsertPt->getParent());
+  auto *IfEndDomNode = DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
+  for (auto *Child : DomChildren)
+    DT->changeImmediateDominator(Child, IfEndDomNode);
+  // verification will run after extraction
 }
 
 // This function generates a call as follows.
