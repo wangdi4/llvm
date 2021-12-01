@@ -9452,7 +9452,10 @@ void OffloadBundler::ConstructJobMultipleOutputs(
     // TODO: Replace parsing of -march flag. Can be done by storing GPUArch
     //       with each toolchain.
     StringRef GPUArchName;
-    if (Dep.DependentOffloadKind == Action::OFK_OpenMP) {
+#if INTEL_CUSTOMIZATION
+    if (Dep.DependentOffloadKind == Action::OFK_OpenMP &&
+        !Dep.DependentToolChain->getTriple().isSPIR()) {
+#endif // INTEL_CUSTOMIZATION
       // Extract GPUArch from -march argument in TC argument list.
       for (unsigned ArgIndex = 0; ArgIndex < TCArgs.size(); ArgIndex++) {
         StringRef ArchStr = StringRef(TCArgs.getArgString(ArgIndex));
