@@ -7,9 +7,15 @@ define dso_local float @test_post_exit_aliases() local_unnamed_addr {
 ; CHECK-LABEL:  VPOLegality Descriptor Lists
 ; CHECK:       VPOLegality PrivateList:
 ; CHECK-NEXT:  Ref:   [[F_LPRIV0:%.*]] = alloca float, align 4
-; CHECK-NEXT:    UpdateInstruction:
+; CHECK-EMPTY:
+; CHECK-NEXT:    UpdateInstructions:
+; CHECK-NEXT:    none
+; CHECK-EMPTY:
 ; CHECK-NEXT:    AliasRef:   [[ADD70:%.*]] = sitofp i64 [[INDVARS_IV0:%.*]] to float
-; CHECK-NEXT:      UpdateInstruction:
+; CHECK-EMPTY:
+; CHECK-NEXT:      UpdateInstructions:
+; CHECK-NEXT:      none
+; CHECK-EMPTY:
 ; CHECK-NEXT:  PrivDescr: {IsCond: 0, IsLast: 1, Type: float}
 ;
 entry:

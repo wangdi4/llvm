@@ -222,63 +222,110 @@ bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
   return EnterExplicitData(WRLp);
 }
 
-void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
-                                               HLLoop *HLoop) {
+void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
+                                               HLNode *EndNode, HLLoop *HLoop) {
 
-  // Container to collect all nodes that are present before HLoop to process for
-  // potential aliases
+  // Containers to collect all nodes that are present before/after HLoop to
+  // process for potential aliases.
   SetVector<HLNode *> PreLoopNodes;
+  SetVector<HLNode *> PostLoopNodes;
 
-  // Collect nodes between the SIMD clause directive and the HLLoop node
-  HLNode *CurNode = ClauseNode;
+  // Collect nodes between the begin-SIMD clause directive and the HLLoop node.
+  HLNode *CurNode = BeginNode;
   while (auto *NextNode = CurNode->getNextNode()) {
     if (NextNode == HLoop)
       break;
-
-    LLVM_DEBUG(dbgs() << "PreHLLoop node: "; NextNode->dump(););
     PreLoopNodes.insert(NextNode);
     CurNode = NextNode;
   }
+  // Collect nodes present in HLLoop's preheader.
+  auto PreRange = map_range(make_range(HLoop->pre_begin(), HLoop->pre_end()),
+                            [](HLNode &N) { return &N; });
+  PreLoopNodes.insert(PreRange.begin(), PreRange.end());
 
-  // Collect nodes present in HLLoop's preheader
-  for (auto &Pre : make_range(HLoop->pre_begin(), HLoop->pre_end())) {
-    LLVM_DEBUG(dbgs() << "Preheader node: "; Pre.dump(););
-    PreLoopNodes.insert(&Pre);
+  // Collect nodes present in HLLoop's postexit.
+  auto PostRange = map_range(make_range(HLoop->post_begin(), HLoop->post_end()),
+                            [](HLNode &N) { return &N; });
+  PostLoopNodes.insert(PostRange.begin(), PostRange.end());
+  // Collect nodes between the HLLoop node and the end-SIMD clause directive.
+  // In some cases the EndNode can reside in the loop post exit. Thus we might
+  // miss it going by the nodes after the loop. See the
+  // hir_simd_directives_preheader_postexit.ll for an example of such EndNode
+  // placement.
+  CurNode = HLoop;
+  while (auto *NextNode = CurNode->getNextNode()) {
+    if (NextNode == EndNode)
+      break;
+    PostLoopNodes.insert(NextNode);
+    CurNode = NextNode;
   }
 
-  // Process all pre-loop nodes
+  auto getDescr = [this](RegDDRef *Ref) {
+    // Check if Ref is any of explicit SIMD descriptors.
+    DescrWithAliasesTy *Descr = getPrivateDescr(Ref);
+    if (!Descr)
+      Descr = getPrivateDescrNonPOD(Ref);
+    if (!Descr)
+      Descr = getLinearRednDescriptors(Ref);
+    return Descr;
+  };
+  auto addAlias = [](DescrWithAliasesTy *Descr, DDRef *Val) {
+    if (isa<DescrWithInitValue>(Descr))
+      Descr->addAlias(Val, std::make_unique<DescrWithInitValue>(Val));
+    else
+      Descr->addAlias(Val, std::make_unique<DescrWithAliasesTy>(Val));
+  };
+  // Process all pre-loop nodes.
   for (HLNode *PLN : PreLoopNodes) {
-    // Evaluate Rvals of only HLInsts in the pre-loop nodes
-    if (auto *HInst = dyn_cast<HLInst>(PLN)) {
-      RegDDRef *RVal = HInst->getRvalDDRef();
+    LLVM_DEBUG(dbgs() << "PreHLLoop node: "; PLN->dump(););
+    // Evaluate Rvals of only HLInsts in the pre-loop nodes.
+    auto *HInst = dyn_cast<HLInst>(PLN);
+    // TODO: Check whether we really can have HLoop, HLIf, or other-non-HInst
+    // things here (between the simd-region begin statement and the loop). If
+    // so we need a special processing for them. Same for the postloop nodes.
+    if (!HInst)
+      continue;
+    RegDDRef *RVal = HInst->getRvalDDRef();
+    if (!RVal)
+      continue;
 
-      // If there is no RVal ignore node
-      if (!RVal)
-        continue;
+    DescrWithAliasesTy *Descr = getDescr(RVal);
+    // RVal is not a SIMD descriptor, move to next HLInst.
+    if (!Descr)
+      continue;
 
-      // Check if RVal is any of explicit SIMD descriptors
-      DescrWithAliasesTy *Descr = getPrivateDescr(RVal);
-      if (Descr == nullptr)
-        Descr = getPrivateDescrNonPOD(RVal);
-      if (Descr == nullptr)
-        Descr = getLinearDescr(RVal);
-      if (Descr == nullptr)
-        Descr = getReductionDescr(RVal);
-
-      // RVal is not a SIMD descriptor, move to next HLInst
-      if (Descr == nullptr)
-        continue;
-
-      LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
-                 RVal->dump(); dbgs() << "\n");
-      RegDDRef *LVal = HInst->getLvalDDRef();
-      assert(LVal && "HLInst in the preheader does not have an Lval.");
-      if (isa<DescrWithInitValue>(Descr))
-        Descr->addAlias(LVal, std::make_unique<DescrWithInitValue>(LVal));
-      else
-        Descr->addAlias(LVal, std::make_unique<DescrWithAliasesTy>(LVal));
-    }
+    LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+               RVal->dump(); dbgs() << "...."; HInst->dump(); dbgs() << "\n");
+    RegDDRef *LVal = HInst->getLvalDDRef();
+    assert(LVal && "HLInst in the preheader does not have an Lval.");
+    addAlias(Descr, LVal);
   }
+  // Process all post-loop nodes.
+  for (HLNode *PLN : PostLoopNodes) {
+    LLVM_DEBUG(dbgs() << "PostHLLoop node: "; PLN->dump(););
+    // Evaluate LVals of only HLInsts in the pre-loop nodes.
+    auto *HInst = dyn_cast<HLInst>(PLN);
+    if (!HInst)
+      continue;
+    RegDDRef *LVal = HInst->getLvalDDRef();
+    if (!LVal)
+      continue;
+
+    DescrWithAliasesTy *Descr = getDescr(LVal);
+    // LVal is not a SIMD descriptor, move to next HLInst.
+    if (!Descr)
+      continue;
+
+    LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+               LVal->dump(); dbgs() << "...."; HInst->dump(); dbgs() << "\n");
+    RegDDRef *RVal = HInst->getRvalDDRef();
+    assert(RVal && "HLInst in the postexit does not have an Rval.");
+    // TODO: extend to non-terminals. That might be useful for inductions.
+    // Currently, we can bailout on non-recognized phi for such entities.
+    if (RVal->isTerminalRef())
+      addAlias(Descr, RVal);
+  }
+  LLVM_DEBUG(dbgs() << "HIR legality after collecting aliases\n"; dump(););
 }
 
 const HIRVectorIdioms *
