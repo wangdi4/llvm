@@ -196,8 +196,9 @@ private:
   class OffloadEntry {
   public:
     enum EntryKind : unsigned {
-      RegionKind = 0,
-      VarKind    = 1u
+      RegionKind       = 0,
+      VarKind          = 1u,
+      IndirectFuncKind = 2u
     };
 
   protected:
@@ -286,6 +287,22 @@ private:
 
     static bool classof(const OffloadEntry *E) {
       return E->getKind() == VarKind;
+    }
+  };
+
+  /// Global indirect function entry.
+  class IndirectFunctionEntry final : public OffloadEntry {
+  public:
+    enum : uint32_t {
+      DeclareTargetFptr = 0x08
+    };
+    IndirectFunctionEntry(Function *Func, StringRef Name)
+      : OffloadEntry(IndirectFuncKind, Name, DeclareTargetFptr) {
+      setAddress(Func);
+    }
+    size_t getSize() const override { return 0; }
+    static bool classof(const OffloadEntry *E) {
+      return E->getKind() == IndirectFuncKind;
     }
   };
 

@@ -911,6 +911,13 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
       return cast<GlobalVariable>(V->getValue());
     };
 
+    auto && getMDFunc = [Node](unsigned I) -> Function * {
+      if (I >= Node->getNumOperands())
+        return nullptr;
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<Function>(V->getValue());
+    };
+
     switch (getMDInt(0)) {
       case OffloadEntry::EntryKind::RegionKind: {
         auto Device = getMDInt(1u);
@@ -951,6 +958,17 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
         assert(Var && "no global variable with given name");
         assert(Var->isTargetDeclare() && "must be a target declare variable");
         addEntry(new VarEntry(Var, Name, Flags), Idx);
+        break;
+      }
+      case OffloadEntry::EntryKind::IndirectFuncKind: {
+        auto Name = getMDString(1u);
+        auto Idx = getMDInt(2u);
+        auto *Func = getMDFunc(3u);
+        assert(Func && "missing function in IndirectFuncKind metadata.");
+        assert(!Func->isDeclaration() && "must be a function definition.");
+        assert(Func->getAttributes().hasFnAttr("openmp-target-declare") &&
+               "must be a target declare function.");
+        addEntry(new IndirectFunctionEntry(Func, Name), Idx);
         break;
       }
       default:
@@ -1061,7 +1079,8 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
     auto *EntryTy = getTgtOffloadEntryTy();
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
-    if ((!IsTargetSPIRV || isa<VarEntry>(E)) && EntryAddress)
+    if ((!IsTargetSPIRV || isa<VarEntry>(E) ||
+         isa<IndirectFunctionEntry>(E)) && EntryAddress)
       EntryInitBuffer.push_back(
           ConstantExpr::getPointerBitCastOrAddrSpaceCast(
               EntryAddress, EntryTy->getElementType(0)));
