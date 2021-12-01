@@ -59,6 +59,18 @@ llvm::Type *DTransType::getLLVMType() const {
   llvm_unreachable("Switch table not completely covered");
 }
 
+uint32_t DTransType::getNumContainedElements() const {
+  switch (ID) {
+  default:
+     return 0;
+  case DTransStructTypeID:
+    return cast<DTransStructType>(this)->getNumFields();
+  case DTransArrayTypeID:
+    return cast<DTransSequentialType>(this)->getNumElements();
+  }
+  llvm_unreachable("Switch table not completely covered");
+}
+
 // The base class just dispatches the request to one of the
 // derived classes based on the actual type of this DTransType object.
 MDNode *DTransType::createMetadataReference() const {

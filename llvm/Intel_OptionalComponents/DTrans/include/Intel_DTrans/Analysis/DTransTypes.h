@@ -136,6 +136,10 @@ public:
   bool isVectorTy() const { return getTypeID() == DTransVectorTypeID; }
   bool isFunctionTy() const { return getTypeID() == DTransFunctionTypeID; }
   bool isAggregateType() const { return isStructTy() || isArrayTy(); }
+
+  // Get the number of fields of a structure, or elements of a sequential type.
+  uint32_t getNumContainedElements() const;
+
   bool isIntegerTy() const {
     return isAtomicTy() && getLLVMType()->isIntegerTy();
   }
