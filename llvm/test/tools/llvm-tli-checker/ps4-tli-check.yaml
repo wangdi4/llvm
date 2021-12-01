@@ -8,8 +8,9 @@
 # RUN: yaml2obj %s -DZDAPV=_ZdaPvj -o=%t2
 # RUN: echo %t2 > %t2.txt
 # RUN: llvm-tli-checker --triple x86_64-scei-ps4 @%t2.txt | \
-# RUN:     FileCheck %s --check-prefixes=WRONG_SUMMARY,WRONG_DETAIL \
-# RUN:    --implicit-check-not="==" --implicit-check-not="<<" --implicit-check-not=">>"
+# INTEL_CUSTOMIZATION
+# RUN:     FileCheck %s --check-prefix=WRONG_SUMMARY --check-prefix=WRONG_DETAIL
+# end INTEL_CUSTOMIZATION
 #
 # RUN: llvm-tli-checker --triple x86_64-scei-ps4 @%t2.txt --report=summary | \
 # RUN:     FileCheck %s --check-prefix=WRONG_SUMMARY \
@@ -25,19 +26,25 @@
 # RUN: FileCheck %s --check-prefix=AVAIL --input-file %t3.txt
 # RUN: FileCheck %s --check-prefix=UNAVAIL --input-file %t3.txt
 #
-# CHECK: << Total TLI yes SDK no:  0
+# INTEL_CUSTOMIZATION
+# CHECK: << Total TLI yes SDK no:  468
+# end INTEL_CUSTOMIZATION
 # CHECK: >> Total TLI no  SDK yes: 0
 # CHECK: == Total TLI yes SDK yes: 235
 #
 # WRONG_DETAIL: << TLI yes SDK no : '_ZdaPv' aka operator delete[](void*)
 # WRONG_DETAIL: >> TLI no  SDK yes: '_ZdaPvj' aka operator delete[](void*, unsigned int)
-# WRONG_SUMMARY: << Total TLI yes SDK no:  1{{$}}
+# INTEL_CUSTOMIZATION
+# WRONG_SUMMARY: << Total TLI yes SDK no:  469
+# end INTEL_CUSTOMIZATION
 # WRONG_SUMMARY: >> Total TLI no  SDK yes: 1{{$}}
 # WRONG_SUMMARY: == Total TLI yes SDK yes: 234
 #
 ## The -COUNT suffix doesn't care if there are too many matches, so check
 ## the exact count first; the two directives should add up to that.
-# AVAIL: TLI knows 466 symbols, 235 available
+# INTEL_CUSTOMIZATION
+# AVAIL: TLI knows 1215 symbols, 703 available
+# end INTEL_CUSTOMIZATION
 # AVAIL-COUNT-235: {{^}} available
 # UNAVAIL-COUNT-231: not available
 
