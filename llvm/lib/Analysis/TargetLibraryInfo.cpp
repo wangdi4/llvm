@@ -2238,7 +2238,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isIntegerTy());
 
-<<<<<<< HEAD
   case LibFunc_msvc_std_basic_filebuf_uflow:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());        // this pointer
@@ -2258,13 +2257,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_msvc_std_basic_filebuf_xsgetn:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
-=======
-  case LibFunc_memset_pattern4:
-  case LibFunc_memset_pattern8:
-  case LibFunc_memset_pattern16:
-    return (!FTy.isVarArg() && NumParams == 3 &&
-            FTy.getParamType(0)->isPointerTy() &&
->>>>>>> ad88a37ceadb5e1f8f3cb9beb5abacf2c1bb9869
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
@@ -3050,6 +3042,8 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isIntegerTy());
 
+  case LibFunc_memset_pattern4:
+  case LibFunc_memset_pattern8:
   case LibFunc_memset_pattern16:
     return (!FTy.isVarArg() && NumParams == 3 &&
             FTy.getParamType(0)->isPointerTy() &&

@@ -805,7 +805,6 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 
       // These functions are OpenMP Offloading allocation / free routines
       "declare i8* @__kmpc_alloc_shared(i64)\n"
-<<<<<<< HEAD
       "declare void @__kmpc_free_shared(i8*, i64)\n"
 #if INTEL_CUSTOMIZATION
       "declare %struct* @__acrt_iob_func(i32)\n"
@@ -1383,9 +1382,6 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @WriteFile(i8*, i8*, i32, i32*, %struct*)\n"
 #endif // INTEL_CUSTOMIZATION
       );
-=======
-      "declare void @__kmpc_free_shared(i8*, i64)\n");
->>>>>>> ad88a37ceadb5e1f8f3cb9beb5abacf2c1bb9869
 
   for (unsigned FI = 0; FI != LibFunc::NumLibFuncs; ++FI) {
     LibFunc LF = (LibFunc)FI;
