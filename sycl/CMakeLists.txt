@@ -51,7 +51,15 @@ if(MSVC)
   # Skip asynchronous C++ exceptions catching and assume "extern C" functions
   # never throw C++ exceptions.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+<<<<<<< HEAD
 
+=======
+# INTEL_CUSTOMIZATION
+  # LLD does not currently support /PDBSTRIPPED so we force the use of link.exe
+  # TODO: Remove this customization when LLD supports /PDBSTRIPPED
+  set(CMAKE_LINKER "link.exe")
+# end INTEL_CUSTOMIZATION
+>>>>>>> d7bbedb96f08924325370192a020e164bade9dbc
   # Add PDB debug information
   list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
   include(LLVMCheckLinkerFlag)
