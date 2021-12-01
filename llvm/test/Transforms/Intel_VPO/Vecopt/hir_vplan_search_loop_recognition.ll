@@ -6,6 +6,7 @@
 ; RUN:     -allow-memory-speculation \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_RECOGNIZED-CHECK %s
 ;
+; INTEL_FEATURE_SW_DTRANS
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -vplan-use-padding-info=false \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s
@@ -13,6 +14,7 @@
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     -vplan-use-padding-info=false \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s
+; end INTEL_FEATURE_SW_DTRANS
 ;
 ; REQUIRES: asserts
 
@@ -20,7 +22,9 @@
 
 ; WAS_RECOGNIZED-CHECK: Search loop was recognized.
 
+; INTEL_FEATURE_SW_DTRANS
 ; WAS_NOT_RECOGNIZED-CHECK: StrEq and PtrEq loop was not recognized.
+; end INTEL_FEATURE_SW_DTRANS
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
