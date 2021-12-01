@@ -98,8 +98,8 @@ public:
   constexpr static int MaxCapacityLimit = 4;
   constexpr static int NewCapacityValue = 1;
 
-  using EscapePointTy = SmallSet<std::pair<Function *, int32_t>, 2>;
-  using CapacityValuesTy = SmallPtrSet<Value *, 4>;
+  using EscapePointTy = SmallSetVector<std::pair<Function *, int32_t>, 2>;
+  using CapacityValuesTy = SmallSetVector<Value *, 4>;
 
   ClassInfo(const DataLayout &DL, DTransSafetyInfo &DTInfo, SOAGetTLITy GetTLI,
             SOADominatorTreeType GetDT, SOACandidateInfo *SOACInfo,
