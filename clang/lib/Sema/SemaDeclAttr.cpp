@@ -3596,22 +3596,6 @@ static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
   D->addAttr(::new (S.Context) ArgumentInterfaceAttr(S.Context, Attr, Type));
 }
 
-static void handleStableArgumentAttr(Sema &S, Decl *D,
-                                     const ParsedAttr &Attr) {
-  if (!Attr.checkExactlyNumArgs(S, /*Num=*/0))
-    return;
-
-  handleSimpleAttribute<StableArgumentAttr>(S, D, Attr);
-}
-
-static void handleAgentMemoryArgumentAttr(Sema &S, Decl *D,
-                                          const ParsedAttr &Attr) {
-  if (!Attr.checkExactlyNumArgs(S, /*Num=*/0))
-    return;
-
-  handleSimpleAttribute<AgentMemoryArgumentAttr>(S, D, Attr);
-}
-
 template <typename AttrType, typename IncompatAttrType1,
           typename IncompatAttrType2>
 static void handleHLSIIAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -11322,12 +11306,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_ArgumentInterface:
     handleArgumentInterfaceAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_StableArgument:
-    handleStableArgumentAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_AgentMemoryArgument:
-    handleAgentMemoryArgumentAttr(S, D, AL);
     break;
   case ParsedAttr::AT_HLSII:
     handleHLSIIAttr<HLSIIAttr, HLSMinIIAttr, HLSMaxIIAttr>(S, D, AL);
