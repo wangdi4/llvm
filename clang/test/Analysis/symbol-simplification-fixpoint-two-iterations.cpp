@@ -1,3 +1,10 @@
+// INTEL_CUSTOMIZATION
+// XFAIL: *
+// CMPLRLLVM-33174
+// There is some nondeterministic behavior in the Clang static analyzer's
+// constraint solver, that gives a different ordering for the results below.
+// end INTEL_CUSTOMIZATION
+
 // RUN: %clang_analyze_cc1 %s \
 // RUN:   -analyzer-checker=core \
 // RUN:   -analyzer-checker=debug.ExprInspection \
