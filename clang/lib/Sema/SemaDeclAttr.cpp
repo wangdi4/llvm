@@ -3264,9 +3264,6 @@ static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  if (!AL.checkExactlyNumArgs(S, /*NumArgsExpected=*/0))
-    return;
-
   if (const auto *SLA = D->getAttr<StallLatencyAttr>()) {
     if (AL.getSemanticSpelling() == SLA->getSemanticSpelling())
       S.Diag(AL.getLoc(), diag::warn_duplicate_attribute_exact) << SLA;
@@ -3277,21 +3274,17 @@ static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  handleSimpleAttribute<StallLatencyAttr>(S, D, AL);
+  D->addAttr(::new (S.Context) StallLatencyAttr(S.Context, AL));
 }
 
-static void handleStallFreeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+static void handleStallFreeAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   if (!S.getLangOpts().HLS &&
       !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr;
+    S.Diag(A.getLoc(), diag::warn_unknown_attribute_ignored) << A;
     return;
   }
 
-  if (!Attr.checkExactlyNumArgs(S, /*NumArgsExpected=*/0))
-    return;
-
-  handleSimpleAttribute<StallFreeAttr>(S, D, Attr);
+  D->addAttr(::new (S.Context) StallFreeAttr(S.Context, A));
 }
 
 static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
@@ -3489,46 +3482,32 @@ static void setComponentDefaults(Sema &S, Decl *D) {
         S.Context, ComponentInterfaceAttr::Streaming));
 }
 
-static void handleComponentAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-
-  if (!Attr.checkExactlyNumArgs(S, /*NumArgsExpected=*/0))
-    return;
+static void handleComponentAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 
   // We are adding a user attribute, drop any implicit default.
   if (auto *CA = D->getAttr<ComponentAttr>())
     if (CA->isImplicit())
       D->dropAttr<ComponentAttr>();
 
-  handleSimpleAttribute<ComponentAttr>(S, D, Attr);
+  D->addAttr(::new (S.Context) ComponentAttr(S.Context, A));
   setComponentDefaults(S, D);
 }
 
 static void handleStallFreeReturnAttr(Sema &S, Decl *D,
-                                      const ParsedAttr &Attr) {
-
-  if (!Attr.checkExactlyNumArgs(S, /*NumArgsExpected=*/0))
-    return;
-
-  handleSimpleAttribute<StallFreeReturnAttr>(S, D, Attr);
+                                      const ParsedAttr &A) {
+  D->addAttr(::new (S.Context) StallFreeReturnAttr(S.Context, A));
   setComponentDefaults(S, D);
 }
 
 static void handleUseSingleClockAttr(Sema &S, Decl *D,
-                                      const ParsedAttr &Attr) {
+                                      const ParsedAttr &A) {
 
-  if (!Attr.checkExactlyNumArgs(S, /*NumArgsExpected=*/0))
-    return;
-
-  handleSimpleAttribute<UseSingleClockAttr>(S, D, Attr);
+  D->addAttr(::new (S.Context) UseSingleClockAttr(S.Context, A));
   setComponentDefaults(S, D);
 }
 
 static void handleComponentInterfaceAttr(Sema &S, Decl *D,
                                          const ParsedAttr &Attr) {
-
-  if (!Attr.checkExactlyNumArgs(S, /*NumArgsExpected=*/1))
-    return;
-
   StringRef Str;
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
     return;
@@ -3577,9 +3556,6 @@ static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
 static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
                                         const ParsedAttr &Attr) {
-  if (!Attr.checkExactlyNumArgs(S, /*Num=*/1))
-    return;
-
   StringRef Str;
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
     return;
