@@ -42,9 +42,13 @@
 #
 ## The -COUNT suffix doesn't care if there are too many matches, so check
 ## the exact count first; the two directives should add up to that.
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # AVAIL: TLI knows 1215 symbols, 703 available
 # end INTEL_CUSTOMIZATION
+=======
+# AVAIL: TLI knows 468 symbols, 235 available
+>>>>>>> ad88a37ceadb5e1f8f3cb9beb5abacf2c1bb9869
 # AVAIL-COUNT-235: {{^}} available
 # UNAVAIL-COUNT-231: not available
 

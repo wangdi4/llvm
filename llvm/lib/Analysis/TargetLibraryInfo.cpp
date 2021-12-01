@@ -170,8 +170,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     return;
   }
 
-  // memset_pattern16 is only available on iOS 3.0 and Mac OS X 10.5 and later.
-  // All versions of watchOS support it.
+  // memset_pattern{4,8,16} is only available on iOS 3.0 and Mac OS X 10.5 and
+  // later. All versions of watchOS support it.
   if (T.isMacOSX()) {
     // available IO unlocked variants on Mac OS X
     TLI.setAvailable(LibFunc_getc_unlocked);
@@ -179,12 +179,20 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setAvailable(LibFunc_putc_unlocked);
     TLI.setAvailable(LibFunc_putchar_unlocked);
 
-    if (T.isMacOSXVersionLT(10, 5))
+    if (T.isMacOSXVersionLT(10, 5)) {
+      TLI.setUnavailable(LibFunc_memset_pattern4);
+      TLI.setUnavailable(LibFunc_memset_pattern8);
       TLI.setUnavailable(LibFunc_memset_pattern16);
+    }
   } else if (T.isiOS()) {
-    if (T.isOSVersionLT(3, 0))
+    if (T.isOSVersionLT(3, 0)) {
+      TLI.setUnavailable(LibFunc_memset_pattern4);
+      TLI.setUnavailable(LibFunc_memset_pattern8);
       TLI.setUnavailable(LibFunc_memset_pattern16);
+    }
   } else if (!T.isWatchOS()) {
+    TLI.setUnavailable(LibFunc_memset_pattern4);
+    TLI.setUnavailable(LibFunc_memset_pattern8);
     TLI.setUnavailable(LibFunc_memset_pattern16);
   }
 
@@ -2230,6 +2238,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isIntegerTy());
 
+<<<<<<< HEAD
   case LibFunc_msvc_std_basic_filebuf_uflow:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());        // this pointer
@@ -2249,6 +2258,13 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_msvc_std_basic_filebuf_xsgetn:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
+=======
+  case LibFunc_memset_pattern4:
+  case LibFunc_memset_pattern8:
+  case LibFunc_memset_pattern16:
+    return (!FTy.isVarArg() && NumParams == 3 &&
+            FTy.getParamType(0)->isPointerTy() &&
+>>>>>>> ad88a37ceadb5e1f8f3cb9beb5abacf2c1bb9869
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
