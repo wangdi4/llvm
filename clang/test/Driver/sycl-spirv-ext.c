@@ -52,6 +52,7 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_dsp_control
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arithmetic_fence
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_runtime_aligned
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_task_sequence ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_bfloat16_conversion
@@ -84,6 +85,7 @@
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_dsp_control
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_arithmetic_fence
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_runtime_aligned
+// CHECK-FPGA-HW-SAME:,+SPV_INTEL_task_sequence ;INTEL
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_optnone ;INTEL
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_usm_storage_classes ;INTEL
 // CHECK-FPGA-HW-SAME:,-SPV_INTEL_optnone" ;INTEL
