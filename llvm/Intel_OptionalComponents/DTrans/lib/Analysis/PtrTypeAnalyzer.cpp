@@ -3211,7 +3211,37 @@ private:
               continue;
 
             PropAlias = Alias->getPointerElementType();
-            if (!LoadingAggregateType && PropAlias->isAggregateType()) {
+            // CMPLRLLVM-32994: If the structure is opaque (structure without
+            // body), then we can't collect field 0.
+            //
+            // TODO: We still need to expand this analysis to handle the case
+            // when a pointer to an opaque structure is being cast to a
+            // pointer to a structure with body. For example:
+            //
+            // %struct.test01 = type opaque
+            // %struct.test02 = type { %struct.test02*, i32 }
+            //
+            // define internal void @foo(%struct.test01* %arg) {
+            // entry:
+            //   %tmp0 = bitcast %struct.test01* %arg to %struct.test02**
+            //   %tmp1 = load %struct.test02*, %struct.test02** %tmp0
+            //   ret void
+            // }
+            //
+            // Function @foo will look as follows in the case of opaque
+            // pointers:
+            //
+            // define internal void @foo(ptr %arg) {
+            // entry:
+            //   %tmp0 = load ptr, ptr %arg
+            //   ret void
+            // }
+            //
+            // Notice that the bitcast instruction is gone and the pointer
+            // analyzer will assume that instruction %tmp0 is loading a
+            // pointer to %struct.test01 rather than %struct.test02.
+            if (!LoadingAggregateType && PropAlias->isAggregateType() &&
+                PropAlias->getNumContainedElements() != 0) {
               // If the pointer was a pointer to an aggregate and we are not
               // expecting an aggregate type to be loaded (i.e. an array, such
               // as [2xi16*], or a literal structure, such as {i32, i32}, then
