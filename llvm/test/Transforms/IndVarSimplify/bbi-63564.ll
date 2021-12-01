@@ -16,15 +16,23 @@ define void @f() {
 ; CHECK:       for.cond:
 ; CHECK-NEXT:    br i1 false, label [[FOR_BODY:%.*]], label [[FOR_END4:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    br label [[FOR_BODY2:%.*]]
+; INTEL_CUSTOMIZATION
+; Aggressive exit value rewriting causes xmain to keep this load and reuse it
+; to compute the last-value of the loop. Let it be optional.
+; ;; [[C_PROMOTED:%.*]] = load i16, i16* @c, align 1
+; CHECK:    br label [[FOR_BODY2:%.*]]
+; end INTEL_CUSTOMIZATION
 ; CHECK:       for.body2:
 ; CHECK-NEXT:    [[INC2:%.*]] = phi i16 [ undef, [[FOR_BODY]] ], [ [[INC:%.*]], [[FOR_BODY2]] ]
 ; CHECK-NEXT:    [[INC]] = add nsw i16 [[INC2]], 1
 ; CHECK-NEXT:    store i16 [[INC]], i16* undef, align 1
 ; CHECK-NEXT:    br i1 true, label [[FOR_BODY2]], label [[CRIT_EDGE:%.*]]
 ; CHECK:       crit_edge:
-; CHECK-NEXT:    [[INC_LCSSA:%.*]] = phi i16 [ [[INC]], [[FOR_BODY2]] ]
-; CHECK-NEXT:    store i16 [[INC_LCSSA]], i16* @a, align 1
+; INTEL_CUSTOMIZATION
+; xmain will store the loaded value, and llorg will use the lcssa live-out phi
+; from the loop.
+; CHECK:    store i16 {{.*}}, i16* @a, align 1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    unreachable
 ; CHECK:       for.end4:
 ; CHECK-NEXT:    ret void
