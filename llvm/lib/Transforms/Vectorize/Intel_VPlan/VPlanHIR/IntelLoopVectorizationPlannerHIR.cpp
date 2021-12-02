@@ -134,6 +134,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
     return true;
 
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+  if (!LE)
+    return false;
 
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB) {
