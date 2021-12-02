@@ -1169,14 +1169,14 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
   // Create a Store in postexit if needed
   if (NeedStoreInPostexit) {
     RegDDRef *FirstStore = FirstRef;
-    // In the multi-exit loop, we need to find the exact store ref to compare
-    // the top sort number with gotos.
-    if (Lp->getNumExits() > 1) {
-      for (auto *Ref : Group) {
-        if (Ref->isLval()) {
-          FirstStore = Ref;
-          break;
-        }
+
+    // If there is a need to generate a store in postexit, we try to identify
+    // the first store ref from the group, and use it to clone for the store in
+    // postexit.
+    for (auto *Ref : Group) {
+      if (Ref->isLval()) {
+        FirstStore = Ref;
+        break;
       }
     }
 

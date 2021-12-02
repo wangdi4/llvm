@@ -6016,50 +6016,53 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-fintel-long-double-size=80");
   }
 
-  // FIXME: need to combine all imf options into one -mGLOB_imf_attr=,
-  // e.g. "-mGLOB_imf_attr=arch-consistency:foo max-error:bar"
+  std::string imfAttr;
+  auto addToImfAttr = [&imfAttr](const Twine &optStr) {
+    if (imfAttr.empty())
+      imfAttr = std::move(std::string("-mGLOB_imf_attr="));
+    else
+      imfAttr += " ";
+    imfAttr += optStr.str();
+  };
   for (const Arg *A : Args) {
     unsigned OptionID = A->getOption().getID();
     switch (OptionID) {
     case options::OPT_fimf_arch_consistency_EQ:
-      CmdArgs.push_back(Args.MakeArgString(
-          Twine("-mGLOB_imf_attr=arch-consistency:") + A->getValue()));
+      addToImfAttr(Twine("arch-consistency:") + A->getValue());
       A->claim();
       break;
     case options::OPT_fimf_max_error_EQ:
-      CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=max-error:") +
-                                           A->getValue()));
+      addToImfAttr(Twine("max-error:") + A->getValue());
       A->claim();
       break;
     case options::OPT_fimf_absolute_error_EQ:
-      CmdArgs.push_back(Args.MakeArgString(
-          Twine("-mGLOB_imf_attr=absolute-error:") + A->getValue()));
+      addToImfAttr(Twine("absolute-error:") + A->getValue());
       A->claim();
       break;
     case options::OPT_fimf_accuracy_bits_EQ:
-      CmdArgs.push_back(Args.MakeArgString(
-          Twine("-mGLOB_imf_attr=accuracy-bits:") + A->getValue()));
+      addToImfAttr(Twine("accuracy-bits:") + A->getValue());
       A->claim();
       break;
     case options::OPT_fimf_domain_exclusion_EQ:
-      CmdArgs.push_back(Args.MakeArgString(
-          Twine("-mGLOB_imf_attr=domain-exclusion:") + A->getValue()));
+      addToImfAttr(Twine("domain-exclusion:") + A->getValue());
       A->claim();
       break;
     case options::OPT_fimf_precision_EQ:
-      CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=precision:") +
-                                           A->getValue()));
+      addToImfAttr(Twine("precision:") + A->getValue());
       A->claim();
       break;
     case options::OPT_fimf_use_svml_EQ:
-      CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=use-svml:") +
-                                           A->getValue()));
+      // no need to set use-svml:false because it's the default
+      if (!StringRef(A->getValue()).equals("false"))
+        addToImfAttr(Twine("use-svml:") + A->getValue());
       A->claim();
       break;
     default:
       break;
     }
   }
+  if (!imfAttr.empty())
+    CmdArgs.push_back(Args.MakeArgString(imfAttr));
 #endif // INTEL_CUSTOMIZATION
 
   // Decide whether to use verbose asm. Verbose assembly is the default on
