@@ -4655,7 +4655,7 @@ static void emitConstructorDestructorAlias(CodeGenModule &CGM,
   if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice) {
     if (auto *AliaseeFn = dyn_cast<llvm::Function>(Aliasee)) {
       AliaseeFn->addFnAttr("openmp-target-declare", "true");
-      CGM.addDeferredAliasTarget(TargetDecl);
+      CGM.addDeferredTargetDecl(TargetDecl);
     }
   }
 #endif // INTEL_COLLAB
