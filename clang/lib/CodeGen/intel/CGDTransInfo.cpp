@@ -153,6 +153,16 @@ llvm::Function *CodeGenModule::addDTransInfoToFunc(GlobalDecl GD,
          "Generated different function type?");
   (void)FT2;
 
+  return addDTransInfoToFunc(FuncInfo, FT, Func);
+}
+
+llvm::Function *
+CodeGenModule::addDTransInfoToFunc(const CodeGenTypes::DTransFuncInfo &FuncInfo,
+                                   llvm::FunctionType *FT,
+                                   llvm::Function *Func) {
+  if (!getCodeGenOpts().EmitDTransInfo || !Func)
+    return Func;
+
   llvm::LLVMContext &Ctx = TheModule.getContext();
   llvm::SmallVector<llvm::Metadata*, 4> Attachments;
 
@@ -182,7 +192,7 @@ llvm::Function *CodeGenModule::addDTransInfoToFunc(GlobalDecl GD,
   }
 
   unsigned Idx = 0;
-  for (QualType &Ty : FuncInfo.Params) {
+  for (QualType Ty : FuncInfo.Params) {
     if (!Ty.isNull() && Func->getArg(Idx)->getType()->isPointerTy()) {
       Func->addParamAttr(Idx,
                          llvm::Attribute::get(Ctx, "intel_dtrans_func_index",

@@ -219,9 +219,11 @@ struct CGRecordLowering {
   llvm::DenseMap<const CXXRecordDecl *, unsigned> NonVirtualBases;
   llvm::DenseMap<const CXXRecordDecl *, unsigned> VirtualBases;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   unsigned VFPtrLoc = (std::numeric_limits<unsigned>::max)();
   unsigned VBPtrLoc = (std::numeric_limits<unsigned>::max)();
   const FieldDecl *UnionDecl = nullptr;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   bool IsZeroInitializable : 1;
   bool IsZeroInitializableAsBase : 1;
@@ -347,7 +349,11 @@ void CGRecordLowering::lowerUnion() {
       if (SeenNamedMember && !isZeroInitializable(Field)) {
         IsZeroInitializable = IsZeroInitializableAsBase = false;
         StorageType = FieldType;
-        UnionDecl = Field; // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+        UnionDecl = Field;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
       }
     }
     // Because our union isn't zero initializable, we won't be getting a better
@@ -361,7 +367,9 @@ void CGRecordLowering::lowerUnion() {
         (getAlignment(FieldType) == getAlignment(StorageType) &&
         getSize(FieldType) > getSize(StorageType))) {
       StorageType = FieldType;
+#if INTEL_FEATURE_SW_DTRANS
       UnionDecl = Field;
+#endif // INTEL_FEATURE_SW_DTRANS
     }
 #endif // INTEL_CUSTOMIZATION
   }
@@ -373,9 +381,11 @@ void CGRecordLowering::lowerUnion() {
 #if INTEL_CUSTOMIZATION
   if (LayoutSize < getSize(StorageType)) {
     StorageType = getByteArrayType(LayoutSize);
+#if INTEL_FEATURE_SW_DTRANS
     // We can't tell anything about the inner part of the union here, so reset
     // the union decl.
     UnionDecl = nullptr;
+#endif // INTEL_FEATURE_SW_DTRANS
   }
 #endif // INTEL_CUSTOMIZATION
   FieldTypes.push_back(StorageType);
@@ -859,10 +869,12 @@ void CGRecordLowering::fillOutputFields() {
     else if (Member->Kind == MemberInfo::VBase)
       VirtualBases[Member->RD] = FieldTypes.size() - 1;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
     else if (Member->Kind == MemberInfo::VFPtr)
       VFPtrLoc = FieldTypes.size() - 1;
     else if (Member->Kind == MemberInfo::VBPtr)
       VBPtrLoc = FieldTypes.size() - 1;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   }
 }
@@ -905,6 +917,33 @@ CGBitFieldInfo CGBitFieldInfo::MakeInfo(CodeGenTypes &Types,
 
   return CGBitFieldInfo(Offset, Size, IsSigned, StorageSize, StorageOffset);
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+// Ensures that the 'runtime type'(that is, a type without corresponding code in
+// this TU, but generated for the purposes of calling a runtime function) is
+// correctly 'installed' into the CodeGenTypes object, so that it can be 'looked
+// up' as a normal type later.
+void CodeGenTypes::setDTransRuntimeType(llvm::StructType *ST, QualType ClangTy,
+                                        ArrayRef<FieldDecl *> FDs) {
+  // Adds to the clang::Type->llvm::StructType collection, so that this
+  // relationship can be picked up later, which prevents us from generating it
+  // again (and having a duplicate, differently named type).
+  RecordDeclTypes[ClangTy.getTypePtr()] = ST;
+
+  // Set up the CGRecordLayout object for this type.  The layout holds
+  // information about bitfields, fields, unions, and vptrs/etc, however these
+  // runtime types are ONLY regular fields, so we just need to get the
+  // FieldDecl->LLVM-IR-Index relationship stored.
+  std::unique_ptr<CGRecordLayout> Layout = std::make_unique<CGRecordLayout>(
+      ST, ST, /*IsZeroInitializable*/ true, /*IsZeroInitializable*/ true);
+  for (unsigned I = 0; I < FDs.size(); ++I)
+    Layout->FieldInfo[FDs[I]] = I;
+
+  // Add the layout to the list of already generated layouts.
+  CGRecordLayouts[ClangTy.getTypePtr()] = std::move(Layout);
+}
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 std::unique_ptr<CGRecordLayout>
 CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
@@ -952,9 +991,11 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
   // Add bitfield info.
   RL->BitFields.swap(Builder.BitFields);
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   RL->VFPtrLoc = Builder.VFPtrLoc;
   RL->VBPtrLoc = Builder.VBPtrLoc;
   RL->UnionDecl = Builder.UnionDecl;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 

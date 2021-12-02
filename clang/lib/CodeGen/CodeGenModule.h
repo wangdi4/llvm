@@ -1281,6 +1281,9 @@ public:
     }
   }
 
+  llvm::Function *
+  addDTransInfoToFunc(const CodeGenTypes::DTransFuncInfo &FuncInfo,
+                      llvm::FunctionType *FT, llvm::Function *Func);
   llvm::Function *addDTransInfoToFunc(GlobalDecl GD, StringRef MangledName,
                                       llvm::FunctionType *FT,
                                       llvm::Function *Func);
