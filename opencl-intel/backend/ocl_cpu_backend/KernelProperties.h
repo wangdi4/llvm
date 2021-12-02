@@ -310,6 +310,10 @@ protected:
     bool m_debugInfo;
     DeviceMode m_targetDevice;
     size_t m_cpuMaxWGSize;
+
+  private:
+    // Returns the correct subgroup size that is one of CPU_DEV_SUB_GROUP_SIZES.
+    size_t getMaterializedSubGroupSize() const;
 };
 
 }}}

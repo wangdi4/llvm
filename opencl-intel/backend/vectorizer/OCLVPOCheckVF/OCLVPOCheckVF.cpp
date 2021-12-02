@@ -245,9 +245,6 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
   static std::set<unsigned> SupportedWorkGroupVFs = {1, 4, 8, 16, 32, 64};
   static std::set<unsigned> SupportedSubGroupVFs = CPU_DEV_SUB_GROUP_SIZES;
 
-  if (!EnableSubGroupEmulation)
-    SupportedSubGroupVFs.erase(1u);
-
   std::vector<std::pair<std::string, unsigned>> UnimplementBuiltins;
 
   for (Instruction &I : instructions(F)) {
@@ -257,8 +254,11 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
         continue;
       StringRef FnName = CF->getName();
       // Check subgroup calls.
+      // If subgroup emulation is enabled, we will deduce the final emulation
+      // size later for VF=1.
+      bool FallbackToEmulation = EnableSubGroupEmulation && (VF == 1);
       if (FnName.contains("sub_group") && !FnName.contains("barrier") &&
-          SupportedSubGroupVFs.count(VF) == 0) {
+          SupportedSubGroupVFs.count(VF) == 0 && !FallbackToEmulation) {
         if (CanFallBack && KIMD.RecommendedVL.hasValue()) {
           VF = KIMD.RecommendedVL.get();
           logState([&](){
@@ -372,6 +372,7 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
       }
     }
 
+    // Deduce the actual emulation size.
     if (KernelToSGEmuSize[Kernel] == 1) {
       if (KMD.hasVecLength() && KMD.getVecLength() != 1) {
         KernelToSGEmuSize[Kernel] = KMD.getVecLength();
