@@ -2787,8 +2787,8 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
     return ScalarRef->clone();
 
   assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
-          isa<VPExternalUse>(VPVal)) &&
-         "Expected a VPExternalDef/VPConstant/VPExternalUse");
+          isa<VPExternalUse>(VPVal) || isa<VPMetadataAsValue>(VPVal)) &&
+         "Expected a VPExternalDef/VPConstant/VPExternalUse/VPMetadataAsValue");
 
   auto GetScalarRefForExternal = [this](const VPOperandHIR *HIROperand,
                                         Type *VPValTy) -> RegDDRef * {
@@ -2845,6 +2845,9 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
   } else if (auto *VPExtUse = dyn_cast<VPExternalUse>(VPVal)) {
     ScalarRef =
         GetScalarRefForExternal(VPExtUse->getOperandHIR(), VPExtUse->getType());
+  } else if (auto *VPMDAsVal = dyn_cast<VPMetadataAsValue>(VPVal)) {
+    ScalarRef =
+        DDRefUtilities.createConstDDRef(VPMDAsVal->getMetadataAsValue());
   } else {
     auto *VPConst = cast<VPConstant>(VPVal);
     ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
@@ -3199,7 +3202,8 @@ RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
   if ((ScalarRef = getScalRefForVPVal(VPVal, ScalarLaneID)))
     return ScalarRef->clone();
 
-  if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal))
+  if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
+      isa<VPMetadataAsValue>(VPVal))
     return getUniformScalarRef(VPVal);
 
   assert(ScalarLaneID < getVF() && "Invalid lane ID.");
