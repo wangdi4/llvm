@@ -48,12 +48,11 @@ using namespace llvm::sys;
 
 enum Flavor {
   Invalid,
-  Gnu,       // -flavor gnu
-  WinLink,   // -flavor link
+  Gnu,     // -flavor gnu
+  WinLink, // -flavor link
 #if !INTEL_CUSTOMIZATION
-  Darwin,    // -flavor darwin
-  DarwinOld, // -flavor darwinold
-  Wasm,      // -flavor wasm
+  Darwin,  // -flavor darwin
+  Wasm,    // -flavor wasm
 #endif // !INTEL_CUSTOMIZATION
 };
 
@@ -70,9 +69,7 @@ static Flavor getFlavor(StringRef s) {
 #endif // !INTEL_CUSTOMIZATION
       .CaseLower("link", WinLink)
 #if !INTEL_CUSTOMIZATION
-      .CasesLower("ld64", "ld64.lld", "darwin", "darwinnew",
-                  "ld64.lld.darwinnew", Darwin)
-      .CasesLower("darwinold", "ld64.lld.darwinold", DarwinOld)
+      .CasesLower("ld64", "ld64.lld", "darwin", Darwin)
 #endif // !INTEL_CUSTOMIZATION
       .Default(Invalid);
 }
@@ -167,8 +164,6 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
 #else // INTEL_CUSTOMIZATION
   case Darwin:
     return !macho::link(args, exitEarly, stdoutOS, stderrOS);
-  case DarwinOld:
-    return !mach_o::link(args, exitEarly, stdoutOS, stderrOS);
   case Wasm:
     return !lld::wasm::link(args, exitEarly, stdoutOS, stderrOS);
   default:
