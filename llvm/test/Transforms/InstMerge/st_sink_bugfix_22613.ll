@@ -6,12 +6,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -O2 -S -loopopt=0 < %s | FileCheck %s
 
 ; CHECK-LABEL: main
-; CHECK: if.end
-; CHECK: store
 ; CHECK: memset
 ; CHECK: if.then
 ; CHECK: store
-; CHECK: memset
+; CHECK: if.end
+; CHECK: store
+; CHECK: store
 
 @d = common global i32 0, align 4
 @b = common global i32 0, align 4
