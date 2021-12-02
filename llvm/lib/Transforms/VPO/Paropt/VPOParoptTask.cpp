@@ -1530,12 +1530,17 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
         BasePtr = Orig;
       }
 
-    // TODO: Paropt doesn't support code generation for non-contiguous sections,
-    // the plan is for the frontend to send us an array section in this form:
-    // "(0, i64 %number_of_elements_from_start_to_end, 1)
-    // %gep_with_starting_offset".
-    computeArraySectionTypeOffsetSize(W, Orig, DepI->getArraySectionInfo(),
-                                      DepI->getIsByRef(), InsertBefore);
+    // Paropt does not support code generation for non-contiguous sections.
+    // When FE generates TYPED form of the clause it passes all the required
+    // information in the clause itself:
+    //   "(ptr %base, <element type specifier>,
+    //     i64 %number.of.elements, i64 %offset.in.elements)"
+    //
+    // For TYPED clauses the array section info is populated during parsing,
+    // so we do not need to call computeArraySectionTypeOffsetSize() here.
+    if (!DepI->getIsTyped())
+      computeArraySectionTypeOffsetSize(W, Orig, DepI->getArraySectionInfo(),
+                                        DepI->getIsByRef(), InsertBefore);
 
     Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
         KmpTaskTDependVecTy, DummyTaskTDependVec,
@@ -1552,12 +1557,23 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
       Size = Builder.CreateMul(NumElements, ElementSize,
                                Orig->getName() + ".size.in.bytes");
     } else {
-      // OPAQUEPOINTER: we need to add support for TYPED modifier
-      //                and provide a getter for the element type,
-      //                since DependItem is not derived from Item.
-      Size = Builder.getIntN(
-          DL.getPointerSizeInBits(),
-          DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+      if (DepI->getIsTyped()) {
+        Size = Builder.getIntN(
+            DL.getPointerSizeInBits(),
+            DL.getTypeAllocSize(DepI->getOrigItemElementTypeFromIR()));
+        if (Value *NumElements = DepI->getNumElements()) {
+          NumElements = Builder.CreateZExtOrTrunc(NumElements, Size->getType());
+          Size = Builder.CreateMul(Size, NumElements);
+        }
+      } else {
+        // OPAQUEPOINTER: this should be unreachable with opaque pointers.
+        if (!cast<PointerType>(Orig->getType())->isOpaque())
+          Size = Builder.getIntN(
+              DL.getPointerSizeInBits(),
+              DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+        else
+          llvm_unreachable("use DEPEND:TYPED with opaque pointers.");
+      }
     }
 
     Value *Gep = Builder.CreateInBoundsGEP(

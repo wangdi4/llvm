@@ -5777,6 +5777,8 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
                                     InsertPt);
 }
 
+// OPAQUEPOINTER: this function must not be called with opaque pointers,
+//                because the required information comes in the TYPED clauses.
 void VPOParoptTransform::computeArraySectionTypeOffsetSize(
     WRegionNode *W, Value *Orig, ArraySectionInfo &ArrSecInfo, bool IsByRef,
     Instruction *InsertPt) {
