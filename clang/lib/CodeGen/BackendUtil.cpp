@@ -1075,8 +1075,9 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
         if (!ThinLinkOS)
           return;
       }
-      TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                               CodeGenOpts.EnableSplitLTOUnit);
+      if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                 CodeGenOpts.EnableSplitLTOUnit);
       PerModulePasses.add(createWriteThinLTOBitcodePass(
           *OS, ThinLinkOS ? &ThinLinkOS->os() : nullptr));
     } else {
@@ -1090,8 +1091,9 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
       if (EmitLTOSummary) {
         if (!TheModule->getModuleFlag("ThinLTO"))
           TheModule->addModuleFlag(Module::Error, "ThinLTO", uint32_t(0));
-        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                                 uint32_t(1));
+        if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+          TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                   uint32_t(1));
       }
 
       PerModulePasses.add(createBitcodeWriterPass(
@@ -1492,8 +1494,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
         if (!ThinLinkOS)
           return;
       }
-      TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                               CodeGenOpts.EnableSplitLTOUnit);
+      if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                 CodeGenOpts.EnableSplitLTOUnit);
       MPM.addPass(ThinLTOBitcodeWriterPass(*OS, ThinLinkOS ? &ThinLinkOS->os()
                                                            : nullptr));
     } else {
@@ -1506,8 +1509,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       if (EmitLTOSummary) {
         if (!TheModule->getModuleFlag("ThinLTO"))
           TheModule->addModuleFlag(Module::Error, "ThinLTO", uint32_t(0));
-        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                                 uint32_t(1));
+        if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+          TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                   uint32_t(1));
       }
       MPM.addPass(
           BitcodeWriterPass(*OS, CodeGenOpts.EmitLLVMUseLists, EmitLTOSummary));
