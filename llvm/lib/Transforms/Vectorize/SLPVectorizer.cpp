@@ -7639,12 +7639,6 @@ InstructionCost BoUpSLP::getSpillCost() const {
   return Cost;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
-                                     bool ForReduction) {
-#endif // INTEL_CUSTOMIZATION
-=======
 /// Check if two insertelement instructions are from the same buildvector.
 static bool areTwoInsertFromSameBuildVector(InsertElementInst *VU,
                                             InsertElementInst *V) {
@@ -7681,8 +7675,10 @@ static bool areTwoInsertFromSameBuildVector(InsertElementInst *VU,
   return false;
 }
 
-InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
->>>>>>> 8ceccbd321319434450717ac1917cdca174ff6eb
+#if INTEL_CUSTOMIZATION
+InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
+                                     bool ForReduction) {
+#endif // INTEL_CUSTOMIZATION
   InstructionCost Cost = 0;
   LLVM_DEBUG(dbgs() << "SLP: Calculating cost for tree of size "
                     << VectorizableTree.size() << ".\n");
