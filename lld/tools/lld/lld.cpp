@@ -48,6 +48,7 @@ using namespace llvm::sys;
 
 enum Flavor {
   Invalid,
+<<<<<<< HEAD
   Gnu,       // -flavor gnu
   WinLink,   // -flavor link
 #if !INTEL_CUSTOMIZATION
@@ -55,6 +56,12 @@ enum Flavor {
   DarwinOld, // -flavor darwinold
   Wasm,      // -flavor wasm
 #endif // !INTEL_CUSTOMIZATION
+=======
+  Gnu,     // -flavor gnu
+  WinLink, // -flavor link
+  Darwin,  // -flavor darwin
+  Wasm,    // -flavor wasm
+>>>>>>> 9e3552523ebd3385487e01e3e7af37b8c0efaf57
 };
 
 [[noreturn]] static void die(const Twine &s) {
@@ -69,11 +76,15 @@ static Flavor getFlavor(StringRef s) {
       .CasesLower("wasm", "ld-wasm", Wasm)
 #endif // !INTEL_CUSTOMIZATION
       .CaseLower("link", WinLink)
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
       .CasesLower("ld64", "ld64.lld", "darwin", "darwinnew",
                   "ld64.lld.darwinnew", Darwin)
       .CasesLower("darwinold", "ld64.lld.darwinold", DarwinOld)
 #endif // !INTEL_CUSTOMIZATION
+=======
+      .CasesLower("ld64", "ld64.lld", "darwin", Darwin)
+>>>>>>> 9e3552523ebd3385487e01e3e7af37b8c0efaf57
       .Default(Invalid);
 }
 
@@ -167,8 +178,6 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
 #else // INTEL_CUSTOMIZATION
   case Darwin:
     return !macho::link(args, exitEarly, stdoutOS, stderrOS);
-  case DarwinOld:
-    return !mach_o::link(args, exitEarly, stdoutOS, stderrOS);
   case Wasm:
     return !lld::wasm::link(args, exitEarly, stdoutOS, stderrOS);
   default:
