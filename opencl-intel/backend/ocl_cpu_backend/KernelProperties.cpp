@@ -13,11 +13,13 @@
 // License.
 
 #include "KernelProperties.h"
+#include "cpu_dev_limits.h"
 #include "exceptions.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <iostream>
 #include <string.h>
+#include <unordered_set>
 
 using namespace llvm;
 
@@ -219,10 +221,32 @@ size_t KernelProperties::GetRequiredNumSubGroups() const
     return m_reqdNumSG;
 }
 
+size_t KernelProperties::getMaterializedSubGroupSize() const {
+  assert(m_useNativeSubgroups);
+  // Vectorization width is usually set by vectorizer or subgroup emulation.
+  // This value is 1 (default value) iff neither vectorizer nor subgroup
+  // emulation is run.
+  // e.g. A kernel w/o any subgroup calls (no need to do subgroup emulation) and
+  // compiled w/ '-cl-opt-disable' (vectorizer is disabled).
+  // Although in such cases, querying compiled kernel's subgroup size doesn't
+  // make much sense, we cannot return 1 directly as the kernel subgroup size
+  // anyway, because '1' is not a supported size according to
+  // CPU_DEV_SUB_GROUP_SIZES.
+  size_t MaterializedSGSize =
+      m_vectorizationWidth == 1 ? CPU_DEV_MAX_SG_SIZE : m_vectorizationWidth;
+#ifndef NDEBUG
+  const static std::unordered_set<size_t> SupportedSGSizes =
+      CPU_DEV_SUB_GROUP_SIZES;
+  assert(SupportedSGSizes.count(MaterializedSGSize) &&
+         "Unexpected subgroup size");
+#endif // NDEBUG
+  return MaterializedSGSize;
+}
+
 size_t KernelProperties::GetMaxNumSubGroups(size_t const wgSizeUpperBound) const
 {
     if (m_useNativeSubgroups)
-        return wgSizeUpperBound / m_vectorizationWidth;
+      return wgSizeUpperBound / getMaterializedSubGroupSize();
     // Return 1 for emulation case.
     return 1;
 }
@@ -237,8 +261,9 @@ size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes
 
     // The following calculation routine will allow for extra
     // subgroup when WGSize % VF != 0.
-    size_t SubGroupsOnVectorizedDim =
-        ((WGSizes[m_verctorizeOnDimention] - 1) / m_vectorizationWidth) + 1;
+    size_t SubGroupsOnVectorizedDim = ((WGSizes[m_verctorizeOnDimention] - 1) /
+                                       getMaterializedSubGroupSize()) +
+                                      1;
     size_t SubGroupsOnOtherDims = 1;
     for(size_t i = 0; i < size; ++i)
         if (i != m_verctorizeOnDimention)
@@ -250,7 +275,7 @@ size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes
 size_t KernelProperties::GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const
 {
     if (m_useNativeSubgroups)
-       return m_vectorizationWidth;
+      return getMaterializedSubGroupSize();
 
     // Return WGSizes[0]*WGSizes[1]*WGSizes[2] for emulation case.
     size_t maxSGSize = 1;
@@ -345,7 +370,7 @@ void KernelProperties::GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
         GetMaxWorkGroupSize(wgSizeUpperBound, wgPrivateMemSizeUpperBound);
     bool successFill = true;
     if (m_useNativeSubgroups) {
-        size_t wg_size = m_vectorizationWidth * desiredSGCount;
+        size_t wg_size = getMaterializedSubGroupSize() * desiredSGCount;
         if (wg_size <= maxWorkGroupSize) {
             pValue[0] = wg_size;
             successFill = true;
@@ -447,6 +472,9 @@ void KernelProperties::Print() const {
   outs().indent(NS) << "kernelExecutionLength: " << m_kernelExecutionLength
                     << "\n";
   outs().indent(NS) << "vectorizationWidth: " << m_vectorizationWidth << "\n";
+  if (m_useNativeSubgroups)
+    outs().indent(NS) << "Materialized subgroup size: "
+                      << getMaterializedSubGroupSize() << "\n";
   outs().indent(NS) << "reqdSubGroupSize: " << m_reqdSubGroupSize << "\n";
   outs().indent(NS) << "kernelAttributes: " << m_kernelAttributes << "\n";
   outs().indent(NS) << "minGroupSizeFactorial: " << m_minGroupSizeFactorial

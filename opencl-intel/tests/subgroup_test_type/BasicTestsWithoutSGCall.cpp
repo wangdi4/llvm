@@ -17,6 +17,16 @@ TEST_P(SGEmulationTest, BasicTestsWithoutSGCall) {
   const size_t KernelSize = strlen(Kernel);
   cl_int Ret = CL_SUCCESS;
 
+  // Query all supported subgroup sizes.
+  size_t RetSize = 0;
+  Ret = clGetDeviceInfo(m_device, CL_DEVICE_SUB_GROUP_SIZES_INTEL, 0, nullptr,
+                        &RetSize);
+  ASSERT_OCL_SUCCESS(Ret, " clGetDeviceInfo");
+  std::vector<size_t> SupportedSGSizes(RetSize / sizeof(size_t));
+  Ret = clGetDeviceInfo(m_device, CL_DEVICE_SUB_GROUP_SIZES_INTEL, RetSize,
+                        SupportedSGSizes.data(), nullptr);
+  ASSERT_OCL_SUCCESS(Ret, " clGetDeviceInfo");
+
   cl_program Program =
       clCreateProgramWithSource(m_context, 1, &Kernel, &KernelSize, &Ret);
   ASSERT_OCL_SUCCESS(Ret, " clCreateProgramWithSource");
@@ -40,14 +50,11 @@ TEST_P(SGEmulationTest, BasicTestsWithoutSGCall) {
       sizeof(LSize), &LSize, sizeof(MaxSGSize), &MaxSGSize, nullptr);
   ASSERT_OCL_SUCCESS(Ret, " clGetKernelSubGroupInfoKHR");
 
-  // Compiled with '-cl-opt-disable'
-  if (GetParam())
-    ASSERT_EQ(1u, MaxSGSize)
-        << "Max subgroup size should be 1 for kernel that is compiled under "
-           "-O0 and doesn't contain any subgroup call.";
-  else
-    ASSERT_LT(1u, MaxSGSize)
-        << "Max subgroup size should be larger than 1 with vectorizer enabled.";
+  ASSERT_NE(
+      std::find(SupportedSGSizes.begin(), SupportedSGSizes.end(), MaxSGSize),
+      SupportedSGSizes.end())
+      << " returned kernel subgroup size must be one of supported subgroup "
+         "sizes of the device.";
 
   Ret = clEnqueueNDRangeKernel(m_queue, Kern, 1, nullptr, &GSize, &LSize, 0,
                                nullptr, nullptr);
