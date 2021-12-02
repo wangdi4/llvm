@@ -145,7 +145,15 @@ public:
     // type.
     std::array<QualType, 2> ResultTypes;
     llvm::SmallVector<QualType> Params;
+
+    DTransFuncInfo() = default;
+    DTransFuncInfo(QualType RetTy, llvm::ArrayRef<QualType> Params)
+        : ResultTypes{RetTy, QualType{}}, Params{Params.begin(), Params.end()} {
+    }
   };
+
+  void setDTransRuntimeType(llvm::StructType *ST, QualType ClangTy,
+                            ArrayRef<FieldDecl *> FDs);
 
   /// GetFunctionType - Get the LLVM function type for \arg Info.
   llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info,

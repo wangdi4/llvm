@@ -1754,8 +1754,16 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
     llvm::Value *Ptr = CGM.getModule().getNamedValue(PtrName);
     if (!Ptr) {
       QualType PtrTy = CGM.getContext().getPointerType(VD->getType());
+#if INTEL_COLLAB
+      assert(VD->hasLinkage() || VD->isStaticDataMember());
+      unsigned AS = CGM.getContext().getTargetAddressSpace(
+          CGM.GetGlobalVarAddressSpace(VD));
+      Ptr = getOrCreateInternalVariable(CGM.getTypes().ConvertTypeForMem(PtrTy),
+                                        PtrName, AS);
+#else // INTEL_COLLAB
       Ptr = getOrCreateInternalVariable(CGM.getTypes().ConvertTypeForMem(PtrTy),
                                         PtrName);
+#endif  // INTEL_COLLAB
 
       auto *GV = cast<llvm::GlobalVariable>(Ptr);
       GV->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
