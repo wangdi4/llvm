@@ -6,17 +6,10 @@
 #
 ## This produces an object that has _ZdaPvj instead of _ZdaPv.
 # RUN: yaml2obj %s -DZDAPV=_ZdaPvj -o=%t2
-<<<<<<< HEAD
-# RUN: echo %t2 > %t2.txt
-# RUN: llvm-tli-checker --triple x86_64-scei-ps4 @%t2.txt | \
+# RUN: llvm-tli-checker --triple x86_64-scei-ps4 %t2 | \
 # INTEL_CUSTOMIZATION
 # RUN:     FileCheck %s --check-prefix=WRONG_SUMMARY --check-prefix=WRONG_DETAIL
 # end INTEL_CUSTOMIZATION
-=======
-# RUN: llvm-tli-checker --triple x86_64-scei-ps4 %t2 | \
-# RUN:     FileCheck %s --check-prefixes=WRONG_SUMMARY,WRONG_DETAIL \
-# RUN:    --implicit-check-not="==" --implicit-check-not="<<" --implicit-check-not=">>"
->>>>>>> 2778554971dada8ef7df9ee6954c52a753d90c22
 #
 ## --report=discrepancy is the default, check we get the same output.
 # RUN: llvm-tli-checker --triple x86_64-scei-ps4 %t2 --report=discrepancy | \
@@ -55,15 +48,11 @@
 #
 ## The -COUNT suffix doesn't care if there are too many matches, so check
 ## the exact count first; the two directives should add up to that.
-<<<<<<< HEAD
+## Yes, this means additions to TLI will fail this test, but the argument
+## to -COUNT can't be an expression.
 # INTEL_CUSTOMIZATION
 # AVAIL: TLI knows 1217 symbols, 703 available
 # end INTEL_CUSTOMIZATION
-=======
-## Yes, this means additions to TLI will fail this test, but the argument
-## to -COUNT can't be an expression.
-# AVAIL: TLI knows 468 symbols, 235 available
->>>>>>> 2778554971dada8ef7df9ee6954c52a753d90c22
 # AVAIL-COUNT-235: {{^}} available
 # UNAVAIL-COUNT-233: not available
 
