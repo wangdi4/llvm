@@ -72,8 +72,9 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-LTO-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-CORO-NEXT: Running pass: AnnotationRemarksPass
 ; CHECK-LTO-NEXT: Running pass: AnnotationRemarksPass
-; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis 
+; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.
