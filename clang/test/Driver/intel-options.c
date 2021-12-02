@@ -796,11 +796,21 @@
 // -fimf-use-svml and /Qimf-use-svml
 // RUN: %clang -### -fimf-use-svml -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
 // RUN: %clang -### -fimf-use-svml=true -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang -### -fimf-use-svml=false -c %s 2>&1 | FileCheck --check-prefix=CHECK-NO-USE-SVML %s
 // RUN: %clang -### -fimf-use-svml=true:sin -c %s 2>&1 | FileCheck -DVALUE=true:sin --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
 // RUN: %clang -### -fimf-use-svml=false:sqrtf -c %s 2>&1 | FileCheck -DVALUE=false:sqrtf --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
 // RUN: %clang_cl -### /Qimf-use-svml -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
 // RUN: %clang_cl -### /Qimf-use-svml:true -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-USE-SVML-TRUE %s
+// RUN: %clang_cl -### /Qimf-use-svml:false -c %s 2>&1 | FileCheck --check-prefix=CHECK-NO-USE-SVML %s
 // RUN: %clang_cl -### /Qimf-use-svml:true:sin -c %s 2>&1 | FileCheck -DVALUE=true:sin --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
 // RUN: %clang_cl -### /Qimf-use-svml:false:sqrtf -c %s 2>&1 | FileCheck -DVALUE=false:sqrtf --check-prefix=CHECK-FIMF-USE-SVML-VALUE %s
 // CHECK-FIMF-USE-SVML-TRUE: "-mGLOB_imf_attr=use-svml:true"
+// CHECK-NO-USE-SVML-NOT: "-mGLOB_imf_attr=use-svml:{{.*}}
 // CHECK-FIMF-USE-SVML-VALUE: "-mGLOB_imf_attr=use-svml:[[VALUE]]"
+
+// all imf options should be combined into a single -mGLOB_imf_attr= setting
+// RUN: %clang -### -fimf-arch-consistency=none -fimf-max-error=5 -fimf-absolute-error=none -fimf-accuracy-bits=none -fimf-domain-exclusion=none -fimf-precision=none -fimf-use-svml=true -c %s 2>&1 \
+// RUN:  | FileCheck --check-prefix=CHECK-COMBINED-IMF-ATTR %s
+// RUN: %clang_cl -### /Qimf-arch-consistency:none /Qimf-max-error:5 /Qimf-absolute-error:none /Qimf-accuracy-bits:none /Qimf-domain-exclusion:none /Qimf-precision:none /Qimf-use-svml:true -c %s 2>&1 \
+// RUN:  | FileCheck --check-prefix=CHECK-COMBINED-IMF-ATTR %s
+// CHECK-COMBINED-IMF-ATTR: "-mGLOB_imf_attr=arch-consistency:none max-error:5 absolute-error:none accuracy-bits:none domain-exclusion:none precision:none use-svml:true"
