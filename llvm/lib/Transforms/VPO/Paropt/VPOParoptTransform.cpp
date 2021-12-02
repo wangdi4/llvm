@@ -9939,9 +9939,12 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   // Generate __kmpc_push_num_threads(...) Call Instruction
   Value *NumThreads = nullptr;
+  Type *NumThreadsTy = nullptr;
   Value *NumTeams = nullptr;
+  Type *NumTeamsTy = nullptr;
   if (W->getIsTeams()) {
     NumTeams = W->getNumTeams();
+    NumTeamsTy = W->getNumTeamsType();
     assert((!VPOParoptUtils::useSPMDMode(W) || !NumTeams) &&
            "SPMD mode cannot be used with num_teams.");
 #if INTEL_CUSTOMIZATION
@@ -9952,16 +9955,18 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     //       parallelization.
 #endif // INTEL_CUSTOMIZATION
     NumThreads = W->getThreadLimit();
-  } else
+    NumThreadsTy = W->getThreadLimitType();
+  } else {
     NumThreads = W->getNumThreads();
+  }
 
   if (NumThreads || NumTeams) {
     Type *I32Ty = Type::getInt32Ty(F->getParent()->getContext());
     LoadInst *Tid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", ForkCI);
     Tid->setAlignment(Align(4));
     if (W->getIsTeams())
-      VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
-                                          NumThreads, ForkCI);
+      VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams, NumTeamsTy,
+                                          NumThreads, NumThreadsTy, ForkCI);
     else
       VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
                                             ForkCI);

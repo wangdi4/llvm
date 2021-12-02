@@ -96,6 +96,9 @@ static cl::opt<bool> EnableVerify(
 static StringRef getStructName(const StructType *S);
 
 #if INTEL_FEATURE_SW_DTRANS
+// Collect the real structure name.
+static StringRef getStructureNameClean(StructType *ST);
+
 // Return the mangled name for the input structure if it is available
 static StringRef getMangledNameFromStructure(StructType *ST);
 
@@ -707,8 +710,18 @@ void TypeMapTy::mapTypesByMangledNames(Module &SrcM, Module &DstM) {
   // can be mapped with the input Structure.
   auto UpdateMangledTypeFromDst = [this, &DstM](StructType *ST) -> void {
 
-    StringRef SrcMangledName = getMangledNameFromStructure(ST);
-    if (SrcMangledName.empty())
+    StringRef SrcCompareName = getMangledNameFromStructure(ST);
+
+    // Not all structures will have a mangled name. If a transformation in
+    // the backend adds a new structure, then we need to try to catch it by
+    // using the clean name (structure's name without extra numbering).
+    bool UseMangledName = true;
+    if (SrcCompareName.empty()) {
+      UseMangledName = false;
+      SrcCompareName = getStructureNameClean(ST);
+    }
+
+    if (SrcCompareName.empty())
       return;
 
     bool IsBase = isBaseStructure(ST);
@@ -731,9 +744,13 @@ void TypeMapTy::mapTypesByMangledNames(Module &SrcM, Module &DstM) {
       if (isAnonStructure(DST))
         continue;
 
-      // Get the mangled name in the destination module
-      StringRef DstMangledName = getMangledNameFromStructure(DST);
-      if (DstMangledName.empty() || DstMangledName != SrcMangledName)
+      StringRef DstCompareName;
+      if (UseMangledName)
+        DstCompareName = getMangledNameFromStructure(DST);
+      else
+        DstCompareName = getStructureNameClean(DST);
+
+      if (DstCompareName.empty() || DstCompareName != SrcCompareName)
         continue;
 
       // Check if the input source type can be mapped with the current

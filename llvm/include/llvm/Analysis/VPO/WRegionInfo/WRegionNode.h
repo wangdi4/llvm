@@ -484,7 +484,9 @@ public:
   virtual void setNumTasks(EXPR E)              {WRNERROR(QUAL_OMP_NUM_TASKS);}
   virtual EXPR getNumTasks()              const {WRNERROR(QUAL_OMP_NUM_TASKS);}
   virtual void setNumTeams(EXPR E)              {WRNERROR(QUAL_OMP_NUM_TEAMS);}
+  virtual void setNumTeamsType(Type *T)         {WRNERROR(QUAL_OMP_NUM_TEAMS);}
   virtual EXPR getNumTeams()              const {WRNERROR(QUAL_OMP_NUM_TEAMS);}
+  virtual Type *getNumTeamsType()         const {WRNERROR(QUAL_OMP_NUM_TEAMS);}
   virtual void setNumThreads(EXPR E)          {WRNERROR(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()          const {WRNERROR(QUAL_OMP_NUM_THREADS);}
 #if INTEL_CUSTOMIZATION
@@ -577,7 +579,9 @@ public:
   virtual void setSimdlen(int N)                {WRNERROR(QUAL_OMP_SIMDLEN);  }
   virtual int getSimdlen()                const {WRNERROR(QUAL_OMP_SIMDLEN);  }
   virtual void setThreadLimit(EXPR E)        {WRNERROR(QUAL_OMP_THREAD_LIMIT);}
+  virtual void setThreadLimitType(Type *T)   {WRNERROR(QUAL_OMP_THREAD_LIMIT);}
   virtual EXPR getThreadLimit()        const {WRNERROR(QUAL_OMP_THREAD_LIMIT);}
+  virtual Type *getThreadLimitType()   const {WRNERROR(QUAL_OMP_THREAD_LIMIT);}
   virtual void setUntied(bool Flag)             {WRNERROR(QUAL_OMP_UNTIED);   }
   virtual bool getUntied()                const {WRNERROR(QUAL_OMP_UNTIED);   }
   virtual void setUserLockName(StringRef LN)    {WRNERROR(QUAL_OMP_NAME);     }

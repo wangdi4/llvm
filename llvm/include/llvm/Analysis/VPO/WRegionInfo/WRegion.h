@@ -596,7 +596,9 @@ private:
   ReductionClause Reduction;
   AllocateClause Alloc;
   EXPR ThreadLimit;
+  Type *ThreadLimitTy = nullptr;
   EXPR NumTeams;
+  Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default;
 #if INTEL_CUSTOMIZATION
   uint64_t ConfiguredThreadLimit = 0;
@@ -607,7 +609,9 @@ public:
 
 protected:
   void setThreadLimit(EXPR E) override { ThreadLimit = E; }
+  void setThreadLimitType(Type *T) override { ThreadLimitTy = T; }
   void setNumTeams(EXPR E) override { NumTeams = E; }
+  void setNumTeamsType(Type *T) override { NumTeamsTy = T; }
   void setDefault(WRNDefaultKind D) override { Default = D; }
 
 public:
@@ -618,7 +622,9 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
 
   EXPR getThreadLimit() const override { return ThreadLimit; }
+  Type *getThreadLimitType() const override { return ThreadLimitTy; }
   EXPR getNumTeams() const override  { return NumTeams; }
+  Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
 #if INTEL_CUSTOMIZATION
   void setConfiguredThreadLimit(uint64_t TL) override {

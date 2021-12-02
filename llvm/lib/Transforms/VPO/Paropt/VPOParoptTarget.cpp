@@ -1663,7 +1663,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       //                            /*default num_teams*/ 0, /*num_threads*/ 1)
       ConstantInt *ValueOne = ConstantInt::getSigned(Type::getInt32Ty(C), 1);
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, ValueZero, ValueZero,
-                                          ValueOne, Term);
+                                          ValueZero->getType(),
+                                          ValueOne, ValueOne->getType(), Term);
       NewCall->removeFromParent();
       NewCall->insertBefore(Term->getParent()->getTerminator());
     } else if (isa<WRNTargetDataNode>(W)) {
