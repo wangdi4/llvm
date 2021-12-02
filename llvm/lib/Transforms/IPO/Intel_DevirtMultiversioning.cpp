@@ -152,7 +152,7 @@ static cl::opt<bool>
 // Enable downcasting filtering for opaque pointers and DTrans metadata
 static cl::opt<bool>
     WPDevirtDownCastingFilteringForOP("wholeprogramdevirt-downcasting-filter",
-                                      cl::init(false), cl::ReallyHidden);
+                                      cl::init(true), cl::ReallyHidden);
 
 IntelDevirtMultiversion::IntelDevirtMultiversion(
     Module &M, WholeProgramInfo &WPInfo,
@@ -1014,8 +1014,6 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
   // Vector that holds the assume callsites that will be removed
   std::vector<CallBase *> AssumesVector;
 
-  // TODO: The downcasting filtering for opaque pointers is turned off by
-  // default until we fix CMPLRLLVM-32994.
   if (WPDevirtDownCastingFilteringForOP) {
     // If we have DTrans metadata then we are going to collect the information
     // from the DTrans pointer analyzer. In the case of opaque pointers the

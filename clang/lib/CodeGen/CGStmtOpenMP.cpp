@@ -7902,6 +7902,8 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       else
 #endif // INTEL_CUSTOMIZATION
       {
+        if (isOpenMPSimdDirective(Kind))
+          LoopStack.setVectorizeEnable();
         EmitIgnoredExpr(S.getInit());
         // while (idx <= UB) { BODY; ++idx; }
         if (ThenBlock == nullptr)
