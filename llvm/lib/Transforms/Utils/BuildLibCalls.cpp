@@ -1118,6 +1118,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     return Changed;
+<<<<<<< HEAD
   // TODO: add LibFunc entries for:
   // case LibFunc_memset_pattern4:
   // case LibFunc_memset_pattern8:
@@ -1296,6 +1297,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
 #endif // INTEL_CUSTOMIZATION
+=======
+  case LibFunc_memset_pattern4:
+  case LibFunc_memset_pattern8:
+>>>>>>> 2de5f39e546d64ed00fd63f47b64c1cafe5d6e35
   case LibFunc_memset_pattern16:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotCapture(F, 0);
