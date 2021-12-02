@@ -1,7 +1,7 @@
-; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O0 -paropt=63 -loopopt=0 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O1 -paropt=63 -loopopt=0 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O2 -paropt=63 -loopopt=0 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
-; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O3 -paropt=63 -loopopt=0 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O0 -paropt=63 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O1 -paropt=63 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O2 -paropt=63 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -mtriple=spir64-- -O3 -paropt=63 -disable-intel-proprietary-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Pass Arguments
 ; CHECK: VPO Directive Cleanup

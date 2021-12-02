@@ -32,6 +32,7 @@ class InlineReportBuilder; // INTEL
 namespace legacy {
 class FunctionPassManager;
 class PassManagerBase;
+class LoopOptLimitingPassManager; // INTEL
 }
 
 /// PassManagerBuilder - This class is used to set up a standard optimization
@@ -254,11 +255,23 @@ private:
   // Temporary utility function to add all passes needed for vectorizing SIMD
   // loops using VPlanDriver
   void addVPlanVectorizer(legacy::PassManagerBase &PM) const;
-  bool isLoopOptEnabled() const;
   void addLoopOptPasses(legacy::PassManagerBase &PM, bool IsLTO) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
                                         bool IsLTO);
+
+  bool isLoopOptStaticallyDisabled() const;
+  legacy::LoopOptLimitingPassManager
+  limitNoLoopOptOnly(legacy::PassManagerBase &PM) const;
+  legacy::LoopOptLimitingPassManager
+  limitLoopOptOnly(legacy::PassManagerBase &PM) const;
+  legacy::LoopOptLimitingPassManager
+  limitFullLoopOptOnly(legacy::PassManagerBase &PM) const;
+  legacy::LoopOptLimitingPassManager
+  limitLightLoopOptOnly(legacy::PassManagerBase &PM) const;
+  legacy::LoopOptLimitingPassManager
+  limitNoLoopOptOrNotPrepareForLTO(legacy::PassManagerBase &PM) const;
+
 #endif // INTEL_CUSTOMIZATION
   void addVectorPasses(legacy::PassManagerBase &PM, bool IsFullLTO);
 

@@ -205,7 +205,7 @@ class VecCloneImpl {
   public:
     VecCloneImpl() {}
     virtual ~VecCloneImpl() {}
-    bool runImpl(Module &M);
+    bool runImpl(Module &M, LoopOptLimiter Limiter = LoopOptLimiter::None);
 }; // end pass class
 
 class VecClonePass : public PassInfoMixin<VecClonePass> {

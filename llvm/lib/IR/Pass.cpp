@@ -31,6 +31,58 @@ using namespace llvm;
 
 #define DEBUG_TYPE "ir"
 
+#if INTEL_CUSTOMIZATION
+raw_ostream &llvm::operator<<(raw_ostream &OS, LoopOptLimiter Limiter) {
+  switch (Limiter) {
+  case LoopOptLimiter::None:
+    OS << "None";
+    break;
+  case LoopOptLimiter::NoLoopOptOnly:
+    OS << "No LoopOpt";
+    break;
+  case LoopOptLimiter::FullLoopOptOnly:
+    OS << "Full LoopOpt";
+    break;
+  case LoopOptLimiter::LightLoopOptOnly:
+    OS << "Light LoopOpt";
+    break;
+  case LoopOptLimiter::LoopOpt:
+    OS << "LoopOpt";
+    break;
+  }
+
+  return OS;
+}
+
+bool llvm::doesLoopOptPipelineAllowToRun(LoopOptLimiter Limiter, Function &F) {
+  switch (Limiter) {
+  case LoopOptLimiter::None:
+    return true;
+  case LoopOptLimiter::NoLoopOptOnly:
+    if (F.hasFnAttribute("loopopt-pipeline") &&
+        F.getFnAttribute("loopopt-pipeline").getValueAsString() != "none")
+      return false;
+    return true;
+  case LoopOptLimiter::FullLoopOptOnly:
+    if (F.hasFnAttribute("loopopt-pipeline") &&
+        F.getFnAttribute("loopopt-pipeline").getValueAsString() == "full")
+      return true;
+    return false;
+  case LoopOptLimiter::LightLoopOptOnly:
+    if (F.hasFnAttribute("loopopt-pipeline") &&
+        F.getFnAttribute("loopopt-pipeline").getValueAsString() == "light")
+      return true;
+    return false;
+  case LoopOptLimiter::LoopOpt:
+    if (F.hasFnAttribute("loopopt-pipeline") &&
+        F.getFnAttribute("loopopt-pipeline").getValueAsString() != "none")
+      return true;
+    return false;
+  }
+  llvm_unreachable("Unknown enum value!");
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // Pass Implementation
 //
@@ -70,7 +122,12 @@ bool Pass::mustPreserveAnalysisID(char &AID) const {
 #if !INTEL_PRODUCT_RELEASE
 // dumpPassStructure - Implement the -debug-pass=Structure option
 void Pass::dumpPassStructure(unsigned Offset) {
-  dbgs().indent(Offset*2) << getPassName() << "\n";
+#if INTEL_CUSTOMIZATION
+  dbgs().indent(Offset*2) << getPassName();
+  if (Limiter != LoopOptLimiter::None)
+    dbgs() << " ["<< Limiter << "]";
+  dbgs() << "\n";
+#endif // INTEL_CUSTOMIZATION
 }
 #endif // !INTEL_PRODUCT_RELEASE
 

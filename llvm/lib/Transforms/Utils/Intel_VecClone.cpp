@@ -182,7 +182,7 @@ VecClone::VecClone() : ModulePass(ID) {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
 
-bool VecClone::runOnModule(Module &M) { return Impl.runImpl(M); }
+bool VecClone::runOnModule(Module &M) { return Impl.runImpl(M, getLimiter()); }
 
 #if INTEL_CUSTOMIZATION
 // The following two functions are virtual and they are overloaded when
@@ -1517,7 +1517,7 @@ void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
-bool VecCloneImpl::runImpl(Module &M) {
+bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
 
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
@@ -1547,6 +1547,10 @@ bool VecCloneImpl::runImpl(Module &M) {
 
   for (auto VarIt : FunctionsToVectorize) {
     Function& F = *(VarIt.first);
+
+    if (!doesLoopOptPipelineAllowToRun(Limiter, F))
+      continue;
+
     std::vector<StringRef> Variants = VarIt.second;
 
     for (VectorVariant Variant : Variants) {
@@ -1657,6 +1661,7 @@ bool VecCloneImpl::runImpl(Module &M) {
     } // End of function cloning for the variant
   } // End of function cloning for all variants
 
+  //FIXME: return false if all functions were skipped or IR was not modified.
   return true; // LLVM IR has been modified
 }
 
