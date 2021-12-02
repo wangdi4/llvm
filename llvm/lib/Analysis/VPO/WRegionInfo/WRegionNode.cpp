@@ -1228,6 +1228,34 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
                                         const ClauseSpecifier &ClauseInfo,
                                         DependClause &C, bool IsIn) {
   C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
+  bool IsTyped = ClauseInfo.getIsTyped();
+
+  if (IsTyped) {
+    bool IsArraySection = ClauseInfo.getIsArraySection();
+    assert(((IsArraySection && NumArgs == 4) ||
+            (!IsArraySection && NumArgs == 3)) &&
+           "DEPEND:TYPED must have 3 or 4 arguments.");
+    C.add(Args[0]);
+    DependItem *DI = C.back();
+    DI->setIsTyped(true);
+    DI->setOrigItemElementTypeFromIR(Args[1]->getType());
+    DI->setNumElements(Args[2]);
+    DI->setIsIn(IsIn);
+    DI->setIsByRef(ClauseInfo.getIsByRef());
+    if (IsArraySection)
+      DI->setArraySectionOffset(Args[3]);
+
+    // FIXME: ArraySectionInfo should be removed, when we switch
+    //        to TYPED clauses completely.
+    ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
+    ArrSecInfo.setSize(DI->getNumElements());
+    ArrSecInfo.setOffset(DI->getArraySectionOffset());
+    ArrSecInfo.setElementType(DI->getOrigItemElementTypeFromIR());
+
+    // FIXME: set this based on PTR_TO_PTR modifier.
+    ArrSecInfo.setBaseIsPointer(false);
+    return;
+  }
 
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
@@ -1240,8 +1268,7 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
     assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
            "Unexpected number of args for array section operand.");
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  }
-  else
+  } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       C.add(V);
@@ -1249,6 +1276,7 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
       DI->setIsIn(IsIn);
       DI->setIsByRef(ClauseInfo.getIsByRef());
     }
+  }
 }
 
 void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,

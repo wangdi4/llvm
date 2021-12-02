@@ -11469,13 +11469,18 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
 #if INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutlineTarget)
 #endif // INTEL_CUSTOMIZATION
-    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline &&
-        !FD->hasAttr<OMPDeclareTargetDeclAttr>()) {
-      // Force function to be emitted
-      if (isa<CXXConstructorDecl>(FD) || isa<CXXDestructorDecl>(FD))
-        CGM.getAddrOfCXXStructor(GD);
-      else
-        CGM.GetAddrOfFunction(GD);
+    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline) {
+      if (FD->hasAttr<OMPDeclareTargetDeclAttr>()) {
+        // Add to the deferred list to force it to be emitted normally.
+        CGM.addDeferredTargetDecl(GD);
+      } else {
+        // Force function to be emitted since it won't necessarily be emitted
+        // otherwise.
+        if (isa<CXXConstructorDecl>(FD) || isa<CXXDestructorDecl>(FD))
+          CGM.getAddrOfCXXStructor(GD);
+        else
+          CGM.GetAddrOfFunction(GD);
+      }
       return false;
     }
 
