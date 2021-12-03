@@ -39,8 +39,8 @@ void foo() {
 //HOST: [[ARRTAG:@array_decl_tgt_ref_ptr]] = weak target_declare global [256 x float]* [[ARRAY]]
 //HOST: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 1, [256 x float]** [[ARRTAG]]}
 //HOST: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 0, i32*** [[ATAG]]}
-//TARG: [[ARRTAG:@array_decl_tgt_ref_ptr]] = weak target_declare global [256 x float] addrspace(4)* null
-//TARG: [[ATAG:@arr_decl_tgt_ref_ptr]] = weak target_declare global i32 addrspace(4)* addrspace(4)* null
-//TARG: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 1, [256 x float] addrspace(4)** [[ARRTAG]]}
-//TARG: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 0, i32 addrspace(4)* addrspace(4)** [[ATAG]]}
+//TARG: [[ARRTAG:@array_decl_tgt_ref_ptr]] = weak target_declare addrspace(1) global [256 x float] addrspace(4)* null
+//TARG: [[ATAG:@arr_decl_tgt_ref_ptr]] = weak target_declare addrspace(1) global i32 addrspace(4)* addrspace(4)* null
+//TARG: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 1, [256 x float] addrspace(4)* addrspace(1)*  [[ARRTAG]]}
+//TARG: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 0, i32 addrspace(4)* addrspace(4)* addrspace(1)* [[ATAG]]}
 //end INTEL_COLLAB

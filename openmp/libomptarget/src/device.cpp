@@ -839,9 +839,9 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-void DeviceTy::create_offload_queue(void *Interop) {
-  if (RTL->create_offload_queue)
-    RTL->create_offload_queue(RTLDeviceID, Interop);
+void DeviceTy::get_offload_queue(void *Interop, bool CreateNew) {
+  if (RTL->get_offload_queue)
+    RTL->get_offload_queue(RTLDeviceID, Interop, CreateNew);
 }
 
 int32_t DeviceTy::release_offload_queue(void *Queue) {

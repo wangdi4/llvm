@@ -1329,8 +1329,7 @@ raw_send_store(simd<T1, n1> msgSrc0, uint32_t exDesc, uint32_t msgDesc,
 // Available only on PVC+
 //
 // @param id  - named barrier id
-ESIMD_INLINE SYCL_ESIMD_FUNCTION ESIMD_NODEBUG void
-esimd_nbarrier_wait(uint8_t id) {
+__ESIMD_API void nbarrier_wait(uint8_t id) {
   __esimd_nbarrier(0 /*wait*/, id, 0 /*thread count*/);
 }
 
@@ -1338,8 +1337,7 @@ esimd_nbarrier_wait(uint8_t id) {
 // Available only on PVC+.
 //
 // @tparam NbarCount  - number of named barriers
-template <uint8_t NbarCount>
-ESIMD_INLINE SYCL_ESIMD_FUNCTION ESIMD_NODEBUG void esimd_nbarrier_init() {
+template <uint8_t NbarCount> __ESIMD_API void nbarrier_init() {
   __esimd_nbarrier_init(NbarCount);
 }
 
@@ -1355,9 +1353,10 @@ ESIMD_INLINE SYCL_ESIMD_FUNCTION ESIMD_NODEBUG void esimd_nbarrier_init() {
 // @param num_producers  - number of producers
 //
 // @param num_consumers  - number of consumers
-ESIMD_INLINE SYCL_ESIMD_FUNCTION ESIMD_NODEBUG void
-esimd_nbarrier_signal(uint8_t barrier_id, uint8_t producer_consumer_mode,
-                      uint32_t num_producers, uint32_t num_consumers) {
+__ESIMD_API void nbarrier_signal(uint8_t barrier_id,
+                                 uint8_t producer_consumer_mode,
+                                 uint32_t num_producers,
+                                 uint32_t num_consumers) {
   constexpr uint32_t gateway = 3;
   constexpr uint32_t barrier = 4;
   constexpr uint32_t descriptor = 1 << 25 | // Message length: 1 register
@@ -1373,13 +1372,13 @@ esimd_nbarrier_signal(uint8_t barrier_id, uint8_t producer_consumer_mode,
 }
 
 // Wait for source val to be ready
-ESIMD_INLINE SYCL_ESIMD_FUNCTION ESIMD_NODEBUG void esimd_wait(uint16_t val) {
+__ESIMD_API void wait(uint16_t val) {
   __esimd_wait(val);
 }
 
 // Compute the data size for 2d block load or store.
 template <int NBlocks, int Height, int Width, bool Transposed>
-constexpr int esimd_get_block_2d_data_size() {
+constexpr int get_block_2d_data_size() {
   if (Transposed)
     return detail::getNextPowerOf2<Height>() * Width * NBlocks;
   return detail::getNextPowerOf2<Width>() * Height * NBlocks;
@@ -1387,7 +1386,7 @@ constexpr int esimd_get_block_2d_data_size() {
 
 template <typename T, int NBlocks, int Height, int Width, bool Transposed,
           bool Transformed>
-constexpr int esimd_get_lsc_block_2d_data_size() {
+constexpr int get_lsc_block_2d_data_size() {
   if (Transformed)
     return detail::roundUpNextMultiple(Height, 4 / sizeof(T)) *
            detail::getNextPowerOf2<Width>() * NBlocks;
@@ -1419,14 +1418,13 @@ constexpr int esimd_get_lsc_block_2d_data_size() {
 ///  getNextPowerOf2(Height) * Width * NBlocks, if transposed
 ///  getNextPowerOf2(Width) * Height * NBlocks, otherwise
 ///
-template <
-    typename T, int Width, int Height = 1, int NBlks = 1,
-    bool Transposed = false, bool Transformed = false,
-    CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
-    int N = esimd_get_block_2d_data_size<NBlks, Height, Width, Transposed>()>
+template <typename T, int Width, int Height = 1, int NBlks = 1,
+          bool Transposed = false, bool Transformed = false,
+          CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
+          int N = get_block_2d_data_size<NBlks, Height, Width, Transposed>()>
 ESIMD_INLINE SYCL_ESIMD_FUNCTION simd<T, N>
-esimd_2d_statelss_load(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
-                       unsigned SurfacePitch, int X, int Y) {
+load_2d_stateless(const T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
+                  unsigned SurfacePitch, int X, int Y) {
   simd<T, N> oldDst;
   simd<unsigned int, 16> payload(0);
   payload.template format<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
@@ -1444,8 +1442,8 @@ esimd_2d_statelss_load(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
   constexpr uchar numSrc0 = 0x1;
   constexpr uchar numSrc1 = 0x0;
   constexpr uchar numDst = (N * sizeof(T)) / 64;
-  return esimd_raw_send_load(oldDst, payload, exDesc, desc, execSize, sfid,
-                             numSrc0, numDst);
+  return raw_send_load(oldDst, payload, exDesc, desc, execSize, sfid, numSrc0,
+                       numDst);
 }
 
 /// 2D stateless block store.
@@ -1470,11 +1468,11 @@ esimd_2d_statelss_load(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
 ///
 template <typename T, int Width, int Height = 1,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
-          int N = esimd_get_block_2d_data_size</*NBlks*/ 1, Height, Width,
-                                               /*Transposed*/ false>()>
+          int N = get_block_2d_data_size</*NBlks*/ 1, Height, Width,
+                                         /*Transposed*/ false>()>
 ESIMD_INLINE SYCL_ESIMD_FUNCTION void
-esimd_2d_statelss_store(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
-                        unsigned SurfacePitch, int X, int Y, simd<T, N> Data) {
+store_2d_stateless(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
+                   unsigned SurfacePitch, int X, int Y, simd<T, N> Data) {
   simd<unsigned int, 16> payload = 0;
   payload.template format<uint64_t>().template select<1, 1>(0) = (uint64_t)Ptr;
   payload.template select<1, 1>(2) = SurfaceWidth;
@@ -1491,8 +1489,8 @@ esimd_2d_statelss_store(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
   constexpr uchar numSrc0 = 0x1;
   constexpr uchar numSrc1 = (N * sizeof(T)) / 64;
   constexpr uchar numDst = 0x0;
-  esimd_raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
-                        numSrc1);
+  raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
+                  numSrc1);
 }
 
 /// SLM gather.
@@ -1517,8 +1515,8 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_slm_load(simd<uint32_t, N> offsets, simd_mask<N> pred = 1) {
+__ESIMD_API simd<T, N * NElts> lsc_slm_load(simd<uint32_t, N> offsets,
+                                            simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1550,7 +1548,7 @@ lsc_slm_load(simd<uint32_t, N> offsets, simd_mask<N> pred = 1) {
 template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, NElts> lsc_slm_load(uint32_t offset) {
+__ESIMD_API simd<T, NElts> lsc_slm_load(uint32_t offset) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1590,9 +1588,9 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_surf_load(AccessorTy acc, simd<uint32_t, N> offsets,
-              simd_mask<N> pred = 1) {
+__ESIMD_API simd<T, N * NElts> lsc_surf_load(AccessorTy acc,
+                                             simd<uint32_t, N> offsets,
+                                             simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1604,7 +1602,8 @@ lsc_surf_load(AccessorTy acc, simd<uint32_t, N> offsets,
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                              _Transposed, N>(pred.data(), offsets.data(), surf_ind);
+                              _Transposed, N>(pred.data(), offsets.data(),
+                                              surf_ind);
 #else
   return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                               _Transposed, N>(pred.data(), offsets.data(), acc);
@@ -1633,8 +1632,7 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, NElts> lsc_surf_load(AccessorTy acc,
-                                                        uint32_t offset) {
+__ESIMD_API simd<T, NElts> lsc_surf_load(AccessorTy acc, uint32_t offset) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1649,7 +1647,8 @@ ESIMD_INLINE ESIMD_NODEBUG simd<T, NElts> lsc_surf_load(AccessorTy acc,
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                              _Transposed, N>(pred.data(), offsets.data(), surf_ind);
+                              _Transposed, N>(pred.data(), offsets.data(),
+                                              surf_ind);
 #else
   return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                               _Transposed, N>(pred.data(), offsets.data(), acc);
@@ -1679,9 +1678,9 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_flat_load(T *p, simd<uint32_t, N> byte_offsets,
-              simd_mask<N> pred = 1) {
+__ESIMD_API simd<T, N * NElts> lsc_flat_load(const T *p,
+                                             simd<uint32_t, N> byte_offsets,
+                                             simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1693,7 +1692,8 @@ lsc_flat_load(T *p, simd<uint32_t, N> byte_offsets,
   simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
   addrs += convert<uintptr_t>(byte_offsets);
   return __esimd_lsc_load_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
-                                    _VS, _Transposed, N>(pred.data(), addrs.data());
+                                    _VS, _Transposed, N>(pred.data(),
+                                                         addrs.data());
 }
 
 /// Flat-address transposed gather with 1 channel.
@@ -1715,7 +1715,7 @@ lsc_flat_load(T *p, simd<uint32_t, N> byte_offsets,
 template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, NElts> lsc_flat_load(T *p) {
+__ESIMD_API simd<T, NElts> lsc_flat_load(const T *p) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1728,7 +1728,8 @@ ESIMD_INLINE ESIMD_NODEBUG simd<T, NElts> lsc_flat_load(T *p) {
   simd_mask<N> pred = 1;
   simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
   return __esimd_lsc_load_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
-                                    _VS, _Transposed, N>(pred.data(), addrs.data());
+                                    _VS, _Transposed, N>(pred.data(),
+                                                         addrs.data());
 }
 
 /// Accessor-based prefetch gather.
@@ -1753,9 +1754,8 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_surf_prefetch(AccessorTy acc,
-                                                  simd<uint32_t, N> offsets,
-                                                  simd_mask<N> pred = 1) {
+__ESIMD_API void lsc_surf_prefetch(AccessorTy acc, simd<uint32_t, N> offsets,
+                                   simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1767,7 +1767,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_surf_prefetch(AccessorTy acc,
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   __esimd_lsc_prefetch_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                           _Transposed, N>(pred.data(), offsets.data(), surf_ind);
+                           _Transposed, N>(pred.data(), offsets.data(),
+                                           surf_ind);
 #else
   __esimd_lsc_prefetch_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                            _Transposed, N>(pred.data(), offsets.data(), acc);
@@ -1794,8 +1795,7 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_surf_prefetch(AccessorTy acc,
-                                                  uint32_t offset) {
+__ESIMD_API void lsc_surf_prefetch(AccessorTy acc, uint32_t offset) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1810,7 +1810,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_surf_prefetch(AccessorTy acc,
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   __esimd_lsc_prefetch_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                           _Transposed, N>(pred.data(), offsets.data(), surf_ind);
+                           _Transposed, N>(pred.data(), offsets.data(),
+                                           surf_ind);
 #else
   __esimd_lsc_prefetch_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                            _Transposed, N>(pred.data(), offsets.data(), acc);
@@ -1838,9 +1839,8 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG void
-lsc_flat_prefetch(T *p, simd<uint32_t, N> byte_offsets,
-                  simd_mask<N> pred = 1) {
+__ESIMD_API void lsc_flat_prefetch(const T *p, simd<uint32_t, N> byte_offsets,
+                                   simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1852,7 +1852,8 @@ lsc_flat_prefetch(T *p, simd<uint32_t, N> byte_offsets,
   simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
   addrs += convert<uintptr_t>(byte_offsets);
   __esimd_lsc_prefetch_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
-                                 _VS, _Transposed, N>(pred.data(), addrs.data());
+                                 _VS, _Transposed, N>(pred.data(),
+                                                      addrs.data());
 }
 
 /// Flat-address prefetch transposed gather with 1 channel.
@@ -1872,7 +1873,7 @@ lsc_flat_prefetch(T *p, simd<uint32_t, N> byte_offsets,
 template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_prefetch(T *p) {
+__ESIMD_API void lsc_flat_prefetch(const T *p) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1885,7 +1886,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_prefetch(T *p) {
   simd_mask<N> pred = 1;
   simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
   __esimd_lsc_prefetch_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS,
-                                 _VS, _Transposed, N>(pred.data(), addrs.data());
+                                 _VS, _Transposed, N>(pred.data(),
+                                                      addrs.data());
 }
 
 /// SLM scatter.
@@ -1909,9 +1911,9 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_slm_store(simd<T, N * NElts> vals,
-                                              simd<uint32_t, N> offsets,
-                                              simd_mask<N> pred = 1) {
+__ESIMD_API void lsc_slm_store(simd<T, N * NElts> vals,
+                               simd<uint32_t, N> offsets,
+                               simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1921,7 +1923,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_slm_store(simd<T, N * NElts> vals,
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::nontranspose;
   __esimd_lsc_store_slm<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                        _Transposed, N>(pred.data(), offsets.data(), vals.data());
+                        _Transposed, N>(pred.data(), offsets.data(),
+                                        vals.data());
 }
 
 /// Transposed SLM scatter with 1 channel.
@@ -1942,8 +1945,7 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_slm_store(simd<T, N * NElts> vals,
 template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_slm_store(simd<T, NElts> vals,
-                                              uint32_t offset) {
+__ESIMD_API void lsc_slm_store(simd<T, NElts> vals, uint32_t offset) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1956,7 +1958,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_slm_store(simd<T, NElts> vals,
   simd_mask<N> pred = 1;
   simd<uint32_t, N> offsets = offset;
   __esimd_lsc_store_slm<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                        _Transposed, N>(pred.data(), offsets.data(), vals.data());
+                        _Transposed, N>(pred.data(), offsets.data(),
+                                        vals.data());
 }
 
 /// Accessor-based scatter.
@@ -1982,9 +1985,9 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG void
-lsc_surf_store(simd<T, N * NElts> vals, AccessorTy acc,
-               simd<uint32_t, N> offsets, simd_mask<N> pred = 1) {
+__ESIMD_API void lsc_surf_store(simd<T, N * NElts> vals, AccessorTy acc,
+                                simd<uint32_t, N> offsets,
+                                simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -1996,10 +1999,12 @@ lsc_surf_store(simd<T, N * NElts> vals, AccessorTy acc,
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                        _Transposed, N>(pred.data(), offsets.data(), vals.data(), surf_ind);
+                        _Transposed, N>(pred.data(), offsets.data(),
+                                        vals.data(), surf_ind);
 #else
   __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                        _Transposed, N>(pred.data(), offsets.data(), vals.data(), acc);
+                        _Transposed, N>(pred.data(), offsets.data(),
+                                        vals.data(), acc);
 #endif // __SYCL_DEVICE_ONLY__
 }
 
@@ -2024,8 +2029,8 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG void
-lsc_surf_store(simd<T, NElts> vals, AccessorTy acc, uint32_t offset) {
+__ESIMD_API void lsc_surf_store(simd<T, NElts> vals, AccessorTy acc,
+                                uint32_t offset) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -2040,10 +2045,12 @@ lsc_surf_store(simd<T, NElts> vals, AccessorTy acc, uint32_t offset) {
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                        _Transposed, N>(pred.data(), offsets.data(), vals.data(), surf_ind);
+                        _Transposed, N>(pred.data(), offsets.data(),
+                                        vals.data(), surf_ind);
 #else
   __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                        _Transposed, N>(pred.data(), offsets.data(), vals.data(), acc);
+                        _Transposed, N>(pred.data(), offsets.data(),
+                                        vals.data(), acc);
 #endif // __SYCL_DEVICE_ONLY__
 }
 
@@ -2069,9 +2076,9 @@ template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_store(T *p, simd<T, N * NElts> vals,
-                                               simd<uint32_t, N> byte_offsets,
-                                               simd_mask<N> pred = 1) {
+__ESIMD_API void lsc_flat_store(T *p, simd<T, N * NElts> vals,
+                                simd<uint32_t, N> byte_offsets,
+                                simd_mask<N> pred = 1) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -2083,7 +2090,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_store(T *p, simd<T, N * NElts> vals,
   simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
   addrs += convert<uintptr_t>(byte_offsets);
   __esimd_lsc_store_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                              _Transposed, N>(pred.data(), addrs.data(), vals.data());
+                              _Transposed, N>(pred.data(), addrs.data(),
+                                              vals.data());
 }
 
 /// Flat-address transposed scatter with 1 channel.
@@ -2104,7 +2112,7 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_store(T *p, simd<T, N * NElts> vals,
 template <typename T, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_store(T *p, simd<T, NElts> vals) {
+__ESIMD_API void lsc_flat_store(T *p, simd<T, NElts> vals) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   constexpr uint16_t _AddressScale = 1;
@@ -2117,7 +2125,8 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_store(T *p, simd<T, NElts> vals) {
   simd_mask<N> pred = 1;
   simd<uintptr_t, N> addrs = reinterpret_cast<uintptr_t>(p);
   __esimd_lsc_store_stateless<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
-                              _Transposed, N>(pred.data(), addrs.data(), vals.data());
+                              _Transposed, N>(pred.data(), addrs.data(),
+                                              vals.data());
 }
 
 /// 2D flat-address block load.
@@ -2154,14 +2163,14 @@ ESIMD_INLINE ESIMD_NODEBUG void lsc_flat_store(T *p, simd<T, NElts> vals) {
 template <typename T, int BlockWidth, int BlockHeight = 1, int NBlocks = 1,
           bool Transposed = false, bool Transformed = false,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
-          int N = esimd_get_lsc_block_2d_data_size<
+          int N = get_lsc_block_2d_data_size<
               T, NBlocks, BlockHeight, BlockWidth, Transposed, Transformed>()>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N>
-lsc_flat_load2d(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
-                unsigned SurfacePitch, int X, int Y) {
+__ESIMD_API simd<T, N> lsc_flat_load2d(const T *Ptr, unsigned SurfaceWidth,
+                                       unsigned SurfaceHeight,
+                                       unsigned SurfacePitch, int X, int Y) {
   static_assert(
-      N == esimd_get_lsc_block_2d_data_size<T, NBlocks, BlockHeight, BlockWidth,
-                                            Transposed, Transformed>(),
+      N == get_lsc_block_2d_data_size<T, NBlocks, BlockHeight, BlockWidth,
+                                      Transposed, Transformed>(),
       "Do not change this parameter");
   static_assert(!Transposed || !Transformed,
                 "Transposed and transformed is not supported");
@@ -2218,14 +2227,14 @@ lsc_flat_load2d(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
 template <typename T, int BlockWidth, int BlockHeight = 1, int NBlocks = 1,
           bool Transposed = false, bool Transformed = false,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
-          int N = esimd_get_lsc_block_2d_data_size<
+          int N = get_lsc_block_2d_data_size<
               T, NBlocks, BlockHeight, BlockWidth, Transposed, Transformed>()>
-ESIMD_INLINE ESIMD_NODEBUG void
-lsc_flat_prefetch2d(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
-                    unsigned SurfacePitch, int X, int Y) {
+__ESIMD_API void lsc_flat_prefetch2d(const T *Ptr, unsigned SurfaceWidth,
+                                     unsigned SurfaceHeight,
+                                     unsigned SurfacePitch, int X, int Y) {
   static_assert(
-      N == esimd_get_lsc_block_2d_data_size<T, NBlocks, BlockHeight, BlockWidth,
-                                            Transposed, Transformed>(),
+      N == get_lsc_block_2d_data_size<T, NBlocks, BlockHeight, BlockWidth,
+                                      Transposed, Transformed>(),
       "Do not change this parameter");
   constexpr lsc_data_size DS =
       detail::finalize_data_size<T, lsc_data_size::default_size>();
@@ -2271,15 +2280,14 @@ lsc_flat_prefetch2d(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
 template <typename T, int BlockWidth, int BlockHeight = 1,
           bool Transposed = false, bool Transformed = false,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
-          int N = esimd_get_lsc_block_2d_data_size<
-              T, 1u, BlockHeight, BlockWidth, Transposed, Transformed>()>
-ESIMD_INLINE ESIMD_NODEBUG void
-lsc_flat_store2d(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
-                 unsigned SurfacePitch, int X, int Y, simd<T, N> Vals) {
-  static_assert(
-      N == esimd_get_lsc_block_2d_data_size<T, 1u, BlockHeight, BlockWidth,
-                                            Transposed, Transformed>(),
-      "Do not change this parameter");
+          int N = get_lsc_block_2d_data_size<T, 1u, BlockHeight, BlockWidth,
+                                             Transposed, Transformed>()>
+__ESIMD_API void lsc_flat_store2d(T *Ptr, unsigned SurfaceWidth,
+                                  unsigned SurfaceHeight, unsigned SurfacePitch,
+                                  int X, int Y, simd<T, N> Vals) {
+  static_assert(N == get_lsc_block_2d_data_size<T, 1u, BlockHeight, BlockWidth,
+                                                Transposed, Transformed>(),
+                "Do not change this parameter");
   constexpr lsc_data_size DS =
       detail::finalize_data_size<T, lsc_data_size::default_size>();
   simd_mask<N> pred = 1;
@@ -2289,7 +2297,8 @@ lsc_flat_store2d(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
                  : detail::lsc_data_order::nontranspose;
   __esimd_lsc_store2d_stateless<T, L1H, L3H, DS, _Transposed, 1u, BlockWidth,
                                 BlockHeight, Transformed, N>(
-      pred.data(), surf_addr, SurfaceWidth, SurfaceHeight, SurfacePitch, X, Y, Vals.data());
+      pred.data(), surf_addr, SurfaceWidth, SurfaceHeight, SurfacePitch, X, Y,
+      Vals.data());
 }
 
 /// SLM atomic.
@@ -2311,8 +2320,8 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_slm_atomic(simd<uint32_t, N> offsets, simd_mask<N> pred) {
+__ESIMD_API simd<T, N * NElts> lsc_slm_atomic(simd<uint32_t, N> offsets,
+                                              simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_atomic<Op, 0>();
@@ -2324,7 +2333,8 @@ lsc_slm_atomic(simd<uint32_t, N> offsets, simd_mask<N> pred) {
       detail::lsc_data_order::nontranspose;
   constexpr detail::lsc_atomic_op _Op = detail::to_lsc_atomic_op<Op>();
   return __esimd_lsc_xatomic_slm_0<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data());
+                                   _DS, _VS, _Transposed, N>(pred.data(),
+                                                             offsets.data());
 }
 
 /// SLM atomic.
@@ -2347,9 +2357,9 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_slm_atomic(simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
-               simd_mask<N> pred) {
+__ESIMD_API simd<T, N * NElts> lsc_slm_atomic(simd<uint32_t, N> offsets,
+                                              simd<T, N * NElts> src0,
+                                              simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_atomic<Op, 1>();
@@ -2361,8 +2371,8 @@ lsc_slm_atomic(simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
       detail::lsc_data_order::nontranspose;
   constexpr detail::lsc_atomic_op _Op = detail::to_lsc_atomic_op<Op>();
   return __esimd_lsc_xatomic_slm_1<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data(),
-                                                             src0.data());
+                                   _DS, _VS, _Transposed, N>(
+      pred.data(), offsets.data(), src0.data());
 }
 
 /// SLM atomic.
@@ -2386,7 +2396,7 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
+__ESIMD_API simd<T, N * NElts>
 lsc_slm_atomic(simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
                simd<T, N * NElts> src1, simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
@@ -2400,8 +2410,8 @@ lsc_slm_atomic(simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
       detail::lsc_data_order::nontranspose;
   constexpr detail::lsc_atomic_op _Op = detail::to_lsc_atomic_op<Op>();
   return __esimd_lsc_xatomic_slm_2<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data(),
-                                                             src0.data(), src1.data());
+                                   _DS, _VS, _Transposed, N>(
+      pred.data(), offsets.data(), src0.data(), src1.data());
 }
 
 /// Accessor-based atomic.
@@ -2425,9 +2435,8 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
-                simd_mask<N> pred) {
+__ESIMD_API simd<T, N * NElts>
+lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets, simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_atomic<Op, 0>();
@@ -2441,12 +2450,12 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   return __esimd_lsc_xatomic_bti_0<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data(),
-                                                             surf_ind);
+                                   _DS, _VS, _Transposed, N>(
+      pred.data(), offsets.data(), surf_ind);
 #else
   return __esimd_lsc_xatomic_bti_0<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data(),
-                                                             acc);
+                                   _DS, _VS, _Transposed, N>(
+      pred.data(), offsets.data(), acc);
 #endif // __SYCL_DEVICE_ONLY__
 }
 
@@ -2472,7 +2481,7 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
+__ESIMD_API simd<T, N * NElts>
 lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
                 simd<T, N * NElts> src0, simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
@@ -2488,12 +2497,12 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
 #if defined(__SYCL_DEVICE_ONLY__)
   auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
   return __esimd_lsc_xatomic_bti_1<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data(),
-                                                             src0.data(), surf_ind);
+                                   _DS, _VS, _Transposed, N>(
+      pred.data(), offsets.data(), src0.data(), surf_ind);
 #else
   return __esimd_lsc_xatomic_bti_1<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data(),
-                                                             src0.data(), acc);
+                                   _DS, _VS, _Transposed, N>(
+      pred.data(), offsets.data(), src0.data(), acc);
 #endif // __SYCL_DEVICE_ONLY__
 }
 
@@ -2520,7 +2529,7 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N, typename AccessorTy>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
+__ESIMD_API simd<T, N * NElts>
 lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
                 simd<T, N * NElts> src0, simd<T, N * NElts> src1,
                 simd_mask<N> pred) {
@@ -2541,8 +2550,8 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
       pred.data(), offsets.data(), src0.data(), src1.data(), surf_ind);
 #else
   return __esimd_lsc_xatomic_bti_2<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
-                                   _DS, _VS, _Transposed, N>(pred.data(), offsets.data(),
-                                                             src0.data(), src1.data(), acc);
+                                   _DS, _VS, _Transposed, N>(
+      pred.data(), offsets.data(), src0.data(), src1.data(), acc);
 #endif // __SYCL_DEVICE_ONLY__
 }
 
@@ -2566,8 +2575,8 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_flat_atomic(T *p, simd<uint32_t, N> offsets, simd_mask<N> pred) {
+__ESIMD_API simd<T, N * NElts> lsc_flat_atomic(T *p, simd<uint32_t, N> offsets,
+                                               simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_atomic<Op, 0>();
@@ -2606,9 +2615,9 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
-lsc_flat_atomic(T *p, simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
-                simd_mask<N> pred) {
+__ESIMD_API simd<T, N * NElts> lsc_flat_atomic(T *p, simd<uint32_t, N> offsets,
+                                               simd<T, N * NElts> src0,
+                                               simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
   detail::check_lsc_data_size<T, DS>();
   detail::check_lsc_atomic<Op, 1>();
@@ -2648,7 +2657,7 @@ template <typename T, atomic_op Op, uint8_t NElts = 1,
           lsc_data_size DS = lsc_data_size::default_size,
           CacheHint L1H = CacheHint::None, CacheHint L3H = CacheHint::None,
           int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<T, N * NElts>
+__ESIMD_API simd<T, N * NElts>
 lsc_flat_atomic(T *p, simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
                 simd<T, N * NElts> src1, simd_mask<N> pred) {
   detail::check_lsc_vector_size<NElts>();
@@ -2679,7 +2688,7 @@ lsc_flat_atomic(T *p, simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
 template <lsc_sfid Sfid = lsc_sfid::ugm,
           lsc_fence_op FenceOp = lsc_fence_op::none,
           lsc_scope Scope = lsc_scope::group, int N = 16>
-ESIMD_INLINE ESIMD_NODEBUG void lsc_fence(simd_mask<N> pred = 1) {
+__ESIMD_API void lsc_fence(simd_mask<N> pred = 1) {
   static_assert(Sfid != lsc_sfid::slm || (FenceOp == lsc_fence_op::none &&
                                           Scope == lsc_scope::group),
                 "SLM fence must have 'none' lsc_fence_op and 'group' scope");

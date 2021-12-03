@@ -1178,8 +1178,11 @@ public:
       return Context.getTargetAddressSpace(LangAS::Default);
     return getDataLayout().getAllocaAddrSpace();
   }
-  void addDeferredAliasTarget(GlobalDecl AliasTarget) {
-    addDeferredDeclToEmit(AliasTarget);
+  // During the OpenMP device compile there are some cases where a function
+  // must be emitted that is found outside CodeGenModule code. Rather than pass
+  // this back up and change common code, expose this publically for now.
+  void addDeferredTargetDecl(GlobalDecl Decl) {
+    addDeferredDeclToEmit(Decl);
   }
 #endif // INTEL_COLLAB
 
@@ -1281,6 +1284,9 @@ public:
     }
   }
 
+  llvm::Function *
+  addDTransInfoToFunc(const CodeGenTypes::DTransFuncInfo &FuncInfo,
+                      llvm::FunctionType *FT, llvm::Function *Func);
   llvm::Function *addDTransInfoToFunc(GlobalDecl GD, StringRef MangledName,
                                       llvm::FunctionType *FT,
                                       llvm::Function *Func);

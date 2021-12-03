@@ -3411,7 +3411,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
         InstCGIsSVADriven && SVA->instNeedsLastScalarCode(VInst) &&
         !SVA->instNeedsFirstScalarCode(VInst) &&
         !SVA->instNeedsVectorCode(VInst);
-    assert(!requiresUnsupportedSVAFeatures(VInst, Plan) &&
+    assert(!VInst || !requiresUnsupportedSVAFeatures(VInst, Plan) &&
            "Bcast of (F L) sequence of SVA bits is not supported.");
     if (IsUniform || NeedsFirstLaneBcastForNonSVADrivenCG ||
         NeedsLastLaneBcastForNonSVADrivenCG) {

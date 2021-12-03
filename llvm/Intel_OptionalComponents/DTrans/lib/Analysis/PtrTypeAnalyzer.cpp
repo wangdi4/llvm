@@ -13,6 +13,7 @@
 #include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
+#include "Intel_DTrans/Analysis/DTransLibraryInfo.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
@@ -254,7 +255,8 @@ public:
       LLVMContext &Ctx, DTransTypeManager &TM, TypeMetadataReader &MDReader,
       const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
-      : TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {
+      : TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI),
+        DTransLibInfo(TM, GetTLI) {
     LLVMI8Type = llvm::Type::getInt8Ty(Ctx);
     LLVMPointerSizedIntType =
         llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -397,6 +399,9 @@ private:
   const DataLayout &DL;
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
 
+  // Class that provides information about DTransTypes for library functions.
+  DTransLibraryInfo DTransLibInfo;
+
   // We cannot use DenseMap or ValueMap here because we are inserting values
   // during recursive calls to analyzeValue() and with a DenseMap or
   // ValueMap that would cause the LocalPointerInfo to be copied and our
@@ -493,21 +498,11 @@ class PtrTypeAnalyzerInstVisitor
 public:
   PtrTypeAnalyzerInstVisitor(
       PtrTypeAnalyzerImpl &PTA, DTransTypeManager &TM,
-      TypeMetadataReader &MDReader, DTransAllocCollector &DTAC,
-      LLVMContext &Ctx, const DataLayout &DL,
+      TypeMetadataReader &MDReader, DTransLibraryInfo &DTransLibInfo,
+      DTransAllocCollector &DTAC, LLVMContext &Ctx, const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
-      : PTA(PTA), TM(TM), MDReader(MDReader), DTAC(DTAC), DL(DL),
-        GetTLI(GetTLI) {
-
-    // If the metadata contained a description of the system object type for
-    // %struct._IO_FILE, use it. Otherwise, default the type to be an i8* since
-    // there must not be any accesses of structure elements for it within the
-    // user program.
-    DTransType *StTy = TM.getStructType("struct._IO_FILE");
-    if (StTy)
-      DTransIOPtrTy = TM.getOrCreatePointerType(StTy);
-    else
-      DTransIOPtrTy = PTA.getDTransI8PtrType();
+      : PTA(PTA), TM(TM), MDReader(MDReader), DTransLibInfo(DTransLibInfo),
+        DTAC(DTAC), DL(DL), GetTLI(GetTLI) {
 
     // The landingpad instruction will always result in the literal structure:
     //   { i8*, i32 }
@@ -538,6 +533,17 @@ public:
         DTransType *DType = TM.getOrCreateSimpleType(FnType);
         assert(DType && "Expected simple type");
         PTA.setDeclaredType(&F, TM.getOrCreatePointerType(DType));
+        continue;
+      }
+
+      // Check whether this is a standard library function that we have type
+      // information for. This commonly occurs when a function which was not
+      // present when the front-end generated metadata gets inserted from a
+      // transformation pass, such as when replacing a 'printf' call with a
+      // 'puts' call.
+      DTransFunctionType *DFnTy = DTransLibInfo.getDTransFunctionType(&F);
+      if (DFnTy) {
+        PTA.setDeclaredType(&F, TM.getOrCreatePointerType(DFnTy));
         continue;
       }
 
@@ -598,8 +604,8 @@ public:
     // to see a structure type defined for struct._IO_FILE, and these will
     // just be defined as being of type 'p0'
     DTransType *DTy = StringSwitch<DTransType *>(GV.getName())
-                          .Case("stdout", getDTransIOPtrTy())
-                          .Case("stderr", getDTransIOPtrTy())
+                          .Case("stdout", DTransLibInfo.getDTransIOPtrType())
+                          .Case("stderr", DTransLibInfo.getDTransIOPtrType())
                           .Default(nullptr);
 
     if (DTy) {
@@ -2211,32 +2217,6 @@ private:
   std::pair<bool, DTransType *>
   getFunctionReturnType(Function *F, const TargetLibraryInfo &TLI) {
 
-    // Helper lambda for getting the type returned by a library call.
-    // TODO: For now, just hard code some common cases that are of interest
-    // since there are not many functions that return pointers. In the future,
-    // we may need a metadata table.
-    auto GetLibCallReturnType = [this](LibFunc TheLibFunc) -> DTransType * {
-      switch (TheLibFunc) {
-      default:
-        return nullptr;
-
-        // Functions that are known to just return an i8*
-      case LibFunc_cxa_allocate_exception:
-      case LibFunc_calloc:
-      case LibFunc_fgets_unlocked:
-      case LibFunc_malloc:
-      case LibFunc_realloc:
-      case LibFunc_strcpy:
-      case LibFunc_Znam:
-      case LibFunc_Znwm:
-        return PTA.getDTransI8PtrType();
-
-        // Functions that return the system object for FILE*
-      case LibFunc_fopen:
-        return getDTransIOPtrTy();
-      }
-    };
-
     // Check whether the return value will be of interest.
     llvm::Type *RetType = F->getReturnType();
     if (!dtrans::hasPointerType(RetType))
@@ -2250,138 +2230,11 @@ private:
       return {true, DRetTy};
     }
 
-    // TODO: Add a list of types returned by intrinsic functions, if there are
-    // any of interest.
-    if (F->isIntrinsic())
-      return {true, nullptr};
-
-    // Check if the call is to a libfunc. If so, use a table to get the
-    // type produced by the call.
-    LibFunc TheLibFunc;
-    if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
-      return {true, GetLibCallReturnType(TheLibFunc)};
-    }
-
-    // The function returns a type of interest, but we do not have information
-    // about the type. In the future, it may be possible to analyze the return
-    // instructions within the function body when there is missing metadata to
-    // try to resolve the return type.
-    return {true, nullptr};
+    return {true, DTransLibInfo.getFunctionReturnType(F)};
   }
 
   // Determine the type that a function is expected to use the argument as.
   std::pair<bool, DTransType *> getArgumentType(CallBase *Call, unsigned Idx) {
-    // Helper lambda for getting the argument type of an intrinsic function. The
-    // majority of intrinsics do not have pointer arguments, and the few that do
-    // usually just take an i8*. A simple table here will suffice for now.
-    auto GetIntrinsicArgumentType =
-        [this](Intrinsic::ID IntrinId,
-               unsigned Idx) -> std::pair<bool, DTransType *> {
-      switch (IntrinId) {
-      default:
-        LLVM_DEBUG(
-            dbgs()
-            << "Warning intrinsic not in table. Unknown pointer type for Idx @ "
-            << Idx << "\n");
-        return {true, nullptr};
-
-        // We do not need to the treat the argument to these intrinsics as being
-        // used as a pointer type.
-      case Intrinsic::dbg_addr:
-      case Intrinsic::dbg_declare:
-      case Intrinsic::dbg_label:
-      case Intrinsic::dbg_value:
-        return {false, nullptr};
-
-        // Any pointer argument to these intrinsics is being used as i8*
-      case Intrinsic::lifetime_end:
-      case Intrinsic::lifetime_start:
-      case Intrinsic::memcpy:
-      case Intrinsic::memmove:
-      case Intrinsic::memset:
-      case Intrinsic::prefetch:
-      case Intrinsic::vacopy:
-      case Intrinsic::vaend:
-      case Intrinsic::vastart:
-        break;
-
-        // TODO:  Add cases where specific pointer argument is not i8*, if
-        // needed
-      }
-
-      return {true, PTA.getDTransI8PtrType()};
-    };
-
-    // Helper lambda for getting the argument type of a library call. Most of
-    // these just take i8*.
-    auto GetLibCallArgumentType =
-        [this](LibFunc TheLibFunc,
-               unsigned Idx) -> std::pair<bool, DTransType *> {
-      // It should be safe to treat any pointer as an i8*, except in the few
-      // rare cases where a pointer to a structure is used. For now, a more
-      // conservative approach is taken of requiring the LibFunc to be
-      // explicitly listed in the table.
-      switch (TheLibFunc) {
-      default:
-        LLVM_DEBUG(
-            dbgs()
-            << "Warning LibFunc not in table. Unknown pointer type for Idx @ "
-            << Idx << "\n");
-        return {true, nullptr};
-
-        // Any pointer argument to these LibFuncs is being used as i8*
-      case LibFunc_dunder_isoc99_scanf:
-      case LibFunc_dunder_isoc99_sscanf:
-      case LibFunc_fopen:
-      case LibFunc_free:
-      case LibFunc_printf:
-      case LibFunc_puts:
-      case LibFunc_realloc:
-      case LibFunc_sprintf:
-      case LibFunc_strcpy:
-      case LibFunc_ZdlPv:
-      case LibFunc_ZdaPv:
-        break;
-
-        // Handle cases where the argument may be used as something other than
-        // i8*. Argument positions not listed will be treated as i8*.
-      case LibFunc_fgets_unlocked:
-        if (Idx == 2)
-          return {true, getDTransIOPtrTy()};
-        break;
-
-      case LibFunc_fclose:
-      case LibFunc_fflush:
-      case LibFunc_ftell:
-        if (Idx == 0)
-          return {true, getDTransIOPtrTy()};
-
-        break;
-
-      case LibFunc_fread:
-      case LibFunc_fwrite:
-        if (Idx == 3)
-          return {true, getDTransIOPtrTy()};
-
-        break;
-
-      case LibFunc_fprintf:
-        if (Idx == 0)
-          return {true, getDTransIOPtrTy()};
-
-        break;
-
-      case LibFunc_strtol:
-        if (Idx == 1)
-          return {true,
-                  TM.getOrCreatePointerType(PTA.getDTransI8PtrType())}; // i8**
-        break;
-      }
-
-      // All cases that exit the switch table means the argument is an i8*.
-      return {true, PTA.getDTransI8PtrType()};
-    };
-
     if (!dtrans::hasPointerType(Call->getArgOperand(Idx)->getType()))
       return {false, nullptr};
 
@@ -2441,15 +2294,12 @@ private:
     if (!Target)
       return {true, nullptr};
 
-    if (Target->isIntrinsic())
-      return GetIntrinsicArgumentType(Target->getIntrinsicID(), Idx);
+    // Ignore any llvm.dbg.* intrinsics, since they don't provide meaning
+    // DTransType information.
+    if (Target->isIntrinsic() && isa<DbgInfoIntrinsic>(Target))
+      return {false, nullptr};
 
-    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
-    LibFunc TheLibFunc;
-    if (TLI.getLibFunc(Target->getName(), TheLibFunc) && TLI.has(TheLibFunc))
-      return GetLibCallArgumentType(TheLibFunc, Idx);
-
-    return {true, nullptr};
+    return {true, DTransLibInfo.getFunctionArgumentType(Target, Idx)};
   }
 
   void analyzeGetElementPtrOperator(GEPOperator *GEP,
@@ -3496,7 +3346,6 @@ private:
     });
   }
 
-  DTransPointerType *getDTransIOPtrTy() const { return DTransIOPtrTy; }
   DTransStructType *getDTransLandingPadTy() const {
     return DTransLandingPadTy;
   }
@@ -3508,12 +3357,10 @@ private:
   PtrTypeAnalyzerImpl &PTA;
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
+  DTransLibraryInfo &DTransLibInfo;
   DTransAllocCollector &DTAC;
   const DataLayout &DL;
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
-
-  // Representation of %struct._IO_FILE*
-  DTransPointerType *DTransIOPtrTy;
 
   // A landing pad instruction generates a literal structure of the form:
   // { i8*, i32 }. Represent this in the DTransType system.
@@ -3881,10 +3728,11 @@ PtrTypeAnalyzerImpl::getByteFlattenedGEPElement(GEPOperator *GEP) const {
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
+  DTransLibInfo.initialize(M);
   DTransAllocCollector DTAC(MDReader, GetTLI);
   DTAC.populateAllocDeallocTable(M);
-  PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, DTAC,
-                                          M.getContext(), DL, GetTLI);
+  PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, DTransLibInfo,
+                                          DTAC, M.getContext(), DL, GetTLI);
   InstAnalyzer.visit(M);
 }
 

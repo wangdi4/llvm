@@ -2496,8 +2496,7 @@ template <typename T, int N> simd<T, N> dp4(simd<T, N> v1, simd<T, N> v2) {
 /// \param src0 vector of float32 values.
 /// \return vector of converted bf16 values.
 template <int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<bfloat16, N>
-convert_to_bf16(simd<float, N> src0) {
+__ESIMD_API simd<bfloat16, N> convert_to_bf16(simd<float, N> src0) {
   return __esimd_bf_cvt<N>(src0.data());
 }
 
@@ -2505,7 +2504,7 @@ convert_to_bf16(simd<float, N> src0) {
 /// Available on the ATS, PVC platforms.
 /// \param src0 scalar float32 value.
 /// \return converted scalar bf16 value.
-ESIMD_INLINE ESIMD_NODEBUG bfloat16 convert_to_bf16(float src0) {
+__ESIMD_API bfloat16 convert_to_bf16(float src0) {
   simd<float, 1> src_0 = src0;
   simd<bfloat16, 1> Result = convert_to_bf16<1>(src_0);
   return Result[0];
@@ -2517,8 +2516,7 @@ ESIMD_INLINE ESIMD_NODEBUG bfloat16 convert_to_bf16(float src0) {
 /// \param src0 vector of bf16 values.
 /// \return vector of converted float32 values.
 template <int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<float, N>
-convert_from_bf16(simd<bfloat16, N> src0) {
+__ESIMD_API simd<float, N> convert_from_bf16(simd<bfloat16, N> src0) {
   return __esimd_bf_cvt<N>(src0.data());
 }
 
@@ -2526,7 +2524,7 @@ convert_from_bf16(simd<bfloat16, N> src0) {
 /// Available on the ATS, PVC platforms.
 /// \param src0 scalar bf16 value.
 /// \return converted scalar float32 value.
-ESIMD_INLINE ESIMD_NODEBUG float convert_from_bf16(bfloat16 src0) {
+__ESIMD_API float convert_from_bf16(bfloat16 src0) {
   simd<bfloat16, 1> src_0 = src0;
   simd<float, 1> Result = convert_from_bf16<1>(src_0);
   return Result[0];
@@ -2538,8 +2536,7 @@ ESIMD_INLINE ESIMD_NODEBUG float convert_from_bf16(bfloat16 src0) {
 /// \param src0 fp32 operand that requires convertion to "tf32"
 /// \return the vector of integers that contains the result of conversion
 template <typename SrcType, int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<uint32_t, N>
-convert_to_tf32(simd<SrcType, N> src0) {
+__ESIMD_API simd<uint32_t, N> convert_to_tf32(simd<SrcType, N> src0) {
   static_assert(detail::is_fp_type<SrcType>::value,
                 "only fp32(float)->tf32 conversions are supported");
   return __esimd_tf32_cvt<N>(src0.data());
@@ -2551,8 +2548,7 @@ convert_to_tf32(simd<SrcType, N> src0) {
 /// \param src0 "tf32" operand that requires convertion to fp32
 /// \return the vector of fp32 that contains the result of conversion
 template <typename DstType, int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<DstType, N>
-convert_from_tf32(simd<uint32_t, N> src0) {
+simd<DstType, N> convert_from_tf32(simd<uint32_t, N> src0) {
   static_assert(detail::is_fp_type<DstType>::value,
                 "only tf32->fp32(float) conversions are supported");
   // convertion from tf32 to fp32 is just a bitcast
@@ -2565,8 +2561,7 @@ convert_from_tf32(simd<uint32_t, N> src0) {
 /// \param src0 fp32 operand that requires convertion to "bf8"
 /// \return the vector of integers that contains the result of conversion
 template <typename SrcType, int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<uint8_t, N>
-convert_to_bf8(simd<SrcType, N> src0) {
+__ESIMD_API simd<uint8_t, N> convert_to_bf8(simd<SrcType, N> src0) {
   static_assert(detail::is_fp_type<SrcType>::value,
                 "only fp32(float)->bf8 conversions are supported");
   return __esimd_qf_cvt<N, uint8_t, SrcType>(src0.data());
@@ -2578,8 +2573,7 @@ convert_to_bf8(simd<SrcType, N> src0) {
 /// \param src0 bf8 operand that requires convertion to fp32
 /// \return the vector of fp32 value that contains the result of conversion
 template <typename DstType, int N>
-ESIMD_INLINE ESIMD_NODEBUG simd<DstType, N>
-convert_from_bf8(simd<uint8_t, N> src0) {
+__ESIMD_API simd<DstType, N> convert_from_bf8(simd<uint8_t, N> src0) {
   static_assert(detail::is_fp_type<DstType>::value,
                 "only bf8->fp32(float) conversions are supported");
   using SrcType = typename decltype(src0)::element_type;
@@ -2596,7 +2590,7 @@ template <> struct SrndPrecisionTypeStorage<EsimdPrecisionType::FP16> {
   using StorageT = cl::sycl::detail::half_impl::StorageT;
 };
 
-/// esimd_srnd - perform stochastic rounding.
+/// srnd - perform stochastic rounding.
 // Supported convertions:
 //   half -> bf8
 //   fp32 (float) -> half
@@ -2607,9 +2601,8 @@ template <> struct SrndPrecisionTypeStorage<EsimdPrecisionType::FP16> {
 /// \param src1 random number used for rounding
 /// \return the converted value
 template <EsimdPrecisionType DstPrecision, int N, typename SrcType>
-ESIMD_NODEBUG ESIMD_INLINE
-    simd<typename SrndPrecisionTypeStorage<DstPrecision>::StorageT, N>
-    esimd_srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
+__ESIMD_API simd<typename SrndPrecisionTypeStorage<DstPrecision>::StorageT, N>
+srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
 
   using DstStorageT = typename SrndPrecisionTypeStorage<DstPrecision>::StorageT;
   constexpr bool is_bf8_fp32 = (DstPrecision == EsimdPrecisionType::BF8) &&
@@ -2723,9 +2716,8 @@ constexpr unsigned get_precision_bits(EsimdPrecisionType src_precision) {
 template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
           typename T, int systolic_depth, int repeat_count, typename T0,
           typename T1, typename T2, int N, int N1, int N2>
-ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
-esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
-           int flag = GENX_NOSAT) {
+__ESIMD_API simd<T, N> dpas(simd<T0, N> src0, simd<T1, N1> src1,
+                            simd<T2, N2> src2, int flag = GENX_NOSAT) {
   // types: dst, src0, src1, src2
   // ud, d | ud, d | ub, b | ub, b
   // ud, d | ud, d | u4, s4, u2, s2 | ub, b
@@ -2864,7 +2856,7 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   if (flag != GENX_SAT)
     return result;
 
-  return esimd_sat<T>(result);
+  return saturate<T>(result);
 }
 
 /// APIs below are used to implement dot product accumulate systolic functions
@@ -2882,11 +2874,10 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
 template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
-ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
-esimd_dpas(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
-           int flag = GENX_NOSAT) {
-  return esimd_dpas<src1_precision, src2_precision, T, systolic_depth,
-                    repeat_count>(src0, src1, src2, flag);
+__ESIMD_API simd<T, N> dpas(simd<T, N> src0, simd<T1, N1> src1,
+                            simd<T2, N2> src2, int flag = GENX_NOSAT) {
+  return dpas<src1_precision, src2_precision, T, systolic_depth, repeat_count>(
+      src0, src1, src2, flag);
 }
 
 /// DPAS
@@ -2899,8 +2890,8 @@ esimd_dpas(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
 template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
-ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
-esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
+__ESIMD_API simd<T, N> dpas(simd<T1, N1> src1, simd<T2, N2> src2,
+                            int flag = GENX_NOSAT) {
 
   static_assert(detail::is_fp_or_dword_type<T>::value,
                 "Dst must be FP or DWORD type");
@@ -2953,7 +2944,7 @@ esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
   if (flag != GENX_SAT)
     return result;
 
-  return esimd_sat<T>(result);
+  return saturate<T>(result);
 }
 
 /// DPASW
@@ -2968,9 +2959,8 @@ esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
 template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
-ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
-esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
-            int flag = GENX_NOSAT) {
+__ESIMD_API simd<T, N> dpasw(simd<T, N> src0, simd<T1, N1> src1,
+                             simd<T2, N2> src2, int flag = GENX_NOSAT) {
   constexpr bool is_4xhf =
       (detail::is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
       src1_precision == src2_precision &&
@@ -3033,7 +3023,7 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   if (flag != GENX_SAT)
     return result;
 
-  return esimd_sat<T>(result);
+  return saturate<T>(result);
 }
 
 /// DPASW2
@@ -3046,8 +3036,8 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
 template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
           int systolic_depth, int repeat_count, typename T, typename T1,
           typename T2, int N, int N1, int N2>
-ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
-esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
+__ESIMD_API simd<T, N> dpasw2(simd<T1, N1> src1, simd<T2, N2> src2,
+                              int flag = GENX_NOSAT) {
   constexpr bool is_4xhf =
       (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
       src1_precision == src2_precision &&
@@ -3110,7 +3100,7 @@ esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
   if (flag != GENX_SAT)
     return result;
 
-  return esimd_sat<T>(result);
+  return saturate<T>(result);
 }
 /// @}
 

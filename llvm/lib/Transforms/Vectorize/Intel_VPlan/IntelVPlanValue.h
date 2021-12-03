@@ -797,17 +797,17 @@ protected:
       : VPValue(VPValue::VPMetadataAsValueSC, MDAsValue->getType(), MDAsValue) {
   }
 
+  /// Return the Metadata of the underlying MetadataAsValue.
+  Metadata *getMetadata() { return getMetadataAsValue()->getMetadata(); }
+
+public:
   /// Return the underlying MetadataAsValue.
-  MetadataAsValue *getMetadataAsValue() {
+  MetadataAsValue *getMetadataAsValue() const {
     assert(isa<MetadataAsValue>(getUnderlyingValue()) &&
            "Expected MetadataAsValue as underlying Value.");
     return cast<MetadataAsValue>(getUnderlyingValue());
   }
 
-  /// Return the Metadata of the underlying MetadataAsValue.
-  Metadata *getMetadata() { return getMetadataAsValue()->getMetadata(); }
-
-public:
   VPMetadataAsValue(const VPMetadataAsValue &) = delete;
   VPMetadataAsValue &operator=(const VPMetadataAsValue &) const = delete;
 

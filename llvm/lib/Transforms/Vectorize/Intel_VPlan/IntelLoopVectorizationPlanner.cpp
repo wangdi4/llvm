@@ -1428,6 +1428,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   VPLoop *VPLp = *(Plan.getVPLoopInfo()->begin());
   VPBasicBlock *Header = VPLp->getHeader();
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
+  if (!LE)
+    return false;
   // Check whether all reductions are supported
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
@@ -1457,6 +1459,8 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
   if (EnableAllLiveOuts)
     return true;
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
+  if (!LE)
+    return false;
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB) {
       if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {

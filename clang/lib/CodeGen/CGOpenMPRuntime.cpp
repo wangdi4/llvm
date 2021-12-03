@@ -1754,8 +1754,16 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
     llvm::Value *Ptr = CGM.getModule().getNamedValue(PtrName);
     if (!Ptr) {
       QualType PtrTy = CGM.getContext().getPointerType(VD->getType());
+#if INTEL_COLLAB
+      assert(VD->hasLinkage() || VD->isStaticDataMember());
+      unsigned AS = CGM.getContext().getTargetAddressSpace(
+          CGM.GetGlobalVarAddressSpace(VD));
+      Ptr = getOrCreateInternalVariable(CGM.getTypes().ConvertTypeForMem(PtrTy),
+                                        PtrName, AS);
+#else // INTEL_COLLAB
       Ptr = getOrCreateInternalVariable(CGM.getTypes().ConvertTypeForMem(PtrTy),
                                         PtrName);
+#endif  // INTEL_COLLAB
 
       auto *GV = cast<llvm::GlobalVariable>(Ptr);
       GV->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
@@ -11461,13 +11469,18 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
 #if INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutlineTarget)
 #endif // INTEL_CUSTOMIZATION
-    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline &&
-        !FD->hasAttr<OMPDeclareTargetDeclAttr>()) {
-      // Force function to be emitted
-      if (isa<CXXConstructorDecl>(FD) || isa<CXXDestructorDecl>(FD))
-        CGM.getAddrOfCXXStructor(GD);
-      else
-        CGM.GetAddrOfFunction(GD);
+    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline) {
+      if (FD->hasAttr<OMPDeclareTargetDeclAttr>()) {
+        // Add to the deferred list to force it to be emitted normally.
+        CGM.addDeferredTargetDecl(GD);
+      } else {
+        // Force function to be emitted since it won't necessarily be emitted
+        // otherwise.
+        if (isa<CXXConstructorDecl>(FD) || isa<CXXDestructorDecl>(FD))
+          CGM.getAddrOfCXXStructor(GD);
+        else
+          CGM.GetAddrOfFunction(GD);
+      }
       return false;
     }
 

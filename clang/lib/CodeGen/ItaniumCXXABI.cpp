@@ -1341,7 +1341,22 @@ static llvm::FunctionCallee getAllocateExceptionFn(CodeGenModule &CGM) {
     llvm::FunctionType::get(CGM.Int8PtrTy, CGM.SizeTy, /*isVarArg=*/false);
 #endif  // INTEL_COLLAB
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee =
+      CGM.CreateRuntimeFunction(FTy, "__cxa_allocate_exception");
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGM.getContext();
+    CGM.addDTransInfoToFunc(
+        CodeGenTypes::DTransFuncInfo{Ctx.getPointerType(Ctx.CharTy),
+                                     {Ctx.getSizeType()}},
+        FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(FTy, "__cxa_allocate_exception");
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
@@ -1357,7 +1372,22 @@ static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.VoidTy, Args, /*isVarArg=*/false);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee =
+      CGM.CreateRuntimeFunction(FTy, "__cxa_throw");
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGM.getContext();
+    QualType CharPtr = Ctx.getPointerType(Ctx.CharTy);
+    CGM.addDTransInfoToFunc(
+        CodeGenTypes::DTransFuncInfo{Ctx.VoidTy, {CharPtr, CharPtr, CharPtr}},
+        FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(FTy, "__cxa_throw");
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ItaniumCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
@@ -1427,7 +1457,23 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
   llvm::AttributeList Attrs = llvm::AttributeList::get(
       CGF.getLLVMContext(), llvm::AttributeList::FunctionIndex, FuncAttrs);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee =
+      CGF.CGM.CreateRuntimeFunction(FTy, "__dynamic_cast", Attrs);
+  if (CGF.CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGF.getContext();
+    QualType CharPtr = Ctx.getPointerType(Ctx.CharTy);
+    CGF.CGM.addDTransInfoToFunc(
+        CodeGenTypes::DTransFuncInfo{
+            CharPtr, {CharPtr, CharPtr, CharPtr, Ctx.getPointerDiffType()}},
+        FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGF.CGM.CreateRuntimeFunction(FTy, "__dynamic_cast", Attrs);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 static llvm::FunctionCallee getBadCastFn(CodeGenFunction &CGF) {
@@ -2399,51 +2445,140 @@ llvm::Value *ARMCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
 
 /*********************** Static local initialization **************************/
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+static llvm::FunctionCallee getGuardAcquireFn(CodeGenModule &CGM,
+                                              llvm::PointerType *GuardPtrTy,
+                                              QualType ClangGuardPtrTy) {
+#else // INTEL_FEATURE_SW_DTRANS
 static llvm::FunctionCallee getGuardAcquireFn(CodeGenModule &CGM,
                                               llvm::PointerType *GuardPtrTy) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   // int __cxa_guard_acquire(__guard *guard_object);
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.getTypes().ConvertType(CGM.getContext().IntTy),
                             GuardPtrTy, /*isVarArg=*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee = CGM.CreateRuntimeFunction(
+      FTy, "__cxa_guard_acquire",
+      llvm::AttributeList::get(CGM.getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex,
+                               llvm::Attribute::NoUnwind));
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    CGM.addDTransInfoToFunc(
+        CodeGenTypes::DTransFuncInfo{CGM.getContext().IntTy, {ClangGuardPtrTy}},
+        FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(
       FTy, "__cxa_guard_acquire",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+static llvm::FunctionCallee getGuardReleaseFn(CodeGenModule &CGM,
+                                              llvm::PointerType *GuardPtrTy,
+                                              QualType ClangGuardPtrTy) {
+#else // INTEL_FEATURE_SW_DTRANS
 static llvm::FunctionCallee getGuardReleaseFn(CodeGenModule &CGM,
                                               llvm::PointerType *GuardPtrTy) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   // void __cxa_guard_release(__guard *guard_object);
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.VoidTy, GuardPtrTy, /*isVarArg=*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee = CGM.CreateRuntimeFunction(
+      FTy, "__cxa_guard_release",
+      llvm::AttributeList::get(CGM.getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex,
+                               llvm::Attribute::NoUnwind));
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    CGM.addDTransInfoToFunc(
+        CodeGenTypes::DTransFuncInfo{CGM.getContext().VoidTy,
+                                     {ClangGuardPtrTy}},
+        FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(
       FTy, "__cxa_guard_release",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+static llvm::FunctionCallee getGuardAbortFn(CodeGenModule &CGM,
+                                            llvm::PointerType *GuardPtrTy,
+                                            QualType ClangGuardPtrTy) {
+#else // INTEL_FEATURE_SW_DTRANS
 static llvm::FunctionCallee getGuardAbortFn(CodeGenModule &CGM,
                                             llvm::PointerType *GuardPtrTy) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   // void __cxa_guard_abort(__guard *guard_object);
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.VoidTy, GuardPtrTy, /*isVarArg=*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee = CGM.CreateRuntimeFunction(
+      FTy, "__cxa_guard_abort",
+      llvm::AttributeList::get(CGM.getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex,
+                               llvm::Attribute::NoUnwind));
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    CGM.addDTransInfoToFunc(
+        CodeGenTypes::DTransFuncInfo{CGM.getContext().VoidTy,
+                                     {ClangGuardPtrTy}},
+        FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(
       FTy, "__cxa_guard_abort",
       llvm::AttributeList::get(CGM.getLLVMContext(),
                                llvm::AttributeList::FunctionIndex,
                                llvm::Attribute::NoUnwind));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
   struct CallGuardAbort final : EHScopeStack::Cleanup {
     llvm::GlobalVariable *Guard;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    QualType GuardTy;
+    CallGuardAbort(llvm::GlobalVariable *Guard, QualType GuardTy)
+        : Guard(Guard), GuardTy(GuardTy) {}
+#else // INTEL_FEATURE_SW_DTRANS
     CallGuardAbort(llvm::GlobalVariable *Guard) : Guard(Guard) {}
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     void Emit(CodeGenFunction &CGF, Flags flags) override {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+      CGF.EmitNounwindRuntimeCall(
+          getGuardAbortFn(CGF.CGM, Guard->getType(), GuardTy), Guard);
+#else // INTEL_FEATURE_SW_DTRANS
       CGF.EmitNounwindRuntimeCall(getGuardAbortFn(CGF.CGM, Guard->getType()),
                                   Guard);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     }
   };
 }
@@ -2474,22 +2609,48 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
   bool useInt8GuardVariable = !threadsafe && var->hasInternalLinkage();
 
   llvm::IntegerType *guardTy;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  QualType ClangGuardTy;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   CharUnits guardAlignment;
   if (useInt8GuardVariable) {
     guardTy = CGF.Int8Ty;
     guardAlignment = CharUnits::One();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    ClangGuardTy = CGF.CGM.getContext().CharTy;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   } else {
     // Guard variables are 64 bits in the generic ABI and size width on ARM
     // (i.e. 32-bit on AArch32, 64-bit on AArch64).
     if (UseARMGuardVarABI) {
       guardTy = CGF.SizeTy;
       guardAlignment = CGF.getSizeAlign();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    ClangGuardTy = CGF.CGM.getContext().getSizeType();
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     } else {
       guardTy = CGF.Int64Ty;
       guardAlignment = CharUnits::fromQuantity(
                              CGM.getDataLayout().getABITypeAlignment(guardTy));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+      ClangGuardTy =
+          CGF.CGM.getContext().getIntTypeForBitwidth(64, /*signed*/ 0);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     }
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  ClangGuardTy = CGF.CGM.getContext().getPointerType(ClangGuardTy);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   llvm::PointerType *guardPtrTy = guardTy->getPointerTo(
       CGF.CGM.getDataLayout().getDefaultGlobalsAddressSpace());
 
@@ -2602,7 +2763,14 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
   if (threadsafe) {
     // Call __cxa_guard_acquire.
     llvm::Value *V
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+        = CGF.EmitNounwindRuntimeCall(
+            getGuardAcquireFn(CGM, guardPtrTy, ClangGuardTy), guard);
+#else // INTEL_FEATURE_SW_DTRANS
       = CGF.EmitNounwindRuntimeCall(getGuardAcquireFn(CGM, guardPtrTy), guard);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     llvm::BasicBlock *InitBlock = CGF.createBasicBlock("init");
 
@@ -2610,7 +2778,13 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
                          InitBlock, EndBlock);
 
     // Call __cxa_guard_abort along the exceptional edge.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    CGF.EHStack.pushCleanup<CallGuardAbort>(EHCleanup, guard, ClangGuardTy);
+#else // INTEL_FEATURE_SW_DTRANS
     CGF.EHStack.pushCleanup<CallGuardAbort>(EHCleanup, guard);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     CGF.EmitBlock(InitBlock);
   }
@@ -2623,8 +2797,16 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
     CGF.PopCleanupBlock();
 
     // Call __cxa_guard_release.  This cannot throw.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    CGF.EmitNounwindRuntimeCall(
+        getGuardReleaseFn(CGM, guardPtrTy, ClangGuardTy),
+        guardAddr.getPointer());
+#else // INTEL_FEATURE_SW_DTRANS
     CGF.EmitNounwindRuntimeCall(getGuardReleaseFn(CGM, guardPtrTy),
                                 guardAddr.getPointer());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   } else {
     // Store 1 into the first byte of the guard variable after initialization is
     // complete.
@@ -4473,7 +4655,7 @@ static void emitConstructorDestructorAlias(CodeGenModule &CGM,
   if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice) {
     if (auto *AliaseeFn = dyn_cast<llvm::Function>(Aliasee)) {
       AliaseeFn->addFnAttr("openmp-target-declare", "true");
-      CGM.addDeferredAliasTarget(TargetDecl);
+      CGM.addDeferredTargetDecl(TargetDecl);
     }
   }
 #endif // INTEL_COLLAB
@@ -4552,7 +4734,21 @@ static llvm::FunctionCallee getBeginCatchFn(CodeGenModule &CGM) {
   llvm::FunctionType *FTy = llvm::FunctionType::get(
       CGM.Int8PtrTy, CGM.Int8PtrTy, /*isVarArg=*/false);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  llvm::FunctionCallee Callee =
+      CGM.CreateRuntimeFunction(FTy, "__cxa_begin_catch");
+  if (CGM.getCodeGenOpts().EmitDTransInfo) {
+    ASTContext &Ctx = CGM.getContext();
+    QualType CharPtr = Ctx.getPointerType(Ctx.CharTy);
+    CGM.addDTransInfoToFunc(CodeGenTypes::DTransFuncInfo{CharPtr, {CharPtr}},
+                            FTy, cast<llvm::Function>(Callee.getCallee()));
+  }
+  return Callee;
+#else // INTEL_FEATURE_SW_DTRANS
   return CGM.CreateRuntimeFunction(FTy, "__cxa_begin_catch");
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 static llvm::FunctionCallee getEndCatchFn(CodeGenModule &CGM) {

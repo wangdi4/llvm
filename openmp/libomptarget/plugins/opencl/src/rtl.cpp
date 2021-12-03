@@ -120,6 +120,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x1900, // SKL
       0x5900, // KBL
       0x3E00, 0x9B00, // CFL
+      0x8A00, // ICX
     }
   },
   {
@@ -791,12 +792,12 @@ struct RTLOptionTy {
   // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
-  std::string UserCompilationOptions;
-  std::string UserLinkingOptions;
+  std::string UserCompilationOptions = "";
+  std::string UserLinkingOptions = "";
 
 #if INTEL_CUSTOMIZATION
-  std::string InternalCompilationOptions;
-  std::string InternalLinkingOptions;
+  std::string InternalCompilationOptions = "";
+  std::string InternalLinkingOptions = "";
 #endif  // INTEL_CUSTOMIZATION
 
   /// Limit for the number of WIs in a WG.
@@ -932,6 +933,8 @@ struct RTLOptionTy {
         WARNING("Invalid or unsupported LIBOMPTARGET_ENABLE_SIMD=%s\n", Env);
     }
 
+    // TODO: deprecate this variable since the default behavior is equivalent
+    //       to "inorder_async" and "inorder_shared_sync".
     // Read LIBOMPTARGET_OPENCL_INTEROP_QUEUE
     // Two independent options can be specified as follows.
     // -- inorder_async: use a new in-order queue for asynchronous case
@@ -3068,14 +3071,15 @@ EXTERN int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
+EXTERN void __tgt_rtl_get_offload_queue(int32_t DeviceId, void *Interop,
+       bool CreateNew) {
+
   if (Interop == nullptr) {
     DP("Invalid interop object in %s\n", __func__);
     return;
   }
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(Interop);
-  auto isAsync = obj->is_async;
   cl_int status;
   cl_command_queue queue = nullptr;
   auto device = DeviceInfo->Devices[DeviceId];
@@ -3089,8 +3093,8 @@ EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
   };
   auto enableProfile = DeviceInfo->Option.Flags.EnableProfile;
 
-  // Return a shared in-order queue for synchronous case if requested
-  if (!isAsync && DeviceInfo->Option.Flags.UseInteropQueueInorderSharedSync) {
+  // Return a shared in-order queue for synchronous case
+  if (!CreateNew) {
     std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[DeviceId]);
     queue = DeviceInfo->QueuesInOrder[DeviceId];
     if (!queue) {
@@ -3109,16 +3113,7 @@ EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
     return;
   }
 
-  // Return a shared out-of-order queue for asynchronous case by default
-  if (isAsync && !DeviceInfo->Option.Flags.UseInteropQueueInorderAsync) {
-    queue = DeviceInfo->Queues[DeviceId];
-    DP("%s returns a shared out-of-order queue " DPxMOD "\n", __func__,
-       DPxPTR(queue));
-    obj->queue = queue;
-    return;
-  }
-
-  // Return a new in-order queue for other cases
+  // Return a new in-order queue for asynchronous case
   CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
                device, enableProfile ? qProperties : nullptr);
   if (status != CL_SUCCESS) {
