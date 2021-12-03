@@ -9999,11 +9999,10 @@ const SCEV *ScalarEvolution::getSCEVAtScope(const SCEV *V, const Loop *L) {
   for (auto &LS : reverse(ValuesAtScopes[V]))
     if (LS.first == L) {
       LS.second = C;
+      if (!isa<SCEVConstant>(C))
+        ValuesAtScopesUsers[C].push_back({L, V});
       break;
     }
-
-  if (!isa<SCEVConstant>(C))
-    ValuesAtScopesUsers[C].push_back({L, V});
   return C;
 }
 
@@ -15006,7 +15005,7 @@ void ScalarEvolution::verify() const {
             is_contained(It->second, std::make_pair(L, Value)))
           continue;
         dbgs() << "Value: " << *Value << ", Loop: " << *L << ", ValueAtScope: "
-               << ValueAtScope << " missing in ValuesAtScopesUsers\n";
+               << *ValueAtScope << " missing in ValuesAtScopesUsers\n";
         std::abort();
       }
     }
@@ -15023,7 +15022,7 @@ void ScalarEvolution::verify() const {
           is_contained(It->second, std::make_pair(L, ValueAtScope)))
         continue;
       dbgs() << "Value: " << *Value << ", Loop: " << *L << ", ValueAtScope: "
-             << ValueAtScope << " missing in ValuesAtScopes\n";
+             << *ValueAtScope << " missing in ValuesAtScopes\n";
       std::abort();
     }
   }

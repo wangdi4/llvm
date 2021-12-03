@@ -48,11 +48,6 @@ struct CastOpInterface
     return false;
   }
 
-  SmallVector<OpOperand *> getAliasingOpOperand(Operation *op,
-                                                OpResult opResult) const {
-    return {&op->getOpOperand(0)};
-  }
-
   OpResult getAliasingOpResult(Operation *op, OpOperand &opOperand) const {
     return op->getResult(0);
   }
@@ -137,11 +132,6 @@ struct ExtractSliceOpInterface
     return false;
   }
 
-  SmallVector<OpOperand *> getAliasingOpOperand(Operation *op,
-                                                OpResult opResult) const {
-    return {&op->getOpOperand(0) /*source*/};
-  }
-
   OpResult getAliasingOpResult(Operation *op, OpOperand &opOperand) const {
     return &opOperand == &op->getOpOperand(0) /*source*/
                ? op->getResult(0)
@@ -189,8 +179,8 @@ struct ExtractSliceOpInterface
     if (!inplace) {
       // Do not copy if the copied data is never read.
       if (isValueRead(extractSliceOp.result()))
-        state.allocationFns.memCpyFn(b, extractSliceOp.getLoc(), subView,
-                                     alloc);
+        state.options.allocationFns->memCpyFn(b, extractSliceOp.getLoc(),
+                                              subView, alloc);
       subView = alloc;
     }
 
@@ -335,11 +325,6 @@ struct InsertSliceOpInterface
     return &opOperand == &op->getOpOperand(1) /*dest*/;
   }
 
-  SmallVector<OpOperand *> getAliasingOpOperand(Operation *op,
-                                                OpResult opResult) const {
-    return {&op->getOpOperand(1) /*dest*/};
-  }
-
   OpResult getAliasingOpResult(Operation *op, OpOperand &opOperand) const {
     return &opOperand == &op->getOpOperand(1) /*dest*/
                ? op->getResult(0)
@@ -464,8 +449,8 @@ struct InsertSliceOpInterface
       state.aliasInfo.insertNewBufferAlias(subView, dstMemref);
       // Copy tensor.
       Value srcMemref = state.lookupBuffer(insertSliceOp.source());
-      state.allocationFns.memCpyFn(b, insertSliceOp.getLoc(), srcMemref,
-                                   subView);
+      state.options.allocationFns->memCpyFn(b, insertSliceOp.getLoc(),
+                                            srcMemref, subView);
     }
 
     state.mapBuffer(insertSliceOp.result(), dstMemref);

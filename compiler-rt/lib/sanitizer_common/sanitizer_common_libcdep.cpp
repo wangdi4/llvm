@@ -10,6 +10,7 @@
 // run-time libraries.
 //===----------------------------------------------------------------------===//
 
+#include "sanitizer_allocator.h"
 #include "sanitizer_allocator_interface.h"
 #include "sanitizer_common.h"
 #include "sanitizer_flags.h"
@@ -17,12 +18,6 @@
 
 
 namespace __sanitizer {
-
-static void (*SoftRssLimitExceededCallback)(bool exceeded);
-void SetSoftRssLimitExceededCallback(void (*Callback)(bool exceeded)) {
-  CHECK_EQ(SoftRssLimitExceededCallback, nullptr);
-  SoftRssLimitExceededCallback = Callback;
-}
 
 #if (SANITIZER_LINUX || SANITIZER_NETBSD) && !SANITIZER_GO
 // Weak default implementation for when sanitizer_stackdepot is not linked in.
@@ -67,13 +62,11 @@ void *BackgroundThread(void *arg) {
         reached_soft_rss_limit = true;
         Report("%s: soft rss limit exhausted (%zdMb vs %zdMb)\n",
                SanitizerToolName, soft_rss_limit_mb, current_rss_mb);
-        if (SoftRssLimitExceededCallback)
-          SoftRssLimitExceededCallback(true);
+        SetRssLimitExceeded(true);
       } else if (soft_rss_limit_mb >= current_rss_mb &&
                  reached_soft_rss_limit) {
         reached_soft_rss_limit = false;
-        if (SoftRssLimitExceededCallback)
-          SoftRssLimitExceededCallback(false);
+        SetRssLimitExceeded(false);
       }
     }
     if (heap_profile &&
@@ -85,26 +78,6 @@ void *BackgroundThread(void *arg) {
   }
 }
 #endif
-
-void WriteToSyslog(const char *msg) {
-  InternalScopedString msg_copy;
-  msg_copy.append("%s", msg);
-  const char *p = msg_copy.data();
-
-  // Print one line at a time.
-  // syslog, at least on Android, has an implicit message length limit.
-  while (char* q = internal_strchr(p, '\n')) {
-    *q = '\0';
-    WriteOneLineToSyslog(p);
-    p = q + 1;
-  }
-  // Print remaining characters, if there are any.
-  // Note that this will add an extra newline at the end.
-  // FIXME: buffer extra output. This would need a thread-local buffer, which
-  // on Android requires plugging into the tools (ex. ASan's) Thread class.
-  if (*p)
-    WriteOneLineToSyslog(p);
-}
 
 void MaybeStartBackgroudThread() {
 #if (SANITIZER_LINUX || SANITIZER_NETBSD) && \
@@ -124,6 +97,26 @@ void MaybeStartBackgroudThread() {
     internal_start_thread(BackgroundThread, nullptr);
   }
 #endif
+}
+
+void WriteToSyslog(const char *msg) {
+  InternalScopedString msg_copy;
+  msg_copy.append("%s", msg);
+  const char *p = msg_copy.data();
+
+  // Print one line at a time.
+  // syslog, at least on Android, has an implicit message length limit.
+  while (char* q = internal_strchr(p, '\n')) {
+    *q = '\0';
+    WriteOneLineToSyslog(p);
+    p = q + 1;
+  }
+  // Print remaining characters, if there are any.
+  // Note that this will add an extra newline at the end.
+  // FIXME: buffer extra output. This would need a thread-local buffer, which
+  // on Android requires plugging into the tools (ex. ASan's) Thread class.
+  if (*p)
+    WriteOneLineToSyslog(p);
 }
 
 static void (*sandboxing_callback)();

@@ -1232,9 +1232,11 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   return MIWP;
 }
 
-ModuleInlinerPass
+ModulePassManager
 PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
                                         ThinOrFullLTOPhase Phase) {
+  ModulePassManager MPM;
+
   InlineParams IP = getInlineParamsFromOptLevel(Level);
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -1251,7 +1253,16 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
   // inline deferral logic in module inliner.
   IP.EnableDeferral = false;
 
-  return ModuleInlinerPass(IP, UseInlineAdvisor);
+  MPM.addPass(ModuleInlinerPass(IP, UseInlineAdvisor));
+
+  MPM.addPass(createModuleToFunctionPassAdaptor(
+      buildFunctionSimplificationPipeline(Level, Phase),
+      PTO.EagerlyInvalidateAnalyses));
+
+  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
+      CoroSplitPass(Level != OptimizationLevel::O0)));
+
+  return MPM;
 }
 
 ModulePassManager
