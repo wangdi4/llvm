@@ -152,6 +152,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x1900, // SKL
       0x5900, // KBL
       0x3E00, 0x9B00, // CFL
+      0x8A00, // ICX
     }
   },
   {
@@ -1517,8 +1518,8 @@ struct RTLOptionTy {
   // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
-  std::string InternalCompilationOptions;
-  std::string UserCompilationOptions;
+  std::string InternalCompilationOptions = "";
+  std::string UserCompilationOptions = "";
 
   // Spec constants used for all modules.
   SpecConstantsTy CommonSpecConstants;
@@ -3094,9 +3095,9 @@ int32_t CommandBatchTy::commit(bool Always) {
   if (Kernel)
     LEVEL0_KERNEL_END(DeviceId);
 
-  if (DeviceInfo->Option.Flags.EnableProfile) {
+  auto *Profile = DeviceInfo->getProfile(DeviceId);
+  if (DeviceInfo->Option.Flags.EnableProfile && Profile) {
     BatchTime = omp_get_wtime() - BatchTime;
-    auto *Profile = DeviceInfo->getProfile(DeviceId);
     if (Kernel) {
       double DeviceTime = Profile->getEventTime(KernelEvent);
       std::string KernelName = "Kernel ";

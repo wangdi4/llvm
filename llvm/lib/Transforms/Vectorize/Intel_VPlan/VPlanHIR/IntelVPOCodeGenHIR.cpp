@@ -99,7 +99,7 @@ static cl::opt<bool> EnablePeelMEVec(
     cl::desc("Enable peel loop for vectorized multi-exit loops."));
 
 static cl::opt<bool> DisableCondLastPrivCG(
-    "disable-hir-cond-last-priv-cg", cl::init(true), cl::Hidden,
+    "disable-hir-cond-last-priv-cg", cl::init(false), cl::Hidden,
     cl::desc(
         "Disable HIR vector code generation for conditional last privates"));
 

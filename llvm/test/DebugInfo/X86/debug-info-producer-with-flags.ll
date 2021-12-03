@@ -34,8 +34,7 @@ entry:
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4}
 !llvm.ident = !{!5}
-
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang++", isOptimized: false, flags: "-g -grecord-gcc-switches test.cc -S -emit-llvm -o -", runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang++", isOptimized: false, flags: "ProducerFlags_51-g -grecord-gcc-switches test.cc -S -emit-llvm -o - -g -grecord-gcc-switches test.cc -S -emit-llvm -o -", runtimeVersion: 0, emissionKind: FullDebug, enums: !2);INTEL
 !1 = !DIFile(filename: "test.cc", directory: "d")
 !2 = !{}
 !3 = !{i32 2, !"Dwarf Version", i32 4}

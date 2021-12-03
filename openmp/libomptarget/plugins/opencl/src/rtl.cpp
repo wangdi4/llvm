@@ -120,6 +120,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x1900, // SKL
       0x5900, // KBL
       0x3E00, 0x9B00, // CFL
+      0x8A00, // ICX
     }
   },
   {
@@ -791,12 +792,12 @@ struct RTLOptionTy {
   // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
-  std::string UserCompilationOptions;
-  std::string UserLinkingOptions;
+  std::string UserCompilationOptions = "";
+  std::string UserLinkingOptions = "";
 
 #if INTEL_CUSTOMIZATION
-  std::string InternalCompilationOptions;
-  std::string InternalLinkingOptions;
+  std::string InternalCompilationOptions = "";
+  std::string InternalLinkingOptions = "";
 #endif  // INTEL_CUSTOMIZATION
 
   /// Limit for the number of WIs in a WG.

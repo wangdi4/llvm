@@ -458,6 +458,7 @@ HANDLE_DW_AT(0x2029, HP_is_result_param, 0, HP)
 // HANDLE_DW_AT(0x2005, CPQ_prologue_length, 0, COMPAQ)
 
 HANDLE_DW_AT(0x2026, DW_AT_INTEL_other_endian, 0, INTEL)
+HANDLE_DW_AT(0x3b01, INTEL_comp_flags, 0, INTEL) // INTEL
 
 // Green Hills.
 HANDLE_DW_AT(0x2083, GHS_rsm, 0, GHS)

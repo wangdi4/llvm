@@ -7964,7 +7964,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // section, for build analysis.
   // Also record command line arguments into the debug info if
   // -grecord-gcc-switches options is set on.
-  // By default, -gno-record-gcc-switches is set on and no recording.
+   // By default, -gno-record-gcc-switches is set on and no recording. 
+#if INTEL_CUSTOMIZATION
+  // Record the command line flags specified by the user to emit with
+  // DW_AT_intel_comp_flags   attribute
+  SmallString<256> DwarfDebugFlags;
+  std::string marker;
+  ArgStringList OriginalArgs;
+  for (const auto &Arg : Args)
+    Arg->render(Args, OriginalArgs);
+#endif
   auto GRecordSwitches =
       Args.hasFlag(options::OPT_grecord_command_line,
                    options::OPT_gno_record_command_line, false);
@@ -7979,10 +7988,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   auto Sox = Args.hasArg(options::OPT_sox);
   if (TC.UseDwarfDebugFlags() || GRecordSwitches || FRecordSwitches || Sox) {
 #endif // INTEL_CUSTOMIZATION
-    ArgStringList OriginalArgs;
-    for (const auto &Arg : Args)
-      Arg->render(Args, OriginalArgs);
-
     SmallString<256> Flags;
     EscapeSpacesAndBackslashes(Exec, Flags);
     for (const char *OriginalArg : OriginalArgs) {
@@ -7991,21 +7996,29 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       Flags += " ";
       Flags += EscapedArg;
     }
-    auto FlagsArgString = Args.MakeArgString(Flags);
+#if INTEL_CUSTOMIZATION
     if (TC.UseDwarfDebugFlags() || GRecordSwitches) {
-      CmdArgs.push_back("-dwarf-debug-flags");
-      CmdArgs.push_back(FlagsArgString);
+      marker = "ProducerFlags_" + std::to_string(Flags.size());
+      DwarfDebugFlags += Flags;
     }
     if (FRecordSwitches) {
       CmdArgs.push_back("-record-command-line");
-      CmdArgs.push_back(FlagsArgString);
+      CmdArgs.push_back(Args.MakeArgString(Flags));
     }
-#if INTEL_CUSTOMIZATION
     if (Sox)
-      CmdArgs.push_back(Args.MakeArgString("-sox=" + Twine(FlagsArgString)));
-#endif // INTEL_CUSTOMIZATION
+      CmdArgs.push_back(Args.MakeArgString("-sox=" + Twine(Args.MakeArgString(Flags))));
   }
-
+  for (const char *OriginalArg : OriginalArgs) {
+    SmallString<128> EscapedArg;
+    EscapeSpacesAndBackslashes(OriginalArg, EscapedArg);
+    DwarfDebugFlags += " ";
+    DwarfDebugFlags += EscapedArg;
+  }
+  if (DebugInfoKind != codegenoptions::NoDebugInfo || TC.UseDwarfDebugFlags() || GRecordSwitches) {
+    CmdArgs.push_back("-dwarf-debug-flags");
+    CmdArgs.push_back(Args.MakeArgString(marker + DwarfDebugFlags));
+  }
+#endif // INTEL_CUSTOMIZATION
   // Host-side cuda compilation receives all device-side outputs in a single
   // fatbin as Inputs[1]. Include the binary with -fcuda-include-gpubinary.
   if ((IsCuda || IsHIP) && CudaDeviceInput) {
