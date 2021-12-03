@@ -250,8 +250,9 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
     int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc, void *AsyncData);
 
-// Creates an opaque handle to a device-dependent offload queue.
-EXTERN void __tgt_rtl_create_offload_queue(int32_t ID, void *InteropObj);
+// Creates an opaque handle to a device-dependent offload queue if CreateNew is true
+// Return existing queue if false.
+EXTERN void __tgt_rtl_get_offload_queue(int32_t ID, void *InteropObj, bool CreateNew);
 
 // Releases a device-dependent offload queue.
 EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);

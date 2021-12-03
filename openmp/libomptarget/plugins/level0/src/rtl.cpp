@@ -5708,7 +5708,8 @@ EXTERN int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
+EXTERN void __tgt_rtl_get_offload_queue(int32_t DeviceId, void *Interop,
+       bool CreateNew) {
   if (Interop == nullptr) {
     DP("Invalid interop object in %s\n", __func__);
     return;
@@ -5729,12 +5730,18 @@ EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
     }
   }
 
-  // Create and return a new command queue for interop
-  // TODO: check with MKL team and decide what to do with IsAsync
-  auto cmdQueue = DeviceInfo->createCommandQueue(deviceId);
-  obj->queue = cmdQueue;
-  DP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
-     DPxPTR(obj->queue));
+  if (CreateNew) {
+     // Create and return a new command queue for interop
+     // TODO: check with MKL team and decide what to do with IsAsync
+     obj->queue = DeviceInfo->createCommandQueue(deviceId);
+     DP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
+        DPxPTR(obj->queue));
+  } else {
+     // return a existing command queue for interop
+     obj->queue = DeviceInfo->getCmdQueue(deviceId);
+     DP("%s returns existing command queue " DPxMOD "\n", __func__,
+        DPxPTR(obj->queue));
+  }
 }
 
 EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Queue) {
