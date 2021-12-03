@@ -4364,6 +4364,7 @@ static void handleSYCLIntelNumSimdWorkItemsAttr(Sema &S, Decl *D,
 }
 
 // Handles use_stall_enable_clusters
+<<<<<<< HEAD
 static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
                                              const ParsedAttr &Attr) {
   if (D->isInvalidDecl())
@@ -4396,6 +4397,12 @@ static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
 #endif // INTEL_CUSTOMIZATION
 
   handleSimpleAttribute<SYCLIntelUseStallEnableClustersAttr>(S, D, Attr);
+=======
+static void handleSYCLIntelUseStallEnableClustersAttr(Sema &S, Decl *D,
+                                                      const ParsedAttr &A) {
+  D->addAttr(::new (S.Context)
+                 SYCLIntelUseStallEnableClustersAttr(S.Context, A));
+>>>>>>> c906a6781d2d5efbf8a1ddca7b9f84b05de83019
 }
 
 // Handles disable_loop_pipelining attribute.
@@ -11062,7 +11069,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSYCLIntelNoGlobalWorkOffsetAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelUseStallEnableClusters:
-    handleUseStallEnableClustersAttr(S, D, AL);
+    handleSYCLIntelUseStallEnableClustersAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelLoopFuse:
     handleSYCLIntelLoopFuseAttr(S, D, AL);
