@@ -27,7 +27,6 @@
 ; CHECK-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
 ; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[BC]])
 
-; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
@@ -35,27 +34,12 @@ target triple = "x86_64-pc-linux"
 %"class.cl::sycl::detail::array" = type { [1 x i64] }
 
 
-; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
-
-; Function Attrs: nounwind
-declare double @_Z4sqrtd(double) local_unnamed_addr
-
-; Function Attrs: nounwind
-declare double @_Z3expd(double) local_unnamed_addr
-
-; Function Attrs: argmemonly nounwind
+declare double @_Z4sqrtd(double)
+declare double @_Z3expd(double)
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
+declare i64 @_Z13get_global_idj(i32)
 
-; Function Attrs: nounwind readnone
-declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
-
-
-declare i64 @_Z14get_local_sizej(i32)
-
-declare i64 @get_base_global_id.(i32)
-
-; Function Attrs: nounwind
 define void @main(double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), i32, double, double, double addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range")) local_unnamed_addr {
   %20 = alloca [2520 x double], align 8
   %21 = call i64 @_Z13get_global_idj(i32 0)
@@ -161,7 +145,7 @@ _ZZZN8binomialIdE3runEvENKUlRN2cl4sycl7handlerEE_clES4_ENKUlNS2_2idILi1EEEE_clES
 simd.loop.exit:                                   ; preds = %_ZZZN8binomialIdE3runEvENKUlRN2cl4sycl7handlerEE_clES4_ENKUlNS2_2idILi1EEEE_clES7_.exit
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 8
-  br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !19
+  br i1 %vl.cond, label %simd.loop, label %simd.end.region
 
 simd.end.region:                                  ; preds = %simd.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
@@ -171,11 +155,5 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-!19 = distinct !{!19, !20}
-!20 = !{!"llvm.loop.unroll.disable"}

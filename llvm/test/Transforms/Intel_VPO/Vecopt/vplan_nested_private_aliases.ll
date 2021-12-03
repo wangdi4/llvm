@@ -57,9 +57,6 @@ simd.loop.exit:
 
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:
   ret void
 }
 
@@ -92,9 +89,6 @@ simd.loop:
 
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:
   ret void
 }
 
@@ -105,19 +99,20 @@ define dso_local void @test_legality_safe_store(i32** %y) {
 entry:
   %x = alloca i32
   br label %simd.begin.region
+
 simd.begin.region:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %x)]
   br label %simd.loop
+
 simd.loop:
   %index = phi i32 [ 0, %simd.begin.region], [ %indvar, %simd.loop]
   store i32* %x, i32** %y
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 4
   br i1 %vl.cond, label %simd.loop, label %simd.end.region
+
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-return:
   ret void
 }
 

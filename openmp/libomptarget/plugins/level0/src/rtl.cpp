@@ -4485,13 +4485,11 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     } else {
       RTLKernelProperties.Width = kernelProperties.maxSubgroupSize;
       RTLKernelProperties.SIMDWidth = kernelProperties.maxSubgroupSize;
-      uint32_t HWId = DeviceInfo->DeviceProperties[DeviceId].deviceId;
-      HWId &= 0xFF00;
       // Temporary workaround before ze_kernel_preferred_group_size_properties_t
       // becomes available with L0 1.2.
       // Here we try to match OpenCL kernel property
       // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE.
-      if (HWId == 0x200 || HWId == 0xb00 || HWId == 0x4900)
+      if (DeviceInfo->DeviceArchs[DeviceId] != DeviceArch_Gen9)
         RTLKernelProperties.Width *= 2;
     }
     if (DebugLevel > 0) {

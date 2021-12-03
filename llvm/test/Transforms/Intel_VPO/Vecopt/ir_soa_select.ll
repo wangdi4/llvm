@@ -44,14 +44,8 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
 
 DIR.OMP.END.SIMD.1:                               ; preds = %omp.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %DIR.QUAL.LIST.END.2
-
-DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)

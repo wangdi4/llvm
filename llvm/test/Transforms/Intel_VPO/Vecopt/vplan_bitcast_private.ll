@@ -44,8 +44,5 @@ simd.loop.exit:
 
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:
   ret void
 }

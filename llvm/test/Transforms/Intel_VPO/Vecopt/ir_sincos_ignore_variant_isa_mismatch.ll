@@ -49,13 +49,8 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-; Function Attrs: nofree nounwind
-declare dso_local void @sincosf(float, float*, float*) local_unnamed_addr #8
+declare void @sincosf(float, float*, float*) #8
 
 attributes #8 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "vector-variants"="_ZGVbN4vvv_sincosf,_ZGVcN8vvv_sincosf,_ZGVdN8vvv_sincosf,_ZGVeN16vvv_sincosf" }

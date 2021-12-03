@@ -54,10 +54,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; Function Attrs: convergent nounwind
-declare float @_Z6sincosfPf(float, float*) #0
+declare float @_Z6sincosfPf(float, float*)
 
-; Function Attrs: nounwind
 define void @foo(float addrspace(1)* %uni1, float addrspace(1)* %uni2) {
 entry:
   %cosPtr = alloca float
@@ -86,16 +84,8 @@ simd.loop.exit:                                   ; preds = %simd.loop
 
 simd.end.region:                                  ; preds = %simd.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-
-return:                                           ; preds = %simd.end.region
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-attributes #0 = { readnone }

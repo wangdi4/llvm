@@ -27,14 +27,8 @@ omp.loop.exit:
 
 SIMD.END:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %EXIT
-
-EXIT:
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)

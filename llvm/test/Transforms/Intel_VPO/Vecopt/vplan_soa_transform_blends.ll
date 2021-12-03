@@ -79,6 +79,7 @@ define void @uniform_with_undef(i64 *%p, i1 %uniform) #0 {
 entry:
   %arr.soa.priv32 = alloca [1024 x i32], align 4
   br label %simd.begin.region
+
 simd.begin.region:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.soa.priv32) ]
   br label %simd.loop

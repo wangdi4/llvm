@@ -128,6 +128,7 @@ for.body:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %for.body, label %for.end
+
 for.end:                                          ; preds = %for.body
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void

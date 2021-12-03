@@ -43,9 +43,7 @@ entry:
   %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
   %0 = bitcast i32* %.omp.iv to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0)
   %1 = bitcast i32* %.omp.ub to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1)
   store i32 1023, i32* %.omp.ub, align 4
   br label %DIR.OMP.SIMD.1
 
@@ -97,22 +95,11 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.loop.exit
   br label %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0)
   %idxprom4 = sext i32 %RetIdx to i64
   %arrayidx5 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr, i64 0, i64 %idxprom4
   %5 = load i32, i32* %arrayidx5, align 4
   ret i32 %5
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
-
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
