@@ -120,6 +120,7 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
       0x1900, // SKL
       0x5900, // KBL
       0x3E00, 0x9B00, // CFL
+      0x8A00, // ICX
     }
   },
   {
