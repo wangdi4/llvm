@@ -33,10 +33,6 @@ declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #2
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture %a, i32* nocapture readonly %c, i32 (i32)** nocapture readonly %func, i32 %n) local_unnamed_addr #1 {
 entry:
-  %cmp = icmp sgt i32 %n, 0
-  br i1 %cmp, label %DIR.OMP.SIMD.116, label %omp.precond.end
-
-DIR.OMP.SIMD.116:                                 ; preds = %entry
   %b.priv = alloca i32, align 4
   %i.lpriv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
@@ -76,9 +72,6 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
-  br label %omp.precond.end
-
-omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
   ret void
 }
 

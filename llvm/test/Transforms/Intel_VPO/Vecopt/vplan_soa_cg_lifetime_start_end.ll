@@ -75,6 +75,7 @@ simd.loop:
   call void @llvm.lifetime.end.p0i8(i64 1024, i8* nonnull %uni.gep)
   call void @llvm.lifetime.end.p0i8(i64 4096, i8* nonnull %bc)
   br i1 %cmp, label %simd.loop, label %simd.end
+
 simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
@@ -135,37 +136,47 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 entry:
   %arr.priv32 = alloca [1024 x i32], align 4
   br label %simd.begin.region
+
 simd.begin.region:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.priv32)]
   br label %simd.loop.preheader
+
 simd.loop.preheader:
   %uni.gep = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 0
   br label %simd.loop
+
 simd.loop:
   %iv1 = phi i64 [ 0, %simd.loop.preheader ], [ %iv1.next, %inner.skip]
   %ld8 = load i32, i32* %uni.gep, align 4
   %div.cond = icmp eq i64 %iv1, 42
   br i1 %div.cond, label %inner.ph, label %inner.skip
+
 inner.ph:
   %bc.if = bitcast [1024 x i32]* %arr.priv32 to i8*
   br label %inner.loop
+
 inner.loop:
   %inner.iv = phi i64 [ 0, %inner.ph ], [ %inner.iv.next, %inner.loop ]
   %inner.iv.next = add nuw nsw i64 %inner.iv, 1
   %inner.cmp = icmp ult i64 %inner.iv.next, 125
   br i1 %inner.cmp, label %inner.loop, label %inner.exit
+
 inner.exit:
   br label %lifetime.check.bb
+
 lifetime.check.bb:
   br i1 true, label %lifetime.bb, label %inner.skip
+
 lifetime.bb:
   call void @llvm.lifetime.start.p0i8(i64 1024, i8* nonnull %bc.if)
   call void @llvm.lifetime.end.p0i8(i64 1024, i8* nonnull %bc.if)
   br label %inner.skip
+
 inner.skip:
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %simd.loop, label %simd.end
+
 simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void

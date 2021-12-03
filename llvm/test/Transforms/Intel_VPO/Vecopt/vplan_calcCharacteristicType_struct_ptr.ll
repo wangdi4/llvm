@@ -64,15 +64,9 @@ return:                                           ; preds = %simd.end.region
   ret <4 x i32> %vec.ret
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #3
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #3
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 declare dso_local void @_Z3fooP1S(%struct.S*) #2
 
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVbN4v__Z3fooP1S,_ZGVcN4v__Z3fooP1S,_ZGVdN4v__Z3fooP1S,_ZGVeN4v__Z3fooP1S,_ZGVbM4v__Z3fooP1S,_ZGVcM4v__Z3fooP1S,_ZGVdM4v__Z3fooP1S,_ZGVeM4v__Z3fooP1S" }
-attributes #3 = { nounwind }
-
-

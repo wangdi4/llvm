@@ -11,9 +11,11 @@ entry:
 ; CHECK-NEXT:  [[VEC_ALLOCA_BASE_ADDR:%.*]] = getelementptr i32, i32* [[VEC_ALLOCA_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:  [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3:%.*]] = extractelement <4 x i32*>  [[VEC_ALLOCA_BASE_ADDR]], i32 3
   br label %simd.begin.region
+
 simd.begin.region:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %ptr)]
   br label %simd.loop
+
 simd.loop:
 ; CHECK: store i32* [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3]], i32** %to.store, align 8
 ; CHECK: [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3_AS_CAST:%.*]] = addrspacecast i32* [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3]] to i32 addrspace(4)*
@@ -25,10 +27,9 @@ simd.loop:
   %alloca.ascast = addrspacecast i32* %ptr to i32 addrspace(4)*
   store i32 addrspace(4)* %alloca.ascast, i32 addrspace(4)** %to.store.ascast
   br i1 %vl.cond, label %simd.loop, label %simd.end.region
+
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %return
-return:
   ret void
 }
 

@@ -33,8 +33,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture readonly %iarr) {
+define void @foo(i32* %iarr) {
 entry:
   %scalar.priv = alloca i32, align 4
   %arr.priv = alloca [1024 x i32], align 4
@@ -69,14 +68,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
-  br label %DIR.QUAL.LIST.END.3
-
-DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: argmemonly nounwind
 declare void @llvm.directive.region.exit(token)

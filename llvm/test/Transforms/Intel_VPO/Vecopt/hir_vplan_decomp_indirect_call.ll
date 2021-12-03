@@ -2,25 +2,25 @@
 ; Test to check HIR decomposition for indirect calls.
 
 ; HIR incoming to vectorizer
-; <0>     BEGIN REGION { }
-; <2>           %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LASTPRIVATE(&((%i.lpriv)[0])),  QUAL.OMP.PRIVATE(&((%b.priv)[0])) ]
-; <37>
-; <37>          + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP> <simd>
-; <11>          |   (%i.lpriv)[0] = i1;
-; <12>          |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%b.priv)[0]));
-; <13>          |   (%b.priv)[0] = 0;
-; <15>          |   %3 = (%func)[i1];
-; <17>          |   %4 = (%c)[i1];
-; <18>          |   %call = %3(%4);
-; <19>          |   %5 = (%b.priv)[0];
-; <21>          |   %6 = (%i.lpriv)[0];
-; <24>          |   %7 = (%a)[%6];
-; <26>          |   (%a)[%6] = %call + %5 + %7;
-; <27>          |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%b.priv)[0]));
-; <37>          + END LOOP
-; <37>
-; <35>          @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
-; <0>     END REGION
+; BEGIN REGION { }
+;       %0 = @llvm.directive.region.entry(); [ ... ]
+;
+;       + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP> <simd>
+;       |   (%i.lpriv)[0] = i1;
+;       |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%b.priv)[0]));
+;       |   (%b.priv)[0] = 0;
+;       |   %3 = (%func)[i1];
+;       |   %4 = (%c)[i1];
+;       |   %call = %3(%4);
+;       |   %5 = (%b.priv)[0];
+;       |   %6 = (%i.lpriv)[0];
+;       |   %7 = (%a)[%6];
+;       |   (%a)[%6] = %call + %5 + %7;
+;       |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%b.priv)[0]));
+;       + END LOOP
+;
+;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; END REGION
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
