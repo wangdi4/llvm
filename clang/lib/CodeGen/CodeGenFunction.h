@@ -4103,8 +4103,9 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_COLLAB
-  /// MapRefTemps - This keeps track of variables with reference type.
-  llvm::DenseSet<const VarDecl *> MapRefTemps;
+  /// MapTemps - This keeps track of variables with pointer type which
+  /// is privatized.
+  llvm::DenseMap<const VarDecl *, bool> MapTemps;
   void EmitLateOutlineOMPDirective(
       const OMPExecutableDirective &S,
       OpenMPDirectiveKind Kind = llvm::omp::OMPD_unknown);
@@ -4113,11 +4114,19 @@ private:
                                        OpenMPDirectiveKind Kind);
 
 public:
-  void addMappedRefTemp(const VarDecl *VD) { MapRefTemps.insert(VD); }
-  bool isMappedRefTemp(const VarDecl *VD) {
-    return MapRefTemps.find(VD) != MapRefTemps.end();
+  void addMappedTemp(const VarDecl *VD, bool IsReference = false) {
+    MapTemps.insert({VD, IsReference});
   }
-  void clearMappedRefTemps() { MapRefTemps.clear(); }
+  bool isMappedRefTemp(const VarDecl *VD) {
+    const auto &It = MapTemps.find(VD);
+    if (It == MapTemps.end())
+      return false;
+    return It->second;
+  }
+  bool isMappedTemp(const VarDecl *VD) {
+    return MapTemps.find(VD) != MapTemps.end();
+  }
+  void clearMappedTemps() { MapTemps.clear(); }
   static bool requiresImplicitTask(const OMPExecutableDirective &S);
   static bool requiresImplicitTaskgroup(const OMPExecutableDirective &S,
                                         bool TopLevel = false);

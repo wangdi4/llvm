@@ -189,3 +189,28 @@ void foo_eight(int *&v) {
   #pragma omp target map(to: v[0:3])
     v[2]++;
 }
+char * host_ptr = nullptr;
+void foo_nigth() {
+// CHECK: [[HOST_MAP:%host_ptr.map.ptr.tmp]] = alloca i8*
+// CHECK: [[HOST_MAP1:%host_ptr.map.ptr.tmp1]] = alloca i8*
+// CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(i8** [[HOST_MAP]]
+// CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
+// CHECK-SAME:  "QUAL.OMP.SHARED"(i8** [[HOST_MAP]]
+// CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TEAMS"() ]
+// CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target teams
+    host_ptr[1] = (char) 1;
+// CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(i8** [[HOST_MAP1]]
+// CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
+// CHECK-SAME:  "QUAL.OMP.SHARED"(i8** [[HOST_MAP1]]
+// CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
+// CHECK-SAME:  "QUAL.OMP.SHARED"(i8** [[HOST_MAP1]]
+// CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
+// CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TEAMS"() ]
+// CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target teams distribute parallel for
+  for (int i = 0 ; i < 1 ; i ++)
+    host_ptr[0] = (char) 1;
+}
