@@ -3881,6 +3881,10 @@ static void decideKernelGroupArguments(
       numEUsPerSubslice = 16;
       numSubslices = numEUs / numEUsPerSubslice;
       numThreadsPerEU = 8;
+    } else if (DeviceInfo->DeviceArchs[DeviceId] == DeviceArch_XeLP) {
+      numEUsPerSubslice = 16;
+      numSubslices = numEUs / numEUsPerSubslice;
+      numThreadsPerEU = 7;
     } else if (numEUs >= 72) {
       // Default GEN9 GT4 configuration.
     } else if (numEUs >= 48) {
