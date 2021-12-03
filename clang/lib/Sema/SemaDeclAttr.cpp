@@ -4364,38 +4364,10 @@ static void handleSYCLIntelNumSimdWorkItemsAttr(Sema &S, Decl *D,
 }
 
 // Handles use_stall_enable_clusters
-static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
-                                             const ParsedAttr &Attr) {
-  if (D->isInvalidDecl())
-    return;
-
-#if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, Attr))
-    return;
-#endif // INTEL_CUSTOMIZATION
-
-  unsigned NumArgs = Attr.getNumArgs();
-  if (NumArgs > 0) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_too_many_arguments) << Attr << 0;
-    return;
-  }
-
-#if INTEL_CUSTOMIZATION
-  if (Attr.getAttributeSpellingListIndex() ==
-    SYCLIntelUseStallEnableClustersAttr::GNU_stall_enable) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated) << Attr;
-    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
-        << "'use_stall_enable_clusters'";
-  } else if (Attr.getAttributeSpellingListIndex() ==
-             SYCLIntelUseStallEnableClustersAttr::CXX11_clang_stall_enable) {
-    S.Diag(Attr.getLoc(), diag::warn_attribute_spelling_deprecated)
-        << "'" + Attr.getNormalizedFullName() + "'";
-    S.Diag(Attr.getLoc(), diag::note_spelling_suggestion)
-        << "'clang::use_stall_enable_clusters'";
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  handleSimpleAttribute<SYCLIntelUseStallEnableClustersAttr>(S, D, Attr);
+static void handleSYCLIntelUseStallEnableClustersAttr(Sema &S, Decl *D,
+                                                      const ParsedAttr &A) {
+  D->addAttr(::new (S.Context)
+                 SYCLIntelUseStallEnableClustersAttr(S.Context, A));
 }
 
 // Handles disable_loop_pipelining attribute.
@@ -11062,7 +11034,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSYCLIntelNoGlobalWorkOffsetAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelUseStallEnableClusters:
-    handleUseStallEnableClustersAttr(S, D, AL);
+    handleSYCLIntelUseStallEnableClustersAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLIntelLoopFuse:
     handleSYCLIntelLoopFuseAttr(S, D, AL);
