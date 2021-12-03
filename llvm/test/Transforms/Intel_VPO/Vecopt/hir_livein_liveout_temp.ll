@@ -26,8 +26,8 @@
 ;      |   }
 ;      + END LOOP
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -disable-hir-cond-last-priv-cg=false -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg -disable-hir-cond-last-priv-cg=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s
 
 
 @s = dso_local local_unnamed_addr global i32 0, align 4
