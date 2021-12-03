@@ -4977,7 +4977,7 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
 
-static void decideLoopKernelGroupArguments(
+static int32_t decideLoopKernelGroupArguments(
     int32_t DeviceId, uint32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
     ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
     ze_group_count_t &GroupCounts) {
@@ -5038,7 +5038,7 @@ static void decideLoopKernelGroupArguments(
          "Invalid loop nest description for ND partitioning");
 
   // Compute global widths for X/Y/Z dimensions.
-  uint32_t tripCounts[3] = {1, 1, 1};
+  size_t tripCounts[3] = {1, 1, 1};
 
   for (int32_t i = 0; i < numLoopLevels; i++) {
     assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
@@ -5049,7 +5049,9 @@ static void decideLoopKernelGroupArguments(
       GroupCounts.groupCountY = 1;
       GroupCounts.groupCountZ = 1;
       std::fill(GroupSizes, GroupSizes + 3, 1);
-      return;
+      DP("Invalid loop bounds lb = %" PRId64 ", ub = %" PRId64 "\n",
+         level[i].Lb, level[i].Ub);
+      return OFFLOAD_FAIL;
     }
     tripCounts[i] =
         (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
@@ -5060,20 +5062,25 @@ static void decideLoopKernelGroupArguments(
     // or fallback to setting dimension 0 width to SIMDWidth.
     // Note that in case of user-specified LWS groupSizes[0]
     // is already set according to the specified value.
-    uint32_t globalSizes[3] = { tripCounts[0], tripCounts[1], tripCounts[2] };
+    size_t globalSizes[3] = { tripCounts[0], tripCounts[1], tripCounts[2] };
     if (distributeDim > 0) {
       // There is a distribute dimension.
       globalSizes[distributeDim - 1] *= globalSizes[distributeDim];
       globalSizes[distributeDim] = 1;
     }
+    bool LargeGlobalSize = globalSizes[0] > UINT32_MAX ||
+                           globalSizes[1] > UINT32_MAX ||
+                           globalSizes[2] > UINT32_MAX;
 
     ze_result_t rc = ZE_RESULT_ERROR_UNKNOWN;
     uint32_t suggestedGroupSizes[3];
-    if (DeviceInfo->Option.Flags.UseDriverGroupSizes)
+    if (DeviceInfo->Option.Flags.UseDriverGroupSizes && !LargeGlobalSize) {
+      // Call this only when global sizes satisfy API requirement.
       CALL_ZE_RC(rc, zeKernelSuggestGroupSize,
-                 Kernel, globalSizes[0], globalSizes[1], globalSizes[2],
-                 &suggestedGroupSizes[0], &suggestedGroupSizes[1],
-                 &suggestedGroupSizes[2]);
+                 Kernel, (uint32_t)globalSizes[0], (uint32_t)globalSizes[1],
+                 (uint32_t)globalSizes[2], &suggestedGroupSizes[0],
+                 &suggestedGroupSizes[1], &suggestedGroupSizes[2]);
+    }
 
     if (rc == ZE_RESULT_SUCCESS) {
       groupSizes[0] = suggestedGroupSizes[0];
@@ -5089,16 +5096,23 @@ static void decideLoopKernelGroupArguments(
       groupCounts[i] = 1;
       continue;
     }
-    uint32_t trip = tripCounts[i];
+    size_t trip = tripCounts[i];
     if (groupSizes[i] >= trip)
       groupSizes[i] = trip;
-    groupCounts[i] = (trip + groupSizes[i] - 1) / groupSizes[i];
+    size_t Count = (trip + groupSizes[i] - 1) / groupSizes[i];
+    if (Count > UINT32_MAX) {
+      DP("Invalid group count %zu due to large loop trip count\n", Count);
+      return OFFLOAD_FAIL;
+    }
+    groupCounts[i] = (uint32_t)Count;
   }
 
   GroupCounts.groupCountX = groupCounts[0];
   GroupCounts.groupCountY = groupCounts[1];
   GroupCounts.groupCountZ = groupCounts[2];
   std::copy(groupSizes, groupSizes + 3, GroupSizes);
+
+  return OFFLOAD_SUCCESS;
 }
 
 static void decideKernelGroupArguments(
@@ -5361,8 +5375,10 @@ static int32_t runTargetTeamRegionSub(
     uint32_t groupSizes[3];
     ze_group_count_t groupCounts;
     if (LoopDesc) {
-      decideLoopKernelGroupArguments(subId, (uint32_t)ThreadLimit,
+      auto Rc = decideLoopKernelGroupArguments(subId, (uint32_t)ThreadLimit,
           (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
+      if (Rc != OFFLOAD_SUCCESS)
+        return OFFLOAD_FAIL;
     } else {
       decideKernelGroupArguments(subId, (uint32_t )NumTeams,
           (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
@@ -5492,8 +5508,10 @@ static int32_t runTargetTeamRegion(
   uint32_t groupSizes[3];
   ze_group_count_t groupCounts;
   if (LoopDesc) {
-    decideLoopKernelGroupArguments(DeviceId, (uint32_t)ThreadLimit,
+    auto Rc = decideLoopKernelGroupArguments(DeviceId, (uint32_t)ThreadLimit,
         (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
+    if (Rc != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
   } else {
     decideKernelGroupArguments(DeviceId, (uint32_t )NumTeams,
         (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
