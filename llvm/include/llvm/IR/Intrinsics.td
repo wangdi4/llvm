@@ -1869,6 +1869,11 @@ def int_experimental_matrix_uumad
                llvm_anyvector_ty, llvm_metadata_ty,
                LLVMMatchType<0>, llvm_metadata_ty,
                llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty]>;
+
+def int_experimental_matrix_fill
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+              [llvm_any_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty],
+              [IntrNoMem, ImmArg<ArgIndex<0>>]>;
 #endif // INTEL_CUSTOMIZATION
 
 //===---------- Intrinsics to control hardware supported loops ----------===//
