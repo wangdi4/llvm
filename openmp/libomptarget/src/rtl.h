@@ -72,7 +72,7 @@ struct RTLInfoTy {
   typedef int32_t(run_team_region_nowait_ty)(int32_t, void *, void **,
                                              ptrdiff_t *, int32_t, int32_t,
                                              int32_t, uint64_t, void *);
-  typedef void (create_offload_queue_ty)(int32_t, void *);
+  typedef void (get_offload_queue_ty)(int32_t, void *, bool);
   typedef void *(get_platform_handle_ty)(int32_t);
   typedef void (set_device_handle_ty)(int32_t, void *);
   typedef void *(get_context_handle_ty)(int32_t);
@@ -163,7 +163,7 @@ struct RTLInfoTy {
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
   run_region_nowait_ty *run_region_nowait = nullptr;
   run_team_region_nowait_ty *run_team_region_nowait = nullptr;
-  create_offload_queue_ty *create_offload_queue = nullptr;
+  get_offload_queue_ty *get_offload_queue = nullptr;
   get_platform_handle_ty *get_platform_handle = nullptr;
   set_device_handle_ty *set_device_handle = nullptr;
   get_context_handle_ty *get_context_handle = nullptr;

@@ -375,7 +375,7 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
-  void create_offload_queue(void *Interop);
+  void get_offload_queue(void *Interop, bool CreateNew);
   int32_t release_offload_queue(void *);
   void *get_platform_handle();
   void setDeviceHandle(void *Interop);

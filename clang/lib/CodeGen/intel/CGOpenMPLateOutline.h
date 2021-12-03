@@ -445,8 +445,7 @@ public:
                                                            ".map.ptr.tmp");
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
-      if (MT.second->getType()->isReferenceType())
-        CGF.addMappedRefTemp(MT.second);
+      CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
     }
     for (auto FP : MapFPrivates) {
       llvm::Value *V = FP.first;

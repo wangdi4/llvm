@@ -29,7 +29,7 @@ VERS1.0 {
     __tgt_rtl_run_target_team_region_nowait;
     __tgt_rtl_run_target_region_nowait;
     __tgt_rtl_run_target_team_nd_region_nowait;
-    __tgt_rtl_create_offload_queue;
+    __tgt_rtl_get_offload_queue;
     __tgt_rtl_release_offload_queue;
     __tgt_rtl_get_platform_handle;
     __tgt_rtl_set_device_handle;

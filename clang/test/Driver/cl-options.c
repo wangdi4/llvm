@@ -491,6 +491,9 @@
 // RUN:     /ofoo.obj \
 // RUN:     /openmp \
 // RUN:     /openmp:experimental \
+// INTEL_CUSTOMIZATION
+// RUN:     /options:strict \
+// end INTEL_CUSTOMIZATION
 // RUN:     /Qfast_transcendentals \
 // RUN:     /QIfist \
 // RUN:     /Qimprecise_fwaits \

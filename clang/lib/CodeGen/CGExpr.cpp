@@ -2914,8 +2914,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   if (const auto *VD = dyn_cast<VarDecl>(ND)) {
     // Check if this is a global variable.
 #if INTEL_COLLAB
-   if (!(CapturedStmtInfo && CapturedStmtInfo->isLateOutlinedRegion() &&
-         LocalDeclMap.find(VD) != LocalDeclMap.end()))
+   if (!isMappedTemp(VD) || LocalDeclMap.find(VD) == LocalDeclMap.end())
      // For late-outlining let globals fall through so privatization can occur.
 #endif  // INTEL_COLLAB
    if (VD->hasLinkage() || VD->isStaticDataMember())

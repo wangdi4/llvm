@@ -678,7 +678,7 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
   DeviceTy &Device = *PM->Devices[obj->device_id];
-  if (obj->queue)
+  if (obj->queue && obj->is_async)
     Device.release_offload_queue(obj->queue);
   free(interop_obj);
 
@@ -737,7 +737,8 @@ EXTERN int __tgt_get_interop_property(
     break;
   case INTEROP_OFFLOAD_QUEUE:
     if (!interop->queue)
-      PM->Devices[interop->device_id]->create_offload_queue(interop);
+      PM->Devices[interop->device_id]->get_offload_queue(
+          interop, interop->is_async ? true /*create_new*/ : false);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:

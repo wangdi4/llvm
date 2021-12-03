@@ -2738,7 +2738,7 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
 
   addRefsToOuter();
   if (CurrentDirectiveKind == OMPD_target)
-    CGF.clearMappedRefTemps();
+    CGF.clearMappedTemps();
 }
 
 void OpenMPLateOutliner::emitOMPParallelDirective() {
