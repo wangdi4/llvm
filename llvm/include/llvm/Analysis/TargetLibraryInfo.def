@@ -1652,10 +1652,10 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_atomic_store")
 /// void __kmpc_barrier(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_barrier)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_barrier")
-/// void __kmpc_critical(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit);
+/// void __kmpc_critical(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *crit);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_critical)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_critical")
-/// void __kmpc_critical_with_hint(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit, kmp_int32 hint);
+/// void __kmpc_critical_with_hint(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *crit, kmp_int32 hint);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_critical_with_hint)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_critical_with_hint")
 /// void __kmpc_dispatch_init_4(ident_t *loc, kmp_int32 gtid,  enum sched_type schedule, kmp_int32 lb, kmp_int32 ub, kmp_int32 st, kmp_int32 chunk);
@@ -1682,13 +1682,13 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_dispatch_next_8")
 /// int __kmpc_dispatch_next_8u(ident_t *loc, kmp_int32 gtid, kmp_int32 *p_last, kmp_uint64 *p_lb, kmp_uint64 *p_ub, kmp_int64 *p_st);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_dispatch_next_8u)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_dispatch_next_8u")
-/// void __kmpc_end_ctitical(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit);
+/// void __kmpc_end_critical(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *crit);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_critical)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_critical")
-/// void __kmpc_end_masked(kmp_Indent *loc, int32_t global_tid)
+/// void __kmpc_end_masked(ident_t *loc, int32_t global_tid)
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_masked)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_masked")
-/// void __kmpc_end_master(kmp_Indent *loc, int32_t global_tid)
+/// void __kmpc_end_master(ident_t *loc, int32_t global_tid)
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_master)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_master")
 /// void __kmpc_end_reduce(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *lck);
@@ -1700,7 +1700,7 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_end_reduce_nowait")
 /// void __kmpc_end_serialized_parallel(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_serialized_parallel)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_serialized_parallel")
-/// void __kmpc_end_single(kmp_Indent *loc, int32_t global_tid);
+/// void __kmpc_end_single(ident_t *loc, int32_t global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_end_single)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_end_single")
 /// void __kmpc_flush(ident_t *);
@@ -1732,10 +1732,10 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_free_shared")
 /// kmp_int32 __kmpc_global_thread_num(ident_t * loc);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_global_thread_num)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_global_thread_num")
-/// int32_t __kmpc_masked(kmp_Indent *loc, int32_t global_tid, int32_t filter)
+/// int32_t __kmpc_masked(ident_t *loc, int32_t global_tid, int32_t filter)
 TLI_DEFINE_ENUM_INTERNAL(kmpc_masked)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_masked")
-/// int32_t __kmpc_master(kmp_Indent *loc, int32_t global_tid)
+/// int32_t __kmpc_master(ident_t *loc, int32_t global_tid)
 TLI_DEFINE_ENUM_INTERNAL(kmpc_master)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_master")
 /// kmp_int32 __kmpc_ok_to_fork(ident_t * loc);
@@ -1768,7 +1768,7 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_reduce_nowait")
 /// void __kmpc_serialized_parallel(ident_t *loc, kmp_int32 global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_serialized_parallel)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_serialized_parallel")
-/// int32_t __kmpc_single(kmp_Indent *loc, int32_t global_tid);
+/// int32_t __kmpc_single(ident_t *loc, int32_t global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_single)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_single")
 /// void *__kmpc_threadprivate_cached(ident_t *loc, kmp_int32 global_tid, void *data, size_t size, void ***cache);
