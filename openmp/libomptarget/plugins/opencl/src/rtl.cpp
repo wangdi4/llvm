@@ -792,12 +792,12 @@ struct RTLOptionTy {
   // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
-  std::string UserCompilationOptions;
-  std::string UserLinkingOptions;
+  std::string UserCompilationOptions = "";
+  std::string UserLinkingOptions = "";
 
 #if INTEL_CUSTOMIZATION
-  std::string InternalCompilationOptions;
-  std::string InternalLinkingOptions;
+  std::string InternalCompilationOptions = "";
+  std::string InternalLinkingOptions = "";
 #endif  // INTEL_CUSTOMIZATION
 
   /// Limit for the number of WIs in a WG.

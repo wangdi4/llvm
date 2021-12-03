@@ -1518,8 +1518,8 @@ struct RTLOptionTy {
   // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
   // builtins.
   std::string CompilationOptions = "-cl-std=CL2.0 ";
-  std::string InternalCompilationOptions;
-  std::string UserCompilationOptions;
+  std::string InternalCompilationOptions = "";
+  std::string UserCompilationOptions = "";
 
   // Spec constants used for all modules.
   SpecConstantsTy CommonSpecConstants;
@@ -3095,9 +3095,9 @@ int32_t CommandBatchTy::commit(bool Always) {
   if (Kernel)
     LEVEL0_KERNEL_END(DeviceId);
 
-  if (DeviceInfo->Option.Flags.EnableProfile) {
+  auto *Profile = DeviceInfo->getProfile(DeviceId);
+  if (DeviceInfo->Option.Flags.EnableProfile && Profile) {
     BatchTime = omp_get_wtime() - BatchTime;
-    auto *Profile = DeviceInfo->getProfile(DeviceId);
     if (Kernel) {
       double DeviceTime = Profile->getEventTime(KernelEvent);
       std::string KernelName = "Kernel ";
