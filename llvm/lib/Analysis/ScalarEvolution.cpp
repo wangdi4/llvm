@@ -1753,9 +1753,9 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
                 getZeroExtendExpr(Step, Ty, Depth + 1), L,
                 AR->getNoWrapFlags());
         }
-        
+
         // For a negative step, we can extend the operands iff doing so only
-        // traverses values in the range zext([0,UINT_MAX]). 
+        // traverses values in the range zext([0,UINT_MAX]).
         if (isKnownNegative(Step)) {
           const SCEV *N = getConstant(APInt::getMaxValue(BitWidth) -
                                       getSignedRangeMin(Step));
@@ -6837,7 +6837,7 @@ ScalarEvolution::getRangeRef(const SCEV *S,
   return setRange(S, SignHint, std::move(ConservativeResult));
 }
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
+#if INTEL_CUSTOMIZATION // HIR parsing
 unsigned ScalarEvolution::getHIRMDKindID(HIRLiveKind Kind) {
 
   // Initialize all kinds together.
@@ -6848,20 +6848,20 @@ unsigned ScalarEvolution::getHIRMDKindID(HIRLiveKind Kind) {
   }
 
   switch(Kind) {
-  case HIRLiveKind::LiveIn: 
+  case HIRLiveKind::LiveIn:
       return HIRLiveInID;
 
-  case HIRLiveKind::LiveOut: 
+  case HIRLiveKind::LiveOut:
     return HIRLiveOutID;
 
-  case HIRLiveKind::LiveRange: 
+  case HIRLiveKind::LiveRange:
     return HIRLiveRangeID;
   }
 
   llvm_unreachable("Invalid HIRLiveKind encountered!");
 }
 
-MDNode *ScalarEvolution::getHIRMetadata(const Instruction *Inst, 
+MDNode *ScalarEvolution::getHIRMetadata(const Instruction *Inst,
                                         HIRLiveKind Kind) {
   return Inst->getMetadata(getHIRMDKindID(Kind));
 }
@@ -8580,6 +8580,11 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
       ConstantEvolutionLoopExitValue.erase(&PN);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (BackedgeTakenCounts.find(L) == BackedgeTakenCounts.end())
+    BackedgeTakenCounts.insert({L, BackedgeTakenInfo()});
+#endif // INTEL_CUSTOMIZATION
+
   // Re-lookup the insert position, since the call to
   // computeBackedgeTakenCount above could result in a
   // recusive call to getBackedgeTakenInfo (on a different
@@ -9319,7 +9324,7 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
       InnerLHS = ZExt->getOperand();
     if (const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(InnerLHS)) {
       auto *StrideC = dyn_cast<SCEVConstant>(AR->getStepRecurrence(*this));
-      if (!AR->hasNoSelfWrap() && AR->getLoop() == L && AR->isAffine() && 
+      if (!AR->hasNoSelfWrap() && AR->getLoop() == L && AR->isAffine() &&
           StrideC && StrideC->getAPInt().isPowerOf2()) {
         auto Flags = AR->getNoWrapFlags();
         Flags = setFlags(Flags, SCEV::FlagNW);
@@ -13467,7 +13472,7 @@ bool ScalarEvolution::canIVOverflowOnLT(const SCEV *RHS, const SCEV *Stride,
 
 bool ScalarEvolution::canIVOverflowOnGT(const SCEV *RHS, const SCEV *Stride,
                                         bool IsSigned) {
-  
+
   unsigned BitWidth = getTypeSizeInBits(RHS->getType());
   const SCEV *One = getOne(Stride->getType());
 
