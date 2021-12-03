@@ -116,6 +116,13 @@ static cl::opt<bool>
                          cl::desc("Disable emission .debug_ranges section."),
                          cl::init(false));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> DisableIntelExtensions(
+    "disable-intel-dwarf-vendor-extensions", cl::Hidden,
+    cl::desc("Disable the emission of DW_AT_intel_comp_flags attribute"),
+    cl::init(false));
+#endif
+
 static cl::opt<DefaultOnOff> DwarfSectionsAsReferences(
     "dwarf-sections-as-references", cl::Hidden,
     cl::desc("Use sections+offset as references rather than labels."),
@@ -1011,12 +1018,25 @@ void DwarfDebug::finishUnitAttributes(const DICompileUnit *DIUnit,
 
   StringRef Producer = DIUnit->getProducer();
   StringRef Flags = DIUnit->getFlags();
-  if (!Flags.empty() && !useAppleExtensionAttributes()) {
-    std::string ProducerWithFlags = Producer.str() + " " + Flags.str();
+#if INTEL_CUSTOMIZATION
+  StringRef IntelFlags; 
+  StringRef ProducerFlags; 
+  if (Flags.consume_front_insensitive("ProducerFlags_")) { 
+    int Producerlen; 
+    Flags.consumeInteger(0, Producerlen); 
+    ProducerFlags = Flags.take_front(Producerlen); 
+    IntelFlags = Flags.substr(Producerlen); 
+  }
+  if (!ProducerFlags.empty() && !useAppleExtensionAttributes()) {
+    std::string ProducerWithFlags = Producer.str() + " " + ProducerFlags.str();
     NewCU.addString(Die, dwarf::DW_AT_producer, ProducerWithFlags);
   } else
     NewCU.addString(Die, dwarf::DW_AT_producer, Producer);
-
+  if (!IntelFlags.empty() && !DisableIntelExtensions) 
+    NewCU.addString(Die, dwarf::DW_AT_INTEL_comp_flags, IntelFlags);
+   else if (!Flags.empty() && !DisableIntelExtensions) 
+    NewCU.addString(Die, dwarf::DW_AT_INTEL_comp_flags, Flags);
+#endif
   NewCU.addUInt(Die, dwarf::DW_AT_language, dwarf::DW_FORM_data2,
                 DIUnit->getSourceLanguage());
   NewCU.addString(Die, dwarf::DW_AT_name, FN);
@@ -1045,9 +1065,10 @@ void DwarfDebug::finishUnitAttributes(const DICompileUnit *DIUnit,
     if (DIUnit->isOptimized())
       NewCU.addFlag(Die, dwarf::DW_AT_APPLE_optimized);
 
-    StringRef Flags = DIUnit->getFlags();
-    if (!Flags.empty())
-      NewCU.addString(Die, dwarf::DW_AT_APPLE_flags, Flags);
+#if INTEL_CUSTOMIZATION
+    if (!ProducerFlags.empty())
+      NewCU.addString(Die, dwarf::DW_AT_APPLE_flags, ProducerFlags);
+#endif
 
     if (unsigned RVer = DIUnit->getRuntimeVersion())
       NewCU.addUInt(Die, dwarf::DW_AT_APPLE_major_runtime_vers,
