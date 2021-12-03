@@ -21,11 +21,8 @@ define void @_start() {
 }
 
 ; -disable-verify should disable the verification of bitcode.
-; INTEL_CUSTOMIZATION
-; Extra -verify pass due to dynamic loopopt.
-; DEFAULT-LPM:     Pass Arguments: {{.*}} -verify {{.*}} -verify {{.*}} -verify
-; DISABLE-LPM-NOT: Pass Arguments: {{.*}} -verify {{.*}} -verify {{.*}} -verify
-; END INTEL_CUSTOMIZATION
+; DEFAULT-LPM:     Pass Arguments: {{.*}} -verify {{.*}} -verify
+; DISABLE-LPM-NOT: Pass Arguments: {{.*}} -verify {{.*}} -verify
 ; DEFAULT-NPM: Running pass: VerifierPass
 ; DEFAULT-NPM: Running pass: VerifierPass
 ; DEFAULT-NPM-NOT: Running pass: VerifierPass

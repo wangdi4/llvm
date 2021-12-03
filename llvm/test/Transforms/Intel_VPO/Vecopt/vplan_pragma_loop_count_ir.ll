@@ -1,4 +1,4 @@
-; RUN: opt -S -vplan-vec -vplan-build-vect-candidates=10000\
+; RUN: opt -S -vplan-vec -loopopt=0 -vplan-build-vect-candidates=10000\
 ; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
 ; RUN:     | FileCheck %s
 

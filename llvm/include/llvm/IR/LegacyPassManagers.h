@@ -172,19 +172,6 @@ private:
   virtual PMDataManager *getAsPMDataManager() = 0;
   virtual PassManagerType getTopLevelPassManagerType() = 0;
 
-#if INTEL_CUSTOMIZATION
-  /// If an already available analysis is set to be used by a pass with an
-  /// incompatible limiter we need to update that analysis's limiter as well as
-  /// all the analyses it itself depends on.
-  ///
-  /// Given a Pass P which depends on an Analysis Pass A:
-  /// If P's limiter is the same as A's limiter, then return.
-  /// If both P and A runs for one of LoopOptLimiter::FullLoopOptOnly, LoopOptLimiter::LightLoopOptOnly,
-  ///     or LoopOptLimiter::LoopOpt, set A's limiter to LoopOptLimiter::LoopOpt
-  /// For all other scenarios, let A run unconditionally i.e. LoopOptLimiter::None
-  void updateRequiredAnalysesLimiters(Pass *P);
-#endif // INTEL_CUSTOMIZATION
-
 public:
   /// Schedule pass P for execution. Make sure that passes required by
   /// P are run before P is run. Update analysis info maintained by

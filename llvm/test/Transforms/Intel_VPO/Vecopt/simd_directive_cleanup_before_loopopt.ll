@@ -1,7 +1,7 @@
 ; Verify that SIMD directives are cleaned up before loop-opt passes even if VPlan fails to vectorize the SIMD loop.
 ; HIR VPlan now works before LLVM VPlan by default so we need -pre-loopopt-vpo-passes option to make this test work
 
-; RUN: opt -O3 -pre-loopopt-vpo-passes -print-after=vplan-vec -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -O3 -pre-loopopt-vpo-passes -loopopt -print-after=vplan-vec -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that VPlan didn't vectorize loop (SIMD directive will be present)
 ; CHECK-LABEL: IR Dump After VPlan Vectorizer
@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @.kmpc_loc.0.0.6 = private unnamed_addr global { i32, i32, i32, i32, i8* } { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.5, i32 0, i32 0) }
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() local_unnamed_addr "loopopt-pipeline"="full" {
+define dso_local i32 @main() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %tid.val = tail call i32 @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* nonnull @.kmpc_loc.0.0.6) #1
   %is.last = alloca i32, align 4

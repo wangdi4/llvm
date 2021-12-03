@@ -680,39 +680,6 @@ AnalysisUsage *PMTopLevelManager::findAnalysisUsage(Pass *P) {
   return AnUsage;
 }
 
-#if INTEL_CUSTOMIZATION
-void PMTopLevelManager::updateRequiredAnalysesLimiters(Pass *P) {
-  AnalysisUsage AU;
-  P->getAnalysisUsage(AU);
-  const AnalysisUsage::VectorType &RequiredSet = AU.getRequiredSet();
-  for (const AnalysisID ID : RequiredSet) {
-    Pass *AnalysisPass = findAnalysisPass(ID);
-    if (!AnalysisPass)
-      continue;
-
-    LoopOptLimiter PassLimiter = P->getLimiter();
-    LoopOptLimiter AnalysisLimiter = AnalysisPass->getLimiter();
-
-    if (PassLimiter == AnalysisLimiter)
-      continue;
-
-    LoopOptLimiter LoopOptLimiters[] = {LoopOptLimiter::LoopOpt,
-                                        LoopOptLimiter::FullLoopOptOnly,
-                                        LoopOptLimiter::LightLoopOptOnly};
-
-    if (is_contained(LoopOptLimiters, PassLimiter) &&
-        is_contained(LoopOptLimiters, AnalysisLimiter))
-      AnalysisPass->limit(LoopOptLimiter::LoopOpt);
-    else
-      AnalysisPass->limit(LoopOptLimiter::None);
-
-    // No cycles is guaranteed, so we will terminate eventually.
-    if (AnalysisPass->getLimiter() != AnalysisLimiter)
-      updateRequiredAnalysesLimiters(AnalysisPass);
-  }
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Schedule pass P for execution. Make sure that passes required by
 /// P are run before P is run. Update analysis info maintained by
 /// the manager. Remove dead passes. This is a recursive function.
@@ -745,7 +712,6 @@ void PMTopLevelManager::schedulePass(Pass *P) {
     for (const AnalysisID ID : RequiredSet) {
 
       Pass *AnalysisPass = findAnalysisPass(ID);
-
       if (!AnalysisPass) {
         const PassInfo *PI = findAnalysisPassInfo(ID);
 
@@ -770,7 +736,6 @@ void PMTopLevelManager::schedulePass(Pass *P) {
 
         assert(PI && "Expected required passes to be initialized");
         AnalysisPass = PI->createPass();
-        AnalysisPass->limit(P->getLimiter());         // INTEL
         if (P->getPotentialPassManagerType () ==
             AnalysisPass->getPotentialPassManagerType())
           // Schedule analysis pass that is managed by the same pass manager.
@@ -789,8 +754,6 @@ void PMTopLevelManager::schedulePass(Pass *P) {
       }
     }
   }
-
-  updateRequiredAnalysesLimiters(P); // INTEL
 
   // Now all required passes are available.
   if (ImmutablePass *IP = P->getAsImmutablePass()) {
@@ -811,7 +774,6 @@ void PMTopLevelManager::schedulePass(Pass *P) {
         P->createPrinterPass(dbgs(), ("*** IR Dump Before " + P->getPassName() +
                                       " (" + PI->getPassArgument() + ") ***")
                                          .str());
-    PP->limit(P->getLimiter()); // INTEL
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -825,7 +787,6 @@ void PMTopLevelManager::schedulePass(Pass *P) {
         P->createPrinterPass(dbgs(), ("*** IR Dump After " + P->getPassName() +
                                       " (" + PI->getPassArgument() + ") ***")
                                          .str());
-    PP->limit(P->getLimiter()); // INTEL
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
@@ -1012,7 +973,6 @@ void PMDataManager::verifyPreservedAnalysis(Pass *P) {
 
     Pass *AP = I->second;
     TimeRegion PassTimer(getPassTimer(AP));
-    if (!AP->WasSkipped) // INTEL
     AP->verifyAnalysis();
   }
 #endif //INTEL_CUSTOMIZATION
@@ -1103,7 +1063,6 @@ void PMDataManager::freePass(Pass *P, StringRef Msg,
     PassManagerPrettyStackEntry X(P);
     TimeRegion PassTimer(getPassTimer(P));
 
-    if (!P->WasSkipped) // INTEL
     P->releaseMemory();
   }
 
@@ -1503,23 +1462,6 @@ void FPPassManager::dumpPassStructure(unsigned Offset) {
 }
 #endif // !INTEL_PRODUCT_RELEASE
 
-#if INTEL_CUSTOMIZATION
-bool llvm::legacy::doesLoopOptPipelineAllowToRunWithDebug(Pass *P,
-                                                          Function &F) {
-  bool AllowedToRun = doesLoopOptPipelineAllowToRun(P->getLimiter(), F);
-#if !INTEL_PRODUCT_RELEASE
-  if (PassDebugging > Structure && P->getLimiter() != LoopOptLimiter::None) {
-    dbgs() << (AllowedToRun ? "Running" : "Not running") << " limited pass "
-           << P->getPassName() << " on " << F.getName() << "\n"
-           << "Limiter: " << P->getLimiter() << ", loopopt-pipeline=< "
-           << F.getFnAttribute("loopopt-pipeline").getValueAsString() << ">\n";
-  }
-#endif // !INTEL_PRODUCT_RELEASE
-  P->WasSkipped = !AllowedToRun;
-  return AllowedToRun;
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Execute all of the passes scheduled for execution by invoking
 /// runOnFunction method.  Keep track of whether any of the passes modifies
 /// the function, and if so, return true.
@@ -1562,7 +1504,6 @@ bool FPPassManager::runOnFunction(Function &F) {
 #ifdef EXPENSIVE_CHECKS
       uint64_t RefHash = StructuralHash(F);
 #endif
-      if (llvm::legacy::doesLoopOptPipelineAllowToRunWithDebug(FP, F)) // INTEL
       LocalChanged |= FP->runOnFunction(F);
 
 #if defined(EXPENSIVE_CHECKS) && !defined(NDEBUG)
@@ -1597,7 +1538,6 @@ bool FPPassManager::runOnFunction(Function &F) {
     dumpUsedSet(FP);
 #endif // !INTEL_PRODUCT_RELEASE
 
-    if (!FP->WasSkipped) // INTEL
     verifyPreservedAnalysis(FP);
     if (LocalChanged)
       removeNotPreservedAnalysis(FP);
@@ -1790,50 +1730,6 @@ std::tuple<Pass *, bool> MPPassManager::getOnTheFlyPass(Pass *MP, AnalysisID PI,
 
 namespace llvm {
 namespace legacy {
-
-#if INTEL_CUSTOMIZATION
-void LoopOptLimitingPassManager::add(Pass *P) {
-  assert(!(ForceSkip && ForceRun) &&
-         "Can't force Skip and Run at the same time!");
-
-  if (ForceSkip)
-    return;
-
-  if (!ForceRun) {
-    LoopOptLimiter CurrLimiter = P->getLimiter();
-    switch (CurrLimiter) {
-    case LoopOptLimiter::None:
-      P->limit(Limiter);
-      break;
-    case LoopOptLimiter::NoLoopOptOnly:
-      if (Limiter == LoopOptLimiter::LoopOpt ||
-          Limiter == LoopOptLimiter::FullLoopOptOnly ||
-          Limiter == LoopOptLimiter::LightLoopOptOnly)
-        return;
-      break;
-    case LoopOptLimiter::LoopOpt:
-      if (Limiter == LoopOptLimiter::NoLoopOptOnly)
-        return;
-      if (Limiter == LoopOptLimiter::FullLoopOptOnly ||
-          Limiter == LoopOptLimiter::LightLoopOptOnly)
-        P->limit(Limiter);
-      break;
-    case LoopOptLimiter::FullLoopOptOnly:
-      if (Limiter == LoopOptLimiter::NoLoopOptOnly ||
-          Limiter == LoopOptLimiter::LightLoopOptOnly)
-        return;
-      break;
-    case LoopOptLimiter::LightLoopOptOnly:
-      if (Limiter == LoopOptLimiter::NoLoopOptOnly ||
-          Limiter == LoopOptLimiter::FullLoopOptOnly)
-        return;
-      break;
-    }
-  }
-
-  UnderlyingPM.add(P);
-}
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // PassManager implementation

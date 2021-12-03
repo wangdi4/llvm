@@ -1,7 +1,7 @@
 ; Test to check that VPInduction descriptor is constructed for an auto-recognized induction with variable step.
 
-; RUN: opt -vplan-vec -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="vplan-vec" -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -loopopt=0 -vplan-vec -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -loopopt=0 -passes="vplan-vec" -vpo-vplan-build-stress-test -vplan-build-stress-only-innermost -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK: i64 {{%vp.*}} = induction-init{add} i64 -1024 i64 [[VAR_STEP:%[0-9]+]]

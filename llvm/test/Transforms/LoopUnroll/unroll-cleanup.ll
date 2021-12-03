@@ -2,7 +2,7 @@
 ; The test is to check redundency produced by loop unroll pass
 ; should be cleaned up by later pass.
 ; INTEL: HIR General Unroll pass interferes with the test case so disabling it.
-; RUN: opt < %s -O2 -S | FileCheck %s
+; RUN: opt < %s -O2 -loopopt=0 -S | FileCheck %s
 
 ; After loop unroll:
 ;       %dec18 = add nsw i32 %dec18.in, -1

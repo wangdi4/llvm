@@ -4,7 +4,7 @@
 ;        for(i=0; i<N; i++) {
 ;         c[i][j] = c[i][j] + a[i][k] * b[k][j];
 ; REQUIRES: asserts
-; RUN: opt -O2 -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -O2 -loopopt -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 3 2 1 )
 
@@ -59,7 +59,7 @@ for.end.19:                                       ; preds = %for.inc.17, %entry
   ret i32 0
 }
 
-attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" "loopopt-pipeline"="full" }
+attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.ident = !{!0}
 

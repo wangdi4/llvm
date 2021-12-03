@@ -50,34 +50,6 @@ public:
   virtual void add(Pass *P) = 0;
 };
 
-#if INTEL_CUSTOMIZATION
-// Helper wrapper around normal pass manager that "limits" the pass using the
-// \p Limiter. In cases when it's statically known that the pass must or must
-// not be run it does that as well using \p ForceSkip and \p ForceRun state.\
-//
-// Part of "dynamic loopopt" implementation.
-class LoopOptLimitingPassManager : public PassManagerBase {
-  PassManagerBase &UnderlyingPM;
-  LoopOptLimiter Limiter;
-  // Under some conditions loopopt is always disabled (e.g. O1) without the need
-  // to check function attributes.
-  bool ForceSkip;
-  // Similar to above used for NoLoopOpt passes when it's statically known that
-  // LoopOpt is disabled (e.g. O1).
-  bool ForceRun;
-
-public:
-  LoopOptLimitingPassManager(PassManagerBase &UnderlyingPM,
-                             LoopOptLimiter Limiter, bool ForceSkip = false,
-                             bool ForceRun = false)
-      : UnderlyingPM(UnderlyingPM), Limiter(Limiter), ForceSkip(ForceSkip),
-        ForceRun(ForceRun) {}
-
-  ~LoopOptLimitingPassManager() override = default;
-  void add(Pass *P) override;
-};
-#endif // INTEL_CUSTOMIZATION
-
 /// PassManager manages ModulePassManagers
 class PassManager : public PassManagerBase {
 public:
@@ -125,11 +97,6 @@ private:
   FunctionPassManagerImpl *FPM;
   Module *M;
 };
-
-// Check if Function or a Loop pass \P should be run on the function \F based
-// on its loopopt pipeline limitation and log the decision according -debug-pass
-// verbosity level.
-bool doesLoopOptPipelineAllowToRunWithDebug(Pass *P, Function &F);
 
 } // End legacy namespace
 

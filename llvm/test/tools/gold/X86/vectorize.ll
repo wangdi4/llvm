@@ -5,6 +5,7 @@
 ; INTEL - added loopopt in pipeline.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    --plugin-opt=save-temps \
+; RUN:    --plugin-opt=-loopopt \
 ; RUN:    -shared %t.o -o %t2.o
 ; RUN: llvm-dis %t2.o.0.4.opt.bc -o - | FileCheck %s
 
@@ -14,7 +15,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @f(float* nocapture %x, i64 %n) "loopopt-pipeline"="full" {
+define void @f(float* nocapture %x, i64 %n) {
 bb:
   br label %bb1
 

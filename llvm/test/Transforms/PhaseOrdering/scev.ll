@@ -1,4 +1,6 @@
-; RUN: opt -passes='default<O3>,print<scalar-evolution>' -S < %s 2>&1 | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -loopopt=0 -passes='default<O3>,print<scalar-evolution>' -S < %s 2>&1 | FileCheck %s
+; END INTEL_CUSTOMIZATION
 ;
 ; This file contains phase ordering tests for scalar evolution.
 ; Test that the standard passes don't obfuscate the IR so scalar evolution can't

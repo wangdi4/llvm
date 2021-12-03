@@ -90,7 +90,7 @@ bool VPlanPragmaOmpOrderedSimdExtract::runOnModule(Module &M) {
     return &this->getAnalysis<WRegionInfoWrapperPass>(F).getWRegionInfo();
   };
 
-  return Impl.runImpl(M, DT, WRI, getLimiter());
+  return Impl.runImpl(M, DT, WRI);
 }
 
 // Visitor for ordered simd regions.
@@ -111,18 +111,13 @@ public:
 };
 
 bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
-                                                   WRenInfo WRI,
-                                                   LoopOptLimiter Limiter) {
+                                                   WRenInfo WRI) {
 
   SmallVector<Function *, 2> FunctionsToProcess;
   for (auto &F : M.functions()) {
     // Skip function declarations.
     if (F.isDeclaration())
       continue;
-
-    if (!doesLoopOptPipelineAllowToRun(Limiter, F))
-      continue;
-
     FunctionsToProcess.push_back(&F);
   }
 
@@ -200,6 +195,5 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
         NewFunc->removeFnAttr("vector-variants");
     }
   }
-  //FIXME: return false if all functions were skipped or IR was not modified.
   return true; // LLVM IR has been modified
 }

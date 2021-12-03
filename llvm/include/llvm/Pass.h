@@ -85,31 +85,6 @@ enum class ThinOrFullLTOPhase {
   FullLTOPostLink
 };
 
-#if INTEL_CUSTOMIZATION
-enum class LoopOptLimiter {
-  /// Run unconditionally.
-  None,
-  /// Run if the function doesn't have "loopopt-pipeline" attribute or its value
-  /// is "none".
-  NoLoopOptOnly,
-  /// Run if the function is marked with "loopopt-pipeline"="full".
-  FullLoopOptOnly,
-  /// Run if the function is marked with "loopopt-pipeline"="light".
-  LightLoopOptOnly,
-  /// Run if the function is marked with "loopopt-pipeline"="full" or
-  /// "loopopt-pipeline"="light".
-  LoopOpt
-};
-
-class raw_ostream;
-raw_ostream &operator<<(raw_ostream &OS, LoopOptLimiter Limiter);
-
-class Pass;
-// Check if Function or a Loop pass \P should be run on the function \F based
-// on its loopopt pipeline limitation.
-bool doesLoopOptPipelineAllowToRun(LoopOptLimiter Limiter, Function &F);
-#endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 /// Pass interface - Implemented by all 'passes'.  Subclass this if you are an
 /// interprocedural optimization or you do not fit into any of the more
@@ -119,26 +94,12 @@ class Pass {
   AnalysisResolver *Resolver = nullptr;  // Used to resolve analysis
   const void *PassID;
   PassKind Kind;
-  LoopOptLimiter Limiter = LoopOptLimiter::None; // INTEL
 
 public:
-#if INTEL_CUSTOMIZATION
-  // Helper data member used by the legacy PM. Kept here for ease of access as
-  // the PM code is split between LegacyPassManager.cpp and LoopPass.cpp.
-  bool WasSkipped = false;
-#endif // INTEL_CUSTOMIZATION
-
   explicit Pass(PassKind K, char &pid) : PassID(&pid), Kind(K) {}
   Pass(const Pass &) = delete;
   Pass &operator=(const Pass &) = delete;
   virtual ~Pass();
-
-#if INTEL_CUSTOMIZATION
-  void limit(LoopOptLimiter Limiter) {
-    this->Limiter = Limiter;
-  }
-  LoopOptLimiter getLimiter() const { return Limiter; }
-#endif // INTEL_CUSTOMIZATION
 
   PassKind getPassKind() const { return Kind; }
 
