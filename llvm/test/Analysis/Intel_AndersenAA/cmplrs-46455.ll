@@ -55,7 +55,7 @@ define internal fastcc void @test_512() unnamed_addr #2 {
   ret void
   }
 
-; CHECK: define internal fastcc void @merge_masking_i_w(i16* nocapture %0) unnamed_addr #2 {
+; CHECK: define internal fastcc void @merge_masking_i_w(i16* nocapture writeonly %0) unnamed_addr #2 {
 ; CHECK-NOT: attributes #2 { .*readnone.* }
 ; Function Attrs: noinline norecurse nounwind
 define internal fastcc void @merge_masking_i_w(i16* nocapture) unnamed_addr #3 {
@@ -63,7 +63,7 @@ define internal fastcc void @merge_masking_i_w(i16* nocapture) unnamed_addr #3 {
   ret void
 }
 
-attributes #0 = { nounwind  }
+attributes #0 = { nounwind }
 attributes #1 = { noinline nounwind }
 attributes #2 = { alwaysinline nounwind }
 attributes #3 = { noinline norecurse nounwind }
