@@ -26,7 +26,6 @@ define void @scalar_soa() {
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY]], label [[VPLANNEDBB3:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
-
 entry:
   %priv = alloca i32, align 4
   br label %SIMD.BEGIN
@@ -48,14 +47,8 @@ omp.loop.exit:
 
 SIMD.END:                               ; preds = %omp.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %EXIT
-
-EXIT:
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)

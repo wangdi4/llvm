@@ -33,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr2 = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @getElement(i32 %RetIdx) local_unnamed_addr {
+define i32 @getElement(i32 %RetIdx) {
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI2:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK: Uniform: [Shape: Uniform] i32 [[PHI1:%.*]] = phi  [ i32 0, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT1:%.*]] = sext i32 [[PHI1]] to i64
@@ -166,7 +166,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 ;}
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @scalPrivate(i32 %RetIdx) local_unnamed_addr #0 {
+define i32 @scalPrivate(i32 %RetIdx) {
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI1:%.*]] = phi  [ i32 [[IND_INIT:%.*]], {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK: Divergent: [Shape: Random] store i32 [[PHI1]] i32* [[L_PRIV:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[J1:%.*]] = load i32* [[J:%.*]]
@@ -231,9 +231,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 }
 
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token %0)
 
 declare dso_local i32 @helper(i32 %0) local_unnamed_addr

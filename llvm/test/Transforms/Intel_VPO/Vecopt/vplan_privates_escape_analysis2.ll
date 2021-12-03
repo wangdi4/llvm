@@ -107,8 +107,5 @@ DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
   ret i32 %3
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)

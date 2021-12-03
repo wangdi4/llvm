@@ -4,8 +4,7 @@
 ;
 ; Test code gen for unconditional last private of a scalar data type.
 ;
-define void @simd_loop(i32* %A, i32* %B) #0 {
-;
+define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-LABEL:  VPlan after live in/out lists creation:
 ; CHECK-NEXT:  VPlan IR for: simd_loop:omp.inner.for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -107,14 +106,8 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
 
 DIR.OMP.END.SIMD.1:                               ; preds = %omp.loop.exit
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %DIR.QUAL.LIST.END.2
-
-DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
   ret void
 }
 
-; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)

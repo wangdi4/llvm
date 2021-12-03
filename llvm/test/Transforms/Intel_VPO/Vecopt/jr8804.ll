@@ -10,13 +10,10 @@
 ; CHECK-NEXT: [[LRES:%vp.*]] = load i32* [[LDADDR:%vp.*]]
 ; CHECK-NEXT: [[ADDRES:%vp.*]] = add i32 [[LRES]] i32 1
 ; CHECK-NEXT:   store i32 [[ADDRES]] i32* [[LDADDR]]
-; ModuleID = 't6.c'
-source_filename = "t6.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline nounwind uwtable
-define dso_local void @test(i32* nocapture %p, i32 %b, i32 %e, i32 %n) local_unnamed_addr #0 {
+define void @test(i32* nocapture %p, i32 %b, i32 %e, i32 %n) {
 omp.inner.for.body.lr.ph:
   %j.priv = alloca i32, align 4
   %j.priv.priv = alloca i32, align 4
@@ -40,17 +37,15 @@ omp.inner.for.body:                               ; preds = %omp.body.continue, 
   br i1 %or.cond, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #2
   store i32 0, i32* %j.priv.priv, align 4
   %arrayidx = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1) #2
   br label %omp.body.continue
 
 for.body:                                         ; preds = %if.then, %for.body
-  call void (...) @foo() #2
+  call void (...) @foo()
   %4 = load i32, i32* %arrayidx, align 4
   %inc = add i32 %4, 1
   store i32 %inc, i32* %arrayidx, align 4
@@ -67,22 +62,9 @@ omp.body.continue:                                ; preds = %omp.inner.for.body,
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.body.continue
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
-  br label %retblk
-
-retblk:
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-declare dso_local void @foo(...) local_unnamed_addr #3
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare void @foo(...)
