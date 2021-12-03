@@ -12,9 +12,10 @@
 # end INTEL_CUSTOMIZATION
 #
 ## --report=discrepancy is the default, check we get the same output.
+# INTEL_CUSTOMIZATION
 # RUN: llvm-tli-checker --triple x86_64-scei-ps4 %t2 --report=discrepancy | \
-# RUN:     FileCheck %s --check-prefixes=WRONG_SUMMARY,WRONG_DETAIL \
-# RUN:    --implicit-check-not="==" --implicit-check-not="<<" --implicit-check-not=">>"
+# RUN:     FileCheck %s --check-prefixes=WRONG_SUMMARY,WRONG_DETAIL
+# end INTEL_CUSTOMIZATION
 #
 ## --report=summary should not print the details (checked by the
 ## implicit-check-not strings).
