@@ -8658,8 +8658,8 @@ private:
       STy = dyn_cast<StructType>(DTy);
     }
 
-    // If the pointee type is not a structure we have no interest in it.
-    if (!STy)
+    // If the pointee type is not a sized structure we have no interest in it.
+    if (!STy || !STy->isSized())
       return;
 
     auto *SL = DL.getStructLayout(STy);
@@ -8677,9 +8677,17 @@ private:
     }
 
     auto *SInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(STy));
+    bool InBounds = true;
+    uint64_t WriteBound = 0;
+    if (FieldNum >= STy->getNumElements()) {
+      InBounds = false;
+    } else {
+      WriteBound = SL->getElementOffset(FieldNum) + WriteSize;
+      if (WriteBound > StructSize)
+        InBounds = false;
+    }
 
-    auto WriteBound = SL->getElementOffset(FieldNum) + WriteSize;
-    if (WriteBound > StructSize) {
+    if (!InBounds) {
       // Memory operation writes outside of the identified type
       markAllFieldsMultipleValue(SInfo);
       return;
