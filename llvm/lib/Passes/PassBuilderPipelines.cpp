@@ -793,14 +793,11 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(InstCombinePass());
   if (Level == OptimizationLevel::O3)
     FPM.addPass(AggressiveInstCombinePass());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> c34d157fc73954366371aaca6291739921933e86
 
   if (!Level.isOptimizingForSize())
     FPM.addPass(LibCallsShrinkWrapPass());
@@ -2701,10 +2698,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   PeepholeFPM.addPass(InstCombinePass());
   if (Level == OptimizationLevel::O3)
     PeepholeFPM.addPass(AggressiveInstCombinePass());
-<<<<<<< HEAD
   addInstCombinePass(PeepholeFPM, !DTransEnabled); // INTEL
-=======
->>>>>>> c34d157fc73954366371aaca6291739921933e86
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(PeepholeFPM),
