@@ -430,6 +430,10 @@ static cl::opt<bool> EnableNoRerunSimplificationPipeline(
         "than once in the case that SCC mutations cause a function to be "
         "visited multiple times as long as the function has not been changed"));
 
+static cl::opt<bool> EnableMergeFunctions(
+    "enable-merge-functions", cl::init(false), cl::Hidden,
+    cl::desc("Enable function merging as part of the optimization pipeline"));
+
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
   LoopVectorization = true;
@@ -439,7 +443,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   LicmMssaOptCap = SetLicmMssaOptCap;
   LicmMssaNoAccForPromotionCap = SetLicmMssaNoAccForPromotionCap;
   CallGraphProfile = true;
-  MergeFunctions = false;
+  MergeFunctions = EnableMergeFunctions;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
 }
 #if INTEL_CUSTOMIZATION
