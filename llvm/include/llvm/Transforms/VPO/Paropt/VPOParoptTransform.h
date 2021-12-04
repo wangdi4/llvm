@@ -286,6 +286,10 @@ private:
   ///           };
   StructType *KmpTaskDependInfoTy;
 
+  /// Launder Intrinsics inserted by genGlobalPrivatizationLaunderIntrin().
+  SmallDenseMap<WRegionNode *, SmallPtrSet<Value *, 8>>
+      LaunderIntrinsicsForRegion;
+
   /// Atomic-free reduction global buffers per reduction item.
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
 
@@ -1288,10 +1292,6 @@ private:
   /// Finds the function pointer type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType* getKmpcMicroTaskPointerTy();
-
-  /// The data structure which builds the map between the
-  /// alloc/tid and the uses instruction in the WRegion.
-  SmallDenseMap<Instruction *, std::vector<Instruction *> > IdMap;
 
   /// The data structure that is used to store the alloca or tid call
   ///  instruction that are used in the WRegion.
