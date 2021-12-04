@@ -179,6 +179,9 @@ MemoryLocation MemoryLocation::getForArgument(const CallBase *Call,
     case Intrinsic::memcpy:
     case Intrinsic::memcpy_inline:
     case Intrinsic::memmove:
+    case Intrinsic::memcpy_element_unordered_atomic:
+    case Intrinsic::memmove_element_unordered_atomic:
+    case Intrinsic::memset_element_unordered_atomic:
       assert((ArgIdx == 0 || ArgIdx == 1) &&
              "Invalid argument index for memory intrinsic");
       if (ConstantInt *LenCI = dyn_cast<ConstantInt>(II->getArgOperand(2)))
@@ -238,6 +241,10 @@ MemoryLocation MemoryLocation::getForArgument(const CallBase *Call,
                                 II->getArgOperand(1)->getType())),
                             AATags);
     }
+
+    assert(
+        !isa<AnyMemTransferInst>(II) &&
+        "all memory transfer intrinsics should be handled by the switch above");
   }
 
   // We can bound the aliasing properties of memset_pattern16 just as we can
