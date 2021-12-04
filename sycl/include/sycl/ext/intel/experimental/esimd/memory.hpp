@@ -1550,7 +1550,7 @@ __ESIMD_API simd<T, N * NElts> lsc_surf_load(AccessorTy acc,
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::nontranspose;
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                               _Transposed, N>(pred.data(), offsets.data(),
                                               surf_ind);
@@ -1595,7 +1595,7 @@ __ESIMD_API simd<T, NElts> lsc_surf_load(AccessorTy acc, uint32_t offset) {
   simd_mask<N> pred = 1;
   simd<uint32_t, N> offsets = offset;
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   return __esimd_lsc_load_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                               _Transposed, N>(pred.data(), offsets.data(),
                                               surf_ind);
@@ -1715,7 +1715,7 @@ __ESIMD_API void lsc_surf_prefetch(AccessorTy acc, simd<uint32_t, N> offsets,
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::nontranspose;
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   __esimd_lsc_prefetch_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                            _Transposed, N>(pred.data(), offsets.data(),
                                            surf_ind);
@@ -1758,7 +1758,7 @@ __ESIMD_API void lsc_surf_prefetch(AccessorTy acc, uint32_t offset) {
   simd_mask<N> pred = 1;
   simd<uint32_t, N> offsets = offset;
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   __esimd_lsc_prefetch_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                            _Transposed, N>(pred.data(), offsets.data(),
                                            surf_ind);
@@ -1947,7 +1947,7 @@ __ESIMD_API void lsc_surf_store(simd<T, N * NElts> vals, AccessorTy acc,
   constexpr detail::lsc_data_order _Transposed =
       detail::lsc_data_order::nontranspose;
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                         _Transposed, N>(pred.data(), offsets.data(),
                                         vals.data(), surf_ind);
@@ -1993,7 +1993,7 @@ __ESIMD_API void lsc_surf_store(simd<T, NElts> vals, AccessorTy acc,
   simd_mask<N> pred = 1;
   simd<uint32_t, N> offsets = offset;
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   __esimd_lsc_store_bti<T, L1H, L3H, _AddressScale, _ImmOffset, _DS, _VS,
                         _Transposed, N>(pred.data(), offsets.data(),
                                         vals.data(), surf_ind);
@@ -2398,7 +2398,7 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets, simd_mask<N> pred) {
       detail::lsc_data_order::nontranspose;
   constexpr detail::lsc_atomic_op _Op = detail::to_lsc_atomic_op<Op>();
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   return __esimd_lsc_xatomic_bti_0<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
                                    _DS, _VS, _Transposed, N>(
       pred.data(), offsets.data(), surf_ind);
@@ -2445,7 +2445,7 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
       detail::lsc_data_order::nontranspose;
   constexpr detail::lsc_atomic_op _Op = detail::to_lsc_atomic_op<Op>();
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   return __esimd_lsc_xatomic_bti_1<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
                                    _DS, _VS, _Transposed, N>(
       pred.data(), offsets.data(), src0.data(), surf_ind);
@@ -2494,7 +2494,7 @@ lsc_surf_atomic(AccessorTy acc, simd<uint32_t, N> offsets,
       detail::lsc_data_order::nontranspose;
   constexpr detail::lsc_atomic_op _Op = detail::to_lsc_atomic_op<Op>();
 #if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
+  auto surf_ind = get_surface_index(acc);
   return __esimd_lsc_xatomic_bti_2<T, _Op, L1H, L3H, _AddressScale, _ImmOffset,
                                    _DS, _VS, _Transposed, N>(
       pred.data(), offsets.data(), src0.data(), src1.data(), surf_ind);
