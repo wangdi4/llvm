@@ -59,9 +59,9 @@ void foo_global_data()
   // Without defaultmap
 
   //CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* @dt_scalar
   //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([10 x i32]* @dt_array
   //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([10 x i32]* @glob_array
-  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @dt_scalar
   //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @glob_scalar
   #pragma omp target teams distribute
   for (int i = 0 ; i < 10; i++) {

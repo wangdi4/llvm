@@ -341,16 +341,16 @@ void foo2_global2() {
 
   int ii;
   int jj = 20;
+  // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_LB1]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_LB1_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB1]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_UB1_CAST]]),
   // HOST: store i32 0, i32* [[OMP_LB1]],
   // TARG: store i32 0, i32 addrspace(4)* [[OMP_LB1_CAST]],
   // HOST: store i32 {{.*}}, i32* [[OMP_UB1]],
   // TARG: store i32 {{.*}}, i32 addrspace(4)* [[OMP_UB1_CAST]],
-  // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
-  // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB1]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB1_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB1]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_UB1_CAST]]),
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
   // ALL: {{call|invoke}}{{.*}}void {{.*}}bar
