@@ -2095,6 +2095,7 @@ def SYCLIntelFPGADisableLoopPipelining : DeclOrStmtAttr {
   }];
   let Documentation = [SYCLIntelFPGADisableLoopPipeliningAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
+  let SimpleHandler = 1;
 }
 def : MutualExclusions<[SYCLIntelFPGAInitiationInterval,
                         SYCLIntelFPGADisableLoopPipelining]>;
