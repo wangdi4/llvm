@@ -3269,8 +3269,32 @@ void VPOParoptTransform::genOffloadArraysArgument(
 /// \endcode
 bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
+  if (LaunderIntrinsicsForRegion.count(W) == 0)
+    return false;
+
+  auto &LaunderIntrinsics = LaunderIntrinsicsForRegion[W];
+  auto NumLaunderIntrinsicsForW = LaunderIntrinsics.size();
+  if (NumLaunderIntrinsicsForW == 0)
+    return false;
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Number of launder intrinsics for the region is "
+                    << NumLaunderIntrinsicsForW << ".\n");
+
   DenseMap<Value *, Value *> RenameMap;
   bool Changed = false;
+
+  auto replaceWithOperandZero = [&](CallInst *CI) -> Value * {
+    LLVM_DEBUG(dbgs() << "clearLaunderIntrinBeforeRegion: Replacing "
+                         "launder intrinsic '";
+               CI->printAsOperand(dbgs()); dbgs() << "' with its operand.\n");
+
+    Value *NewV = CI->getOperand(0);
+    CI->replaceAllUsesWith(NewV);
+    CI->eraseFromParent();
+    Changed = true;
+    return NewV;
+  };
 
   // Check if Orig is a launder intrinsic, or a bitcast whose operand is a
   // launder intrinsic, and if so, remove the launder intrinsic.
@@ -3289,15 +3313,10 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
     CallInst *CI = dyn_cast<CallInst>(V);
     if (CI && isFenceCall(CI)) {
-      LLVM_DEBUG(dbgs() << "clearLaunderIntrinBeforeRegion: Replacing "
-                           "launder intrinsic '";
-                 CI->printAsOperand(dbgs()); dbgs() << "' with its operand.\n");
-
-      Value *NewV = CI->getOperand(0);
-      CI->replaceAllUsesWith(NewV);
-      CI->eraseFromParent();
+    Value *NewV = replaceWithOperandZero(CI);
       RenameMap.insert({V, NewV});
-      Changed = true;
+      LaunderIntrinsics.erase(CI);
+
       if (V == Orig) // If V is Orig, we want to replace uses of Orig with NewV,
         return NewV; // but not when V is a bitcast on Orig.
     }
@@ -3381,6 +3400,20 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
     }
   }
 
+  // Clear any unhandled launder intrinsics left for the region
+  if (LaunderIntrinsics.size() > 0) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Clearing "
+                      << LaunderIntrinsics.size()
+                      << " unhandled intrinsics.\n");
+    for (auto *I : LaunderIntrinsics) {
+      auto *CI = cast<CallInst>(I);
+      assert(isFenceCall(CI) && "Unexpected value in Launder intrinsics map");
+      replaceWithOperandZero(CI);
+    }
+
+    LaunderIntrinsicsForRegion[W].clear();
+  }
+
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
@@ -3461,6 +3494,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
   auto createRenamedValueForV = [&](Value *V) {
     IRBuilder<> Builder(EntryBB->getTerminator());
     Value *NewV = Builder.CreateLaunderInvariantGroup(V);
+    LaunderIntrinsicsForRegion[W].insert(NewV->stripPointerCasts());
     NewV->setName(V->getName());
     LLVM_DEBUG(dbgs() << "createRenamedValueForV : Renamed '";
                V->printAsOperand(dbgs());

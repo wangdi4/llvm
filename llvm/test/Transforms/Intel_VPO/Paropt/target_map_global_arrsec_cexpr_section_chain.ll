@@ -19,6 +19,12 @@
 ; CHECK: createRenamedValueForV : Renamed 'i32** getelementptr inbounds (%struct.b, %struct.b* @c, i32 0, i32 0)' (via launder intrinsic) to: 'i32** %{{.*}}'.
 ; CHECK: createRenamedValueForV : Renamed '%struct.b* @c' (via launder intrinsic) to: '%struct.b* %c'.
 
+; CHECK: clearLaunderIntrinBeforeRegion: Number of launder intrinsics for the region is 2.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+; CHECK: clearLaunderIntrinBeforeRegion: Replacing launder intrinsic 'i8* %{{.+}}' with its operand.
+
+; CHECK-NOT: call i8* @llvm.launder.invariant.group
+
 ; Check that globals @c is not used in the outlined function.
 ; CHECK: define internal void @__omp_offloading{{.*}}(%struct.b* %c)
 ; CHECK: %{{[^ ]+}} = getelementptr inbounds %struct.b, %struct.b* %c, i32 0, i32 0
