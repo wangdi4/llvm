@@ -2213,6 +2213,13 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
   if (!VD || !VD->getType()->isScalarType() || VD->getType()->isPointerType())
     return false;
 
+  if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD)) {
+    Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+        OMPDeclareTargetDeclAttr::getDeviceType(VD);
+    if (!DevTy || *DevTy != OMPDeclareTargetDeclAttr::DT_NoHost)
+      return false;
+  }
+
   if (DSAStack->getCurrentDirective() != OMPD_unknown &&
       isInOpenMPTargetExecutionDirective()) {
     // Find the level of the Target Directive

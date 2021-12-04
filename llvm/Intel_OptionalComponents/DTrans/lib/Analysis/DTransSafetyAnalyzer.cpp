@@ -3818,8 +3818,18 @@ public:
       return;
     }
 
-    auto *DestPointeeTy = DestParentTy->getPointerElementType();
-    uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
+    DTransType *DestPointeeTy = DestParentTy->getPointerElementType();
+    llvm::Type *DestLLVMPointeeTy = DestPointeeTy->getLLVMType();
+    if (!DestLLVMPointeeTy->isSized()) {
+      dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
+      StringRef Reason = "memcpy/memmove - unsized type";
+      setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
+      setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
+      processBadMemFuncManipulation(I, DstInfo);
+      return;
+    }
+
+    uint64_t ElementSize = DL.getTypeAllocSize(DestLLVMPointeeTy);
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
       assert(ParentTI && "visitModule() should create all TypeInfo objects");

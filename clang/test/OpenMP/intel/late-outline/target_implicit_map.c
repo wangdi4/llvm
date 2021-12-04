@@ -37,15 +37,21 @@ void foo_two()
 #pragma omp declare target
 static int x1;
 #pragma omp end declare target
-
+int a;
+#pragma omp declare target to(a)device_type(nohost)
 // CHECK-LABEL: foo_three
 void foo_three()
 {
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @x1
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* @x1
   #pragma omp target
     x1 = 1;
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.TARGET"() ]
+// CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @a
+  #pragma omp target
+    a = 10;
+// CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
 }
 
 // CHECK-LABEL: foo_four
