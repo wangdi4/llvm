@@ -53,11 +53,11 @@
 ## to -COUNT can't be an expression.
 # INTEL_CUSTOMIZATION
 # AVAIL: TLI knows 1217 symbols, 703 available
-# end INTEL_CUSTOMIZATION
-# AVAIL-COUNT-235: {{^}} available
+# AVAIL-COUNT-703: {{^}} available
 # AVAIL-NOT:       {{^}} available
-# UNAVAIL-COUNT-233: not available
+# UNAVAIL-COUNT-514: not available
 # UNAVAIL-NOT:       not available
+# end INTEL_CUSTOMIZATION
 
 ## This is a large file so it's worth telling lit to stop here.
 # END.
