@@ -10,8 +10,9 @@ define void @main_kernel() {
 entry:
 ; CHECK: %LocalMemBase = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8
 ; CHECK: %0 = getelementptr i8, i8 addrspace(3)* %LocalMemBase, i32 0
-; CHECK: %1 = bitcast i8 addrspace(3)* %0 to i32 addrspace(3)*
-; CHECK: store i32 1, i32 addrspace(3)* %1, align 4
+; CHECK: %1 = addrspacecast i8 addrspace(3)* %0 to i32 addrspace(3)**
+; CHECK: %2 = load i32 addrspace(3)*, i32 addrspace(3)** %1, align 8
+; CHECK: store i32 1, i32 addrspace(3)* %2, align 4
   store i32 1, i32 addrspace(3)* @main_kernel.local_arr, align 4
   ret void
 }
@@ -20,7 +21,5 @@ entry:
 
 !0 = !{void ()* @main_kernel}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel --  %0 = getelementptr i8, i8 addrspace(3)* %LocalMemBase, i32 0
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel --  %1 = bitcast i8 addrspace(3)* %0 to i32 addrspace(3)*
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

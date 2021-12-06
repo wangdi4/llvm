@@ -65,6 +65,12 @@ public:
     return KernelToVF.lookup(Kernel);
   }
 
+  /// If the return value is 0, it means the kernel doesn't need to be emulated.
+  unsigned getSubgroupEmulationSize(Function *Kernel) const {
+    assert(KernelToSGEmuSize.count(Kernel));
+    return KernelToSGEmuSize.lookup(Kernel);
+  }
+
 private:
   /// Returns whether `ForceVF` takes effect: when `ForceVF == 0`, it has no
   /// effect.
@@ -124,10 +130,12 @@ private:
 };
 
 enum VFAnalysisDiagKind {
-  VFDK_ConstraintConflict,
-  VFDK_BuiltinNotImplemented,
-  VFDK_SubgroupBroken,
-  VFDK_VFInvalid
+  VFDK_Error_ConstraintConflict,
+  VFDK_Error_BuiltinNotImplemented,
+  VFDK_Error_SubgroupBroken,
+  VFDK_Error_VFInvalid,
+  VFDK_Warn_UnsupportedVectorizationPattern,
+  VFDK_Warn_VecLenHintFalledBack
 };
 
 class VFAnalysisDiagInfo : public DiagnosticInfoWithLocationBase {
@@ -138,8 +146,9 @@ public:
   static DiagnosticKind Kind;
 
   VFAnalysisDiagInfo(const Function &F, const Twine &Msg,
-                     VFAnalysisDiagKind VFDiagKind)
-      : DiagnosticInfoWithLocationBase(Kind, DS_Error, F, DiagnosticLocation()),
+                     VFAnalysisDiagKind VFDiagKind,
+                     DiagnosticSeverity Severity = DS_Error)
+      : DiagnosticInfoWithLocationBase(Kind, Severity, F, DiagnosticLocation()),
         Msg(Msg), VFDiagKind(VFDiagKind) {}
 
   static bool classof(const DiagnosticInfo *DI) {
@@ -147,7 +156,7 @@ public:
   }
 
   void print(DiagnosticPrinter &DP) const override {
-    DP << "function <" << getFunction().getName() << ">: " << Msg;
+    DP << "kernel \"" << getFunction().getName() << "\": " << Msg;
   }
 
   VFAnalysisDiagKind getVFDiagKind() const { return VFDiagKind; }

@@ -14,15 +14,13 @@ entry:
   ret void
 }
 ; CHECK: [[LOCAL_MEM_PTR:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT: [[A_LOCAL_PTR:%.*]] = bitcast i8 addrspace(3)* [[LOCAL_MEM_PTR]] to [3 x i8] addrspace(3)*
-; CHECK: [[GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[A_LOCAL_PTR]], i64 0, i64 1
+; CHECK: [[GEP_ASC:%.*]] = addrspacecast i8 addrspace(3)* [[LOCAL_MEM_PTR]] to [3 x i8] addrspace(3)**
+; CHECK-NEXT: [[A_LOCAL_PTR:%.*]] = load [3 x i8] addrspace(3)*, [3 x i8] addrspace(3)** [[GEP_ASC]], align 8
+; CHECK-NEXT: [[GEP1:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[A_LOCAL_PTR]], i64 0, i64 1
 ; CHECK-NEXT: [[PTRTOINT1:%.*]] = ptrtoint i8 addrspace(3)* [[GEP1]] to i64
 ; CHECK: [[PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[A_LOCAL_PTR]] to i64
 ; CHECK-NEXT: [[SUB:%.*]] = sub i64 [[PTRTOINT1]], [[PTRTOINT]]
 ; CHECK-NEXT: store i64 [[SUB]], i64 addrspace(1)* %arrayidx, align 8
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function kernel -- {{.*}} getelementptr
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function kernel -- {{.*}} bitcast
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: PASS
+; DEBUGIFY: CheckModuleDebugify: PASS

@@ -341,7 +341,7 @@ public:
   /// Return false if no directive was found.
   /// Intended to be used outside of paropt when creating new values inside
   /// a region.
-  static bool addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
+  static bool addPrivateToEnclosingRegion(AllocaInst *I, BasicBlock *BlockPos,
                                           DominatorTree &DT, bool SimdOnly);
 
   /// Returns the next enclosing OpenMP begin directive, or nullptr if none.

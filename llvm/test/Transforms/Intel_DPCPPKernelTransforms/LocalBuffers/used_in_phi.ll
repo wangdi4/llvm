@@ -11,7 +11,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 define void @kernel(i64 addrspace(1)* %arrayidx, i1 %condition) {
 ; CHECK-LABEL: entry:
 ; CHECK: [[LOCAL_MEM_PTR:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT: [[A_LOCAL_PTR:%.*]] = bitcast i8 addrspace(3)* [[LOCAL_MEM_PTR]] to [3 x i8] addrspace(3)*
+; CHECK: [[GEP_ASC:%.*]] = addrspacecast i8 addrspace(3)* [[LOCAL_MEM_PTR]] to [3 x i8] addrspace(3)**
+; CHECK-NEXT: [[A_LOCAL_PTR:%.*]] = load [3 x i8] addrspace(3)*, [3 x i8] addrspace(3)** [[GEP_ASC]], align 8
 ; CHECK: [[ENTRY_GEP:%.*]] = getelementptr inbounds [3 x i8], [3 x i8] addrspace(3)* [[A_LOCAL_PTR]], i64 0, i64 1
 ; CHECK: [[ENTRY_PTRTOINT_GEP:%.*]] = ptrtoint i8 addrspace(3)* [[ENTRY_GEP]] to i64
 ; CHECK: [[ENTRY_PTRTOINT:%.*]] = ptrtoint [3 x i8] addrspace(3)* [[A_LOCAL_PTR]] to i64
@@ -36,7 +37,4 @@ B:
 }
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function kernel -- {{.*}} getelementptr
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function kernel -- {{.*}} bitcast
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: PASS
+; DEBUGIFY: CheckModuleDebugify: PASS

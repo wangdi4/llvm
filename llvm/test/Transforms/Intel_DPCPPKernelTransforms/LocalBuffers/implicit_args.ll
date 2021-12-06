@@ -51,20 +51,23 @@ entry:
 ; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
+; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)**
+; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load i32 addrspace(3)*, i32 addrspace(3)** [[VAR1]]
 
-; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 128
-; CHECK-NEXT:   [[VAR3:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR2]] to i8 addrspace(3)*
+; CHECK-NEXT:   [[VAR3:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 128
+; CHECK-NEXT:   [[VAR4:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR3]] to i8 addrspace(3)**
+; CHECK-NEXT:   [[VAR5:%[a-zA-Z0-9]+]] = load i8 addrspace(3)*, i8 addrspace(3)** [[VAR4]]
 
-; CHECK-NEXT:   [[VAR4:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 256
-; CHECK-NEXT:   [[VAR5:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR4]] to float addrspace(3)*
+; CHECK-NEXT:   [[VAR6:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 256
+; CHECK-NEXT:   [[VAR7:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR6]] to float addrspace(3)**
+; CHECK-NEXT:   [[VAR8:%[a-zA-Z0-9]+]] = load float addrspace(3)*, float addrspace(3)** [[VAR7]]
 
-; CHECK-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR1]], align 4
+; CHECK-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR2]], align 4
 ; CHECK-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %ApInt
 ; CHECK-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %BpInt
-; CHECK-NEXT:   %dummyChar = load i8, i8 addrspace(3)* [[VAR3]], align 1
+; CHECK-NEXT:   %dummyChar = load i8, i8 addrspace(3)* [[VAR5]], align 1
 ; CHECK-NEXT:   store i8 %dummyChar, i8 addrspace(1)* %pChar
-; CHECK-NEXT:   %dummyFloat = load float, float addrspace(3)* [[VAR5]], align 4
+; CHECK-NEXT:   %dummyFloat = load float, float addrspace(3)* [[VAR8]], align 4
 ; CHECK-NEXT:   store float %dummyFloat, float addrspace(1)* %pFloat
 ; CHECK-NEXT:   ret void
 
@@ -78,17 +81,18 @@ entry:
 ; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR10]] to <4 x i32> addrspace(3)*
+; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR10]] to <4 x i32> addrspace(3)**
+; CHECK-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = load <4 x i32> addrspace(3)*, <4 x i32> addrspace(3)** [[VAR11]]
 
-; CHECK-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 128
-; CHECK-NEXT:   [[VAR13:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR12]] to <16 x i64> addrspace(3)*
+; CHECK-NEXT:   [[VAR13:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 128
+; CHECK-NEXT:   [[VAR14:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR13]] to <16 x i64> addrspace(3)**
+; CHECK-NEXT:   [[VAR15:%[a-zA-Z0-9]+]] = load <16 x i64> addrspace(3)*, <16 x i64> addrspace(3)** [[VAR14]]
 
-; CHECK-NEXT:   %dummyInt4 = load <4 x i32>, <4 x i32> addrspace(3)* [[VAR11]], align 16
+; CHECK-NEXT:   %dummyInt4 = load <4 x i32>, <4 x i32> addrspace(3)* [[VAR12]], align 16
 ; CHECK-NEXT:   store <4 x i32> %dummyInt4, <4 x i32> addrspace(1)* %pInt4
-; CHECK-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR13]], align 128
+; CHECK-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR15]], align 128
 ; CHECK-NEXT:   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
 ; CHECK-NEXT:   ret void
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-10: WARNING: Instruction with empty DebugLoc in function {{foo|bar}} -- {{.*}} {{getelementptr|bitcast}}
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: CheckModuleDebugify: PASS

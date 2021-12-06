@@ -42,3 +42,4 @@ entry:
 ; CHECK-NEXT:   ret void
 
 ; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: CheckModuleDebugify: PASS

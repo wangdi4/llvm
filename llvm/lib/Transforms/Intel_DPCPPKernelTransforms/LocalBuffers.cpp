@@ -97,7 +97,7 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
   DIFinder.processModule(M);
 
   // Get all kernels
-  auto kernelsFunctionSet = DPCPPKernelCompilationUtils::getAllKernels(M);
+  KernelsFunctionSet = DPCPPKernelCompilationUtils::getAllKernels(M);
 
   // Run on all defined function in the module
   for (auto &Func : M) {
@@ -112,7 +112,7 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
       continue;
 
     runOnFunction(F);
-    if (kernelsFunctionSet.count(F)) {
+    if (KernelsFunctionSet.count(F)) {
       // We have a kernel, update metadata
       KernelInternalMetadataAPI(F).LocalBufferSize.set(
           LBInfo->getLocalsSize(F));
@@ -302,9 +302,12 @@ void LocalBuffersPass::updateDICompileUnitGlobals() {
 // parameters
 void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
 
+  IRBuilder<> Builder(InsertPoint);
+
   // Get all __local variables owned by F
   auto &LocalSet = LBInfo->getDirectLocals(F);
 
+  bool IsKernel = KernelsFunctionSet.count(F);
   unsigned int CurrLocalOffset = 0;
 
   // Iterate through local buffers
@@ -317,16 +320,22 @@ void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
     assert(0 != ArraySize && "zero array size!");
     // Now retrieve to the offset of the local buffer
     Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
-    GetElementPtrInst *AddrOfLocal = GetElementPtrInst::Create(
-        Ty, LocalMem,
-        ConstantInt::get(IntegerType::get(*Context, 32), CurrLocalOffset), "",
-        InsertPoint);
+    auto *Idx = ConstantInt::get(IntegerType::get(*Context, 32),
+                                 CurrLocalOffset);
+    auto *pLocalAddr = Builder.CreateGEP(Ty, LocalMem, Idx, "");
 
-    // Now add bitcast to required/original pointer type
-    CastInst *Replacement = CastInst::CreatePointerCast(
-        AddrOfLocal, GV->getType(), "", InsertPoint);
+    Value *Replacement = nullptr;
+    if (IsKernel) {
+      // For kernels, bitcast to required/original pointer type
+      Replacement = Builder.CreatePointerCast(pLocalAddr, GV->getType());
+    } else {
+      // For non-kernel functions, load the pointer from LocalMemBase.
+      auto *Cast = Builder.CreatePointerCast(pLocalAddr,
+                                             GV->getType()->getPointerTo());
+      Replacement = Builder.CreateLoad(GV->getType(), Cast);
+    }
 
-    replaceAllUsesOfConstantWith(GV, Replacement);
+    replaceAllUsesOfConstantWith(GV, dyn_cast<Instruction>(Replacement));
     GVToRemove.insert(GV);
     if (SP)
       attachDebugInfoToLocalMem(GV, LocalMem, CurrLocalOffset);
