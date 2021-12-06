@@ -7075,12 +7075,7 @@ inline bool Type::isIntegerType() const {
     return IsEnumDeclComplete(ET->getDecl()) &&
       !IsEnumDeclScoped(ET->getDecl());
   }
-<<<<<<< HEAD
-
-  return isExtIntType();
-=======
   return isBitIntType();
->>>>>>> 0095b4f9a508caae0d784c873eb966966374efc9
 }
 
 inline bool Type::isFixedPointType() const {

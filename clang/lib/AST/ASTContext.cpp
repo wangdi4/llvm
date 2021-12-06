@@ -4536,7 +4536,6 @@ QualType ASTContext::getWritePipeType(QualType T) const {
   return getPipeType(T, false);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Return channel type for the specified type.
 QualType ASTContext::getChannelType(QualType T) const {
@@ -4565,10 +4564,7 @@ QualType ASTContext::getChannelType(QualType T) const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-QualType ASTContext::getExtIntType(bool IsUnsigned, unsigned NumBits) const {
-=======
 QualType ASTContext::getBitIntType(bool IsUnsigned, unsigned NumBits) const {
->>>>>>> 0095b4f9a508caae0d784c873eb966966374efc9
   llvm::FoldingSetNodeID ID;
   BitIntType::Profile(ID, IsUnsigned, NumBits);
 

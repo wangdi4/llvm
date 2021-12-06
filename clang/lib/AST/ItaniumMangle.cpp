@@ -3988,7 +3988,6 @@ void CXXNameMangler::mangleType(const PipeType *T) {
   Out << "8ocl_pipe";
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void CXXNameMangler::mangleType(const ChannelType *T) {
   // <type> ::= 11ocl_channel
@@ -3997,23 +3996,11 @@ void CXXNameMangler::mangleType(const ChannelType *T) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-void CXXNameMangler::mangleType(const ExtIntType *T) {
-  Out << "U7_ExtInt";
-  llvm::APSInt BW(32, true);
-  BW = T->getNumBits();
-  TemplateArgument TA(Context.getASTContext(), BW, getASTContext().IntTy);
-  mangleTemplateArgs(TemplateName(), &TA, 1);
-  if (T->isUnsigned())
-    Out << "j";
-  else
-    Out << "i";
-=======
 void CXXNameMangler::mangleType(const BitIntType *T) {
   // 5.1.5.2 Builtin types
   // <type> ::= DB <number | instantiation-dependent expression> _
   //        ::= DU <number | instantiation-dependent expression> _
   Out << "D" << (T->isUnsigned() ? "U" : "B") << T->getNumBits() << "_";
->>>>>>> 0095b4f9a508caae0d784c873eb966966374efc9
 }
 
 void CXXNameMangler::mangleType(const DependentBitIntType *T) {

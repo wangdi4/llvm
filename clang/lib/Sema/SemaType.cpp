@@ -2280,7 +2280,6 @@ QualType Sema::BuildWritePipeType(QualType T, SourceLocation Loc) {
   return Context.getWritePipeType(T);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Build a Channel type.
 ///
@@ -2298,10 +2297,7 @@ QualType Sema::BuildChannelType(QualType T, SourceLocation Loc) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// Build a extended int type.
-=======
 /// Build a bit-precise integer type.
->>>>>>> 0095b4f9a508caae0d784c873eb966966374efc9
 ///
 /// \param IsUnsigned Boolean representing the signedness of the type.
 ///
@@ -6181,7 +6177,6 @@ namespace {
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void VisitChannelTypeLoc(ChannelTypeLoc TL) {
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
@@ -6192,10 +6187,7 @@ namespace {
     }
 #endif // INTEL_CUSTOMIZATION
 
-    void VisitExtIntTypeLoc(ExtIntTypeLoc TL) {
-=======
     void VisitExtIntTypeLoc(BitIntTypeLoc TL) {
->>>>>>> 0095b4f9a508caae0d784c873eb966966374efc9
       TL.setNameLoc(DS.getTypeSpecTypeLoc());
     }
 

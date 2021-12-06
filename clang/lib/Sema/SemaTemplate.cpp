@@ -6142,17 +6142,13 @@ bool UnnamedLocalNoLinkageFinder::VisitPipeType(const PipeType* T) {
   return false;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool UnnamedLocalNoLinkageFinder::VisitChannelType(const ChannelType* T) {
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool UnnamedLocalNoLinkageFinder::VisitExtIntType(const ExtIntType *T) {
-=======
 bool UnnamedLocalNoLinkageFinder::VisitBitIntType(const BitIntType *T) {
->>>>>>> 0095b4f9a508caae0d784c873eb966966374efc9
   return false;
 }
 

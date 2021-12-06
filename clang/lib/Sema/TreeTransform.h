@@ -1200,18 +1200,13 @@ public:
   QualType RebuildPipeType(QualType ValueType, SourceLocation KWLoc,
                            bool isReadPipe);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Build a new channel type given its value type.
   QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
 #endif // INTEL_CUSTOMIZATION
 
-   /// Build an extended int given its value type.
-  QualType RebuildExtIntType(bool IsUnsigned, unsigned NumBits,
-=======
   /// Build a bit-precise int given its value type.
   QualType RebuildBitIntType(bool IsUnsigned, unsigned NumBits,
->>>>>>> 0095b4f9a508caae0d784c873eb966966374efc9
                              SourceLocation Loc);
 
   /// Build a dependent bit-precise int given its value type.
