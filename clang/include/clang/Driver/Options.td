@@ -7422,6 +7422,8 @@ def _SLASH_Qextend_args_EQ : CLJoined<"Qextend-arguments=">, Alias<fextend_args_
   HelpText<"Controls how scalar integer arguments are extended in calls "
   "to unprototyped and varargs functions">;
 def _SLASH_Qextend_args_COL : CLJoined<"Qextend-arguments:">, Alias<fextend_args_EQ>;
+def _SLASH_Qfinite_math_only : CLFlag<"Qfinite-math-only">, Alias<ffinite_math_only>;
+def _SLASH_Qfinite_math_only_ : CLFlag<"Qfinite-math-only-">, Alias<fno_finite_math_only>;
 def _SLASH_Qfp_speculation_EQ : CLJoined<"Qfp-speculation=">, Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 def _SLASH_Qfp_speculation_COL : CLJoined<"Qfp-speculation:">, Alias<ffp_exception_behavior_EQ>;

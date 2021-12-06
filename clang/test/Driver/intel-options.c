@@ -814,3 +814,11 @@
 // RUN: %clang_cl -### /Qimf-arch-consistency:none /Qimf-max-error:5 /Qimf-absolute-error:none /Qimf-accuracy-bits:none /Qimf-domain-exclusion:none /Qimf-precision:none /Qimf-use-svml:true -c %s 2>&1 \
 // RUN:  | FileCheck --check-prefix=CHECK-COMBINED-IMF-ATTR %s
 // CHECK-COMBINED-IMF-ATTR: "-mGLOB_imf_attr=arch-consistency:none max-error:5 absolute-error:none accuracy-bits:none domain-exclusion:none precision:none use-svml:true"
+
+// -Qfinite-math-only
+// RUN: %clang_cl -### /Qfinite-math-only -c %s 2>&1 | FileCheck --check-prefix=CHECK-FINITE-MATH-ONLY %s
+// CHECK-FINITE-MATH-ONLY: clang{{.*}} "-ffinite-math-only"
+
+// RUN: %clang_cl -### /Qfinite-math-only- -c %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FINITE-MATH-ONLY %s
+// CHECK-NO-FINITE-MATH-ONLY-NOT: clang{{.*}} "-ffinite-math-only"
+
