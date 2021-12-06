@@ -124,7 +124,8 @@ inline void reportFail(const char *Banner) {
 bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
                          HLLoop *InnermostLoop, DDGraph DDG,
                          const SmallVectorImpl<HLInst *> &PostLoopInsts,
-                         HLInst *PreLoopStoreInst, HLInst **StoreInstPtr) {
+                         HLInst *PreLoopStoreInst, HLInst *PostLoopStoreInst,
+                         HLInst **StoreInstPtr) {
 
   HLNode *StoreNode1 = nullptr;
   const DDEdge *AntiOrOutputEdge = nullptr;
@@ -157,6 +158,13 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
       if (StoreNode1 == PreLoopStoreInst) {
         return false;
       }
+    }
+  }
+
+  // Take care of the case without pre loop store inst
+  if (DDG.getNumOutgoingEdges(MemRef) == 0) {
+    if (PostLoopStoreInst) {
+      StoreNode1 = PostLoopStoreInst;
     }
   }
 
@@ -249,7 +257,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
       // found.
       return false;
     }
-    if (!AntiOrOutputEdge) {
+    if (!PostLoopStoreInst && !AntiOrOutputEdge) {
       // This is a case that the load goes through 2 copy stmts
       // Need some forwardSub cleanup. Bail out now.
       reportFail("F7");
@@ -261,7 +269,8 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
       reportFail("F8");
       return false;
     }
-    if (AntiOrOutputEdge->getDVAtLevel(Level) != DVKind::EQ) {
+    if (AntiOrOutputEdge &&
+        AntiOrOutputEdge->getDVAtLevel(Level) != DVKind::EQ) {
       // invalid-sink.ll is sifted here.
       reportFail("F9");
       return false;
@@ -269,6 +278,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
   }
 
   if (StoreNode1) {
+
     *StoreInstPtr = cast<HLInst>(StoreNode1);
     // Check if this store's TempRef has a flow dependence to
     // another node other than Node (current source node)
@@ -369,9 +379,12 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
   if (Inst->isCopyInst()) {
     // Once copy inst has been found, compare the rval with the store inst's
     // rval. If there are equal, the copy inst will be the candidate
-    // TmpInitializationInst
-    if (PreLoopStoreInst &&
-        DDRefUtils::areEqual(PreLoopStoreInst->getRvalDDRef(), RRef)) {
+    // TmpInitializationInst. If there is no PreLoopStoreInst existed, it might
+    // be the case without pre loop store inst. We will check this pattern in
+    // the gatherPostloopInsts().
+    if ((PreLoopStoreInst &&
+         DDRefUtils::areEqual(PreLoopStoreInst->getRvalDDRef(), RRef)) ||
+        (!PreLoopStoreInst && Inst->getRvalDDRef()->isConstant())) {
       TmpInitializationInst = Inst;
       PreLoopInsts.push_back(Inst);
       return true;
@@ -402,6 +415,8 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
 
 template <bool IsPostexit = false>
 bool gatherPostloopInsts(HLInst *Inst, const HLLoop *InnermostLoop,
+                         HLInst *TmpInitializationInst,
+                         HLInst *&PostLoopStoreInst,
                          SmallVectorImpl<HLInst *> &PostLoopInsts) {
   if (!Inst) {
     // pre(post)loop HLNode might have not be HLInst (e.g HLIf)
@@ -419,6 +434,18 @@ bool gatherPostloopInsts(HLInst *Inst, const HLLoop *InnermostLoop,
   }
 
   PostLoopInsts.push_back(Inst);
+
+  // Check the whether the lval of tmp initialization inst %1 = 0 is the same as
+  // the rval of the post loop store (%C)[%N * i1 + i2] = %1;
+  // PostLoopStoreInst is for collecting the post-loop store inst which matches
+  // the tmp initialization so that we can use its lval to generate the new load
+  // inst in the innermost loop.
+  if (TmpInitializationInst &&
+      TmpInitializationInst->getLvalDDRef()->getSymbase() ==
+          Inst->getRvalDDRef()->getSymbase()) {
+    PostLoopStoreInst = Inst;
+  }
+
   return true;
 }
 
@@ -431,6 +458,7 @@ bool enablePerfectLPGatherPrePostInsts(HLLoop *InnermostLoop, DDGraph DDG,
                                        SmallVectorImpl<HLInst *> &PreLoopInsts,
                                        SmallVectorImpl<HLInst *> &PostLoopInsts,
                                        HLInst *&PreLoopStoreInst,
+                                       HLInst *&PostLoopStoreInst,
                                        HLInst *&TmpInitializationInst,
                                        bool AllowNonPerfectSinking) {
 
@@ -455,6 +483,7 @@ bool enablePerfectLPGatherPrePostInsts(HLLoop *InnermostLoop, DDGraph DDG,
       }
     } else {
       if (!gatherPostloopInsts(dyn_cast<HLInst>(I1), InnermostLoop,
+                               TmpInitializationInst, PostLoopStoreInst,
                                PostLoopInsts)) {
         return false;
       }
@@ -475,6 +504,7 @@ bool enablePerfectLPGatherPrePostInsts(HLLoop *InnermostLoop, DDGraph DDG,
   for (auto I = InnermostLoop->post_begin(), E = InnermostLoop->post_end();
        I != E; ++I) {
     if (!gatherPostloopInsts<true>(cast<HLInst>(I), InnermostLoop,
+                                   TmpInitializationInst, PostLoopStoreInst,
                                    PostLoopInsts)) {
       return false;
     }
@@ -489,12 +519,12 @@ bool enablePerfectLPLegalityCheckPre(
     HLLoop *InnermostLoop, DDGraph DDG, SmallVectorImpl<HLInst *> &PreLoopInsts,
     const SmallVectorImpl<HLInst *> &PostLoopInsts,
     SmallVectorImpl<HLInst *> &ValidatedStores, HLInst *PreLoopStoreInst,
-    HLInst *TmpInitializationInst) {
+    HLInst *PostLoopStoreInst, HLInst *TmpInitializationInst) {
 
   RegDDRef *LRef, *RRef;
-
-  for (auto &Inst : PreLoopInsts) {
-
+  for (auto It = PreLoopInsts.begin(), End = PreLoopInsts.end(); It != End;
+       ++It) {
+    HLInst *Inst = (*It);
     //  t = A[x]  ( LRef = RRef )
     //   RRef:     No edge to the innermost loop
     //   LRef:    if there is  output edge to the innermost loop,
@@ -503,7 +533,16 @@ bool enablePerfectLPLegalityCheckPre(
     RRef = Inst->getRvalDDRef();
 
     if (Inst == TmpInitializationInst) {
-      RRef = PreLoopStoreInst->getLvalDDRef();
+      if (PreLoopStoreInst) {
+        RRef = PreLoopStoreInst->getLvalDDRef();
+      } else if (PostLoopStoreInst) {
+        RRef = PostLoopStoreInst->getLvalDDRef();
+      } else {
+        // If there is no PreLoopStoreInst and no PostLoopStoreInst, the
+        // pre-loop inst will not be the sinking candidate
+        PreLoopInsts.erase(It);
+        continue;
+      }
     } else {
       assert(isa<LoadInst>(Inst->getLLVMInstruction()) &&
              "Unexpected preloop inst!");
@@ -512,15 +551,17 @@ bool enablePerfectLPLegalityCheckPre(
     HLInst *StoreInst = nullptr;
 
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, DDG, PostLoopInsts,
-                             PreLoopStoreInst, &StoreInst)) {
+                             PreLoopStoreInst, PostLoopStoreInst, &StoreInst)) {
       LLVM_DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
       LLVM_DEBUG(Inst->dump());
       return false;
     }
+
     if (StoreInst) {
       ValidatedStores.push_back(StoreInst);
     }
   }
+
   return true;
 }
 
@@ -773,7 +814,9 @@ void DDUtils::gatherTempRegDDRefSymbases(
 ///  (3) do ; .. enddo;
 ///      p[i] = t0
 ///      if this stmt is not part of (1), then no Dep edge of p or p[i] allowed
-///
+///  (4) t0 = 0
+//       do;  .. enddo;
+//       p[i] = t0 (no preloop store inst)
 bool DDUtils::enablePerfectLoopNest(
     HLLoop *InnermostLoop, DDGraph DDG,
     InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases,
@@ -784,12 +827,13 @@ bool DDUtils::enablePerfectLoopNest(
   SmallVector<HLInst *, 8> PostLoopInsts;
   SmallVector<HLInst *, 8> ValidatedStores;
   HLInst *PreLoopStoreInst = nullptr;
+  HLInst *PostLoopStoreInst = nullptr;
   HLInst *TmpInitializationInst = nullptr;
 
   //  (1) Gather  PreLoop / PostLoop Nodes in Vector.
   if (!enablePerfectLPGatherPrePostInsts(
           InnermostLoop, DDG, PreLoopInsts, PostLoopInsts, PreLoopStoreInst,
-          TmpInitializationInst, AllowNonPerfectSinking)) {
+          PostLoopStoreInst, TmpInitializationInst, AllowNonPerfectSinking)) {
     LLVM_DEBUG(dbgs() << "\n Fails in gatherprepost stmts \n");
     return false;
   }
@@ -797,7 +841,7 @@ bool DDUtils::enablePerfectLoopNest(
   // (2) Perform legality  check of PreLoop nodes
   if (!enablePerfectLPLegalityCheckPre(
           InnermostLoop, DDG, PreLoopInsts, PostLoopInsts, ValidatedStores,
-          PreLoopStoreInst, TmpInitializationInst)) {
+          PreLoopStoreInst, PostLoopStoreInst, TmpInitializationInst)) {
     LLVM_DEBUG(dbgs() << "\n Fails in legality pre stmt check \n");
     return false;
   }
@@ -813,7 +857,58 @@ bool DDUtils::enablePerfectLoopNest(
   for (auto I = PreLoopInsts.rbegin(), E = PreLoopInsts.rend(); I != E; ++I) {
     if (TmpInitializationInst == *I) {
       RegDDRef *TmpRef = TmpInitializationInst->getLvalDDRef();
-      RegDDRef *MemRef = PreLoopStoreInst->getLvalDDRef()->clone();
+
+      RegDDRef *MemRef = nullptr;
+      if (PreLoopStoreInst) {
+        MemRef = PreLoopStoreInst->getLvalDDRef()->clone();
+      } else if (PostLoopStoreInst) {
+        // Handle the case with no PreLoopStoreInst. We need to get MemRef from
+        // the PostLoopStoreInst's Lval and create a store %C[%N * i1 + i2] = 0
+        // as the preheader of the innermost loop. We also need to create a load
+        // %1 = %C[%N * i1 + i2] as the first child of the innermost loop.
+        //
+        //  From -
+        //  DO i1 = 0, %N + -1, 1
+        //     DO i2 = 0, zext.i32.i64(%N) + -1, 1
+        //       %1 = 0;
+        //       DO i3 = 0, zext.i32.i64(%N) + -1, 1
+        //          %3 = (%A)[%N * i1 + i3];
+        //          %4 = (%B)[i2 + %N * i3];
+        //          %1 = (%3 * %4)  +  %1;
+        //       END LOOP
+        //       (%C)[%N * i1 + i2] = %1;
+        //     END LOOP
+        //  END LOOP
+        //
+        //  To -
+        //  DO i1 = 0, %N + -1, 1
+        //     DO i2 = 0, zext.i32.i64(%N) + -1, 1
+        //       (%C)[%N * i1 + i2] = 0;
+        //       DO i3 = 0, zext.i32.i64(%N) + -1, 1
+        //          %1 = (%C)[%N * i1 + i2]
+        //          %3 = (%A)[%N * i1 + i3];
+        //          %4 = (%B)[i2 + %N * i3];
+        //          %1 = (%3 * %4)  +  %1;
+        //          %C[%N * i1 + i2] = %1;
+        //       END LOOP
+        //     END LOOP
+        //  END LOOP
+        //
+
+        MemRef = PostLoopStoreInst->getLvalDDRef()->clone();
+        RegDDRef *MemLval = MemRef->clone();
+        RegDDRef *TmpRval = TmpInitializationInst->getRvalDDRef()->clone();
+        HLInst *PreheaderLoadInst = InnermostLoop->getHLNodeUtils().createStore(
+            TmpRval, "Store", MemLval);
+        HLNodeUtils::insertBefore(InnermostLoop, PreheaderLoadInst);
+        updateLiveinsLiveoutsForSinkedInst(InnermostLoop, PreheaderLoadInst,
+                                           true);
+      } else {
+        // We already skipped the case without pre-loop store inst and post-loop
+        // store inst case in legality check
+        llvm_unreachable("Invalid TmpInitializationInst here\n");
+      }
+      assert(MemRef && "MemRef cannot be null\n");
 
       // make TmpRef a self blob to take care of the integer case %t = 0, where
       // the cannon-expr of tmp is 0
@@ -1105,8 +1200,8 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
 
   CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned InnermostLevel,
                           HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
-                          const SpecialSymbasesTy *SpecialSBs,
-                          bool RefineDV, T &DVs);
+                          const SpecialSymbasesTy *SpecialSBs, bool RefineDV,
+                          T &DVs);
 
   void addToDVs(T &DVs, const DirectionVector &DV, const DDEdge *Edge);
 
@@ -1171,7 +1266,7 @@ void CollectDDInfoForPermute<T>::visit(const HLDDNode *DDNode) {
     // In general, non-livein temps are ignored.
     if ((*I)->isTerminalRef() && SpecialSymbases &&
         !SpecialSymbases->count((*I)->getSymbase()))
-        continue;
+      continue;
 
     for (auto II = DDG.outgoing_edges_begin(*I),
               EE = DDG.outgoing_edges_end(*I);
@@ -1243,21 +1338,23 @@ void DDUtils::computeDVsForPermuteWithSBs(
     const SpecialSymbasesTy *SpecialSBs) {
 
   CollectDDInfoForPermute<SmallVectorImpl<std::pair<DirectionVector, unsigned>>>
-      CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs,
-          RefineDV, DVs);
+      CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs, RefineDV,
+          DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
 
-void DDUtils::computeDVsForPermuteWithSBs(
-    SmallVectorImpl<DirectionVector> &DVs,
-    const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
-    HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
-    const SpecialSymbasesTy *SpecialSBs) {
+void DDUtils::computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DVs,
+                                          const HLLoop *OutermostLoop,
+                                          unsigned InnermostNestingLevel,
+                                          HIRDDAnalysis &DDA,
+                                          HIRSafeReductionAnalysis &SRA,
+                                          bool RefineDV,
+                                          const SpecialSymbasesTy *SpecialSBs) {
 
-  CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD
-      (OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs,
-      RefineDV, DVs);
+  CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD(
+      OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs, RefineDV,
+      DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
