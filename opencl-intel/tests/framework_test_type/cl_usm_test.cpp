@@ -284,27 +284,19 @@ TEST_F(USMTest, memBlockingFree) {
   // buffer is freed.
   EXPECT_EQ(expectedValue, result);
 
-  err = clFinish(m_queue);
-  ASSERT_OCL_SUCCESS(err, "clFinish");
-
   err = clReleaseKernel(kernel);
   EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
 
 
   //=== Test clMemBlockingFreeINTEL with event released in advance ===
-
-  bufferA = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
-                                            size, alignment, &err);
-  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
-
-  bufferB = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
-                                            size, alignment, &err);
+  cl_int *bufferC = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, NULL,
+                                                    size, alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
   kernel = clCreateKernel(program, "blocking_test", &err);
   ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test");
 
-  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferA);
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, bufferC);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
   err = clSetKernelArgMemPointerINTEL(kernel, 1, &result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
@@ -321,7 +313,7 @@ TEST_F(USMTest, memBlockingFree) {
   // Notify kernel to break the infinite loop.
   std::thread(waitAndNotifyKernel).detach();
 
-  err = clMemBlockingFreeINTEL(m_context, bufferB);
+  err = clMemBlockingFreeINTEL(m_context, bufferC);
   EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
 
   err = clReleaseKernel(kernel);
