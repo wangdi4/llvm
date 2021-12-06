@@ -38,10 +38,11 @@ entry:
 ; CHECK:        define void @foo(i32 addrspace(1)* %pInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat,
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)*
+; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)**
+; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load i32 addrspace(3)*, i32 addrspace(3)** [[VAR1]]
 
 
-; CHECK-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR1]], align 4
+; CHECK-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR2]], align 4
 ; CHECK-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %pInt
 ; CHECK-NEXT:   ret void
 
@@ -49,12 +50,12 @@ entry:
 ; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16,
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR10]] to <16 x i64> addrspace(3)*
+; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR10]] to <16 x i64> addrspace(3)**
+; CHECK-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = load <16 x i64> addrspace(3)*, <16 x i64> addrspace(3)** [[VAR11]]
 
-; CHECK-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR11]], align 128
+; CHECK-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR12]], align 128
 ; CHECK-NEXT:   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
 ; CHECK-NEXT:   ret void
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-4: WARNING: Instruction with empty DebugLoc in function {{foo|bar}} -- {{.*}} {{getelementptr|bitcast}}
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: CheckModuleDebugify: PASS

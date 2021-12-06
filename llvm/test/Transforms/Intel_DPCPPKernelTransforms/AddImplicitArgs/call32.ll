@@ -80,6 +80,4 @@ entry:
 
 ; CHECK: attributes #0 = { nounwind }
 
-; DEBUGIFY: Instruction with empty DebugLoc in function {{.*}} getelementptr
-; DEBUGIFY-NEXT: Instruction with empty DebugLoc in function {{.*}} getelementptr
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: CheckModuleDebugify: PASS

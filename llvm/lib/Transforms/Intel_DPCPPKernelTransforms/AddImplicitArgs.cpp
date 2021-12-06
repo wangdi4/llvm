@@ -206,6 +206,9 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
   // maintain this map to preserve original/modified relation for functions.
   FixupFunctionsRefs[F] = NewF;
 
+  // Transfer mappings of directly used local values to modified function.
+  DirectLocalsMap[NewF] = LBInfo->getDirectLocals(F);
+
   // Apple LLVM-IR workaround
   // 1.  Pass WI information structure as the next parameter after given
   // function parameters
@@ -243,18 +246,46 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       CallArgs[I] = static_cast<Value *>(&*IA);
     assert(IA == NewF->arg_end());
     // Calculate pointer to the local memory buffer for callee.
+    IRBuilder<> Builder(CI);
     Value *LocalMem = CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
     Twine ValName = "LocalMem_" + Name;
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual
     // type (not using type from pointer as this functionality is planned o
     // be removed.
     Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
-    Value *NewLocalMem = GetElementPtrInst::Create(
-        Ty, LocalMem,
-        ConstantInt::get(IntegerType::get(F->getContext(), 32),
-                         DirectLocalSize),
-        ValName, CI);
+    Value *NewLocalMemOffset = ConstantInt::get(
+        IntegerType::get(F->getContext(), 32), DirectLocalSize);
+    auto *NewLocalMem =
+        Builder.CreateGEP(Ty, LocalMem, NewLocalMemOffset, ValName);
     CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER] = NewLocalMem;
+
+    // Now that the local memory buffer is rebased, the memory location of
+    // directly used local values should be passed to the callee so that local
+    // values can be loaded/stored correctly by callee.
+    // In this way, the pointers to local values are pushed to new local memory
+    // buffer base, and then callee can access local values via the pointers.
+    unsigned int CurrLocalOffset = 0;
+    llvm::DataLayout DL(F->getParent());
+    // Get Locals from the new map if the callee Function has been modified.
+    auto &CalleeLocalSet = DirectLocalsMap.count(Callee)
+                               ? DirectLocalsMap[Callee]
+                               : LBInfo->getDirectLocals(Callee);
+    for (auto *Local : CalleeLocalSet) {
+      GlobalVariable *GV = cast<GlobalVariable>(Local);
+      size_t LocalSize = DL.getTypeAllocSize(GV->getType()->getElementType());
+      assert(0 != LocalSize && "zero array size!");
+      // Get the position of Local in NewLocalMem.
+      ConstantInt *LocalIndex = ConstantInt::get(
+          IntegerType::get(F->getContext(), 32), CurrLocalOffset);
+      auto *LocalPtr = Builder.CreateGEP(Ty, NewLocalMem, LocalIndex);
+      // Cast to pointer type of Local.
+      auto *Cast =
+          Builder.CreatePointerCast(LocalPtr, GV->getType()->getPointerTo());
+      // Store pointer to Local to NewLocalMem.
+      Builder.CreateStore(GV, Cast);
+      // Calculate the offset of next direct used local value.
+      CurrLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(LocalSize);
+    }
 
     FixupCalls[CI] = CallArgs;
   }

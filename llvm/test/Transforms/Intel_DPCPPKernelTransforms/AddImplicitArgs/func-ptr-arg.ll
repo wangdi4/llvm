@@ -38,6 +38,4 @@ define void @func() {
 }
 
 ; DEBUGIFY-NOT: WARNING:
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function func --  %LocalMem_bar = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
 ; DEBUGIFY: CheckModuleDebugify: PASS
-
