@@ -526,6 +526,11 @@
 // CHECK-FNO-ALN-NOT: "-function-alignment"
 // CHECK-FUN-ALN-EQ: "-function-alignment" "2"
 
+// -falign-stack
+// RUN: %clang -### -falign-stack=assume-4-byte %s 2>&1 | FileCheck %s -check-prefix CHECK-ALIGN-STACK -DBYTESIZE=4
+// RUN: %clang -### -falign-stack=assume-16-byte %s 2>&1 | FileCheck %s -check-prefix CHECK-ALIGN-STACK -DBYTESIZE=16
+// CHECK-ALIGN-STACK: "-mstack-alignment=[[BYTESIZE]]"
+
 // Behavior with /Qcf-protection option
 // RUN: %clang_cl -### -c /Qcf-protection %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION %s
 // RUN: %clang_cl -### -c /Qcf-protection=full %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION %s
