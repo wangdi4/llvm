@@ -4366,6 +4366,24 @@ static void handleSYCLIntelNumSimdWorkItemsAttr(Sema &S, Decl *D,
 // Handles use_stall_enable_clusters
 static void handleSYCLIntelUseStallEnableClustersAttr(Sema &S, Decl *D,
                                                       const ParsedAttr &A) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, A))
+    return;
+
+  if (A.getAttributeSpellingListIndex() ==
+    SYCLIntelUseStallEnableClustersAttr::GNU_stall_enable) {
+    S.Diag(A.getLoc(), diag::warn_attribute_spelling_deprecated) << A;
+    S.Diag(A.getLoc(), diag::note_spelling_suggestion)
+        << "'use_stall_enable_clusters'";
+  } else if (A.getAttributeSpellingListIndex() ==
+             SYCLIntelUseStallEnableClustersAttr::CXX11_clang_stall_enable) {
+    S.Diag(A.getLoc(), diag::warn_attribute_spelling_deprecated)
+        << "'" + A.getNormalizedFullName() + "'";
+    S.Diag(A.getLoc(), diag::note_spelling_suggestion)
+        << "'clang::use_stall_enable_clusters'";
+  }
+#endif // INTEL_CUSTOMIZATION
+
   D->addAttr(::new (S.Context)
                  SYCLIntelUseStallEnableClustersAttr(S.Context, A));
 }
