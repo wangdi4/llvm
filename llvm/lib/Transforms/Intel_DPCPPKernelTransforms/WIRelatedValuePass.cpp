@@ -48,7 +48,7 @@ bool WIRelatedValue::runOnFunction(Function &F) {
 
   // Schedule all instruction for calculation.
   for (Instruction &I : instructions(F))
-    Changed.insert(&I);
+    calculateDep(&I);
 
   updateDeps();
   return false;
@@ -68,8 +68,8 @@ void WIRelatedValue::updateDeps() {
 bool WIRelatedValue::getWIRelation(Value *Val) {
   // New instruction to consider.
   // Mark it as not related to WI Id till further update.
-  SpecialValues.insert({Val, false});
-  return SpecialValues[Val];
+  auto It = SpecialValues.insert({Val, false});
+  return It.first->second;
 }
 
 void WIRelatedValue::calculateDep(Value *Val) {
@@ -84,10 +84,9 @@ void WIRelatedValue::calculateDep(Value *Val) {
 
   // New instruction to consider.
   // Mark it as not related to WI Id till further update.
-  SpecialValues.insert({Val, false});
+  auto It = SpecialValues.insert({Val, false});
 
-  // Our initial value.
-  bool OrigRelation = SpecialValues[Inst];
+  bool OrigRelation = It.first->second;
   bool NewRelation = OrigRelation;
 
   // LLVM does not have compile time polymorphisms.
@@ -158,13 +157,16 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
   //   behavior (Uniform->strided).
   //   This information should also be obtained from RuntimeServices somehow.
 
+  auto hasWIRelatedArgs = [=]() {
+    return any_of(Inst->operands(), [=](Value *V) { return getWIRelation(V); });
+  };
+
   // Check if the function is in the table of functions
   Function *OrigFunc = Inst->getCalledFunction();
-  if (!OrigFunc) {
-    llvm_unreachable("Unexpected indirect call!");
-    return true;
-  }
-  std::string OrigFuncName = OrigFunc->getName().str();
+  if (!OrigFunc)
+    return !Inst->hasFnAttr(Attribute::ReadNone) || hasWIRelatedArgs();
+
+  StringRef OrigFuncName = OrigFunc->getName();
 
   // Check if call is TID-generator.
   if (DPCPPKernelCompilationUtils::isGetGlobalId(OrigFuncName) ||
@@ -173,7 +175,7 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
     return true;
   }
 
-  std::string OrigWGFuncName = OrigFuncName;
+  std::string OrigWGFuncName = OrigFuncName.str();
   if (DPCPPKernelCompilationUtils::hasWorkGroupFinalizePrefix(OrigFuncName)) {
     // Remove the finalize prefix from work group function to
     // get the Original work group function name to check against below.
@@ -202,28 +204,18 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
     return true;
   }
 
-  // Check if function is not declared inside "this" module.
-  if (!OrigFunc->isDeclaration()) {
-    // For functions defined (not declared) in this module - it is unsafe to
-    // assume anything.
-    // TODO: can we check the function and assure it is not related on WI-Id?
-    return true;
+  // We assume all other declarations (built-in functions) are constant.
+  // TODO:
+  // 1) Can we remove OrigFunc->isDeclaration()? I.e., do all other built-ins
+  // have readnone attribute?
+  // 2) Can we further remove all assertion on function names above? I.e., Do
+  // all WI-related built-ins have readnone attribute?
+  if ((OrigFunc->isDeclaration() || Inst->hasFnAttr(Attribute::ReadNone)) &&
+      !hasWIRelatedArgs()) {
+    return false;
   }
 
-  // Iterate over all input dependencies. If all are not WI Id related -
-  // propagate it. Otherwise - return WI Id related.
-  unsigned int NumParams = Inst->arg_size();
-
-  bool IsWIRelated = false;
-  for (unsigned int i = 0; i < NumParams; ++i) {
-    // Operand 0 is the function's name.
-    Value *Op = Inst->getArgOperand(i);
-    IsWIRelated = IsWIRelated || getWIRelation(Op);
-    if (IsWIRelated) {
-      break; // Non related check failed. No need to continue.
-    }
-  }
-  return IsWIRelated;
+  return true;
 }
 
 bool WIRelatedValue::calculateDep(CmpInst *Inst) {
