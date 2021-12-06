@@ -37,8 +37,7 @@ entry:
 }
 
 
-; DEBUGIFY: Instruction with empty DebugLoc in function {{.*}} getelementptr
-; DEBUGIFY-NEXT: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NOT: WARNING
 
 !sycl.kernels = !{!0}

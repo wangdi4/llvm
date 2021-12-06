@@ -521,7 +521,7 @@ void updateMetadataTreeWithNewFuncs(
     Module *M, DenseMap<Function *, Function *> &FunctionMap,
     MDNode *MDTreeNode, SmallSet<MDNode *, 8> &Visited);
 
-inline bool hasByvalByrefArgs(Function *F) {
+inline bool hasByvalByrefArgs(const Function *F) {
   if (!F)
     return false;
   return llvm::any_of(F->args(), [](auto &Arg) {
@@ -539,8 +539,14 @@ Instruction *createInstructionFromConstantWithReplacement(
 /// satisfies the given `Condition`. This will perform a DFS on the CallGraph.
 /// Returns true if `Node->getFunction()` calls target function
 /// directly/indirectly.
-bool hasFunctionCallInCGNodeSatisfiedWith(
-    CallGraphNode *Node, function_ref<bool(Function *)> Condition);
+bool hasFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition);
+
+/// Apply `MapFunc` to all functions satisfied with the given `Condition` in the
+/// CallGraph `Node`.
+void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition,
+                               function_ref<void(Function *)> MapFunc);
 
 void initializeVectInfoOnce(
     ArrayRef<VectItem> VectInfos,

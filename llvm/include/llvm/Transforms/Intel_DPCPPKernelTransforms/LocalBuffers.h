@@ -14,6 +14,7 @@
 #include "LocalBufferAnalysis.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 extern bool EnableTLSGlobals;
 
@@ -76,6 +77,9 @@ private:
 
   /// @brief help to find all compile units in the module
   DebugInfoFinder DIFinder;
+
+  /// @brief Store all kernels in the module
+  DPCPPKernelCompilationUtils::FuncSet KernelsFunctionSet;
 
   /// @brief stores all the DIGlobalVariableExpression's need to be removed
   ///        in DICompileUnit.globals

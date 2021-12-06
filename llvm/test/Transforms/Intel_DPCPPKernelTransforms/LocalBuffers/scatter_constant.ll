@@ -7,9 +7,10 @@
 
 ; CHECK-LABEL: void @foo
 ; CHECK: [[GEP:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT: [[GEP_BC:%.*]] = bitcast i8 addrspace(3)* [[GEP]] to i32 addrspace(4)* addrspace(3)*
-; CHECK: [[INSERT_0:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> undef, i32 addrspace(4)* addrspace(3)* [[GEP_BC]], i64 0
-; CHECK-NEXT: [[INSERT_1:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_0]], i32 addrspace(4)* addrspace(3)* %1, i64 1
+; CHECK: [[GEP_ASC:%.*]] = addrspacecast i8 addrspace(3)* [[GEP]] to i32 addrspace(4)* addrspace(3)*
+; CHECK: [[A_LOCAL_PTR:%.*]] = load i32 addrspace(4)* addrspace(3)*, i32 addrspace(4)* addrspace(3)** [[GEP_ASC]], align 8
+; CHECK: [[INSERT_0:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> undef, i32 addrspace(4)* addrspace(3)* [[A_LOCAL_PTR]], i64 0
+; CHECK-NEXT: [[INSERT_1:%.*]] = insertelement <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_0]], i32 addrspace(4)* addrspace(3)* [[A_LOCAL_PTR]], i64 1
 ; CHECK-NEXT: call void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*> {{%.*}}, <2 x i32 addrspace(4)* addrspace(3)*> [[INSERT_1]], i32 8, <2 x i1> <i1 true, i1 true>)
 
 
@@ -31,6 +32,4 @@ entry:
 declare void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*>, <2 x i32 addrspace(4)* addrspace(3)*>, i32 immarg, <2 x i1>)
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- {{.*}} getelementptr
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- {{.*}} bitcast
-; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: CheckModuleDebugify: PASS

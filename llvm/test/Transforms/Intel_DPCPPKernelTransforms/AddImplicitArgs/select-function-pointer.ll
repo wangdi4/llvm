@@ -69,11 +69,9 @@ entry:
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} getelementptr
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} getelementptr
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NOT: WARNING
 
