@@ -3689,7 +3689,6 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
     Line = getLineNumber(Loc);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   SmallString<256> TypeInfoString;
@@ -3700,10 +3699,7 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  llvm::DIScope *RDContext = getDeclContextDescriptor(RD);
-=======
   llvm::DIScope *RDContext = getDeclarationLexicalScope(RD);
->>>>>>> e403f4fdc88322201040f2bee7b328e8a78e2f7f
 
   // If we ended up creating the type during the context chain construction,
   // just return that.
