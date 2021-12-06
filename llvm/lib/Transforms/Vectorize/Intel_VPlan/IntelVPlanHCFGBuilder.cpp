@@ -552,6 +552,10 @@ public:
           const Loop *L = Head2Loop[BB->getOriginalBB()];
           assert(L != nullptr && "Can't find Loop");
           LoopMap[L] = VPL;
+          // Capture opt-report remarks that are present for current loop in
+          // incoming IR.
+          const_cast<VPLoop *>(VPL)->setOptReport(
+              OptReport::findOptReportInLoopID(L->getLoopID()));
           for (auto VLoop : *VPL)
             mapLoop2VPLoop(VLoop);
         };

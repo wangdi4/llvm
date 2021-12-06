@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanOptrpt.h"
 
@@ -158,6 +159,13 @@ public:
   }
 
   OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
+
+  /// Lower opt-report remarks collected in VPlan data structures to outgoing
+  /// IR.
+  void lowerVPlanOptReportRemarks(OptReportBuilder &ORBuilder) {
+    lowerRemarksForVectorLoops();
+    emitRemarksForScalarLoops(ORBuilder);
+  }
 
   /// Clone the given scalar loop \p OrigLP and insert the cloned loop on the
   /// edge between NewLoopPred and NewLoopSucc. The NewLoopPred and NewLoopSucc
@@ -548,6 +556,11 @@ private:
 
   OptReportStatsTracker OptRptStats;
 
+  // Set of scalar loops generated in outgoing vector code. We also track the
+  // type of scalar loop i.e. peel or remainder.
+  SmallVector<std::pair<CfgMergerPlanDescr::LoopType, Loop *>, 2>
+      OutgoingScalarLoops;
+
   // Get alignment for VPLoadStoreInst using underlying llvm::Instruction.
   Align getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst);
 
@@ -693,6 +706,17 @@ private:
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
   /// memory operation. Returns nullptr if operation is unmasked.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
+
+  /// Helper method to visit all VPLoops in final VPlan CFG and lower
+  /// opt-reports attached to them to their corresponding loops in outgoing IR.
+  void lowerRemarksForVectorLoops();
+
+  /// Helper method to visit all outgoing scalar loops and emit opt-report
+  /// remarks for them explicitly.
+  // TODO: We are not able to attach these remarks earlier in pipeline since
+  // scalar loops don't have VPLoops in CFG. Explore alternative approaches for
+  // such loops.
+  void emitRemarksForScalarLoops(OptReportBuilder &ORBuilder);
 
   /// Return a guaranteed peeling variant. Null is returned if we are not sure
   /// that the peel loop will be executed at run-time.

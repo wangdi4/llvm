@@ -40,36 +40,36 @@
 #define VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(ID) VPLAN_OPTRPT_HANDLE_GROUP_END(ID)
 #endif
 
-VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(15475)
+VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(15475u)
 // Basically everything vectorizable through TargetLibraryInfo.
-VPLAN_OPTRPT_HANDLE_FUNC(15482, VectorMathCalls)
+VPLAN_OPTRPT_HANDLE_FUNC(15482u, VectorMathCalls)
 // Vectorizable due to vector-variants attribute.
-VPLAN_OPTRPT_HANDLE_FUNC(15484, VectorVariantCalls)
+VPLAN_OPTRPT_HANDLE_FUNC(15484u, VectorVariantCalls)
 // Calls that get serialized.
-VPLAN_OPTRPT_HANDLE_FUNC(15485, SerializedCalls)
+VPLAN_OPTRPT_HANDLE_FUNC(15485u, SerializedCalls)
 // Serialized code and scalar instructions reasons
 VPLAN_OPTRPT_VEC_HANDLE(SerializedInstRemarks)
-VPLAN_OPTRPT_HANDLE_FUNC_GROUP_END(15488)
+VPLAN_OPTRPT_HANDLE_FUNC_GROUP_END(15488u)
 
-VPLAN_OPTRPT_HANDLE_MEM_GROUP_BEGIN(15447)
-VPLAN_OPTRPT_HANDLE_MEM(15450, UnmaskedUnalignedUnitStrideLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15451, UnmaskedUnalignedUnitStrideStores)
-VPLAN_OPTRPT_HANDLE_MEM(15456, MaskedUnalignedUnitStrideLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15457, MaskedUnalignedUnitStrideStores)
-VPLAN_OPTRPT_HANDLE_MEM(15458, MaskedGathers)
-VPLAN_OPTRPT_HANDLE_MEM(15459, MaskedScatters)
-VPLAN_OPTRPT_HANDLE_MEM(15462, UnmaskedGathers)
-VPLAN_OPTRPT_HANDLE_MEM(15463, UnmaskedScatters)
+VPLAN_OPTRPT_HANDLE_MEM_GROUP_BEGIN(15447u)
+VPLAN_OPTRPT_HANDLE_MEM(15450u, UnmaskedUnalignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(15451u, UnmaskedUnalignedUnitStrideStores)
+VPLAN_OPTRPT_HANDLE_MEM(15456u, MaskedUnalignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(15457u, MaskedUnalignedUnitStrideStores)
+VPLAN_OPTRPT_HANDLE_MEM(15458u, MaskedGathers)
+VPLAN_OPTRPT_HANDLE_MEM(15459u, MaskedScatters)
+VPLAN_OPTRPT_HANDLE_MEM(15462u, UnmaskedGathers)
+VPLAN_OPTRPT_HANDLE_MEM(15463u, UnmaskedScatters)
 // Remarks about gathers/scatters generating reasons
 VPLAN_OPTRPT_GS(Gathers, Scatters)
-VPLAN_OPTRPT_HANDLE_MEM(15554, UnmaskedVLSLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15555, MaskedVLSLoads)
-VPLAN_OPTRPT_HANDLE_MEM(15556, UnmaskedVLSStores)
-VPLAN_OPTRPT_HANDLE_MEM(15557, MaskedVLSStores)
+VPLAN_OPTRPT_HANDLE_MEM(15554u, UnmaskedVLSLoads)
+VPLAN_OPTRPT_HANDLE_MEM(15555u, MaskedVLSLoads)
+VPLAN_OPTRPT_HANDLE_MEM(15556u, UnmaskedVLSStores)
+VPLAN_OPTRPT_HANDLE_MEM(15557u, MaskedVLSStores)
 
 // TODO: No entry for serialized atomic/volatile loads/stores.
 // TODO: No entry for loads from uniform address (O0/kernel vectorization).
-VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(15474)
+VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(15474u)
 
 #undef VPLAN_OPTRPT_HANDLE_GROUP_BEGIN
 #undef VPLAN_OPTRPT_HANDLE

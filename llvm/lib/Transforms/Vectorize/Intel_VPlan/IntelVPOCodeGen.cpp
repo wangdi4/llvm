@@ -953,6 +953,15 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
     cloneScalarLoop(LoopReuse->getLoop(), Builder.GetInsertBlock(), SuccBB,
                     LoopReuse, ".sl.clone");
   }
+
+  // Capture outgoing scalar loop.
+  if (isa<VPScalarPeel>(LoopReuse))
+    OutgoingScalarLoops.push_back(std::make_pair(
+        CfgMergerPlanDescr::LoopType::LTPeel, LoopReuse->getLoop()));
+  else
+    OutgoingScalarLoops.push_back(std::make_pair(
+        CfgMergerPlanDescr::LoopType::LTRemainder, LoopReuse->getLoop()));
+
   // Make the current block predecessor of the original loop header.
   ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
                       BranchInst::Create(LoopReuse->getLoop()->getHeader()));
@@ -4584,5 +4593,61 @@ void VPOCodeGen::fixNonInductionVPPhis() {
   for (auto &MapIt : PhisToFix) {
     int Lane = MapIt.second.second;
     fixPHI(MapIt.second.first, MapIt.first, Lane);
+  }
+}
+
+void VPOCodeGen::lowerRemarksForVectorLoops() {
+  auto LowerRemarksForLoop = [this](VPLoop *VPL) {
+    auto OR = VPL->getOptReport();
+    if (!OR)
+      return;
+
+    // Identify the IR loop that corresponds to current VPLoop.
+    auto *VPLpHeader = VPL->getHeader();
+    auto *LpHeader = cast<BasicBlock>(getScalarValue(VPLpHeader, 0));
+    Loop *IRLp = LI->getLoopFor(LpHeader);
+    assert(IRLp && "Could not find IR loop corresponding to VPLoop.");
+
+    // Drop any existing opt-report metadata and re-add the opt-report tracked
+    // for current VPLoop to corresponding IR loop. Remarks from prior
+    // components are all captured in VPLoop's opt-report during VPlan CFG
+    // construction.
+    MDNode *NewLoopID = OptReport::replaceOptReportForLoopID(
+        IRLp->getLoopID(), OR, *Plan->getLLVMContext());
+    IRLp->setLoopID(NewLoopID);
+  };
+
+  for (VPLoop *OuterLoop : *Plan->getVPLoopInfo())
+    for (auto *VLP : post_order(OuterLoop))
+      LowerRemarksForLoop(VLP);
+}
+
+void VPOCodeGen::emitRemarksForScalarLoops(OptReportBuilder &ORBuilder) {
+  auto RemoveOptReport = [this](Loop *Lp) {
+    MDNode *NewLoopID = OptReport::eraseOptReportFromLoopID(
+        Lp->getLoopID(), *Plan->getLLVMContext());
+    Lp->setLoopID(NewLoopID);
+  };
+
+  for (auto &ScalarLoopPair : OutgoingScalarLoops) {
+    auto LpKind = ScalarLoopPair.first;
+    Loop *ScalarLp = ScalarLoopPair.second;
+
+    // Remove all opt-reports from scalar loop nest. They have been moved to
+    // vectorized loops.
+    for (auto *Lp : post_order(ScalarLp))
+      RemoveOptReport(Lp);
+
+    // TODO: Any other remarks for scalar peel/remainder loops? Should we report
+    // that they were not vectorized?
+    if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
+      // remark #25518: PEELED LOOP FOR VECTORIZATION.
+      ORBuilder(*ScalarLp, *LI).addOrigin(25518u);
+    } else {
+      assert(LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
+             "Remainder loop type expected here.");
+      // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
+      ORBuilder(*ScalarLp, *LI).addOrigin(25519u);
+    }
   }
 }

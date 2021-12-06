@@ -555,8 +555,20 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     VPOUtils::stripDirectives(WRLp);
 
   CandLoopsVectorized++;
-  VPlanOptReportBuilder VPORBuilder(ORBuilder, LI);
-  addOptReportRemarks<VPOCodeGen>(WRLp, VPORBuilder, &VCodeGen);
+
+  // VPLoop for the main vector loop in outgoing vectorized code.
+  VPLoop *MainVPLoop = nullptr;
+
+  // Capture opt-report remarks for main VPLoop.
+  for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
+    if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain) {
+      MainVPLoop =
+          *(cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo()->begin());
+      addOptReportRemarksForMainPlan(WRLp, PlanDescr);
+    }
+  }
+  addStatsFromCG<VPOCodeGen>(MainVPLoop, Plan->getVPLoopInfo(), &VCodeGen);
+  VCodeGen.lowerVPlanOptReportRemarks(ORBuilder);
 
   // Mark source and vector and scalar loops with isvectorized directive so that
   // WarnMissedTransforms pass will not complain that vector and scalar loops
@@ -906,6 +918,41 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
     Loop *RemLoop = VCodeGen->getRemainderLoop();
     VPORBuilder.addRemark(RemLoop, OptReportVerbosity::Medium, 15441, "");
   }
+}
+
+void VPlanDriverImpl::addOptReportRemarksForMainPlan(
+    WRNVecLoopNode *WRLp, const CfgMergerPlanDescr &MainPlanDescr) {
+  assert(MainPlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain &&
+         "Only main loop plan descriptors expected here.");
+  auto *VPLpInfo = cast<VPlanVector>(MainPlanDescr.getVPlan())->getVPLoopInfo();
+  auto *MainVPLoop = *VPLpInfo->begin();
+
+  // TODO: This remark should be added by CM, not this late after
+  // CFGMerger.
+  if ((!WRLp || (WRLp->isOmpSIMDLoop() && WRLp->getSafelen() == 0 &&
+                 WRLp->getSimdlen() == 0)) &&
+      (TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) <=
+       256) &&
+      TTI->isAdvancedOptEnabled(
+          TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
+    // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
+    // "Try using -mprefer-vector-width=512 to override."
+    ORBuilder(*MainVPLoop, *VPLpInfo)
+        .addRemark(OptReportVerbosity::High, 15569u);
+  }
+
+  // Adds remark LOOP WAS VECTORIZED
+  ORBuilder(*MainVPLoop, *VPLpInfo).addRemark(OptReportVerbosity::Low, 15300u);
+  // Add remark about VF
+  ORBuilder(*MainVPLoop, *VPLpInfo)
+      .addRemark(OptReportVerbosity::Low, 15305u,
+                 Twine(MainPlanDescr.getVF()).str());
+}
+
+template <typename VPOCodeGenType>
+void VPlanDriverImpl::addStatsFromCG(VPLoop *MainVPLoop, VPLoopInfo *VPLI,
+                                     VPOCodeGenType *VCodeGen) {
+  VCodeGen->getOptReportStatsTracker().emitRemarks(ORBuilder, MainVPLoop, VPLI);
 }
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
