@@ -944,19 +944,6 @@ void VPlanVector::execute(VPTransformState *State) {
 #if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
-  const VPLoop *VLoop = CG->getVPLoop();
-
-  // Check and mark if we see any uniform control flow remaining in the loop.
-  // We check for a non-latch block with two successors.
-  // TODO - The code here assumes inner loop vectorization. This needs to
-  // be changed for outer loop vectorization.
-  for (VPBasicBlock *VPBB : RPOT) {
-    if (VLoop->contains(VPBB) && !VLoop->isLoopLatch(VPBB) &&
-        VPBB->getNumSuccessors() == 2) {
-      CG->setUniformControlFlowSeen();
-      break;
-    }
-  }
 
   for (VPBasicBlock *VPBB : RPOT) {
     LLVM_DEBUG(dbgs() << "HIRV: VPBlock in RPO " << VPBB->getName() << '\n');
