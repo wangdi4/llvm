@@ -757,6 +757,15 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
   // Lookup binaries into the driver directory, this is used to
   // discover the clang-offload-bundler executable.
   getProgramPaths().push_back(getDriver().Dir);
+#if INTEL_CUSTOMIZATION
+  // getDriver() returns clang, which is not the Intel driver and may not be in
+  // "bin". Ensure that we look in "bin" for programs. This is Intel-specific
+  // because upstream doesn't typically have multiple program directories.
+  SmallString<128> Bin(getDriver().Dir);
+  llvm::sys::path::append(Bin, "..", "bin");
+  llvm::sys::path::remove_dots(Bin, /*remove_dot_dot=*/ true);
+  getProgramPaths().push_back(std::string(Bin));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void SYCLToolChain::addClangTargetOptions(
