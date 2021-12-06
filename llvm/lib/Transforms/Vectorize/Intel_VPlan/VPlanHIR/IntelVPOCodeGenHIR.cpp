@@ -800,27 +800,31 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   else {
     // Check that all VPLoops are in loop simplified form and that Latch
     // has conditional branch.
-    const VPLoop *OuterMostVPLoop = getVPLoop();
-    for (auto *VPLp : post_order(OuterMostVPLoop)) {
-      // Essentially the same checks as the ones done by isLoopSimplifyForm used
-      // by loopopt, except for the additional check for single exit block.
-      auto isLoopSimplifyForm = [](const VPLoop *VPLp) {
-        return VPLp->getLoopPreheader() && VPLp->getLoopLatch() &&
-               VPLp->hasDedicatedExits() && VPLp->getExitBlock();
-      };
-      if (!isLoopSimplifyForm(VPLp)) {
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - expect "
-                                  "loopsimplify form\n");
-        return false;
-      }
-      auto *Latch = VPLp->getLoopLatch();
-      assert(Latch && "Expected non-null loop latch");
-      if (Latch->getNumSuccessors() != 2) {
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - expect "
-                                  "latch with 2 successors\n");
-        return false;
+    for (VPLoop *OuterLoop : *Plan->getVPLoopInfo()) {
+      for (auto *VPLp : post_order(OuterLoop)) {
+        // Essentially the same checks as the ones done by isLoopSimplifyForm
+        // used by loopopt, except for the additional check for single exit
+        // block.
+        auto isLoopSimplifyForm = [](const VPLoop *VPLp) {
+          return VPLp->getLoopPreheader() && VPLp->getLoopLatch() &&
+                 VPLp->hasDedicatedExits() && VPLp->getExitBlock();
+        };
+        if (!isLoopSimplifyForm(VPLp)) {
+          DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                          dbgs()
+                              << "VPLAN_OPTREPORT: Loop not handled - expect "
+                                 "loopsimplify form\n");
+          return false;
+        }
+        auto *Latch = VPLp->getLoopLatch();
+        assert(Latch && "Expected non-null loop latch");
+        if (Latch->getNumSuccessors() != 2) {
+          DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                          dbgs()
+                              << "VPLAN_OPTREPORT: Loop not handled - expect "
+                                 "latch with 2 successors\n");
+          return false;
+        }
       }
     }
   }
@@ -1010,21 +1014,33 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
     }
   }
 
+  // For merged CFG we reuse the MainLoop created above for first top-level
+  // loop, and for all other top-level loops (vectorized remainder for example)
+  // we use an empty clone of MainLoop.
+  auto getMergedCFGVecHLLoop = [&](VPLoop *VLp) {
+    if (*Plan->getVPLoopInfo()->begin() == VLp)
+      return MainLoop;
+    return MainLoop->cloneEmpty();
+  };
+
   // Setup skeleton loop for every VPLoop in VPlan. We use MainLoop
-  // for the outer most and create a new unknown loop for others.
-  const VPLoop *OuterMostVPLoop = getVPLoop();
-  for (auto *VPLp : post_order(OuterMostVPLoop)) {
-    LoopPreheaderBlocks.insert(VPLp->getLoopPreheader());
-    LoopHeaderBlocks.insert(VPLp->getHeader());
-    LoopExitBlocks.insert(VPLp->getExitBlock());
-    if (VPLp == OuterMostVPLoop) {
-      VPLoopHLLoopMap[VPLp] = MainLoop;
-    } else {
-      auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
-      auto *DDR = DDRefUtilities.createConstDDRef(Int64Ty, 0);
-      auto *UnknownLoop = HLNodeUtilities.createHLLoop(
-          nullptr /* ZttIf */, DDR, DDR->clone(), DDR->clone(), 1 /* NumEx */);
-      VPLoopHLLoopMap[VPLp] = UnknownLoop;
+  // for the outer loops and create a new unknown loop for others.
+  for (VPLoop *OuterLoop : *Plan->getVPLoopInfo()) {
+    for (auto *VPLp : post_order(OuterLoop)) {
+      LoopPreheaderBlocks.insert(VPLp->getLoopPreheader());
+      LoopHeaderBlocks.insert(VPLp->getHeader());
+      LoopExitBlocks.insert(VPLp->getExitBlock());
+      if (VPLp == OuterLoop) {
+        VPLoopHLLoopMap[VPLp] =
+            isMergedCFG() ? getMergedCFGVecHLLoop(VPLp) : MainLoop;
+      } else {
+        auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
+        auto *DDR = DDRefUtilities.createConstDDRef(Int64Ty, 0);
+        auto *UnknownLoop =
+            HLNodeUtilities.createHLLoop(nullptr /* ZttIf */, DDR, DDR->clone(),
+                                         DDR->clone(), 1 /* NumEx */);
+        VPLoopHLLoopMap[VPLp] = UnknownLoop;
+      }
     }
   }
 
@@ -5040,10 +5056,20 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
     }
 
-    // TODO: Dirty hack to handle copy instructions outside the loop region.
-    // These are generated for conditional last private recurrent PHIs.
-    if (VPInst->getParent() == getVPLoop()->getLoopPreheader() ||
-        VPInst->getParent() == getVPLoop()->getExitBlock()) {
+    auto IsExtDefUsedForCondLastPriv = [](VPExternalDef *ExtDef) {
+      return llvm::any_of(ExtDef->users(),
+                          [](VPUser *U) { return isa<VPPrivateFinalCond>(U); });
+    };
+
+    // Special case handling of copies generated for conditional last private
+    // recurrent PHIs. Conditional last private entity is recognized by
+    // inspecting the RHS value of this hir-copy instruction.
+    // TODO: This special casing should be removed after updating VPLoopEntities
+    // & PrivateFinalInstruction processing transforms to use undef to intialize
+    // conditional last privates instead of original start value.
+    VPValue *CopiedVal = VPInst->getOperand(0);
+    if (isa<VPExternalDef>(CopiedVal) &&
+        IsExtDefUsedForCondLastPriv(cast<VPExternalDef>(CopiedVal))) {
       auto *RValTmp = NewInst->getRvalDDRef();
       if (RValTmp->isSelfBlob()) {
         unsigned RvalSym = RValTmp->getSymbase();
@@ -5164,7 +5190,20 @@ void VPOCodeGenHIR::makeConsistentAndAddToMap(
   if (Widen) {
     RegDDRef *WideRef = Ref;
 
-    if (getVPLoop()->isLiveOut(VPInst)) {
+    auto GetOuterMostVPLoop =
+        [this](const VPBasicBlock *VPBB) -> const VPLoop * {
+      auto *VLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
+      if (!VLoop)
+        return nullptr;
+
+      while (VLoop->getParentLoop())
+        VLoop = VLoop->getParentLoop();
+
+      return VLoop;
+    };
+
+    auto *OuterMostLoop = GetOuterMostVPLoop(VPInst->getParent());
+    if (OuterMostLoop && OuterMostLoop->isLiveOut(VPInst)) {
       // Emit a copy instruction to prevent invalid folding during live-out
       // finalization.
       assert(Ref->getHLDDNode() == nullptr &&
@@ -5590,7 +5629,7 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
     auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
     auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
     // Main vector loop is already linked in (except in case merged CFG)
-    if (isMergedCFG() || CurVPLoop != getVPLoop())
+    if (isMergedCFG() || CurVPLoop->getLoopDepth() > 1)
       HLNodeUtilities.insertAfter(InsertPoint, CurHLLoop);
     HLNodeUtilities.insertAsFirstChild(CurHLLoop, Label);
     // Setup upper bound and stride for vectorized loop.
@@ -5618,12 +5657,14 @@ void VPOCodeGenHIR::emitBlockTerminatorNaive(const VPBasicBlock *SourceBB) {
     return Goto;
   };
 
-  // The loop backedge/exit is implicit in the vector loop. Do not emit
-  // gotos in the main vector loop latch block. TODO - look into why we need
+  // The loop backedge/exit is implicit in outermost loops. Do not emit
+  // gotos in the vector loops latch block. TODO - look into why we need
   // to suppress goto in PreHeader.
-  bool MainLoopLatch =
-      VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
-  if (SourceBB->getNumSuccessors() && !MainLoopLatch &&
+  auto *OuterLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
+  bool IsOuterLoopLatch = OuterLoop != nullptr &&
+                          OuterLoop->getLoopDepth() == 1 &&
+                          OuterLoop->isLoopLatch(SourceBB);
+  if (SourceBB->getNumSuccessors() && !IsOuterLoopLatch &&
       !LoopPreheaderBlocks.count(SourceBB)) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
@@ -5699,12 +5740,14 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
       HLNodeUtils::insertAfter(Goto, Label);
   };
 
-  // The loop backedge/exit is implicit in the vector loop. Do not emit
+  // The loop backedge/exit is implicit in the outermost loop. Do not emit
   // gotos in the main vector loop latch block. TODO - look into why we need
   // to suppress goto in PreHeader.
-  bool MainLoopLatch =
-      VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
-  if (SourceBB->getNumSuccessors() && !MainLoopLatch &&
+  auto *OuterLoop = Plan->getVPLoopInfo()->getLoopFor(SourceBB);
+  bool IsOuterLoopLatch = OuterLoop != nullptr &&
+                          OuterLoop->getLoopDepth() == 1 &&
+                          OuterLoop->isLoopLatch(SourceBB);
+  if (SourceBB->getNumSuccessors() && !IsOuterLoopLatch &&
       !LoopPreheaderBlocks.count(SourceBB)) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 

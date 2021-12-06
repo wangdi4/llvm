@@ -67,10 +67,7 @@ public:
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()), IsOmpSIMD(IsOmpSIMD) {
-    assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
-    VLoop = *(Plan->getVPLoopInfo()->begin());
-  }
+        HLNodeUtilities(Loop->getHLNodeUtils()), IsOmpSIMD(IsOmpSIMD) {}
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -501,19 +498,6 @@ public:
   // optimizations.
   bool targetHasIntelAVX512() const;
 
-  void setUniformControlFlowSeen() {
-    // Search loops do not go through predication currently and code generation
-    // for this is handled separately for now. Until search loop representation
-    // is made explicit we do not need any additional handling of the uniform
-    // control flow case for them.
-    if (!isSearchLoop())
-      UniformControlFlowSeen = true;
-  }
-
-  bool getUniformControlFlowSeen() const { return UniformControlFlowSeen; }
-
-  const VPLoop *getVPLoop() const { return VLoop; }
-
   // Emit a label to indicate the start of the given basic block if the
   // block is inside the loop being vectorized and add the label to
   // the VPBBLabelMap.
@@ -565,9 +549,6 @@ private:
 
   // VPlan for which vector code is being generated.
   const VPlanVector *Plan;
-
-  // VPLoop being vectorized - assumes VPlan contains one loop.
-  const VPLoop *VLoop;
 
   // OPTVLS analysis.
   VPlanVLSAnalysis *VLSA;
@@ -681,10 +662,6 @@ private:
   // Set of masked private temp symbases that have been initialized to undef in
   // vector loop header.
   SmallSet<unsigned, 16> InitializedPrivateTempSymbases;
-
-  // Boolean flag used to see if the loop being vectorized has any uniform
-  // control flow.
-  bool UniformControlFlowSeen = false;
 
   // Vector used to contain HLGotos created during vector code generation.
   // This vector is setup to be used in the call to eliminate redundant gotos.
