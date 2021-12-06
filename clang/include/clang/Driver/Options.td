@@ -3779,6 +3779,16 @@ def mstackrealign : Flag<["-"], "mstackrealign">, Group<m_Group>, Flags<[CC1Opti
 def mstack_alignment : Joined<["-"], "mstack-alignment=">, Group<m_Group>, Flags<[CC1Option]>,
   HelpText<"Set the stack alignment">,
   MarshallingInfoInt<CodeGenOpts<"StackAlignment">>;
+#if INTEL_CUSTOMIZATION
+// Due to the dependence on the definition of -mstack-alignment, these are
+// added here as opposed with the rest of the f_group options above.
+def falign_stack_EQ_assume_16_byte : Flag<["-"], "falign-stack=assume-16-byte">,
+  Group<f_Group>, Alias<mstack_alignment>, AliasArgs<["16"]>,
+  HelpText<"Assume the stack is aligned on 16-byte boundaries">;
+def falign_stack_EQ_assume_4_byte : Flag<["-"], "falign-stack=assume-4-byte">,
+  Group<f_Group>, Alias<mstack_alignment>, AliasArgs<["4"]>,
+  HelpText<"Assume the stack is aligned on 4-byte boundaries">;
+#endif // INTEL_CUSTOMIZATION
 def mstack_probe_size : Joined<["-"], "mstack-probe-size=">, Group<m_Group>, Flags<[CC1Option]>,
   HelpText<"Set the stack probe size">,
   MarshallingInfoInt<CodeGenOpts<"StackProbeSize">, "4096">;
@@ -7446,6 +7456,8 @@ def _SLASH_Qextend_args_EQ : CLJoined<"Qextend-arguments=">, Alias<fextend_args_
   HelpText<"Controls how scalar integer arguments are extended in calls "
   "to unprototyped and varargs functions">;
 def _SLASH_Qextend_args_COL : CLJoined<"Qextend-arguments:">, Alias<fextend_args_EQ>;
+def _SLASH_Qfinite_math_only : CLFlag<"Qfinite-math-only">, Alias<ffinite_math_only>;
+def _SLASH_Qfinite_math_only_ : CLFlag<"Qfinite-math-only-">, Alias<fno_finite_math_only>;
 def _SLASH_Qfp_speculation_EQ : CLJoined<"Qfp-speculation=">, Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 def _SLASH_Qfp_speculation_COL : CLJoined<"Qfp-speculation:">, Alias<ffp_exception_behavior_EQ>;

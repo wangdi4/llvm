@@ -482,6 +482,11 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlanVector *Plan,
   // should be heavily refactored soon enough to be moved from cost modeling
   // stage to early vectorizer transforms.
 
+  if (Plan->getVPLoopInfo()->size() != 1) {
+    LLVM_DEBUG(dbgs() << "    Search loop was NOT recognized.\n");
+    return VPlanIdioms::Unknown;
+  }
+
   // For the search loop idiom we expect 1-2 exit blocks and two exiting block.
   const VPLoop *VPL = Plan->getMainLoop(true);
   SmallVector<VPBasicBlock *, 8> Exitings, Exits;

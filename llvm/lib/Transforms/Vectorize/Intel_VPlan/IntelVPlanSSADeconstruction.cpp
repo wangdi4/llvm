@@ -59,7 +59,6 @@ void VPlanSSADeconstruction::run() {
   VPBuilderHIR Builder;
   unsigned DeconstructedPhiId = 0;
   bool ResetSVA = false;
-  bool MainLoopIVFound = false;
 
   for (VPBasicBlock &VPBB : Plan) {
     auto *CurrVLoop = Plan.getVPLoopInfo()->getLoopFor(&VPBB);
@@ -70,9 +69,7 @@ void VPlanSSADeconstruction::run() {
         // HIR codegen.
         if (isa<VPInductionInit>(Phi.getOperand(0)) ||
             isa<VPInductionInit>(Phi.getOperand(1))) {
-          assert(!MainLoopIVFound && "Only one main loop IV is expected.");
           validateInductionPHI(&Phi, CurrVLoop, Plan);
-          MainLoopIVFound = true;
           continue;
         }
       }
