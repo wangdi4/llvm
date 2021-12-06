@@ -662,15 +662,15 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
                 m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
                 &m_GPAData, m_pConfig->GetStackDefaultSize(), deviceMode);
             } else {
-            // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE env variable
-            // as additional required stack for executor threads because
-            // local variables located on stack
-            size_t additionalStackSize = m_pConfig->GetForcedLocalMemSize();
-            additionalStackSize += m_pConfig->GetForcedPrivateMemSize();
-            if (additionalStackSize < CPU_DEV_TBB_STACK_SIZE)
-                additionalStackSize = CPU_DEV_TBB_STACK_SIZE;
+            // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE and
+            // CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE env variables
+            // as required stack for executor threads because local/private
+            // variables are located on stack.
+            size_t stackSize = m_pConfig->GetForcedLocalMemSize() +
+                               m_pConfig->GetForcedPrivateMemSize() +
+                               CPU_DEV_BASE_STACK_SIZE;
             m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
-                &m_GPAData, additionalStackSize, deviceMode);
+                &m_GPAData, stackSize, deviceMode);
             }
         }
     }
