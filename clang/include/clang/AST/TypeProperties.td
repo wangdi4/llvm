@@ -900,7 +900,7 @@ let Class = ChannelType in {
 }
 // end INTEL_CUSTOMIZATION
 
-let Class = ExtIntType in {
+let Class = BitIntType in {
   def : Property<"isUnsigned", Bool> {
     let Read = [{ node->isUnsigned() }];
   }
@@ -909,11 +909,11 @@ let Class = ExtIntType in {
   }
 
   def : Creator<[{
-    return ctx.getExtIntType(isUnsigned, numBits);
+    return ctx.getBitIntType(isUnsigned, numBits);
   }]>;
 }
 
-let Class = DependentExtIntType in {
+let Class = DependentBitIntType in {
   def : Property<"isUnsigned", Bool> {
     let Read = [{ node->isUnsigned() }];
   }
@@ -921,6 +921,6 @@ let Class = DependentExtIntType in {
     let Read = [{ node->getNumBitsExpr() }];
   }
   def : Creator<[{
-    return ctx.getDependentExtIntType(isUnsigned, numBitsExpr);
+    return ctx.getDependentBitIntType(isUnsigned, numBitsExpr);
   }]>;
 }
