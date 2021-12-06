@@ -2448,7 +2448,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     doHoistAlloca(*newFunction, ChildDT);
 
     for (Value *V : NewAllocas) {
-      auto *AI = cast<Instruction>(V);
+      auto *AI = cast<AllocaInst>(V);
       llvm::vpo::VPOUtils::addPrivateToEnclosingRegion(
           AI, TheCall->getParent(), *DT, true /* SimdOnly */);
     }

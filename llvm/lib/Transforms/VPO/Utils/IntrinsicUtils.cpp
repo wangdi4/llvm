@@ -338,7 +338,7 @@ CallInst *VPOUtils::removeOpenMPClausesFromCall(CallInst *CI,
 // SimdOnly: Process SIMD directives only. This must be true inside VPO, as
 // non-SIMD directives cannot be modified during VPO.
 // Return false if no directive was found.
-bool VPOUtils::addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
+bool VPOUtils::addPrivateToEnclosingRegion(AllocaInst *I, BasicBlock *BlockPos,
                                            DominatorTree &DT, bool SimdOnly) {
   // Check if I is already used in a directive, don't introduce a possible
   // conflict.
