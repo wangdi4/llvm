@@ -1586,17 +1586,24 @@ Instruction *createInstructionFromConstantWithReplacement(
   return cast<Instruction>(V);
 }
 
-bool hasFunctionCallInCGNodeSatisfiedWith(
-    CallGraphNode *Node, function_ref<bool(Function *)> Condition) {
-  for (auto It = df_begin(Node); It != df_end(Node); ++It) {
-    Function *CalledFunc = It->getFunction();
-    // Always skips the root node.
-    if (CalledFunc == Node->getFunction())
-      continue;
-    if (Condition(CalledFunc))
+bool hasFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition) {
+  // Always skips the root node by starting from ++df_begin().
+  for (auto It = ++df_begin(Node); It != df_end(Node); ++It)
+    if (Condition(It->getFunction()))
       return true;
-  }
   return false;
+}
+
+void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
+                               function_ref<bool(const Function *)> Condition,
+                               function_ref<void(Function *)> MapFunc) {
+  // Always skips the root node by starting from ++df_begin().
+  for (auto It = ++df_begin(Node); It != df_end(Node); ++It) {
+    Function *CalledFunc = It->getFunction();
+    if (Condition(CalledFunc))
+      MapFunc(CalledFunc);
+  }
 }
 
 #define PRIM_TYPE(prim_type_enum)                                              \

@@ -33,13 +33,13 @@ define void @non_kernel() {
 !0 = !{void ()* @kernel}
 
 ; CHECK-COMMON: define void @kernel
-; CHECK-COMMON-SAME: !recommended_vector_length ![[#METADATA_ID:]]
+; CHECK-COMMON-SAME: !recommended_vector_length ![[#VL_METADATA_ID:]]
 
 ; Don't attach metadata on non-kernel functions.
 ; CHECK-COMMON: define void @non_kernel
 ; CHECK-NOT: !recommended_vector_length
 
-; CHECK-COMMON: ![[#METADATA_ID]] = !{i32
+; CHECK-COMMON: ![[#VL_METADATA_ID]] = !{i32
 ; CHECK-SSE42-SAME: 4
 ; CHECK-AVX1-SAME: 4
 ; CHECK-AVX2-SAME: 8

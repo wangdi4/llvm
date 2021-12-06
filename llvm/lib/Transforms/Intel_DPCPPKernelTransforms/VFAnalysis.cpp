@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
@@ -32,8 +33,7 @@ using namespace DPCPPKernelCompilationUtils;
 static cl::opt<unsigned> DPCPPForceVF("dpcpp-force-vf", cl::init(0),
                                       cl::ReallyHidden);
 
-// TODO: Enable subgroup emulation when related passes are ported.
-bool DPCPPEnableSubGroupEmulation = false;
+bool DPCPPEnableSubGroupEmulation = true;
 static cl::opt<bool, true>
     DPCPPEnableSubGroupEmulationOpt("dpcpp-enable-subgroup-emulation",
                                     cl::location(DPCPPEnableSubGroupEmulation),
@@ -78,6 +78,14 @@ static unsigned getPreferredVectorizationWidth(VectorVariant::ISAClass ISA) {
   }
 }
 
+static unsigned getKernelDefaultVF(Function *Kernel,
+                                   VectorVariant::ISAClass ISA) {
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+  if (KIMD.RecommendedVL.hasValue())
+    return KIMD.RecommendedVL.get();
+  return getPreferredVectorizationWidth(ISA);
+}
+
 void VFAnalysisInfo::deduceVF(Function *Kernel) {
   LLVM_DEBUG(dbgs() << "Deducing VF with given constraint:\n");
   DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
@@ -112,9 +120,9 @@ void VFAnalysisInfo::deduceVF(Function *Kernel) {
     return;
   }
 
-  // Otherwise, get default VF determined by ISA.
-  KernelToVF[Kernel] = getPreferredVectorizationWidth(ISA);
-  LLVM_DEBUG(dbgs() << "Initial VF<From ISA>: " << KernelToVF[Kernel] << '\n');
+  // Otherwise, get default VF determined by ISA or set by a previous pass.
+  KernelToVF[Kernel] = getKernelDefaultVF(Kernel, ISA);
+  LLVM_DEBUG(dbgs() << "Initial VF<Default>: " << KernelToVF[Kernel] << '\n');
   return;
 }
 
@@ -127,19 +135,21 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   // - Or the called function is flaged as "kernel-call-once" (VPlan can't
   //   serialize in this situation).
   if (!DPCPPEnableVectorizationOfByvalByrefFunctions) {
-    if (hasFunctionCallInCGNodeSatisfiedWith(Node, [](Function *CalledFunc) {
+    if (hasFunctionCallInCGNodeIf(Node, [](const Function *CalledFunc) {
           return hasByvalByrefArgs(CalledFunc) &&
                  (CalledFunc->hasFnAttribute(KernelAttribute::HasSubGroups) ||
                   CalledFunc->hasFnAttribute(KernelAttribute::CallOnce));
         })) {
       LLVM_DEBUG(dbgs() << "Can't be vectorized<byval/byref>\n");
+      // Users have no control over byval/byref attributes, so we don't report
+      // diangostic messages to users here.
       return true;
     }
   }
 
   // Unsupported: vec_type_hint on unsupported types.
   DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
-  if (KMD.VecTypeHint.hasValue()) {
+  if (!KMD.VecLenHint.hasValue() && KMD.VecTypeHint.hasValue()) {
     bool Vectorizable = false;
     auto *HintType = KMD.VecTypeHint.getType();
     // Supported types:
@@ -165,6 +175,10 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
     }
     if (!Vectorizable) {
       LLVM_DEBUG(dbgs() << "Can't be vectorized<VecTypeHint>\n");
+      Kernel->getContext().diagnose(VFAnalysisDiagInfo(
+          *Kernel,
+          "Kernel can't be vectorized due to unsupported vec type hint",
+          VFDK_Warn_UnsupportedVectorizationPattern, DS_Warning));
       return true;
     }
   }
@@ -176,39 +190,41 @@ bool VFAnalysisInfo::tryFallbackUnimplementedBuiltins(Function *Kernel) {
   LLVM_DEBUG(dbgs() << "Checking unimplemented builtins:\n");
   static std::unordered_set<unsigned> SupportedWorkGroupVFs{1,  4,  8,
                                                             16, 32, 64};
-  static std::unordered_set<unsigned> SupportedSubGroupVFs{1, 4, 8, 16, 32, 64};
-  if (!DPCPPEnableSubGroupEmulation)
-    SupportedSubGroupVFs.erase(1);
+  static std::unordered_set<unsigned> SupportedSubGroupVFs{4, 8, 16, 32, 64};
 
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
-  unsigned VF = getVF(Kernel);
   StringRef FuncName;
-  auto IsUnimplementedBuiltin = [&](Function *CalledFunc) {
+  auto IsUnimplementedBuiltin = [&](const Function *CalledFunc) {
     // Builtin must be a declaration.
+    unsigned VF = getVF(Kernel);
     if (!(CalledFunc && CalledFunc->isDeclaration()))
       return false;
     FuncName = CalledFunc->getName();
-    if ((isSubGroupBuiltin(FuncName) && SupportedSubGroupVFs.count(VF) == 0) ||
-        (isWorkGroupBuiltin(FuncName) &&
-         SupportedWorkGroupVFs.count(VF) == 0)) {
+    bool CanEmulate = DPCPPEnableSubGroupEmulation && (VF == 1);
+    if ((isSubGroupBuiltin(FuncName) && !SupportedSubGroupVFs.count(VF) &&
+         !CanEmulate) ||
+        (isWorkGroupBuiltin(FuncName) && !SupportedWorkGroupVFs.count(VF))) {
       if (!CanFallBackToDefaultVF)
         return true;
       // Can fallback to default VF.
-      KernelToVF[Kernel] = getPreferredVectorizationWidth(ISA);
-      LLVM_DEBUG(dbgs() << "Kernel <" << Kernel->getName()
-                        << "> VF fall back to " << getVF(Kernel)
-                        << " due to unsupported WG/SG width\n");
+      KernelToVF[Kernel] = getKernelDefaultVF(Kernel, ISA);
+      Kernel->getContext().diagnose(VFAnalysisDiagInfo(
+          *Kernel,
+          "Fall back vectorization width to " + Twine(getVF(Kernel)) +
+              " due to unsupported vec_len_hint value for workgroup/subgroup "
+              "builtins",
+          VFDK_Warn_VecLenHintFalledBack, DS_Warning));
     }
     return false;
   };
-  if (hasFunctionCallInCGNodeSatisfiedWith((*CG)[Kernel],
-                                           IsUnimplementedBuiltin)) {
-    UnimplementedBuiltinToVF[FuncName] = VF;
-    LLVM_DEBUG(dbgs() << "VF = " << VF << " is unsupported for builtin <"
-                      << FuncName << ">\n");
-    return true;
-  }
-  return false;
+  bool HasUnimplementedBuiltins = false;
+  unsigned VF = getVF(Kernel);
+  mapFunctionCallInCGNodeIf(
+      (*CG)[Kernel], IsUnimplementedBuiltin, [&](const Function *CalledFunc) {
+        UnimplementedBuiltinToVF[CalledFunc->getName()] = VF;
+        HasUnimplementedBuiltins = true;
+      });
+  return HasUnimplementedBuiltins;
 }
 
 bool VFAnalysisInfo::isSubgroupBroken(Function *Kernel) {
@@ -229,14 +245,16 @@ bool VFAnalysisInfo::isSubgroupBroken(Function *Kernel) {
     // built-ins while the latter two don't have this limitation.
     if (KMD.ReqdIntelSGSize.hasValue() && KMD.ReqdIntelSGSize.get() == 1) {
       Kernel->getContext().diagnose(VFAnalysisDiagInfo(
-          *Kernel, "Subgroup is broken!", VFDK_SubgroupBroken));
+          *Kernel, "Required subgroup size can't be 1 for subgroup calls",
+          VFDK_Error_SubgroupBroken));
     }
   }
 
   if (Broken && !DPCPPEnableSubGroupEmulation) {
     LLVM_DEBUG(dbgs() << "Subgroup is broken and emulation is disabled!\n");
     Kernel->getContext().diagnose(VFAnalysisDiagInfo(
-        *Kernel, "Subgroup is broken!", VFDK_SubgroupBroken));
+        *Kernel, "Subgroup calls in scalar function can't be resolved",
+        VFDK_Error_SubgroupBroken));
   }
 
   return Broken;
@@ -289,9 +307,9 @@ void VFAnalysisInfo::analyzeModule(Module &M) {
     if (hasMultipleVFConstraints(Kernel)) {
       M.getContext().diagnose(VFAnalysisDiagInfo(
           *Kernel,
-          "Only allow specifying one of ForceVF, intel_vec_len_hint "
-          "and intel_reqd_sub_group_size!",
-          VFDK_ConstraintConflict));
+          "Only one of CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint "
+          "and intel_reqd_sub_group_size can be specified",
+          VFDK_Error_ConstraintConflict));
     }
 
     // Deduce VF from the given constraint.
@@ -303,9 +321,15 @@ void VFAnalysisInfo::analyzeModule(Module &M) {
 
     // Detect unimplemented WG/SG builtins.
     if (tryFallbackUnimplementedBuiltins(Kernel)) {
+      // Map string map range to customized std::string range.
+      auto R = map_range(
+          UnimplementedBuiltinToVF, [&](const StringMapEntry<unsigned> &Entry) {
+            return Entry.getKey().str() + " with vectorization width " +
+                   std::to_string(Entry.getValue());
+          });
       M.getContext().diagnose(VFAnalysisDiagInfo(
-          *Kernel, "Unimplemented workgroup/subgroup builtin!",
-          VFDK_BuiltinNotImplemented));
+          *Kernel, "Unimplemented function(s): " + join(R, ", "),
+          VFDK_Error_BuiltinNotImplemented));
     }
 
     // Deduce KernelToSGEmuSize.
@@ -315,7 +339,8 @@ void VFAnalysisInfo::analyzeModule(Module &M) {
     unsigned VF = getVF(Kernel);
     if (!(VF && (VF & (VF - 1)) == 0)) {
       M.getContext().diagnose(
-          VFAnalysisDiagInfo(*Kernel, "VF is not power of 2", VFDK_VFInvalid));
+          VFAnalysisDiagInfo(*Kernel, "Vectorization width is not a power of 2",
+                             VFDK_Error_VFInvalid));
     }
   }
 }
