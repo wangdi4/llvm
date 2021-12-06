@@ -20,6 +20,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLOOPINFO_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLOOPINFO_H
 
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/LoopInfoImpl.h"
 
 namespace llvm {
@@ -112,6 +114,10 @@ public:
     ExactUB = L->ExactUB;
   }
 
+  OptReport getOptReport() const { return OR; }
+  void setOptReport(OptReport R) { OR = R; }
+  void eraseOptReport() { OR = nullptr; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
                  unsigned Indent = 0) const;
@@ -140,6 +146,8 @@ private:
   // trip count is equal to upper bound + 1, true means trip count is
   // equal to upper bound exactly.
   bool ExactUB = true;
+  // Track opt-report remarks for this VPLoop.
+  OptReport OR = nullptr;
 };
 class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
   using Base = LoopInfoBase<VPBasicBlock, VPLoop>;
@@ -174,6 +182,84 @@ template <> struct GraphTraits<const vpo::VPLoop *> {
   static inline ChildIteratorType child_begin(NodeRef N) { return N->begin(); }
 
   static inline ChildIteratorType child_end(NodeRef N) { return N->end(); }
+};
+
+// Traits of VPLoop for OptReportBuilder.
+template <> struct OptReportTraits<vpo::VPLoop> {
+  using ObjectHandleTy = std::pair<vpo::VPLoop &, vpo::VPLoopInfo &>;
+
+  static OptReport getOptReport(const ObjectHandleTy &Handle) {
+    return Handle.first.getOptReport();
+  }
+
+  static void setOptReport(const ObjectHandleTy &Handle, OptReport OR) {
+    Handle.first.setOptReport(OR);
+  }
+
+  static void eraseOptReport(const ObjectHandleTy &Handle) {
+    Handle.first.eraseOptReport();
+  }
+
+  static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {
+    // TODO: Missing DbgLoc for VPLoops.
+    return DebugLoc();
+  }
+
+  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+    return None;
+  }
+
+  static OptReport getOrCreatePrevOptReport(const ObjectHandleTy &Handle,
+                                            const OptReportBuilder &Builder) {
+    auto &L = Handle.first;
+    vpo::VPLoop *PrevSiblingLoop = nullptr;
+
+    if (L.getParentLoop())
+      for (auto *ChildLoop : L.getParentLoop()->getSubLoops()) {
+        if (ChildLoop == &L)
+          break;
+
+        PrevSiblingLoop = ChildLoop;
+      }
+    else {
+      auto &LI = Handle.second;
+
+      for (vpo::VPLoopInfo::reverse_iterator I = LI.rbegin(), E = LI.rend();
+           I != E; ++I) {
+        if (*I == &L)
+          break;
+
+        PrevSiblingLoop = *I;
+      }
+    }
+
+    if (!PrevSiblingLoop)
+      return nullptr;
+
+    return Builder(*PrevSiblingLoop, Handle.second).getOrCreateOptReport();
+  }
+
+  static OptReport getOrCreateParentOptReport(const ObjectHandleTy &Handle,
+                                              const OptReportBuilder &Builder) {
+    auto &L = Handle.first;
+    // Attach to the parent Loop, if it exists.
+    if (vpo::VPLoop *Dest = L.getParentLoop())
+      return Builder(*Dest, Handle.second).getOrCreateOptReport();
+
+    // TODO: Extend VPlan to be the parent of outermost VPLoop.
+    llvm_unreachable("Failed to find a parent.");
+  }
+
+  using ChildNodeTy = vpo::VPLoop;
+  using ChildHandleTy = typename OptReportTraits<ChildNodeTy>::ObjectHandleTy;
+  using NodeVisitorTy = std::function<void(ChildHandleTy)>;
+  static void traverseChildNodesBackward(const ObjectHandleTy &Handle,
+                                         NodeVisitorTy Func) {
+    auto &L = Handle.first;
+    std::for_each(L.rbegin(), L.rend(), [&Handle, &Func](vpo::VPLoop *CL) {
+      Func(ChildHandleTy(*CL, Handle.second));
+    });
+  }
 };
 
 } // namespace llvm
