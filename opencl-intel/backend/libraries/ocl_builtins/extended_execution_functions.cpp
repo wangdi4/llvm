@@ -318,27 +318,28 @@ __get_kernel_max_sub_group_size_for_ndrange_impl(const ndrange_t ndrange,
       return prod;
 }
 
-extern size_t ocl_task_sequence_create(size_t result_size,
-                                       unsigned max_outstanding);
+extern size_t ocl_task_sequence_create(size_t result_size);
 size_t __attribute__((always_inline))
 __create_task_sequence(size_t result_size, unsigned max_outstanding) {
-  return ocl_task_sequence_create(result_size, max_outstanding);
+  return ocl_task_sequence_create(result_size);
 }
 
-extern void ocl_task_sequence_async(void *obj, void *block_invoke,
-                                    void *block_literal, void *DCM, void *B2K,
-                                    void *RuntimeHandle);
+extern void ocl_task_sequence_async(void *obj, unsigned invocation_capacity,
+                                    void *block_invoke, void *block_literal,
+                                    void *DCM, void *B2K, void *RuntimeHandle);
 void __attribute__((always_inline))
-__async(void *obj, void *block_invoke, void *block_literal) {
+__async(void *obj, unsigned invocation_capacity, void *block_invoke,
+        void *block_literal) {
   void *DCM = __get_device_command_manager();
   void *B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
-  ocl_task_sequence_async(obj, block_invoke, block_literal, DCM, B2K,
-                          RuntimeHandle);
+  ocl_task_sequence_async(obj, invocation_capacity, block_invoke, block_literal,
+                          DCM, B2K, RuntimeHandle);
 }
 
 extern void *ocl_task_sequence_get(void *obj, void *DCM);
-void *__attribute__((always_inline)) __get(void *obj) {
+void *__attribute__((always_inline))
+__get(void *obj, unsigned response_capacity) {
   void *DCM = __get_device_command_manager();
   return ocl_task_sequence_get(obj, DCM);
 }

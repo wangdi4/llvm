@@ -12,6 +12,8 @@
 
 #pragma once
 
+#include <vector>
+
 #ifndef LLVM_BACKEND_NOINLINE_PRE
 #error define the LLVM_BACKEND_NOINLINE_PRE macro before #including this file
 #endif
@@ -23,21 +25,19 @@ struct task_sequence {
 };
 
 struct task_sequence_data {
-  char *results;       // Buffers to store returned values
-  clk_event_t *events; // OCL events to observe async tasks
+  std::vector<char *> results;     // Buffers to store returned values
+  std::vector<clk_event_t> events; // OCL events to observe async tasks
   size_t result_size;  // Size of every single value returned by __get()
   unsigned delivered;  // Number of __get() being invoked
 };
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t
-ocl_task_sequence_create(size_t ret_type_size, unsigned max_outstanding);
+ocl_task_sequence_create(size_t ret_type_size);
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
-ocl_task_sequence_async(task_sequence *obj,
-                        void *block_invoke,
-                        void *block_literal,
-                        IDeviceCommandManager *DCM,
-                        IBlockToKernelMapper *B2K,
+ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
+                        void *block_invoke, void *block_literal,
+                        IDeviceCommandManager *DCM, IBlockToKernelMapper *B2K,
                         void *RuntimeHandle);
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *
