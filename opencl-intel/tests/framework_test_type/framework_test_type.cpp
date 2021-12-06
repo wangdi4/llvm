@@ -598,21 +598,6 @@ TEST(FrameworkTestType, cl_device_local_mem_size_test)
     EXPECT_TRUE(cl_device_local_mem_size_test());
 }
 
-TEST(FrameworkTestType, cl_device_private_mem_size_test)
-{
-    EXPECT_TRUE(cl_device_private_mem_size_test());
-}
-
-TEST(FrameworkTestType, cl_device_private_mem_size_test_out_of_resources)
-{
-    EXPECT_TRUE(cl_device_private_mem_size_test_out_of_resources());
-}
-
-TEST(FrameworkTestType, cl_device_private_mem_size_test_without_vectorizer)
-{
-    EXPECT_TRUE(cl_device_private_mem_size_test_without_vectorizer());
-}
-
 #ifndef _WIN32
 TEST(FrameworkTestType, cl_device_local_mem_size_unlimited_stack_test)
 {

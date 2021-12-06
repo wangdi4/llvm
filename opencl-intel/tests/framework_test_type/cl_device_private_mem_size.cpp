@@ -1,235 +1,242 @@
-#include <CL/cl.h>
-
-#include <climits>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-
-#include "FrameworkTest.h"
+#include "TestsHelpClasses.h"
 #include "common_utils.h"
+#include "cpu_dev_limits.h"
+#include <tbb/global_control.h>
 
 extern cl_device_type gDeviceType;
 
-cl_ulong trySetPrivateMemSize(cl_ulong size, std::string unit = "")
-{
-#ifdef _WIN32
-    printf("NOTE:\nDue to some strange behaviour of env variables on Windows\n");
-    printf("\tthis test works only if you specify "
-            "CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE from shell\n");
-    printf("\tIn CI system it is done by .pm runner (framework_test_type.pm)\n");
-#endif
-    std::string str;
-    if (unit.empty() || unit == "B")
-      str = std::to_string(size) + "B";
-    else if (unit == "K" || unit == "KB")
-      str = std::to_string(size/1000) + "K";
-    else if (unit == "M" || unit == "MB")
-      str = std::to_string(size/1000000) + "M";
-    else
-      return 0;
-    // set env variable to change the default value of private mem size
-    if (!SETENV("CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE", str.c_str()))
-    {
-        return 0;
-    }
+class PrivateMemSizeTest : public ::testing::Test {
+protected:
+  void SetUp() override {
+    cl_int err = clGetPlatformIDs(1, &platform_private, nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetPlatrormIDs");
 
-    return size;  //Pass STACK_SIZE to kernel
-}
+    err = clGetDeviceIDs(platform_private, gDeviceType, 1, &device_private,
+                         nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
+  }
 
-bool vectorizerMode(bool enabled)
-{
-    std::string mode = enabled ? "True" : "False";
-    if (!SETENV("CL_CONFIG_USE_VECTORIZER", mode.c_str()))
-    {
-        return false;
-    }
-    return true;
-}
-
-cl_platform_id platform_private = nullptr;
-cl_device_id device_private = nullptr;
-cl_context context_private = nullptr;
-cl_command_queue queue_private = nullptr;
-cl_kernel kernel_private = nullptr;
-cl_mem buffer_private = nullptr;
-cl_program program_private = nullptr;
-
-bool cl_device_private_mem_size_test_body(cl_ulong, const std::string&,
-                                          bool out_of_recources = false);
-void cleanup_private();
-
-#define EXIT_IF_FAILED(expr)\
-    if (!expr)\
-    {\
-        cleanup_private();\
-        return false;\
-    }
-
-bool cl_device_private_mem_size_test()
-{
-    std::string programSources =
-    "__kernel void test(__global int* o)\n"
-    "{\n"
-    "    const int size = (STACK_SIZE/17) / sizeof(int);\n" // (STACK_SIZE/(SIMD_WIDTH+1))MB of private memory
-    "    __private volatile int buf[size];\n"
-    "    int gid = get_global_id(0);\n"
-    "    for (int i = 0; i < size; ++i)\n"
-    "        buf[i] = gid;\n"
-    "    o[gid] = buf[gid + 1] + 2;\n"
-    "}";
-
-    printf("cl_device_private_mem_size_test\n");
-
-    cl_ulong stackSize = trySetStackSize(STACK_SIZE);  //Extra stack size for scalar kernel
-    EXIT_IF_FAILED(CheckCondition("trySetStackSize", stackSize != 0));
-
-    bool enabledVectorizer = vectorizerMode(true);
-    EXIT_IF_FAILED(CheckCondition("vectorizerMode", enabledVectorizer == true));
-
-    cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE, "K");
-    EXIT_IF_FAILED(CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
-
-    return cl_device_private_mem_size_test_body(expectedPrivateMemSize, programSources);
-}
-
-bool cl_device_private_mem_size_test_out_of_resources()
-{
-    std::string programSources =
-    "__kernel void test(__global int* o)\n"
-    "{\n"
-    "    const int size = (STACK_SIZE/2) / sizeof(int);\n" // (STACK_SIZE/2)MB of private memory
-    "    printf(\"SIZE: %d \\n\", size);\n"
-    "    __private volatile int buf[size];\n"
-    "    int gid = get_global_id(0);\n"
-    "    for (int i = 0; i < size; ++i)\n"
-    "        buf[i] = gid;\n"
-    "    o[gid] = buf[gid + 1] + 2;\n"
-    "}";
-
-    printf("cl_device_private_mem_size_test_out_of_resources\n");
-
-    cl_ulong stackSize = trySetStackSize(STACK_SIZE);
-    EXIT_IF_FAILED(CheckCondition("trySetStackSize", stackSize != 0));
-
-    bool enabledVectorizer = vectorizerMode(true);
-    EXIT_IF_FAILED(CheckCondition("vectorizerMode", enabledVectorizer == true));
-
-    cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE);
-    EXIT_IF_FAILED(CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
-
-    return cl_device_private_mem_size_test_body(expectedPrivateMemSize,
-                                                programSources, true);
-}
-
-bool cl_device_private_mem_size_test_without_vectorizer()
-{
-    std::string programSources =
-    "__kernel void test(__global int* o)\n"
-    "{\n"
-    "    const int size = (STACK_SIZE - 1024*1024) / sizeof(int);\n" // STACK_SIZE MB - 1MB of private memory
-    "    printf(\"SIZE: %d \\n\", size);\n"
-    "    __private volatile int buf[size];\n"
-    "    int gid = get_global_id(0);\n"
-    "    for (int i = 0; i < size; ++i)\n"
-    "        buf[i] = gid;\n"
-    "    o[gid] = buf[gid + 1] + 2;\n"
-    "}";
-
-    printf("cl_device_private_mem_size_test_without_vectorizer\n");
-
-    cl_ulong stackSize = trySetStackSize(STACK_SIZE);
-    EXIT_IF_FAILED(CheckCondition("trySetStackSize", stackSize != 0));
-
-    bool disabledVectorizer = vectorizerMode(false);
-    EXIT_IF_FAILED(CheckCondition("vectorizerMode", disabledVectorizer == true));
-
-    cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE, "M");
-    EXIT_IF_FAILED(CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
-
-    bool res =  cl_device_private_mem_size_test_body(expectedPrivateMemSize, programSources);
-
-    bool enableVectorizer = vectorizerMode(true);
-    EXIT_IF_FAILED(CheckCondition("vectorizerMode", enableVectorizer == true));
-
-    return res;
-}
-
-void cleanup_private()
-{
+  void TearDown() override {
     if (buffer_private)
-        clReleaseMemObject(buffer_private);
+      clReleaseMemObject(buffer_private);
     if (kernel_private)
-        clReleaseKernel(kernel_private);
+      clReleaseKernel(kernel_private);
     if (queue_private)
-        clReleaseCommandQueue(queue_private);
+      clReleaseCommandQueue(queue_private);
     if (program_private)
-        clReleaseProgram(program_private);
+      clReleaseProgram(program_private);
     if (context_private)
-        clReleaseContext(context_private);
+      clReleaseContext(context_private);
+  }
+
+protected:
+  void testBody(cl_ulong, const std::string &, bool out_of_recources = false);
+
+  cl_platform_id platform_private = nullptr;
+  cl_device_id device_private = nullptr;
+  cl_context context_private = nullptr;
+  cl_command_queue queue_private = nullptr;
+  cl_kernel kernel_private = nullptr;
+  cl_mem buffer_private = nullptr;
+  cl_program program_private = nullptr;
+};
+
+static cl_ulong trySetPrivateMemSize(cl_ulong size, std::string unit = "") {
+#ifdef _WIN32
+  printf("NOTE:\nDue to some strange behaviour of env variables on Windows\n");
+  printf("\tthis test works only if you specify "
+         "CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE from shell\n");
+  printf("\tIn CI system it is done by .pm runner (framework_test_type.pm)\n");
+#endif
+  std::string str;
+  if (unit.empty() || unit == "B")
+    str = std::to_string(size) + "B";
+  else if (unit == "K" || unit == "KB")
+    str = std::to_string(size / 1024) + "K";
+  else if (unit == "M" || unit == "MB")
+    str = std::to_string(size / 1024 / 1024) + "M";
+  else
+    return 0;
+  // set env variable to change the default value of private mem size
+  if (!SETENV("CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE", str.c_str()))
+    return 0;
+
+  return size; // Pass STACK_SIZE to kernel
 }
 
-bool cl_device_private_mem_size_test_body(cl_ulong expectedPrivateMemSize,
-                                          const std::string &programSources,
-                                          bool out_of_recources)
-{
-    cl_int iRet = CL_SUCCESS;
-
-    iRet = clGetPlatformIDs(1, &platform_private, nullptr);
-    EXIT_IF_FAILED(Check("clGetPlatrormIDs", CL_SUCCESS, iRet));
-
-    iRet = clGetDeviceIDs(platform_private, gDeviceType, 1, &device_private, nullptr);
-    EXIT_IF_FAILED(Check("clGetDeviceIDs", CL_SUCCESS, iRet));
-
-    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform_private, 0 };
-    context_private = clCreateContext(prop, 1, &device_private, nullptr, nullptr, &iRet);
-    EXIT_IF_FAILED(Check("clCreateContext", CL_SUCCESS, iRet));
-
-    queue_private = clCreateCommandQueueWithProperties(context_private, device_private, nullptr, &iRet);
-    EXIT_IF_FAILED(Check("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet));
-
-    const char *ps = programSources.c_str();
-    std::string options = "-DSTACK_SIZE=" + std::to_string(expectedPrivateMemSize);
-    EXIT_IF_FAILED(BuildProgramSynch(context_private, 1, (const char**)&ps, nullptr, options.c_str(), &program_private));
-
-    const size_t global_work_size = 1;
-    buffer_private = clCreateBuffer(context_private, CL_MEM_READ_WRITE,
-                                    global_work_size * sizeof(cl_int), nullptr, &iRet);
-    EXIT_IF_FAILED(Check("clCreateBuffer", CL_SUCCESS, iRet));
-
-    kernel_private = clCreateKernel(program_private, "test", &iRet);
-    EXIT_IF_FAILED(Check("clCreateKernel", CL_SUCCESS, iRet));
-
-    iRet = clSetKernelArg(kernel_private, 0, sizeof(cl_mem), &buffer_private);
-    EXIT_IF_FAILED(Check("clSetKernelArg", CL_SUCCESS, iRet));
-
-    const size_t local_work_size = 1;
-    iRet = clEnqueueNDRangeKernel(queue_private, kernel_private, 1, nullptr, &global_work_size, &local_work_size, 0, nullptr, nullptr);
-    if (out_of_recources)
-    {
-        EXIT_IF_FAILED(Check("clEnqueueNDRangeKernel", CL_OUT_OF_RESOURCES, iRet));
-        return iRet;
-    }
-    EXIT_IF_FAILED(Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet));
-
-    iRet = clFinish(queue_private);
-    EXIT_IF_FAILED(Check("clFinish", CL_SUCCESS, iRet));
-
-    cl_int data[global_work_size] = { 0 };
-
-    iRet = clEnqueueReadBuffer(queue_private, buffer_private, CL_TRUE, 0,
-                               global_work_size * sizeof(cl_int), data, 0, nullptr, nullptr);
-    EXIT_IF_FAILED(Check("clEnqueueReadBuffer", CL_SUCCESS, iRet));
-
-    bool bResult = true;
-    for (size_t i = 0; i < global_work_size; ++i)
-    {
-        bResult &= SilentCheckInt("data[i]", (cl_int)(i + 2), data[i]);
-    }
-
-    bResult = Check("kernel_private results verification", true, bResult);
-
-    cleanup_private();
-
-    return bResult;
+static bool vectorizerMode(bool enabled) {
+  std::string mode = enabled ? "True" : "False";
+  return SETENV("CL_CONFIG_USE_VECTORIZER", mode.c_str());
 }
 
+TEST_F(PrivateMemSizeTest, Basic) {
+  std::string programSources = "__kernel void test(__global int* o)\n"
+                               "{\n"
+                               "    const int size = (STACK_SIZE/17) / "
+                               "sizeof(int);\n" // (STACK_SIZE/(SIMD_WIDTH+1))MB
+                                                // of private
+                                                // memory
+                               "    __private volatile int buf[size];\n"
+                               "    int gid = get_global_id(0);\n"
+                               "    for (int i = 0; i < size; ++i)\n"
+                               "        buf[i] = gid;\n"
+                               "    o[gid] = buf[gid + 1] + 2;\n"
+                               "}";
+
+  printf("cl_device_private_mem_size_test\n");
+
+  cl_ulong stackSize =
+      trySetStackSize(STACK_SIZE); // Extra stack size for scalar kernel
+  ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
+
+  bool enabledVectorizer = vectorizerMode(true);
+  ASSERT_TRUE(CheckCondition("vectorizerMode", enabledVectorizer == true));
+
+  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE, "K");
+  ASSERT_TRUE(
+      CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
+
+  ASSERT_NO_FATAL_FAILURE(testBody(expectedPrivateMemSize, programSources));
+}
+
+TEST_F(PrivateMemSizeTest, OutOfResources) {
+  std::string programSources =
+      "__kernel void test(__global int* o)\n"
+      "{\n"
+      "    const int size = (STACK_SIZE/2) / sizeof(int);\n" // (STACK_SIZE/2)MB
+                                                             // of private
+                                                             // memory
+      "    printf(\"SIZE: %d \\n\", size);\n"
+      "    __private volatile int buf[size];\n"
+      "    int gid = get_global_id(0);\n"
+      "    for (int i = 0; i < size; ++i)\n"
+      "        buf[i] = gid;\n"
+      "    o[gid] = buf[gid + 1] + 2;\n"
+      "}";
+
+  printf("cl_device_private_mem_size_test_out_of_resources\n");
+
+  cl_ulong stackSize = trySetStackSize(STACK_SIZE);
+  ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
+
+  bool enabledVectorizer = vectorizerMode(true);
+  ASSERT_TRUE(CheckCondition("vectorizerMode", enabledVectorizer == true));
+
+  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE);
+  ASSERT_TRUE(
+      CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
+
+  ASSERT_NO_FATAL_FAILURE(
+      testBody(expectedPrivateMemSize, programSources, true));
+}
+
+TEST_F(PrivateMemSizeTest, WithoutVectorizer) {
+  std::string programSources =
+      "__kernel void test(__global int* o)\n"
+      "{\n"
+      "    const int size = (STACK_SIZE - 1024*1024) / "
+      "sizeof(int);\n" // STACK_SIZE MB - 1MB of private memory
+      "    printf(\"SIZE: %d \\n\", size);\n"
+      "    __private volatile int buf[size];\n"
+      "    int gid = get_global_id(0);\n"
+      "    for (int i = 0; i < size; ++i)\n"
+      "        buf[i] = gid;\n"
+      "    o[gid] = buf[gid + 1] + 2;\n"
+      "}";
+
+  printf("cl_device_private_mem_size_test_without_vectorizer\n");
+
+  cl_ulong stackSize = trySetStackSize(STACK_SIZE);
+  ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
+
+  bool disabledVectorizer = vectorizerMode(false);
+  ASSERT_TRUE(CheckCondition("vectorizerMode", disabledVectorizer == true));
+
+  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE, "M");
+  ASSERT_TRUE(
+      CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
+
+  ASSERT_NO_FATAL_FAILURE(testBody(expectedPrivateMemSize, programSources));
+
+  bool enableVectorizer = vectorizerMode(true);
+  ASSERT_TRUE(CheckCondition("vectorizerMode", enableVectorizer == true));
+}
+
+TEST_F(PrivateMemSizeTest, SmallStackSize) {
+  cl_ulong stackSize = trySetStackSize(1024 * 1024);
+  ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
+
+  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(stackSize);
+  ASSERT_TRUE(
+      CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
+
+  cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
+                                   (cl_context_properties)platform_private, 0};
+  cl_int err;
+  context_private =
+      clCreateContext(prop, 1, &device_private, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateContext");
+
+  size_t activeStackSize =
+      tbb::global_control::active_value(tbb::global_control::thread_stack_size);
+  ASSERT_EQ(activeStackSize,
+            stackSize + CPU_DEV_LCL_MEM_SIZE + CPU_DEV_BASE_STACK_SIZE);
+}
+
+void PrivateMemSizeTest::testBody(cl_ulong expectedPrivateMemSize,
+                                  const std::string &programSources,
+                                  bool out_of_recources) {
+  cl_int err;
+
+  cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
+                                   (cl_context_properties)platform_private, 0};
+  context_private =
+      clCreateContext(prop, 1, &device_private, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateContext");
+
+  queue_private = clCreateCommandQueueWithProperties(
+      context_private, device_private, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+
+  const char *ps = programSources.c_str();
+  std::string options =
+      "-DSTACK_SIZE=" + std::to_string(expectedPrivateMemSize);
+  ASSERT_TRUE(BuildProgramSynch(context_private, 1, (const char **)&ps, nullptr,
+                                options.c_str(), &program_private));
+
+  const size_t global_work_size = 1;
+  buffer_private =
+      clCreateBuffer(context_private, CL_MEM_READ_WRITE,
+                     global_work_size * sizeof(cl_int), nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
+
+  kernel_private = clCreateKernel(program_private, "test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel");
+
+  err = clSetKernelArg(kernel_private, 0, sizeof(cl_mem), &buffer_private);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
+
+  const size_t local_work_size = 1;
+  err = clEnqueueNDRangeKernel(queue_private, kernel_private, 1, nullptr,
+                               &global_work_size, &local_work_size, 0, nullptr,
+                               nullptr);
+  if (out_of_recources) {
+    ASSERT_EQ(err, CL_OUT_OF_RESOURCES) << "clEnqueueNDRangeKernel";
+    return;
+  }
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+
+  err = clFinish(queue_private);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+
+  cl_int data[global_work_size] = {0};
+
+  err = clEnqueueReadBuffer(queue_private, buffer_private, CL_TRUE, 0,
+                            global_work_size * sizeof(cl_int), data, 0, nullptr,
+                            nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
+
+  for (size_t i = 0; i < global_work_size; ++i) {
+    ASSERT_EQ((cl_int)(i + 2), data[i]) << "kernel_private results verify fail";
+  }
+}

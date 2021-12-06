@@ -9,18 +9,24 @@ source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
+@test.lint = internal addrspace(3) global i32 undef, align 4
 ; CHECK: @pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef
 
 ; Function Attrs: convergent noinline nounwind
 define spir_func void @foo() #0 {
 entry:
+  store i32 1234, i32 addrspace(3)* @test.lint
   ret void
 }
 
 ; Function Attrs: convergent noinline nounwind
 define spir_kernel void @test() #1 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_pipe_depth !2 !kernel_arg_pipe_io !2 !kernel_arg_buffer_location !2 !kernel_arg_name !2 {
 entry:
-; CHECK: %pLocalMem_foo = getelementptr i8, i8 addrspace(3)* %0, i32 0
+; CHECK:  %0 = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase
+; CHECK-NEXT:  %pLocalMem_foo = getelementptr i8, i8 addrspace(3)* %0, i32 0
+; CHECK-NEXT:  %1 = getelementptr i8, i8 addrspace(3)* %pLocalMem_foo, i32 0
+; CHECK-NEXT:  %2 = addrspacecast i8 addrspace(3)* %1 to i32 addrspace(3)**
+; CHECK-NEXT:  store i32 addrspace(3)* @test.lint, i32 addrspace(3)** %2
 ; CHECK-NEXT: store i8 addrspace(3)* %pLocalMem_foo, i8 addrspace(3)** @pLocalMemBase
 ; CHECK-NEXT: call spir_func void @foo()
 ; CHECK-NEXT: store i8 addrspace(3)* %0, i8 addrspace(3)** @pLocalMemBase

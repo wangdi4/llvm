@@ -360,6 +360,8 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
       LOG_ERROR(
           TEXT("Failed to set tbb thread_stack_size, actual %zu, expected %zu"),
           activeStackSize, stackSize);
+    } else {
+      LOG_INFO(TEXT("Set tbb thread_stack_size to %zu"), stackSize);
     }
 
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA);

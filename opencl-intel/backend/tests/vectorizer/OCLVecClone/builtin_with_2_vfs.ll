@@ -88,6 +88,7 @@ attributes #0 = { "vector-variants"="_ZGVeM16v_foo_sg,_ZGVeN16v_foo_sg,_ZGVeM8v_
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} trunc
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} sext
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} sext
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} getelementptr
@@ -137,6 +138,7 @@ attributes #0 = { "vector-variants"="_ZGVeM16v_foo_sg,_ZGVeN16v_foo_sg,_ZGVeM8v_
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} trunc
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} sext
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} sext
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} getelementptr
