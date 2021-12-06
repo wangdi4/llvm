@@ -103,6 +103,7 @@ bool AddTLSGlobals::runOnModule(Module &M) {
 }
 
 void AddTLSGlobals::runOnFunction(Function *pFunc) {
+  llvm::DataLayout DL(m_pModule);
 
   // Calculate pointer to the local memory buffer
   unsigned int directLocalSize =
@@ -124,12 +125,39 @@ void AddTLSGlobals::runOnFunction(Function *pFunc) {
               B.CreateLoad(m_pLocalMemBase->getValueType(), m_pLocalMemBase);
           std::string ValName("pLocalMem_");
           ValName += pCallee->getName();
-          Value *GEP = B.CreateGEP(
+          Value *NewLocalMem = B.CreateGEP(
               Load->getType()->getScalarType()->getPointerElementType(), Load,
               ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
                                directLocalSize),
               ValName);
-          B.CreateStore(GEP, m_pLocalMemBase);
+
+          // Now that the local memory buffer is rebased, the memory location of
+          // directly used local values should be passed to the callee so that
+          // local values can be loaded/stored correctly by callee. In this way,
+          // the pointers to local values are pushed to new local memory buffer
+          // base, and then callee can access local values via the pointers.
+          auto &CalleeLocalSet = m_LBInfo->getDirectLocals(pCallee);
+          Type *Ty =
+              NewLocalMem->getType()->getScalarType()->getPointerElementType();
+          unsigned int CurrLocalOffset = 0;
+          for (auto *Local : CalleeLocalSet) {
+            GlobalVariable *GV = cast<GlobalVariable>(Local);
+            size_t ArraySize = DL.getTypeAllocSize(GV->getValueType());
+            assert(0 != ArraySize && "zero array size!");
+            // Get the position of Local in NewLocalMem.
+            auto *Idx = ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
+                                         CurrLocalOffset);
+            auto *LocalPtr = B.CreateGEP(Ty, NewLocalMem, Idx);
+            // Cast to pointer type of Local.
+            auto *Cast =
+                B.CreatePointerCast(LocalPtr, GV->getType()->getPointerTo());
+            // Store Local to NewLocalMem.
+            B.CreateStore(GV, Cast);
+            // Calculate the offset of next direct used local value.
+            CurrLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(ArraySize);
+          }
+
+          B.CreateStore(NewLocalMem, m_pLocalMemBase);
           B.SetInsertPoint(pCall->getNextNode());
           B.SetCurrentDebugLocation(pCall->getDebugLoc());
           B.CreateStore(Load, m_pLocalMemBase);
