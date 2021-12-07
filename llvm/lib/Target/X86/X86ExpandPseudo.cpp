@@ -698,6 +698,27 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
   case X86::CALL64m_RVMARKER:
     expandCALL_RVMARKER(MBB, MBBI);
     return true;
+#if INTEL_CUSTOMIZATION
+  case X86::CPUID_G: {
+    assert(TRI->getReservedRegs(*MI.getMF()).test(X86::EBX) &&
+           "CPUID_G was already expaned by Intel_X86PRAExpandPseudo if ebx "
+           "doesn't need to be preserved");
+    assert(STI->is64Bit() && "EBX is only presered on 64bit");
+
+    // RA has allocate a 32bit reg for CPUID_G to preserve rbx.
+    MCRegister VRBX = TRI->getMatchingSuperReg(
+        MBBI->getOperand(0).getReg(), X86::sub_32bit, &X86::GR64RegClass);
+    BuildMI(MBB, MBBI, DL, TII->get(X86::MOV64rr), VRBX)
+        .addUse(X86::RBX, RegState::Undef);
+    BuildMI(MBB, MBBI, DL, TII->get(X86::CPUID));
+    BuildMI(MBB, MBBI, DL, TII->get(X86::XCHG64rr), X86::RBX)
+        .addDef(VRBX)
+        .addUse(X86::RBX)
+        .addUse(VRBX);
+    MI.eraseFromParent();
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Previous switch has a fallthrough?");
 }

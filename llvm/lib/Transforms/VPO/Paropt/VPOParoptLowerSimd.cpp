@@ -295,10 +295,12 @@ static Value *translateSqrtOpIntrinsic(CallInst *CI) {
   return RepI;
 }
 
-static Value *translateReduceOpIntrinsic(CallInst *CI) {
-  assert(isa<llvm::IntrinsicInst>(CI));
+static Value *translateReduceOpIntrinsic(IntrinsicInst *II, Instruction::BinaryOps ReduceOp) {
+  auto *CI = cast<CallInst>(II);
   LLVMContext &CTX = CI->getContext();
   // TODO: introduce GenXIRBuilder helper
+  bool IsFloatingPointReduction = CI->getType()->getScalarType()->isDoubleTy() ||
+                                  CI->getType()->getScalarType()->isFloatTy();
   auto GetReduceSeq = [&](Value *Src, unsigned Size,
                           unsigned ElemOffset) -> Value * {
     if (Size == 1) {
@@ -317,7 +319,8 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
     Type *Tys[] = {FixedVectorType::get(SrcElementType, Size), SrcType,
                    Type::getInt16Ty(CTX)};
     auto *Decl = GenXIntrinsic::getGenXDeclaration(
-        CI->getModule(), GenXIntrinsic::genx_rdregioni, Tys);
+        CI->getModule(), IsFloatingPointReduction ? GenXIntrinsic::genx_rdregionf :
+                                                    GenXIntrinsic::genx_rdregioni, Tys);
 
     Value *Args[] = {
         Src,
@@ -335,28 +338,26 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
                             CI /*InsertBefore*/);
   };
 
-  Instruction::BinaryOps ReduceOp;
-  switch (CI->getIntrinsicID()) {
-  default:
-    llvm_unreachable("unimplemented intrinsic");
-  case Intrinsic::vector_reduce_add:
-    ReduceOp = Instruction::Add;
-    break;
-  case Intrinsic::vector_reduce_mul:
-    ReduceOp = Instruction::Mul;
-    break;
-  case Intrinsic::vector_reduce_xor:
-    ReduceOp = Instruction::Xor;
-    break;
-  case Intrinsic::vector_reduce_or:
-    ReduceOp = Instruction::Or;
-    break;
-  }
-
-  Value *OperandToReduce = CI->getOperand(0);
+  int OperandToReduceIdx = IsFloatingPointReduction ? 1 : 0;
+  Value *OperandToReduce = CI->getOperand(OperandToReduceIdx);
   unsigned N =
       cast<FixedVectorType>(OperandToReduce->getType())->getNumElements();
-  // Split vector into two parts. First part's size  is alwayas a power of two
+  Value *CurrentReduceRes = nullptr;
+
+  IRBuilder<> Builder(CI);
+
+  // If reassoc is not allowed then do sequential operation for floating points.
+  if (IsFloatingPointReduction && !CI->hasAllowReassoc()) {
+    CurrentReduceRes = CI->getOperand(0);
+    for (unsigned i = 0; i < N; i++) {
+        auto *Extract = GetReduceSeq(OperandToReduce, 1, i);
+        CurrentReduceRes = Builder.CreateBinOp(ReduceOp, CurrentReduceRes, Extract);
+    }
+    CI->replaceAllUsesWith(CurrentReduceRes);
+    return CurrentReduceRes;
+  }
+
+  // Split vector into two parts. First part's size is alwayas a power of two
   // so we can simply apply reduction by spliiting it into parts. Reduction with
   // a second part is applicable it's size equals to the first part size
   unsigned N1, N2;
@@ -368,21 +369,15 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
     N2 = N - N1;
   }
 
-  Value *CurrentReduceRes = OperandToReduce;
-  IRBuilder<> Builder(CI);
+  CurrentReduceRes = OperandToReduce;
   for (unsigned i = N1 / 2; i >= 1; i /= 2) {
     auto *RSeq1 = GetReduceSeq(CurrentReduceRes, i, 0);
     auto *RSeq2 = GetReduceSeq(CurrentReduceRes, i, i);
     CurrentReduceRes = Builder.CreateBinOp(ReduceOp, RSeq1, RSeq2);
 
-    unsigned CurrentReduceSize;
-    if (auto *VT = dyn_cast<FixedVectorType>(CurrentReduceRes->getType()))
-      CurrentReduceSize = VT->getNumElements();
-    else
-      CurrentReduceSize = 1;
     // Continue reducing if second part has suitable size, fall back
     // to reducing first part otherwise
-    if (CurrentReduceSize > N2)
+    if (i > N2)
       continue;
 
     // Reduction across parts
@@ -391,7 +386,14 @@ static Value *translateReduceOpIntrinsic(CallInst *CI) {
     CurrentReduceRes = Builder.CreateBinOp(ReduceOp, RSeq21, RSeq22);
     N2 -= i;
   }
+
   assert(CurrentReduceRes->getType() == CI->getType());
+
+  if (IsFloatingPointReduction) {
+    assert (CI->hasAllowReassoc());
+    CurrentReduceRes = Builder.CreateBinOp(ReduceOp, CurrentReduceRes,  CI->getOperand(0));
+  }
+
   CI->replaceAllUsesWith(CurrentReduceRes);
   return CurrentReduceRes;
 }
@@ -1433,10 +1435,15 @@ static Value *translateLLVMInst(Instruction *Inst) {
       return RepI;
     } break;
     case Intrinsic::vector_reduce_add:
+      return translateReduceOpIntrinsic(CallOp, Instruction::Add);
     case Intrinsic::vector_reduce_mul:
+      return translateReduceOpIntrinsic(CallOp, Instruction::Mul);
     case Intrinsic::vector_reduce_xor:
+      return translateReduceOpIntrinsic(CallOp, Instruction::Xor);
     case Intrinsic::vector_reduce_or:
-      return translateReduceOpIntrinsic(cast<CallInst>(CallOp));
+      return translateReduceOpIntrinsic(CallOp, Instruction::Or);
+    case Intrinsic::vector_reduce_fadd:
+      return translateReduceOpIntrinsic(CallOp, Instruction::FAdd);
     case Intrinsic::sqrt:
       return translateSqrtOpIntrinsic(cast<CallInst>(CallOp));
     default: {
