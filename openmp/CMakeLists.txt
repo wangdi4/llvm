@@ -69,8 +69,7 @@ endif()
 option(OPENMP_ENABLE_LIBOMPTARGET "Enable building libomptarget for offloading."
        ${ENABLE_LIBOMPTARGET})
 option(OPENMP_ENABLE_LIBOMPTARGET_PROFILING "Enable time profiling for libomptarget."
-<<<<<<< HEAD
-       ${ENABLE_LIBOMPTARGET})
+       ${ENABLE_LIBOMPTARGET_PROFILING})
 if (INTEL_CUSTOMIZATION)
   # Disable profiling, if building as part of llvm with shared libraries.
   # Due to libomptarget build location (see LIBOMPTARGET_LIBRARY_DIR)
@@ -82,9 +81,6 @@ if (INTEL_CUSTOMIZATION)
     set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
   endif()
 endif(INTEL_CUSTOMIZATION)
-=======
-       ${ENABLE_LIBOMPTARGET_PROFILING})
->>>>>>> db32c4f45625dddc2c5cb683adf3d9cab7a9732f
 option(OPENMP_ENABLE_LIBOMP_PROFILING "Enable time profiling for libomp." OFF)
 
 # Build host runtime library, after LIBOMPTARGET variables are set since they are needed
