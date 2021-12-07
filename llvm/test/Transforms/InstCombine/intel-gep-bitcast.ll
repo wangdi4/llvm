@@ -87,7 +87,7 @@ define void @test_descale_sub(i32* %src, i64 %in) {
 define void @test_descale_or(i32* %src, i64 %in) {
 ; CHECK-LABEL: @test_descale_or
 ; CHECK-NEXT: %chop = lshr i64 %in, 63
-; CHECK-NEXT: %index1 = add nuw nsw i64 %chop, 2
+; CHECK-NEXT: %index1 = or i64 %chop, 2
 ; CHECK-NEXT: getelementptr i32, i32* %src, i64 %index1
 ; CHECK-NOT: bitcast
   %chop  = lshr i64 %in, 63

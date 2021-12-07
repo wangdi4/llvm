@@ -158,6 +158,11 @@ FunctionPass *createX86GenerateLEAs();
 /// Return a pass that generate load + permute for gather instruciton.
 FunctionPass *createX86Gather2LoadPermutePass();
 
+/// Return a pass that do instruction combine optimization for x86 target.
+FunctionPass *createX86InstCombinePass();
+
+extern char &X86InstCombineID;
+
 /// Return a pass that generate amx intrinsics for matrix intrinsics.
 FunctionPass *createX86LowerMatrixIntrinsicsPass();
 
@@ -212,6 +217,7 @@ void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
+void initializeX86InstCombinePass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);
