@@ -51,7 +51,11 @@ endif (NOT WIN32)
 
 include(CheckCXXCompilerFlag)
 
-include(HandleLLVMOptions)
+# If in-tree we don't need to include HandleLLVMOptions again: it contains
+# logic which should not be evaluted twice.
+if (NOT OPENCL_INTREE_BUILD)
+  include(HandleLLVMOptions)
+endif()
 
 # Include functions for opencl targets
 include(CMakeFuncs)
