@@ -61,9 +61,15 @@ if (APPLE OR WIN32 OR NOT OPENMP_HAVE_STD_CPP14_FLAG)
   set(ENABLE_LIBOMPTARGET OFF)
 endif()
 
+set(ENABLE_LIBOMPTARGET_PROFILING OFF)
+if (ENABLE_LIBOMPTARGET AND NOT LLVM_RUNTIMES_BUILD)
+  set(ENABLE_LIBOMPTARGET_PROFILING ON)
+endif()
+
 option(OPENMP_ENABLE_LIBOMPTARGET "Enable building libomptarget for offloading."
        ${ENABLE_LIBOMPTARGET})
 option(OPENMP_ENABLE_LIBOMPTARGET_PROFILING "Enable time profiling for libomptarget."
+<<<<<<< HEAD
        ${ENABLE_LIBOMPTARGET})
 if (INTEL_CUSTOMIZATION)
   # Disable profiling, if building as part of llvm with shared libraries.
@@ -76,6 +82,9 @@ if (INTEL_CUSTOMIZATION)
     set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
   endif()
 endif(INTEL_CUSTOMIZATION)
+=======
+       ${ENABLE_LIBOMPTARGET_PROFILING})
+>>>>>>> db32c4f45625dddc2c5cb683adf3d9cab7a9732f
 option(OPENMP_ENABLE_LIBOMP_PROFILING "Enable time profiling for libomp." OFF)
 
 # Build host runtime library, after LIBOMPTARGET variables are set since they are needed
