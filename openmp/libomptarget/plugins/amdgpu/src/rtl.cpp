@@ -910,7 +910,11 @@ launchVals getLaunchVals(int WarpSize, EnvironmentVariables Env,
 
   int Max_Teams =
       Env.MaxTeamsDefault > 0 ? Env.MaxTeamsDefault : DeviceNumTeams;
+#if INTEL_COLLAB
+  if ((unsigned)Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
+#else // INTEL_COLLAB
   if (Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
+#endif // INTEL_COLLAB
     Max_Teams = RTLDeviceInfoTy::HardTeamLimit;
 
   if (print_kernel_trace & STARTUP_DETAILS) {
@@ -1947,19 +1951,8 @@ __tgt_target_table *__tgt_rtl_load_binary_locked(int32_t device_id,
     if (e->size) {
       __tgt_offload_entry entry = *e;
 
-<<<<<<< HEAD
-  int Max_Teams =
-      Env.MaxTeamsDefault > 0 ? Env.MaxTeamsDefault : DeviceNumTeams;
-#if INTEL_COLLAB
-  if ((unsigned)Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
-#else // INTEL_COLLAB
-  if (Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
-#endif // INTEL_COLLAB
-    Max_Teams = RTLDeviceInfoTy::HardTeamLimit;
-=======
       void *varptr;
       uint32_t varsize;
->>>>>>> d9b1d827d2e9ae135901b6eccf25a05ef49f38af
 
       auto &SymbolInfoMap = DeviceInfo.SymbolInfoTable[device_id];
       hsa_status_t err = interop_hsa_get_symbol_info(
