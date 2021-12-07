@@ -91,27 +91,16 @@ bool X86PRAExpandPseudoPass::ExpandMI(MachineBasicBlock &MBB,
   default:
     return false;
   case X86::CPUID_G: {
-    MachineInstr *CpuId =
-        BuildMI(MBB, MBBI, DL, TII->get(X86::CPUID)).getInstr();
+    // If ebx is reserved, we need to use mov and xchg to preserved it and
+    // mov,cpuid,xchg should be bundled. If CPUID_G is expanded here, RA may
+    // insert a spill instruction using ebx between cpuid and xchg. This is
+    // devastating so we need to expand CPUID_G later in X86ExpandPseudo pass.
+    if (TRI->getReservedRegs(*MI.getMF()).test(X86::EBX))
+      return false;
+
     Register VEBX = MBBI->getOperand(0).getReg();
-
-    if (TRI->getReservedRegs(*MI.getMF()).test(X86::EBX)) {
-      assert(STI->is64Bit() && "EBX is only presered on 64bit");
-      Register PHReg0 = MRI->createVirtualRegister(&X86::GR64RegClass);
-      Register PHReg1 = MRI->cloneVirtualRegister(PHReg0);
-
-      // Use MOV64rr instead of COPY to prevent being killed.
-      BuildMI(MBB, CpuId, DL, TII->get(X86::MOV64rr), PHReg0)
-          .addUse(X86::RBX, RegState::Undef);
-      BuildMI(MBB, MBBI, DL, TII->get(X86::XCHG64rr), X86::RBX)
-          .addDef(PHReg1)
-          .addUse(X86::RBX)
-          .addUse(PHReg0);
-      BuildMI(MBB, MBBI, DL, TII->get(X86::COPY), VEBX)
-          .addUse(PHReg1, 0, X86::sub_32bit);
-    } else {
-      BuildMI(MBB, MBBI, DL, TII->get(X86::COPY), VEBX).addUse(X86::EBX);
-    }
+    BuildMI(MBB, MBBI, DL, TII->get(X86::CPUID));
+    BuildMI(MBB, MBBI, DL, TII->get(X86::COPY), VEBX).addUse(X86::EBX);
     MI.eraseFromParent();
     return true;
   }
