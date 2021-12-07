@@ -158,6 +158,7 @@ void initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(PassRegistry &); // 
 void initializeCorrelatedValuePropagationPass(PassRegistry&);
 void initializeCostModelAnalysisPass(PassRegistry&);
 void initializeCrossDSOCFIPass(PassRegistry&);
+void initializeCycleInfoWrapperPassPass(PassRegistry &);
 void initializeDAEPass(PassRegistry&);
 void initializeDAHPass(PassRegistry&);
 void initializeDAESYCLPass(PassRegistry&);
@@ -365,6 +366,8 @@ void initializeMachineBranchProbabilityInfoPass(PassRegistry&);
 void initializeMachineCSEPass(PassRegistry&);
 void initializeMachineCombinerPass(PassRegistry&);
 void initializeMachineCopyPropagationPass(PassRegistry&);
+void initializeMachineCycleInfoPrinterPassPass(PassRegistry &);
+void initializeMachineCycleInfoWrapperPassPass(PassRegistry &);
 void initializeMachineDominanceFrontierPass(PassRegistry&);
 void initializeMachineDominatorTreePass(PassRegistry&);
 void initializeMachineFunctionPrinterPassPass(PassRegistry&);
