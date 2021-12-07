@@ -42,7 +42,7 @@ public:
     return DTInfo.testSafetyData(TyInfo, Transform);
   }
 
-  dtrans::FieldInfo getFieldInfo(StructType *STy, unsigned Idx) {
+  dtrans::FieldInfo &getFieldInfo(StructType *STy, unsigned Idx) {
     auto *StInfo = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(STy));
     dtrans::FieldInfo &FI = StInfo->getField(Idx);
     return FI;
@@ -187,7 +187,7 @@ public:
     return DTInfo.testSafetyData(TyInfo, Transform);
   }
 
-  dtrans::FieldInfo getFieldInfo(StructType *STy, unsigned Idx) {
+  dtrans::FieldInfo &getFieldInfo(StructType *STy, unsigned Idx) {
     dtrans::StructInfo *StInfo = DTInfo.getStructInfo(STy);
     dtrans::FieldInfo &FI = StInfo->getField(Idx);
     return FI;

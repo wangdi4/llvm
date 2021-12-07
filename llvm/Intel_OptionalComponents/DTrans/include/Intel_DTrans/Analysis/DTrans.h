@@ -123,6 +123,14 @@ public:
         SAFKind(SAFK_Top), SingleAllocFunction(nullptr), RWState(RWK_Top),
         Frequency(0) {}
 
+  // Disallow copy
+  FieldInfo(const FieldInfo&) = delete;
+  FieldInfo &operator=(const FieldInfo &) = delete;
+
+  // Move operators use default implementation
+  FieldInfo(FieldInfo &&) = default;
+  FieldInfo &operator=(FieldInfo &&) = default;
+
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
   dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
