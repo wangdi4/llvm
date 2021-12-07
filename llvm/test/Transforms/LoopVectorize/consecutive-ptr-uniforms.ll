@@ -205,11 +205,11 @@ for.end:
 ; INTER:       %[[G0:.+]] = getelementptr inbounds %pair, %pair* %p, i64 %index, i32 0
 ; INTER:       %[[B0:.+]] = bitcast i32* %[[G0]] to <8 x i32>*
 ; INTER:       %wide.vec = load <8 x i32>, <8 x i32>* %[[B0]], align 8
-; INTER:       %[[I1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
+; INTER:       %[[I1:.+]] = or i64 %index, 1
 ; INTER:       getelementptr inbounds %pair, %pair* %p, i64 %[[I1]], i32 0
-; INTER:       %[[I2:.+]] = add nuw nsw i64 %index, 2 ;INTEL
+; INTER:       %[[I2:.+]] = or i64 %index, 2
 ; INTER:       getelementptr inbounds %pair, %pair* %p, i64 %[[I2]], i32 0
-; INTER:       %[[I3:.+]] = add nuw nsw i64 %index, 3 ;INTEL
+; INTER:       %[[I3:.+]] = or i64 %index, 3
 ; INTER:       getelementptr inbounds %pair, %pair* %p, i64 %[[I3]], i32 0
 ; INTER:       br i1 {{.*}}, label %middle.block, label %vector.body
 ;
@@ -246,9 +246,9 @@ for.end:
 ; CHECK-NOT: LV: Found uniform instruction: %tmp1 = getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %i
 ; CHECK:     vector.body
 ; CHECK:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; CHECK:       %[[I1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
-; CHECK:       %[[I2:.+]] = add nuw nsw i64 %index, 2 ;INTEL
-; CHECK:       %[[I3:.+]] = add nuw nsw i64 %index, 3 ;INTEL
+; CHECK:       %[[I1:.+]] = or i64 %index, 1
+; CHECK:       %[[I2:.+]] = or i64 %index, 2
+; CHECK:       %[[I3:.+]] = or i64 %index, 3
 ; CHECK:       getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %index
 ; CHECK:       getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %[[I1]]
 ; CHECK:       getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %[[I2]]
@@ -363,11 +363,11 @@ for.end:
 ; CHECK:     vector.body
 ; CHECK:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
 ; CHECK:       %next.gep = getelementptr x86_fp80, x86_fp80* %a, i64 %index
-; CHECK:       %[[I1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
+; CHECK:       %[[I1:.+]] = or i64 %index, 1
 ; CHECK:       %next.gep2 = getelementptr x86_fp80, x86_fp80* %a, i64 %[[I1]]
-; CHECK:       %[[I2:.+]] = add nuw nsw i64 %index, 2 ;INTEL
+; CHECK:       %[[I2:.+]] = or i64 %index, 2
 ; CHECK:       %next.gep3 = getelementptr x86_fp80, x86_fp80* %a, i64 %[[I2]]
-; CHECK:       %[[I3:.+]] = add nuw nsw i64 %index, 3 ;INTEL
+; CHECK:       %[[I3:.+]] = or i64 %index, 3
 ; CHECK:       %next.gep4 = getelementptr x86_fp80, x86_fp80* %a, i64 %[[I3]]
 ; CHECK:       br i1 {{.*}}, label %middle.block, label %vector.body
 ;

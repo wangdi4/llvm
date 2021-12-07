@@ -103,6 +103,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeGenerateLEAPassPass(PR);
   initializeX86Gather2LoadPermutePassPass(PR);
   initializeX86LowerMatrixIntrinsicsPassPass(PR);
+  initializeX86InstCombinePass(PR);
   initializeX86FeatureInitPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -454,6 +455,9 @@ void X86PassConfig::addIRPasses() {
 
   if (TM->getOptLevel() == CodeGenOpt::None)
     addPass(createX86PreAMXConfigPass());
+
+  if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
+    insertPass(&HeteroArchOptID, &X86InstCombineID); // INTEL
 
   TargetPassConfig::addIRPasses();
 
