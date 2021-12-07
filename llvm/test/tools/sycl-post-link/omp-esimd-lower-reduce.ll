@@ -63,8 +63,48 @@ define dso_local spir_kernel i32 @test_non_pow2_2(<7 x i32> %a0) {
   ret i32 %1
 }
 
+define dso_local spir_kernel float @test_float_reassoc(<8 x float> %a0) {
+; CHECK: [[TMP1:%.*]] = call <4 x float> @llvm.genx.rdregionf.v4f32.v8f32.i16
+; CHECK-NEXT: [[TMP2:%.*]] = call <4 x float> @llvm.genx.rdregionf.v4f32.v8f32.i16
+; CHECK-NEXT: [[TMP3:%.*]] = fadd <4 x float> [[TMP1]], [[TMP2]]
+; CHECK-NEXT: [[TMP4:%.*]] = call <2 x float> @llvm.genx.rdregionf.v2f32.v4f32.i16(<4 x float> [[TMP3]]
+; CHECK-NEXT: [[TMP5:%.*]] = call <2 x float> @llvm.genx.rdregionf.v2f32.v4f32.i16(<4 x float> [[TMP3]]
+; CHECK-NEXT: [[TMP6:%.*]] = fadd <2 x float> [[TMP4]], [[TMP5]]
+; CHECK-NEXT: [[TMP7:%.*]] = extractelement <2 x float> [[TMP6]], i32 0
+; CHECK-NEXT: [[TMP8:%.*]] = extractelement <2 x float> [[TMP6]], i32 1
+; CHECK-NEXT: [[TMP9:%.*]] = fadd float [[TMP7]], [[TMP8]]
+; CHECK-NEXT: [[TMP10:%.*]] = fadd float [[TMP9]], -0.000000e+00
+; CHECK-NEXT: ret float [[TMP10]]
+  %res = call reassoc float @llvm.vector.reduce.fadd.v8f32(float -0.000000e+00, <8 x float> %a0)
+  ret float %res
+}
+
+define dso_local spir_kernel float @test_float_no_reassoc(<8 x float> %a0) {
+; CHECK: [[TMP1:%.*]] = extractelement <8 x float> %a0, i32 0
+; CHECK-NEXT: [[TMP2:%.*]] = fadd float -0.000000e+00, [[TMP1]]
+; CHECK-NEXT: [[TMP3:%.*]] = extractelement <8 x float> %a0, i32 1
+; CHECK-NEXT: [[TMP4:%.*]] = fadd float [[TMP2]], [[TMP3]]
+; CHECK-NEXT: [[TMP5:%.*]] = extractelement <8 x float> %a0, i32 2
+; CHECK-NEXT: [[TMP6:%.*]] = fadd float [[TMP4]], [[TMP5]]
+; CHECK-NEXT: [[TMP7:%.*]] = extractelement <8 x float> %a0, i32 3
+; CHECK-NEXT: [[TMP8:%.*]] = fadd float [[TMP6]], [[TMP7]]
+; CHECK-NEXT: [[TMP9:%.*]] = extractelement <8 x float> %a0, i32 4
+; CHECK-NEXT: [[TMP10:%.*]] = fadd float [[TMP8]], [[TMP9]]
+; CHECK-NEXT: [[TMP11:%.*]] = extractelement <8 x float> %a0, i32 5
+; CHECK-NEXT: [[TMP12:%.*]] = fadd float [[TMP10]], [[TMP11]]
+; CHECK-NEXT: [[TMP13:%.*]] = extractelement <8 x float> %a0, i32 6
+; CHECK-NEXT: [[TMP14:%.*]] = fadd float [[TMP12]], [[TMP13]]
+; CHECK-NEXT: [[TMP15:%.*]] = extractelement <8 x float> %a0, i32 7
+; CHECK-NEXT: [[TMP16:%.*]] = fadd float [[TMP14]], [[TMP15]]
+; CHECK-NEXT: ret float [[TMP16]]
+  %res = call float @llvm.vector.reduce.fadd.v8f32(float -0.000000e+00, <8 x float> %a0)
+  ret float %res
+}
+
 declare i64 @llvm.vector.reduce.add.v2i64(<2 x i64>)
 declare i32 @llvm.vector.reduce.add.v8i32(<8 x i32>)
 declare i32 @llvm.vector.reduce.xor.v8i32(<8 x i32>)
 declare i32 @llvm.vector.reduce.mul.v9i32(<9 x i32>)
 declare i32 @llvm.vector.reduce.or.v7i32(<7 x i32>)
+declare float @llvm.vector.reduce.fadd.v8f32(float, <8 x float>)
+
