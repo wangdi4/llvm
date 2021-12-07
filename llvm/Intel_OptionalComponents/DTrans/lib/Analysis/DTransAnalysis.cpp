@@ -10934,6 +10934,11 @@ bool DTransAnalysisInfo::analyzeModule(
     DTransImmutableInfo &DTImmutInfo,
     std::function<DominatorTree &(Function &)> GetDomTree) {
   LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
+  if (!M.getContext().supportsTypedPointers()) {
+    LLVM_DEBUG(dbgs() << "dtrans: Pointers are opaque ... "
+                      << "DTransAnalysis didn't run\n");
+    return false;
+  }
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
                       << "DTransAnalysis didn't run\n");
