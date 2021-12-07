@@ -2,6 +2,7 @@
 %opencl.sampler_t = type opaque
 %opencl.pipe_ro_t = type opaque
 %opencl.pipe_wo_t = type opaque
+%struct.__pipe_t = type opaque
 %struct.ConstantPipeStorage = type { i32, i32, i32 }
 %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage = type { i32, i32, i32 }
 
@@ -992,14 +993,14 @@ define void @__ocl_expand_mask_4x16(i16 %mask, i16* %mask0, i16* %mask1,
   ret void
 }
 
-define i8 addrspace(1)* @__ocl_wpipe2ptr(%opencl.pipe_wo_t addrspace(1)* %p) {
-  %1 = bitcast %opencl.pipe_wo_t addrspace(1)* %p to i8 addrspace(1)*
-  ret i8 addrspace(1)* %1
+define %struct.__pipe_t addrspace(1)* @__ocl_wpipe2ptr(%opencl.pipe_wo_t addrspace(1)* %p) {
+  %1 = bitcast %opencl.pipe_wo_t addrspace(1)* %p to %struct.__pipe_t addrspace(1)*
+  ret %struct.__pipe_t addrspace(1)* %1
 }
 
-define i8 addrspace(1)* @__ocl_rpipe2ptr(%opencl.pipe_ro_t addrspace(1)* %p) {
-  %1 = bitcast %opencl.pipe_ro_t addrspace(1)* %p to i8 addrspace(1)*
-  ret i8 addrspace(1)* %1
+define %struct.__pipe_t addrspace(1)* @__ocl_rpipe2ptr(%opencl.pipe_ro_t addrspace(1)* %p) {
+  %1 = bitcast %opencl.pipe_ro_t addrspace(1)* %p to %struct.__pipe_t addrspace(1)*
+  ret %struct.__pipe_t addrspace(1)* %1
 }
 
 define i8 addrspace(1)* @__to_global(i8 addrspace(4)* %p) {
