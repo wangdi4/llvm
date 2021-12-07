@@ -215,13 +215,13 @@ for.end:
 ; INTERLEAVE-LABEL: @scalarize_induction_variable_03(
 ; INTERLEAVE: vector.body:
 ; INTERLEAVE:   %[[i0:.+]] = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; INTERLEAVE:   %[[i1:.+]] = add nuw nsw i64 %[[i0]], 1 ;INTEL
-; INTERLEAVE:   %[[i2:.+]] = add nuw nsw i64 %[[i0]], 2 ;INTEL
-; INTERLEAVE:   %[[i3:.+]] = add nuw nsw i64 %[[i0]], 3 ;INTEL
-; INTERLEAVE:   %[[i4:.+]] = add nuw nsw i64 %[[i0]], 4 ;INTEL
-; INTERLEAVE:   %[[i5:.+]] = add nuw nsw i64 %[[i0]], 5 ;INTEL
-; INTERLEAVE:   %[[i6:.+]] = add nuw nsw i64 %[[i0]], 6 ;INTEL
-; INTERLEAVE:   %[[i7:.+]] = add nuw nsw i64 %[[i0]], 7 ;INTEL
+; INTERLEAVE:   %[[i1:.+]] = or i64 %[[i0]], 1
+; INTERLEAVE:   %[[i2:.+]] = or i64 %[[i0]], 2
+; INTERLEAVE:   %[[i3:.+]] = or i64 %[[i0]], 3
+; INTERLEAVE:   %[[i4:.+]] = or i64 %[[i0]], 4
+; INTERLEAVE:   %[[i5:.+]] = or i64 %[[i0]], 5
+; INTERLEAVE:   %[[i6:.+]] = or i64 %[[i0]], 6
+; INTERLEAVE:   %[[i7:.+]] = or i64 %[[i0]], 7
 ; INTERLEAVE:   getelementptr inbounds %pair.i32, %pair.i32* %p, i64 %[[i0]], i32 1
 ; INTERLEAVE:   getelementptr inbounds %pair.i32, %pair.i32* %p, i64 %[[i1]], i32 1
 ; INTERLEAVE:   getelementptr inbounds %pair.i32, %pair.i32* %p, i64 %[[i2]], i32 1
@@ -259,13 +259,13 @@ for.end:
 ; INTERLEAVE-LABEL: @scalarize_induction_variable_04(
 ; INTERLEAVE: vector.body:
 ; INTERLEAVE:   %[[i0:.+]] = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; INTERLEAVE:   %[[i1:.+]] = add nuw nsw i64 %[[i0]], 1 ;INTEL
-; INTERLEAVE:   %[[i2:.+]] = add nuw nsw i64 %[[i0]], 2 ;INTEL
-; INTERLEAVE:   %[[i3:.+]] = add nuw nsw i64 %[[i0]], 3 ;INTEL
+; INTERLEAVE:   %[[i1:.+]] = or i64 %[[i0]], 1
+; INTERLEAVE:   %[[i2:.+]] = or i64 %[[i0]], 2
+; INTERLEAVE:   %[[i3:.+]] = or i64 %[[i0]], 3
 ; INTERLEAVE:   %[[i4:.+]] = or i64 %[[i0]], 4
-; INTERLEAVE:   %[[i5:.+]] = add nuw nsw i64 %[[i0]], 5 ;INTEL
-; INTERLEAVE:   %[[i6:.+]] = add nuw nsw i64 %[[i0]], 6 ;INTEL
-; INTERLEAVE:   %[[i7:.+]] = add nuw nsw i64 %[[i0]], 7 ;INTEL
+; INTERLEAVE:   %[[i5:.+]] = or i64 %[[i0]], 5
+; INTERLEAVE:   %[[i6:.+]] = or i64 %[[i0]], 6
+; INTERLEAVE:   %[[i7:.+]] = or i64 %[[i0]], 7
 ; INTERLEAVE:   getelementptr inbounds %pair.i32, %pair.i32* %p, i64 %[[i0]], i32 1
 ; INTERLEAVE:   getelementptr inbounds %pair.i32, %pair.i32* %p, i64 %[[i1]], i32 1
 ; INTERLEAVE:   getelementptr inbounds %pair.i32, %pair.i32* %p, i64 %[[i2]], i32 1
@@ -414,7 +414,7 @@ for.end:
 ; IND: vector.body:
 ; IND:   %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
 ; IND:   [[VEC_IV:%.+]] = phi <2 x i32> [ <i32 0, i32 1>, %vector.ph ], [ [[VEC_IV_NEXT:%.+]], %vector.body ]
-; IND:   %[[i1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
+; IND:   %[[i1:.+]] = or i64 %index, 1
 ; IND:   getelementptr inbounds %pair.i16, %pair.i16* %p, i64 %index, i32 1
 ; IND:   getelementptr inbounds %pair.i16, %pair.i16* %p, i64 %[[i1]], i32 1
 ; IND:   %index.next = add nuw i64 %index, 2
@@ -424,9 +424,9 @@ for.end:
 ; UNROLL: vector.body:
 ; UNROLL:   %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
 ; UNROLL:   [[VEC_IV:%.+]] = phi <2 x i32> [ <i32 0, i32 1>, %vector.ph ], [ [[VEC_IV_NEXT:%.+]], %vector.body ]
-; UNROLL:   %[[i1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
-; UNROLL:   %[[i2:.+]] = add nuw nsw i64 %index, 2 ;INTEL
-; UNROLL:   %[[i3:.+]] = add nuw nsw i64 %index, 3 ;INTEL
+; UNROLL:   %[[i1:.+]] = or i64 %index, 1
+; UNROLL:   %[[i2:.+]] = or i64 %index, 2
+; UNROLL:   %[[i3:.+]] = or i64 %index, 3
 ; UNROLL:   %[[add:.+]]= add <2 x i32> %[[splat:.+]], <i32 2, i32 poison>
 ; UNROLL:   getelementptr inbounds %pair.i16, %pair.i16* %p, i64 %index, i32 1
 ; UNROLL:   getelementptr inbounds %pair.i16, %pair.i16* %p, i64 %[[i1]], i32 1

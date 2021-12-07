@@ -66,7 +66,7 @@
 ; VEC1_INTERL2:         br label %vector.body
 ; VEC1_INTERL2:       vector.body:
 ; VEC1_INTERL2-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %vector.ph ], [ [[INDEX_NEXT:%.*]], %vector.body ]
-; VEC1_INTERL2-NEXT:    [[INDUCTION2:%.*]] = add nuw nsw i64 [[INDEX]], 1 ;INTEL
+; VEC1_INTERL2-NEXT:    [[INDUCTION2:%.*]] = or i64 [[INDEX]], 1
 ; VEC1_INTERL2-NEXT:    [[TMP6:%.*]] = sitofp i64 [[INDEX]] to float
 ; VEC1_INTERL2-NEXT:    [[TMP7:%.*]] = fmul fast float %fpinc, [[TMP6]]
 ; VEC1_INTERL2-NEXT:    [[FP_OFFSET_IDX:%.*]] = fsub fast float %init, [[TMP7]]
@@ -248,7 +248,7 @@ define void @fp_iv_loop1_reassoc_FMF(float %init, float* noalias nocapture %A, i
 ; VEC1_INTERL2-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; VEC1_INTERL2:       vector.body:
 ; VEC1_INTERL2-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
-; VEC1_INTERL2-NEXT:    [[INDUCTION2:%.*]] = add nuw nsw i64 [[INDEX]], 1 ;INTEL
+; VEC1_INTERL2-NEXT:    [[INDUCTION2:%.*]] = or i64 [[INDEX]], 1
 ; VEC1_INTERL2-NEXT:    [[TMP4:%.*]] = sitofp i64 [[INDEX]] to float
 ; VEC1_INTERL2-NEXT:    [[TMP5:%.*]] = fmul reassoc float [[FPINC]], [[TMP4]]
 ; VEC1_INTERL2-NEXT:    [[OFFSET_IDX:%.*]] = fsub reassoc float [[INIT]], [[TMP5]]
@@ -563,7 +563,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; VEC2_INTERL1_PRED_STORE-NEXT:    br i1 [[TMP8]], label %[[PRED_STORE_IF6:.*]], label %[[PRED_STORE_CONTINUE7]]
 ; VEC2_INTERL1_PRED_STORE:       [[PRED_STORE_IF6]]:
 ; VEC2_INTERL1_PRED_STORE-NEXT:    [[TMP9:%.*]] = fadd fast float [[TMP1]], 1.000000e+00
-; VEC2_INTERL1_PRED_STORE-NEXT:    [[TMP10:%.*]] = add nuw nsw i64 [[INDEX]], 1 ;INTEL
+; VEC2_INTERL1_PRED_STORE-NEXT:    [[TMP10:%.*]] = or i64 [[INDEX]], 1
 ; VEC2_INTERL1_PRED_STORE-NEXT:    [[TMP11:%.*]] = getelementptr inbounds float, float* %A, i64 [[TMP10]]
 ; VEC2_INTERL1_PRED_STORE-NEXT:    store float [[TMP9]], float* [[TMP11]], align 4
 ; VEC2_INTERL1_PRED_STORE-NEXT:    br label %[[PRED_STORE_CONTINUE7]]
