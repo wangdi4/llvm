@@ -343,6 +343,12 @@ private:
   // translation unit has any target code.
   bool HasTargetCode = false;
 
+  /// A vector of metadata strings for "#pragma comment( lib, ... )".
+  SmallVector<llvm::MDNode *, 8> PCKLibMetadata;
+  /// This function actually implements the same function as AddDependentLib,
+  /// but we maintain another metadata list.
+  void AddPragmaCommentLib(StringRef Lib);
+
 #if INTEL_FEATURE_SW_DTRANS
   /// List of types used in the application, used later to generate DTrans
   /// metadata. Some RecordDecl's can be emitted as a base class, so they can

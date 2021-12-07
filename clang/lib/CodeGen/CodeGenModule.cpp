@@ -612,7 +612,8 @@ void CodeGenModule::Release() {
     SanStats->finish();
 
   if (CodeGenOpts.Autolink &&
-      (Context.getLangOpts().Modules || !LinkerOptionsMetadata.empty())) {
+      (Context.getLangOpts().Modules || !LinkerOptionsMetadata.empty() || // INTEL
+       !PCKLibMetadata.empty())) {                                        // INTEL
     EmitModuleLinkOptions();
   }
 
@@ -2767,6 +2768,21 @@ void CodeGenModule::AddDetectMismatch(StringRef Name, StringRef Value) {
   LinkerOptionsMetadata.push_back(llvm::MDNode::get(getLLVMContext(), MDOpts));
 }
 
+#if INTEL_CUSTOMIZATION
+void CodeGenModule::AddPragmaCommentLib(StringRef Lib) {
+  auto &C = getLLVMContext();
+  if (getTarget().getTriple().isOSBinFormatELF()) {
+    AddDependentLib(Lib);
+    return;
+  }
+
+  llvm::SmallString<24> Opt;
+  getTargetCodeGenInfo().getDependentLibraryOption(Lib, Opt);
+  auto *MDOpts = llvm::MDString::get(getLLVMContext(), Opt);
+  PCKLibMetadata.push_back(llvm::MDNode::get(C, MDOpts));
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenModule::AddDependentLib(StringRef Lib) {
   auto &C = getLLVMContext();
   if (getTarget().getTriple().isOSBinFormatELF()) {
@@ -2893,6 +2909,11 @@ void CodeGenModule::EmitModuleLinkOptions() {
 
   // Add the linker options metadata flag.
   auto *NMD = getModule().getOrInsertNamedMetadata("llvm.linker.options");
+#if INTEL_CUSTOMIZATION
+  // Always put the #pragma comment( lib, ... ) at the beginning of linker options.
+  for (auto *MD : PCKLibMetadata)
+    NMD->addOperand(MD);
+#endif // INTEL_CUSTOMIZATION
   for (auto *MD : LinkerOptionsMetadata)
     NMD->addOperand(MD);
 }
@@ -6988,7 +7009,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
       AppendLinkerOptions(PCD->getArg());
       break;
     case PCK_Lib:
-        AddDependentLib(PCD->getArg());
+        AddPragmaCommentLib(PCD->getArg()); // INTEL
       break;
     case PCK_Compiler:
     case PCK_ExeStr:
