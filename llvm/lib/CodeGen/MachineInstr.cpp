@@ -115,10 +115,10 @@ void MachineInstr::addImplicitDefUseOperands(MachineFunction &MF) {
 /// MachineInstr ctor - This constructor creates a MachineInstr and adds the
 /// implicit operands. It reserves space for the number of operands specified by
 /// the MCInstrDesc.
-MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
-                           DebugLoc dl, bool NoImp)
-    : MCID(&tid), Flags(0), debugLoc(std::move(dl)), DebugInstrNum(0) { // INTEL
-  assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
+MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &TID,
+                           DebugLoc DL, bool NoImp)
+    : MCID(&TID), Flags(0), DbgLoc(std::move(DL)), DebugInstrNum(0) { // INTEL
+  assert(DbgLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   // Reserve space for the expected number of operands.
   if (unsigned NumOps = MCID->getNumOperands() +
@@ -135,9 +135,9 @@ MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
 /// Does not copy the number from debug instruction numbering, to preserve
 /// uniqueness.
 MachineInstr::MachineInstr(MachineFunction &MF, const MachineInstr &MI)
-    : MCID(&MI.getDesc()), Flags(0), Info(MI.Info),  // INTEL
-      debugLoc(MI.getDebugLoc()), DebugInstrNum(0) { // INTEL
-  assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
+    : MCID(&MI.getDesc()), Flags(0), Info(MI.Info), // INTEL
+      DbgLoc(MI.getDebugLoc()), DebugInstrNum(0) {  // INTEL
+  assert(DbgLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   CapOperands = OperandCapacity::get(MI.getNumOperands());
   Operands = MF.allocateOperandArray(CapOperands);
