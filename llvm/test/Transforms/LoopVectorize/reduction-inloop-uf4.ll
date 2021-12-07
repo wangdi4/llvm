@@ -102,7 +102,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <4 x i1> [[TMP0]], i32 1
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[PRED_LOAD_IF7:%.*]], label [[PRED_LOAD_CONTINUE8:%.*]]
 ; CHECK:       pred.load.if7:
-; CHECK-NEXT:    [[TMP10:%.*]] = add nuw nsw i64 [[INDEX]], 1 ;INTEL
+; CHECK-NEXT:    [[TMP10:%.*]] = or i64 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP10]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[TMP11]], align 4
 ; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP8]], i32 [[TMP12]], i32 1
@@ -112,7 +112,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP15:%.*]] = extractelement <4 x i1> [[TMP0]], i32 2
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[PRED_LOAD_IF9:%.*]], label [[PRED_LOAD_CONTINUE10:%.*]]
 ; CHECK:       pred.load.if9:
-; CHECK-NEXT:    [[TMP16:%.*]] = add nuw nsw i64 [[INDEX]], 2 ;INTEL
+; CHECK-NEXT:    [[TMP16:%.*]] = or i64 [[INDEX]], 2
 ; CHECK-NEXT:    [[TMP17:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP16]]
 ; CHECK-NEXT:    [[TMP18:%.*]] = load i32, i32* [[TMP17]], align 4
 ; CHECK-NEXT:    [[TMP19:%.*]] = insertelement <4 x i32> [[TMP14]], i32 [[TMP18]], i32 2
@@ -122,7 +122,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP21:%.*]] = extractelement <4 x i1> [[TMP0]], i32 3
 ; CHECK-NEXT:    br i1 [[TMP21]], label [[PRED_LOAD_IF11:%.*]], label [[PRED_LOAD_CONTINUE12:%.*]]
 ; CHECK:       pred.load.if11:
-; CHECK-NEXT:    [[TMP22:%.*]] = add nuw nsw i64 [[INDEX]], 3 ;INTEL
+; CHECK-NEXT:    [[TMP22:%.*]] = or i64 [[INDEX]], 3
 ; CHECK-NEXT:    [[TMP23:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP22]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = load i32, i32* [[TMP23]], align 4
 ; CHECK-NEXT:    [[TMP25:%.*]] = insertelement <4 x i32> [[TMP20]], i32 [[TMP24]], i32 3
@@ -132,7 +132,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP27:%.*]] = extractelement <4 x i1> [[TMP1]], i32 0
 ; CHECK-NEXT:    br i1 [[TMP27]], label [[PRED_LOAD_IF13:%.*]], label [[PRED_LOAD_CONTINUE14:%.*]]
 ; CHECK:       pred.load.if13:
-; CHECK-NEXT:    [[TMP28:%.*]] = add nuw nsw i64 [[INDEX]], 4 ;INTEL
+; CHECK-NEXT:    [[TMP28:%.*]] = or i64 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP29:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP28]]
 ; CHECK-NEXT:    [[TMP30:%.*]] = load i32, i32* [[TMP29]], align 4
 ; CHECK-NEXT:    [[TMP31:%.*]] = insertelement <4 x i32> poison, i32 [[TMP30]], i32 0
@@ -142,7 +142,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP33:%.*]] = extractelement <4 x i1> [[TMP1]], i32 1
 ; CHECK-NEXT:    br i1 [[TMP33]], label [[PRED_LOAD_IF15:%.*]], label [[PRED_LOAD_CONTINUE16:%.*]]
 ; CHECK:       pred.load.if15:
-; CHECK-NEXT:    [[TMP34:%.*]] = add nuw nsw i64 [[INDEX]], 5 ;INTEL
+; CHECK-NEXT:    [[TMP34:%.*]] = or i64 [[INDEX]], 5
 ; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP34]]
 ; CHECK-NEXT:    [[TMP36:%.*]] = load i32, i32* [[TMP35]], align 4
 ; CHECK-NEXT:    [[TMP37:%.*]] = insertelement <4 x i32> [[TMP32]], i32 [[TMP36]], i32 1
@@ -152,7 +152,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP39:%.*]] = extractelement <4 x i1> [[TMP1]], i32 2
 ; CHECK-NEXT:    br i1 [[TMP39]], label [[PRED_LOAD_IF17:%.*]], label [[PRED_LOAD_CONTINUE18:%.*]]
 ; CHECK:       pred.load.if17:
-; CHECK-NEXT:    [[TMP40:%.*]] = add nuw nsw i64 [[INDEX]], 6 ;INTEL
+; CHECK-NEXT:    [[TMP40:%.*]] = or i64 [[INDEX]], 6
 ; CHECK-NEXT:    [[TMP41:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP40]]
 ; CHECK-NEXT:    [[TMP42:%.*]] = load i32, i32* [[TMP41]], align 4
 ; CHECK-NEXT:    [[TMP43:%.*]] = insertelement <4 x i32> [[TMP38]], i32 [[TMP42]], i32 2
@@ -162,7 +162,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP45:%.*]] = extractelement <4 x i1> [[TMP1]], i32 3
 ; CHECK-NEXT:    br i1 [[TMP45]], label [[PRED_LOAD_IF19:%.*]], label [[PRED_LOAD_CONTINUE20:%.*]]
 ; CHECK:       pred.load.if19:
-; CHECK-NEXT:    [[TMP46:%.*]] = add nuw nsw i64 [[INDEX]], 7 ;INTEL
+; CHECK-NEXT:    [[TMP46:%.*]] = or i64 [[INDEX]], 7
 ; CHECK-NEXT:    [[TMP47:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP46]]
 ; CHECK-NEXT:    [[TMP48:%.*]] = load i32, i32* [[TMP47]], align 4
 ; CHECK-NEXT:    [[TMP49:%.*]] = insertelement <4 x i32> [[TMP44]], i32 [[TMP48]], i32 3
@@ -172,7 +172,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP51:%.*]] = extractelement <4 x i1> [[TMP2]], i32 0
 ; CHECK-NEXT:    br i1 [[TMP51]], label [[PRED_LOAD_IF21:%.*]], label [[PRED_LOAD_CONTINUE22:%.*]]
 ; CHECK:       pred.load.if21:
-; CHECK-NEXT:    [[TMP52:%.*]] = add nuw nsw i64 [[INDEX]], 8 ;INTEL
+; CHECK-NEXT:    [[TMP52:%.*]] = or i64 [[INDEX]], 8
 ; CHECK-NEXT:    [[TMP53:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP52]]
 ; CHECK-NEXT:    [[TMP54:%.*]] = load i32, i32* [[TMP53]], align 4
 ; CHECK-NEXT:    [[TMP55:%.*]] = insertelement <4 x i32> poison, i32 [[TMP54]], i32 0
@@ -182,7 +182,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP57:%.*]] = extractelement <4 x i1> [[TMP2]], i32 1
 ; CHECK-NEXT:    br i1 [[TMP57]], label [[PRED_LOAD_IF23:%.*]], label [[PRED_LOAD_CONTINUE24:%.*]]
 ; CHECK:       pred.load.if23:
-; CHECK-NEXT:    [[TMP58:%.*]] = add nuw nsw i64 [[INDEX]], 9 ;INTEL
+; CHECK-NEXT:    [[TMP58:%.*]] = or i64 [[INDEX]], 9
 ; CHECK-NEXT:    [[TMP59:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP58]]
 ; CHECK-NEXT:    [[TMP60:%.*]] = load i32, i32* [[TMP59]], align 4
 ; CHECK-NEXT:    [[TMP61:%.*]] = insertelement <4 x i32> [[TMP56]], i32 [[TMP60]], i32 1
@@ -192,7 +192,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP63:%.*]] = extractelement <4 x i1> [[TMP2]], i32 2
 ; CHECK-NEXT:    br i1 [[TMP63]], label [[PRED_LOAD_IF25:%.*]], label [[PRED_LOAD_CONTINUE26:%.*]]
 ; CHECK:       pred.load.if25:
-; CHECK-NEXT:    [[TMP64:%.*]] = add nuw nsw i64 [[INDEX]], 10 ;INTEL
+; CHECK-NEXT:    [[TMP64:%.*]] = or i64 [[INDEX]], 10
 ; CHECK-NEXT:    [[TMP65:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP64]]
 ; CHECK-NEXT:    [[TMP66:%.*]] = load i32, i32* [[TMP65]], align 4
 ; CHECK-NEXT:    [[TMP67:%.*]] = insertelement <4 x i32> [[TMP62]], i32 [[TMP66]], i32 2
@@ -202,7 +202,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP69:%.*]] = extractelement <4 x i1> [[TMP2]], i32 3
 ; CHECK-NEXT:    br i1 [[TMP69]], label [[PRED_LOAD_IF27:%.*]], label [[PRED_LOAD_CONTINUE28:%.*]]
 ; CHECK:       pred.load.if27:
-; CHECK-NEXT:    [[TMP70:%.*]] = add nuw nsw i64 [[INDEX]], 11 ;INTEL
+; CHECK-NEXT:    [[TMP70:%.*]] = or i64 [[INDEX]], 11
 ; CHECK-NEXT:    [[TMP71:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP70]]
 ; CHECK-NEXT:    [[TMP72:%.*]] = load i32, i32* [[TMP71]], align 4
 ; CHECK-NEXT:    [[TMP73:%.*]] = insertelement <4 x i32> [[TMP68]], i32 [[TMP72]], i32 3
@@ -212,7 +212,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP75:%.*]] = extractelement <4 x i1> [[TMP3]], i32 0
 ; CHECK-NEXT:    br i1 [[TMP75]], label [[PRED_LOAD_IF29:%.*]], label [[PRED_LOAD_CONTINUE30:%.*]]
 ; CHECK:       pred.load.if29:
-; CHECK-NEXT:    [[TMP76:%.*]] = add nuw nsw i64 [[INDEX]], 12 ;INTEL
+; CHECK-NEXT:    [[TMP76:%.*]] = or i64 [[INDEX]], 12
 ; CHECK-NEXT:    [[TMP77:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP76]]
 ; CHECK-NEXT:    [[TMP78:%.*]] = load i32, i32* [[TMP77]], align 4
 ; CHECK-NEXT:    [[TMP79:%.*]] = insertelement <4 x i32> poison, i32 [[TMP78]], i32 0
@@ -222,7 +222,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP81:%.*]] = extractelement <4 x i1> [[TMP3]], i32 1
 ; CHECK-NEXT:    br i1 [[TMP81]], label [[PRED_LOAD_IF31:%.*]], label [[PRED_LOAD_CONTINUE32:%.*]]
 ; CHECK:       pred.load.if31:
-; CHECK-NEXT:    [[TMP82:%.*]] = add nuw nsw i64 [[INDEX]], 13 ;INTEL
+; CHECK-NEXT:    [[TMP82:%.*]] = or i64 [[INDEX]], 13
 ; CHECK-NEXT:    [[TMP83:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP82]]
 ; CHECK-NEXT:    [[TMP84:%.*]] = load i32, i32* [[TMP83]], align 4
 ; CHECK-NEXT:    [[TMP85:%.*]] = insertelement <4 x i32> [[TMP80]], i32 [[TMP84]], i32 1
@@ -232,7 +232,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP87:%.*]] = extractelement <4 x i1> [[TMP3]], i32 2
 ; CHECK-NEXT:    br i1 [[TMP87]], label [[PRED_LOAD_IF33:%.*]], label [[PRED_LOAD_CONTINUE34:%.*]]
 ; CHECK:       pred.load.if33:
-; CHECK-NEXT:    [[TMP88:%.*]] = add nuw nsw i64 [[INDEX]], 14 ;INTEL
+; CHECK-NEXT:    [[TMP88:%.*]] = or i64 [[INDEX]], 14
 ; CHECK-NEXT:    [[TMP89:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP88]]
 ; CHECK-NEXT:    [[TMP90:%.*]] = load i32, i32* [[TMP89]], align 4
 ; CHECK-NEXT:    [[TMP91:%.*]] = insertelement <4 x i32> [[TMP86]], i32 [[TMP90]], i32 2
@@ -242,7 +242,7 @@ define i32 @predicated(i32* noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP93:%.*]] = extractelement <4 x i1> [[TMP3]], i32 3
 ; CHECK-NEXT:    br i1 [[TMP93]], label [[PRED_LOAD_IF35:%.*]], label [[PRED_LOAD_CONTINUE36]]
 ; CHECK:       pred.load.if35:
-; CHECK-NEXT:    [[TMP94:%.*]] = add nuw nsw i64 [[INDEX]], 15 ;INTEL
+; CHECK-NEXT:    [[TMP94:%.*]] = or i64 [[INDEX]], 15
 ; CHECK-NEXT:    [[TMP95:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[TMP94]]
 ; CHECK-NEXT:    [[TMP96:%.*]] = load i32, i32* [[TMP95]], align 4
 ; CHECK-NEXT:    [[TMP97:%.*]] = insertelement <4 x i32> [[TMP92]], i32 [[TMP96]], i32 3

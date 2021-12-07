@@ -205,11 +205,11 @@ for.end:
 ; INTER:       %[[G0:.+]] = getelementptr inbounds %pair, %pair* %p, i64 %index, i32 0
 ; INTER:       %[[B0:.+]] = bitcast i32* %[[G0]] to <8 x i32>*
 ; INTER:       %wide.vec = load <8 x i32>, <8 x i32>* %[[B0]], align 8
-; INTER:       %[[I1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
+; INTER:       %[[I1:.+]] = or i64 %index, 1
 ; INTER:       getelementptr inbounds %pair, %pair* %p, i64 %[[I1]], i32 0
-; INTER:       %[[I2:.+]] = add nuw nsw i64 %index, 2 ;INTEL
+; INTER:       %[[I2:.+]] = or i64 %index, 2
 ; INTER:       getelementptr inbounds %pair, %pair* %p, i64 %[[I2]], i32 0
-; INTER:       %[[I3:.+]] = add nuw nsw i64 %index, 3 ;INTEL
+; INTER:       %[[I3:.+]] = or i64 %index, 3
 ; INTER:       getelementptr inbounds %pair, %pair* %p, i64 %[[I3]], i32 0
 ; INTER:       br i1 {{.*}}, label %middle.block, label %vector.body
 ;
@@ -246,9 +246,9 @@ for.end:
 ; CHECK-NOT: LV: Found uniform instruction: %tmp1 = getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %i
 ; CHECK:     vector.body
 ; CHECK:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; CHECK:       %[[I1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
-; CHECK:       %[[I2:.+]] = add nuw nsw i64 %index, 2 ;INTEL
-; CHECK:       %[[I3:.+]] = add nuw nsw i64 %index, 3 ;INTEL
+; CHECK:       %[[I1:.+]] = or i64 %index, 1
+; CHECK:       %[[I2:.+]] = or i64 %index, 2
+; CHECK:       %[[I3:.+]] = or i64 %index, 3
 ; CHECK:       getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %index
 ; CHECK:       getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %[[I1]]
 ; CHECK:       getelementptr inbounds x86_fp80, x86_fp80* %a, i64 %[[I2]]
@@ -363,11 +363,11 @@ for.end:
 ; CHECK:     vector.body
 ; CHECK:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
 ; CHECK:       %next.gep = getelementptr x86_fp80, x86_fp80* %a, i64 %index
-; CHECK:       %[[I1:.+]] = add nuw nsw i64 %index, 1 ;INTEL
+; CHECK:       %[[I1:.+]] = or i64 %index, 1
 ; CHECK:       %next.gep2 = getelementptr x86_fp80, x86_fp80* %a, i64 %[[I1]]
-; CHECK:       %[[I2:.+]] = add nuw nsw i64 %index, 2 ;INTEL
+; CHECK:       %[[I2:.+]] = or i64 %index, 2
 ; CHECK:       %next.gep3 = getelementptr x86_fp80, x86_fp80* %a, i64 %[[I2]]
-; CHECK:       %[[I3:.+]] = add nuw nsw i64 %index, 3 ;INTEL
+; CHECK:       %[[I3:.+]] = or i64 %index, 3
 ; CHECK:       %next.gep4 = getelementptr x86_fp80, x86_fp80* %a, i64 %[[I3]]
 ; CHECK:       br i1 {{.*}}, label %middle.block, label %vector.body
 ;
@@ -401,11 +401,30 @@ for.end:
 ; CHECK:     vector.body
 ; CHECK:       %pointer.phi = phi i32* [ %a, %vector.ph ], [ %ptr.ind, %vector.body ]
 ; CHECK:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
+<<<<<<< HEAD
 ; CHECK:       %[[PTRVEC:.+]] = getelementptr i32, i32* %pointer.phi, <4 x i64> <i64 0, i64 1, i64 2, i64 3>
 ; CHECK:       %next.gep = getelementptr i32*, i32** %b, i64 %index
 ; CHECK:       %[[NEXTGEPBC:.+]] = bitcast i32** %next.gep to <4 x i32*>*
 ; CHECK:       store <4 x i32*> %[[PTRVEC]], <4 x i32*>* %[[NEXTGEPBC]], align 8
 ; CHECK:       %ptr.ind = getelementptr i32, i32* %pointer.phi, i64 4
+=======
+; CHECK:       %next.gep = getelementptr i32, i32* %a, i64 %index
+; CHECK:       %[[I1:.+]] = or i64 %index, 1
+; CHECK:       %next.gep10 = getelementptr i32, i32* %a, i64 %[[I1]]
+; CHECK:       %[[I2:.+]] = or i64 %index, 2
+; CHECK:       %next.gep11 = getelementptr i32, i32* %a, i64 %[[I2]]
+; CHECK:       %[[I3:.+]] = or i64 %index, 3
+; CHECK:       %next.gep12 = getelementptr i32, i32* %a, i64 %[[I3]]
+; CHECK:       %[[V0:.+]] = insertelement <4 x i32*> poison, i32* %next.gep, i32 0
+; CHECK:       %[[V1:.+]] = insertelement <4 x i32*> %[[V0]], i32* %next.gep10, i32 1
+; CHECK:       %[[V2:.+]] = insertelement <4 x i32*> %[[V1]], i32* %next.gep11, i32 2
+; CHECK:       %[[V3:.+]] = insertelement <4 x i32*> %[[V2]], i32* %next.gep12, i32 3
+; CHECK-NOT:   getelementptr
+; CHECK:       %next.gep13 = getelementptr i32*, i32** %b, i64 %index
+; CHECK-NOT:   getelementptr
+; CHECK:       %[[B0:.+]] = bitcast i32** %next.gep13 to <4 x i32*>*
+; CHECK:       store <4 x i32*> %[[V3]], <4 x i32*>* %[[B0]], align 8
+>>>>>>> 805daaa53e31831e1b9039336a8da4c9f162c6e2
 ; CHECK:       br i1 {{.*}}, label %middle.block, label %vector.body
 ;
 define i32 @pointer_iv_mixed(i32* %a, i32** %b, i64 %n) {
