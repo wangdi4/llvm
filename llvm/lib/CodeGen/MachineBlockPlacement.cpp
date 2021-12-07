@@ -61,11 +61,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
-=======
 #include "llvm/Transforms/Utils/CodeLayout.h"
->>>>>>> f573f6866e1872789ac4ac41870045068167417c
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
