@@ -9237,7 +9237,6 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
          !Plan->getEntry()->getEntryBasicBlock()->empty() &&
          "entry block must be set to a VPRegionBlock having a non-empty entry "
          "VPBasicBlock");
-  cast<VPRegionBlock>(Plan->getEntry())->setExit(VPBB);
   RecipeBuilder.fixHeaderPhis();
 
   // ---------------------------------------------------------------------------
@@ -9307,6 +9306,8 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
         VPBB = SplitBlock;
     }
   }
+
+  cast<VPRegionBlock>(Plan->getEntry())->setExit(VPBB);
 
   // Now that sink-after is done, move induction recipes for optimized truncates
   // to the phi section of the header block.
