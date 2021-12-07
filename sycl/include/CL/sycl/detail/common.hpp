@@ -43,7 +43,11 @@ namespace detail {
 #define __CODELOC_LINE 0
 #endif
 
+<<<<<<< HEAD
 #if _MSC_VER > 1929 || __has_builtin(__builtin_LINE)
+=======
+#if _MSC_VER > 1929 || __has_builtin(__builtin_COLUMN)
+>>>>>>> 99f3da1d721498e21059a6e0cf14439ce21bb238
 #define __CODELOC_COLUMN __builtin_COLUMN()
 #else
 #define __CODELOC_COLUMN 0
