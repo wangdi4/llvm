@@ -834,7 +834,7 @@ define i32 @sink_into_replication_region_multiple(i32 *%x, i32 %y) {
 ; CHECK-NEXT:    [[TMP27:%.*]] = extractelement <4 x i1> [[TMP5]], i32 1
 ; CHECK-NEXT:    br i1 [[TMP27]], label [[PRED_STORE_IF11:%.*]], label [[PRED_STORE_CONTINUE12:%.*]]
 ; CHECK:       pred.store.if10:
-; CHECK-NEXT:    [[TMP28:%.*]] = add nuw nsw i32 [[INDEX]], 1 ;INTEL
+; CHECK-NEXT:    [[TMP28:%.*]] = or i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[TMP29:%.*]] = sext i32 [[TMP28]] to i64
 ; CHECK-NEXT:    [[TMP30:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[TMP29]]
 ; CHECK-NEXT:    store i32 [[TMP2]], i32* [[TMP30]], align 4
@@ -843,7 +843,7 @@ define i32 @sink_into_replication_region_multiple(i32 *%x, i32 %y) {
 ; CHECK-NEXT:    [[TMP31:%.*]] = extractelement <4 x i1> [[TMP5]], i32 2
 ; CHECK-NEXT:    br i1 [[TMP31]], label [[PRED_STORE_IF13:%.*]], label [[PRED_STORE_CONTINUE14:%.*]]
 ; CHECK:       pred.store.if12:
-; CHECK-NEXT:    [[TMP32:%.*]] = add nuw nsw i32 [[INDEX]], 2 ;INTEL
+; CHECK-NEXT:    [[TMP32:%.*]] = or i32 [[INDEX]], 2
 ; CHECK-NEXT:    [[TMP33:%.*]] = sext i32 [[TMP32]] to i64
 ; CHECK-NEXT:    [[TMP34:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[TMP33]]
 ; CHECK-NEXT:    store i32 [[TMP3]], i32* [[TMP34]], align 4
@@ -852,7 +852,7 @@ define i32 @sink_into_replication_region_multiple(i32 *%x, i32 %y) {
 ; CHECK-NEXT:    [[TMP35:%.*]] = extractelement <4 x i1> [[TMP5]], i32 3
 ; CHECK-NEXT:    br i1 [[TMP35]], label [[PRED_STORE_IF15:%.*]], label [[PRED_STORE_CONTINUE16]]
 ; CHECK:       pred.store.if14:
-; CHECK-NEXT:    [[TMP36:%.*]] = add nuw nsw i32 [[INDEX]], 3 ;INTEL
+; CHECK-NEXT:    [[TMP36:%.*]] = or i32 [[INDEX]], 3
 ; CHECK-NEXT:    [[TMP37:%.*]] = sext i32 [[TMP36]] to i64
 ; CHECK-NEXT:    [[TMP38:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[TMP37]]
 ; CHECK-NEXT:    store i32 [[TMP4]], i32* [[TMP38]], align 4

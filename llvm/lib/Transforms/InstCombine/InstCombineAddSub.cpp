@@ -1285,41 +1285,6 @@ static Instruction *factorizeMathWithShlOps(BinaryOperator &I,
   return NewShl;
 }
 
-#if INTEL_CUSTOMIZATION
-// Transform 'add' to 'or' is not always profitable especially
-// when the 'add' is used as part of addressing.
-static bool isProfitableForAddToOr(BinaryOperator &BinOp) {
-  static const unsigned MaxIterations = 10;
-
-  Value* User = &BinOp;
-  unsigned Iterations = 0;
-
-  //TODO: Remove the unique user limitation sometime.
-  while (User->hasOneUser() && Iterations++ < MaxIterations) {
-    User = *User->user_begin();
-
-    auto *I = dyn_cast<Instruction>(User);
-    if (!I)
-      return true;
-
-    switch (I->getOpcode()) {
-    case Instruction::Add:
-    case Instruction::Sub:
-    case Instruction::Mul:
-    case Instruction::SExt:
-    case Instruction::ZExt:
-      break;
-    case Instruction::GetElementPtr:
-      return false;
-    default:
-      return true;
-    }
-  }
-
-  return true;
-}
-#endif // INTEL_CUSTOMIZATION
-
 Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   if (Value *V = SimplifyAddInst(I.getOperand(0), I.getOperand(1),
                                  I.hasNoSignedWrap(), I.hasNoUnsignedWrap(),
@@ -1417,8 +1382,7 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   }
 
   // A+B --> A|B iff A and B have no bits set in common.
-  if (isProfitableForAddToOr(I) && // INTEL
-      haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT)) // INTEL
+  if (haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT))
     return BinaryOperator::CreateOr(LHS, RHS);
 
   // add (select X 0 (sub n A)) A  -->  select X A n

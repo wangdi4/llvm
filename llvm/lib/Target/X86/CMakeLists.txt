@@ -32,6 +32,7 @@ set(sources
   Intel_X86GenerateLEA.cpp        # INTEL
   Intel_X86PRAExpandPseudo.cpp    # INTEL
   Intel_X86Gather2LoadPermute.cpp # INTEL
+  Intel_X86InstCombine.cpp # INTEL
   Intel_X86LowerMatrixIntrinsics.cpp # INTEL
   Intel_X86CFMA.cpp      # INTEL
   Intel_X86VecSpill.cpp  # INTEL
