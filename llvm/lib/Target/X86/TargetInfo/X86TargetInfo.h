@@ -15,11 +15,6 @@ class Target;
 
 Target &getTheX86_32Target();
 Target &getTheX86_64Target();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-Target &getTheX86_IceCodeTarget();
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
 }
 

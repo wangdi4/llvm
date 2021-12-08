@@ -141,22 +141,6 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabled(Features, "sse2", true);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  // Enable icecode-mode for IceCode target.
-  if (getTriple().getArch() == llvm::Triple::x86_icecode) {
-    Features["icecode-mode"] = true;
-    setFeatureEnabled(Features, "avx512f", true);
-    setFeatureEnabled(Features, "avx512cd", true);
-    setFeatureEnabled(Features, "avx512dq", true);
-    setFeatureEnabled(Features, "avx512bw", true);
-    setFeatureEnabled(Features, "avx512vl", true);
-    setFeatureEnabled(Features, "avx512vnni", true);
-    return true;
-  }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
   using namespace llvm::X86;
 
   SmallVector<StringRef, 16> CPUFeatures;
@@ -683,17 +667,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__code_model_" + CodeModel + "__");
 
   // Target identification.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  if (getTriple().getArch() == llvm::Triple::x86_icecode) {
-    Builder.defineMacro("__amd64__");
-    Builder.defineMacro("__amd64");
-    Builder.defineMacro("__x86_64");
-    Builder.defineMacro("__x86_64__");
-    Builder.defineMacro("__ICECODE__");
-  } else
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   if (getTriple().getArch() == llvm::Triple::x86_64) {
     Builder.defineMacro("__amd64__");
     Builder.defineMacro("__amd64");

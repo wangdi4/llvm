@@ -47,14 +47,6 @@ public:
   X86MCCodeEmitter &operator=(const X86MCCodeEmitter &) = delete;
   ~X86MCCodeEmitter() override = default;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  bool isIceCodeMode(const MCSubtargetInfo &STI) const {
-    return STI.getFeatureBits()[X86::ModeIceCode];
-  }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
   void emitPrefix(const MCInst &MI, raw_ostream &OS,
                   const MCSubtargetInfo &STI) const override;
 
@@ -683,13 +675,6 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
   // Emit the address size opcode prefix as needed.
   bool NeedAddressOverride;
   uint64_t AdSize = TSFlags & X86II::AdSizeMask;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  if (isIceCodeMode(STI) && AdSize == X86II::AdSize32) {
-    NeedAddressOverride = false;
-  } else
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   if ((STI.hasFeature(X86::Mode16Bit) && AdSize == X86II::AdSize32) ||
       (STI.hasFeature(X86::Mode32Bit) && AdSize == X86II::AdSize16) ||
       (STI.hasFeature(X86::Mode64Bit) && AdSize == X86II::AdSize32)) {
@@ -1418,21 +1403,8 @@ void X86MCCodeEmitter::emitSegmentOverridePrefix(unsigned SegOperand,
                                                  const MCInst &MI,
                                                  raw_ostream &OS) const {
   // Check for explicit segment override on memory operand.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  bool IsExt = false;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   if (unsigned Reg = MI.getOperand(SegOperand).getReg())
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    emitByte(X86::getSegmentOverridePrefixForReg(Reg, IsExt), OS);
-  if (IsExt)
-    emitByte(0xf2, OS);
-#else // INTEL_FEATURE_ICECODE
     emitByte(X86::getSegmentOverridePrefixForReg(Reg), OS);
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 }
 
 /// Emit all instruction prefixes prior to the opcode.

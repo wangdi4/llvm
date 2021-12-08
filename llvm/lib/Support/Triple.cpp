@@ -85,11 +85,6 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case wasm64:         return "wasm64";
   case x86:            return "i386";
   case x86_64:         return "x86_64";
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case x86_icecode:    return "x86_icecode";
-#endif  // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
   case xcore:          return "xcore";
   }
 
@@ -147,11 +142,6 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 #endif  // INTEL_CUSTOMIZATION
 
   case x86:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case x86_icecode:
-#endif  // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
   case x86_64:      return "x86";
 
   case xcore:       return "xcore";
@@ -352,11 +342,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
 #endif // INTEL_CUSTOMIZATION
     .Case("x86", x86)
     .Case("x86-64", x86_64)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    .Case("x86-icecode", x86_icecode)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
     .Case("xcore", xcore)
     .Case("nvptx", nvptx)
     .Case("nvptx64", nvptx64)
@@ -458,9 +443,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
 #if INTEL_FEATURE_CSA
     .Case("csa", Triple::csa)
 #endif  // INTEL_FEATURE_CSA
-#if INTEL_FEATURE_ICECODE
-    .Case("x86_icecode", Triple::x86_icecode)
-#endif // INTEL_FEATURE_ICECODE
 #endif  // INTEL_CUSTOMIZATION
     .Cases("powerpc", "powerpcspe", "ppc", "ppc32", Triple::ppc)
     .Cases("powerpcle", "ppcle", "ppc32le", Triple::ppcle)
@@ -824,11 +806,6 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::tcele:
   case Triple::thumbeb:
   case Triple::ve:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
   case Triple::xcore:
     return Triple::ELF;
 
@@ -1458,11 +1435,6 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::ve:
   case llvm::Triple::wasm64:
   case llvm::Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case llvm::Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
     return 64;
   }
   llvm_unreachable("Invalid architecture value");
@@ -1496,11 +1468,6 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::msp430:
   case Triple::systemz:
   case Triple::ve:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
     T.setArch(UnknownArch);
     break;
 
@@ -1614,11 +1581,6 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::ve:
   case Triple::wasm64:
   case Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
     // Already 64-bit.
     break;
 
@@ -1689,11 +1651,6 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::wasm64:
   case Triple::x86:
   case Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
   case Triple::xcore:
   case Triple::ve:
   case Triple::csky:
@@ -1807,11 +1764,6 @@ bool Triple::isLittleEndian() const {
   case Triple::wasm64:
   case Triple::x86:
   case Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
   case Triple::xcore:
     return true;
   default:

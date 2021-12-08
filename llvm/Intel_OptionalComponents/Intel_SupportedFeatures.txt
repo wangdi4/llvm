@@ -317,10 +317,6 @@
 # INTEL_FEATURE_CSA
 @CSA:SECRET@
 # end INTEL_FEATURE_CSA
-
-# INTEL_FEATURE_ICECODE
-@ICECODE:SECRET@
-# end INTEL_FEATURE_ICECODE
 # === New targets section end ===
 
 # Software features use SW_ prefix, e.g. SW_G2S.

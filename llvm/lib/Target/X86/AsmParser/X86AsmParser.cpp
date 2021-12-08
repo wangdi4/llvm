@@ -2507,13 +2507,7 @@ bool X86AsmParser::ParseIntelOperand(OperandVector &Operands) {
       return false;
     }
     // An alleged segment override. check if we have a valid segment register
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    if (!X86MCRegisterClasses[X86::SEGMENTEX_REGRegClassID].contains(RegNo))
-#else // INTEL_FEATURE_ICECODE
     if (!X86MCRegisterClasses[X86::SEGMENT_REGRegClassID].contains(RegNo))
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
       return Error(Start, "invalid segment register");
     // Eat ':' and update Start location
     Start = Lex().getLoc();
@@ -2676,13 +2670,7 @@ bool X86AsmParser::ParseATTOperand(OperandVector &Operands) {
           Operands.push_back(X86Operand::CreateReg(Reg, Loc, EndLoc));
           return false;
         }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-        if (!X86MCRegisterClasses[X86::SEGMENTEX_REGRegClassID].contains(Reg))
-#else // INTEL_FEATURE_ICECODE
         if (!X86MCRegisterClasses[X86::SEGMENT_REGRegClassID].contains(Reg))
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
           return Error(Loc, "invalid segment register");
         // Accept a '*' absolute memory reference after the segment. Place it
         // before the full memory operand.
@@ -4438,19 +4426,9 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
   //
   // Otherwise, we assume that this may be an integer instruction, which comes
   // in 8/16/32/64-bit forms using the b,w,l,q suffixes respectively.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  const char *Suffixes =
-      Base[0] != 'f' || Base.startswith("fscp_") ? "bwlq" : "slt\0";
-  const char *MemSize = Base[0] != 'f' || Base.startswith("fscp_")
-                            ? "\x08\x10\x20\x40"
-                            : "\x20\x40\x50\0";
-#else // INTEL_FEATURE_ICECODE
   const char *Suffixes = Base[0] != 'f' ? "bwlq" : "slt\0";
   // MemSize corresponding to Suffixes.  { 8, 16, 32, 64 }    { 32, 64, 80, 0 }
   const char *MemSize = Base[0] != 'f' ? "\x08\x10\x20\x40" : "\x20\x40\x50\0";
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   // Check for the various suffix matches.
   uint64_t ErrorInfoIgnore;
@@ -4827,13 +4805,7 @@ bool X86AsmParser::MatchAndEmitIntelInstruction(SMLoc IDLoc, unsigned &Opcode,
 }
 
 bool X86AsmParser::OmitRegisterFromClobberLists(unsigned RegNo) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  return X86MCRegisterClasses[X86::SEGMENTEX_REGRegClassID].contains(RegNo);
-#else // INTEL_FEATURE_ICECODE
   return X86MCRegisterClasses[X86::SEGMENT_REGRegClassID].contains(RegNo);
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86AsmParser::ParseDirective(AsmToken DirectiveID) {
@@ -5208,11 +5180,6 @@ bool X86AsmParser::parseDirectiveSEHPushFrame(SMLoc Loc) {
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86AsmParser() {
   RegisterMCAsmParser<X86AsmParser> X(getTheX86_32Target());
   RegisterMCAsmParser<X86AsmParser> Y(getTheX86_64Target());
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  RegisterMCAsmParser<X86AsmParser> Z(getTheX86_IceCodeTarget());
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 }
 
 #define GET_REGISTER_MATCHER

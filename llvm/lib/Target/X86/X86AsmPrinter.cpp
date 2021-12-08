@@ -1007,9 +1007,4 @@ void X86AsmPrinter::emitNotifyTable(Module &M) {
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86AsmPrinter() {
   RegisterAsmPrinter<X86AsmPrinter> X(getTheX86_32Target());
   RegisterAsmPrinter<X86AsmPrinter> Y(getTheX86_64Target());
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  RegisterAsmPrinter<X86AsmPrinter> Z(getTheX86_IceCodeTarget());
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 }
