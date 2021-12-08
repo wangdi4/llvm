@@ -8,16 +8,22 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 define i1 @test1(i32 %c) {
+; INTEL_CUSTOMIZATION
+; This test runs at -O3 which will give significantly different results
+; with xmain vs llorg. It is also testing failing behavior, needs to be updated
+; when the function merging is fixed.
+
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = add i32 [[C:%.*]], -100
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 20
-; CHECK-NEXT:    [[SWITCH_CAST:%.*]] = trunc i32 [[SWITCH_TABLEIDX]] to i20
-; CHECK-NEXT:    [[SWITCH_DOWNSHIFT:%.*]] = lshr i20 -490991, [[SWITCH_CAST]]
-; CHECK-NEXT:    [[TMP1:%.*]] = and i20 [[SWITCH_DOWNSHIFT]], 1
-; CHECK-NEXT:    [[SWITCH_MASKED:%.*]] = icmp ne i20 [[TMP1]], 0
-; CHECK-NEXT:    [[I_0:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 false
-; CHECK-NEXT:    ret i1 [[I_0]]
+; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i32 0
+; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[SHUFFLE]], <i32 115, i32 109, i32 104, i32 100>
+; CHECK-NEXT:    [[_12:%.*]] = icmp eq i32 [[C]], 119
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i1> [[TMP1]] to i4
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i4 [[TMP2]], 0
+; CHECK-NEXT:    [[TMP4:%.*]] = or i1 [[TMP3]], [[_12]]
+; CHECK-NEXT:    ret i1 [[TMP4]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %_4 = alloca i8, align 1
@@ -90,8 +96,17 @@ bb3:                                              ; preds = %bb1, %bb2
 
 define i1 @test2(i32 %c) {
 ; CHECK-LABEL: @test2(
-; CHECK-NEXT:    [[TMP2:%.*]] = tail call i1 @test1(i32 [[TMP0:%.*]]) #[[ATTR0:[0-9]+]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = add i32 [[C:%.*]], -100
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 20
+; CHECK-NEXT:    [[SWITCH_CAST:%.*]] = trunc i32 [[SWITCH_TABLEIDX]] to i20
+; CHECK-NEXT:    [[SWITCH_DOWNSHIFT:%.*]] = lshr i20 -490991, [[SWITCH_CAST]]
+; CHECK-NEXT:    [[TMP1:%.*]] = and i20 [[SWITCH_DOWNSHIFT]], 1
+; CHECK-NEXT:    [[SWITCH_MASKED:%.*]] = icmp ne i20 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 false
 ; CHECK-NEXT:    ret i1 [[TMP2]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %i = alloca i8, align 1
