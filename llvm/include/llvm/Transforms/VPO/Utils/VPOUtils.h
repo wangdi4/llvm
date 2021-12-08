@@ -231,24 +231,26 @@ public:
   /// the transformation so that children can be deleted after
   /// transformation at each node. The core transforamtion function is
   /// doParSectTrans.
-  static bool parSectTransformer(Function *F, DominatorTree *DT = nullptr);
+  static bool parSectTransformer(Function *F, DominatorTree *DT, LoopInfo *LI);
   static void parSectTransRecursive(Function *F, ParSectNode *Node,
-                                    int &Counter, DominatorTree *DT = nullptr);
+                                    int &Counter, DominatorTree *DT,
+                                    LoopInfo *LI);
   static void doParSectTrans(Function *F, ParSectNode *Node, int Counter,
-                             DominatorTree *DT = nullptr);
+                             DominatorTree *DT, LoopInfo *LI);
 
   // Generate an empty loop with lower bound \p LB, upper bound \p UB, stride
   // \p stride, right after the InsertBlock pointed by \p Builder.
   static Value *genNewLoop(Value *LB, Value *UB, Value *Stride,
                            IRBuilder<> &Builder, int Counter,
-                           Value *&NormalizedUB, DominatorTree *DT = nullptr);
+                           Value *&NormalizedUB, DominatorTree *DT,
+                           LoopInfo *LI);
 
   // Generate a switch statement for the parallel section or work-sharing
   // section represented by \p Node. Each section in the parallel section or
   // work-sharing section corresponds to a case statement in the switch.
   static void genParSectSwitch(Value *SwitchCond, Type *SwitchCondTy,
                                ParSectNode *Node, IRBuilder<> &Builder,
-                               int Counter, DominatorTree *DT = nullptr);
+                               int Counter, DominatorTree *DT, LoopInfo *LI);
 
   // Generate a tree data structure called Section Tree to represent the
   // nesting relationship of OMP_PARALLEL_SECTIONS (or OMP_SECTIONS) and
