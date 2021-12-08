@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-bca -disable-output 2>&1 | FileCheck %s
 
 ; This test case tests the bad cast analyzer on a case which has an unmatched
 ; call.  It should fail with a safety violation and retain the Bad casting and
