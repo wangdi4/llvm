@@ -1680,7 +1680,11 @@ void LinkerDriver::doGnuLTOLinking() {
     bool ret = buffer.find("nolto-rel") == StringRef::npos;
 
     // delete temporary file
-    sys::fs::remove(gccCommand.str());
+    if (sys::fs::remove(gccOutMessage.str().str())) {
+#ifndef NDEBUG
+      warn("Issue while removing GNU LTO file: " + gccOutMessage.str());
+#endif // NDEBUG
+    }
 
     return ret;
   };
@@ -1772,8 +1776,13 @@ void LinkerDriver::doGnuLTOLinking() {
   parseFile(gNULTOFile);
 
   // Remove temporary files
-  for (auto tempFile : tempsVector)
-    sys::fs::remove(tempFile);
+  for (auto tempFile : tempsVector) {
+    if (sys::fs::remove(tempFile)) {
+#ifndef NDEBUG
+      warn("Issue while removing GNU LTO file: " + tempFile);
+#endif // NDEBUG
+    }
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 
