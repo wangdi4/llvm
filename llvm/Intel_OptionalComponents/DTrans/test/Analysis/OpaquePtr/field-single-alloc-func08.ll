@@ -15,7 +15,7 @@
 ; CHECK: Bottom Alloc Function
 ; CHECK: 1)Field LLVM Type: [8 x i8]
 ; CHECK: DTrans Type: [8 x i8]
-; CHECK: Top Alloc Function
+; CHECK: Bottom Alloc Function
 ; CHECK: Safety data: Nested structure | Local instance
 
 %struct.Alloc_hider = type { ptr }

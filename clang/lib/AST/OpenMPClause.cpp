@@ -2762,7 +2762,10 @@ TargetOMPContext::TargetOMPContext(
     const FunctionDecl *CurrentFunctionDecl,
     ArrayRef<llvm::omp::TraitProperty> ConstructTraits)
     : OMPContext(ASTCtx.getLangOpts().OpenMPIsDevice,
-                 ASTCtx.getTargetInfo().getTriple()),
+#if INTEL_CUSTOMIZATION
+                 ASTCtx.getTargetInfo().getTriple(),
+                 ASTCtx.getLangOpts().OpenMPLateOutline),
+#endif // INTEL_CUSTOMIZATION
       FeatureValidityCheck([&](StringRef FeatureName) {
         return ASTCtx.getTargetInfo().isValidFeatureName(FeatureName);
       }),

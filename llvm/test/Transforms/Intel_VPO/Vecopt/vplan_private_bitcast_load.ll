@@ -1,38 +1,26 @@
-; This test verifies that we correctly handle bitcast on private-aggregates.
-; The codegen should not assume that if all the uses of a bitcast instructions
-; are 'load'/'store' instructions, we are writing to consecutive memory
-; locations as they could be when we assume SOA layout.
+; The only use of bitcasted private alloca is lifetime intrinsic, which we consiider as a safe use.
+; With enhanced memory escape analysis, this code is considered safe for SOA,
+; and profitable for SOA.
 
+; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec -vplan-force-vf=4 -vplan-dump-soa-info 2>&1 | FileCheck %s
 
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec -vplan-force-vf=4  2>&1 | FileCheck %s
-; CHECK: [[WIDE_ARR:%.*]] = alloca [4 x [2520 x double]], align 8
-; CHECK: [[WIDE_ARR_BC:%.*]] = bitcast [4 x [2520 x double]]* [[WIDE_ARR]] to [2520 x double]*
-; CHECK: [[PRIV_BASE:%.*]] = getelementptr [2520 x double], [2520 x double]* [[WIDE_ARR_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[BC:%.*]] = bitcast [4 x [2520 x double]]* [[WIDE_ARR]] to i8*
+; CHECK: SOA profitability:
+; CHECK: SOASafe =  Profitable = 1
+; CHECK: SOA profitability:
+; CHECK: SOASafe =  Profitable = 1
 
-; CHECK: {{.*}} = phi <4 x double> {{.*}}, {{.*}}
-; CHECK: [[GEP1:%.*]] = getelementptr inbounds [2520 x double], <4 x [2520 x double]*> [[PRIV_BASE]], <4 x i64> zeroinitializer, <4 x i64> zeroinitializer
-; CHECK-NEXT: [[GATHER1:%.*]] = call <4 x double> @llvm.masked.gather.v4f64.v4p0f64(<4 x double*> [[GEP1]], i32 8, <4 x i1> {{.*}}, <4 x double> undef)
-; CHECK-NEXT:br label {{.*}}
-
-; CHECK: VPlannedBB{{.*}}:
-; CHECK: VPlannedBB{{.*}}:
-; CHECK: VPlannedBB{{.*}}:
-; CHECK: VPlannedBB{{.*}}:
-; CHECK-NEXT: [[BC1:%.*]] = bitcast <4 x [2520 x double]*> [[PRIV_BASE]] to <4 x i64*>
-; CHECK-NEXT: [[GATHER2:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> [[BC1]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> undef)
-; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds double, double addrspace(1)* {{.*}}, i64 {{.*}}
-; CHECK-NEXT: [[BC2:%.*]] = bitcast double addrspace(1)* [[GEP2]] to i64 addrspace(1)*
-; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[BC2]] to <4 x i64> addrspace(1)*
-; CHECK-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
-; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[BC]])
+; CHECK: [[DOTSOA_VEC0:%.*]] = alloca [2520 x <4 x double>], align 32
+; CHECK: [[TMP24:%.*]] = bitcast [2520 x <4 x double>]* [[DOTSOA_VEC0]] to <4 x i8>*
+; CHECK: [[TMP25:%.*]] = bitcast <4 x i8>* [[TMP24]] to i8*
+; CHECK: call void @llvm.lifetime.start.p0i8(i64 80640, i8* nonnull [[TMP25]])
+; CHECK: [[SOA_SCALAR_GEP0:%.*]] = getelementptr inbounds [2520 x <4 x double>], [2520 x <4 x double>]* [[DOTSOA_VEC0]], i64 0, i64 [[UNI_PHI350:%.*]]
+; CHECK: store <4 x double> [[TMP96:%.*]], <4 x double>* [[SOA_SCALAR_GEP0]], align 8
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 %"class.cl::sycl::range" = type { %"class.cl::sycl::detail::array" }
 %"class.cl::sycl::detail::array" = type { [1 x i64] }
-
 
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
 declare double @_Z4sqrtd(double)

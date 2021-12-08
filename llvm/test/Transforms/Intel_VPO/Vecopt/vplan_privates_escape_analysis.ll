@@ -1,5 +1,5 @@
 ; This test verifies that private-variables escaping into the unknown functions
-; are safe for data-layout transformations.
+; are not safe for data-layout transformations.
 
 ; RUN: opt -S -vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
@@ -11,6 +11,7 @@
 
 ; CHECK-DAG: SOASafe = arr.priv
 ; CHECK-DAG: SOASafe = arr_ne.priv
+;; This next one privates escapes into the unknown function and is unsafe.
 ; CHECK-DAG: SOAUnsafe = arr_e.priv
 ; CHECK-DAG: SOASafe = index.lpriv
 
@@ -52,7 +53,6 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr_e = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 @arr_ne = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
-; Function Attrs: noinline nounwind uwtable
 define dso_local void @foo(i32 %n1) local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %arr_ne.priv = alloca [1024 x i32], align 4
@@ -142,7 +142,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
   ret void
 }
 
-; This test checks that we correctly identify SOA-unsafe variables on account of addressspacecast instructions.
+; This test checks that we correctly identify SOA-unsafe variables on account of
+; unsafe load/store instructions (loaded type size != alloca element size).
 define void @test_unsafe_addrspacecast() {
 ;CHECK: SOA profitability
 ;CHECK-NEXT: SOAUnsafe = arr_e.priv
