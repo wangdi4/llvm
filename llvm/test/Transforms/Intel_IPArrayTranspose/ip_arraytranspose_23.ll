@@ -19,6 +19,8 @@
 
 ; RUN: opt < %s -ip-array-transpose-heuristic=false -iparraytranspose -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -ip-array-transpose-heuristic=false -passes='module(iparraytranspose)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -ip-array-transpose-heuristic=false -iparraytranspose -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck --check-prefix=CHECK-OP %s
+; RUN: opt < %s -opaque-pointers -ip-array-transpose-heuristic=false -passes='module(iparraytranspose)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck --check-prefix=CHECK-OP %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -38,6 +40,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:  %ld = load i32, i32* [[B0]], align 4
 ; CHECK:  b2:
 ; CHECK:  [[I1]] = add i64 [[I0]], 1
+
+; CHECK-OP:  define i32 @main()
+; CHECK-OP-NOT:  call void @kmp_set_blocktime(i32 0)
+; CHECK-OP:  %pinc = getelementptr inbounds i8, ptr %p1, i64 0
+; CHECK-OP-NOT:  %pinc = getelementptr inbounds i8, ptr %p1, i64 320000
+
+; CHECK-OP:  define void @foo(ptr %in1)
+; CHECK-OP:  b0:
+; CHECK-OP: [[B0:%bc[0-9]+]] = bitcast ptr %in1 to ptr
+; CHECK-OP:  b1:
+; CHECK-OP:  [[I0:%[a-z0-9.]+]] = phi i64 [ [[I1:%[a-z0-9.]+]], %b2 ], [ 0, %b0 ]
+; CHECK-OP:  [[S0:%[0-9]+]] = shl nuw nsw i64 [[I0]], 2
+; CHECK-OP:  [[A0:%[0-9]+]] = add i64 [[S0]], 203688000
+; CHECK-OP:  [[G0:%[a-z0-9]+]] = getelementptr i8, ptr [[B0]], i64 [[A0]]
+; CHECK-OP:  %ld = load i32, ptr [[G0]], align 4
+; CHECK-OP:  b2:
+; CHECK-OP:  [[I1]] = add i64 [[I0]], 1
 
 
 define i32 @main() #0 {
