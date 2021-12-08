@@ -394,56 +394,8 @@ namespace X86 {
     GS_Encoding = 0x65,
 #if INTEL_CUSTOMIZATION
     SS_Encoding = 0x36,
-#if INTEL_FEATURE_ICECODE
-    F2_Encoding = 0xF2
-#endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
   };
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  inline EncodingOfSegmentOverridePrefix
-  getSegmentOverridePrefixForReg(unsigned Reg, bool &IsExt) {
-    IsExt = false;
-    switch (Reg) {
-    default:
-      llvm_unreachable("Unknown segment register!");
-    case X86::LDTR:
-      IsExt = true;
-      LLVM_FALLTHROUGH;
-    case X86::CS:
-      return CS_Encoding;
-    case X86::TR:
-      IsExt = true;
-      LLVM_FALLTHROUGH;
-    case X86::DS:
-      return DS_Encoding;
-    case X86::GDTR:
-      IsExt = true;
-      LLVM_FALLTHROUGH;
-    case X86::ES:
-      return ES_Encoding;
-    case X86::LINSEG_NOSUPOVR:
-      IsExt = true;
-      LLVM_FALLTHROUGH;
-    case X86::FS:
-      return FS_Encoding;
-    case X86::LINSEG_SUPOVR:
-      IsExt = true;
-      LLVM_FALLTHROUGH;
-    case X86::GS:
-      return GS_Encoding;
-    case X86::IDTR:
-      IsExt = true;
-      LLVM_FALLTHROUGH;
-    case X86::SS:
-      return SS_Encoding;
-    case X86::PHYSEG_SUPOVR:
-      return F2_Encoding;
-    }
-  }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   /// Given a segment register, return the encoding of the segment override
   /// prefix for it.

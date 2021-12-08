@@ -2981,17 +2981,5 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
     return;
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  if (MF->getSubtarget<X86Subtarget>().isIceCode() && MI->hasOneMemOperand()) {
-    const uint16_t Prefix[] = {0x26,   0x2e,   0x3e,   0xf2,   0xf265,
-                               0xf264, 0xf236, 0xf226, 0xf22e, 0xf23e};
-    unsigned AddrSpace = (*MI->memoperands_begin())->getAddrSpace() - 259;
-    if (AddrSpace < 10)
-      OutStreamer->emitIntValue(Prefix[AddrSpace], 1 + (AddrSpace >= 4));
-  }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
   EmitAndCountInstruction(TmpInst);
 }

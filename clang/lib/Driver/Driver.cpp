@@ -830,13 +830,6 @@ static llvm::Triple computeTargetTriple(const Driver &D,
                                         StringRef TargetTriple,
                                         const ArgList &Args,
                                         StringRef DarwinArchName = "") {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  if (Args.getLastArg(options::OPT_micecode))
-    return llvm::Triple(llvm::Triple::normalize("x86_icecode-unknown-unknown"));
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
   // FIXME: Already done in Compilation *Driver::BuildCompilation
   if (const Arg *A = Args.getLastArg(options::OPT_target))
     TargetTriple = A->getValue();

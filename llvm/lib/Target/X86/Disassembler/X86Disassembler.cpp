@@ -250,11 +250,6 @@ static int readPrefixes(struct InternalInstruction *insn) {
       // - it is followed by a "mov mem, reg" (opcode 0x88/0x89) or
       //                       "mov mem, imm" (opcode 0xc6/0xc7) instructions.
       // then it should be disassembled as an xrelease not rep.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-      if (!insn->isIceCode)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
       if (byte == 0xf3 && (nextByte == 0x88 || nextByte == 0x89 ||
                            nextByte == 0xc6 || nextByte == 0xc7)) {
         insn->xAcquireRelease = true;
@@ -287,25 +282,9 @@ static int readPrefixes(struct InternalInstruction *insn) {
       //      it's not mandatory prefix
       //  3. if (nextByte >= 0x40 && nextByte <= 0x4f) it's REX and we need
       //     0x0f exactly after it to be mandatory prefix
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-      if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66 ||
-          insn->isIceCode) {
-        if (insn->isIceCode && byte == 0xf2 &&
-            insn->segmentOverride > SEG_OVERRIDE_NONE &&
-            insn->segmentOverride < SEG_OVERRIDE_PHYSEG_SUPOVR) {
-          insn->segmentOverride += SEG_OVERRIDE_PHYSEG_SUPOVR;
-          break;
-        } else {
-          insn->mandatoryPrefix = byte;
-        }
-      }
-#else // INTEL_FEATURE_ICECODE
       if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66)
         // The last of 0xf2 /0xf3 is mandatory prefix
         insn->mandatoryPrefix = byte;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
       insn->repeatPrefix = byte;
       break;
     }
@@ -1048,13 +1027,7 @@ static bool readOpcode(struct InternalInstruction *insn) {
       LLVM_DEBUG(dbgs() << "Didn't find a three-byte escape prefix");
       insn->opcodeType = TWOBYTE;
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  } else if (insn->mandatoryPrefix && !insn->isIceCode)
-#else // INTEL_FEATURE_ICECODE
   } else if (insn->mandatoryPrefix)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
     // The opcode with mandatory prefix must start with opcode escape.
     // If not it's legacy repeat prefix
     insn->mandatoryPrefix = 0;
@@ -1139,27 +1112,6 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
 #endif // INTEL_CUSTOMIZATION
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  // For part of IceCode instructions that use AdSize32, we can't get such
-  // information from the binary due to lacking the prefix 0x67.
-  // Here we define a new operand type TYPE_M32 to indicate such information,
-  // and hack to modify the addressSize before emitting operand.
-  if (insn->isIceCode) {
-    *instructionID = decode(insn->opcodeType, insnCtx, insn->opcode, 0);
-    if (*instructionID) {
-      auto spec = &INSTRUCTIONS_SYM[*instructionID];
-      for (const auto &Op : x86OperandSets[spec->operands])
-        if (Op.encoding == ENCODING_RM) {
-          if ((OperandType)Op.type == TYPE_M32)
-            insn->addressSize = 4;
-          break;
-        }
-    }
-  }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
   if (decision->opcodeDecisions[insnCtx]
           .modRMDecisions[insn->opcode]
           .modrm_type != MODRM_ONEENTRY) {
@@ -1188,13 +1140,6 @@ static int getInstructionID(struct InternalInstruction *insn,
 
   if (insn->mode == MODE_64BIT)
     attrMask |= ATTR_64BIT;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  if (insn->isIceCode)
-    attrMask |= ATTR_CE;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   if (insn->vectorExtensionType != TYPE_NO_VEX_XOP) {
     attrMask |= (insn->vectorExtensionType == TYPE_EVEX) ? ATTR_EVEX : ATTR_VEX;
@@ -1278,13 +1223,7 @@ static int getInstructionID(struct InternalInstruction *insn,
       attrMask |= ATTR_OPSIZE;
     if (insn->hasAdSize)
       attrMask |= ATTR_ADSIZE;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    if (insn->opcodeType == ONEBYTE && !insn->isIceCode) {
-#else // INTEL_FEATURE_ICECODE
     if (insn->opcodeType == ONEBYTE) {
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
       if (insn->repeatPrefix == 0xf3 && (insn->opcode == 0x90))
         // Special support for PAUSE
         attrMask |= ATTR_XS;
@@ -1820,11 +1759,6 @@ public:
 
 private:
   DisassemblerMode              fMode;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  bool                          isIceCode;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace
@@ -1835,11 +1769,6 @@ X86GenericDisassembler::X86GenericDisassembler(
                                          std::unique_ptr<const MCInstrInfo> MII)
   : MCDisassembler(STI, Ctx), MII(std::move(MII)) {
   const FeatureBitset &FB = STI.getFeatureBits();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  isIceCode = FB[X86::ModeIceCode];
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   if (FB[X86::Mode16Bit]) {
     fMode = MODE_16BIT;
     return;
@@ -1865,11 +1794,6 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
   Insn.startLocation = Address;
   Insn.readerCursor = Address;
   Insn.mode = fMode;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  Insn.isIceCode = isIceCode;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   if (Bytes.empty() || readPrefixes(&Insn) || readOpcode(&Insn) ||
       getInstructionID(&Insn, MII.get()) || Insn.instructionID == 0 ||
@@ -1971,18 +1895,7 @@ static const uint8_t segmentRegnums[SEG_OVERRIDE_max] = {
   X86::DS,
   X86::ES,
   X86::FS,
-#if INTEL_CUSTOMIZATION
-  X86::GS,
-#if INTEL_FEATURE_ICECODE
-  X86::PHYSEG_SUPOVR,
-  X86::LDTR,
-  X86::IDTR,
-  X86::TR,
-  X86::GDTR,
-  X86::LINSEG_NOSUPOVR,
-  X86::LINSEG_SUPOVR,
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
+  X86::GS
 };
 
 /// translateSrcIndex   - Appends a source index operand to an MCInst.
@@ -2375,11 +2288,6 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_BNDR:
     return translateRMRegister(mcInst, insn);
   case TYPE_M:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case TYPE_M32:
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   case TYPE_MVSIBX:
   case TYPE_MVSIBY:
   case TYPE_MVSIBZ:
@@ -2532,10 +2440,4 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Disassembler() {
                                          createX86Disassembler);
   TargetRegistry::RegisterMCDisassembler(getTheX86_64Target(),
                                          createX86Disassembler);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  TargetRegistry::RegisterMCDisassembler(getTheX86_IceCodeTarget(),
-                                         createX86Disassembler);
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 }

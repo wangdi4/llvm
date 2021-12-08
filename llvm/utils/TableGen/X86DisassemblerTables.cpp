@@ -37,13 +37,7 @@ static inline const char* stringForContext(InstructionContext insnContext) {
 #define ENUM_ENTRY_K_B(n, r, d) ENUM_ENTRY(n, r, d) ENUM_ENTRY(n##_K_B, r, d)\
         ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)\
         ENUM_ENTRY(n##_KZ_B, r, d)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  INSTRUCTION_CONTEXTS_CE
-#else // INTEL_FEATURE_ICECODE
   INSTRUCTION_CONTEXTS
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 #undef ENUM_ENTRY
 #undef ENUM_ENTRY_K_B
   }
@@ -55,13 +49,7 @@ static inline const char* stringForOperandType(OperandType type) {
   default:
     llvm_unreachable("Unhandled type");
 #define ENUM_ENTRY(i, d) case i: return #i;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  TYPES_CE
-#else // INTEL_FEATURE_ICECODE
   TYPES
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 #undef ENUM_ENTRY
   }
 }
@@ -100,37 +88,12 @@ static inline bool inheritsFrom(InstructionContext child,
            (noPrefix && inheritsFrom(child, IC_XS, noPrefix)));
   case IC_64BIT:
     return(inheritsFrom(child, IC_64BIT_REXW)   ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-           (inheritsFrom(child, IC_64BIT_CE)) ||
-           (noPrefix && inheritsFrom(child, IC_64BIT_XS_CE, noPrefix)) ||
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
            (noPrefix && inheritsFrom(child, IC_64BIT_OPSIZE, noPrefix)) ||
            (!AdSize64 && inheritsFrom(child, IC_64BIT_ADSIZE)) ||
            (noPrefix && inheritsFrom(child, IC_64BIT_XD, noPrefix))     ||
            (noPrefix && inheritsFrom(child, IC_64BIT_XS, noPrefix)));
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case IC_64BIT_CE:
-  case IC_64BIT_OPSIZE_CE:
-  case IC_64BIT_XD_CE:
-  case IC_64BIT_XS_CE:
-  case IC_64BIT_REXW_CE:
-  case IC_64BIT_REXW_XD_CE:
-  case IC_64BIT_REXW_XS_CE:
-  case IC_64BIT_XD_OPSIZE_CE:
-  case IC_64BIT_XS_OPSIZE_CE:
-    return false;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   case IC_OPSIZE:
     return inheritsFrom(child, IC_64BIT_OPSIZE) ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-           inheritsFrom(child, IC_64BIT_OPSIZE_CE) ||
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
            inheritsFrom(child, IC_OPSIZE_ADSIZE);
   case IC_ADSIZE:
     return (noPrefix && inheritsFrom(child, IC_OPSIZE_ADSIZE, noPrefix));
@@ -155,11 +118,6 @@ static inline bool inheritsFrom(InstructionContext child,
     return inheritsFrom(child, IC_64BIT_XS_ADSIZE);
   case IC_64BIT_REXW:
     return((noPrefix && inheritsFrom(child, IC_64BIT_REXW_XS, noPrefix)) ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-           (inheritsFrom(child, IC_64BIT_REXW_CE)) ||
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
            (noPrefix && inheritsFrom(child, IC_64BIT_REXW_XD, noPrefix)) ||
            (noPrefix && inheritsFrom(child, IC_64BIT_REXW_OPSIZE, noPrefix)) ||
            (!AdSize64 && inheritsFrom(child, IC_64BIT_REXW_ADSIZE)));
@@ -170,19 +128,9 @@ static inline bool inheritsFrom(InstructionContext child,
            (!AdSize64 && inheritsFrom(child, IC_64BIT_VEX_OPSIZE_ADSIZE));
   case IC_64BIT_XD:
     return (inheritsFrom(child, IC_64BIT_REXW_XD) ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-            (inheritsFrom(child, IC_64BIT_XD_CE)) ||
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
             (!AdSize64 && inheritsFrom(child, IC_64BIT_XD_ADSIZE)));
   case IC_64BIT_XS:
     return(inheritsFrom(child, IC_64BIT_REXW_XS) ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-           (inheritsFrom(child, IC_64BIT_REXW_XS_CE)) ||
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
            (!AdSize64 && inheritsFrom(child, IC_64BIT_XS_ADSIZE)));
   case IC_64BIT_XD_OPSIZE:
   case IC_64BIT_XS_OPSIZE:
@@ -637,13 +585,7 @@ static inline bool outranks(InstructionContext upper,
   ENUM_ENTRY(n##_K_B, r, d) ENUM_ENTRY(n##_KZ_B, r, d) \
   ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)
   static int ranks[IC_max] = {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    INSTRUCTION_CONTEXTS_CE
-#else // INTEL_FEATURE_ICECODE
     INSTRUCTION_CONTEXTS
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   };
 #undef ENUM_ENTRY
 #undef ENUM_ENTRY_K_B
@@ -980,34 +922,7 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
         if (index & ATTR_EVEXB)
           o << "_B";
       }
-#if INTEL_CUSTOMIZATION
-    }
-#if INTEL_FEATURE_ICECODE
-    else if ((index & ATTR_64BIT) && (index & ATTR_REXW) &&
-             (index & ATTR_XS) && (index & ATTR_CE))
-      o << "IC_64BIT_REXW_XS_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_REXW) &&
-             (index & ATTR_XD) && (index & ATTR_CE))
-      o << "IC_64BIT_REXW_XD_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_XD) &&
-             (index & ATTR_OPSIZE) && (index & ATTR_CE))
-      o << "IC_64BIT_XD_OPSIZE_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_XS) &&
-             (index & ATTR_OPSIZE) && (index & ATTR_CE))
-      o << "IC_64BIT_XS_OPSIZE_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_CE))
-      o << "IC_64BIT_REXW_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_XD) && (index & ATTR_CE))
-      o << "IC_64BIT_XD_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_XS) && (index & ATTR_CE))
-      o << "IC_64BIT_XS_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_OPSIZE) && (index & ATTR_CE))
-      o << "IC_64BIT_OPSIZE_CE";
-    else if ((index & ATTR_64BIT) && (index & ATTR_CE))
-      o << "IC_64BIT_CE";
-#endif // INTEL_FEATURE_ICECODE
-    else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XS))
-#endif // INTEL_CUSTOMIZATION
+    } else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XS))
       o << "IC_64BIT_REXW_XS";
     else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XD))
       o << "IC_64BIT_REXW_XD";

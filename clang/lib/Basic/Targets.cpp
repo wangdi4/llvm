@@ -554,11 +554,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       return new X86_32TargetInfo(Triple, Opts);
     }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case llvm::Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64:
     if (Triple.isOSDarwin() || Triple.isOSBinFormatMachO())
       return new DarwinX86_64TargetInfo(Triple, Opts);

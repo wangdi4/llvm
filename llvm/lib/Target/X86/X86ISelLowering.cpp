@@ -27828,33 +27828,6 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), SetCC,
                          Operation.getValue(1));
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    case Intrinsic::x86_icecode_loadseg:
-    case Intrinsic::x86_icecode_storeseg: {
-      SDLoc dl(Op);
-      SDValue Chain = Op.getOperand(0);
-      unsigned Reg[] = {0,         X86::CS,   X86::DS, X86::SS,
-                        X86::ES,   X86::FS,   X86::GS, X86::GDTR,
-                        X86::LDTR, X86::IDTR, X86::TR};
-      unsigned Val = Op.getConstantOperandVal(3);
-      unsigned Opcode = IntNo == Intrinsic::x86_icecode_loadseg ?
-                                      X86::LOADSEGrm : X86::STORESEGmr;
-      if (Val > 10)
-        return SDValue();
-
-      SDVTList VTs = DAG.getVTList(MVT::Other);
-      SDValue Base = Op->getOperand(2);
-      SDValue Index = DAG.getRegister(0, MVT::i32);
-      SDValue Scale = DAG.getTargetConstant(1, dl, MVT::i8);
-      SDValue Disp = DAG.getTargetConstant(0, dl, MVT::i32);
-      SDValue Segment = DAG.getRegister(Reg[Val], MVT::i32);
-      return SDValue(DAG.getMachineNode(Opcode, dl, VTs,
-                                        {Base, Scale, Index, Disp, Segment,
-                                         Chain}), 0);
-    }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
     case Intrinsic::x86_enqcmd:
     case Intrinsic::x86_enqcmds: {
       SDLoc dl(Op);

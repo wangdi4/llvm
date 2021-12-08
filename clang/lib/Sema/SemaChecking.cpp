@@ -1584,11 +1584,6 @@ bool Sema::CheckTSBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     return CheckSystemZBuiltinFunctionCall(BuiltinID, TheCall);
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  case llvm::Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
     return CheckX86BuiltinFunctionCall(TI, BuiltinID, TheCall);
   case llvm::Triple::ppc:
   case llvm::Triple::ppcle:
@@ -4928,19 +4923,6 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     break;
   case X86::BI_may_i_use_cpu_feature_str:
     return SemaBuiltinMayIUseCpuFeatureStr(*this, TheCall);
-#if INTEL_FEATURE_ICECODE
-  case X86::BI__builtin_ia32_icecode_nr_read:
-  case X86::BI__builtin_ia32_icecode_set_tracker:
-    i = 0; l = 0; u = 255;
-    break;
-  case X86::BI__builtin_ia32_icecode_loadseg:
-  case X86::BI__builtin_ia32_icecode_storeseg:
-    i = 1; l = 1; u = 10;
-    break;
-  case X86::BI__builtin_ia32_icecode_cmodemov:
-    i = 2; l = 0; u = 15;
-    break;
-#endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vec_ext_v2si:
   case X86::BI__builtin_ia32_vec_ext_v2di:

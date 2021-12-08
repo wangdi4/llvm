@@ -106,11 +106,6 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   // Check for 64-bit inst which does not require REX
   Is32Bit = false;
   Is64Bit = false;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  IsIceCode = false;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   // FIXME: Is there some better way to check for In64BitMode?
   std::vector<Record*> Predicates = Rec->getValueAsListOfDefs("Predicates");
   for (unsigned i = 0, e = Predicates.size(); i != e; ++i) {
@@ -123,15 +118,6 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
       Is64Bit = true;
       break;
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    if (Predicates[i]->getName().find("InIceCodeMode") != StringRef::npos) {
-      Is64Bit = true;
-      IsIceCode = true;
-      break;
-    }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   }
 
   if (Form == X86Local::Pseudo || (IsCodeGenOnly && !ForceDisassemble)) {
@@ -304,29 +290,6 @@ InstructionContext RecognizableInstr::insnContext() const {
       errs() << "Instruction does not use a prefix: " << Name << "\n";
       llvm_unreachable("Invalid prefix");
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  } else if (IsIceCode) {
-    if (OpSize == X86Local::OpSize16 && OpPrefix == X86Local::XD)
-      insnContext = IC_64BIT_XD_OPSIZE_CE;
-    else if (OpSize == X86Local::OpSize16 && OpPrefix == X86Local::XS)
-      insnContext = IC_64BIT_XS_OPSIZE_CE;
-    else if (HasREX_WPrefix && OpPrefix == X86Local::XD)
-      insnContext = IC_64BIT_REXW_XD_CE;
-    else if (HasREX_WPrefix && OpPrefix == X86Local::XS)
-      insnContext = IC_64BIT_REXW_XS_CE;
-    else if (OpPrefix == X86Local::XD)
-      insnContext = IC_64BIT_XD_CE;
-    else if (OpPrefix == X86Local::XS)
-      insnContext = IC_64BIT_XS_CE;
-    else if (HasREX_WPrefix)
-      insnContext = IC_64BIT_REXW_CE;
-    else if (OpPrefix == X86Local::PD)
-      insnContext = IC_64BIT_OPSIZE_CE;
-    else
-      insnContext = IC_64BIT_CE;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   } else if (Is64Bit || HasREX_WPrefix || AdSize == X86Local::AdSize64) {
     if (HasREX_WPrefix && (OpSize == X86Local::OpSize16 || OpPrefix == X86Local::PD))
       insnContext = IC_64BIT_REXW_OPSIZE;
@@ -428,13 +391,6 @@ void RecognizableInstr::handleOperand(bool optional, unsigned &operandIndex,
   Spec->operands[operandIndex].encoding = encoding;
   Spec->operands[operandIndex].type =
       typeFromString(std::string(typeName), HasREX_WPrefix, OpSize);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  // Hack to force decoder using 32bits registers for memory operand
-  if (Spec->operands[operandIndex].type == TYPE_M && AdSize != 0 && IsIceCode)
-    Spec->operands[operandIndex].type = TYPE_M32;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   ++operandIndex;
   ++physicalOperandIndex;
@@ -977,12 +933,6 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("u4imm",               TYPE_UIMM8)
   TYPE("u8imm",               TYPE_UIMM8)
   TYPE("i16u8imm",            TYPE_UIMM8)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  TYPE("i32u4imm",            TYPE_UIMM8)
-  TYPE("i32u32imm",           TYPE_IMM)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   TYPE("i32u8imm",            TYPE_UIMM8)
   TYPE("i64u8imm",            TYPE_UIMM8)
   TYPE("GR8",                 TYPE_R8)
@@ -1361,11 +1311,6 @@ RecognizableInstr::relocationEncodingFromString(const std::string &s,
   ENCODING("i16imm",             ENCODING_Iv)
   ENCODING("i16i8imm",           ENCODING_IB)
   ENCODING("i32imm",             ENCODING_Iv)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  ENCODING("i32u32imm",          ENCODING_Iv)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   ENCODING("i32i8imm",           ENCODING_IB)
   ENCODING("i64i32imm",          ENCODING_ID)
   ENCODING("i64i8imm",           ENCODING_IB)
@@ -1412,11 +1357,6 @@ RecognizableInstr::opcodeModifierEncodingFromString(const std::string &s,
   ENCODING("GR16",            ENCODING_Rv)
   ENCODING("GR8",             ENCODING_RB)
   ENCODING("ccode",           ENCODING_CC)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  ENCODING("i32u4imm",        ENCODING_CC)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled opcode modifier encoding " << s << "\n";
   llvm_unreachable("Unhandled opcode modifier encoding");
 }

@@ -557,17 +557,6 @@ enum SegmentOverride {
   SEG_OVERRIDE_ES,
   SEG_OVERRIDE_FS,
   SEG_OVERRIDE_GS,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  SEG_OVERRIDE_PHYSEG_SUPOVR,
-  SEG_OVERRIDE_LDTR,
-  SEG_OVERRIDE_IDTR,
-  SEG_OVERRIDE_TR,
-  SEG_OVERRIDE_GDTR,
-  SEG_OVERRIDE_LINSEG_NOSUPOVR,
-  SEG_OVERRIDE_LINSEG_SUPOVR,
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   SEG_OVERRIDE_max
 };
 
@@ -648,12 +637,6 @@ struct InternalInstruction {
   bool hasOpSize;
   // Lock prefix
   bool hasLockPrefix;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  // IceCode only
-  bool isIceCode;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
   // The repeat prefix if any
   uint8_t repeatPrefix;
 

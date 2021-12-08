@@ -18,14 +18,6 @@ Target &llvm::getTheX86_64Target() {
   static Target TheX86_64Target;
   return TheX86_64Target;
 }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-Target &llvm::getTheX86_IceCodeTarget() {
-  static Target TheX86_IceCodeTarget;
-  return TheX86_IceCodeTarget;
-}
-#endif  // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetInfo() {
   RegisterTarget<Triple::x86, /*HasJIT=*/true> X(
@@ -33,11 +25,4 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetInfo() {
 
   RegisterTarget<Triple::x86_64, /*HasJIT=*/true> Y(
       getTheX86_64Target(), "x86-64", "64-bit X86: EM64T and AMD64", "X86");
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  RegisterTarget<Triple::x86_icecode, /*HasJIT=*/true> Z(
-      getTheX86_IceCodeTarget(), "x86-icecode", "64-bit X86: IceCode", "X86");
-#endif  // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
 }

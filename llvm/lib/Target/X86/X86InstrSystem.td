@@ -328,11 +328,6 @@ def POPGS32 : I<0xa9, RawFrm, (outs), (ins), "pop{l}\t{%gs|gs}", []>, TB,
 def POPGS64 : I<0xa9, RawFrm, (outs), (ins), "pop{q}\t{%gs|gs}", []>, TB,
                 OpSize32, Requires<[In64BitMode]>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-let Predicates = [NotIceCodeMode] in {
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 def LDS16rm : I<0xc5, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
                 "lds{w}\t{$src, $dst|$dst, $src}", []>, OpSize16,
                 Requires<[Not64BitMode]>;
@@ -368,11 +363,6 @@ def LGS32rm : I<0xb5, MRMSrcMem, (outs GR32:$dst), (ins opaquemem:$src),
 
 def LGS64rm : RI<0xb5, MRMSrcMem, (outs GR64:$dst), (ins opaquemem:$src),
                  "lgs{q}\t{$src, $dst|$dst, $src}", []>, TB;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-}
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
 def VERRr : I<0x00, MRM4r, (outs), (ins GR16:$seg), "verr\t$seg", []>, TB, NotMemoryFoldable;
 def VERWr : I<0x00, MRM5r, (outs), (ins GR16:$seg), "verw\t$seg", []>, TB, NotMemoryFoldable;

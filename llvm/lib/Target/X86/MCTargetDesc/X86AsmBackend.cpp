@@ -1630,14 +1630,3 @@ MCAsmBackend *llvm::createX86_64AsmBackend(const Target &T,
     return new ELFX86_X32AsmBackend(T, OSABI, STI);
   return new ELFX86_64AsmBackend(T, OSABI, STI);
 }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-MCAsmBackend *llvm::createX86_IceCodeAsmBackend(const Target &T,
-                                           const MCSubtargetInfo &STI,
-                                           const MCRegisterInfo &MRI,
-                                           const MCTargetOptions &Options) {
-  return createX86_64AsmBackend(T, STI, MRI, Options);
-}
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION

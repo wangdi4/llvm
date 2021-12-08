@@ -58,7 +58,7 @@ static bool collapseLoops(
   LLVM_DEBUG(dbgs() << PASS_NAME << ": Before Par Sections Transformation");
   LLVM_DEBUG(dbgs() << F << " \n");
 
-  Changed = VPOUtils::parSectTransformer(&F, WI.getDomTree());
+  Changed = VPOUtils::parSectTransformer(&F, WI.getDomTree(), WI.getLoopInfo());
 
   LLVM_DEBUG(dbgs() << PASS_NAME << ": After Par Sections Transformation");
   LLVM_DEBUG(dbgs() << F << " \n");

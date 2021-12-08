@@ -739,11 +739,10 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     // Tolerate a dynamic alloca representing a character array. This can
     // be generalized if we find it useful.
     if (DTransInlineHeuristics)
-       if (auto PTy = dyn_cast<PointerType>(I.getType()))
-         if (auto ATy = dyn_cast<ArrayType>(PTy->getElementType()))
-           if (ATy->getElementType()->isIntegerTy(8) &&
-               ATy->getNumElements() <= DynAllocaMaxCharArraySize)
-             return true;
+       if (auto ATy = dyn_cast<ArrayType>(I.getAllocatedType()))
+         if (ATy->getElementType()->isIntegerTy(8) &&
+             ATy->getNumElements() <= DynAllocaMaxCharArraySize)
+           return true;
   }
   return false;
 }

@@ -784,31 +784,6 @@ def i32u8imm : Operand<i32> {
   let OperandType = "OPERAND_IMMEDIATE";
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-// 32-bit immediate but only 4-bits are significant and they are unsigned.
-// Used by some IceCode instructions that use intrinsics.
-def i32u4imm : Operand<i32> {
-  let PrintMethod = "printU8Imm";
-  let ParserMatchClass = ImmUnsignedi4AsmOperand;
-  let OperandType = "OPERAND_IMMEDIATE";
-}
-
-// 32-bit immediate used by some IceCode instructions.
-// [0, 0xFFFFFFFF]
-def ImmUnsignedi32AsmOperand : AsmOperandClass {
-  let Name = "ImmUnsignedi32";
-  let RenderMethod = "addImmOperands";
-  let DiagnosticType = "InvalidImmUnsignedi32";
-}
-
-def i32u32imm : Operand<i32> {
-  let ParserMatchClass = ImmUnsignedi32AsmOperand;
-  let OperandType = "OPERAND_IMMEDIATE";
-}
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
 // 64-bit immediate but only 8-bits are significant and they are unsigned.
 // Used by BT instructions.
 def i64u8imm : Operand<i64> {
@@ -1279,14 +1254,6 @@ def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of Mode64Bit), "64-bit mode">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-def NotIceCodeMode : Predicate<"!Subtarget->isIceCode()">,
-                               AssemblerPredicate<(all_of (not ModeIceCode)), "Not IceCode mode">;
-def InIceCodeMode  : Predicate<"Subtarget->isIceCode()">,
-                               AssemblerPredicate<(all_of ModeIceCode), "IceCode mode">;
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
 def NotLP64 : Predicate<"!Subtarget->isTarget64BitLP64()">;
 def In16BitMode  : Predicate<"Subtarget->is16Bit()">,
@@ -3461,11 +3428,6 @@ include "X86InstrSGX.td"
 
 include "X86InstrTDX.td"
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-include "Intel_X86InstrIceCode.td"
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 // Key Locker instructions
 include "X86InstrKL.td"
 

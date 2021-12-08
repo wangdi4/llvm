@@ -86,11 +86,6 @@ public:
     thumbeb,        // Thumb (big endian): thumbeb
     x86,            // X86: i[3-9]86
     x86_64,         // X86-64: amd64, x86_64
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    x86_icecode,    // X86-IceCode: IceCode
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
     xcore,          // XCore: xcore
     nvptx,          // NVPTX: 32-bit
     nvptx64,        // NVPTX: 64-bit
