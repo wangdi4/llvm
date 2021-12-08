@@ -385,8 +385,18 @@ private:
   template <typename RangeTy>
   unsigned getRangeCost(RangeTy Range, raw_ostream *OS) {
     unsigned Cost = 0;
-    for (auto *Block : Range)
-      Cost += getCostImpl(Block, OS);
+    const VPLoop *MainLoop = Plan->getMainLoop(true);
+    for (auto *Block : Range) {
+      // Call getCostImpl() unconditionally to trigger debug dumping.
+      // The cost of blocks that are not part of the loop is ignored
+      // though.
+      // TODO: Rather than ignoring the cost of blocks that are out
+      // out of the loop we want to take their weighted by execution
+      // counts costs.
+      unsigned BlockCost = getCostImpl(Block, OS);
+      if (MainLoop->contains(Block))
+        Cost += BlockCost;
+    }
     return Cost;
   }
 
