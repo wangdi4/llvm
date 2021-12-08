@@ -152,6 +152,7 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_loop)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_parallel_loop)
 OPENMP_DIRECTIVE_SPIR_SUBSET(allocate)
 OPENMP_DIRECTIVE_SPIR_SUBSET(prefetch)
+OPENMP_DIRECTIVE_SPIR_SUBSET(metadirective)
 #endif // INTEL_CUSTOMIZATION
 
 // Static attributes for 'schedule' clause.
