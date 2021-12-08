@@ -274,32 +274,6 @@ protected:
                    Any) override;
 };
 
-class IRChangedTester : public IRChangedPrinter {
-public:
-  IRChangedTester() : IRChangedPrinter(true) {}
-  ~IRChangedTester() override;
-  void registerCallbacks(PassInstrumentationCallbacks &PIC);
-
-protected:
-  void handleIR(const std::string &IR, StringRef PassID);
-
-  // Check initial IR
-  void handleInitialIR(Any IR) override;
-  // Do nothing.
-  void omitAfter(StringRef PassID, std::string &Name) override;
-  // Do nothing.
-  void handleInvalidated(StringRef PassID) override;
-  // Do nothing.
-  void handleFiltered(StringRef PassID, std::string &Name) override;
-  // Do nothing.
-  void handleIgnored(StringRef PassID, std::string &Name) override;
-
-  // Call test as interesting IR has changed.
-  void handleAfter(StringRef PassID, std::string &Name,
-                   const std::string &Before, const std::string &After,
-                   Any) override;
-};
-
 // Information that needs to be saved for a basic block in order to compare
 // before and after the pass to determine if it was changed by a pass.
 template <typename T> class BlockDataT {
@@ -536,8 +510,11 @@ class StandardInstrumentations {
   InLineChangePrinter PrintChangedDiff;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   DotCfgChangeReporter WebsiteChangeReporter;
+<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   IRChangedTester ChangeTester;
+=======
+>>>>>>> c4ce4265043b28cbdae63ae4e0bf152b5d330b44
   VerifyInstrumentation Verify;
 
   bool VerifyEach;
