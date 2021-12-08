@@ -12174,8 +12174,6 @@ bool SLPVectorizerPass::vectorizeSimpleInstructions(
     }
     // Try to vectorize list of compares.
     // Sort by type, compare predicate, etc.
-    // TODO: Add analysis on the operand opcodes (profitable to vectorize
-    // instructions with same/alternate opcodes/const values).
     auto &&CompareSorter = [&R](Value *V, Value *V2) {
       auto *CI1 = cast<CmpInst>(V);
       auto *CI2 = cast<CmpInst>(V2);
@@ -12187,10 +12185,42 @@ bool SLPVectorizerPass::vectorizeSimpleInstructions(
       if (CI1->getOperand(0)->getType()->getTypeID() >
           CI2->getOperand(0)->getType()->getTypeID())
         return false;
+#if INTEL_COLLAB
+      CmpInst::Predicate Pred1 = CI1->getPredicate();
+      CmpInst::Predicate Pred2 = CI2->getPredicate();
+      CmpInst::Predicate SwapPred1 = CmpInst::getSwappedPredicate(Pred1);
+      CmpInst::Predicate SwapPred2 = CmpInst::getSwappedPredicate(Pred2);
+      CmpInst::Predicate BasePred1 = std::min(Pred1, SwapPred1);
+      CmpInst::Predicate BasePred2 = std::min(Pred2, SwapPred2);
+      if (BasePred1 < BasePred2)
+        return true;
+      if (BasePred1 > BasePred2)
+        return false;
+      // Compare operands.
+      for (int I = 0, E = CI1->getNumOperands(); I < E; ++I) {
+        auto *Op1 = CI1->getOperand(Pred1 <= Pred2 ? I : E - I - 1);
+        auto *Op2 = CI2->getOperand(Pred1 >= Pred2 ? I : E - I - 1);
+        if (Op1->getValueID() < Op2->getValueID())
+          return true;
+        if (Op1->getValueID() > Op2->getValueID())
+          return false;
+        if (auto *I1 = dyn_cast<Instruction>(Op1))
+          if (auto *I2 = dyn_cast<Instruction>(Op2)) {
+            if (I1->getParent() != I2->getParent())
+              return false;
+            InstructionsState S = getSameOpcode({I1, I2});
+            if (S.getOpcode())
+              continue;
+            return false;
+          }
+      }
+      return false;
+#else // INTEL_COLLAB
       return CI1->getPredicate() < CI2->getPredicate() ||
              (CI1->getPredicate() > CI2->getPredicate() &&
               CI1->getPredicate() <
                   CmpInst::getSwappedPredicate(CI2->getPredicate()));
+#endif // INTEL_COLLAB
     };
 
     auto &&AreCompatibleCompares = [&R](Value *V1, Value *V2) {
@@ -12202,9 +12232,32 @@ bool SLPVectorizerPass::vectorizeSimpleInstructions(
         return false;
       if (CI1->getOperand(0)->getType() != CI2->getOperand(0)->getType())
         return false;
+#if INTEL_COLLAB
+      CmpInst::Predicate Pred1 = CI1->getPredicate();
+      CmpInst::Predicate Pred2 = CI2->getPredicate();
+      if (Pred1 != Pred2 && Pred1 != CmpInst::getSwappedPredicate(Pred2))
+        return false;
+      // Compare operands.
+      for (int I = 0, E = CI1->getNumOperands(); I < E; ++I) {
+        auto *Op1 = CI1->getOperand(I);
+        auto *Op2 = CI2->getOperand(Pred1 == Pred2 ? I : E - I - 1);
+        if (Op1->getValueID() != Op2->getValueID())
+          return false;
+        if (auto *I1 = dyn_cast<Instruction>(Op1))
+          if (auto *I2 = dyn_cast<Instruction>(Op2)) {
+            if (I1->getParent() != I2->getParent())
+              return false;
+            InstructionsState S = getSameOpcode({I1, I2});
+            if (!S.getOpcode())
+              return false;
+          }
+      }
+      return true;
+#else // INTEL_COLLAB
       return CI1->getPredicate() == CI2->getPredicate() ||
              CI1->getPredicate() ==
                  CmpInst::getSwappedPredicate(CI2->getPredicate());
+#endif // INTEL_COLLAB
     };
     auto Limit = [&R](Value *V) {
       unsigned EltSize = R.getVectorElementSize(V);
