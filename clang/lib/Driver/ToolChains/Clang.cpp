@@ -1011,6 +1011,23 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
       CmdArgs.push_back(Args.MakeArgString(CoverageFilename));
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // -fprofile-instr-generate cannot work with incremental linking on Windows
+  if (D.IsIntelMode() && D.IsCLMode() && ProfileGenerateArg) {
+    auto linkArgs = Args.getAllArgValues(options::OPT__SLASH_link);
+    for (auto iter = linkArgs.rbegin(); iter != linkArgs.rend(); ++iter) {
+      std::string argLower = std::move(StringRef(*iter).substr(1).lower());
+      if (argLower.compare("incremental:no") == 0)
+        break;
+      else if (argLower.compare("incremental") == 0) {
+        D.Diag(diag::err_drv_argument_not_allowed_with)
+            << ProfileGenerateArg->getSpelling() << "-incremental";
+        break;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Check whether the given input tree contains any compilation actions.
