@@ -59,7 +59,10 @@ void CL_base::SetUp() {
   m_context = clCreateContext(prop, 1, &m_device, NULL, NULL, &err);
   ASSERT_OCL_SUCCESS(err, " clCreateContext");
 
-  m_queue = clCreateCommandQueueWithProperties(m_context, m_device, 0, &err);
+    cl_command_queue_properties properties[] = {CL_QUEUE_PROPERTIES,
+                                                CL_QUEUE_PROFILING_ENABLE, 0};
+    m_queue = clCreateCommandQueueWithProperties(m_context, m_device,
+                                                 properties, &err);
   ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
 }
 
