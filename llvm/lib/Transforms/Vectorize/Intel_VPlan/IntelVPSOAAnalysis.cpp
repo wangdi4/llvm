@@ -40,6 +40,10 @@ static bool checkInstructionInLoop(const VPValue *V, const VPLoop &Loop) {
          Loop.contains(cast<VPInstruction>(V)->getParent());
 }
 
+static bool areTypeSizesEqual(const DataLayout *DL, Type *Ty1, Type *Ty2) {
+  return DL->getTypeSizeInBits(Ty1) == DL->getTypeSizeInBits(Ty2);
+}
+
 // Public interface for SOA-analysis for all loop-privates. \p SOAVars is the
 // output argument that return the variables marked for SOA-layout.
 void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
@@ -77,36 +81,10 @@ bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
           (isScalarTy(cast<ArrayType>(Ty)->getElementType())));
 }
 
-// Return true if \p UseInst is a safe cast instruction, i.e. it's a
-// pointer-to-pointer cast that doesn't change the size of the pointed-to
-// elements.
-bool VPSOAAnalysis::isPotentiallyUnsafeCast(const VPInstruction *UseInst) {
-  if (!UseInst || (UseInst->getOpcode() != Instruction::BitCast &&
-                   UseInst->getOpcode() != Instruction::AddrSpaceCast))
-    return false;
-
-  // We expect to have only pointer-type operands.
-  PointerType *SrcPtrTy =
-      dyn_cast<PointerType>(UseInst->getOperand(0)->getType());
-  if (!SrcPtrTy)
-    return true;
-
-  PointerType *DstPtrTy = cast<PointerType>(UseInst->getType());
-  return Plan.getDataLayout()->getTypeSizeInBits(
-             SrcPtrTy->getPointerElementType()) !=
-         Plan.getDataLayout()->getTypeSizeInBits(
-             DstPtrTy->getPointerElementType());
-}
-
 // Returns true if UseInst is any function call, that we know is safe to pass a
 // private-pointer to and does not change the data-layout.
-bool VPSOAAnalysis::isSafePointerEscapeFunction(const VPInstruction *UseInst) {
-
-  auto *VPCall = dyn_cast<VPCallInstruction>(UseInst);
-
-  // If this is not a call-instruction, return false.
-  if (!VPCall)
-    return false;
+bool VPSOAAnalysis::isSafePointerEscapeFunction(
+    const VPCallInstruction *VPCall) {
 
   // Only lifetime_start/end and invariant_start/end intrinsics are considered
   // safe.
@@ -115,47 +93,116 @@ bool VPSOAAnalysis::isSafePointerEscapeFunction(const VPInstruction *UseInst) {
        Intrinsic::invariant_start, Intrinsic::invariant_end});
 }
 
-// Returns true if the instruction has operands registered as potentially-unsafe
-// during analysis.
-bool VPSOAAnalysis::hasPotentiallyUnsafeOperands(const VPInstruction *UseInst) {
-  return any_of(UseInst->operands(), [=](const VPValue *VPOper) {
-    return PotentiallyUnsafeInsts.count(VPOper);
-  });
-}
-
 // Returns true if any of the following instruction with specific constraints
 // are encountered.
-bool VPSOAAnalysis::isSafeLoadStore(const VPInstruction *UseInst,
-                                    const VPInstruction *CurrentI) {
-  if (auto *LSI = dyn_cast<VPLoadStoreInst>(UseInst)) {
-    // If this is a non-simple (e.g. volatile) load/store, treat this as
-    // unsafe.
-    if (!LSI->isSimple())
-      return false;
+bool VPSOAAnalysis::isSafeLoadStore(const VPLoadStoreInst *LSI,
+                                    const VPInstruction *CurrentI,
+                                    Type *PrivElemSize) {
+  // If this is a non-simple (e.g. volatile) load/store, treat this as
+  // unsafe.
+  if (!LSI->isSimple())
+    return false;
 
-    // We consider loads/stores unsafe when the pointer operand is considered
-    // potentially unsafe (e.g., via unsafe bitcast).
-    if (PotentiallyUnsafeInsts.count(LSI->getPointerOperand()))
-      return false;
+  // In addition, we consider stores unsafe when the private-pointer or its
+  // alias escapes via a write to external memory.
+  if (LSI->getOpcode() == Instruction::Store &&
+      LSI->getOperand(0) == CurrentI)
+    return false;
 
-    // In addition, we consider stores unsafe when the private-pointer or its
-    // alias escapes via a write to external memory.
-    if (LSI->getOpcode() == Instruction::Store &&
-        LSI->getOperand(0) == CurrentI)
-      return false;
+  // Non-scalar types are not supported yet.
+  if (!isScalarTy(LSI->getValueType()))
+    return false;
 
+  // UseInst is a potentially unsafe load/store instruction, i.e.
+  // the size of memory loaded/stored is different from the original private
+  // alloca element type size, e.g.:
+  //
+  // ptr %vp1 = allocate-priv [2520 x i8]*
+  // double %vp2 = load ptr %vp1
+  // getTypeSizeInBits(i8) != getTypeSizeInBits(double).
+  // Note, SOA transformation is legal when load/store size is
+  // less than an element type. However, it is not profitable
+  // as it causes gathers, it is also difficult to calculate
+  // strides for load/store without the underlying type knowledge.
+  return areTypeSizesEqual(Plan.getDataLayout(),
+                           LSI->getValueType(), PrivElemSize);
+}
+
+bool VPSOAAnalysis::isSafeGEPInst(const VPGEPInstruction *VPGEP,
+                                  Type *AllocatedType,
+                                  Type *PrivElemSize) const {
+  // Any GEP with original type is safe.
+  if (VPGEP->getSourceElementType() == AllocatedType)
     return true;
-  }
 
-  return false;
+  // Non-scalar types are not supported yet.
+  if (!isScalarTy(VPGEP->getSourceElementType()))
+    return false;
+
+  // GEP can be potentially unsafe when it computes pointers
+  // using a type with different size from the original private
+  // alloca element type size, e.g.:
+  //
+  // %arr.priv = alloca [1024 x i32]
+  // %gep = getelementptr inbounds i8, ptr %down, i64 2
+  // %ld = load i32, ptr %gep
+  //
+  // TODO: for struct aggregates, check if the type is the same as the
+  // original private element type.
+  return areTypeSizesEqual(Plan.getDataLayout(),
+                           VPGEP->getSourceElementType(), PrivElemSize);
+}
+
+bool VPSOAAnalysis::isSafeVPSubscriptInst(const VPSubscriptInst *VPS,
+                                          Type *AllocatedType,
+                                          Type *PrivElemSize) const {
+  // For supported privates we should have 2-dim VPSubscript.
+  if (VPS->getNumDimensions() != 2)
+    return false;
+
+  Type *Dim1Ty = VPS->dim(1).DimElementType;
+  Type *Dim0Ty = VPS->dim(0).DimElementType;
+
+  // Non-scalar types are not supported yet.
+  if (!isScalarTy(Dim0Ty))
+    return false;
+
+  // The type of the 0 dimension should have the same width,
+  // and the type of 1 should be equal to Allocated type.
+  return (Dim1Ty == AllocatedType) &&
+          areTypeSizesEqual(Plan.getDataLayout(), Dim0Ty, PrivElemSize);
 }
 
 // An umbrella function to determine the safety of an operation.
+// Return false when we want to report that the memory escapes.
 bool VPSOAAnalysis::isSafeUse(const VPInstruction *UseInst,
-                              const VPInstruction *CurrentI) {
-  return isTrivialPointerAliasingInst<VPInstruction>(UseInst) ||
-         isSafePointerEscapeFunction(UseInst) ||
-         isSafeLoadStore(UseInst, CurrentI);
+                              const VPInstruction *CurrentI,
+                              Type *AllocatedType) {
+  Type *PrivElemSize = cast<ArrayType>(AllocatedType)->getElementType();
+
+  switch (UseInst->getOpcode()) {
+  case Instruction::GetElementPtr:
+    return isSafeGEPInst(cast<VPGEPInstruction>(UseInst),
+                         AllocatedType, PrivElemSize);
+  case VPInstruction::Subscript:
+    return isSafeVPSubscriptInst(cast<VPSubscriptInst>(UseInst),
+                                 AllocatedType, PrivElemSize);
+  case Instruction::Call:
+    return isSafePointerEscapeFunction(cast<VPCallInstruction>(UseInst));
+  case Instruction::Load:
+  case Instruction::Store:
+    return isSafeLoadStore(cast<VPLoadStoreInst>(UseInst),
+                           CurrentI, PrivElemSize);
+  case VPInstruction::InductionInit:
+    // Intentionally use isa<> to make assert non-trivial,
+    // so LLVM_FALLTHROUGH can be used without compiler warning
+    // for LLVM_FALLTHROUGH being used in unreachable code.
+    assert(!isa<VPInductionInit>(UseInst) &&
+           "VPInductionInit is not supported yet");
+    LLVM_FALLTHROUGH;
+  default:
+    return isTrivialPointerAliasingInst<VPInstruction>(UseInst);
+  }
 }
 
 // Return true if the instruction is either in the loop-preheader or the
@@ -171,23 +218,20 @@ bool VPSOAAnalysis::isInstructionInRelevantScope(const VPInstruction *UseInst) {
 // Function which determines if the given loop-entity escapes.
 bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
 
-  // Clear the 'PotentiallyUnsafeInsts' dense-set.
-  PotentiallyUnsafeInsts.clear();
-
   // Clear the WorkList and AnalyzedInsts of contents of the earlier run.
   WL.clear();
   AnalyzedInsts.clear();
 
   // If this is a scalar-private, just return. The real memory layout for simple
   // scalars is identical for both SOA and AOS, it's just vector of elements.
-  assert(Alloca->getType()->isPointerTy() &&
-         "Expect the 'alloca' to have a pointer-type.");
-  if (isScalarTy(Alloca->getAllocatedType()))
+  Type *AllocatedType = Alloca->getAllocatedType();
+  if (isScalarTy(AllocatedType))
     return false;
 
   // Non-array aggregate types are currently not supported. Conservatively, just
   // return 'true', i.e., the memory escapes.
-  if (!isSOASupportedTy(Alloca->getAllocatedType()))
+  // TODO: add support for non-scalar types.
+  if (!isSOASupportedTy(AllocatedType))
     return true;
 
   // Initialize the WorkList with the memory-pointer.
@@ -196,8 +240,8 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
   // Get all the Uses of these instructions. Consider the use as safe under
   // the following conditions,
   //
-  // 1) If it is load/store, where the pointer does not come via an unsafe
-  //  bitcast.
+  // 1) If it is load/store, where the size of the loaded/stored memory is
+  // the same as the size of the original element type in the alloca.
   //
   // 2) If it is a store and the value-operand, a pointer we are checking, is
   // not written to external memory (e.g., output argument of a function).
@@ -214,45 +258,29 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
   while (!WL.empty()) {
     const VPInstruction *CurrentI = WL.pop_back_val();
 
-    // If the UseInst has already been analyzed, skip.
-    if (!AnalyzedInsts.insert(CurrentI).second)
-      continue;
-
     // Analyze the users of the current-instruction.
     for (VPValue *User : CurrentI->users()) {
       const VPInstruction *UseInst = dyn_cast<VPInstruction>(User);
 
       // We are only interested in pointer or its alias which is either in the
       // Loop-preheader of within the loop itself.
+      // TODO: this seems fragile, it is better to use an explicit check,
+      // in case VPlan evolves in the future.
       if (!isInstructionInRelevantScope(UseInst))
         continue;
 
-      if (!isSafeUse(UseInst, CurrentI))
+      // Determine if the instruction is potentially unsafe.
+      if (!isSafeUse(UseInst, CurrentI, AllocatedType))
         return true;
+
+      // If we already pushed the users of the UseInst then skip them.
+      if (!AnalyzedInsts.insert(UseInst).second)
+        continue;
 
       if (isTrivialPointerAliasingInst<VPInstruction>(UseInst))
         // If this is one of the aliasing instructions add it to the
-        // worklist.
+        // worklist, we'd like to look through them.
         WL.insert(UseInst);
-
-      // Determine if the instruction is potentially unsafe. It could be
-      // potentially unsafe when,
-      //
-      // 1) It results in a narrowed or widened pointer.
-      //    e.g., %bc = bitcast [624 x i32]* priv.ptr to i8*
-      // 2) One of the operands has previously been determined as unsafe.
-      //    e.g., Could use the previous bitcast either directly or
-      //    indirectly,
-      //          %l2 = load i8, i8* %bc
-      //                    or
-      //          %gep = ....
-      //               ...
-      //               ...
-      //          %bc2 = bitcast ...
-      //          %l2 = load i8, i8* %bc2
-      if (isPotentiallyUnsafeCast(UseInst) ||
-          hasPotentiallyUnsafeOperands(UseInst))
-        PotentiallyUnsafeInsts.insert(UseInst);
     }
   }
   // All encountered uses to the pointer or its aliases are safe instructions.
@@ -286,6 +314,11 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
         isProfitableForSOA(cast<VPInstruction>(I->getOperand(0)));
     return AccessProfitabilityInfo[I] = IsProfitable;
   }
+
+  // If we reached the original alloca, then access does not depend
+  // on any indices.
+  if (auto *VPAlloca = dyn_cast<VPAllocatePrivate>(I))
+    return AccessProfitabilityInfo[I] = true;
 
   // We should have a GEP/Subscript at this point. The safety-analysis rules out
   // other instructions which were deemed unsafe for SOA-layout. This includes
@@ -401,7 +434,6 @@ void VPSOAAnalysis::dump(raw_ostream &OS) const {
     return;
 
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
-  // TODO: Dump profitability information along with safety information.
   OS << "SOA profitability:\n";
   for (VPInstruction &VPInst : *Preheader) {
     if (VPAllocatePrivate *VPAllocaPriv =

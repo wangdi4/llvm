@@ -71,7 +71,8 @@ inline size_t getScalarBits(Instruction *LI, const DataLayout &DL) {
 /// \returns the number of vector elements of \p Ty. It returns 1 if \Ty is
 /// scalar.
 inline size_t getNumElementsSafe(Type *Ty) {
-  return (isa<VectorType>(Ty) ? cast<VectorType>(Ty)->getNumElements() : 1);
+  return (isa<FixedVectorType>(Ty) ?
+            cast<FixedVectorType>(Ty)->getNumElements() : 1);
 }
 
 /// \returns the memory location that is being access by the instruction.

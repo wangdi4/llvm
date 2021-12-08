@@ -32,6 +32,9 @@ class VPLoop;
 class VPInstruction;
 class VPValue;
 class VPLoadStoreInst;
+class VPGEPInstruction;
+class VPCallInstruction;
+class VPSubscriptInst;
 
 extern bool VPlanDisplaySOAAnalysisInformation;
 
@@ -65,10 +68,6 @@ private:
   // Set to avoid repeat-processing in case of cyclic Use-Def chains.
   DenseSet<const VPInstruction *> AnalyzedInsts;
 
-  // The list of potentially unsafe instructions. The users of these
-  // instructions have to be analyzed for any unsafe behavior.
-  DenseSet<const VPValue *> PotentiallyUnsafeInsts;
-
   // Cache to hold previously-determined profitable/unprofitable mem-accesses.
   DenseMap<const VPInstruction *, bool> AccessProfitabilityInfo;
 
@@ -79,30 +78,36 @@ private:
   const VPLoop &Loop;
 
   /// \returns true if \p UseInst is a safe operation. This would evaluate
-  /// to see if \p UseInst is a trivial pointer aliasing instruction, a safe
-  /// function-call or a safe load/store as determined by
-  /// \link VPSOAAnalysis::isSafeInstruction \endlink.
-  bool isSafeUse(const VPInstruction *UseInst, const VPInstruction *CurrentI);
+  /// to see if \p UseInst is a trivial pointer aliasing instruction,
+  /// or a safe function-call.
+  bool isSafeUse(const VPInstruction *UseInst,
+                 const VPInstruction *CurrentI,
+                 Type *AllocatedType);
 
   /// \returns true if \p UseInst is a safe instruction. Load/Stores are
   /// tested for various constraints to determine safety and every other
   /// instruction is considered unsafe.
-  bool isSafeLoadStore(const VPInstruction *UseInst,
-                       const VPInstruction *CurrentI);
+  bool isSafeLoadStore(const VPLoadStoreInst *LSI,
+                       const VPInstruction *CurrentI,
+                       Type *PrivElemSize);
+
+  /// \returns true is \p VPGEP is a safe instruction.
+  bool isSafeGEPInst(const VPGEPInstruction *VPGEP,
+                     Type *AllocatedType,
+                     Type *PrivElemSize) const;
+
+  /// \returns true is \p VPS is a safe instruction.
+  bool isSafeVPSubscriptInst(const VPSubscriptInst *VPS,
+                             Type *AllocatedType,
+                             Type *PrivElemSize) const;
 
   /// Determine if the memory pointed to by the Alloca escapes.
   bool memoryEscapes(const VPAllocatePrivate *Alloca);
 
-  /// \return true if \p UseInst is a known unsafe cast instruction.
-  bool isPotentiallyUnsafeCast(const VPInstruction *UseInst);
-
-  /// \ return true if \p UseInst has any potentially-unsafe operands.
-  bool hasPotentiallyUnsafeOperands(const VPInstruction *UseInst);
-
   /// \returns true if \p UseInst is any function call that we know is a
   /// safe-function, i.e., passing a private-pointer would not result in
   /// change of data-layout on the pointee.
-  bool isSafePointerEscapeFunction(const VPInstruction *UseInst);
+  bool isSafePointerEscapeFunction(const VPCallInstruction *VPCall);
 
   /// \returns true if \p Val's pointee-type is a scalar.
   bool isSOASupportedTy(Type *Ty);
