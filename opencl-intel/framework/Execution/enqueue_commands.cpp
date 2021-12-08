@@ -2556,9 +2556,11 @@ cl_err_code WriteMemObjCommand::CommandDone()
 cl_err_code RuntimeCommand::Execute()
 {
     LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
     CommandDone();
-    m_Event->SetEventState(EVENT_STATE_DONE);
-    DetachEventSharedPtr();
+    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                           Intel::OpenCL::Utils::HostTime());
     return m_returnCode;
 }
 
