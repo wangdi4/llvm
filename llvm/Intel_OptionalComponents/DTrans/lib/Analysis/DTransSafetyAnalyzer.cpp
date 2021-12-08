@@ -5650,12 +5650,11 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
     bool FSV_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleValue);
     bool FSAF_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction);
     for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
-      if (FSV_Unsafe ||
-          (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()) ||
-          StInfo->getField(I).getLLVMType()->isAggregateType())
+      bool AddressTaken = StInfo->getField(I).isAddressTaken();
+      bool Aggregate = StInfo->getField(I).getLLVMType()->isAggregateType();
+      if (FSV_Unsafe || (!UsingOutOfBoundsOK && AddressTaken) || Aggregate)
         StInfo->getField(I).setIncompleteValueSet();
-      if (FSAF_Unsafe ||
-          (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()))
+      if (FSAF_Unsafe || (!UsingOutOfBoundsOK && AddressTaken) || Aggregate)
         StInfo->updateSingleAllocFuncToBottom(I);
     }
   }
