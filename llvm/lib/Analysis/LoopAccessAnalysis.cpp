@@ -1625,15 +1625,11 @@ MemoryDepChecker::isDependent(const MemAccessInfo &A, unsigned AIdx,
 
   // Write to the same location with the same size.
   if (Val == 0) {
-<<<<<<< HEAD
-    if (ATy == BTy ||  // INTEL
+    if (HasSameSize ||  // INTEL
 #if INTEL_CUSTOMIZATION
        (ATy->getPrimitiveSizeInBits() == BTy->getPrimitiveSizeInBits() &&
         ATy->getPrimitiveSizeInBits() > 0))
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (HasSameSize)
->>>>>>> 77b2bb55671ab0f2daa84f48db7947dc58f065f2
       return Dependence::Forward;
     LLVM_DEBUG(
         dbgs() << "LAA: Zero dependence difference but different type sizes\n");
