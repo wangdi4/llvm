@@ -1,0 +1,44 @@
+# UNSUPPORTED: !linux
+# REQUIRES: asserts
+
+# This test checks that the temporary files created were removed properly.
+
+# Copy the files into the temporary directory, this is to prevent multiple
+# processes accessing the same files when running the test system in parallel.
+# RUN: cp %S/Inputs/test_file_8.cpp test_file_8.cpp
+
+# Compile with G++ and LTO
+# RUN: g++ -c -flto test_file_8.cpp
+
+# Make sure the temporary directory doesn't exists
+# RUN: rm -rf %t_tmp-lld-files
+
+# Create a temporary directory and set $TMP
+# RUN: mkdir %t_tmp-lld-files
+# RUN: export TMPBCK=$TMP
+# RUN: export TMP=%t_tmp-lld-files
+
+# Link
+# RUN: ld.lld test_file_8.o -o test_file_8 > %t_out.txt 2>&1
+
+# Collect the data from temporary files
+# RUN: ls $TMP > %t_out_files.txt
+
+# Clean the temporary directory first in case the check fails
+# RUN: export TMP=$TMPBCK
+# RUN: rm -rf %t_tmp-lld-files
+# RUN: unset TMPBCK
+
+# RUN: rm test_file_8.o
+# RUN: rm test_file_8
+
+# Check that there wasn't any issue while removing the files
+# RUN: cat %t_out.txt | FileCheck -check-prefix=CHECKLINK %s -allow-empty
+CHECKLINK: GNU LTO files found in the command line.
+CHECKLINK-NOT: Issue while removing GNU LTO file
+CHECKLINK: cannot find entry symbol _start; not setting start address
+
+# Check that there is no trace for termporary files
+# RUN: cat %t_out_files.txt | FileCheck -check-prefix=CHECKTMP %s -allow-empty
+CHECKTMP-NOT: lld-gnu-lto-temp
+

@@ -691,6 +691,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT_traceback))
     CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
+
+  // PGO cannot work with incremental linking on Windows
+  if (C.getDriver().IsIntelMode() && C.getDriver().IsCLMode())
+    if (Arg *A = Args.getLastArg(options::OPT_fprofile_instr_generate,
+                                 options::OPT_fprofile_instr_generate_EQ,
+                                 options::OPT_fno_profile_instr_generate))
+      if (!A->getOption().matches(options::OPT_fno_profile_instr_generate))
+        CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
 #endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgValues(CmdArgs, options::OPT__SLASH_link);
