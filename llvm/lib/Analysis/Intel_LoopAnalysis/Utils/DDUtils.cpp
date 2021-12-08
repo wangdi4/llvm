@@ -362,6 +362,11 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
   RegDDRef *LRef = Inst->getLvalDDRef();
 
+  // Only allow one pre-loop store inst
+  if (PreLoopStoreInst && isa<StoreInst>(LLVMInst)) {
+    return false;
+  }
+
   // Get the store inst if non-perfect sinking is allowed
   if (AllowNonPerfectSinking && !PreLoopStoreInst && isa<StoreInst>(LLVMInst)) {
 
@@ -382,7 +387,7 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
     // TmpInitializationInst. If there is no PreLoopStoreInst existed, it might
     // be the case without pre loop store inst. We will check this pattern in
     // the gatherPostloopInsts().
-    if ((PreLoopStoreInst &&
+    if (((!TmpInitializationInst) && PreLoopStoreInst &&
          DDRefUtils::areEqual(PreLoopStoreInst->getRvalDDRef(), RRef)) ||
         (!PreLoopStoreInst && Inst->getRvalDDRef()->isConstant())) {
       TmpInitializationInst = Inst;
