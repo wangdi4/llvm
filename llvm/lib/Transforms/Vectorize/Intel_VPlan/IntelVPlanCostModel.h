@@ -23,6 +23,7 @@
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanTTIWrapper.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlanVLSTransform.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
