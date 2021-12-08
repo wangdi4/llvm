@@ -659,6 +659,7 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
 static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
                               IRBuilder<> &Builder, const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
+  Type *BasePtrTy = GEP->getSourceElementType()->getScalarType();
   unsigned LoadCount = 0;
   unsigned ConstCount = 0;
 
@@ -715,9 +716,7 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
   }
 
   // Create a GEP from the scalar components.
-  return Builder.CreateGEP(
-      Base->getType()->getScalarType()->getPointerElementType(), Base, Indices,
-      "Ptr" + Twine(Element));
+  return Builder.CreateGEP(BasePtrTy, Base, Indices, "Ptr" + Twine(Element));
 }
 
 static Value *getScalarAddress(Value *Ptrs, unsigned Element,

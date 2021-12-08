@@ -17,7 +17,6 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanIdioms.h"
-#include "IntelVPlanUtils.h"
 #include "IntelVPlanPatternMatch.h"
 
 #include <numeric>
