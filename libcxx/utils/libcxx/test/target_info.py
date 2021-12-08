@@ -101,6 +101,12 @@ class LinuxLocalTI(DefaultTargetInfo):
         llvm_unwinder = self.full_config.get_lit_bool('llvm_unwinder', False)
         shared_libcxx = self.full_config.get_lit_bool('enable_shared', True)
         flags += ['-lm']
+        # INTEL_CUSTOMIZATION
+        # Libcxx tests are built with '-nodefaultlibs' flag, we need to
+        # manually add libirc and svml to link command.
+        flags += ['-lirc']
+        flags += ['-lsvml']
+        # end INTEL_CUSTOMIZATION
         if not llvm_unwinder:
             flags += ['-lgcc_s', '-lgcc']
         if enable_threads:
