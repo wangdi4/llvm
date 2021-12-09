@@ -462,6 +462,7 @@ FUNCTION_PASS("dopevectorhoist", DopeVectorHoistPass()) // INTEL
 FUNCTION_PASS("dot-cfg", CFGPrinterPass())
 FUNCTION_PASS("dot-cfg-only", CFGOnlyPrinterPass())
 FUNCTION_PASS("fix-irreducible", FixIrreduciblePass())
+FUNCTION_PASS("flattencfg", FlattenCFGPass())
 FUNCTION_PASS("make-guards-explicit", MakeGuardsExplicitPass())
 FUNCTION_PASS("fma-splitter", FMASplitterPass()) // INTEL
 FUNCTION_PASS("gvn-hoist", GVNHoistPass())
