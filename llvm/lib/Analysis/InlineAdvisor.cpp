@@ -444,8 +444,6 @@ InlineCost llvm::shouldInline(
              << "' in other contexts";
     });
     setInlineRemark(CB, "deferred");
-    // IC does not bool() to false, so get an InlineCost that will.
-    // This will not be inspected to make an error message.
 #if INTEL_CUSTOMIZATION
     IC.setInlineReason(NinlrOuterInlining);
     IC.setIsRecommended(false);
