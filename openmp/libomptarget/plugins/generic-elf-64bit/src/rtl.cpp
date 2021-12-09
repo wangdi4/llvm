@@ -19,6 +19,8 @@
 #include <gelf.h>
 #if INTEL_COLLAB
 #include <limits>
+#include <unordered_set>
+#include <mutex>
 #endif // INTEL_COLLAB
 #include <link.h>
 #include <list>
@@ -59,6 +61,10 @@ class RTLDeviceInfoTy {
 
 public:
   std::list<DynLibTy> DynLibs;
+#if INTEL_COLLAB
+  std::unordered_set<void *> DevicePtrs;
+  std::mutex Mtx;
+#endif // INTEL_COLLAB
 
   // Record entry point associated with device.
   void createOffloadTable(int32_t device_id, __tgt_offload_entry *begin,
@@ -284,6 +290,12 @@ void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr,
   default:
     REPORT("Invalid target data allocation kind");
   }
+#if INTEL_COLLAB
+  if (ptr) {
+    std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
+    DeviceInfo.DevicePtrs.insert(ptr);
+  }
+#endif // INTEL_COLLAB
 
   return ptr;
 }
@@ -311,6 +323,10 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   free(tgt_ptr);
+#if INTEL_COLLAB
+  std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
+  DeviceInfo.DevicePtrs.erase(tgt_ptr);
+#endif // INTEL_COLLAB
   return OFFLOAD_SUCCESS;
 }
 
@@ -375,6 +391,17 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
                                           tgt_offsets, arg_num, 1, 1, 0);
 }
 
+#if INTEL_COLLAB
+EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
+  int32_t Ret = 0;
+  std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
+  if (DeviceInfo.DevicePtrs.count(Ptr) > 0)
+    Ret = 1;
+  DP("Ptr " DPxMOD " is %sa device accessible memory pointer.\n", DPxPTR(Ptr),
+     Ret ? "" : "not ");
+  return Ret;
+}
+#endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
 #endif
