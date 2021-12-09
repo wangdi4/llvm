@@ -208,12 +208,8 @@ void initializeFinalizeISelPass(PassRegistry&);
 void initializeFinalizeMachineBundlesPass(PassRegistry&);
 void initializeFixIrreduciblePass(PassRegistry &);
 void initializeFixupStatepointCallerSavedPass(PassRegistry&);
-<<<<<<< HEAD
-void initializeFlattenCFGPassPass(PassRegistry&);
-void initializeFloat128ExpandPass(PassRegistry&); // INTEL
-=======
 void initializeFlattenCFGLegacyPassPass(PassRegistry &);
->>>>>>> eb87f668fe886f41db35e926e9d41cf25a784878
+void initializeFloat128ExpandPass(PassRegistry&); // INTEL
 void initializeFloat2IntLegacyPassPass(PassRegistry&);
 void initializeHeteroArchOptPass(PassRegistry&); // INTEL
 void initializeFoldLoadsToGatherPass(PassRegistry&); // INTEL
