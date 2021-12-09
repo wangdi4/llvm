@@ -10,6 +10,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
 
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFastMath.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFunctionAttrs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"

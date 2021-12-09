@@ -672,6 +672,7 @@ FUNCTION_PASS("hir-cross-loop-array-contraction", loopopt::HIRCrossLoopArrayCont
 #endif // INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("handle-pragma-vector-aligned", HandlePragmaVectorAlignedPass())
 
+FUNCTION_PASS("dpcpp-kernel-add-fast-math", AddFastMathPass())
 FUNCTION_PASS("dpcpp-kernel-builtin-call-to-inst", BuiltinCallToInstPass())
 FUNCTION_PASS("dpcpp-kernel-phi-canonicalization", PhiCanonicalization())
 FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())

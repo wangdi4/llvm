@@ -13,6 +13,7 @@
 using namespace llvm;
 
 void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
+  initializeAddFastMathLegacyPass(Registry);
   initializeAddFunctionAttrsLegacyPass(Registry);
   initializeAddImplicitArgsLegacyPass(Registry);
   initializeBarrierInFunctionLegacyPass(Registry);
