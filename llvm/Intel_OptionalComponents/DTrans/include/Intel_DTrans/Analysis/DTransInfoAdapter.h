@@ -48,6 +48,12 @@ public:
     return FI;
   }
 
+  bool isFieldPtrToPtr(dtrans::StructInfo &StInfo, unsigned Idx) {
+    dtrans::FieldInfo &FI = StInfo.getField(Idx);
+    llvm::Type *Ty = FI.getLLVMType();
+    return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
+  }
+
   uint64_t getMaxTotalFrequency() const {
     return DTInfo.getMaxTotalFrequency();
   }
@@ -87,7 +93,7 @@ public:
 
   bool isReadOnlyFieldAccess(LoadInst *LI) const {
     return DTInfo.isReadOnlyFieldAccess(LI);
-  } 
+  }
 
   bool isPtrToStruct(Value *V) const {
     auto PTy = dyn_cast<PointerType>(V->getType());
@@ -103,15 +109,15 @@ public:
     if (!PTy)
       return false;
     return isa<FunctionType>(PTy->getElementType());
-  } 
+  }
 
   StructType *getPtrToStructElementType(Value *V) {
     auto PTy = dyn_cast<PointerType>(V->getType());
     if (!PTy)
       return nullptr;
     return dyn_cast<StructType>(PTy->getPointerElementType());
-  } 
-  
+  }
+
   bool isPtrToStructWithI8StarFieldAt(Value *V, unsigned StructIndex) {
     auto PTy = dyn_cast<PointerType>(V->getType());
     if (!PTy)
@@ -132,7 +138,7 @@ public:
   dtrans::TypeInfo *getFieldTypeInfo(dtrans::FieldInfo &FI) {
     return DTInfo.getTypeInfo(FI.getLLVMType());
   }
-  
+
   std::pair<llvm::StructType *, uint64_t> getStructField(GEPOperator *GEP) {
     return DTInfo.getStructField(GEP);
   }
@@ -166,7 +172,7 @@ public:
     Type *PETy = PTy->getPointerElementType();
     return PETy && (PETy->isIntegerTy() || PETy->isFloatingPointTy());
   }
-  
+
 private:
   DTransAnalysisInfo &DTInfo;
 };
@@ -191,6 +197,12 @@ public:
     dtrans::StructInfo *StInfo = DTInfo.getStructInfo(STy);
     dtrans::FieldInfo &FI = StInfo->getField(Idx);
     return FI;
+  }
+
+  bool isFieldPtrToPtr(dtrans::StructInfo &StInfo, unsigned Idx) {
+    dtrans::FieldInfo &FI = StInfo.getField(Idx);
+    DTransType *Ty = FI.getDTransType();
+    return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
   }
 
   uint64_t getMaxTotalFrequency() const {
@@ -236,25 +248,23 @@ public:
   dtrans::CallInfo *getCallInfo(const Instruction *I) const {
     return DTInfo.getCallInfo(I);
   }
-  
+
   bool isReadOnlyFieldAccess(LoadInst *LI) const {
     return DTInfo.isReadOnlyFieldAccess(LI);
-  } 
-
-  bool isPtrToStruct(Value *V) const {
-    return DTInfo.isPtrToStruct(V); 
   }
 
+  bool isPtrToStruct(Value *V) const { return DTInfo.isPtrToStruct(V); }
+
   bool isFunctionPtr(StructType *STy, unsigned Idx) {
-    return DTInfo.isFunctionPtr(STy, Idx); 
+    return DTInfo.isFunctionPtr(STy, Idx);
   }
 
   StructType *getPtrToStructElementType(Value *V) {
     return DTInfo.getPtrToStructElementType(V);
-  } 
-  
+  }
+
   bool isPtrToStructWithI8StarFieldAt(Value *V, unsigned StructIndex) {
-    return DTInfo.isPtrToStructWithI8StarFieldAt(V, StructIndex); 
+    return DTInfo.isPtrToStructWithI8StarFieldAt(V, StructIndex);
   }
 
   iterator_range<DTransSafetyInfo::type_info_iterator> type_info_entries() {
@@ -274,8 +284,8 @@ public:
                                  unsigned &StructIndex) {
     // TODO: Implementation required here.
     return true;
-  } 
-  
+  }
+
   bool hasSupportedPaddedMallocPtrType(Value *V) {
     return DTInfo.isPtrToIntOrFloat(V);
   }
