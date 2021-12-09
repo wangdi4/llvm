@@ -2372,7 +2372,7 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
 }
 
 #if INTEL_COLLAB
-/// For the function associated with a declare variant directive, determine
+/// For a function associated with a declare variant directive, determine
 /// which of its parameters should be marked as needing device pointers
 /// (according to an adjust_args clause). Those that do will be marked as
 /// "T" in the 'needs_device_ptr' section of the openmp-variant string.
@@ -2380,31 +2380,35 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
 /// the function declaration, the "T" marker will be replaced with "PTR_TO_PTR".
 static std::string getDevPtrAttrString(const FunctionDecl *FD,
                                        const OMPDeclareVariantAttr *Attr) {
+  if (Attr->adjustArgsNeedDevicePtr_size() == 0)
+    return "";
+
   SmallString<128> Buffer;
   llvm::raw_svector_ostream OS(Buffer);
-
+  // The adjustArgsNeedDevicePtr list contains the parameters specified with
+  // the 'need_device_ptr' adjust-op in the 'adjust_args' clause. So, if a
+  // parameter is present in the adjust args list, and its position as
+  // declared in the function parameter list equals the current parameter
+  // number, then a T (or PTR_TO_PTR) is emitted. Otherwse, an F.
   for (unsigned N = 0, NumParams = FD->getNumParams(); N != NumParams; ++N) {
-    auto PD = FD->getParamDecl(N);
-    if (Attr->adjustArgsNeedDevicePtr_size()) {
-      if (N != 0)
-        OS << ",";
-      auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(),
-          [&PD](Expr *&Param) {
-            Param = Param->IgnoreParenImpCasts();
-            const auto *PVD = cast<ParmVarDecl>(cast<DeclRefExpr>(Param)
-                              ->getDecl())->getCanonicalDecl();
-            if (PVD == PD)
-              return true;
-            return false;
-          });
-      if (I != Attr->adjustArgsNeedDevicePtr_end()) {
-        if (FD->getParamDecl(N)->getType()->isReferenceType())
-          OS << "PTR_TO_PTR";
-        else
-          OS << "T";
-      } else
+    if (N != 0)
+      OS << ",";
+    auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(),
+        [&N](Expr *&E) {
+          E = E->IgnoreParenImpCasts();
+          if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
+            if (const auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl()))
+              if (N == PVD->getFunctionScopeIndex())
+                return true;
+          return false;
+        });
+    if (I != Attr->adjustArgsNeedDevicePtr_end()) {
+      if (FD->getParamDecl(N)->getType()->isReferenceType())
+        OS << "PTR_TO_PTR";
+      else
+        OS << "T";
+    } else
         OS << "F";
-    }
   }
   return std::string(OS.str());
 }
