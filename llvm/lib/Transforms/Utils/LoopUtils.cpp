@@ -952,8 +952,7 @@ Value *llvm::createMinMaxOp(IRBuilderBase &Builder, RecurKind RK, Value *Left,
 
 // Helper to generate an ordered reduction.
 Value *llvm::getOrderedReduction(IRBuilderBase &Builder, Value *Acc, Value *Src,
-                                 unsigned Op, RecurKind RdxKind,
-                                 ArrayRef<Value *> RedOps) {
+                                 unsigned Op, RecurKind RdxKind) {
   unsigned VF = cast<FixedVectorType>(Src->getType())->getNumElements();
 
   // Extract and apply reduction ops in ascending order:
@@ -971,9 +970,6 @@ Value *llvm::getOrderedReduction(IRBuilderBase &Builder, Value *Acc, Value *Src,
              "Invalid min/max");
       Result = createMinMaxOp(Builder, RdxKind, Result, Ext);
     }
-
-    if (!RedOps.empty())
-      propagateIRFlags(Result, RedOps);
   }
 
   return Result;
@@ -981,14 +977,20 @@ Value *llvm::getOrderedReduction(IRBuilderBase &Builder, Value *Acc, Value *Src,
 
 // Helper to generate a log2 shuffle reduction.
 Value *llvm::getShuffleReduction(IRBuilderBase &Builder, Value *Src,
-                                 unsigned Op, RecurKind RdxKind,
-                                 ArrayRef<Value *> RedOps) {
+                                 unsigned Op, RecurKind RdxKind) {
   unsigned VF = cast<FixedVectorType>(Src->getType())->getNumElements();
   // VF is a power of 2 so we can emit the reduction using log2(VF) shuffles
   // and vector ops, reducing the set of values being computed by half each
   // round.
   assert(isPowerOf2_32(VF) &&
          "Reduction emission only supported for pow2 vectors!");
+  // Note: fast-math-flags flags are controlled by the builder configuration
+  // and are assumed to apply to all generated arithmetic instructions.  Other
+  // poison generating flags (nsw/nuw/inbounds/inrange/exact) are not part
+  // of the builder configuration, and since they're not passed explicitly,
+  // will never be relevant here.  Note that it would be generally unsound to
+  // propagate these from an intrinsic call to the expansion anyways as we/
+  // change the order of operations.
   Value *TmpVec = Src;
   SmallVector<int, 32> ShuffleMask(VF);
   for (unsigned i = VF; i != 1; i >>= 1) {
@@ -1002,7 +1004,6 @@ Value *llvm::getShuffleReduction(IRBuilderBase &Builder, Value *Src,
     Value *Shuf = Builder.CreateShuffleVector(TmpVec, ShuffleMask, "rdx.shuf");
 
     if (Op != Instruction::ICmp && Op != Instruction::FCmp) {
-      // The builder propagates its fast-math-flags setting.
       TmpVec = Builder.CreateBinOp((Instruction::BinaryOps)Op, TmpVec, Shuf,
                                    "bin.rdx");
     } else {
@@ -1010,13 +1011,6 @@ Value *llvm::getShuffleReduction(IRBuilderBase &Builder, Value *Src,
              "Invalid min/max");
       TmpVec = createMinMaxOp(Builder, RdxKind, TmpVec, Shuf);
     }
-    if (!RedOps.empty())
-      propagateIRFlags(TmpVec, RedOps);
-
-    // We may compute the reassociated scalar ops in a way that does not
-    // preserve nsw/nuw etc. Conservatively, drop those flags.
-    if (auto *ReductionInst = dyn_cast<Instruction>(TmpVec))
-      ReductionInst->dropPoisonGeneratingFlags();
   }
   // The result is in the first element of the vector.
   return Builder.CreateExtractElement(TmpVec, Builder.getInt32(0));
@@ -1064,8 +1058,7 @@ Value *llvm::createSelectCmpTargetReduction(IRBuilderBase &Builder,
 
 Value *llvm::createSimpleTargetReduction(IRBuilderBase &Builder,
                                          const TargetTransformInfo *TTI,
-                                         Value *Src, RecurKind RdxKind,
-                                         ArrayRef<Value *> RedOps) {
+                                         Value *Src, RecurKind RdxKind) {
   auto *SrcVecEltTy = cast<VectorType>(Src->getType())->getElementType();
   switch (RdxKind) {
   case RecurKind::Add:
