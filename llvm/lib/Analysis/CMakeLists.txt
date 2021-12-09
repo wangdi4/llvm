@@ -141,6 +141,7 @@ add_llvm_component_library(LLVMAnalysis
   ModuleDebugInfoPrinter.cpp
   ModuleSummaryAnalysis.cpp
   MustExecute.cpp
+  NoInferenceModelRunner.cpp
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp
