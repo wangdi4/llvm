@@ -4182,6 +4182,13 @@ static inline int32_t runTargetTeamNDRegion(
   };
   auto &AllocInfos = DeviceInfo->MemAllocInfo;
 
+  // Kernel dynamic memory
+  auto KernelDynamicMem = DeviceInfo->ProgramData[DeviceId].DynamicMemoryLB;
+  if (KernelDynamicMem) {
+    ImplicitUSMArgs.push_back((void *)KernelDynamicMem);
+    HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
+  }
+
   /// Kernel-dependent implicit arguments
   for (auto Ptr : KernelProperty.ImplicitArgs) {
     if (!Ptr)
