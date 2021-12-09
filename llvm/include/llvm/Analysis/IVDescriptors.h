@@ -201,7 +201,9 @@ public:
   }
 
   /// Returns identity corresponding to the RecurrenceKind.
-  Value *getRecurrenceIdentity(RecurKind K, Type *Tp, FastMathFlags FMF) {
+#if INTEL_CUSTOMIZATION
+  Value *getRecurrenceIdentity(RecurKind K, Type *Tp, FastMathFlags FMF) const {
+#endif
     switch (K) {
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:

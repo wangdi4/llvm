@@ -950,9 +950,8 @@ Constant *
 RecurrenceDescriptorData::getConstRecurrenceIdentity(RecurKind K, Type *Tp,
                                                      FastMathFlags FMF) {
 #else
-Constant *RecurrenceDescriptor::getConstRecurrenceIdentity(RecurKind K,
-                                                           Type *Tp,
-                                                           FastMathFlags FMF) {
+Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
+                                                   FastMathFlags FMF) const {
 #endif
   switch (K) {
   case RecurKind::Xor:
