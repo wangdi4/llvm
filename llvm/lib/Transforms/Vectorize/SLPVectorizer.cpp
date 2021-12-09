@@ -12227,10 +12227,6 @@ bool SLPVectorizerPass::vectorizeSimpleInstructions(
     // Try to vectorize list of compares.
     // Sort by type, compare predicate, etc.
     auto &&CompareSorter = [&R](Value *V, Value *V2) {
-<<<<<<< HEAD
-      return compareCmp<false>(V, V2,
-                               [&R](Instruction *I) { return R.isDeleted(I); });
-=======
       auto *CI1 = cast<CmpInst>(V);
       auto *CI2 = cast<CmpInst>(V2);
       if (R.isDeleted(CI2) || !isValidElementType(CI2->getType()))
@@ -12277,16 +12273,11 @@ bool SLPVectorizerPass::vectorizeSimpleInstructions(
               CI1->getPredicate() <
                   CmpInst::getSwappedPredicate(CI2->getPredicate()));
 #endif // INTEL_COLLAB
->>>>>>> e8bf920fc8aba8ff2ab88f014a9a31f389500df6
     };
 
     auto &&AreCompatibleCompares = [&R](Value *V1, Value *V2) {
       if (V1 == V2)
         return true;
-<<<<<<< HEAD
-      return compareCmp<true>(V1, V2,
-                              [&R](Instruction *I) { return R.isDeleted(I); });
-=======
       auto *CI1 = cast<CmpInst>(V1);
       auto *CI2 = cast<CmpInst>(V2);
       if (R.isDeleted(CI2) || !isValidElementType(CI2->getType()))
@@ -12319,7 +12310,6 @@ bool SLPVectorizerPass::vectorizeSimpleInstructions(
              CI1->getPredicate() ==
                  CmpInst::getSwappedPredicate(CI2->getPredicate());
 #endif // INTEL_COLLAB
->>>>>>> e8bf920fc8aba8ff2ab88f014a9a31f389500df6
     };
     auto Limit = [&R](Value *V) {
       unsigned EltSize = R.getVectorElementSize(V);

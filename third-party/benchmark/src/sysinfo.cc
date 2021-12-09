@@ -344,14 +344,11 @@ std::vector<CPUInfo::CacheInfo> GetCacheSizesWindows() {
     C.num_sharing = static_cast<int>(B.count());
     C.level = Cache->Level;
     C.size = Cache->Size;
-<<<<<<< HEAD
     C.type = "Unknown";
-=======
 #if defined(__INTEL_LLVM_COMPILER)                          // INTEL
 #pragma clang diagnostic push                               // INTEL
 #pragma clang diagnostic ignored "-Wcovered-switch-default" // INTEL
 #endif                                                      // INTEL
->>>>>>> e8bf920fc8aba8ff2ab88f014a9a31f389500df6
     switch (Cache->Type) {
       case CacheUnified:
         C.type = "Unified";
