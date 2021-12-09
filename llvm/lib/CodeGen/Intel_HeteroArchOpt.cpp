@@ -14,13 +14,13 @@
 
 #include "llvm/Analysis/CostModel.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
@@ -38,23 +38,27 @@ using namespace llvm;
 
 // Defines the smallest loop depth in order to
 // apply Hetero Arch Optimization.
-static cl::opt<uint32_t> HeteroArchLoopDepthThreshold(
-    "hetero-arch-loop-depth-threshold", cl::init(2), cl::ReallyHidden);
+static cl::opt<uint32_t>
+    HeteroArchLoopDepthThreshold("hetero-arch-loop-depth-threshold",
+                                 cl::init(2), cl::ReallyHidden);
 
 // Defines the biggest basic block number in order to
 // apply Hetero Arch Optimization.
-static cl::opt<uint32_t> HeteroArchBBNumThreshold(
-    "hetero-arch-bb-num-threshold", cl::init(1), cl::ReallyHidden);
+static cl::opt<uint32_t>
+    HeteroArchBBNumThreshold("hetero-arch-bb-num-threshold", cl::init(1),
+                             cl::ReallyHidden);
 
 // Defines the smallest percentage of gather instruction cost in order to
 // apply Hetero Arch Optimization.
-static cl::opt<uint32_t> HeteroArchGatherCostThreshold(
-    "hetero-arch-gather-cost-threshold", cl::init(45), cl::ReallyHidden);
+static cl::opt<uint32_t>
+    HeteroArchGatherCostThreshold("hetero-arch-gather-cost-threshold",
+                                  cl::init(45), cl::ReallyHidden);
 
 // Defines the smallest density of gather instructions in order to
 // apply Hetero Arch Optimization.
-static cl::opt<uint32_t> HeteroArchGatherDensityThreshold(
-    "hetero-arch-gather-density-threshold", cl::init(8), cl::ReallyHidden);
+static cl::opt<uint32_t>
+    HeteroArchGatherDensityThreshold("hetero-arch-gather-density-threshold",
+                                     cl::init(8), cl::ReallyHidden);
 
 namespace {
 
@@ -90,7 +94,7 @@ private:
     }
   };
 
-  unsigned maxLoopDepth(Loop * L) {
+  unsigned maxLoopDepth(Loop *L) {
     unsigned MaxDepth = 0;
     if (L->isInnermost())
       return 1;
@@ -125,11 +129,6 @@ FunctionPass *llvm::createHeteroArchOptPass() { return new HeteroArchOpt(); }
 bool HeteroArchOpt::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
-
-  bool Is64Bit = Triple(F.getParent()->getTargetTriple()).isArch64Bit();
-  // current dynamic CPU checker only support 64bit mode
-  if (!Is64Bit)
-    return false; // CMPLRLLVM-32796
 
   if (F.hasOptSize())
     return false; // This opt will bloat code.
@@ -166,8 +165,8 @@ void HeteroArchOpt::processLoop(Loop *L) {
   unsigned MaxLD = maxLoopDepth(L);
   if (MaxLD < HeteroArchLoopDepthThreshold)
     return;
-  float Factor = std::min((float)4.0,
-                          (float)MaxLD/HeteroArchLoopDepthThreshold);
+  float Factor =
+      std::min((float)4.0, (float)MaxLD / HeteroArchLoopDepthThreshold);
   std::map<Loop *, SmallSetVector<IntrinsicInst *, 8>> LoopCandidates;
   // Collect candidates per loop
   for (BasicBlock *BB : L->blocks()) {
@@ -199,16 +198,16 @@ void HeteroArchOpt::processLoop(Loop *L) {
     unsigned int GatherInst = LC.second.size();
     for (BasicBlock *BB : LC.first->blocks()) {
       for (Instruction &Inst : *BB) {
-        InstructionCost Cost = TTI->getInstructionCost(&Inst,
-            TargetTransformInfo::TCK_RecipThroughput);
+        InstructionCost Cost = TTI->getInstructionCost(
+            &Inst, TargetTransformInfo::TCK_RecipThroughput);
         auto CostVal = Cost.getValue();
         if (!CostVal) {
-          LLVM_DEBUG(dbgs() << "Invalid cost for instruction: "
-                            << Inst << "\n");
+          LLVM_DEBUG(dbgs()
+                     << "Invalid cost for instruction: " << Inst << "\n");
           continue;
         }
         LLVM_DEBUG(dbgs() << "Estimated cost: " << *CostVal
-            << " for instruction: " << Inst << "\n");
+                          << " for instruction: " << Inst << "\n");
         TotalCost += *CostVal;
         if (*CostVal)
           TotalInst++; // only consider instructions resulting in code
@@ -218,21 +217,17 @@ void HeteroArchOpt::processLoop(Loop *L) {
       }
     }
 
-    if (GatherCost*Factor*100 < TotalCost*HeteroArchGatherCostThreshold &&
-        GatherInst*Factor*HeteroArchGatherDensityThreshold < TotalInst)
+    if (GatherCost * Factor * 100 < TotalCost * HeteroArchGatherCostThreshold &&
+        GatherInst * Factor * HeteroArchGatherDensityThreshold < TotalInst)
       continue;
 
     LLVM_DEBUG(dbgs() << "\nHetero Arch Opt Candidate in " << CurFn->getName()
                       << "\nNumBB: " << NumBB << "\tLoopDepth: " << LoopDepth
-                      << "\tTotalCost: " << TotalCost
-                      << "\tGatherCost: " << GatherCost
-                      << "\tTotalInst: " << TotalInst
+                      << "\tTotalCost: " << TotalCost << "\tGatherCost: "
+                      << GatherCost << "\tTotalInst: " << TotalInst
                       << "\tGatherInst: " << GatherInst << "\n");
 
-    LLVM_DEBUG(
-        for (BasicBlock *BB : LC.first->blocks())
-          BB->dump()
-    );
+    LLVM_DEBUG(for (BasicBlock *BB : LC.first->blocks()) BB->dump());
 
     for (auto II : LC.second)
       CandidateInsts.push_back(II);
@@ -259,26 +254,21 @@ void HeteroArchOpt::createMultiVersion() {
   // Create a new entry block with branching code which transfers control to
   // the 'true'/'false' specialization of the function body.
   auto *OldEntryBB = &CurFn->getEntryBlock();
-  auto *NewEntryBB = BasicBlock::Create(CurFn->getContext(),
-                                        "entry.new", CurFn, OldEntryBB);
-
+  auto *NewEntryBB =
+      BasicBlock::Create(CurFn->getContext(), "entry.new", CurFn, OldEntryBB);
   IRBuilder<> IRB(NewEntryBB);
 
-  // Create runtime check.
-  // FIXME: the 2 xchgq instructions around cpuid can be further optimized.
-  Type *I32Ty = IRB.getInt32Ty();
-  FunctionType *CPUIDRetTy = FunctionType::get(
-      StructType::get(I32Ty, I32Ty, I32Ty, I32Ty), I32Ty, /*isVarArg=*/false);
-  StringRef AsmString = "xchgq %rbx,${1:q}\n  cpuid\n  xchgq %rbx, ${1:q}";
-  StringRef Constrains =
-      "={eax},=r,={ecx},={edx},0,~{dirflag},~{fpsr},~{flags}";
-  InlineAsm *CpuIDAsm = InlineAsm::get(CPUIDRetTy, AsmString, Constrains,
-                                       /*hasSideEffects=*/false);
-  CallInst *CpuID = IRB.CreateCall(CPUIDRetTy, CpuIDAsm, IRB.getInt32(2));
-  Value *RBX = IRB.CreateExtractValue(CpuID, 1, "rbx");
-  auto *ICmp = IRB.CreateICmpNE(RBX, IRB.getInt32(0));
-  // True branch for big core and False branch for small core
-  IRB.CreateCondBr(ICmp, OldEntryBB, VMap.getClone(OldEntryBB));
+  // Create runtime check based on hybrid information enumeration leaf.
+  CallInst *CpuId = IRB.CreateIntrinsic(Intrinsic::x86_cpuid, None,
+                                        {IRB.getInt32(0x1a), IRB.getInt32(0)});
+  Value *EAX = IRB.CreateExtractValue(CpuId, 0, "eax");
+
+  // Bits 31-24 is core type. 20H is intel atom. 40H is intel core.
+  Value *CoreType = IRB.CreateLShr(EAX, IRB.getInt32(24));
+  Value *IsCore = IRB.CreateICmpEQ(CoreType, IRB.getInt32(0x40));
+
+  // True branch for core and False branch for atom.
+  IRB.CreateCondBr(IsCore, OldEntryBB, VMap.getClone(OldEntryBB));
 
   // Create meta-data for cloned candidate gather instructions (on small core).
   for (IntrinsicInst *II : CandidateInsts) {
