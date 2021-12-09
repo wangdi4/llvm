@@ -29,9 +29,8 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  CPUBlockToKernelMapper::CPUBlockToKernelMapper(Program *pProgram, const llvm::Module* pModule)
+  CPUBlockToKernelMapper::CPUBlockToKernelMapper(Program *pProgram)
   {
-    assert(pModule && "Module is NULL");
     assert(pProgram && "Program is NULL");
     LLVM_DEBUG(llvm::dbgs() << "Entry point CPUBlockToKernelMapper ctor \n");
     LLVM_DEBUG(llvm::dbgs() << pProgram->GetKernelsCount() << " kernels in program \n");
@@ -47,17 +46,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // detect block
       if(!pKernel->GetKernelProporties()->IsBlock())
         continue;
-      // get llvm function for block_invoke
-      llvm::Function *pBlockInvokeFunc =
-        pModule->getFunction(pKernel->GetKernelName());
-      assert(pBlockInvokeFunc &&
-             "Cannot find block invoke kernel in the module");
 
       // obtain CPUProgram
       CPUProgram *pCpuProgram = static_cast<CPUProgram*>(pProgram);
       // obtain entry point of block_invoke function
       const void *entry =
-          pCpuProgram->GetPointerToFunction(pBlockInvokeFunc->getName());
+          pCpuProgram->GetPointerToFunction(pKernel->GetKernelName());
       assert(entry && "pointer to JIT of block_invoke is NULL");
       // insert pair <key, Kernel object)
       m_map[entry] = pKernel;

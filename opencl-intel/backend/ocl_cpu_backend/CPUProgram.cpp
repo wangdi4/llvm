@@ -154,12 +154,9 @@ void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
 }
 
 void CPUProgram::CreateAndSetBlockToKernelMapper() {
-  llvm::Module *pModule = this->GetModule();
-  assert(pModule && "Invalid module");
-
   // create block to kernel mapper
   IBlockToKernelMapper *pMapper =
-      new CPUBlockToKernelMapper((Program *)this, pModule);
+      new CPUBlockToKernelMapper((Program *)this);
   assert(pMapper && "IBlockToKernelMapper object is NULL");
   assert(!GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
   // set in RuntimeService new BlockToKernelMapper object
