@@ -283,6 +283,15 @@ public:
   /// Select(FCmp(X, Y), (Z = X op PHINode), PHINode) instruction pattern.
   static InstDesc isConditionalRdxPattern(RecurKind Kind, Instruction *I);
 
+<<<<<<< HEAD
+=======
+  /// Returns identity corresponding to the RecurrenceKind.
+  Value *getRecurrenceIdentity(RecurKind K, Type *Tp, FastMathFlags FMF) const;
+
+  /// Returns the opcode corresponding to the RecurrenceKind.
+  static unsigned getOpcode(RecurKind Kind);
+
+>>>>>>> d74a8a78ad06348170dcf5ca3eca6942325cf7cf
   /// Returns true if Phi is a reduction of type Kind and adds it to the
   /// RecurrenceDescriptor. If either \p DB is non-null or \p AC and \p DT are
   /// non-null, the minimal bit width needed to compute the reduction will be

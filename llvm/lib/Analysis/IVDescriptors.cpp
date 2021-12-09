@@ -945,6 +945,7 @@ bool RecurrenceDescriptor::isFirstOrderRecurrence(
 
 /// This function returns the identity element (or neutral element) for
 /// the operation K.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 Constant *
 RecurrenceDescriptorData::getConstRecurrenceIdentity(RecurKind K, Type *Tp,
@@ -954,6 +955,10 @@ Constant *RecurrenceDescriptor::getConstRecurrenceIdentity(RecurKind K,
                                                            Type *Tp,
                                                            FastMathFlags FMF) {
 #endif
+=======
+Value *RecurrenceDescriptor::getRecurrenceIdentity(RecurKind K, Type *Tp,
+                                                   FastMathFlags FMF) const {
+>>>>>>> d74a8a78ad06348170dcf5ca3eca6942325cf7cf
   switch (K) {
   case RecurKind::Xor:
   case RecurKind::Add:
