@@ -1,4 +1,5 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
+  AddFastMath.cpp
   AddFunctionAttrs.cpp
   AddImplicitArgs.cpp
   BuiltinCallToInst.cpp
