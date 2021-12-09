@@ -1,22 +1,77 @@
 ; RUN: %oclopt -relaxed-funcs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -relaxed-funcs -S %s -o %t.ll
-; RUN: FileCheck %s --input-file=%t.ll
+; RUN: %oclopt -relaxed-funcs -S %s | FileCheck %s
 
-define void @check_sincos_float(float %f1, <2 x float> %f2, <3 x float> %f3, <4 x float> %f4, <8 x float> %f8, <16 x float> %f16,
-                                float addrspace(1)* %pf1, <2 x float> addrspace(1)*  %pf2,
-                                <3 x float> addrspace(1)* %pf3, <4 x float> addrspace(1)* %pf4,
-                                <8 x float>  addrspace(1)* %pf8, <16 x float> addrspace(1)*  %pf16) nounwind {
+define void @check_sincos_float_global() {
+; CHECK-LABEL: define void @check_sincos_float_global
+; CHECK: call float @_Z9sincos_rmfPU3AS1f
+; CHECK: call <2 x float> @_Z9sincos_rmDv2_fPU3AS1S_
+; CHECK: call <3 x float> @_Z9sincos_rmDv3_fPU3AS1S_
+; CHECK: call <4 x float> @_Z9sincos_rmDv4_fPU3AS1S_
+; CHECK: call <8 x float> @_Z9sincos_rmDv8_fPU3AS1S_
+; CHECK: call <16 x float> @_Z9sincos_rmDv16_fPU3AS1S_
 entry:
-
-    %call01 = call float @_Z6sincosfPU3AS1f(float %f1, float addrspace(1)* %pf1)
-    %call02 = call <2 x float> @_Z6sincosDv2_fPU3AS1S_(<2 x float> %f2, <2 x float> addrspace(1)* %pf2)
-    %call03 = call <3 x float> @_Z6sincosDv3_fPU3AS1S_(<3 x float> %f3, <3 x float> addrspace(1)* %pf3)
-    %call04 = call <4 x float> @_Z6sincosDv4_fPU3AS1S_(<4 x float> %f4, <4 x float> addrspace(1)* %pf4)
-    %call05 = call <8 x float> @_Z6sincosDv8_fPU3AS1S_(<8 x float> %f8, <8 x float> addrspace(1)* %pf8)
-    %call06 = call <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float> %f16, <16 x float> addrspace(1)* %pf16)
-    ret void
+  %call01 = call float @_Z6sincosfPU3AS1f(float undef, float addrspace(1)* undef)
+  %call02 = call <2 x float> @_Z6sincosDv2_fPU3AS1S_(<2 x float> undef, <2 x float> addrspace(1)* undef)
+  %call03 = call <3 x float> @_Z6sincosDv3_fPU3AS1S_(<3 x float> undef, <3 x float> addrspace(1)* undef)
+  %call04 = call <4 x float> @_Z6sincosDv4_fPU3AS1S_(<4 x float> undef, <4 x float> addrspace(1)* undef)
+  %call05 = call <8 x float> @_Z6sincosDv8_fPU3AS1S_(<8 x float> undef, <8 x float> addrspace(1)* undef)
+  %call06 = call <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float> undef, <16 x float> addrspace(1)* undef)
+  ret void
 }
 
+define void @check_sincos_float_local() {
+; CHECK-LABEL: define void @check_sincos_float_local
+; CHECK: call float @_Z9sincos_rmfPU3AS2f
+; CHECK: call <2 x float> @_Z9sincos_rmDv2_fPU3AS2S_
+; CHECK: call <3 x float> @_Z9sincos_rmDv3_fPU3AS2S_
+; CHECK: call <4 x float> @_Z9sincos_rmDv4_fPU3AS2S_
+; CHECK: call <8 x float> @_Z9sincos_rmDv8_fPU3AS2S_
+; CHECK: call <16 x float> @_Z9sincos_rmDv16_fPU3AS2S_
+entry:
+  %call01 = call float @_Z6sincosfPU3AS2f(float undef, float addrspace(2)* undef)
+  %call02 = call <2 x float> @_Z6sincosDv2_fPU3AS2S_(<2 x float> undef, <2 x float> addrspace(2)* undef)
+  %call03 = call <3 x float> @_Z6sincosDv3_fPU3AS2S_(<3 x float> undef, <3 x float> addrspace(2)* undef)
+  %call04 = call <4 x float> @_Z6sincosDv4_fPU3AS2S_(<4 x float> undef, <4 x float> addrspace(2)* undef)
+  %call05 = call <8 x float> @_Z6sincosDv8_fPU3AS2S_(<8 x float> undef, <8 x float> addrspace(2)* undef)
+  %call06 = call <16 x float> @_Z6sincosDv16_fPU3AS2S_(<16 x float> undef, <16 x float> addrspace(2)* undef)
+  ret void
+}
+
+define void @check_sincos_float_private() {
+; CHECK-LABEL: define void @check_sincos_float_private
+; CHECK: call float @_Z9sincos_rmfPU3AS3f
+; CHECK: call <2 x float> @_Z9sincos_rmDv2_fPU3AS3S_
+; CHECK: call <3 x float> @_Z9sincos_rmDv3_fPU3AS3S_
+; CHECK: call <4 x float> @_Z9sincos_rmDv4_fPU3AS3S_
+; CHECK: call <8 x float> @_Z9sincos_rmDv8_fPU3AS3S_
+; CHECK: call <16 x float> @_Z9sincos_rmDv16_fPU3AS3S_
+entry:
+  %call01 = call float @_Z6sincosfPU3AS3f(float undef, float addrspace(3)* undef)
+  %call02 = call <2 x float> @_Z6sincosDv2_fPU3AS3S_(<2 x float> undef, <2 x float> addrspace(3)* undef)
+  %call03 = call <3 x float> @_Z6sincosDv3_fPU3AS3S_(<3 x float> undef, <3 x float> addrspace(3)* undef)
+  %call04 = call <4 x float> @_Z6sincosDv4_fPU3AS3S_(<4 x float> undef, <4 x float> addrspace(3)* undef)
+  %call05 = call <8 x float> @_Z6sincosDv8_fPU3AS3S_(<8 x float> undef, <8 x float> addrspace(3)* undef)
+  %call06 = call <16 x float> @_Z6sincosDv16_fPU3AS3S_(<16 x float> undef, <16 x float> addrspace(3)* undef)
+  ret void
+}
+
+define void @check_sincos_float_generic() {
+; CHECK-LABEL: define void @check_sincos_float_generic
+; CHECK: call float @_Z9sincos_rmfPU3AS4f
+; CHECK: call <2 x float> @_Z9sincos_rmDv2_fPU3AS4S_
+; CHECK: call <3 x float> @_Z9sincos_rmDv3_fPU3AS4S_
+; CHECK: call <4 x float> @_Z9sincos_rmDv4_fPU3AS4S_
+; CHECK: call <8 x float> @_Z9sincos_rmDv8_fPU3AS4S_
+; CHECK: call <16 x float> @_Z9sincos_rmDv16_fPU3AS4S_
+entry:
+  %call01 = call float @_Z6sincosfPU3AS4f(float undef, float addrspace(4)* undef)
+  %call02 = call <2 x float> @_Z6sincosDv2_fPU3AS4S_(<2 x float> undef, <2 x float> addrspace(4)* undef)
+  %call03 = call <3 x float> @_Z6sincosDv3_fPU3AS4S_(<3 x float> undef, <3 x float> addrspace(4)* undef)
+  %call04 = call <4 x float> @_Z6sincosDv4_fPU3AS4S_(<4 x float> undef, <4 x float> addrspace(4)* undef)
+  %call05 = call <8 x float> @_Z6sincosDv8_fPU3AS4S_(<8 x float> undef, <8 x float> addrspace(4)* undef)
+  %call06 = call <16 x float> @_Z6sincosDv16_fPU3AS4S_(<16 x float> undef, <16 x float> addrspace(4)* undef)
+  ret void
+}
 
 declare float @_Z6sincosfPU3AS1f(float, float addrspace(1)*)
 declare <2 x float> @_Z6sincosDv2_fPU3AS1S_(<2 x float>, <2 x float> addrspace(1)*)
@@ -25,26 +80,29 @@ declare <4 x float> @_Z6sincosDv4_fPU3AS1S_(<4 x float>, <4 x float> addrspace(1
 declare <8 x float> @_Z6sincosDv8_fPU3AS1S_(<8 x float>, <8 x float> addrspace(1)*)
 declare <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float>, <16 x float> addrspace(1)*)
 
+declare float @_Z6sincosfPU3AS2f(float, float addrspace(2)*)
+declare <2 x float> @_Z6sincosDv2_fPU3AS2S_(<2 x float>, <2 x float> addrspace(2)*)
+declare <3 x float> @_Z6sincosDv3_fPU3AS2S_(<3 x float>, <3 x float> addrspace(2)*)
+declare <4 x float> @_Z6sincosDv4_fPU3AS2S_(<4 x float>, <4 x float> addrspace(2)*)
+declare <8 x float> @_Z6sincosDv8_fPU3AS2S_(<8 x float>, <8 x float> addrspace(2)*)
+declare <16 x float> @_Z6sincosDv16_fPU3AS2S_(<16 x float>, <16 x float> addrspace(2)*)
+
+declare float @_Z6sincosfPU3AS3f(float, float addrspace(3)*)
+declare <2 x float> @_Z6sincosDv2_fPU3AS3S_(<2 x float>, <2 x float> addrspace(3)*)
+declare <3 x float> @_Z6sincosDv3_fPU3AS3S_(<3 x float>, <3 x float> addrspace(3)*)
+declare <4 x float> @_Z6sincosDv4_fPU3AS3S_(<4 x float>, <4 x float> addrspace(3)*)
+declare <8 x float> @_Z6sincosDv8_fPU3AS3S_(<8 x float>, <8 x float> addrspace(3)*)
+declare <16 x float> @_Z6sincosDv16_fPU3AS3S_(<16 x float>, <16 x float> addrspace(3)*)
+
+declare float @_Z6sincosfPU3AS4f(float, float addrspace(4)*)
+declare <2 x float> @_Z6sincosDv2_fPU3AS4S_(<2 x float>, <2 x float> addrspace(4)*)
+declare <3 x float> @_Z6sincosDv3_fPU3AS4S_(<3 x float>, <3 x float> addrspace(4)*)
+declare <4 x float> @_Z6sincosDv4_fPU3AS4S_(<4 x float>, <4 x float> addrspace(4)*)
+declare <8 x float> @_Z6sincosDv8_fPU3AS4S_(<8 x float>, <8 x float> addrspace(4)*)
+declare <16 x float> @_Z6sincosDv16_fPU3AS4S_(<16 x float>, <16 x float> addrspace(4)*)
+
 !opencl.ocl.version = !{!0}
 
 !0 = !{i32 2, i32 0}
-
-; CHECK:        define void @check_sincos_float
-; CHECK:        entry:
-; CHECK-NEXT:   %call01 = call float @_Z9sincos_rmfPU3AS1f(float %f1, float addrspace(1)* %pf1)
-; CHECK-NEXT:   %call02 = call <2 x float> @_Z9sincos_rmDv2_fPU3AS1S_(<2 x float> %f2, <2 x float> addrspace(1)* %pf2)
-; CHECK-NEXT:   %call03 = call <3 x float> @_Z9sincos_rmDv3_fPU3AS1S_(<3 x float> %f3, <3 x float> addrspace(1)* %pf3)
-; CHECK-NEXT:   %call04 = call <4 x float> @_Z9sincos_rmDv4_fPU3AS1S_(<4 x float> %f4, <4 x float> addrspace(1)* %pf4)
-; CHECK-NEXT:   %call05 = call <8 x float> @_Z9sincos_rmDv8_fPU3AS1S_(<8 x float> %f8, <8 x float> addrspace(1)* %pf8)
-; CHECK-NEXT:   %call06 = call <16 x float> @_Z9sincos_rmDv16_fPU3AS1S_(<16 x float> %f16, <16 x float> addrspace(1)* %pf16)
-; CHECK-NEXT:   ret void
-
-
-; CHECK:        declare float @_Z9sincos_rmfPU3AS1f(float, float addrspace(1)*)
-; CHECK:        declare <2 x float> @_Z9sincos_rmDv2_fPU3AS1S_(<2 x float>, <2 x float> addrspace(1)*)
-; CHECK:        declare <3 x float> @_Z9sincos_rmDv3_fPU3AS1S_(<3 x float>, <3 x float> addrspace(1)*)
-; CHECK:        declare <4 x float> @_Z9sincos_rmDv4_fPU3AS1S_(<4 x float>, <4 x float> addrspace(1)*)
-; CHECK:        declare <8 x float> @_Z9sincos_rmDv8_fPU3AS1S_(<8 x float>, <8 x float> addrspace(1)*)
-; CHECK:        declare <16 x float> @_Z9sincos_rmDv16_fPU3AS1S_(<16 x float>, <16 x float> addrspace(1)*)
 
 ; DEBUGIFY-NOT: WARNING
