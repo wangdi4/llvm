@@ -1022,7 +1022,7 @@ void DwarfDebug::finishUnitAttributes(const DICompileUnit *DIUnit,
   StringRef IntelFlags; 
   StringRef ProducerFlags; 
   if (Flags.consume_front_insensitive("ProducerFlags_")) { 
-    int Producerlen; 
+    int Producerlen = 0; 
     Flags.consumeInteger(0, Producerlen); 
     ProducerFlags = Flags.take_front(Producerlen); 
     IntelFlags = Flags.substr(Producerlen); 
