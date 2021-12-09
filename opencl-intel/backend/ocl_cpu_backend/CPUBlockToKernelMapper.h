@@ -36,7 +36,7 @@ class Program;
     /// @param pProgram - Program object
     /// @param pModule - LLVM compiled module
     /// return
-    CPUBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule);
+    CPUBlockToKernelMapper(Program* pProgram);
 
     /// @brief map key to ICLDevBackendKernel object
     /// @param key - unique block id. For CPU supposed to be block function entry point

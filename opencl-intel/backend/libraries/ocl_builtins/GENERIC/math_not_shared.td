@@ -193,6 +193,7 @@ code sincos_svml_rm = [{
 OclBuiltinImpl sincos_pas_svml_rm_not_shared = OclBuiltinImpl<sincos_pas_rm, [v16f32], 0, sincos_svml_rm>;
 OclBuiltinImpl sincos_las_svml_rm_not_shared = OclBuiltinImpl<sincos_las_rm, [v16f32], 0, sincos_svml_rm>;
 OclBuiltinImpl sincos_gas_svml_rm_not_shared = OclBuiltinImpl<sincos_gas_rm, [v16f32], 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_gen_svml_rm_not_shared = OclBuiltinImpl<sincos_gen_rm, [v16f32], 0, sincos_svml_rm>;
 
 // divide_rm
 OclBuiltinImpl divide_svml_rm_not_shared = OclBuiltinImpl<divide_rm, [v16f32], 0, [{
@@ -233,7 +234,7 @@ code fract_impl_f32 = [{
     *iptr = floor($Arg0VarName);
     // x - floor(x)
     $Arg0Type f4x_1 = $Arg0VarName - *iptr;
-    // fmin( x – floor (x), 0x1.fffffep-1f )
+    // fmin( x - floor (x), 0x1.fffffep-1f )
     $ReturnVarName = min(f4x_1, fractLimit);
 
     // approach with if() instead of unconditional blend
