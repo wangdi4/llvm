@@ -5433,6 +5433,9 @@ static int32_t runTargetTeamRegionSub(
     }
 
     auto flags = DeviceInfo->getKernelIndirectAccessFlags(rootKernel, rootId);
+    // Kernel dynamic memory is also indirect access
+    if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
+      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
     CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
     DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(flags));
 
@@ -5569,6 +5572,9 @@ static int32_t runTargetTeamRegion(
   }
 
   auto flags = DeviceInfo->getKernelIndirectAccessFlags(kernel, DeviceId);
+  // Kernel dynamic memory is also indirect access
+  if (DeviceInfo->Option.KernelDynamicMemorySize > 0)
+    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
   CALL_ZE_RET_FAIL(zeKernelSetIndirectAccess, kernel, flags);
   DP("Setting indirect access flags " DPxMOD "\n", DPxPTR(flags));
 
