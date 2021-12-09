@@ -883,7 +883,7 @@ int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
 }
 
 int32_t DeviceTy::managed_memory_supported() {
-  return RTL->is_device_accessible_ptr != nullptr;
+  return RTL->data_alloc_managed != nullptr;
 }
 
 void *DeviceTy::dataRealloc(void *Ptr, size_t Size, int32_t Kind) {
