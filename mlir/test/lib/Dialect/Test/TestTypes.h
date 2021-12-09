@@ -25,6 +25,7 @@
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
 
 namespace test {
+class TestAttrWithFormatAttr;
 
 /// FieldInfo represents a field in the StructType data type. It is used as a
 /// parameter in TestTypeDefs.td.
@@ -56,19 +57,19 @@ inline llvm::hash_code hash_value(const test::CustomParam &param) {
 namespace mlir {
 template <>
 struct FieldParser<test::CustomParam> {
-  static FailureOr<test::CustomParam> parse(DialectAsmParser &parser) {
+  static FailureOr<test::CustomParam> parse(AsmParser &parser) {
     auto value = FieldParser<int>::parse(parser);
     if (failed(value))
       return failure();
     return test::CustomParam{value.getValue()};
   }
 };
-} // end namespace mlir
-
-inline mlir::DialectAsmPrinter &operator<<(mlir::DialectAsmPrinter &printer,
-                                           const test::CustomParam &param) {
+inline mlir::AsmPrinter &operator<<(mlir::AsmPrinter &printer,
+                                    test::CustomParam param) {
   return printer << param.value;
 }
+
+} // namespace mlir
 
 #include "TestTypeInterfaces.h.inc"
 

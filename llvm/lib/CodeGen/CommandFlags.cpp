@@ -95,7 +95,7 @@ CGOPT(bool, DoFMAOpt)
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableMachineFunctionSplitter)
 CGOPT(bool, EnableDebugEntryValues)
-CGOPT(bool, ValueTrackingVariableLocations)
+CGOPT_EXP(bool, ValueTrackingVariableLocations)
 CGOPT(bool, ForceDwarfFrameSection)
 CGOPT(bool, XRayOmitFunctionIndex)
 CGOPT(bool, DebugStrictDwarf)
@@ -566,11 +566,16 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
-  Options.ValueTrackingVariableLocations = getValueTrackingVariableLocations();
   Options.ForceDwarfFrameSection = getForceDwarfFrameSection();
   Options.XRayOmitFunctionIndex = getXRayOmitFunctionIndex();
   Options.DebugStrictDwarf = getDebugStrictDwarf();
   Options.LoopAlignment = getAlignLoops();
+
+  if (auto Opt = getExplicitValueTrackingVariableLocations())
+    Options.ValueTrackingVariableLocations = *Opt;
+  else
+    Options.ValueTrackingVariableLocations =
+        getDefaultValueTrackingVariableLocations(TheTriple);
 
   Options.MCOptions = mc::InitMCTargetOptionsFromFlags();
 
@@ -723,4 +728,10 @@ void codegen::setFunctionAttributes(StringRef CPU, StringRef Features,
                                     Module &M) {
   for (Function &F : M)
     setFunctionAttributes(CPU, Features, F);
+}
+
+bool codegen::getDefaultValueTrackingVariableLocations(const llvm::Triple &T) {
+  if (T.getArch() == llvm::Triple::x86_64)
+    return true;
+  return false;
 }

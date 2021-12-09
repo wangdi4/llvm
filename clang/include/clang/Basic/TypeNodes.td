@@ -110,5 +110,5 @@ def ChannelType : TypeNode<Type>;
 #endif // INTEL_CUSTOMIZATION
 def PipeType : TypeNode<Type>;
 def AtomicType : TypeNode<Type>;
-def ExtIntType : TypeNode<Type>;
-def DependentExtIntType : TypeNode<Type>, AlwaysDependent;
+def BitIntType : TypeNode<Type>;
+def DependentBitIntType : TypeNode<Type>, AlwaysDependent;

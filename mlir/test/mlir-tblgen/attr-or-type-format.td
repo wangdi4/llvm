@@ -34,8 +34,8 @@ def TypeParamB : TypeParameter<"TestParamD", "a type param D"> {
 
 /// Check simple attribute parser and printer are generated correctly.
 
-// ATTR: ::mlir::Attribute TestAAttr::parse(::mlir::DialectAsmParser &parser,
-// ATTR:                                    ::mlir::Type attrType) {
+// ATTR: ::mlir::Attribute TestAAttr::parse(::mlir::AsmParser &parser,
+// ATTR:                                    ::mlir::Type type) {
 // ATTR:   FailureOr<IntegerAttr> _result_value;
 // ATTR:   FailureOr<TestParamA> _result_complex;
 // ATTR:   if (parser.parseKeyword("hello"))
@@ -47,7 +47,7 @@ def TypeParamB : TypeParameter<"TestParamD", "a type param D"> {
 // ATTR:     return {};
 // ATTR:   if (parser.parseComma())
 // ATTR:     return {};
-// ATTR:   _result_complex = ::parseAttrParamA(parser, attrType);
+// ATTR:   _result_complex = ::parseAttrParamA(parser, type);
 // ATTR:   if (failed(_result_complex))
 // ATTR:     return {};
 // ATTR:   if (parser.parseRParen())
@@ -57,12 +57,11 @@ def TypeParamB : TypeParameter<"TestParamD", "a type param D"> {
 // ATTR:                         _result_complex.getValue());
 // ATTR: }
 
-// ATTR: void TestAAttr::print(::mlir::DialectAsmPrinter &printer) const {
-// ATTR:   printer << "attr_a";
+// ATTR: void TestAAttr::print(::mlir::AsmPrinter &printer) const {
 // ATTR:   printer << ' ' << "hello";
 // ATTR:   printer << ' ' << "=";
 // ATTR:   printer << ' ';
-// ATTR:   printer << getValue();
+// ATTR:   printer.printStrippedAttrOrType(getValue());
 // ATTR:   printer << ",";
 // ATTR:   printer << ' ';
 // ATTR:   ::printAttrParamA(printer, getComplex());
@@ -81,8 +80,8 @@ def AttrA : TestAttr<"TestA"> {
 
 /// Test simple struct parser and printer are generated correctly.
 
-// ATTR: ::mlir::Attribute TestBAttr::parse(::mlir::DialectAsmParser &parser,
-// ATTR:                                    ::mlir::Type attrType) {
+// ATTR: ::mlir::Attribute TestBAttr::parse(::mlir::AsmParser &parser,
+// ATTR:                                    ::mlir::Type type) {
 // ATTR:   bool _seen_v0 = false;
 // ATTR:   bool _seen_v1 = false;
 // ATTR:   for (unsigned _index = 0; _index < 2; ++_index) {
@@ -93,12 +92,12 @@ def AttrA : TestAttr<"TestA"> {
 // ATTR:       return {};
 // ATTR:     if (!_seen_v0 && _paramKey == "v0") {
 // ATTR:       _seen_v0 = true;
-// ATTR:       _result_v0 = ::parseAttrParamA(parser, attrType);
+// ATTR:       _result_v0 = ::parseAttrParamA(parser, type);
 // ATTR:       if (failed(_result_v0))
 // ATTR:         return {};
 // ATTR:     } else if (!_seen_v1 && _paramKey == "v1") {
 // ATTR:       _seen_v1 = true;
-// ATTR:       _result_v1 = attrType ? ::parseAttrWithType(parser, attrType) : ::parseAttrWithout(parser);
+// ATTR:       _result_v1 = type ? ::parseAttrWithType(parser, type) : ::parseAttrWithout(parser);
 // ATTR:       if (failed(_result_v1))
 // ATTR:         return {};
 // ATTR:     } else {
@@ -112,7 +111,7 @@ def AttrA : TestAttr<"TestA"> {
 // ATTR:                         _result_v1.getValue());
 // ATTR: }
 
-// ATTR: void TestBAttr::print(::mlir::DialectAsmPrinter &printer) const {
+// ATTR: void TestBAttr::print(::mlir::AsmPrinter &printer) const {
 // ATTR:   printer << "v0";
 // ATTR:   printer << ' ' << "=";
 // ATTR:   printer << ' ';
@@ -136,8 +135,8 @@ def AttrB : TestAttr<"TestB"> {
 
 /// Test attribute with capture-all params has correct parser and printer.
 
-// ATTR: ::mlir::Attribute TestFAttr::parse(::mlir::DialectAsmParser &parser,
-// ATTR:                                    ::mlir::Type attrType) {
+// ATTR: ::mlir::Attribute TestFAttr::parse(::mlir::AsmParser &parser,
+// ATTR:                                    ::mlir::Type type) {
 // ATTR:   ::mlir::FailureOr<int> _result_v0;
 // ATTR:   ::mlir::FailureOr<int> _result_v1;
 // ATTR:   _result_v0 = ::mlir::FieldParser<int>::parse(parser);
@@ -153,13 +152,12 @@ def AttrB : TestAttr<"TestB"> {
 // ATTR:     _result_v1.getValue());
 // ATTR: }
 
-// ATTR: void TestFAttr::print(::mlir::DialectAsmPrinter &printer) const {
-// ATTR:   printer << "attr_c";
+// ATTR: void TestFAttr::print(::mlir::AsmPrinter &printer) const {
 // ATTR:   printer << ' ';
-// ATTR:   printer << getV0();
+// ATTR:   printer.printStrippedAttrOrType(getV0());
 // ATTR:   printer << ",";
 // ATTR:   printer << ' ';
-// ATTR:   printer << getV1();
+// ATTR:   printer.printStrippedAttrOrType(getV1());
 // ATTR: }
 
 def AttrC : TestAttr<"TestF"> {
@@ -172,7 +170,7 @@ def AttrC : TestAttr<"TestF"> {
 /// Test type parser and printer that mix variables and struct are generated
 /// correctly.
 
-// TYPE: ::mlir::Type TestCType::parse(::mlir::DialectAsmParser &parser) {
+// TYPE: ::mlir::Type TestCType::parse(::mlir::AsmParser &parser) {
 // TYPE:  FailureOr<IntegerAttr> _result_value;
 // TYPE:  FailureOr<TestParamC> _result_complex;
 // TYPE:  if (parser.parseKeyword("foo"))
@@ -208,15 +206,14 @@ def AttrC : TestAttr<"TestF"> {
 // TYPE:    return {};
 // TYPE:  }
 
-// TYPE: void TestCType::print(::mlir::DialectAsmPrinter &printer) const {
-// TYPE:   printer << "type_c";
+// TYPE: void TestCType::print(::mlir::AsmPrinter &printer) const {
 // TYPE:   printer << ' ' << "foo";
 // TYPE:   printer << ",";
 // TYPE:   printer << ' ' << ":";
 // TYPE:   printer << ' ' << "bob";
 // TYPE:   printer << ' ' << "bar";
 // TYPE:   printer << ' ';
-// TYPE:   printer << getValue();
+// TYPE:   printer.printStrippedAttrOrType(getValue());
 // TYPE:   printer << ' ' << "complex";
 // TYPE:   printer << ' ' << "=";
 // TYPE:   printer << ' ';
@@ -237,7 +234,7 @@ def TypeA : TestType<"TestC"> {
 /// Test type parser and printer with mix of variables and struct are generated
 /// correctly.
 
-// TYPE: ::mlir::Type TestDType::parse(::mlir::DialectAsmParser &parser) {
+// TYPE: ::mlir::Type TestDType::parse(::mlir::AsmParser &parser) {
 // TYPE:   _result_v0 = ::parseTypeParamC(parser);
 // TYPE:   if (failed(_result_v0))
 // TYPE:     return {};
@@ -275,7 +272,7 @@ def TypeA : TestType<"TestC"> {
 // TYPE:                         _result_v3.getValue());
 // TYPE: }
 
-// TYPE: void TestDType::print(::mlir::DialectAsmPrinter &printer) const {
+// TYPE: void TestDType::print(::mlir::AsmPrinter &printer) const {
 // TYPE:   printer << getV0();
 // TYPE:   myPrinter(getV1());
 // TYPE:   printer << ' ' << "v2";
@@ -300,7 +297,7 @@ def TypeB : TestType<"TestD"> {
 /// Type test with two struct directives has correctly generated parser and
 /// printer.
 
-// TYPE: ::mlir::Type TestEType::parse(::mlir::DialectAsmParser &parser) {
+// TYPE: ::mlir::Type TestEType::parse(::mlir::AsmParser &parser) {
 // TYPE:   FailureOr<IntegerAttr> _result_v0;
 // TYPE:   FailureOr<IntegerAttr> _result_v1;
 // TYPE:   FailureOr<IntegerAttr> _result_v2;
@@ -360,25 +357,25 @@ def TypeB : TestType<"TestD"> {
 // TYPE:     _result_v3.getValue());
 // TYPE: }
 
-// TYPE: void TestEType::print(::mlir::DialectAsmPrinter &printer) const {
+// TYPE: void TestEType::print(::mlir::AsmPrinter &printer) const {
 // TYPE:   printer << "v0";
 // TYPE:   printer << ' ' << "=";
 // TYPE:   printer << ' ';
-// TYPE:   printer << getV0();
+// TYPE:   printer.printStrippedAttrOrType(getV0());
 // TYPE:   printer << ",";
 // TYPE:   printer << ' ' << "v2";
 // TYPE:   printer << ' ' << "=";
 // TYPE:   printer << ' ';
-// TYPE:   printer << getV2();
+// TYPE:   printer.printStrippedAttrOrType(getV2());
 // TYPE:   printer << "v1";
 // TYPE:   printer << ' ' << "=";
 // TYPE:   printer << ' ';
-// TYPE:   printer << getV1();
+// TYPE:   printer.printStrippedAttrOrType(getV1());
 // TYPE:   printer << ",";
 // TYPE:   printer << ' ' << "v3";
 // TYPE:   printer << ' ' << "=";
 // TYPE:   printer << ' ';
-// TYPE:   printer << getV3();
+// TYPE:   printer.printStrippedAttrOrType(getV3());
 // TYPE: }
 
 def TypeC : TestType<"TestE"> {

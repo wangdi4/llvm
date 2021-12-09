@@ -1382,8 +1382,7 @@ void ExecutionEngine::emitGlobals() {
     // If there are multiple modules, map the non-canonical globals to their
     // canonical location.
     if (!NonCanonicalGlobals.empty()) {
-      for (unsigned i = 0, e = NonCanonicalGlobals.size(); i != e; ++i) {
-        const GlobalValue *GV = NonCanonicalGlobals[i];
+      for (const GlobalValue *GV : NonCanonicalGlobals) {
         const GlobalValue *CGV = LinkedGlobalsMap[std::make_pair(
             std::string(GV->getName()), GV->getType())];
         void *Ptr = getPointerToGlobalIfAvailable(CGV);

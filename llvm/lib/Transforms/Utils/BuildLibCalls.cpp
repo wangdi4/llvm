@@ -508,17 +508,16 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_mempcpy:
   case LibFunc_memccpy:
+    Changed |= setWillReturn(F);
+    LLVM_FALLTHROUGH;
+  case LibFunc_memcpy_chk:
     Changed |= setDoesNotThrow(F);
     Changed |= setOnlyAccessesArgMemory(F);
-    Changed |= setWillReturn(F);
     Changed |= setDoesNotAlias(F, 0);
     Changed |= setOnlyWritesMemory(F, 0);
     Changed |= setDoesNotAlias(F, 1);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
-    return Changed;
-  case LibFunc_memcpy_chk:
-    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_memalign:
     Changed |= setOnlyAccessesInaccessibleMemory(F);
@@ -1119,9 +1118,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     return Changed;
-  // TODO: add LibFunc entries for:
-  // case LibFunc_memset_pattern4:
-  // case LibFunc_memset_pattern8:
 #if INTEL_CUSTOMIZATION
   case LibFunc_msvc_std_bad_alloc_ctor:
   case LibFunc_msvc_std_bad_alloc_scalar_deleting_dtor:
@@ -1297,6 +1293,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
 #endif // INTEL_CUSTOMIZATION
+  case LibFunc_memset_pattern4:
+  case LibFunc_memset_pattern8:
   case LibFunc_memset_pattern16:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -1305,10 +1303,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_memset:
-    Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setWillReturn(F);
-    Changed |= setDoesNotThrow(F);
+    LLVM_FALLTHROUGH;
+  case LibFunc_memset_chk:
+    Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setOnlyWritesMemory(F, 0);
+    Changed |= setDoesNotThrow(F);
     return Changed;
   // int __nvvm_reflect(const char *)
   case LibFunc_nvvm_reflect:

@@ -15,10 +15,6 @@
 ; CHECK:   DW_TAG_subprogram
 ; CHECK:     DW_AT_abstract_origin	({{0x.*}} "not_removed")
 ; CHECK:     DW_TAG_variable
-; CHECK: [[B:0x.*]]: DW_TAG_structure_type
-; CHECK:       DW_AT_name	("B")
-; CHECK:       DW_TAG_member
-; CHECK:       NULL
 ; CHECK:     NULL
 ; CHECK:   DW_TAG_subprogram
 ; CHECK:     DW_AT_name	("removed")
@@ -32,6 +28,10 @@
 ; CHECK:   DW_TAG_base_type
 ; CHECK:   DW_TAG_subprogram
 ; CHECK:     DW_AT_name	("not_removed")
+; CHECK: [[B:0x.*]]: DW_TAG_structure_type
+; CHECK:       DW_AT_name	("B")
+; CHECK:       DW_TAG_member
+; CHECK:       NULL
 ; CHECK:     DW_TAG_variable
 ; CHECK:       DW_AT_type	([[B]] "B")
 ; CHECK:     NULL

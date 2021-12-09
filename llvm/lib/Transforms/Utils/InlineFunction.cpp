@@ -1389,10 +1389,9 @@ static void AddReturnAttributes(CallBase &CB, ValueToValueMapTy &VMap) {
     if (!RI || !isa<CallBase>(RI->getOperand(0)))
       continue;
     auto *RetVal = cast<CallBase>(RI->getOperand(0));
-    // Sanity check that the cloned RetVal exists and is a call, otherwise we
-    // cannot add the attributes on the cloned RetVal.
-    // Simplification during inlining could have transformed the cloned
-    // instruction.
+    // Check that the cloned RetVal exists and is a call, otherwise we cannot
+    // add the attributes on the cloned RetVal. Simplification during inlining
+    // could have transformed the cloned instruction.
     auto *NewRetVal = dyn_cast_or_null<CallBase>(VMap.lookup(RetVal));
     if (!NewRetVal)
       continue;
@@ -1978,8 +1977,7 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
                               const ProfileCount &CalleeEntryCount,
                               const CallBase &TheCall, ProfileSummaryInfo *PSI,
                               BlockFrequencyInfo *CallerBFI) {
-  if (!CalleeEntryCount.hasValue() || CalleeEntryCount.isSynthetic() ||
-      CalleeEntryCount.getCount() < 1)
+  if (CalleeEntryCount.isSynthetic() || CalleeEntryCount.getCount() < 1)
     return;
   auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : None;
 #if INTEL_CUSTOMIZATION
@@ -2000,40 +1998,39 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
 }
 
 void llvm::updateProfileCallee(
-    Function *Callee, int64_t entryDelta,
+    Function *Callee, int64_t EntryDelta,
     const ValueMap<const Value *, WeakTrackingVH> *VMap) {
   auto CalleeCount = Callee->getEntryCount();
   if (!CalleeCount.hasValue())
     return;
 
-  uint64_t priorEntryCount = CalleeCount.getCount();
-  uint64_t newEntryCount;
+  const uint64_t PriorEntryCount = CalleeCount->getCount();
 
   // Since CallSiteCount is an estimate, it could exceed the original callee
   // count and has to be set to 0 so guard against underflow.
-  if (entryDelta < 0 && static_cast<uint64_t>(-entryDelta) > priorEntryCount)
-    newEntryCount = 0;
-  else
-    newEntryCount = priorEntryCount + entryDelta;
+  const uint64_t NewEntryCount =
+      (EntryDelta < 0 && static_cast<uint64_t>(-EntryDelta) > PriorEntryCount)
+          ? 0
+          : PriorEntryCount + EntryDelta;
 
   // During inlining ?
   if (VMap) {
-    uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
+    uint64_t CloneEntryCount = PriorEntryCount - NewEntryCount;
     for (auto Entry : *VMap) { // INTEL
 #if INTEL_CUSTOMIZATION
       // Update intel_profx metadata, which can be on CallInst or InvokeInst
       if (isa<CallBase>(Entry.first))
         if (auto *Call = dyn_cast_or_null<CallBase>(Entry.second))
-          Call->updateProfxWeight(cloneEntryCount, priorEntryCount);
+          Call->updateProfxWeight(CloneEntryCount, PriorEntryCount);
 #endif // INTEL_CUSTOMIZATION
       if (isa<CallInst>(Entry.first))
         if (auto *CI = dyn_cast_or_null<CallInst>(Entry.second))
-          CI->updateProfWeight(cloneEntryCount, priorEntryCount);
+          CI->updateProfWeight(CloneEntryCount, PriorEntryCount);
     } // INTEL
   }
 
-  if (entryDelta) {
-    Callee->setEntryCount(newEntryCount);
+  if (EntryDelta) {
+    Callee->setEntryCount(NewEntryCount);
 
     for (BasicBlock &BB : *Callee)
       // No need to update the callsite if it is pruned during inlining.
@@ -2043,10 +2040,10 @@ void llvm::updateProfileCallee(
           // Update intel_profx metadata, which can be on CallInst or
           // InvokeInst
           if (CallBase *Call = dyn_cast<CallBase>(&I))
-            Call->updateProfxWeight(newEntryCount, priorEntryCount);
+            Call->updateProfxWeight(NewEntryCount, PriorEntryCount);
 #endif // INTEL_CUSTOMIZATION
           if (CallInst *CI = dyn_cast<CallInst>(&I))
-            CI->updateProfWeight(newEntryCount, priorEntryCount);
+            CI->updateProfWeight(NewEntryCount, PriorEntryCount);
         } // INTEL
   }
 }
@@ -2464,8 +2461,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         updateCallerBFI(OrigBB, VMap, IFI.CallerBFI, IFI.CalleeBFI,
                         CalledFunc->front());
 
-      updateCallProfile(CalledFunc, VMap, CalledFunc->getEntryCount(), CB,
-                        IFI.PSI, IFI.CallerBFI);
+      if (auto Profile = CalledFunc->getEntryCount())
+        updateCallProfile(CalledFunc, VMap, *Profile, CB, IFI.PSI,
+                          IFI.CallerBFI);
     }
 
     // Inject byval arguments initialization.

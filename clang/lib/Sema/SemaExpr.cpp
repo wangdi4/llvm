@@ -253,8 +253,7 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
       // Disallow const statics and globals that are not zero-initialized
       // or constant-initialized.
       else if (IsRuntimeEvaluated && IsConst && VD->hasGlobalStorage() &&
-               !VD->isConstexpr() &&
-               !checkAllowedSYCLInitializer(VD, /*CheckValueDependent =*/true))
+               !VD->isConstexpr() && !checkAllowedSYCLInitializer(VD))
         SYCLDiagIfDeviceCode(*Locs.begin(), diag::err_sycl_restrict)
             << Sema::KernelConstStaticVariable;
     } else if (auto *FDecl = dyn_cast<FunctionDecl>(D)) {
@@ -4490,7 +4489,7 @@ static void captureVariablyModifiedType(ASTContext &Context, QualType T,
     case Type::Channel:
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
-    case Type::ExtInt:
+    case Type::BitInt:
       llvm_unreachable("type class is never variably-modified!");
     case Type::Adjusted:
       T = cast<AdjustedType>(Ty)->getOriginalType();
@@ -5815,7 +5814,7 @@ Sema::VariadicCallType
 Sema::getVariadicCallType(FunctionDecl *FDecl, const FunctionProtoType *Proto,
                           Expr *Fn) {
   if (Proto && Proto->isVariadic()) {
-    if (dyn_cast_or_null<CXXConstructorDecl>(FDecl))
+    if (isa_and_nonnull<CXXConstructorDecl>(FDecl))
       return VariadicConstructor;
     else if (Fn && Fn->getType()->isBlockPointerType())
       return VariadicBlock;
@@ -8675,9 +8674,10 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
   // If both operands have arithmetic type, do the usual arithmetic conversions
   // to find a common type: C99 6.5.15p3,5.
   if (LHSTy->isArithmeticType() && RHSTy->isArithmeticType()) {
-    // Disallow invalid arithmetic conversions, such as those between ExtInts of
-    // different sizes, or between ExtInts and other types.
-    if (ResTy.isNull() && (LHSTy->isExtIntType() || RHSTy->isExtIntType())) {
+    // Disallow invalid arithmetic conversions, such as those between bit-
+    // precise integers types of different sizes, or between a bit-precise
+    // integer and another type.
+    if (ResTy.isNull() && (LHSTy->isBitIntType() || RHSTy->isBitIntType())) {
       Diag(QuestionLoc, diag::err_typecheck_cond_incompatible_operands)
           << LHSTy << RHSTy << LHS.get()->getSourceRange()
           << RHS.get()->getSourceRange();
@@ -11261,7 +11261,7 @@ static void DiagnoseBadShiftValues(Sema& S, ExprResult &LHS, ExprResult &RHS,
 
   QualType LHSExprType = LHS.get()->getType();
   uint64_t LeftSize = S.Context.getTypeSize(LHSExprType);
-  if (LHSExprType->isExtIntType())
+  if (LHSExprType->isBitIntType())
     LeftSize = S.Context.getIntWidth(LHSExprType);
   else if (LHSExprType->isFixedPointType()) {
     auto FXSema = S.Context.getFixedPointSemantics(LHSExprType);
@@ -11472,7 +11472,6 @@ QualType Sema::CheckShiftOperands(ExprResult &LHS, ExprResult &RHS,
       isScopedEnumerationType(RHSType)) {
     return InvalidOperands(Loc, LHS, RHS);
   }
-  // Sanity-check shift operands
   DiagnoseBadShiftValues(*this, LHS, RHS, Loc, Opc, LHSType);
 
   // "The type of the result is that of the promoted left operand."
@@ -16887,6 +16886,17 @@ Sema::PushExpressionEvaluationContext(
     ExpressionEvaluationContextRecord::ExpressionKind ExprContext) {
   ExprEvalContexts.emplace_back(NewContext, ExprCleanupObjects.size(), Cleanup,
                                 LambdaContextDecl, ExprContext);
+
+  // Discarded statements and immediate contexts nested in other
+  // discarded statements or immediate context are themselves
+  // a discarded statement or an immediate context, respectively.
+  ExprEvalContexts.back().InDiscardedStatement =
+      ExprEvalContexts[ExprEvalContexts.size() - 2]
+          .isDiscardedStatementContext();
+  ExprEvalContexts.back().InImmediateFunctionContext =
+      ExprEvalContexts[ExprEvalContexts.size() - 2]
+          .isImmediateFunctionContext();
+
   Cleanup.reset();
   if (!MaybeODRUseExprs.empty())
     std::swap(MaybeODRUseExprs, ExprEvalContexts.back().SavedMaybeODRUseExprs);
@@ -19206,12 +19216,20 @@ class EvaluatedExprMarker : public UsedDeclVisitor<EvaluatedExprMarker> {
 public:
   typedef UsedDeclVisitor<EvaluatedExprMarker> Inherited;
   bool SkipLocalVariables;
+  ArrayRef<const Expr *> StopAt;
 
-  EvaluatedExprMarker(Sema &S, bool SkipLocalVariables)
-      : Inherited(S), SkipLocalVariables(SkipLocalVariables) {}
+  EvaluatedExprMarker(Sema &S, bool SkipLocalVariables,
+                      ArrayRef<const Expr *> StopAt)
+      : Inherited(S), SkipLocalVariables(SkipLocalVariables), StopAt(StopAt) {}
 
   void visitUsedDecl(SourceLocation Loc, Decl *D) {
     S.MarkFunctionReferenced(Loc, cast<FunctionDecl>(D));
+  }
+
+  void Visit(Expr *E) {
+    if (std::find(StopAt.begin(), StopAt.end(), E) != StopAt.end())
+      return;
+    Inherited::Visit(E);
   }
 
   void VisitDeclRefExpr(DeclRefExpr *E) {
@@ -19240,9 +19258,11 @@ public:
 ///
 /// \param SkipLocalVariables If true, don't mark local variables as
 /// 'referenced'.
+/// \param StopAt Subexpressions that we shouldn't recurse into.
 void Sema::MarkDeclarationsReferencedInExpr(Expr *E,
-                                            bool SkipLocalVariables) {
-  EvaluatedExprMarker(*this, SkipLocalVariables).Visit(E);
+                                            bool SkipLocalVariables,
+                                            ArrayRef<const Expr*> StopAt) {
+  EvaluatedExprMarker(*this, SkipLocalVariables, StopAt).Visit(E);
 }
 
 /// Emit a diagnostic when statements are reachable.
@@ -19295,6 +19315,10 @@ bool Sema::DiagIfReachable(SourceLocation Loc, ArrayRef<const Stmt *> Stmts,
 /// during overload resolution or within sizeof/alignof/typeof/typeid.
 bool Sema::DiagRuntimeBehavior(SourceLocation Loc, ArrayRef<const Stmt*> Stmts,
                                const PartialDiagnostic &PD) {
+
+  if (ExprEvalContexts.back().isDiscardedStatementContext())
+    return false;
+
   switch (ExprEvalContexts.back().Context) {
   case ExpressionEvaluationContext::Unevaluated:
   case ExpressionEvaluationContext::UnevaluatedList:

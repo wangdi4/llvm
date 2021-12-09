@@ -76,7 +76,7 @@ int main() {
 // CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 10000)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 2)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 3)
-// CHECK: store { i64, i64 } { i64 ptrtoint ([1 x void (%struct.C addrspace(4)*)*]* @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, { i64, i64 } addrspace(4)* %pf.ascast
+// CHECK: store { i64, i64 } { i64 ptrtoint ([1 x void (%struct.C addrspace(4)*)*]* @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, { i64, i64 } addrspace(4)* %pf.ascast, align 8
 // CHECK: ret void
 
 // CHECK: define dso_local spir_func void{{.+}}aoo{{.+}}

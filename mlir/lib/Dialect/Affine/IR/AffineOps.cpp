@@ -11,6 +11,7 @@
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/IntegerSet.h"
@@ -203,7 +204,7 @@ struct AffineInlinerInterface : public DialectInlinerInterface {
   /// Affine regions should be analyzed recursively.
   bool shouldAnalyzeRecursively(Operation *op) const final { return true; }
 };
-} // end anonymous namespace
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // AffineDialect
@@ -625,13 +626,13 @@ static LogicalResult replaceDimOrSym(AffineMap *map,
   ValueRange composeSyms =
       affineApply.getMapOperands().take_back(composeMap.getNumSymbols());
 
-  // Perform the replacement and append the dims and symbols where relevant.
+  // Append the dims and symbols where relevant and perform the replacement.
   MLIRContext *ctx = map->getContext();
   AffineExpr toReplace = isDimReplacement ? getAffineDimExpr(pos, ctx)
                                           : getAffineSymbolExpr(pos, ctx);
-  *map = map->replace(toReplace, composeExpr, dims.size(), syms.size());
   dims.append(composeDims.begin(), composeDims.end());
   syms.append(composeSyms.begin(), composeSyms.end());
+  *map = map->replace(toReplace, composeExpr, dims.size(), syms.size());
 
   return success();
 }
@@ -943,7 +944,7 @@ void SimplifyAffineOp<AffineOpTy>::replaceAffineOp(
     ArrayRef<Value> mapOperands) const {
   rewriter.replaceOpWithNewOp<AffineOpTy>(op, map, mapOperands);
 }
-} // end anonymous namespace.
+} // namespace
 
 void AffineApplyOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                                 MLIRContext *context) {
@@ -1650,7 +1651,7 @@ struct AffineForEmptyLoopFolder : public OpRewritePattern<AffineForOp> {
     return success();
   }
 };
-} // end anonymous namespace
+} // namespace
 
 void AffineForOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                               MLIRContext *context) {
@@ -2032,7 +2033,7 @@ struct AlwaysTrueOrFalseIf : public OpRewritePattern<AffineIfOp> {
     return success();
   }
 };
-} // end anonymous namespace.
+} // namespace
 
 static LogicalResult verify(AffineIfOp op) {
   // Verify that we have a condition attribute.
@@ -2384,11 +2385,11 @@ static void print(OpAsmPrinter &p, AffineStoreOp op) {
 }
 
 LogicalResult verify(AffineStoreOp op) {
-  // First operand must have same type as memref element type.
+  // The value to store must have the same type as memref element type.
   auto memrefType = op.getMemRefType();
   if (op.getValueToStore().getType() != memrefType.getElementType())
     return op.emitOpError(
-        "first operand must have same type memref element type");
+        "value to store must have the same type as memref element type");
 
   if (failed(verifyMemoryOpIndexing(
           op.getOperation(),

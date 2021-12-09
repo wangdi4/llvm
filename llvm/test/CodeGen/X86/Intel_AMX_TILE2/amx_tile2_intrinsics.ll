@@ -6,7 +6,6 @@ define void @test_amx_tile2() {
 ; CHECK-LABEL: test_amx_tile2:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tilemov %tmm3, %tmm1
-; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    retq
   call void @llvm.x86.tilemov(i8 1, i8 3)
   ret void

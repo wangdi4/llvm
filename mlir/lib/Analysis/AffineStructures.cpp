@@ -66,7 +66,7 @@ private:
   }
 };
 
-} // end anonymous namespace
+} // namespace
 
 // Flattens the expressions in map. Returns failure if 'expr' was unable to be
 // flattened (i.e., semi-affine expressions not handled yet).
@@ -493,8 +493,8 @@ static bool LLVM_ATTRIBUTE_UNUSED areIdsUnique(
 /// dimension-wise and symbol-wise unique; both constraint systems are updated
 /// so that they have the union of all identifiers, with A's original
 /// identifiers appearing first followed by any of B's identifiers that didn't
-/// appear in A. Local identifiers of each system are by design separate/local
-/// and are placed one after other (A's followed by B's).
+/// appear in A. Local identifiers in B that have the same division
+/// representation as local identifiers in A are merged into one.
 //  E.g.: Input: A has ((%i, %j) [%M, %N]) and B has (%k, %j) [%P, %N, %M])
 //        Output: both A, B have (%i, %j, %k) [%M, %N, %P]
 static void mergeAndAlignIds(unsigned offset, FlatAffineValueConstraints *a,
@@ -1424,12 +1424,17 @@ static LogicalResult getDivRepr(const FlatAffineConstraints &cst, unsigned pos,
 }
 
 /// Check if the pos^th identifier can be expressed as a floordiv of an affine
-/// function of other identifiers (where the divisor is a positive constant),
+/// function of other identifiers (where the divisor is a positive constant).
 /// `foundRepr` contains a boolean for each identifier indicating if the
 /// explicit representation for that identifier has already been computed.
+/// Returns the upper and lower bound inequalities using which the floordiv can
+/// be computed. If the representation could be computed, `dividend` and
+/// `denominator` are set. If the representation could not be computed,
+/// `llvm::None` is returned.
 static Optional<std::pair<unsigned, unsigned>>
 computeSingleVarRepr(const FlatAffineConstraints &cst,
-                     const SmallVector<bool, 8> &foundRepr, unsigned pos) {
+                     const SmallVector<bool, 8> &foundRepr, unsigned pos,
+                     SmallVector<int64_t, 8> &dividend, unsigned &divisor) {
   assert(pos < cst.getNumIds() && "invalid position");
   assert(foundRepr.size() == cst.getNumIds() &&
          "Size of foundRepr does not match total number of variables");
@@ -1440,9 +1445,7 @@ computeSingleVarRepr(const FlatAffineConstraints &cst,
   for (unsigned ubPos : ubIndices) {
     for (unsigned lbPos : lbIndices) {
       // Attempt to get divison representation from ubPos, lbPos.
-      SmallVector<int64_t, 8> expr;
-      unsigned divisor;
-      if (failed(getDivRepr(cst, pos, ubPos, lbPos, expr, divisor)))
+      if (failed(getDivRepr(cst, pos, ubPos, lbPos, dividend, divisor)))
         continue;
 
       // Check if the inequalities depend on a variable for which
@@ -1452,7 +1455,7 @@ computeSingleVarRepr(const FlatAffineConstraints &cst,
       for (c = 0, f = cst.getNumIds(); c < f; ++c) {
         if (c == pos)
           continue;
-        if (!foundRepr[c] && expr[c] != 0)
+        if (!foundRepr[c] && dividend[c] != 0)
           break;
       }
 
@@ -1470,14 +1473,29 @@ computeSingleVarRepr(const FlatAffineConstraints &cst,
   return llvm::None;
 }
 
-/// Find pairs of inequalities identified by their position indices, using
-/// which an explicit representation for each local variable can be computed
-/// The pairs are stored as indices of upperbound, lowerbound
-/// inequalities. If no such pair can be found, it is stored as llvm::None.
-void FlatAffineConstraints::getLocalReprLbUbPairs(
+void FlatAffineConstraints::getLocalReprs(
     std::vector<llvm::Optional<std::pair<unsigned, unsigned>>> &repr) const {
-  assert(repr.size() == getNumLocalIds() &&
-         "Size of repr does not match number of local variables");
+  std::vector<SmallVector<int64_t, 8>> dividends(getNumLocalIds());
+  SmallVector<unsigned, 4> denominators(getNumLocalIds());
+  getLocalReprs(dividends, denominators, repr);
+}
+
+void FlatAffineConstraints::getLocalReprs(
+    std::vector<SmallVector<int64_t, 8>> &dividends,
+    SmallVector<unsigned, 4> &denominators) const {
+  std::vector<llvm::Optional<std::pair<unsigned, unsigned>>> repr(
+      getNumLocalIds());
+  getLocalReprs(dividends, denominators, repr);
+}
+
+void FlatAffineConstraints::getLocalReprs(
+    std::vector<SmallVector<int64_t, 8>> &dividends,
+    SmallVector<unsigned, 4> &denominators,
+    std::vector<llvm::Optional<std::pair<unsigned, unsigned>>> &repr) const {
+
+  repr.resize(getNumLocalIds());
+  dividends.resize(getNumLocalIds());
+  denominators.resize(getNumLocalIds());
 
   SmallVector<bool, 8> foundRepr(getNumIds(), false);
   for (unsigned i = 0, e = getNumDimAndSymbolIds(); i < e; ++i)
@@ -1491,7 +1509,8 @@ void FlatAffineConstraints::getLocalReprLbUbPairs(
     changed = false;
     for (unsigned i = 0, e = getNumLocalIds(); i < e; ++i) {
       if (!foundRepr[i + divOffset]) {
-        if (auto res = computeSingleVarRepr(*this, foundRepr, divOffset + i)) {
+        if (auto res = computeSingleVarRepr(*this, foundRepr, divOffset + i,
+                                            dividends[i], denominators[i])) {
           foundRepr[i + divOffset] = true;
           repr[i] = res;
           changed = true;
@@ -1499,6 +1518,12 @@ void FlatAffineConstraints::getLocalReprLbUbPairs(
       }
     }
   } while (changed);
+
+  // Set 0 denominator for identifiers for which no division representation
+  // could be found.
+  for (unsigned i = 0, e = repr.size(); i < e; ++i)
+    if (!repr[i].hasValue())
+      denominators[i] = 0;
 }
 
 /// Tightens inequalities given that we are dealing with integer spaces. This is
@@ -1774,36 +1799,19 @@ static bool detectAsFloorDiv(const FlatAffineConstraints &cst, unsigned pos,
     if (exprs[i])
       foundRepr[i] = true;
 
-  auto ulPair = computeSingleVarRepr(cst, foundRepr, pos);
+  SmallVector<int64_t, 8> dividend;
+  unsigned divisor;
+  auto ulPair = computeSingleVarRepr(cst, foundRepr, pos, dividend, divisor);
 
   // No upper-lower bound pair found for this var.
   if (!ulPair)
     return false;
 
-  unsigned ubPos = ulPair->first;
-
-  // Upper bound is of the form:
-  //      -divisor * id + expr >= 0
-  // where `id` is equivalent to `expr floordiv divisor`.
-  //
-  // Since the division cannot be dependent on itself, the coefficient of
-  // of `id` in `expr` is zero. The coefficient of `id` in the upperbound
-  // is -divisor.
-  int64_t divisor = -cst.atIneq(ubPos, pos);
-  int64_t constantTerm = cst.atIneq(ubPos, cst.getNumCols() - 1);
-
   // Construct the dividend expression.
-  auto dividendExpr = getAffineConstantExpr(constantTerm, context);
-  unsigned c, f;
-  for (c = 0, f = cst.getNumCols() - 1; c < f; c++) {
-    if (c == pos)
-      continue;
-    int64_t ubVal = cst.atIneq(ubPos, c);
-    if (ubVal == 0)
-      continue;
-    // computeSingleVarRepr guarantees that expr is known here.
-    dividendExpr = dividendExpr + ubVal * exprs[c];
-  }
+  auto dividendExpr = getAffineConstantExpr(dividend.back(), context);
+  for (unsigned c = 0, f = cst.getNumIds(); c < f; c++)
+    if (dividend[c] != 0)
+      dividendExpr = dividendExpr + dividend[c] * exprs[c];
 
   // Successfully detected the floordiv.
   exprs[pos] = dividendExpr.floorDiv(divisor);
@@ -1910,18 +1918,108 @@ void FlatAffineConstraints::removeRedundantConstraints() {
   equalities.resizeVertically(pos);
 }
 
-/// Merge local ids of `this` and `other`. This is done by appending local ids
-/// of `other` to `this` and inserting local ids of `this` to `other` at start
-/// of its local ids. Number of dimension and symbol ids should match in
-/// `this` and `other`.
+/// Eliminate `pos2^th` local identifier, replacing its every instance with
+/// `pos1^th` local identifier. This function is intended to be used to remove
+/// redundancy when local variables at position `pos1` and `pos2` are restricted
+/// to have the same value.
+static void eliminateRedundantLocalId(FlatAffineConstraints &fac, unsigned pos1,
+                                      unsigned pos2) {
+
+  assert(pos1 < fac.getNumLocalIds() && "Invalid local id position");
+  assert(pos2 < fac.getNumLocalIds() && "Invalid local id position");
+
+  unsigned localOffset = fac.getNumDimAndSymbolIds();
+  pos1 += localOffset;
+  pos2 += localOffset;
+  for (unsigned i = 0, e = fac.getNumInequalities(); i < e; ++i)
+    fac.atIneq(i, pos1) += fac.atIneq(i, pos2);
+  for (unsigned i = 0, e = fac.getNumEqualities(); i < e; ++i)
+    fac.atEq(i, pos1) += fac.atEq(i, pos2);
+  fac.removeId(pos2);
+}
+
+/// Adds additional local ids to the sets such that they both have the union
+/// of the local ids in each set, without changing the set of points that
+/// lie in `this` and `other`.
+///
+/// To detect local ids that always take the same in both sets, each local id is
+/// represented as a floordiv with constant denominator in terms of other ids.
+/// After extracting these divisions, local ids with the same division
+/// representation are considered duplicate and are merged. It is possible that
+/// division representation for some local id cannot be obtained, and thus these
+/// local ids are not considered for detecting duplicates.
 void FlatAffineConstraints::mergeLocalIds(FlatAffineConstraints &other) {
   assert(getNumDimIds() == other.getNumDimIds() &&
          "Number of dimension ids should match");
   assert(getNumSymbolIds() == other.getNumSymbolIds() &&
          "Number of symbol ids should match");
-  unsigned initLocals = getNumLocalIds();
-  insertLocalId(getNumLocalIds(), other.getNumLocalIds());
-  other.insertLocalId(0, initLocals);
+
+  FlatAffineConstraints &facA = *this;
+  FlatAffineConstraints &facB = other;
+
+  // Merge local ids of facA and facB without using division information,
+  // i.e. append local ids of `facB` to `facA` and insert local ids of `facA`
+  // to `facB` at start of its local ids.
+  unsigned initLocals = facA.getNumLocalIds();
+  insertLocalId(facA.getNumLocalIds(), facB.getNumLocalIds());
+  facB.insertLocalId(0, initLocals);
+
+  // Get division representations from each FAC.
+  std::vector<SmallVector<int64_t, 8>> divsA, divsB;
+  SmallVector<unsigned, 4> denomsA, denomsB;
+  facA.getLocalReprs(divsA, denomsA);
+  facB.getLocalReprs(divsB, denomsB);
+
+  // Copy division information for facB into `divsA` and `denomsA`, so that
+  // these have the combined division information of both FACs. Since newly
+  // added local variables in facA and facB have no constraints, they will not
+  // have any division representation.
+  std::copy(divsB.begin() + initLocals, divsB.end(),
+            divsA.begin() + initLocals);
+  std::copy(denomsB.begin() + initLocals, denomsB.end(),
+            denomsA.begin() + initLocals);
+
+  // Find and merge duplicate divisions.
+  // TODO: Add division normalization to support divisions that differ by
+  // a constant.
+  // TODO: Add division ordering such that a division representation for local
+  // identifier at position `i` only depends on local identifiers at position <
+  // `i`. This would make sure that all divisions depending on other local
+  // variables that can be merged, are merged.
+  unsigned localOffset = getIdKindOffset(IdKind::Local);
+  for (unsigned i = 0; i < divsA.size(); ++i) {
+    // Check if a division representation exists for the `i^th` local id.
+    if (denomsA[i] == 0)
+      continue;
+    // Check if a division exists which is a duplicate of the division at `i`.
+    for (unsigned j = i + 1; j < divsA.size(); ++j) {
+      // Check if a division representation exists for the `j^th` local id.
+      if (denomsA[j] == 0)
+        continue;
+      // Check if the denominators match.
+      if (denomsA[i] != denomsA[j])
+        continue;
+      // Check if the representations are equal.
+      if (divsA[i] != divsA[j])
+        continue;
+
+      // Merge divisions at position `j` into division at position `i`.
+      eliminateRedundantLocalId(facA, i, j);
+      eliminateRedundantLocalId(facB, i, j);
+      for (unsigned k = 0, g = divsA.size(); k < g; ++k) {
+        SmallVector<int64_t, 8> &div = divsA[k];
+        if (denomsA[k] != 0) {
+          div[localOffset + i] += div[localOffset + j];
+          div.erase(div.begin() + localOffset + j);
+        }
+      }
+
+      divsA.erase(divsA.begin() + j);
+      denomsA.erase(denomsA.begin() + j);
+      // Since `j` can never be zero, we do not need to worry about overflows.
+      --j;
+    }
+  }
 }
 
 /// Removes local variables using equalities. Each equality is checked if it
@@ -3558,12 +3656,20 @@ IntegerSet FlatAffineConstraints::getAsIntegerSet(MLIRContext *context) const {
   if (failed(computeLocalVars(*this, memo, context))) {
     // Check if the local variables without an explicit representation have
     // zero coefficients everywhere.
-    for (unsigned i = getNumDimAndSymbolIds(), e = getNumIds(); i < e; ++i) {
-      if (!memo[i] && !isColZero(*this, /*pos=*/i)) {
-        LLVM_DEBUG(llvm::dbgs() << "one or more local exprs do not have an "
-                                   "explicit representation");
-        return IntegerSet();
-      }
+    SmallVector<unsigned> noLocalRepVars;
+    unsigned numDimsSymbols = getNumDimAndSymbolIds();
+    for (unsigned i = numDimsSymbols, e = getNumIds(); i < e; ++i) {
+      if (!memo[i] && !isColZero(*this, /*pos=*/i))
+        noLocalRepVars.push_back(i - numDimsSymbols);
+    }
+    if (!noLocalRepVars.empty()) {
+      LLVM_DEBUG({
+        llvm::dbgs() << "local variables at position(s) ";
+        llvm::interleaveComma(noLocalRepVars, llvm::dbgs());
+        llvm::dbgs() << " do not have an explicit representation in:\n";
+        this->dump();
+      });
+      return IntegerSet();
     }
   }
 

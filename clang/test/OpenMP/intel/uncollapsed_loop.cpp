@@ -37,47 +37,37 @@ void test_one(float *A0, float *A1, int Ni, int Nj, int Nk) {
 
   //HOST:[[A0:%A0.addr]] = alloca float[[AS:.*]]*, align 8
   //TARG:[[A0A:%A0.addr]] = alloca float[[AS:.*]]*, align 8
-  //TARG-NEXT:[[A0:%.*.ascast]] = addrspacecast float
-
   //CHECK:[[A1:%A1.addr]] = alloca float
   //CHECK:[[NI:%Ni.*]] = alloca i32,
   //CHECK:[[NJ:%Nj.*]] = alloca i32,
   //CHECK:[[NK:%Nk.*]] = alloca i32,
-
   //HOST:[[I:%i.*]] = alloca i32,
   //TARG:[[IA:%i.*]] = alloca i32,
-  //TARG-NEXT:[[I:%.*.ascast]] = addrspacecast i32* [[IA]]
-
   //HOST:[[J:%j.*]] = alloca i32,
   //TARG:[[JA:%j.*]] = alloca i32,
-  //TARG-NEXT:[[J:%.*.ascast]] = addrspacecast i32* [[JA]]
-
   //CHECK:[[K:%k.*]] = alloca i32,
   //CHECK:[[SIZE:%size.*]] = alloca i32,
-
   //HOST:[[LB_I:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG:[[LB_IA:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG-NEXT:[[LB_I:%.*.ascast]] = addrspacecast i64* [[LB_IA]]
-
   //HOST:[[UB_I:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG:[[UB_IA:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG-NEXT:[[UB_I:%.*.ascast]] = addrspacecast i64* [[UB_IA]]
-
   //HOST:[[LB_J:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG:[[LB_JA:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG-NEXT:[[LB_J:%.*.ascast]] = addrspacecast i64* [[LB_JA]]
-
   //HOST:[[UB_J:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG:[[UB_JA:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG-NEXT:[[UB_J:%.*.ascast]] = addrspacecast i64* [[UB_JA]]
-
   //HOST:[[IV_I:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG:[[IV_IA:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG-NEXT:[[IV_I:%.*ascast]] = addrspacecast i64* [[IV_IA]]
-
   //HOST:[[IV_J:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG:[[LB_IA:%.omp.uncollapsed.lb.*]] = alloca i64,
+  //TARG:[[UB_IA:%.omp.uncollapsed.ub.*]] = alloca i64,
+  //TARG:[[LB_JA:%.omp.uncollapsed.lb.*]] = alloca i64,
+  //TARG:[[UB_JA:%.omp.uncollapsed.ub.*]] = alloca i64,
+  //TARG:[[IV_IA:%.omp.uncollapsed.iv.*]] = alloca i64,
   //TARG:[[IV_JA:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG-NEXT:[[IV_J:%.*ascast]] = addrspacecast i64* [[IV_JA]]
+  //TARG:[[A0:%.*.ascast]] = addrspacecast float
+  //TARG:[[I:%.*.ascast]] = addrspacecast i32* [[IA]]
+  //TARG:[[J:%.*.ascast]] = addrspacecast i32* [[JA]]
+  //TARG:[[LB_I:%.*.ascast]] = addrspacecast i64* [[LB_IA]]
+  //TARG:[[UB_I:%.*.ascast]] = addrspacecast i64* [[UB_IA]]
+  //TARG:[[LB_J:%.*.ascast]] = addrspacecast i64* [[LB_JA]]
+  //TARG:[[UB_J:%.*.ascast]] = addrspacecast i64* [[UB_JA]]
+  //TARG:[[IV_I:%.*ascast]] = addrspacecast i64* [[IV_IA]]
+  //TARG:[[IV_J:%.*ascast]] = addrspacecast i64* [[IV_JA]]
 
   // Setup LBs and UBs
   //CHECK: store i64 0, {{.*}}[[LB_I]]
@@ -145,62 +135,46 @@ void test_two(float *A0, float *A1, int Ni, int Nj, int Nk) {
 
   //HOST:[[A0:%A0.addr]] = alloca float[[AS:.*]]*, align 8
   //TARG:[[A0A:%A0.addr]] = alloca float[[AS:.*]]*, align 8
-  //TARG-NEXT:[[A0:%.*.ascast]] = addrspacecast float
-
   //CHECK:[[A1:%A1.addr]] = alloca float
   //CHECK:[[NI:%Ni.*]] = alloca i32,
   //CHECK:[[NJ:%Nj.*]] = alloca i32,
   //CHECK:[[NK:%Nk.*]] = alloca i32,
-
   //HOST:[[I:%i.*]] = alloca i32,
   //TARG:[[IA:%i.*]] = alloca i32,
-  //TARG-NEXT:[[I:%.*.ascast]] = addrspacecast i32* [[IA]]
-
   //HOST:[[J:%j.*]] = alloca i32,
   //TARG:[[JA:%j.*]] = alloca i32,
-  //TARG-NEXT:[[J:%.*.ascast]] = addrspacecast i32* [[JA]]
-
-  //HOST:[[K:%k.*]] = alloca i32,
-  //TARG:[[KA:%k.*]] = alloca i32,
-  //TARG-NEXT:[[K:%.*.ascast]] = addrspacecast i32* [[KA]]
-
+  //CHECK:[[K:%k.*]] = alloca i32,
   //CHECK:[[SIZE:%size.*]] = alloca i32,
-
-  //HOST:[[IV_I:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG:[[IV_IA:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG-NEXT:[[IV_I:%.*ascast]] = addrspacecast i64* [[IV_IA]]
-
-  //HOST:[[IV_J:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG:[[IV_JA:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG-NEXT:[[IV_J:%.*ascast]] = addrspacecast i64* [[IV_JA]]
-
-  //HOST:[[IV_K:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG:[[IV_KA:%.omp.uncollapsed.iv.*]] = alloca i64,
-  //TARG-NEXT:[[IV_K:%.*ascast]] = addrspacecast i64* [[IV_KA]]
-
   //HOST:[[LB_I:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG:[[LB_IA:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG-NEXT:[[LB_I:%.*.ascast]] = addrspacecast i64* [[LB_IA]]
-
   //HOST:[[UB_I:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG:[[UB_IA:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG-NEXT:[[UB_I:%.*.ascast]] = addrspacecast i64* [[UB_IA]]
-
   //HOST:[[LB_J:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG:[[LB_JA:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG-NEXT:[[LB_J:%.*.ascast]] = addrspacecast i64* [[LB_JA]]
-
   //HOST:[[UB_J:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG:[[UB_JA:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG-NEXT:[[UB_J:%.*.ascast]] = addrspacecast i64* [[UB_JA]]
-
   //HOST:[[LB_K:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG:[[LB_KA:%.omp.uncollapsed.lb.*]] = alloca i64,
-  //TARG-NEXT:[[LB_K:%.*.ascast]] = addrspacecast i64* [[LB_KA]]
-
   //HOST:[[UB_K:%.omp.uncollapsed.ub.*]] = alloca i64,
+  //HOST:[[IV_I:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //HOST:[[IV_J:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //HOST:[[IV_K:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG:[[LB_IA:%.omp.uncollapsed.lb.*]] = alloca i64,
+  //TARG:[[UB_IA:%.omp.uncollapsed.ub.*]] = alloca i64,
+  //TARG:[[LB_JA:%.omp.uncollapsed.lb.*]] = alloca i64,
+  //TARG:[[UB_JA:%.omp.uncollapsed.ub.*]] = alloca i64,
+  //TARG:[[LB_KA:%.omp.uncollapsed.lb.*]] = alloca i64,
   //TARG:[[UB_KA:%.omp.uncollapsed.ub.*]] = alloca i64,
-  //TARG-NEXT:[[UB_K:%.*.ascast]] = addrspacecast i64* [[UB_KA]]
+  //TARG:[[IV_IA:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG:[[IV_JA:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG:[[IV_KA:%.omp.uncollapsed.iv.*]] = alloca i64,
+  //TARG:[[A0:%.*.ascast]] = addrspacecast float
+  //TARG:[[I:%.*.ascast]] = addrspacecast i32* [[IA]]
+  //TARG:[[J:%.*.ascast]] = addrspacecast i32* [[JA]]
+  //TARG:[[LB_I:%.*.ascast]] = addrspacecast i64* [[LB_IA]]
+  //TARG:[[UB_I:%.*.ascast]] = addrspacecast i64* [[UB_IA]]
+  //TARG:[[LB_J:%.*.ascast]] = addrspacecast i64* [[LB_JA]]
+  //TARG:[[UB_J:%.*.ascast]] = addrspacecast i64* [[UB_JA]]
+  //TARG:[[LB_K:%.*.ascast]] = addrspacecast i64* [[LB_KA]]
+  //TARG:[[UB_K:%.*.ascast]] = addrspacecast i64* [[UB_KA]]
+  //TARG:[[IV_I:%.*ascast]] = addrspacecast i64* [[IV_IA]]
+  //TARG:[[IV_J:%.*ascast]] = addrspacecast i64* [[IV_JA]]
+  //TARG:[[IV_K:%.*ascast]] = addrspacecast i64* [[IV_KA]]
 
   // Setup LBs and UBs
   //CHECK: store i64 0, {{.*}}[[LB_I]]

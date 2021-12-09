@@ -256,6 +256,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @memmove(i8*, i8*, i64)\n"
       "declare i8* @memset(i8*, i32, i64)\n"
       "declare void @memset_pattern16(i8*, i8*, i64)\n"
+      "declare void @memset_pattern4(i8*, i8*, i64)\n"
+      "declare void @memset_pattern8(i8*, i8*, i64)\n"
       "declare i32 @mkdir(i8*, i16)\n"
       "declare double @modf(double, double*)\n"
       "declare float @modff(float, float*)\n"
@@ -728,7 +730,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @iprintf(i8*, ...)\n"
       "declare i32 @siprintf(i8*, i8*, ...)\n"
 
-      // __small_printf variants have the same prototype as the non-'i' versions.
+      // __small_printf variants have the same prototype as the non-'i'
+      // versions.
       "declare i32 @__small_fprintf(%struct*, i8*, ...)\n"
       "declare i32 @__small_printf(i8*, ...)\n"
       "declare i32 @__small_sprintf(i8*, i8*, ...)\n"

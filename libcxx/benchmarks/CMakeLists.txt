@@ -3,6 +3,12 @@ if (CMAKE_VERSION VERSION_LESS 3.17)
   return()
 endif()
 
+if (LIBCXX_STANDALONE_BUILD)
+  message(WARNING "The libc++ benchmarks are not available in a standalone build. Please migrate to an official build "
+                  "as documented in https://libcxx.llvm.org/BuildingLibcxx.html.")
+  return()
+endif()
+
 include(ExternalProject)
 include(CheckCXXCompilerFlag)
 
@@ -35,7 +41,7 @@ ExternalProject_Add(google-benchmark-libcxx
         EXCLUDE_FROM_ALL ON
         DEPENDS cxx cxx-headers
         PREFIX benchmark-libcxx
-        SOURCE_DIR ${LIBCXX_SOURCE_DIR}/utils/google-benchmark
+        SOURCE_DIR ${LLVM_THIRD_PARTY_DIR}/benchmark
         INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark-libcxx
         CMAKE_CACHE_ARGS
           -DCMAKE_C_COMPILER:STRING=${CMAKE_C_COMPILER}
@@ -60,7 +66,7 @@ if (LIBCXX_BENCHMARK_NATIVE_STDLIB)
   ExternalProject_Add(google-benchmark-native
         EXCLUDE_FROM_ALL ON
         PREFIX benchmark-native
-        SOURCE_DIR ${LIBCXX_SOURCE_DIR}/utils/google-benchmark
+        SOURCE_DIR ${LLVM_THIRD_PARTY_DIR}/benchmark
         INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/benchmark-native
         CMAKE_CACHE_ARGS
           -DCMAKE_C_COMPILER:STRING=${CMAKE_C_COMPILER}

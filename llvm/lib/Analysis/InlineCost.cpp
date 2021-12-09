@@ -877,7 +877,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     // Make sure we have a nonzero entry count.
     auto EntryCount = F.getEntryCount();
-    if (!EntryCount || !EntryCount.getCount())
+    if (!EntryCount || !EntryCount->getCount())
       return false;
 
     BlockFrequencyInfo *CalleeBFI = &(GetBFI(F));
@@ -923,7 +923,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         if (BranchInst *BI = dyn_cast<BranchInst>(&I)) {
           // Count a conditional branch as savings if it becomes unconditional.
           if (BI->isConditional() &&
-              dyn_cast_or_null<ConstantInt>(
+              isa_and_nonnull<ConstantInt>(
                   SimplifiedValues.lookup(BI->getCondition()))) {
             CurrentSavings += InlineConstants::InstrCost;
           }
@@ -943,8 +943,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     // Compute the cycle savings per call.
     auto EntryProfileCount = F.getEntryCount();
-    assert(EntryProfileCount.hasValue() && EntryProfileCount.getCount());
-    auto EntryCount = EntryProfileCount.getCount();
+    assert(EntryProfileCount.hasValue() && EntryProfileCount->getCount());
+    auto EntryCount = EntryProfileCount->getCount();
     CycleSavings += EntryCount / 2;
     CycleSavings = CycleSavings.udiv(EntryCount);
 
@@ -2454,7 +2454,7 @@ bool CallAnalyzer::visitBranchInst(BranchInst &BI) {
   // inliner more regular and predictable. Interestingly, conditional branches
   // which will fold away are also free.
   return BI.isUnconditional() || isa<ConstantInt>(BI.getCondition()) ||
-         dyn_cast_or_null<ConstantInt>(
+         isa_and_nonnull<ConstantInt>(
              SimplifiedValues.lookup(BI.getCondition()));
 }
 

@@ -89,15 +89,14 @@ void bar(int,int,...);
 // ALL-LABEL: foo2
 void foo2() {
   // ALL: [[I:%i.*]] = alloca i32,
-  // TARG: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
   // ALL: [[J:%j.*]] = alloca i32,
-  // TARG: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
-  // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
-
   // ALL: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // TARG: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
+  // TARG: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
+  // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
   // TARG: [[OMP_IV_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_IV]] to i32 addrspace(4)*
   int i;
   int j = 20;
@@ -162,8 +161,8 @@ void foo2() {
 // ALL-LABEL: foo2_map
 void foo2_map() {
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
 
   int i;
@@ -196,8 +195,8 @@ void foo2_map() {
 // ALL-LABEL: foo2_is_device_ptr
 void foo2_is_device_ptr() {
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
 
   int i;
@@ -231,8 +230,8 @@ void foo2_is_device_ptr() {
 // ALL-LABEL: foo2_defaultmap
 void foo2_defaultmap() {
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
 
   int i;
@@ -267,8 +266,8 @@ int global_sixteen = 16;
 // ALL-LABEL: foo2_global
 void foo2_global() {
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
 
   int i;
@@ -300,8 +299,8 @@ void foo2_global() {
 // ALL-LABEL: foo2_map_combined
 void foo2_map_combined() {
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
 
   int i;
@@ -336,8 +335,8 @@ int global_sixteen2 = 16;
 // ALL-LABEL: foo2_global2
 void foo2_global2() {
   // ALL: [[OMP_LB1:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB1_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB1:%.omp.ub.*]] = alloca i32,
+  // TARG: [[OMP_LB1_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB1_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
 
   int ii;
@@ -368,14 +367,14 @@ void foo2_global2() {
 // ALL-LABEL: foo3
 void foo3() {
   // ALL: [[I:%i.*]] = alloca i32,
-  // TARG: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
   // ALL: [[J:%j.*]] = alloca i32,
-  // TARG: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
   // ALL: [[OMP_IV:%.omp.iv.*]] = alloca i32,
-  // TARG: [[OMP_IV_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_IV]] to i32 addrspace(4)*
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
+  // TARG: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
+  // TARG: [[OMP_IV_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_IV]] to i32 addrspace(4)*
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
   int i;
   int j = 20;
@@ -435,14 +434,14 @@ void foo3() {
 // ALL-LABEL: foo4
 void foo4(int n) {
   // ALL: [[I:%i.*]] = alloca i32,
-  // TARG: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
   // ALL: [[J:%j.*]] = alloca i32,
-  // TARG: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
   // ALL: [[OMP_IV:%.omp.iv.*]] = alloca i32,
-  // TARG: [[OMP_IV_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_IV]] to i32 addrspace(4)*
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // TARG: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
+  // TARG: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
+  // TARG: [[OMP_IV_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_IV]] to i32 addrspace(4)*
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
   int i;
   int j = 20;
@@ -506,13 +505,13 @@ void foo5(double *qq, int nq) {
 
   // ALL: [[I:%i.*]] = alloca i32,
   // ALL: [[K:%k.*]] = alloca i32,
-  // TARG: [[K_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[K]] to i32 addrspace(4)*
   int i,k;
   // ALL: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // ALL: [[OMP_UB:%.omp.ub.*]] = alloca i32,
-  // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
   // ALL: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // TARG: [[K_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[K]] to i32 addrspace(4)*
+  // TARG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
+  // TARG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
 
   // HOST: store i32 0, i32* [[OMP_LB]],
   // HOST: store i32 1023, i32* [[OMP_UB]],

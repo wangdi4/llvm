@@ -437,6 +437,18 @@ def non_temporal_store :
          cast<MaskedStoreSDNode>(N)->isNonTemporal();
 }]>;
 
+// top16Zero - answer true if the upper 16 bits of $src are 0, false otherwise
+def top16Zero: PatLeaf<(i32 GPR32:$src), [{
+  return SDValue(N,0)->getValueType(0) == MVT::i32 &&
+         CurDAG->MaskedValueIsZero(SDValue(N,0), APInt::getHighBitsSet(32, 16));
+  }]>;
+
+// top32Zero - answer true if the upper 32 bits of $src are 0, false otherwise
+def top32Zero: PatLeaf<(i64 GPR64:$src), [{
+  return SDValue(N,0)->getValueType(0) == MVT::i64 &&
+         CurDAG->MaskedValueIsZero(SDValue(N,0), APInt::getHighBitsSet(64, 32));
+  }]>;
+
 // Node definitions.
 def AArch64adrp          : SDNode<"AArch64ISD::ADRP", SDTIntUnaryOp, []>;
 def AArch64adr           : SDNode<"AArch64ISD::ADR", SDTIntUnaryOp, []>;
@@ -1215,23 +1227,25 @@ let Predicates = [HasPAuth] in {
   def : InstAlias<"autib1716", (AUTIB1716), 1>;
   def : InstAlias<"xpaclri", (XPACLRI), 1>;
 
-  multiclass SignAuth<bits<3> prefix, bits<3> prefix_z, string asm> {
-    def IA   : SignAuthOneData<prefix, 0b00, !strconcat(asm, "ia")>;
-    def IB   : SignAuthOneData<prefix, 0b01, !strconcat(asm, "ib")>;
-    def DA   : SignAuthOneData<prefix, 0b10, !strconcat(asm, "da")>;
-    def DB   : SignAuthOneData<prefix, 0b11, !strconcat(asm, "db")>;
-    def IZA  : SignAuthZero<prefix_z, 0b00, !strconcat(asm, "iza")>;
-    def DZA  : SignAuthZero<prefix_z, 0b10, !strconcat(asm, "dza")>;
-    def IZB  : SignAuthZero<prefix_z, 0b01, !strconcat(asm, "izb")>;
-    def DZB  : SignAuthZero<prefix_z, 0b11, !strconcat(asm, "dzb")>;
+  multiclass SignAuth<bits<3> prefix, bits<3> prefix_z, string asm,
+                      SDPatternOperator op> {
+    def IA   : SignAuthOneData<prefix, 0b00, !strconcat(asm,  "ia"), op>;
+    def IB   : SignAuthOneData<prefix, 0b01, !strconcat(asm,  "ib"), op>;
+    def DA   : SignAuthOneData<prefix, 0b10, !strconcat(asm,  "da"), op>;
+    def DB   : SignAuthOneData<prefix, 0b11, !strconcat(asm,  "db"), op>;
+    def IZA  : SignAuthZero<prefix_z,  0b00, !strconcat(asm, "iza"), op>;
+    def DZA  : SignAuthZero<prefix_z,  0b10, !strconcat(asm, "dza"), op>;
+    def IZB  : SignAuthZero<prefix_z,  0b01, !strconcat(asm, "izb"), op>;
+    def DZB  : SignAuthZero<prefix_z,  0b11, !strconcat(asm, "dzb"), op>;
   }
 
-  defm PAC : SignAuth<0b000, 0b010, "pac">;
-  defm AUT : SignAuth<0b001, 0b011, "aut">;
+  defm PAC : SignAuth<0b000, 0b010, "pac", int_ptrauth_sign>;
+  defm AUT : SignAuth<0b001, 0b011, "aut", null_frag>;
 
   def XPACI : ClearAuth<0, "xpaci">;
   def XPACD : ClearAuth<1, "xpacd">;
-  def PACGA : SignAuthTwoOperand<0b1100, "pacga", null_frag>;
+
+  def PACGA : SignAuthTwoOperand<0b1100, "pacga", int_ptrauth_sign_generic>;
 
   // Combined Instructions
   let isBranch = 1, isTerminator = 1, isBarrier = 1, isIndirectBranch = 1  in {
@@ -2043,6 +2057,10 @@ def : InstAlias<"rev64 $Rd, $Rn", (REVXr GPR64:$Rd, GPR64:$Rn), 0>;
 // orders.
 def : Pat<(bswap (rotr GPR32:$Rn, (i64 16))), (REV16Wr GPR32:$Rn)>;
 def : Pat<(bswap (rotr GPR64:$Rn, (i64 32))), (REV32Xr GPR64:$Rn)>;
+
+// Match (srl (bswap x), C) -> revC if the upper bswap bits are known zero.
+def : Pat<(srl (bswap top16Zero:$Rn), (i64 16)), (REV16Wr GPR32:$Rn)>;
+def : Pat<(srl (bswap top32Zero:$Rn), (i64 32)), (REV32Xr GPR64:$Rn)>;
 
 //===----------------------------------------------------------------------===//
 // Bitfield immediate extraction instruction.

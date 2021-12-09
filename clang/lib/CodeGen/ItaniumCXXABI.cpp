@@ -3799,7 +3799,7 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #endif // INTEL_CUSTOMIZATION
 
   case Type::Builtin:
-  case Type::ExtInt:
+  case Type::BitInt:
   // GCC treats vector and complex types as fundamental types.
   case Type::Vector:
   case Type::ExtVector:
@@ -4104,7 +4104,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
   case Type::Pipe:
     break;
 
-  case Type::ExtInt:
+  case Type::BitInt:
     break;
 
 #if INTEL_CUSTOMIZATION

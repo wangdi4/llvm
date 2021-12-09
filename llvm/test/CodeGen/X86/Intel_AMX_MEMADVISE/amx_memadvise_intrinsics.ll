@@ -7,7 +7,6 @@ define void @test_amx(i8* %base, i64 %stride){
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tmovadvise $16, (%rdi,%rsi), %tmm5
 ; CHECK-NEXT:    tmovadvise $32, %tmm7, (%rdi,%rsi)
-; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    retq
 call void @llvm.x86.tmovadvise.load(i8 5, i8* %base, i64 %stride, i8 16)
 

@@ -13392,10 +13392,6 @@ def : Pat<(f16 (bitconvert GR16:$src)),
                 FR16X))>;
 def : Pat<(v8i16 (scalar_to_vector (i16 GR16:$src))),
           (VMOVW2SHrr (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit))>;
-#if INTEL_CUSTOMIZATION
-def : Pat<(v8i16 (X86vzmovl (scalar_to_vector (i16 GR16:$src)))),
-          (VMOVW2SHrr (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit))>;
-#endif // INTEL_CUSTOMIZATION
 def : Pat<(v4i32 (X86vzmovl (scalar_to_vector (and GR32:$src, 0xffff)))),
           (VMOVW2SHrr GR32:$src)>;
 // FIXME: We should really find a way to improve these patterns.
@@ -13412,8 +13408,8 @@ def : Pat<(v16i32 (X86vzmovl
                                      (iPTR 0)))),
           (SUBREG_TO_REG (i32 0), (VMOVW2SHrr GR32:$src), sub_xmm)>;
 
-def : Pat<(v8i16 (X86vzmovl (v8i16 (scalar_to_vector (i16 (trunc GR32:$src)))))),
-          (VMOVW2SHrr GR32:$src)>;
+def : Pat<(v8i16 (X86vzmovl (scalar_to_vector (i16 GR16:$src)))),
+          (VMOVW2SHrr (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit))>;
 
 // AVX 128-bit movw instruction write zeros in the high 128-bit part.
 def : Pat<(v8i16 (X86vzload16 addr:$src)),

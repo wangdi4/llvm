@@ -118,6 +118,8 @@ def Tosa_Conv2DOp : Tosa_Op<"conv2d", [
   let builders = [Tosa_ConvOpQuantInfoBuilder];
 
   let verifier = [{ return verifyConvOp(*this); }];
+
+  let hasCanonicalizer = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -185,6 +187,8 @@ def Tosa_DepthwiseConv2DOp : Tosa_Op<"depthwise_conv2d", [
   let builders = [Tosa_ConvOpQuantInfoBuilder];
 
   let verifier = [{ return verifyConvOp(*this); }];
+
+  let hasCanonicalizer = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -760,6 +764,8 @@ def Tosa_MulOp : Tosa_Op<"mul", [
   let results = (outs
     Tosa_Tensor:$output
   );
+
+  let hasCanonicalizer = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1413,8 +1419,11 @@ def Tosa_PadOp : Tosa_Op<"pad", [
     Tosa_RankedTensor:$output
   );
 
-  let builders = [Tosa_PadOpQuantInfoBuilder, 
+  let builders = [Tosa_PadOpQuantInfoBuilder,
                   Tosa_ExplicitValuePadOpQuantInfoBuilder];
+
+  let hasCanonicalizer = 1;
+  let hasFolder = 1;
 }
 
 //===----------------------------------------------------------------------===//

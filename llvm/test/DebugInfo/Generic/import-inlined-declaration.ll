@@ -24,12 +24,12 @@
 ; CHECK:   DW_TAG_base_type
 ; CHECK:   DW_TAG_subprogram
 ; CHECK:     DW_AT_name     ("goo")
-; CHECK:     DW_TAG_imported_declaration
-; CHECK:       DW_AT_import ([[FOO]])
 ; CHECK:     DW_TAG_inlined_subroutine
 ; CHECK:       DW_AT_abstract_origin ([[FOO]]
 ; CHECK:       DW_TAG_variable
 ; CHECK:       NULL
+; CHECK:     DW_TAG_imported_declaration
+; CHECK:       DW_AT_import ([[FOO]])
 ; CHECK:     NULL
 ; CHECK:   NULL
 

@@ -5292,7 +5292,7 @@ bool SimplifyCFGOpt::SimplifyTerminatorOnSelect(Instruction *OldTerm,
   BasicBlock *KeepEdge1 = TrueBB;
   BasicBlock *KeepEdge2 = TrueBB != FalseBB ? FalseBB : nullptr;
 
-  SmallPtrSet<BasicBlock *, 2> RemovedSuccessors;
+  SmallSetVector<BasicBlock *, 2> RemovedSuccessors;
 
   // Then remove the rest.
   for (BasicBlock *Succ : successors(OldTerm)) {
@@ -6235,6 +6235,26 @@ static bool CasesAreContiguous(SmallVectorImpl<ConstantInt *> &Cases) {
   return true;
 }
 
+static void createUnreachableSwitchDefault(SwitchInst *Switch,
+                                           DomTreeUpdater *DTU) {
+  LLVM_DEBUG(dbgs() << "SimplifyCFG: switch default is dead.\n");
+  auto *BB = Switch->getParent();
+  auto *OrigDefaultBlock = Switch->getDefaultDest();
+  OrigDefaultBlock->removePredecessor(BB);
+  BasicBlock *NewDefaultBlock = BasicBlock::Create(
+      BB->getContext(), BB->getName() + ".unreachabledefault", BB->getParent(),
+      OrigDefaultBlock);
+  new UnreachableInst(Switch->getContext(), NewDefaultBlock);
+  Switch->setDefaultDest(&*NewDefaultBlock);
+  if (DTU) {
+    SmallVector<DominatorTree::UpdateType, 2> Updates;
+    Updates.push_back({DominatorTree::Insert, BB, &*NewDefaultBlock});
+    if (!is_contained(successors(BB), OrigDefaultBlock))
+      Updates.push_back({DominatorTree::Delete, BB, &*OrigDefaultBlock});
+    DTU->applyUpdates(Updates);
+  }
+}
+
 /// Turn a switch with two reachable destinations into an integer range
 /// comparison and branch.
 bool SimplifyCFGOpt::TurnSwitchRangeIntoICmp(SwitchInst *SI,
@@ -6381,10 +6401,14 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, DomTreeUpdater *DTU,
   // Gather dead cases.
   SmallVector<ConstantInt *, 8> DeadCases;
   SmallDenseMap<BasicBlock *, int, 8> NumPerSuccessorCases;
+  SmallVector<BasicBlock *, 8> UniqueSuccessors;
   for (auto &Case : SI->cases()) {
     auto *Successor = Case.getCaseSuccessor();
-    if (DTU)
+    if (DTU) {
+      if (!NumPerSuccessorCases.count(Successor))
+        UniqueSuccessors.push_back(Successor);
       ++NumPerSuccessorCases[Successor];
+    }
     const APInt &CaseVal = Case.getCaseValue()->getValue();
     if (Known.Zero.intersects(CaseVal) || !Known.One.isSubsetOf(CaseVal) ||
         (CaseVal.getMinSignedBits() > MaxSignificantBitsInCond) || // INTEL
@@ -6428,9 +6452,9 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, DomTreeUpdater *DTU,
 
   if (DTU) {
     std::vector<DominatorTree::UpdateType> Updates;
-    for (const std::pair<BasicBlock *, int> &I : NumPerSuccessorCases)
-      if (I.second == 0)
-        Updates.push_back({DominatorTree::Delete, SI->getParent(), I.first});
+    for (auto *Successor : UniqueSuccessors)
+      if (NumPerSuccessorCases[Successor] == 0)
+        Updates.push_back({DominatorTree::Delete, SI->getParent(), Successor});
     DTU->applyUpdates(Updates);
   }
 
@@ -7679,15 +7703,13 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     if (Succ == SI->getDefaultDest())
       continue;
     Succ->removePredecessor(BB);
-    RemovedSuccessors.insert(Succ);
+    if (DTU && RemovedSuccessors.insert(Succ).second)
+      Updates.push_back({DominatorTree::Delete, BB, Succ});
   }
   SI->eraseFromParent();
 
-  if (DTU) {
-    for (BasicBlock *RemovedSuccessor : RemovedSuccessors)
-      Updates.push_back({DominatorTree::Delete, BB, RemovedSuccessor});
+  if (DTU)
     DTU->applyUpdates(Updates);
-  }
 
   ++NumLookupTables;
   if (NeedMask)
@@ -7861,7 +7883,7 @@ bool SimplifyCFGOpt::simplifyIndirectBr(IndirectBrInst *IBI) {
 
   // Eliminate redundant destinations.
   SmallPtrSet<Value *, 8> Succs;
-  SmallPtrSet<BasicBlock *, 8> RemovedSuccs;
+  SmallSetVector<BasicBlock *, 8> RemovedSuccs;
   for (unsigned i = 0, e = IBI->getNumDestinations(); i != e; ++i) {
     BasicBlock *Dest = IBI->getDestination(i);
     if (!Dest->hasAddressTaken() || !Succs.insert(Dest).second) {
@@ -7951,8 +7973,8 @@ static bool TryToMergeLandingPad(LandingPadInst *LPad, BranchInst *BI,
 
     // We've found an identical block.  Update our predecessors to take that
     // path instead and make ourselves dead.
-    SmallPtrSet<BasicBlock *, 16> Preds(pred_begin(BB), pred_end(BB));
-    for (BasicBlock *Pred : Preds) {
+    SmallSetVector<BasicBlock *, 16> UniquePreds(pred_begin(BB), pred_end(BB));
+    for (BasicBlock *Pred : UniquePreds) {
       InvokeInst *II = cast<InvokeInst>(Pred->getTerminator());
       assert(II->getNormalDest() != BB && II->getUnwindDest() == BB &&
              "unexpected successor");
@@ -7969,8 +7991,8 @@ static bool TryToMergeLandingPad(LandingPadInst *LPad, BranchInst *BI,
       if (isa<DbgInfoIntrinsic>(Inst))
         Inst.eraseFromParent();
 
-    SmallPtrSet<BasicBlock *, 16> Succs(succ_begin(BB), succ_end(BB));
-    for (BasicBlock *Succ : Succs) {
+    SmallSetVector<BasicBlock *, 16> UniqueSuccs(succ_begin(BB), succ_end(BB));
+    for (BasicBlock *Succ : UniqueSuccs) {
       Succ->removePredecessor(BB);
       if (DTU)
         Updates.push_back({DominatorTree::Delete, BB, Succ});

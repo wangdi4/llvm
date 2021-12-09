@@ -725,6 +725,64 @@ static Optional<Instruction *> instCombineSVEVectorFMLA(InstCombiner &IC,
   return IC.replaceInstUsesWith(II, FMLA);
 }
 
+static bool isAllActivePredicate(Value *Pred) {
+  // Look through convert.from.svbool(convert.to.svbool(...) chain.
+  Value *UncastedPred;
+  if (match(Pred, m_Intrinsic<Intrinsic::aarch64_sve_convert_from_svbool>(
+                      m_Intrinsic<Intrinsic::aarch64_sve_convert_to_svbool>(
+                          m_Value(UncastedPred)))))
+    // If the predicate has the same or less lanes than the uncasted
+    // predicate then we know the casting has no effect.
+    if (cast<ScalableVectorType>(Pred->getType())->getMinNumElements() <=
+        cast<ScalableVectorType>(UncastedPred->getType())->getMinNumElements())
+      Pred = UncastedPred;
+
+  return match(Pred, m_Intrinsic<Intrinsic::aarch64_sve_ptrue>(
+                         m_ConstantInt<AArch64SVEPredPattern::all>()));
+}
+
+static Optional<Instruction *>
+instCombineSVELD1(InstCombiner &IC, IntrinsicInst &II, const DataLayout &DL) {
+  IRBuilder<> Builder(II.getContext());
+  Builder.SetInsertPoint(&II);
+
+  Value *Pred = II.getOperand(0);
+  Value *PtrOp = II.getOperand(1);
+  Type *VecTy = II.getType();
+  Value *VecPtr = Builder.CreateBitCast(PtrOp, VecTy->getPointerTo());
+
+  if (isAllActivePredicate(Pred)) {
+    LoadInst *Load = Builder.CreateLoad(VecTy, VecPtr);
+    return IC.replaceInstUsesWith(II, Load);
+  }
+
+  CallInst *MaskedLoad =
+      Builder.CreateMaskedLoad(VecTy, VecPtr, PtrOp->getPointerAlignment(DL),
+                               Pred, ConstantAggregateZero::get(VecTy));
+  return IC.replaceInstUsesWith(II, MaskedLoad);
+}
+
+static Optional<Instruction *>
+instCombineSVEST1(InstCombiner &IC, IntrinsicInst &II, const DataLayout &DL) {
+  IRBuilder<> Builder(II.getContext());
+  Builder.SetInsertPoint(&II);
+
+  Value *VecOp = II.getOperand(0);
+  Value *Pred = II.getOperand(1);
+  Value *PtrOp = II.getOperand(2);
+  Value *VecPtr =
+      Builder.CreateBitCast(PtrOp, VecOp->getType()->getPointerTo());
+
+  if (isAllActivePredicate(Pred)) {
+    Builder.CreateStore(VecOp, VecPtr);
+    return IC.eraseInstFromFunction(II);
+  }
+
+  Builder.CreateMaskedStore(VecOp, VecPtr, PtrOp->getPointerAlignment(DL),
+                            Pred);
+  return IC.eraseInstFromFunction(II);
+}
+
 static Instruction::BinaryOps intrinsicIDToBinOpCode(unsigned Intrinsic) {
   switch (Intrinsic) {
   case Intrinsic::aarch64_sve_fmul:
@@ -789,17 +847,12 @@ static Optional<Instruction *> instCombineSVEVectorMul(InstCombiner &IC,
     return match(SplatValue, m_FPOne()) || match(SplatValue, m_One());
   };
 
-  // The OpMultiplier variable should always point to the dup (if any), so
-  // swap if necessary.
-  if (IsUnitDup(OpMultiplicand) || IsUnitSplat(OpMultiplicand))
-    std::swap(OpMultiplier, OpMultiplicand);
-
   if (IsUnitSplat(OpMultiplier)) {
-    // [f]mul pg (dupx 1) %n => %n
+    // [f]mul pg %n, (dupx 1) => %n
     OpMultiplicand->takeName(&II);
     return IC.replaceInstUsesWith(II, OpMultiplicand);
   } else if (IsUnitDup(OpMultiplier)) {
-    // [f]mul pg (dup pg 1) %n => %n
+    // [f]mul pg %n, (dup pg 1) => %n
     auto *DupInst = cast<IntrinsicInst>(OpMultiplier);
     auto *DupPg = DupInst->getOperand(1);
     // TODO: this is naive. The optimization is still valid if DupPg
@@ -1025,6 +1078,10 @@ AArch64TTIImpl::instCombineIntrinsic(InstCombiner &IC,
     return instCombineLD1GatherIndex(IC, II);
   case Intrinsic::aarch64_sve_st1_scatter_index:
     return instCombineST1ScatterIndex(IC, II);
+  case Intrinsic::aarch64_sve_ld1:
+    return instCombineSVELD1(IC, II, DL);
+  case Intrinsic::aarch64_sve_st1:
+    return instCombineSVEST1(IC, II, DL);
   }
 
   return None;
@@ -2094,6 +2151,7 @@ bool AArch64TTIImpl::isLegalToVectorizeReduction(
   case RecurKind::FMax:
   case RecurKind::SelectICmp:
   case RecurKind::SelectFCmp:
+  case RecurKind::FMulAdd:
     return true;
   default:
     return false;

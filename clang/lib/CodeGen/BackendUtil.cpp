@@ -42,6 +42,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/SYCLLowerIR/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
@@ -250,6 +251,8 @@ getSancovOptsFromCGOpts(const CodeGenOptions &CGOpts) {
   Opts.InlineBoolFlag = CGOpts.SanitizeCoverageInlineBoolFlag;
   Opts.PCTable = CGOpts.SanitizeCoveragePCTable;
   Opts.StackDepth = CGOpts.SanitizeCoverageStackDepth;
+  Opts.TraceLoads = CGOpts.SanitizeCoverageTraceLoads;
+  Opts.TraceStores = CGOpts.SanitizeCoverageTraceStores;
   return Opts;
 }
 
@@ -488,6 +491,11 @@ static CodeGenFileType getCodeGenFileType(BackendAction Action) {
     assert(Action == Backend_EmitAssembly && "Invalid action!");
     return CGFT_AssemblyFile;
   }
+}
+
+static bool actionRequiresCodeGen(BackendAction Action) {
+  return Action != Backend_EmitNothing && Action != Backend_EmitBC &&
+         Action != Backend_EmitLL;
 }
 
 static bool initTargetOptions(DiagnosticsEngine &Diags,
@@ -858,6 +866,9 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     FPM.add(createVerifierPass());
 
   // Set up the per-module pass manager.
+  if (LangOpts.SYCLIsDevice)
+    MPM.add(createESIMDVerifierPass());
+
   if (!CodeGenOpts.RewriteMapFiles.empty())
     addSymbolRewriterPass(CodeGenOpts, &MPM);
 
@@ -988,9 +999,7 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
 
   setCommandLineOpts(CodeGenOpts);
 
-  bool UsesCodeGen = (Action != Backend_EmitNothing &&
-                      Action != Backend_EmitBC &&
-                      Action != Backend_EmitLL);
+  bool UsesCodeGen = actionRequiresCodeGen(Action);
   CreateTargetMachine(UsesCodeGen);
 
   if (UsesCodeGen && !TM)
@@ -1016,6 +1025,12 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
       createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
 
   CreatePasses(PerModulePasses, PerFunctionPasses);
+
+  // Add a verifier pass if requested. We don't have to do this if the action
+  // requires code generation because there will already be a verifier pass in
+  // the code-generation pipeline.
+  if (!UsesCodeGen && CodeGenOpts.VerifyModule)
+    PerModulePasses.add(createVerifierPass());
 
   legacy::PassManager CodeGenPasses;
   CodeGenPasses.add(
@@ -1060,8 +1075,9 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
         if (!ThinLinkOS)
           return;
       }
-      TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                               CodeGenOpts.EnableSplitLTOUnit);
+      if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                 CodeGenOpts.EnableSplitLTOUnit);
       PerModulePasses.add(createWriteThinLTOBitcodePass(
           *OS, ThinLinkOS ? &ThinLinkOS->os() : nullptr));
     } else {
@@ -1075,8 +1091,9 @@ void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
       if (EmitLTOSummary) {
         if (!TheModule->getModuleFlag("ThinLTO"))
           TheModule->addModuleFlag(Module::Error, "ThinLTO", uint32_t(0));
-        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                                 uint32_t(1));
+        if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+          TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                   uint32_t(1));
       }
 
       PerModulePasses.add(createBitcodeWriterPass(
@@ -1462,6 +1479,13 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       MPM.addPass(ModuleMemProfilerPass());
     }
   }
+
+  // Add a verifier pass if requested. We don't have to do this if the action
+  // requires code generation because there will already be a verifier pass in
+  // the code-generation pipeline.
+  if (!actionRequiresCodeGen(Action) && CodeGenOpts.VerifyModule)
+    MPM.addPass(VerifierPass());
+
   switch (Action) {
   case Backend_EmitBC:
     if (CodeGenOpts.PrepareForThinLTO && !CodeGenOpts.DisableLLVMPasses) {
@@ -1470,8 +1494,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
         if (!ThinLinkOS)
           return;
       }
-      TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                               CodeGenOpts.EnableSplitLTOUnit);
+      if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                 CodeGenOpts.EnableSplitLTOUnit);
       MPM.addPass(ThinLTOBitcodeWriterPass(*OS, ThinLinkOS ? &ThinLinkOS->os()
                                                            : nullptr));
     } else {
@@ -1484,8 +1509,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       if (EmitLTOSummary) {
         if (!TheModule->getModuleFlag("ThinLTO"))
           TheModule->addModuleFlag(Module::Error, "ThinLTO", uint32_t(0));
-        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
-                                 uint32_t(1));
+        if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+          TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                   uint32_t(1));
       }
       MPM.addPass(
           BitcodeWriterPass(*OS, CodeGenOpts.EmitLLVMUseLists, EmitLTOSummary));
@@ -1551,8 +1577,7 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
   TimeRegion Region(CodeGenOpts.TimePasses ? &CodeGenerationTime : nullptr);
   setCommandLineOpts(CodeGenOpts);
 
-  bool RequiresCodeGen = (Action != Backend_EmitNothing &&
-                          Action != Backend_EmitBC && Action != Backend_EmitLL);
+  bool RequiresCodeGen = actionRequiresCodeGen(Action);
   CreateTargetMachine(RequiresCodeGen);
 
   if (RequiresCodeGen && !TM)

@@ -4,7 +4,7 @@
 
 target triple = "x86_64-unknown-unknown"
 
-define i32 @simple(i32 *%a, i32 *%b) #0 {
+define void @simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-LABEL: @simple(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
@@ -17,10 +17,10 @@ define i32 @simple(i32 *%a, i32 *%b) #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
-; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <2 x i32> [[TMP5]], i32 0
-; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <2 x i32> [[TMP5]], i32 1
-; CHECK-NEXT:    [[HOR_RED:%.*]] = add i32 [[TMP6]], [[TMP7]]
-; CHECK-NEXT:    ret i32 [[HOR_RED]]
+; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
+; CHECK-NEXT:    ret void
 ;
 entry:
   %gep.a0 = getelementptr i32, i32 *%a, i32 0
@@ -44,13 +44,14 @@ entry:
   %lane1.add1 = add i32 43, %a1
   %lane1.add2 = add i32 %lane1.add1, %b1
 
-; Horizontal reduction as a seed to trigger SLP
-  %hor.red = add i32 %lane0.add2, %lane1.add2
-  ret i32 %hor.red
+  %gep1 = getelementptr inbounds i32, i32* %c, i64 1
+  store i32 %lane0.add2, i32* %c, align 4
+  store i32 %lane1.add2, i32* %gep1, align 4
+  ret void
 }
 
 ; CMPLRLLVM-31486
-define i32 @negative_different_sign_reorder(i32 *%a, i32 *%b) #0 {
+define void @negative_different_sign_reorder(i32 *%a, i32 *%b, i32* %c) #0 {
 ; CHECK-LABEL: @negative_different_sign_reorder(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
@@ -65,10 +66,10 @@ define i32 @negative_different_sign_reorder(i32 *%a, i32 *%b) #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP2]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32> <i32 42, i32 poison>, i32 [[B1]], i32 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> [[TMP4]], [[TMP3]]
-; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <2 x i32> [[TMP5]], i32 0
-; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <2 x i32> [[TMP5]], i32 1
-; CHECK-NEXT:    [[HOR_RED:%.*]] = add i32 [[TMP6]], [[TMP7]]
-; CHECK-NEXT:    ret i32 [[HOR_RED]]
+; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
+; CHECK-NEXT:    ret void
 ;
 entry:
   %gep.a0 = getelementptr i32, i32 *%a, i32 0
@@ -92,9 +93,10 @@ entry:
   %lane1.add = add i32 43, %a1
   %lane1.sub = sub i32 %b1, %lane1.add
 
-; Horizontal reduction as a seed to trigger SLP
-  %hor.red = add i32 %lane0.sub, %lane1.sub
-  ret i32 %hor.red
+  %gep1 = getelementptr inbounds i32, i32* %c, i64 1
+  store i32 %lane0.sub, i32* %c, align 4
+  store i32 %lane1.sub, i32* %gep1, align 4
+  ret void
 }
 
 define void @wrap_flags(i32 *%a, i32 *%b, i32 *%c) #0 {

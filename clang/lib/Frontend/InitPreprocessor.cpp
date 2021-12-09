@@ -514,11 +514,20 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   // Not "standard" per se, but available even with the -undef flag.
   if (LangOpts.AsmPreprocessor)
     Builder.defineMacro("__ASSEMBLER__");
-  if (LangOpts.CUDA && !LangOpts.HIP)
-    Builder.defineMacro("__CUDA__");
+  if (LangOpts.CUDA) {
+    if (LangOpts.GPURelocatableDeviceCode)
+      Builder.defineMacro("__CLANG_RDC__");
+    if (!LangOpts.HIP)
+      Builder.defineMacro("__CUDA__");
+  }
   if (LangOpts.HIP) {
     Builder.defineMacro("__HIP__");
     Builder.defineMacro("__HIPCC__");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_SINGLETHREAD", "1");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_WAVEFRONT", "2");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_WORKGROUP", "3");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_AGENT", "4");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_SYSTEM", "5");
     if (LangOpts.CUDAIsDevice)
       Builder.defineMacro("__HIP_DEVICE_COMPILE__");
   }
@@ -1201,6 +1210,12 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     case 45:
       Builder.defineMacro("_OPENMP", "201511");
       break;
+    case 51:
+      Builder.defineMacro("_OPENMP", "202011");
+      break;
+    case 52:
+      Builder.defineMacro("_OPENMP", "202111");
+      break;
     default:
       // Default version is OpenMP 5.0
       Builder.defineMacro("_OPENMP", "201811");
@@ -1240,12 +1255,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
         DeviceSubArch != llvm::Triple::SPIRSubArch_fpga)
       Builder.defineMacro("SYCL_USE_NATIVE_FP_ATOMICS");
     // Enable generation of USM address spaces for FPGA.
-#if INTEL_CUSTOMIZATION
     if (DeviceSubArch == llvm::Triple::SPIRSubArch_fpga) {
       Builder.defineMacro("__ENABLE_USM_ADDR_SPACE__");
       Builder.defineMacro("SYCL_DISABLE_FALLBACK_ASSERT");
     }
-#endif // INTEL_CUSTOMIZATION
   }
   if (LangOpts.SYCLUnnamedLambda)
     Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__");

@@ -735,6 +735,11 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
       ValToStore = RetVal;
     }
 
+    // If InsertPt is a PHINode, move it to the last PHINode in the BB.
+    for (auto Next = InsertPt->getNextNode(); isa<PHINode>(Next);
+         Next = Next->getNextNode())
+      InsertPt = Next;
+
     // Generate a gep from the bitcast of the vector alloca used for the return
     // vector.
     GetElementPtrInst *VecGep = GetElementPtrInst::Create(

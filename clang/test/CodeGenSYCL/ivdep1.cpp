@@ -151,11 +151,11 @@ template<int LEN>
 int do_stuff(int N) {
   int temp = 0;
   //CHECK: %N.addr = alloca i32, align 4
-  //CHECK: %N.addr.ascast = addrspacecast i32* %N.addr to i32 addrspace(4)*
   //CHECK: %temp = alloca i32, align 4
+  //CHECK: %i = alloca i32, align 4
+  //CHECK: %N.addr.ascast = addrspacecast i32* %N.addr to i32 addrspace(4)*
   //CHECK: %temp.ascast = addrspacecast i32* %temp to i32 addrspace(4)*
-  //CHECK: alloca i32, align 4
-  //CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+  //CHECK: %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
   //CHECK: store i32 %N, i32 addrspace(4)* %N.addr.ascast, align 4
   //CHECK: store i32 0, i32 addrspace(4)* %temp.ascast, align 4
   //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4

@@ -6,7 +6,6 @@ define <16 x float> @test_tcvtrowd2psee(i32 %A) {
 ; CHECK-LABEL: test_tcvtrowd2psee:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowd2pse %edi, %tmm1, %zmm0 # encoding: [0x62,0xf2,0x46,0x48,0x4a,0xc1]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <16 x float> @llvm.x86.tcvtrowd2psee(i8 1, i32 %A)
   ret <16 x float> %ret
@@ -17,7 +16,6 @@ define <16 x float> @test_tcvtrowd2psei() {
 ; CHECK-LABEL: test_tcvtrowd2psei:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowd2pse $127, %tmm1, %zmm0 # encoding: [0x62,0xf3,0x7e,0x48,0x07,0xc1,0x7f]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <16 x float> @llvm.x86.tcvtrowd2psei(i8 1, i32 127)
   ret <16 x float> %ret
@@ -28,7 +26,6 @@ define <32 x i16> @test_tcvtrowps2pbf16hee(i32 %A) {
 ; CHECK-LABEL: test_tcvtrowps2pbf16hee:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2pbf16he %edi, %tmm1, %zmm0 # encoding: [0x62,0xf2,0x47,0x48,0x6d,0xc1]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x i16> @llvm.x86.tcvtrowps2pbf16hee(i8 1, i32 %A)
   ret <32 x i16> %ret
@@ -39,7 +36,6 @@ define <32 x i16> @test_tcvtrowps2pbf16hei() {
 ; CHECK-LABEL: test_tcvtrowps2pbf16hei:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2pbf16he $127, %tmm1, %zmm0 # encoding: [0x62,0xf3,0x7f,0x48,0x07,0xc1,0x7f]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x i16> @llvm.x86.tcvtrowps2pbf16hei(i8 1, i32 127)
   ret <32 x i16> %ret
@@ -50,7 +46,6 @@ define <32 x i16> @test_tcvtrowps2pbf16lee(i32 %A) {
 ; CHECK-LABEL: test_tcvtrowps2pbf16lee:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2pbf16le %edi, %tmm1, %zmm0 # encoding: [0x62,0xf2,0x46,0x48,0x6d,0xc1]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x i16> @llvm.x86.tcvtrowps2pbf16lee(i8 1, i32 %A)
   ret <32 x i16> %ret
@@ -61,7 +56,6 @@ define <32 x i16> @test_tcvtrowps2pbf16lei() {
 ; CHECK-LABEL: test_tcvtrowps2pbf16lei:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2pbf16le $127, %tmm1, %zmm0 # encoding: [0x62,0xf3,0x7e,0x48,0x77,0xc1,0x7f]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x i16> @llvm.x86.tcvtrowps2pbf16lei(i8 1, i32 127)
   ret <32 x i16> %ret
@@ -72,7 +66,6 @@ define <32 x half> @test_tcvtrowps2phhee(i32 %A) {
 ; CHECK-LABEL: test_tcvtrowps2phhee:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2phhe %edi, %tmm1, %zmm0 # encoding: [0x62,0xf2,0x44,0x48,0x6d,0xc1]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x half> @llvm.x86.tcvtrowps2phhee(i8 1, i32 %A)
   ret <32 x half> %ret
@@ -83,7 +76,6 @@ define <32 x half> @test_tcvtrowps2phhei() {
 ; CHECK-LABEL: test_tcvtrowps2phhei:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2phhe $127, %tmm1, %zmm0 # encoding: [0x62,0xf3,0x7c,0x48,0x07,0xc1,0x7f]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x half> @llvm.x86.tcvtrowps2phhei(i8 1, i32 127)
   ret <32 x half> %ret
@@ -94,7 +86,6 @@ define <32 x half> @test_tcvtrowps2phlee(i32 %A) {
 ; CHECK-LABEL: test_tcvtrowps2phlee:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2phle %edi, %tmm1, %zmm0 # encoding: [0x62,0xf2,0x45,0x48,0x6d,0xc1]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x half> @llvm.x86.tcvtrowps2phlee(i8 1, i32 %A)
   ret <32 x half> %ret
@@ -105,7 +96,6 @@ define <32 x half> @test_tcvtrowps2phlei() {
 ; CHECK-LABEL: test_tcvtrowps2phlei:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tcvtrowps2phle $127, %tmm1, %zmm0 # encoding: [0x62,0xf3,0x7f,0x48,0x77,0xc1,0x7f]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %ret = call <32 x half> @llvm.x86.tcvtrowps2phlei(i8 1, i32 127)
   ret <32 x half> %ret

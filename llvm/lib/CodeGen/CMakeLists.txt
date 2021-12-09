@@ -158,6 +158,7 @@ add_llvm_component_library(LLVMCodeGen
   RegAllocFast.cpp
   RegAllocGreedy.cpp
   RegAllocPBQP.cpp
+  RegAllocScore.cpp
   RegisterClassInfo.cpp
   RegisterCoalescer.cpp
   RegisterPressure.cpp
@@ -207,6 +208,7 @@ add_llvm_component_library(LLVMCodeGen
   TwoAddressInstructionPass.cpp
   UnreachableBlockElim.cpp
   ValueTypes.cpp
+  VLIWMachineScheduler.cpp
   VirtRegMap.cpp
   WasmEHPrepare.cpp
   WinEHPrepare.cpp

@@ -67,8 +67,8 @@ void test(int i) {
   fp = &zoo;
   p = bar;
 //CHECK: [[FP:%fp]] = alloca i32 (i32)*,
-//CHECK: %[[FP_CAST:.+]] = addrspacecast i32 (i32)** [[FP]] to i32 (i32)* addrspace(4)*
 //CHECK: [[P:%p]] = alloca i32 (i32, i32)*,
+//CHECK: %[[FP_CAST:.+]] = addrspacecast i32 (i32)** [[FP]] to i32 (i32)* addrspace(4)*
 //CHECK: %[[P_CAST:.+]] = addrspacecast i32 (i32, i32)** [[P]] to i32 (i32, i32)* addrspace(4)*
 //CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)* addrspace(4)* %[[FP_CAST]],
 //CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)* addrspace(4)* %[[P_CAST]],

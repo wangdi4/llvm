@@ -2729,6 +2729,8 @@ bool Sema::AttachBaseSpecifiers(CXXRecordDecl *Class,
       KnownBase = Bases[idx];
       Bases[NumGoodBases++] = Bases[idx];
 
+      if (NewBaseType->isDependentType())
+        continue;
       // Note this base's direct & indirect bases, if there could be ambiguity.
       if (Bases.size() > 1)
         NoteIndirectBases(Context, IndirectBaseTypes, NewBaseType);
@@ -3583,9 +3585,8 @@ namespace {
       llvm::SmallVector<unsigned, 4> UsedFieldIndex;
       // Discard the first field since it is the field decl that is being
       // initialized.
-      for (auto I = Fields.rbegin() + 1, E = Fields.rend(); I != E; ++I) {
-        UsedFieldIndex.push_back((*I)->getFieldIndex());
-      }
+      for (const FieldDecl *FD : llvm::drop_begin(llvm::reverse(Fields)))
+        UsedFieldIndex.push_back(FD->getFieldIndex());
 
       for (auto UsedIter = UsedFieldIndex.begin(),
                 UsedEnd = UsedFieldIndex.end(),
@@ -4217,7 +4218,7 @@ Sema::BuildMemInitializer(Decl *ConstructorD,
     if (BaseType.isNull())
       return true;
   } else if (DS.getTypeSpecType() == TST_decltype) {
-    BaseType = BuildDecltypeType(DS.getRepAsExpr(), DS.getTypeSpecTypeLoc());
+    BaseType = BuildDecltypeType(DS.getRepAsExpr());
   } else if (DS.getTypeSpecType() == TST_decltype_auto) {
     Diag(DS.getTypeSpecTypeLoc(), diag::err_decltype_auto_invalid);
     return true;
@@ -9205,7 +9206,8 @@ bool SpecialMemberDeletionInfo::shouldDeleteForField(FieldDecl *FD) {
       }
 
       // Don't check the implicit member of the anonymous union type.
-      // This is technically non-conformant, but sanity demands it.
+      // This is technically non-conformant but supported, and we have a
+      // diagnostic for this elsewhere.
       return false;
     }
 
@@ -12297,7 +12299,7 @@ NamedDecl *Sema::BuildUsingDeclaration(
   // Unlike most lookups, we don't always want to hide tag
   // declarations: tag names are visible through the using declaration
   // even if hidden by ordinary names, *except* in a dependent context
-  // where it's important for the sanity of two-phase lookup.
+  // where they may be used by two-phase lookup.
   if (!IsInstantiation)
     R.setHideTags(false);
 
@@ -16189,6 +16191,20 @@ Decl *Sema::ActOnStartLinkageSpecification(Scope *S, SourceLocation ExternLoc,
   LinkageSpecDecl *D = LinkageSpecDecl::Create(Context, CurContext, ExternLoc,
                                                LangStr->getExprLoc(), Language,
                                                LBraceLoc.isValid());
+
+  /// C++ [module.unit]p7.2.3
+  /// - Otherwise, if the declaration
+  ///   - ...
+  ///   - ...
+  ///   - appears within a linkage-specification,
+  ///   it is attached to the global module.
+  if (getLangOpts().CPlusPlusModules && getCurrentModule()) {
+    Module *GlobalModule =
+        PushGlobalModuleFragment(ExternLoc, /*IsImplicit=*/true);
+    D->setModuleOwnershipKind(Decl::ModuleOwnershipKind::ModulePrivate);
+    D->setLocalOwningModule(GlobalModule);
+  }
+
   CurContext->addDecl(D);
   PushDeclContext(S, D);
   return D;
@@ -16205,6 +16221,10 @@ Decl *Sema::ActOnFinishLinkageSpecification(Scope *S,
     LinkageSpecDecl* LSDecl = cast<LinkageSpecDecl>(LinkageSpec);
     LSDecl->setRBraceLoc(RBraceLoc);
   }
+
+  if (getLangOpts().CPlusPlusModules && getCurrentModule())
+    PopGlobalModuleFragment();
+
   PopDeclContext();
   return LinkageSpec;
 }

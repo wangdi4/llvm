@@ -1149,11 +1149,6 @@ DIE *DwarfUnit::getOrCreateSubprogramDIE(const DISubprogram *SP, bool Minimal) {
     }
   }
 
-  // Try to reference the abstract origin if the subprogram is not concrete.
-  if (!DD->IsConcrete(SP))
-    if (auto *SPDie = DU->getAbstractSPDies().lookup(SP))
-      return SPDie;
-
   // DW_TAG_inlined_subroutine may refer to this DIE.
   DIE &SPDie = createAndAddDIE(dwarf::DW_TAG_subprogram, *ContextDIE, SP);
 
@@ -1208,7 +1203,7 @@ bool DwarfUnit::applySubprogramDefinitionAttributes(const DISubprogram *SP,
          "decl has a linkage name and it is different");
   if (DeclLinkageName.empty() &&
       // Always emit it for abstract subprograms.
-      (DD->useAllLinkageNames() || DU->getAbstractSPDies().lookup(SP)))
+      (DD->useAllLinkageNames() || DU->getAbstractScopeDIEs().lookup(SP)))
     addLinkageName(SPDie, LinkageName);
 
   if (!DeclDie)

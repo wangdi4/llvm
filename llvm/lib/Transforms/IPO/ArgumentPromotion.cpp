@@ -191,9 +191,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
         // Since loads will only have a single operand, and GEPs only a single
         // non-index operand, this will record direct loads without any indices,
         // and gep+loads with the GEP indices.
-        for (User::op_iterator II = UI->op_begin() + 1, IE = UI->op_end();
-             II != IE; ++II)
-          Indices.push_back(cast<ConstantInt>(*II)->getSExtValue());
+        for (const Use &I : llvm::drop_begin(UI->operands()))
+          Indices.push_back(cast<ConstantInt>(I)->getSExtValue());
         // GEPs with a single 0 index can be merged with direct loads
         if (Indices.size() == 1 && Indices.front() == 0)
           Indices.clear();
@@ -464,9 +463,9 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   // All uses of the old function have been replaced with the new function,
   // transfer the function entry count to the replacement function to maintain
   // the ability to place the functions into hot/cold sections.
-  Function::ProfileCount OldCount = F->getEntryCount();
+  Optional<Function::ProfileCount> OldCount = F->getEntryCount();
   if (OldCount.hasValue())
-    NF->setEntryCount(OldCount.getCount());
+    NF->setEntryCount(OldCount->getCount());
 #endif // INTEL_CUSTOMIZATION
 
   // Since we have now created the new function, splice the body of the old
@@ -1282,10 +1281,12 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   do {
     LocalChange = false;
 
+    FunctionAnalysisManager &FAM =
+        AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
+
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
-      FunctionAnalysisManager &FAM =
-          AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
+
       // FIXME: This lambda must only be used with this function. We should
       // skip the lambda and just get the AA results directly.
       auto AARGetter = [&](Function &F) -> AAResults & {
@@ -1316,6 +1317,25 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
       C.getOuterRefSCC().replaceNodeFunction(N, *NewF);
       FAM.clear(OldF, OldF.getName());
       OldF.eraseFromParent();
+
+      PreservedAnalyses FuncPA;
+      FuncPA.preserveSet<CFGAnalyses>();
+      for (auto *U : NewF->users()) {
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-32836: Accommodate bitcasts within the arguments of
+        // broker functions, which is an Intel extension.
+        auto CB = dyn_cast<CallBase>(U);
+        if (CB) {
+          auto *UserF = CB->getFunction();
+          FAM.invalidate(*UserF, FuncPA);
+        } else {
+          for (auto *V : U->users()) {
+            auto *UserF = cast<CallBase>(V)->getFunction();
+            FAM.invalidate(*UserF, FuncPA);
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
+      }
     }
 
     Changed |= LocalChange;
@@ -1331,6 +1351,8 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
 #endif // INTEL_CUSTOMIZATION
+  // We've manually invalidated analyses for functions we've modified.
+  PA.preserveSet<AllAnalysesOn<Function>>();
   return PA;
 }
 

@@ -196,11 +196,6 @@
 // RUN:   | FileCheck -DARCH=spir64_fpga -check-prefixes=CHK-UNUSED-ARG-WARNING,CHK-TARGET %s
 // CHK-UNUSED-ARG-WARNING-NOT: clang{{.*}} warning: argument unused during compilation: '-Xsycl-target-frontend={{.*}} -DFOO'
 // CHK-TARGET: clang{{.*}} "-cc1" "-triple" "[[ARCH]]-unknown-unknown"{{.*}} "-D" "FOO"
-// INTEL_CUSTOMIZATION
-// Do not check for unbundling of objects, as the objects in question are not
-// guaranteed to be available.
-// CHK-TARGETx: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-[[ARCH]]-unknown-unknown"
-// end INTEL_CUSTOMIZATION
 
 /// ###########################################################################
 
@@ -1146,7 +1141,18 @@
 // CHK-INCOMPATIBILITY: error: The option -fsycl conflicts with -ffreestanding
 
 /// Using -fsyntax-only with -fsycl should not emit IR
-// RUN:   %clang -### -target x86_64-unknown-linux-gnu -fsycl -fsyntax-only %s 2>&1 \
-// RUN:   | FileCheck -check-prefixes=CHK-FSYNTAX-ONLY,CHK-NO-EMIT-IR %s
-// CHK-FSYNTAX-ONLY: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown"{{.*}} "-fsyntax-only"
-// CHK-NO-EMIT-IR-NOT: "-emit-llvm-bc"
+// RUN:   %clang -### -fsycl -fsyntax-only %s 2>&1 \
+// RUN:   | FileCheck -check-prefixes=CHK-FSYNTAX-ONLY %s
+// RUN:   %clang -### -fsycl -fsycl-device-only -fsyntax-only %s 2>&1 \
+// RUN:   | FileCheck -check-prefixes=CHK-FSYNTAX-ONLY %s
+// CHK-FSYNTAX-ONLY-NOT: "-emit-llvm-bc"
+// CHK-FSYNTAX-ONLY: "-fsyntax-only"
+
+/// ###########################################################################
+/// Verify that -save-temps puts header/footer in a correct place
+// RUN: %clang -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64-unknown-unknown -target x86_64-unknown-linux-gnu -save-temps %s -### 2>&1 | FileCheck %s -check-prefixes=CHECK-SAVE-TEMPS-DIR
+// CHECK-SAVE-TEMPS-DIR: clang{{.*}} "-fsycl-int-header=sycl-offload-header-{{[a-z0-9]*}}.h"{{.*}}"-fsycl-int-footer=sycl-offload-footer-{{[a-z0-9]*}}.h"
+
+/// Verify that -save-temps=obj respects the -o dir
+// RUN: %clang -fsycl -fno-sycl-device-lib=all -fsycl-targets=spir64-unknown-unknown -target x86_64-unknown-linux-gnu -save-temps=obj -o %S %s -### 2>&1 | FileCheck %s -check-prefixes=CHECK-SAVE-TEMPS-OBJ-DIR
+// CHECK-SAVE-TEMPS-OBJ-DIR: clang{{.*}}-fsycl-int-header={{.*[/\\]+clang[/\\]+test[/\\]+sycl-offload-header-[a-z0-9]*}}.h{{.*}}-fsycl-int-footer={{.*[/\\]+clang[/\\]+test[/\\]+sycl-offload-footer-[a-z0-9]*}}.h

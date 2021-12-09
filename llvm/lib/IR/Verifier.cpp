@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This file defines the function verifier interface, that can be used for some
-// sanity checking of input to the system.
+// basic correctness checking of input to the system.
 //
 // Note that this does not provide full `Java style' security and verifications,
 // instead it just tries to ensure that code is well-formed.
@@ -1633,7 +1633,7 @@ Verifier::visitModuleFlag(const MDNode *Op,
   Assert(ID, "invalid ID operand in module flag (expected metadata string)",
          Op->getOperand(1));
 
-  // Sanity check the values for behaviors with additional requirements.
+  // Check the values for behaviors with additional requirements.
   switch (MFB) {
   case Module::Error:
   case Module::Warning:
@@ -2084,10 +2084,12 @@ void Verifier::verifyFunctionAttrs(FunctionType *FT, AttributeList Attrs,
   }
 
   if (Attrs.hasFnAttr(Attribute::VScaleRange)) {
-    std::pair<unsigned, unsigned> Args =
-        Attrs.getFnAttrs().getVScaleRangeArgs();
+    unsigned VScaleMin = Attrs.getFnAttrs().getVScaleRangeMin();
+    if (VScaleMin == 0)
+      CheckFailed("'vscale_range' minimum must be greater than 0", V);
 
-    if (Args.first > Args.second && Args.second != 0)
+    Optional<unsigned> VScaleMax = Attrs.getFnAttrs().getVScaleRangeMax();
+    if (VScaleMax && VScaleMin > VScaleMax)
       CheckFailed("'vscale_range' minimum cannot be greater than maximum", V);
   }
 
@@ -5419,24 +5421,32 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
       Op0ElemTy =
           cast<VectorType>(Call.getArgOperand(0)->getType())->getElementType();
       break;
-    case Intrinsic::matrix_column_major_load:
+    case Intrinsic::matrix_column_major_load: {
       Stride = dyn_cast<ConstantInt>(Call.getArgOperand(1));
       NumRows = cast<ConstantInt>(Call.getArgOperand(3));
       NumColumns = cast<ConstantInt>(Call.getArgOperand(4));
       ResultTy = cast<VectorType>(Call.getType());
-      Op0ElemTy =
-          cast<PointerType>(Call.getArgOperand(0)->getType())->getElementType();
+
+      PointerType *Op0PtrTy =
+          cast<PointerType>(Call.getArgOperand(0)->getType());
+      if (!Op0PtrTy->isOpaque())
+        Op0ElemTy = Op0PtrTy->getElementType();
       break;
-    case Intrinsic::matrix_column_major_store:
+    }
+    case Intrinsic::matrix_column_major_store: {
       Stride = dyn_cast<ConstantInt>(Call.getArgOperand(2));
       NumRows = cast<ConstantInt>(Call.getArgOperand(4));
       NumColumns = cast<ConstantInt>(Call.getArgOperand(5));
       ResultTy = cast<VectorType>(Call.getArgOperand(0)->getType());
       Op0ElemTy =
           cast<VectorType>(Call.getArgOperand(0)->getType())->getElementType();
-      Op1ElemTy =
-          cast<PointerType>(Call.getArgOperand(1)->getType())->getElementType();
+
+      PointerType *Op1PtrTy =
+          cast<PointerType>(Call.getArgOperand(1)->getType());
+      if (!Op1PtrTy->isOpaque())
+        Op1ElemTy = Op1PtrTy->getElementType();
       break;
+    }
     default:
       llvm_unreachable("unexpected intrinsic");
     }
@@ -5445,9 +5455,10 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
            ResultTy->getElementType()->isFloatingPointTy(),
            "Result type must be an integer or floating-point type!", IF);
 
-    Assert(ResultTy->getElementType() == Op0ElemTy,
-           "Vector element type mismatch of the result and first operand "
-           "vector!", IF);
+    if (Op0ElemTy)
+      Assert(ResultTy->getElementType() == Op0ElemTy,
+             "Vector element type mismatch of the result and first operand "
+             "vector!", IF);
 
     if (Op1ElemTy)
       Assert(ResultTy->getElementType() == Op1ElemTy,
@@ -6329,11 +6340,7 @@ static bool isNewFormatTBAATypeNode(llvm::MDNode *Type) {
 
   // In the new format type nodes shall have a reference to the parent type as
   // its first operand.
-  MDNode *Parent = dyn_cast_or_null<MDNode>(Type->getOperand(0));
-  if (!Parent)
-    return false;
-
-  return true;
+  return isa_and_nonnull<MDNode>(Type->getOperand(0));
 }
 
 bool TBAAVerifier::visitTBAAMetadata(Instruction &I, const MDNode *MD) {

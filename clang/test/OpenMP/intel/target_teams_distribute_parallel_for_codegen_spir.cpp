@@ -64,15 +64,16 @@ void bar(int,int,...);
 // CHECK-LABEL: foo2
 void foo2() {
   // CHECK: [[I:%i.*]] = alloca i32,
-  // CHECK: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
   // CHECK: [[J:%j.*]] = alloca i32,
-  // CHECK: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
   // CHECK-DAG: [[OMP_LB:%.omp.lb.*]] = alloca i32,
-  // CHECK-DAG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // CHECK-DAG: [[OMP_UB:%.omp.ub.*]] = alloca i32,
-  // CHECK-DAG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
   // CHECK-DAG: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // CHECK: [[I_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
+  // CHECK: [[J_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
+  // CHECK-DAG: [[OMP_LB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
+  // CHECK-DAG: [[OMP_UB_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
   // CHECK-DAG: [[OMP_IV_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[OMP_IV]] to i32 addrspace(4)*
+
   int i;
   int j = 20;
   // CHECK: store i32 0, i32 addrspace(4)* [[OMP_LB_CAST]],

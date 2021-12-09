@@ -158,6 +158,11 @@ def HasP9Vector : Predicate<"Subtarget->hasP9Vector()">;
 def NoP9Altivec : Predicate<"!Subtarget->hasP9Altivec()">;
 def NoP10Vector: Predicate<"!Subtarget->hasP10Vector()">;
 
+def PPCldsplatAlign16 : PatFrag<(ops node:$ptr), (PPCldsplat node:$ptr), [{
+  return cast<MemIntrinsicSDNode>(N)->getAlign() >= Align(16) &&
+         isOffsetMultipleOf(N, 16);
+}]>;
+
 //--------------------- VSX-specific instruction formats ---------------------//
 // By default, all VSX instructions are to be selected over their Altivec
 // counter parts and they do not have unmodeled sideeffects.
@@ -906,16 +911,13 @@ let hasSideEffects = 0 in {
   // Rounding Instructions respecting current rounding mode
   def XSRDPIC : XX2Form<60, 107,
                       (outs vsfrc:$XT), (ins vsfrc:$XB),
-                      "xsrdpic $XT, $XB", IIC_VecFP,
-                      [(set f64:$XT, (fnearbyint f64:$XB))]>;
+                      "xsrdpic $XT, $XB", IIC_VecFP, []>;
   def XVRDPIC : XX2Form<60, 235,
                       (outs vsrc:$XT), (ins vsrc:$XB),
-                      "xvrdpic $XT, $XB", IIC_VecFP,
-                      [(set v2f64:$XT, (fnearbyint v2f64:$XB))]>;
+                      "xvrdpic $XT, $XB", IIC_VecFP, []>;
   def XVRSPIC : XX2Form<60, 171,
                       (outs vsrc:$XT), (ins vsrc:$XB),
-                      "xvrspic $XT, $XB", IIC_VecFP,
-                      [(set v4f32:$XT, (fnearbyint v4f32:$XB))]>;
+                      "xvrspic $XT, $XB", IIC_VecFP, []>;
   // Max/Min Instructions
   let isCommutable = 1 in {
   def XSMAXDP : XX3Form<60, 160,
@@ -2474,6 +2476,7 @@ def DblwdCmp {
 // [HasVSX, HasP8Vector, IsLittleEndian]
 // [HasVSX, HasP8Vector, NoP9Vector, IsBigEndian, IsPPC64]
 // [HasVSX, HasP8Vector, NoP9Vector, IsLittleEndian]
+// [HasVSX, HasP8Altivec]
 // [HasVSX, HasDirectMove]
 // [HasVSX, HasDirectMove, IsBigEndian]
 // [HasVSX, HasDirectMove, IsLittleEndian]
@@ -2502,6 +2505,10 @@ let Predicates = [HasVSX, IsLittleEndian, HasP8Altivec] in
 let Predicates = [HasVSX, IsBigEndian, HasP8Altivec] in
   def : Pat<(v16i8 (int_ppc_altivec_crypto_vpermxor v16i8:$a,
                                                     v16i8:$b, v16i8:$c)),
+            (v16i8 (VPERMXOR $a, $b, $c))>;
+let Predicates = [HasVSX, HasP8Altivec] in
+  def : Pat<(v16i8 (int_ppc_altivec_crypto_vpermxor_be v16i8:$a,
+                                                       v16i8:$b, v16i8:$c)),
             (v16i8 (VPERMXOR $a, $b, $c))>;
 
 let AddedComplexity = 400 in {
@@ -2783,9 +2790,6 @@ def : Pat<(v2f64 (int_ppc_vsx_lxvd2x_be ForceXForm:$src)), (LXVD2X ForceXForm:$s
 def : Pat<(f32 (any_fround f32:$S)),
           (f32 (COPY_TO_REGCLASS (XSRDPI
                                    (COPY_TO_REGCLASS $S, VSFRC)), VSSRC))>;
-def : Pat<(f32 (fnearbyint f32:$S)),
-          (f32 (COPY_TO_REGCLASS (XSRDPIC
-                                   (COPY_TO_REGCLASS $S, VSFRC)), VSSRC))>;
 def : Pat<(f32 (any_ffloor f32:$S)),
           (f32 (COPY_TO_REGCLASS (XSRDPIM
                                    (COPY_TO_REGCLASS $S, VSFRC)), VSSRC))>;
@@ -2803,6 +2807,19 @@ def : Pat<(v4f32 (any_frint v4f32:$S)), (v4f32 (XVRSPIC $S))>;
 // Rounding for double precision.
 def : Pat<(f64 (any_frint f64:$S)), (f64 (XSRDPIC $S))>;
 def : Pat<(v2f64 (any_frint v2f64:$S)), (v2f64 (XVRDPIC $S))>;
+
+// Rounding without exceptions (nearbyint). Due to strange tblgen behaviour,
+// these need to be defined after the any_frint versions so ISEL will correctly
+// add the chain to the strict versions.
+def : Pat<(f32 (fnearbyint f32:$S)),
+          (f32 (COPY_TO_REGCLASS (XSRDPIC
+                                   (COPY_TO_REGCLASS $S, VSFRC)), VSSRC))>;
+def : Pat<(f64 (fnearbyint f64:$S)),
+          (f64 (XSRDPIC $S))>;
+def : Pat<(v2f64 (fnearbyint v2f64:$S)),
+          (v2f64 (XVRDPIC $S))>;
+def : Pat<(v4f32 (fnearbyint v4f32:$S)),
+          (v4f32 (XVRSPIC $S))>;
 
 // Materialize a zero-vector of long long
 def : Pat<(v2i64 immAllZerosV),
@@ -3168,6 +3185,12 @@ defm : ScalToVecWPermute<
   v2f64, (f64 (load ForceXForm:$src)),
   (XXPERMDIs (XFLOADf64 ForceXForm:$src), 2),
   (SUBREG_TO_REG (i64 1), (XFLOADf64 ForceXForm:$src), sub_64)>;
+
+// Splat loads.
+def : Pat<(v8i16 (PPCldsplatAlign16 ForceXForm:$A)),
+          (v8i16 (VSPLTH 7, (LVX ForceXForm:$A)))>;
+def : Pat<(v16i8 (PPCldsplatAlign16 ForceXForm:$A)),
+          (v16i8 (VSPLTB 15, (LVX ForceXForm:$A)))>;
 } // HasVSX, NoP9Vector, IsLittleEndian
 
 let Predicates = [HasVSX, NoP9Vector, IsBigEndian] in {
@@ -3175,6 +3198,12 @@ let Predicates = [HasVSX, NoP9Vector, IsBigEndian] in {
             (LXVD2X ForceXForm:$src)>;
   def : Pat<(int_ppc_vsx_stxvd2x v2f64:$rS, ForceXForm:$dst),
             (STXVD2X $rS, ForceXForm:$dst)>;
+
+  // Splat loads.
+  def : Pat<(v8i16 (PPCldsplatAlign16 ForceXForm:$A)),
+            (v8i16 (VSPLTH 0, (LVX ForceXForm:$A)))>;
+  def : Pat<(v16i8 (PPCldsplatAlign16 ForceXForm:$A)),
+            (v16i8 (VSPLTB 0, (LVX ForceXForm:$A)))>;
 } // HasVSX, NoP9Vector, IsBigEndian
 
 // Any VSX subtarget that only has loads and stores that load in big endian

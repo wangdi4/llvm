@@ -117,7 +117,7 @@ struct VFShape {
 
     return {EC, Parameters};
   }
-  /// Sanity check on the Parameters in the VFShape.
+  /// Validation check on the Parameters in the VFShape.
   bool hasValidParameterList() const;
 };
 

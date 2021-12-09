@@ -178,6 +178,10 @@ bool Instruction::hasNoSignedWrap() const {
   return cast<OverflowingBinaryOperator>(this)->hasNoSignedWrap();
 }
 
+bool Instruction::hasPoisonGeneratingFlags() const {
+  return cast<Operator>(this)->hasPoisonGeneratingFlags();
+}
+
 void Instruction::dropPoisonGeneratingFlags() {
   switch (getOpcode()) {
   case Instruction::Add:
@@ -201,8 +205,7 @@ void Instruction::dropPoisonGeneratingFlags() {
   }
   // TODO: FastMathFlags!
 
-  assert(!cast<Operator>(this)->hasPoisonGeneratingFlags() &&
-         "must be kept in sync");
+  assert(!hasPoisonGeneratingFlags() && "must be kept in sync");
 }
 
 void Instruction::dropUndefImplyingAttrsAndUnknownMetadata(

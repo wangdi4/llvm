@@ -163,9 +163,10 @@ private:
 /// function overloading to implement "partial" method specialization.
 class SparseTensorStorageBase {
 public:
+  /// Dimension size query.
   virtual uint64_t getDimSize(uint64_t) = 0;
 
-  // Overhead storage.
+  /// Overhead storage.
   virtual void getPointers(std::vector<uint64_t> **, uint64_t) { fatal("p64"); }
   virtual void getPointers(std::vector<uint32_t> **, uint64_t) { fatal("p32"); }
   virtual void getPointers(std::vector<uint16_t> **, uint64_t) { fatal("p16"); }
@@ -175,13 +176,44 @@ public:
   virtual void getIndices(std::vector<uint16_t> **, uint64_t) { fatal("i16"); }
   virtual void getIndices(std::vector<uint8_t> **, uint64_t) { fatal("i8"); }
 
-  // Primary storage.
+  /// Primary storage.
   virtual void getValues(std::vector<double> **) { fatal("valf64"); }
   virtual void getValues(std::vector<float> **) { fatal("valf32"); }
   virtual void getValues(std::vector<int64_t> **) { fatal("vali64"); }
   virtual void getValues(std::vector<int32_t> **) { fatal("vali32"); }
   virtual void getValues(std::vector<int16_t> **) { fatal("vali16"); }
   virtual void getValues(std::vector<int8_t> **) { fatal("vali8"); }
+
+  /// Element-wise insertion in lexicographic index order.
+  virtual void lexInsert(uint64_t *, double) { fatal("insf64"); }
+  virtual void lexInsert(uint64_t *, float) { fatal("insf32"); }
+  virtual void lexInsert(uint64_t *, int64_t) { fatal("insi64"); }
+  virtual void lexInsert(uint64_t *, int32_t) { fatal("insi32"); }
+  virtual void lexInsert(uint64_t *, int16_t) { fatal("ins16"); }
+  virtual void lexInsert(uint64_t *, int8_t) { fatal("insi8"); }
+
+  /// Expanded insertion.
+  virtual void expInsert(uint64_t *, double *, bool *, uint64_t *, uint64_t) {
+    fatal("expf64");
+  }
+  virtual void expInsert(uint64_t *, float *, bool *, uint64_t *, uint64_t) {
+    fatal("expf32");
+  }
+  virtual void expInsert(uint64_t *, int64_t *, bool *, uint64_t *, uint64_t) {
+    fatal("expi64");
+  }
+  virtual void expInsert(uint64_t *, int32_t *, bool *, uint64_t *, uint64_t) {
+    fatal("expi32");
+  }
+  virtual void expInsert(uint64_t *, int16_t *, bool *, uint64_t *, uint64_t) {
+    fatal("expi16");
+  }
+  virtual void expInsert(uint64_t *, int8_t *, bool *, uint64_t *, uint64_t) {
+    fatal("expi8");
+  }
+
+  /// Finishes insertion.
+  virtual void endInsert() = 0;
 
   virtual ~SparseTensorStorageBase() {}
 
@@ -205,20 +237,25 @@ public:
   /// permutation, and per-dimension dense/sparse annotations, using
   /// the coordinate scheme tensor for the initial contents if provided.
   SparseTensorStorage(const std::vector<uint64_t> &szs, const uint64_t *perm,
-                      const DimLevelType *sparsity, SparseTensorCOO<V> *tensor)
-      : sizes(szs), rev(getRank()), pointers(getRank()), indices(getRank()) {
+                      const DimLevelType *sparsity,
+                      SparseTensorCOO<V> *tensor = nullptr)
+      : sizes(szs), rev(getRank()), idx(getRank()), pointers(getRank()),
+        indices(getRank()) {
     uint64_t rank = getRank();
     // Store "reverse" permutation.
     for (uint64_t r = 0; r < rank; r++)
       rev[perm[r]] = r;
     // Provide hints on capacity of pointers and indices.
     // TODO: needs fine-tuning based on sparsity
-    for (uint64_t r = 0, s = 1; r < rank; r++) {
-      s *= sizes[r];
+    bool allDense = true;
+    uint64_t sz = 1;
+    for (uint64_t r = 0; r < rank; r++) {
+      sz *= sizes[r];
       if (sparsity[r] == DimLevelType::kCompressed) {
-        pointers[r].reserve(s + 1);
-        indices[r].reserve(s);
-        s = 1;
+        pointers[r].reserve(sz + 1);
+        indices[r].reserve(sz);
+        sz = 1;
+        allDense = false;
       } else {
         assert(sparsity[r] == DimLevelType::kDense &&
                "singleton not yet supported");
@@ -232,7 +269,9 @@ public:
     if (tensor) {
       uint64_t nnz = tensor->getElements().size();
       values.reserve(nnz);
-      fromCOO(tensor, sparsity, 0, nnz, 0);
+      fromCOO(tensor, 0, nnz, 0);
+    } else if (allDense) {
+      values.resize(sz, 0);
     }
   }
 
@@ -247,7 +286,7 @@ public:
     return sizes[d];
   }
 
-  // Partially specialize these three methods based on template types.
+  /// Partially specialize these getter methods based on template types.
   void getPointers(std::vector<P> **out, uint64_t d) override {
     assert(d < getRank());
     *out = &pointers[d];
@@ -257,6 +296,57 @@ public:
     *out = &indices[d];
   }
   void getValues(std::vector<V> **out) override { *out = &values; }
+
+  /// Partially specialize lexicographic insertions based on template types.
+  void lexInsert(uint64_t *cursor, V val) override {
+    // First, wrap up pending insertion path.
+    uint64_t diff = 0;
+    uint64_t top = 0;
+    if (!values.empty()) {
+      diff = lexDiff(cursor);
+      endPath(diff + 1);
+      top = idx[diff] + 1;
+    }
+    // Then continue with insertion path.
+    insPath(cursor, diff, top, val);
+  }
+
+  /// Partially specialize expanded insertions based on template types.
+  /// Note that this method resets the values/filled-switch array back
+  /// to all-zero/false while only iterating over the nonzero elements.
+  void expInsert(uint64_t *cursor, V *values, bool *filled, uint64_t *added,
+                 uint64_t count) override {
+    if (count == 0)
+      return;
+    // Sort.
+    std::sort(added, added + count);
+    // Restore insertion path for first insert.
+    uint64_t rank = getRank();
+    uint64_t index = added[0];
+    cursor[rank - 1] = index;
+    lexInsert(cursor, values[index]);
+    assert(filled[index]);
+    values[index] = 0;
+    filled[index] = false;
+    // Subsequent insertions are quick.
+    for (uint64_t i = 1; i < count; i++) {
+      assert(index < added[i] && "non-lexicographic insertion");
+      index = added[i];
+      cursor[rank - 1] = index;
+      insPath(cursor, rank - 1, added[i - 1] + 1, values[index]);
+      assert(filled[index]);
+      values[index] = 0.0;
+      filled[index] = false;
+    }
+  }
+
+  /// Finalizes lexicographic insertions.
+  void endInsert() override {
+    if (values.empty())
+      endDim(0);
+    else
+      endPath(0);
+  }
 
   /// Returns this sparse tensor storage scheme as a new memory-resident
   /// sparse tensor in coordinate scheme with the given dimension order.
@@ -275,8 +365,7 @@ public:
     std::vector<uint64_t> reord(rank);
     for (uint64_t r = 0; r < rank; r++)
       reord[r] = perm[rev[r]];
-    std::vector<uint64_t> idx(rank);
-    toCOO(tensor, reord, idx, 0, 0);
+    toCOO(tensor, reord, 0, 0);
     assert(tensor->getElements().size() == values.size());
     return tensor;
   }
@@ -302,7 +391,7 @@ public:
       std::vector<uint64_t> permsz(rank);
       for (uint64_t r = 0; r < rank; r++)
         permsz[perm[r]] = sizes[r];
-      n = new SparseTensorStorage<P, I, V>(permsz, perm, sparsity, tensor);
+      n = new SparseTensorStorage<P, I, V>(permsz, perm, sparsity);
     }
     return n;
   }
@@ -311,77 +400,140 @@ private:
   /// Initializes sparse tensor storage scheme from a memory-resident sparse
   /// tensor in coordinate scheme. This method prepares the pointers and
   /// indices arrays under the given per-dimension dense/sparse annotations.
-  void fromCOO(SparseTensorCOO<V> *tensor, const DimLevelType *sparsity,
-               uint64_t lo, uint64_t hi, uint64_t d) {
+  void fromCOO(SparseTensorCOO<V> *tensor, uint64_t lo, uint64_t hi,
+               uint64_t d) {
     const std::vector<Element<V>> &elements = tensor->getElements();
     // Once dimensions are exhausted, insert the numerical values.
+    assert(d <= getRank());
     if (d == getRank()) {
-      assert(lo >= hi || lo < elements.size());
-      values.push_back(lo < hi ? elements[lo].value : 0);
+      assert(lo < hi && hi <= elements.size());
+      values.push_back(elements[lo].value);
       return;
     }
-    assert(d < getRank());
     // Visit all elements in this interval.
     uint64_t full = 0;
     while (lo < hi) {
       assert(lo < elements.size() && hi <= elements.size());
       // Find segment in interval with same index elements in this dimension.
-      uint64_t idx = elements[lo].indices[d];
+      uint64_t i = elements[lo].indices[d];
       uint64_t seg = lo + 1;
-      while (seg < hi && elements[seg].indices[d] == idx)
+      while (seg < hi && elements[seg].indices[d] == i)
         seg++;
       // Handle segment in interval for sparse or dense dimension.
-      if (sparsity[d] == DimLevelType::kCompressed) {
-        indices[d].push_back(idx);
+      if (isCompressedDim(d)) {
+        indices[d].push_back(i);
       } else {
         // For dense storage we must fill in all the zero values between
         // the previous element (when last we ran this for-loop) and the
         // current element.
-        for (; full < idx; full++)
-          fromCOO(tensor, sparsity, 0, 0, d + 1); // pass empty
+        for (; full < i; full++)
+          endDim(d + 1);
         full++;
       }
-      fromCOO(tensor, sparsity, lo, seg, d + 1);
+      fromCOO(tensor, lo, seg, d + 1);
       // And move on to next segment in interval.
       lo = seg;
     }
     // Finalize the sparse pointer structure at this dimension.
-    if (sparsity[d] == DimLevelType::kCompressed) {
+    if (isCompressedDim(d)) {
       pointers[d].push_back(indices[d].size());
     } else {
       // For dense storage we must fill in all the zero values after
       // the last element.
       for (uint64_t sz = sizes[d]; full < sz; full++)
-        fromCOO(tensor, sparsity, 0, 0, d + 1); // pass empty
+        endDim(d + 1);
     }
   }
 
   /// Stores the sparse tensor storage scheme into a memory-resident sparse
   /// tensor in coordinate scheme.
   void toCOO(SparseTensorCOO<V> *tensor, std::vector<uint64_t> &reord,
-             std::vector<uint64_t> &idx, uint64_t pos, uint64_t d) {
+             uint64_t pos, uint64_t d) {
     assert(d <= getRank());
     if (d == getRank()) {
       assert(pos < values.size());
       tensor->add(idx, values[pos]);
-    } else if (pointers[d].empty()) {
-      // Dense dimension.
-      for (uint64_t i = 0, sz = sizes[d], off = pos * sz; i < sz; i++) {
-        idx[reord[d]] = i;
-        toCOO(tensor, reord, idx, off + i, d + 1);
-      }
-    } else {
+    } else if (isCompressedDim(d)) {
       // Sparse dimension.
       for (uint64_t ii = pointers[d][pos]; ii < pointers[d][pos + 1]; ii++) {
         idx[reord[d]] = indices[d][ii];
-        toCOO(tensor, reord, idx, ii, d + 1);
+        toCOO(tensor, reord, ii, d + 1);
+      }
+    } else {
+      // Dense dimension.
+      for (uint64_t i = 0, sz = sizes[d], off = pos * sz; i < sz; i++) {
+        idx[reord[d]] = i;
+        toCOO(tensor, reord, off + i, d + 1);
       }
     }
+  }
+
+  /// Ends a deeper, never seen before dimension.
+  void endDim(uint64_t d) {
+    assert(d <= getRank());
+    if (d == getRank()) {
+      values.push_back(0);
+    } else if (isCompressedDim(d)) {
+      pointers[d].push_back(indices[d].size());
+    } else {
+      for (uint64_t full = 0, sz = sizes[d]; full < sz; full++)
+        endDim(d + 1);
+    }
+  }
+
+  /// Wraps up a single insertion path, inner to outer.
+  void endPath(uint64_t diff) {
+    uint64_t rank = getRank();
+    assert(diff <= rank);
+    for (uint64_t i = 0; i < rank - diff; i++) {
+      uint64_t d = rank - i - 1;
+      if (isCompressedDim(d)) {
+        pointers[d].push_back(indices[d].size());
+      } else {
+        for (uint64_t full = idx[d] + 1, sz = sizes[d]; full < sz; full++)
+          endDim(d + 1);
+      }
+    }
+  }
+
+  /// Continues a single insertion path, outer to inner.
+  void insPath(uint64_t *cursor, uint64_t diff, uint64_t top, V val) {
+    uint64_t rank = getRank();
+    assert(diff < rank);
+    for (uint64_t d = diff; d < rank; d++) {
+      uint64_t i = cursor[d];
+      if (isCompressedDim(d)) {
+        indices[d].push_back(i);
+      } else {
+        for (uint64_t full = top; full < i; full++)
+          endDim(d + 1);
+      }
+      top = 0;
+      idx[d] = i;
+    }
+    values.push_back(val);
+  }
+
+  /// Finds the lexicographic differing dimension.
+  uint64_t lexDiff(uint64_t *cursor) {
+    for (uint64_t r = 0, rank = getRank(); r < rank; r++)
+      if (cursor[r] > idx[r])
+        return r;
+      else
+        assert(cursor[r] == idx[r] && "non-lexicographic insertion");
+    assert(0 && "duplication insertion");
+    return -1u;
+  }
+
+  /// Returns true if dimension is compressed.
+  inline bool isCompressedDim(uint64_t d) const {
+    return (!pointers[d].empty());
   }
 
 private:
   std::vector<uint64_t> sizes; // per-dimension sizes
   std::vector<uint64_t> rev;   // "reverse" permutation
+  std::vector<uint64_t> idx;   // index cursor
   std::vector<std::vector<P>> pointers;
   std::vector<std::vector<I>> indices;
   std::vector<V> values;
@@ -395,7 +547,8 @@ static char *toLower(char *token) {
 }
 
 /// Read the MME header of a general sparse matrix of type real.
-static void readMMEHeader(FILE *file, char *name, uint64_t *idata) {
+static void readMMEHeader(FILE *file, char *name, uint64_t *idata,
+                          bool *is_symmetric) {
   char line[1025];
   char header[64];
   char object[64];
@@ -408,11 +561,12 @@ static void readMMEHeader(FILE *file, char *name, uint64_t *idata) {
     fprintf(stderr, "Corrupt header in %s\n", name);
     exit(1);
   }
+  *is_symmetric = (strcmp(toLower(symmetry), "symmetric") == 0);
   // Make sure this is a general sparse matrix.
   if (strcmp(toLower(header), "%%matrixmarket") ||
       strcmp(toLower(object), "matrix") ||
       strcmp(toLower(format), "coordinate") || strcmp(toLower(field), "real") ||
-      strcmp(toLower(symmetry), "general")) {
+      (strcmp(toLower(symmetry), "general") && !(*is_symmetric))) {
     fprintf(stderr,
             "Cannot find a general sparse matrix with type real in %s\n", name);
     exit(1);
@@ -478,8 +632,9 @@ static SparseTensorCOO<V> *openSparseTensorCOO(char *filename, uint64_t rank,
   }
   // Perform some file format dependent set up.
   uint64_t idata[512];
+  bool is_symmetric = false;
   if (strstr(filename, ".mtx")) {
-    readMMEHeader(file, filename, idata);
+    readMMEHeader(file, filename, idata, &is_symmetric);
   } else if (strstr(filename, ".tns")) {
     readExtFROSTTHeader(file, filename, idata);
   } else {
@@ -498,7 +653,7 @@ static SparseTensorCOO<V> *openSparseTensorCOO(char *filename, uint64_t rank,
   //  Read all nonzero elements.
   std::vector<uint64_t> indices(rank);
   for (uint64_t k = 0; k < nnz; k++) {
-    uint64_t idx = -1;
+    uint64_t idx = -1u;
     for (uint64_t r = 0; r < rank; r++) {
       if (fscanf(file, "%" PRIu64, &idx) != 1) {
         fprintf(stderr, "Cannot find next index in %s\n", filename);
@@ -515,13 +670,18 @@ static SparseTensorCOO<V> *openSparseTensorCOO(char *filename, uint64_t rank,
       exit(1);
     }
     tensor->add(indices, value);
+    // We currently chose to deal with symmetric matrices by fully constructing
+    // them. In the future, we may want to make symmetry implicit for storage
+    // reasons.
+    if (is_symmetric && indices[0] != indices[1])
+      tensor->add({indices[1], indices[0]}, value);
   }
   // Close the file and return tensor.
   fclose(file);
   return tensor;
 }
 
-} // anonymous namespace
+} // namespace
 
 extern "C" {
 
@@ -574,8 +734,7 @@ typedef uint64_t index_t;
 
 #define IMPL_SPARSEVALUES(NAME, TYPE, LIB)                                     \
   void _mlir_ciface_##NAME(StridedMemRefType<TYPE, 1> *ref, void *tensor) {    \
-    assert(ref);                                                               \
-    assert(tensor);                                                            \
+    assert(ref &&tensor);                                                      \
     std::vector<TYPE> *v;                                                      \
     static_cast<SparseTensorStorageBase *>(tensor)->LIB(&v);                   \
     ref->basePtr = ref->data = v->data();                                      \
@@ -587,8 +746,7 @@ typedef uint64_t index_t;
 #define IMPL_GETOVERHEAD(NAME, TYPE, LIB)                                      \
   void _mlir_ciface_##NAME(StridedMemRefType<TYPE, 1> *ref, void *tensor,      \
                            index_t d) {                                        \
-    assert(ref);                                                               \
-    assert(tensor);                                                            \
+    assert(ref &&tensor);                                                      \
     std::vector<TYPE> *v;                                                      \
     static_cast<SparseTensorStorageBase *>(tensor)->LIB(&v, d);                \
     ref->basePtr = ref->data = v->data();                                      \
@@ -601,9 +759,7 @@ typedef uint64_t index_t;
   void *_mlir_ciface_##NAME(void *tensor, TYPE value,                          \
                             StridedMemRefType<index_t, 1> *iref,               \
                             StridedMemRefType<index_t, 1> *pref) {             \
-    assert(tensor);                                                            \
-    assert(iref);                                                              \
-    assert(pref);                                                              \
+    assert(tensor &&iref &&pref);                                              \
     assert(iref->strides[0] == 1 && pref->strides[0] == 1);                    \
     assert(iref->sizes[0] == pref->sizes[0]);                                  \
     const index_t *indx = iref->data + iref->offset;                           \
@@ -617,10 +773,11 @@ typedef uint64_t index_t;
   }
 
 #define IMPL_GETNEXT(NAME, V)                                                  \
-  bool _mlir_ciface_##NAME(void *tensor, StridedMemRefType<uint64_t, 1> *iref, \
+  bool _mlir_ciface_##NAME(void *tensor, StridedMemRefType<index_t, 1> *iref,  \
                            StridedMemRefType<V, 0> *vref) {                    \
+    assert(tensor &&iref &&vref);                                              \
     assert(iref->strides[0] == 1);                                             \
-    uint64_t *indx = iref->data + iref->offset;                                \
+    index_t *indx = iref->data + iref->offset;                                 \
     V *value = vref->data + vref->offset;                                      \
     const uint64_t isize = iref->sizes[0];                                     \
     auto iter = static_cast<SparseTensorCOO<V> *>(tensor);                     \
@@ -633,6 +790,35 @@ typedef uint64_t index_t;
       indx[r] = elem->indices[r];                                              \
     *value = elem->value;                                                      \
     return true;                                                               \
+  }
+
+#define IMPL_LEXINSERT(NAME, V)                                                \
+  void _mlir_ciface_##NAME(void *tensor, StridedMemRefType<index_t, 1> *cref,  \
+                           V val) {                                            \
+    assert(tensor &&cref);                                                     \
+    assert(cref->strides[0] == 1);                                             \
+    index_t *cursor = cref->data + cref->offset;                               \
+    assert(cursor);                                                            \
+    static_cast<SparseTensorStorageBase *>(tensor)->lexInsert(cursor, val);    \
+  }
+
+#define IMPL_EXPINSERT(NAME, V)                                                \
+  void _mlir_ciface_##NAME(                                                    \
+      void *tensor, StridedMemRefType<index_t, 1> *cref,                       \
+      StridedMemRefType<V, 1> *vref, StridedMemRefType<bool, 1> *fref,         \
+      StridedMemRefType<index_t, 1> *aref, index_t count) {                    \
+    assert(tensor &&cref &&vref &&fref &&aref);                                \
+    assert(cref->strides[0] == 1);                                             \
+    assert(vref->strides[0] == 1);                                             \
+    assert(fref->strides[0] == 1);                                             \
+    assert(aref->strides[0] == 1);                                             \
+    assert(vref->sizes[0] == fref->sizes[0]);                                  \
+    index_t *cursor = cref->data + cref->offset;                               \
+    V *values = vref->data + vref->offset;                                     \
+    bool *filled = fref->data + fref->offset;                                  \
+    index_t *added = aref->data + aref->offset;                                \
+    static_cast<SparseTensorStorageBase *>(tensor)->expInsert(                 \
+        cursor, values, filled, added, count);                                 \
   }
 
 /// Constructs a new sparse tensor. This is the "swiss army knife"
@@ -786,11 +972,29 @@ IMPL_GETNEXT(getNextI32, int32_t)
 IMPL_GETNEXT(getNextI16, int16_t)
 IMPL_GETNEXT(getNextI8, int8_t)
 
+/// Helper to insert elements in lexicograph index order, one per value type.
+IMPL_LEXINSERT(lexInsertF64, double)
+IMPL_LEXINSERT(lexInsertF32, float)
+IMPL_LEXINSERT(lexInsertI64, int64_t)
+IMPL_LEXINSERT(lexInsertI32, int32_t)
+IMPL_LEXINSERT(lexInsertI16, int16_t)
+IMPL_LEXINSERT(lexInsertI8, int8_t)
+
+/// Helper to insert using expansion, one per value type.
+IMPL_EXPINSERT(expInsertF64, double)
+IMPL_EXPINSERT(expInsertF32, float)
+IMPL_EXPINSERT(expInsertI64, int64_t)
+IMPL_EXPINSERT(expInsertI32, int32_t)
+IMPL_EXPINSERT(expInsertI16, int16_t)
+IMPL_EXPINSERT(expInsertI8, int8_t)
+
 #undef CASE
 #undef IMPL_SPARSEVALUES
 #undef IMPL_GETOVERHEAD
 #undef IMPL_ADDELT
 #undef IMPL_GETNEXT
+#undef IMPL_LEXINSERT
+#undef IMPL_EXPINSERT
 
 //===----------------------------------------------------------------------===//
 //
@@ -813,6 +1017,11 @@ char *getTensorFilename(index_t id) {
 /// Returns size of sparse tensor in given dimension.
 index_t sparseDimSize(void *tensor, index_t d) {
   return static_cast<SparseTensorStorageBase *>(tensor)->getDimSize(d);
+}
+
+/// Finalizes lexicographic insertions.
+void endInsert(void *tensor) {
+  return static_cast<SparseTensorStorageBase *>(tensor)->endInsert();
 }
 
 /// Releases sparse tensor storage.

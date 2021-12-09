@@ -60,6 +60,7 @@ public:
     CortexA77,
     CortexA78,
     CortexA78C,
+    CortexA710,
     CortexR82,
     CortexX1,
     CortexX2,
@@ -631,8 +632,7 @@ public:
     // extended frames should be flagged as present.
     const Triple &TT = getTargetTriple();
 
-    unsigned Major, Minor, Micro;
-    TT.getOSVersion(Major, Minor, Micro);
+    unsigned Major = TT.getOSVersion().getMajor();
     switch(TT.getOS()) {
     default:
       return false;

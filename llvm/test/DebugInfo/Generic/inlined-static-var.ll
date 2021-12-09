@@ -13,18 +13,18 @@
 
 ; CHECK: DW_TAG_compile_unit
 ; CHECK:   DW_TAG_subprogram
-; TODO: Place the variable in the abstract DIE rather than this concrete DIE.
-; CHECK:     DW_TAG_variable
-; CHECK:       DW_AT_name     ("B")
-; CHECK:     NULL
-; CHECK:   DW_TAG_base_type
+; CHECK:     DW_AT_abstract_origin {{.*}} "_Z11not_removedv"
 ; CHECK:   DW_TAG_subprogram
 ; CHECK:     DW_AT_name       ("removed")
 ; CHECK:     DW_TAG_variable
 ; CHECK:       DW_AT_name     ("A")
 ; CHECK:     NULL
+; CHECK:   DW_TAG_base_type
 ; CHECK:   DW_TAG_subprogram
 ; CHECK:     DW_AT_name       ("not_removed")
+; CHECK:     DW_TAG_variable
+; CHECK:       DW_AT_name     ("B")
+; CHECK:     NULL
 ; CHECK:   DW_TAG_subprogram
 ; CHECK:     DW_AT_name       ("foo")
 ; CHECK:     DW_TAG_inlined_subroutine
@@ -32,10 +32,8 @@
 ; CHECK:     NULL
 ; CHECK:   NULL
 
-$_ZZ7removedvE1A = comdat any
-
 @_ZZ11not_removedvE1A = internal global i32 0, align 4, !dbg !0
-@_ZZ7removedvE1A = linkonce_odr dso_local global i32 0, comdat, align 4, !dbg !10
+@_ZZ7removedvE1A = linkonce_odr dso_local global i32 0, align 4, !dbg !10
 
 define dso_local i32 @_Z11not_removedv() !dbg !2 {
   %1 = load i32, i32* @_ZZ11not_removedvE1A, align 4, !dbg !24

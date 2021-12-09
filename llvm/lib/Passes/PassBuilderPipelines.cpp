@@ -420,8 +420,19 @@ static cl::opt<bool> EnableO3NonTrivialUnswitching(
     cl::ZeroOrMore, cl::desc("Enable non-trivial loop unswitching for -O3"));
 
 static cl::opt<bool> EnableEagerlyInvalidateAnalyses(
-    "eagerly-invalidate-analyses", cl::init(false), cl::Hidden,
+    "eagerly-invalidate-analyses", cl::init(true), cl::Hidden,
     cl::desc("Eagerly invalidate more analyses in default pipelines"));
+
+static cl::opt<bool> EnableNoRerunSimplificationPipeline(
+    "enable-no-rerun-simplification-pipeline", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Prevent running the simplification pipeline on a function more "
+        "than once in the case that SCC mutations cause a function to be "
+        "visited multiple times as long as the function has not been changed"));
+
+static cl::opt<bool> EnableMergeFunctions(
+    "enable-merge-functions", cl::init(false), cl::Hidden,
+    cl::desc("Enable function merging as part of the optimization pipeline"));
 
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
@@ -432,7 +443,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   LicmMssaOptCap = SetLicmMssaOptCap;
   LicmMssaNoAccForPromotionCap = SetLicmMssaNoAccForPromotionCap;
   CallGraphProfile = true;
-  MergeFunctions = false;
+  MergeFunctions = EnableMergeFunctions;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
 }
 #if INTEL_CUSTOMIZATION
@@ -779,13 +790,13 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(CorrelatedValuePropagationPass());
 
   FPM.addPass(SimplifyCFGPass());
-  if (Level == OptimizationLevel::O3)
-    FPM.addPass(AggressiveInstCombinePass());
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
+  if (Level == OptimizationLevel::O3)
+    FPM.addPass(AggressiveInstCombinePass());
 
   if (!Level.isOptimizingForSize())
     FPM.addPass(LibCallsShrinkWrapPass());
@@ -1214,16 +1225,22 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // CGSCC walk.
   MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
       buildFunctionSimplificationPipeline(Level, Phase),
-      PTO.EagerlyInvalidateAnalyses));
+      PTO.EagerlyInvalidateAnalyses, EnableNoRerunSimplificationPipeline));
 
   MainCGPipeline.addPass(CoroSplitPass(Level != OptimizationLevel::O0));
+
+  if (EnableNoRerunSimplificationPipeline)
+    MIWP.addLateModulePass(createModuleToFunctionPassAdaptor(
+        InvalidateAnalysisPass<ShouldNotRunFunctionPassesAnalysis>()));
 
   return MIWP;
 }
 
-ModuleInlinerPass
+ModulePassManager
 PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
                                         ThinOrFullLTOPhase Phase) {
+  ModulePassManager MPM;
+
   InlineParams IP = getInlineParamsFromOptLevel(Level);
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -1240,7 +1257,16 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
   // inline deferral logic in module inliner.
   IP.EnableDeferral = false;
 
-  return ModuleInlinerPass(IP, UseInlineAdvisor);
+  MPM.addPass(ModuleInlinerPass(IP, UseInlineAdvisor));
+
+  MPM.addPass(createModuleToFunctionPassAdaptor(
+      buildFunctionSimplificationPipeline(Level, Phase),
+      PTO.EagerlyInvalidateAnalyses));
+
+  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
+      CoroSplitPass(Level != OptimizationLevel::O0)));
+
+  return MPM;
 }
 
 ModulePassManager
@@ -2130,8 +2156,9 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // Disable header duplication at -Oz.
   LPM.addPass(LoopRotatePass(Level != OptimizationLevel::Oz, LTOPreLink));
   // Some loops may have become dead by now. Try to delete them.
-  // FIXME: see disscussion in https://reviews.llvm.org/D112851
-  //        this may need to be revisited once GVN is more powerful.
+  // FIXME: see discussion in https://reviews.llvm.org/D112851,
+  //        this may need to be revisited once we run GVN before loop deletion
+  //        in the simplification pipeline.
   LPM.addPass(LoopDeletionPass());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
       std::move(LPM), /*UseMemorySSA=*/false, /*UseBlockFrequencyInfo=*/false));
@@ -2151,23 +2178,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(InjectTLIMappings());
 
   addVectorPasses(Level, OptimizePM, /* IsFullLTO */ false);
-
-  // Split out cold code. Splitting is done late to avoid hiding context from
-  // other optimizations and inadvertently regressing performance. The tradeoff
-  // is that this has a higher code size cost than splitting early.
-  if (EnableHotColdSplit && !LTOPreLink)
-    MPM.addPass(HotColdSplittingPass());
-
-  // Search the code for similar regions of code. If enough similar regions can
-  // be found where extracting the regions into their own function will decrease
-  // the size of the program, we extract the regions, a deduplicate the
-  // structurally similar regions.
-  if (EnableIROutliner)
-    MPM.addPass(IROutlinerPass());
-
-  // Merge functions if requested.
-  if (PTO.MergeFunctions)
-    MPM.addPass(MergeFunctionsPass());
 
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
   // canonicalization pass that enables other optimizations. As a result,
@@ -2195,6 +2205,23 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
 
   for (auto &C : OptimizerLastEPCallbacks)
     C(MPM, Level);
+
+  // Split out cold code. Splitting is done late to avoid hiding context from
+  // other optimizations and inadvertently regressing performance. The tradeoff
+  // is that this has a higher code size cost than splitting early.
+  if (EnableHotColdSplit && !LTOPreLink)
+    MPM.addPass(HotColdSplittingPass());
+
+  // Search the code for similar regions of code. If enough similar regions can
+  // be found where extracting the regions into their own function will decrease
+  // the size of the program, we extract the regions, a deduplicate the
+  // structurally similar regions.
+  if (EnableIROutliner)
+    MPM.addPass(IROutlinerPass());
+
+  // Merge functions if requested.
+  if (PTO.MergeFunctions)
+    MPM.addPass(MergeFunctionsPass());
 
   if (PTO.CallGraphProfile)
     MPM.addPass(CGProfilePass());
@@ -2668,9 +2695,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
   FunctionPassManager PeepholeFPM;
+  addInstCombinePass(PeepholeFPM, !DTransEnabled); // INTEL
   if (Level == OptimizationLevel::O3)
     PeepholeFPM.addPass(AggressiveInstCombinePass());
-  addInstCombinePass(PeepholeFPM, !DTransEnabled); // INTEL
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(PeepholeFPM),
@@ -3052,6 +3079,8 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 
   if (LTOPreLink)
     addRequiredLTOPreLinkPasses(MPM);
+
+  MPM.addPass(createModuleToFunctionPassAdaptor(AnnotationRemarksPass()));
 
   return MPM;
 }

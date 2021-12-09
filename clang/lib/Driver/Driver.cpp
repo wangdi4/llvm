@@ -42,6 +42,7 @@
 #include "ToolChains/NaCl.h"
 #include "ToolChains/NetBSD.h"
 #include "ToolChains/OpenBSD.h"
+#include "ToolChains/PPCFreeBSD.h"
 #include "ToolChains/PPCLinux.h"
 #include "ToolChains/PS4CPU.h"
 #include "ToolChains/RISCVToolchain.h"
@@ -2280,7 +2281,7 @@ int Driver::ExecuteCompilation(
   if (Diags.hasErrorOccurred())
     return 1;
 
-  // Set up response file names for each command, if necessary
+  // Set up response file names for each command, if necessary.
   for (auto &Job : C.getJobs())
     setUpResponseFiles(C, Job);
 
@@ -4112,7 +4113,6 @@ class OffloadingActionBuilder final {
   class HIPActionBuilder final : public CudaActionBuilderBase {
     /// The linker inputs obtained for each device arch.
     SmallVector<ActionList, 8> DeviceLinkerInputs;
-    bool GPUSanitize;
     // The default bundling behavior depends on the type of output, therefore
     // BundleOutput needs to be tri-value: None, true, or false.
     // Bundle code objects except --no-gpu-output is specified for device
@@ -4125,8 +4125,6 @@ class OffloadingActionBuilder final {
                      const Driver::InputList &Inputs)
         : CudaActionBuilderBase(C, Args, Inputs, Action::OFK_HIP) {
       DefaultCudaArch = CudaArch::GFX803;
-      GPUSanitize = Args.hasFlag(options::OPT_fgpu_sanitize,
-                                 options::OPT_fno_gpu_sanitize, false);
       if (Args.hasArg(options::OPT_gpu_bundle_output,
                       options::OPT_no_gpu_bundle_output))
         BundleOutput = Args.hasFlag(options::OPT_gpu_bundle_output,
@@ -6221,6 +6219,17 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   // When compiling for -fsycl, generate the integration header files and the
   // Unique ID that will be used during the compilation.
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
+    const bool IsSaveTemps = isSaveTempsEnabled();
+    SmallString<128> OutFileDir;
+    if (IsSaveTemps) {
+      if (SaveTemps == SaveTempsObj) {
+        auto *OptO = C.getArgs().getLastArg(options::OPT_o);
+        OutFileDir = (OptO ? OptO->getValues()[0] : "");
+        llvm::sys::path::remove_filename(OutFileDir);
+        if (!OutFileDir.empty())
+          OutFileDir.append(llvm::sys::path::get_separator());
+      }
+    }
     for (auto &I : Inputs) {
       std::string SrcFileName(I.second->getAsString(Args));
       if (I.first == types::TY_PP_C || I.first == types::TY_PP_CXX ||
@@ -6232,12 +6241,23 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       }
       if (!types::isSrcFile(I.first))
         continue;
-      std::string TmpFileNameHeader = C.getDriver().GetTemporaryPath(
-          llvm::sys::path::stem(SrcFileName).str() + "-header", "h");
+
+      std::string TmpFileNameHeader;
+      std::string TmpFileNameFooter;
+      auto StemmedSrcFileName = llvm::sys::path::stem(SrcFileName).str();
+      if (IsSaveTemps) {
+        TmpFileNameHeader.append(C.getDriver().GetUniquePath(
+            OutFileDir.c_str() + StemmedSrcFileName + "-header", "h"));
+        TmpFileNameFooter.append(C.getDriver().GetUniquePath(
+            OutFileDir.c_str() + StemmedSrcFileName + "-footer", "h"));
+      } else {
+        TmpFileNameHeader.assign(C.getDriver().GetTemporaryPath(
+            StemmedSrcFileName + "-header", "h"));
+        TmpFileNameFooter =
+            C.getDriver().GetTemporaryPath(StemmedSrcFileName + "-footer", "h");
+      }
       StringRef TmpFileHeader =
           C.addTempFile(C.getArgs().MakeArgString(TmpFileNameHeader));
-      std::string TmpFileNameFooter = C.getDriver().GetTemporaryPath(
-          llvm::sys::path::stem(SrcFileName).str() + "-footer", "h");
       StringRef TmpFileFooter =
           C.addTempFile(C.getArgs().MakeArgString(TmpFileNameFooter));
       // Use of -fsycl-footer-path puts the integration footer into that
@@ -8051,7 +8071,7 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
       std::pair<StringRef, StringRef> Split = CollidingName.split('.');
       std::string UniqueName = GetUniquePath(
           Split.first, types::getTypeTempSuffix(JA.getType(), IsCLMode()));
-      return C.addResultFile(C.getArgs().MakeArgString(UniqueName), &JA);
+      return C.addTempFile(C.getArgs().MakeArgString(UniqueName));
     }
   }
 
@@ -8183,7 +8203,7 @@ std::string Driver::GetTemporaryPath(StringRef Prefix, StringRef Suffix) const {
 
 std::string Driver::GetUniquePath(StringRef BaseName, StringRef Ext) const {
   SmallString<128> Path;
-  std::error_code EC = llvm::sys::fs::createUniqueFile(
+  std::error_code EC = llvm::sys::fs::getPotentiallyUniqueFileName(
       Twine(BaseName) + Twine("-%%%%%%.") + Ext, Path);
   if (EC) {
     Diag(clang::diag::err_unable_to_make_temp) << EC.message();
@@ -8261,7 +8281,11 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       TC = std::make_unique<toolchains::NetBSD>(*this, Target, Args);
       break;
     case llvm::Triple::FreeBSD:
-      TC = std::make_unique<toolchains::FreeBSD>(*this, Target, Args);
+      if (Target.isPPC())
+        TC = std::make_unique<toolchains::PPCFreeBSDToolChain>(*this, Target,
+                                                               Args);
+      else
+        TC = std::make_unique<toolchains::FreeBSD>(*this, Target, Args);
       break;
     case llvm::Triple::Minix:
       TC = std::make_unique<toolchains::Minix>(*this, Target, Args);

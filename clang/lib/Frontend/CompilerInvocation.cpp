@@ -494,6 +494,13 @@ static bool FixupInvocation(CompilerInvocation &Invocation,
     Diags.Report(diag::err_drv_argument_not_allowed_with) << "-fsycl-is-device"
                                                           << "-fsycl-is-host";
 
+  // SYCLEnableIntHeader implies SYCLIsHost. Error if
+  // -fsycl-enable-int-header-diags is passed without -fsycl-is-host.
+  if (LangOpts.SYCLEnableIntHeaderDiags && !LangOpts.SYCLIsHost)
+    Diags.Report(diag::err_opt_not_valid_without_opt)
+        << "-fsycl-enable-int-header-diags"
+        << "-fsycl-is-host";
+
   if (Args.hasArg(OPT_fgnu89_inline) && LangOpts.CPlusPlus)
     Diags.Report(diag::err_drv_argument_not_allowed_with)
         << "-fgnu89-inline" << GetInputKindName(IK);
@@ -616,9 +623,8 @@ using GenerateFn = llvm::function_ref<void(
     CompilerInvocation::StringAllocator)>;
 
 // May perform round-trip of command line arguments. By default, the round-trip
-// is enabled if CLANG_ROUND_TRIP_CC1_ARGS was defined during build. This can be
-// overwritten at run-time via the "-round-trip-args" and "-no-round-trip-args"
-// command line flags.
+// is enabled in assert builds. This can be overwritten at run-time via the
+// "-round-trip-args" and "-no-round-trip-args" command line flags.
 // During round-trip, the command line arguments are parsed into a dummy
 // instance of CompilerInvocation which is used to generate the command line
 // arguments again. The real CompilerInvocation instance is then created by
@@ -628,8 +634,7 @@ static bool RoundTrip(ParseFn Parse, GenerateFn Generate,
                       CompilerInvocation &DummyInvocation,
                       ArrayRef<const char *> CommandLineArgs,
                       DiagnosticsEngine &Diags, const char *Argv0) {
-  // FIXME: Switch to '#ifndef NDEBUG' when possible.
-#ifdef CLANG_ROUND_TRIP_CC1_ARGS
+#ifndef NDEBUG
   bool DoRoundTripDefault = true;
 #else
   bool DoRoundTripDefault = false;
@@ -4477,6 +4482,13 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     auto Split = StringRef(A).split('=');
     Opts.MacroPrefixMap.insert(
         {std::string(Split.first), std::string(Split.second)});
+  }
+
+  // Error if -mvscale-min is unbounded.
+  if (Arg *A = Args.getLastArg(options::OPT_mvscale_min_EQ)) {
+    unsigned VScaleMin;
+    if (StringRef(A->getValue()).getAsInteger(10, VScaleMin) || VScaleMin == 0)
+      Diags.Report(diag::err_cc1_unbounded_vscale_min);
   }
 
   return Diags.getNumErrors() == NumErrorsBefore;

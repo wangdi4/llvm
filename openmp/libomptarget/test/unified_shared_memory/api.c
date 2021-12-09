@@ -5,7 +5,7 @@
 // XFAIL: nvptx64-nvidia-cuda
 // XFAIL: nvptx64-nvidia-cuda-newRTL
 
-// Fails on amdgcn with error: GPU Memory Error
+// Fails on amdgpu with error: GPU Memory Error
 // XFAIL: amdgcn-amd-amdhsa
 // XFAIL: amdgcn-amd-amdhsa-newRTL
 

@@ -14,8 +14,9 @@
 #define TEST_TYPEDEFS
 
 // To get the test dialect def.
-include "TestOps.td"
+include "TestDialect.td"
 include "TestAttrDefs.td"
+include "TestInterfaces.td"
 include "mlir/IR/BuiltinTypes.td"
 include "mlir/Interfaces/DataLayoutInterfaces.td"
 
@@ -49,6 +50,29 @@ def CompoundTypeA : Test_Type<"CompoundA"> {
   }];
 }
 
+// A more complex and nested parameterized type.
+def CompoundNestedInnerType : Test_Type<"CompoundNestedInner"> {
+  let mnemonic = "cmpnd_inner";
+  // List of type parameters.
+  let parameters = (
+    ins
+    "int":$some_int,
+    CompoundTypeA:$cmpdA
+  );
+  let assemblyFormat = "`<` $some_int $cmpdA `>`";
+}
+
+def CompoundNestedOuterType : Test_Type<"CompoundNestedOuter"> {
+  let mnemonic = "cmpnd_nested_outer";
+
+  // List of type parameters.
+  let parameters = (
+    ins
+    CompoundNestedInnerType:$inner
+  );
+  let assemblyFormat = "`<` `i`  $inner `>`";
+}
+
 // An example of how one could implement a standard integer.
 def IntegerType : Test_Type<"TestInteger"> {
   let mnemonic = "int";
@@ -62,7 +86,7 @@ def IntegerType : Test_Type<"TestInteger"> {
 
   // We define the printer inline.
   let printer = [{
-    $_printer << "int<";
+    $_printer << "<";
     printSignedness($_printer, getImpl()->signedness);
     $_printer << ", " << getImpl()->width << ">";
   }];
@@ -122,7 +146,7 @@ class FieldInfo_Type<string name> : Test_Type<name> {
   // Prints the type in this format:
   //   struct<[{field1Name, field1Type}, {field2Name, field2Type}]
   let printer = [{
-    $_printer << "struct" << "<";
+    $_printer << "<";
     for (size_t i=0, e = getImpl()->fields.size(); i < e; i++) {
       const auto& field = getImpl()->fields[i];
       $_printer << "{" << field.name << "," << field.type << "}";

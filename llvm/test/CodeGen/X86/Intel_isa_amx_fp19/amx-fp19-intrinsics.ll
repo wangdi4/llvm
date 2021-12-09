@@ -7,7 +7,6 @@ define void @test_tmmulfp19ps() {
 ; CHECK-LABEL: test_tmmulfp19ps:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    tmmulfp19ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x69,0x6d,0xcb]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tmmulfp19ps(i8 1, i8 2, i8 3)
   ret  void
@@ -18,7 +17,6 @@ define void @test_ttmmulfp19ps() {
 ; CHECK-LABEL: test_ttmmulfp19ps:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    ttmmulfp19ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x6a,0x6d,0xcb]
-; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.ttmmulfp19ps(i8 1, i8 2, i8 3)
   ret  void

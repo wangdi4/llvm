@@ -6356,8 +6356,10 @@ public:
   bool isCmpXChg() const {
     return getOp() == AO__c11_atomic_compare_exchange_strong ||
            getOp() == AO__c11_atomic_compare_exchange_weak ||
+           getOp() == AO__hip_atomic_compare_exchange_strong ||
            getOp() == AO__opencl_atomic_compare_exchange_strong ||
            getOp() == AO__opencl_atomic_compare_exchange_weak ||
+           getOp() == AO__hip_atomic_compare_exchange_weak ||
            getOp() == AO__atomic_compare_exchange ||
 #if INTEL_CUSTOMIZATION
           getOp() == AO__atomic_compare_exchange_weak_explicit ||
@@ -6406,6 +6408,8 @@ public:
     auto Kind =
         (Op >= AO__opencl_atomic_load && Op <= AO__opencl_atomic_fetch_max)
             ? AtomicScopeModelKind::OpenCL
+        : (Op >= AO__hip_atomic_load && Op <= AO__hip_atomic_fetch_max)
+            ? AtomicScopeModelKind::HIP
             : AtomicScopeModelKind::None;
     return AtomicScopeModel::create(Kind);
   }
