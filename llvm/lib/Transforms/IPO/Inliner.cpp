@@ -1186,6 +1186,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       if (InlineHistoryID != -1 &&
           inlineHistoryIncludes(&Callee, InlineHistoryID, InlineHistory)) {
+        LLVM_DEBUG(dbgs() << "Skipping inlining due to history: "
+                          << F.getName() << " -> " << Callee.getName() << "\n");
         setInlineRemark(*CB, "recursive");
         continue;
       }
