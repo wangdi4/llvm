@@ -380,6 +380,9 @@ void RunBenchmarks(const std::vector<BenchmarkInstance>& benchmarks,
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__INTEL_LLVM_COMPILER)                         // INTEL
+#pragma clang diagnostic push                                // INTEL
+#pragma clang diagnostic ignored "-Wdeprecated-declarations" // INTEL
 #endif
 
 std::unique_ptr<BenchmarkReporter> CreateReporter(
@@ -399,6 +402,8 @@ std::unique_ptr<BenchmarkReporter> CreateReporter(
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
+#elif defined(__INTEL_LLVM_COMPILER) // INTEL
+#pragma clang diagnostic pop         // INTEL
 #endif
 
 }  // end namespace

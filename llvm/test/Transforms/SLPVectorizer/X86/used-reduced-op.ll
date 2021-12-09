@@ -21,6 +21,7 @@ define void @n() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP10:%.*]] = load i32, i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 3, i64 1), align 4
 ; CHECK-NEXT:    [[TMP11:%.*]] = load i32, i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 3, i64 2), align 8
 ; CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 3, i64 3), align 4
+; INTEL_COLLAB
 ; CHECK-NEXT:    [[TMP13:%.*]] = load <16 x i32>, <16 x i32>* bitcast (i32* getelementptr inbounds ([8 x [4 x i32]], [8 x [4 x i32]]* @k, i64 0, i64 4, i64 0) to <16 x i32>*), align 16
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
@@ -237,6 +238,7 @@ define void @n() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP114:%.*]] = or i1 [[CMP12_3_7]], [[TMP110]]
 ; CHECK-NEXT:    [[SPEC_SELECT_3_7:%.*]] = select i1 [[TMP114]], i32 7, i32 [[SPEC_SELECT_3_6]]
 ; CHECK-NEXT:    [[SPEC_SELECT8_3_7]] = select i1 [[CMP12_3_7]], i32 [[TMP113]], i32 [[SPEC_SELECT8_2_7]]
+; end INTEL_COLLAB
 ; CHECK-NEXT:    [[K:%.*]] = getelementptr inbounds [366 x i32], [366 x i32]* @l, i64 0, i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    store i32 [[SPEC_SELECT_3_7]], i32* [[K]], align 4
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i64 [[INDVARS_IV]], 1
