@@ -232,8 +232,8 @@ namespace {
         assert(NewMIs[0]);
         assert(NewMIs[1]);
         MachineFunction *MF = MBB->getParent();
-        MF->DeleteMachineInstr(NewMIs[0]);
-        MF->DeleteMachineInstr(NewMIs[1]);
+        MF->deleteMachineInstr(NewMIs[0]);
+        MF->deleteMachineInstr(NewMIs[1]);
       }
     };
     SmallVector<HoistableLoadInfo, 32> HoistableLoadCandidates;
