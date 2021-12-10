@@ -156,14 +156,14 @@ static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                                     " bit 0, but for array "
                                                     "reduction."));
 cl::opt<bool> AtomicFreeReduction("vpo-paropt-atomic-free-reduction",
-                                  cl::Hidden, cl::init(false),
+                                  cl::Hidden, cl::init(true),
                                   cl::desc("Enable atomic-free GPU reduction"));
 cl::opt<uint32_t> AtomicFreeReductionCtrl(
-    "vpo-paropt-atomic-free-reduction-ctrl", cl::Hidden, cl::init(0),
+    "vpo-paropt-atomic-free-reduction-ctrl", cl::Hidden, cl::init(3),
     cl::desc(
-        "Control option for atomic-free reduction. Bit 0(default off): Local "
+        "Control option for atomic-free reduction. Bit 0(default on): Local "
         "update loop emitted "
-        "reduction code. Bit 1(default off): Global update loop is emitted."));
+        "reduction code. Bit 1(default on): Global update loop is emitted."));
 cl::opt<bool>
     AtomicFreeReductionUseSLM("vpo-paropt-atomic-free-reduction-slm",
                               cl::Hidden, cl::init(true),
@@ -254,12 +254,12 @@ static void debugPrintHeader(WRegionNode *W, int Mode) {
 }
 
 static bool isAtomicFreeReductionLocalEnabled() {
-  return AtomicFreeReduction ||
+  return AtomicFreeReduction &&
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Local);
 }
 
 static bool isAtomicFreeReductionGlobalEnabled() {
-  return AtomicFreeReduction ||
+  return AtomicFreeReduction &&
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
 
@@ -3469,20 +3469,40 @@ bool VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
     Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
     DominatorTree *DT) {
-  // the local update loop is already emitted, reuse its body
-  // for another reduction items' updates
   bool UseLocalUpdates =
       isTargetSPIRV() && (isa<WRNParallelNode>(W) || W->getIsParLoop()) &&
       WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+
+  // Precense of KnownNDRange clause should disable atomic-free reduction,
+  // for teams it's handled in fixupKnowNDRange, but for par+loop it'd
+  // be incorrect as well since it may cause spawn of multiple teams w/o
+  // an actual teams clause. Here we also handle of a 'parallel' directive
+  // with an inner 'loop' one with an ndrange clause on the latter.
+  if (W->getIsOmpLoop()) {
+    UseLocalUpdates = UseLocalUpdates && !W->getWRNLoopInfo().isKnownNDRange();
+  } else {
+    auto WLoopIt =
+        std::find_if(W->getChildren().begin(), W->getChildren().end(),
+                     [](WRegionNode *SW) { return SW->getIsOmpLoop(); });
+    if (WLoopIt != W->getChildren().end())
+      UseLocalUpdates =
+          UseLocalUpdates && !(*WLoopIt)->getWRNLoopInfo().isKnownNDRange();
+  }
+
   bool UseGlobalUpdates = isTargetSPIRV() && W->getIsTeams();
 
-  UseLocalUpdates &= isAtomicFreeReductionLocalEnabled();
-  UseGlobalUpdates &= isAtomicFreeReductionGlobalEnabled() &&
-                      AtomicFreeRedGlobalBufs.count(RedI);
+  UseLocalUpdates = UseLocalUpdates && isAtomicFreeReductionLocalEnabled();
+  UseGlobalUpdates = UseGlobalUpdates && isAtomicFreeReductionGlobalEnabled() &&
+                     AtomicFreeRedGlobalBufs.count(RedI);
+
+  Type *RedElemType = nullptr;
+  std::tie(RedElemType, std::ignore, std::ignore) =
+      VPOParoptUtils::getItemInfo(RedI);
 
 #ifdef INTEL_CUSTOMIZATION
   if ((UseLocalUpdates || UseGlobalUpdates) &&
-      (RedI->getIsArraySection() || RedI->getIsF90DopeVector())) {
+      (RedI->getIsArraySection() || RedElemType->isArrayTy() ||
+       RedI->getIsF90DopeVector())) {
 #else  // INTEL_CUSTOMIZATION
   if ((UseLocalUpdates || UseGlobalUpdates) && RedI->getIsArraySection()) {
 #endif // INTEL_CUSTOMIZATION
@@ -3495,6 +3515,8 @@ bool VPOParoptTransform::genReductionScalarFini(
     UseGlobalUpdates = false;
   }
 
+  // the local update loop is already emitted, reuse its body
+  // for another reduction items' updates
   bool UseExistingLocalLoop =
       UseLocalUpdates && AtomicFreeRedLocalUpdateInfos.count(W);
   bool UseExistingGlobalLoop =
@@ -3506,10 +3528,6 @@ bool VPOParoptTransform::genReductionScalarFini(
   else if (UseExistingGlobalLoop)
     Builder.SetInsertPoint(
         AtomicFreeRedGlobalUpdateBBs.lookup(W)->getTerminator());
-
-  Type *RedElemType = nullptr;
-  std::tie(RedElemType, std::ignore, std::ignore) =
-      VPOParoptUtils::getItemInfo(RedI);
 
   auto *SumPhi = PHINode::Create(RedElemType, 0);
 
