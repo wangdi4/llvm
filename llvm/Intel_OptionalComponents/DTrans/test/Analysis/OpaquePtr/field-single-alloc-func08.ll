@@ -17,6 +17,7 @@
 ; CHECK: DTrans Type: [8 x i8]
 ; CHECK: Bottom Alloc Function
 ; CHECK: Safety data: Nested structure | Local instance
+; CHECK: End LLVMType: %union.anon
 
 %struct.Alloc_hider = type { ptr }
 %union.anon = type { i16, [8 x i8] }

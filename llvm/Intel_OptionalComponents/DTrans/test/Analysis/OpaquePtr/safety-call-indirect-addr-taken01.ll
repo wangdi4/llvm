@@ -35,12 +35,14 @@ define i32 @main() {
 ; when using the -dtrans-usecrulecompat option.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Global instance | Has initializer list | Address taken{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01b
 
 
 !1 = !{i32 0, i32 0}  ; i32

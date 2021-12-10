@@ -19,7 +19,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 }
 ; Memory allocation gets inferred based on the type it is used as.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
 
 
@@ -37,8 +37,9 @@ define void @test01a(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !i
 ; Here the memory allocation gets inferred as two different types, resulting in
 ; a safety condition.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 %struct.test02 = type { i32*, i32*, i32* }
 define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i16* "intel_dtrans_func_index"="2" %value) !intel.dtrans.func.type !9 {
@@ -48,8 +49,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i16*
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 %struct.test03 = type { i32*, i32*, i32* }
@@ -60,8 +62,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct, i64*
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 %struct.test04a = type { i32*, i32*, i32* }
@@ -73,12 +76,14 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04a
+; CHECK: LLVMType: %struct.test04a
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test04a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04b
+; CHECK: LLVMType: %struct.test04b
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test04b
 
 declare !intel.dtrans.func.type !16 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

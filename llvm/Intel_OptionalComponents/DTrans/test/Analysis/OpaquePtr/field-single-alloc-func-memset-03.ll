@@ -24,6 +24,7 @@
 ; CHECK: DTrans Type: i8*
 ; CHECK: Top Alloc Function
 ; CHECK: Safety data: Memfunc partial write
+; CHECK: End LLVMType: %struct._ZTS7test_01.test_01
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct._ZTS7test_02.test_02 = type { ptr, ptr, ptr }
@@ -39,6 +40,7 @@
 ; CHECK: DTrans Type: i8*
 ; CHECK: Top Alloc Function
 ; CHECK: Safety data: Memfunc partial write
+; CHECK: End LLVMType: %struct._ZTS7test_02.test_02
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

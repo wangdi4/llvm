@@ -17,8 +17,9 @@ define void @test01() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Volatile data | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test that 'Volatile data' gets marked on the structure for volatile loads
@@ -32,13 +33,15 @@ define void @test02() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Volatile data | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data:
 ; CHECK-SAME: No issues found
+; CHECK: End LLVMType: %struct.test02b
 
 
 ; Volatile data will be cascaded to nested types when one field is loaded with
@@ -52,12 +55,14 @@ define void @test03() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Volatile data | Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Volatile data | Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 
 !1 = !{i32 0, i32 0}  ; i32

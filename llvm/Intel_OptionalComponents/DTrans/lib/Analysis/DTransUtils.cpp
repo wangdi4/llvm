@@ -669,6 +669,7 @@ void dtrans::StructInfo::print(
     OS << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
   }
   printSafetyData(OS);
+  OS << "  End LLVMType: " << *S << "\n";
   OS << "\n";
 }
 
@@ -684,6 +685,7 @@ void dtrans::ArrayInfo::print(raw_ostream &OS) const {
   if (DTransElemTy->isDTransType())
     OS << "  Element DTrans Type: " << *DTransElemTy->getDTransType() << "\n";
   printSafetyData(OS);
+  OS << "  End LLVMType: " << *getLLVMType() << "\n";
   OS << "\n";
 }
 

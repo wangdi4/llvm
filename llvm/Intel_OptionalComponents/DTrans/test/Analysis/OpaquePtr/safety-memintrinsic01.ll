@@ -28,5 +28,6 @@ declare !intel.dtrans.func.type !4 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dt
 
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Local instance{{ *}}
+; CHECK: End LLVMType: %struct.test01

@@ -26,16 +26,19 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad pointer manipulation | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01c
+; CHECK: LLVMType: %struct.test01c
 ; CHECK: Safety data: Bad pointer manipulation | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01c
 
 
 ; Subtraction with one value being an field element and the other not is not
@@ -51,12 +54,14 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStructA, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad pointer manipulation | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Bad pointer manipulation | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 ; Subtracting two pointers of different types is not permitted
@@ -70,12 +75,14 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStructA, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Bad pointer manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Bad pointer manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 
 ; Subtracting a scalar from a pointer is not permitted
@@ -87,8 +94,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct, i64 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Bad pointer manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Subtracting a scalar from a pointer is not permitted
@@ -100,8 +108,9 @@ define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %pStruct, i64 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05
+; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Bad pointer manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Ambiguous types are not permitted
@@ -119,12 +128,14 @@ define void @test06(%struct.test06a* "intel_dtrans_func_index"="1" %pStruct1, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06a
+; CHECK: LLVMType: %struct.test06a
 ; CHECK: Safety data: Bad casting | Bad pointer manipulation | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test06a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06b
+; CHECK: LLVMType: %struct.test06b
 ; CHECK: Safety data: Bad casting | Bad pointer manipulation | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test06b
 
 
 ; Subtracting two pointers of the same type, but not using it for a divide.
@@ -138,8 +149,9 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test07
+; CHECK: LLVMType: %struct.test07
 ; CHECK: Safety data: Bad pointer manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test07
 
 
 ; Subtracting two pointers but dividing by a value that is not the recognized
@@ -153,8 +165,9 @@ define void @test08(%struct.test08* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test08
+; CHECK: LLVMType: %struct.test08
 ; CHECK: Safety data: Bad pointer manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test08
 
 
 !1 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*

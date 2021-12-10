@@ -31,8 +31,10 @@ define dso_local i32 @test01() {
 }
 ; CHECK-LABEL: LLVMType: %struct.test01a
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01a
 ; CHECK-LABEL: LLVMType: %struct.test01b
 ; CHECK: Safety data: Global instance{{ *}}
+; CHECK: End LLVMType: %struct.test01b
 
 ; Test where an instruction is marked with metadata that is not the expected
 ; type results in safety flags being set on the types.
@@ -58,10 +60,13 @@ define dso_local i32 @test02() {
 }
 ; CHECK-LABEL: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad casting{{ *}}
+; CHECK: End LLVMType: %struct.test02a
 ; CHECK-LABEL: LLVMType: %struct.test02b
 ; CHECK: Safety data: Bad casting | Mismatched element access | Global instance{{ *}}
+; CHECK: End LLVMType: %struct.test02b
 ; CHECK-LABEL: LLVMType: %struct.test02bad
 ; CHECK: Safety data: Bad casting{{ *}}
+; CHECK: End LLVMType: %struct.test02bad
 
 declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

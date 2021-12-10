@@ -611,6 +611,11 @@ llvm::Constant *CodeGenVTables::maybeEmitThunk(GlobalDecl GD,
   }
 
   setThunkProperties(CGM, TI, ThunkFn, ForVTable, GD);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  ThunkFn = CGM.addDTransInfoToFunc(GD, Name, ThunkFnTy, ThunkFn);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   return ThunkFn;
 }
 

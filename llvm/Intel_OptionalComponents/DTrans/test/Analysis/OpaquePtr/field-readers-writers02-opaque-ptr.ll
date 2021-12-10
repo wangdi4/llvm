@@ -23,7 +23,7 @@ define internal void @test01(ptr "intel_dtrans_func_index"="1" %in, i64 %index) 
 ; CHECK: Field info: Written
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers: test01
-
+; CHECK: End LLVMType: %struct.test01
 
 declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64)
 

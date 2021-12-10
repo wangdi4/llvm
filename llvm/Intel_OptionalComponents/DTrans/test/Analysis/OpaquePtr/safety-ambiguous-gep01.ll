@@ -16,12 +16,14 @@ define void @test01(%struct.test01a** "intel_dtrans_func_index"="1" %ppStruct.a)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; Merging pointers of two different structures together, and then using
@@ -37,12 +39,14 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct1a, %
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Ambiguous GEP | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Ambiguous GEP | Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 ; Mixing structure pointer and array with an alternative representation of the
@@ -56,12 +60,14 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct.a) !
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Ambiguous GEP | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Ambiguous GEP | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 
 !1 = !{i32 0, i32 0}  ; i32

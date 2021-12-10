@@ -59,10 +59,13 @@ define i32 @test02() {
 }
 ; CHECK-LABEL: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad casting{{ *}}
+; CHECK: End LLVMType: %struct.test02a
 ; CHECK-LABEL: LLVMType: %struct.test02b
 ; CHECK: Safety data: Bad casting | Mismatched element access | Global instance{{ *}}
+; CHECK: End LLVMType: %struct.test02b
 ; CHECK-LABEL: LLVMType: %struct.test02bad
 ; CHECK: Safety data: Bad casting{{ *}}
+; CHECK: End LLVMType: %struct.test02bad
 
 declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

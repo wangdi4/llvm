@@ -36,24 +36,29 @@
   %struct.FunctionTableEntry zeroinitializer], align 16
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: class.Function
+; CHECK: LLVMType: %class.Function
 ; CHECK: Safety data: Global instance | Nested structure | Has vtable{{ *}}
+; CHECK: End LLVMType: %class.Function
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: class.FunctionNodeSet
+; CHECK: LLVMType: %class.FunctionNodeSet
 ; CHECK: Safety data: Global instance | Contains nested structure{{ *}}
+; CHECK: End LLVMType: %class.FunctionNodeSet
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: class.FunctionNodeSet.base
+; CHECK: LLVMType: %class.FunctionNodeSet.base
 ; CHECK: Safety data: Global instance | Nested structure | Contains nested structure{{ *}}
+; CHECK: End LLVMType: %class.FunctionNodeSet.base
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: class.FunctionObjectType
+; CHECK: LLVMType: %class.FunctionObjectType
 ; CHECK: Safety data: Global instance | Contains nested structure{{ *}}
+; CHECK: End LLVMType: %class.FunctionObjectType
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.FunctionTableEntry
+; CHECK: LLVMType: %struct.FunctionTableEntry
 ; CHECK: Safety data: Global instance | Has initializer list | Global array{{ *}}
+; CHECK: End LLVMType: %struct.FunctionTableEntry
 
 
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)

@@ -40,6 +40,7 @@ define void @atest01c(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 ; CHECK: DTrans Type: i64*
 ; CHECK: Readers: atest01c
 ; CHECK: Writers: atest01a
+; CHECK: End LLVMType: %struct.atest01
 
 ; Test with byte-flattened GEPs used for reads/writes
 %struct.atest02 = type { i32, ptr }
@@ -77,6 +78,7 @@ define void @atest02c(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 ; CHECK: DTrans Type: i64*
 ; CHECK: Readers: atest02c
 ; CHECK: Writers: atest02a
+; CHECK: End LLVMType: %struct.atest02
 
 ; Test with write done via a memset for the complete structure.
 %struct.atest03 = type { i32, ptr }
@@ -97,6 +99,7 @@ define void @atest03a() {
 ; CHECK: DTrans Type: i64*
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers: atest03a
+; CHECK: End LLVMType: %struct.atest03
 
 ; Test with write done via a memset for a subset of the structure fields.
 %struct.atest04 = type { i32, ptr }
@@ -118,6 +121,7 @@ define void @atest04a() {
 ; CHECK: DTrans Type: i64*
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers: atest04a
+; CHECK: End LLVMType: %struct.atest04
 
 ; Test that read done via memcpy of the entire structure tracks the function as
 ; a Reader for mod-ref analysis, but does not mark the 'Read' property of the
@@ -140,6 +144,7 @@ define void @atest05a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 ; CHECK: DTrans Type: i64*
 ; CHECK: Readers: atest05a
 ; CHECK: Writers: atest05a
+; CHECK: End LLVMType: %struct.atest05
 
 ; Test with read done via memcpy of 1 field of structure.
 %struct.atest06 = type { i32, ptr }
@@ -162,6 +167,7 @@ define void @atest06a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 ; CHECK: DTrans Type: i64*
 ; CHECK: Readers: atest06a
 ; CHECK: Writers: atest06a
+; CHECK: End LLVMType: %struct.atest06
 
 ; Test with read done via memcpy for a subset of the structure starting from
 ; the address of the structure, instead of a field member.
@@ -183,6 +189,7 @@ define void @atest07a(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.
 ; CHECK: DTrans Type: i64*
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers:{{ *$}}
+; CHECK: End LLVMType: %struct.atest07
 
 ; Test with memset involving nested structure.
 %struct.atest08a = type { i32, i32 }
@@ -202,6 +209,7 @@ define void @atest08(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.
 ; CHECK: DTrans Type: i32
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers: atest08
+; CHECK: End LLVMType: %struct.atest08a
 
 ; CHECK-LABEL: LLVMType: %struct.atest08b
 ; CHECK: 0)Field
@@ -212,6 +220,7 @@ define void @atest08(ptr "intel_dtrans_func_index"="1" %in1) !intel.dtrans.func.
 ; CHECK: DTrans Type: %struct.atest08a
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers: atest08
+; CHECK: End LLVMType: %struct.atest08b
 
 ; Test with memcpy involving nested structure.
 %struct.atest09a = type { i32, i32 }
@@ -231,6 +240,7 @@ define void @atest09(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_f
 ; CHECK: DTrans Type: i32
 ; CHECK: Readers: atest09
 ; CHECK: Writers: atest09
+; CHECK: End LLVMType: %struct.atest09a
 
 ; CHECK-LABEL: LLVMType: %struct.atest09b
 ; CHECK: 0)Field
@@ -241,6 +251,7 @@ define void @atest09(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_f
 ; CHECK: DTrans Type: %struct.atest09a = type { i32, i32 }
 ; CHECK: Readers: atest09
 ; CHECK: Writers: atest09
+; CHECK: End LLVMType: %struct.atest09b
 
 ; Test with memcpy involving one type to a field of another structure of that
 ; type.
@@ -262,6 +273,7 @@ define void @atest10(ptr "intel_dtrans_func_index"="1" %src, ptr "intel_dtrans_f
 ; CHECK: Field info: Written
 ; CHECK: Readers: atest10
 ; CHECK: Writers: atest10
+; CHECK: End LLVMType: %struct.atest10a
 
 ; CHECK-LABEL: LLVMType: %struct.atest10b
 ; CHECK: 0)Field
@@ -274,6 +286,7 @@ define void @atest10(ptr "intel_dtrans_func_index"="1" %src, ptr "intel_dtrans_f
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers: atest10
+; CHECK: End LLVMType: %struct.atest10b
 
 %struct.atest11a = type { i32, i32 }
 %struct.atest11b = type { i32, %struct.atest11a }
@@ -293,6 +306,7 @@ define void @atest11(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_f
 ; CHECK: Field info: Written
 ; CHECK: Readers: atest11
 ; CHECK: Writers: atest11
+; CHECK: End LLVMType: %struct.atest11a
 
 ; CHECK-LABEL: LLVMType: %struct.atest11b
 ; CHECK: 0)Field
@@ -305,6 +319,7 @@ define void @atest11(ptr "intel_dtrans_func_index"="1" %in1, ptr "intel_dtrans_f
 ; CHECK: Field info: ComplexUse
 ; CHECK: Readers: atest11
 ; CHECK: Writers:{{ *$}}
+; CHECK: End LLVMType: %struct.atest11b
 
 
 declare !intel.dtrans.func.type !32 "intel_dtrans_func_index"="1" ptr @malloc(i64)

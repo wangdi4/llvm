@@ -43,9 +43,11 @@ declare i64* @llvm.ptr.annotation.p0(i64*, i8*, i8*, i32, i8*)
 !intel.dtrans.types = !{!5, !6}
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: __SOADT_struct.test01dep
+; CHECK: LLVMType: %__SOADT_struct.test01dep
 ; CHECK: Safety data: Global instance{{ *}}
+; CHECK: End LLVMType: %__SOADT_struct.test01dep
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: __SOA_struct.test01
+; CHECK: LLVMType: %__SOA_struct.test01
 ; CHECK: Safety data: Global instance{{ *}}
+; CHECK: End LLVMType: %__SOA_struct.test01

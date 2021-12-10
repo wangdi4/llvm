@@ -16,8 +16,9 @@ define void @test01() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; Safety data: Local pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; safe - using element pointee is that target of the store
@@ -29,8 +30,9 @@ define void @test02() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; Safety data: Local pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; safe - because element zero is a pointer type
@@ -42,8 +44,9 @@ define void @test03() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; Safety data: Local pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; unsafe - because element zero is not a pointer type
@@ -55,8 +58,9 @@ define void @test04() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; Safety data: Bad casting | Mismatched element access | Local pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Storing 'null' is a special case, because with opaque pointers, the Value
@@ -75,12 +79,14 @@ define void @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05a
+; CHECK: LLVMType: %struct.test05a
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test05a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05b
+; CHECK: LLVMType: %struct.test05b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test05b
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*

@@ -18,12 +18,14 @@ define void @test01() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01arc
+; CHECK: LLVMType: %struct.test01arc
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01arc
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01basket
+; CHECK: LLVMType: %struct.test01basket
 ; CHECK: Safety data: Global pointer | Local pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test01basket
 
 ; CHECK-LABEL: DTRANS_ArrayInfo:
 ; CHECK: Number of elements: 4061

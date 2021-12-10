@@ -15,18 +15,20 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %p) !intel.dt
 }
 ; The "whole structure reference" should not propagate to the outer structure.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: 0)Field LLVM Type: %struct.test01b
 ; CHECK: Field info: Read{{ *$}}
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info: Read{{ *$}}
 ; CHECK: Safety data: Whole structure reference | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; Test whole structure load of a pointer that is not for a member field
@@ -36,12 +38,13 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info: Read{{ *$}}
 ; CHECK: Safety data: Whole structure reference{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 !1 = !{%struct.test01b zeroinitializer, i32 0}  ; %struct.test01b

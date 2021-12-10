@@ -19,8 +19,9 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStr
 ; This case gets treated as safe by DTrans because the i8* will be compatible
 ; with the element zero type of the structure.
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i32* }
@@ -32,8 +33,9 @@ define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 %struct.test03 = type { i32*, i32* }
@@ -45,8 +47,9 @@ define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad casting | Unsafe pointer store{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

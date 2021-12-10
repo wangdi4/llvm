@@ -19,7 +19,7 @@ define void @test01() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field
 ; CHECK: Field info: AddressTaken{{ *$}}
 ; CHECK: 1)Field
@@ -29,6 +29,7 @@ define void @test01() {
 ; CHECK: 3)Field
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Global instance | Field address taken call{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Pass the address in a VarArg position of a library function call. When the
@@ -44,7 +45,7 @@ define void @test02() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field
 ; CHECK: Field info: AddressTaken{{ *$}}
 ; CHECK: 1)Field
@@ -54,6 +55,7 @@ define void @test02() {
 ; CHECK: 3)Field
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data:  Global instance | Field address taken call{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @strcpy(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")

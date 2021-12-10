@@ -31,6 +31,7 @@ declare !intel.dtrans.func.type !3 void @unknownFunc(i32* "intel_dtrans_func_ind
 ; CHECK:  1)Field LLVM Type: i32
 ; CHECK:    Multiple Value: [ 2 ] <incomplete>
 ; CHECK:  Safety data: Local instance | Field address taken call{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i32 0, i32 1}  ; i32*

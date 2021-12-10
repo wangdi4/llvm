@@ -22,8 +22,9 @@ define i32 @main() {
   ret i32 %res
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global instance | Has initializer list | Field address taken call{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i32 0, i32 0}  ; i32

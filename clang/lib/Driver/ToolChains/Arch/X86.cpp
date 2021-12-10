@@ -97,7 +97,22 @@ bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
 std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
                                  const llvm::Triple &Triple) {
 #if INTEL_CUSTOMIZATION
+  auto ArchOverrideCheck = [&Args, &D](OptSpecifier Opt1, OptSpecifier Opt2) {
+    Arg *Previous = nullptr;
+    for (Arg *A : Args.filtered(Opt1, Opt2)) {
+      bool IsSourceTypeOpt = A->getOption().matches(options::OPT_x) &&
+          types::lookupTypeForTypeSpecifier(A->getValue());
+      if (Previous && !IsSourceTypeOpt)
+        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+            << Previous->getAsString(Args) << A->getAsString(Args);
+      // Only capture the -x option if it is for arch setting
+      if (IsSourceTypeOpt)
+        continue;
+      Previous = A;
+    }
+  };
   if (const Arg *A = clang::driver::getLastArchArg(Args)) {
+    ArchOverrideCheck(options::OPT_x, options::OPT_march_EQ);
     if (A->getOption().matches(options::OPT_x)) {
       // -x<code> handling for Intel Processors.
       StringRef Arch = A->getValue();
@@ -125,6 +140,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
 #if INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                             options::OPT__SLASH_Qx)) {
+    ArchOverrideCheck(options::OPT__SLASH_arch, options::OPT__SLASH_Qx);
     if (A->getOption().matches(options::OPT__SLASH_Qx)) {
       // /Qx<code> handling for Intel Processors.
       StringRef Arch = A->getValue();

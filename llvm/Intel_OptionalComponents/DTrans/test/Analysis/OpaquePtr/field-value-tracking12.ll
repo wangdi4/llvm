@@ -24,6 +24,7 @@ define void @test01(i32 %in1) {
 ; CHECK:   0)Field LLVM Type: i32
 ; CHECK:     Multiple Value: [ 0, 1 ] <incomplete>
 ; CHECK:   Safety data: Global instance | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -2265,6 +2265,16 @@ private:
       WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims,
       ArrayRef<Type *> NDRangeTypes) const;
 
+  /// Checks if the given OpenMP loop region should use SPIR partitioning
+  /// with known loop(s) bounds and if it is profitable.
+  /// Comparing to fixupKnownNDRange() the checks are done for loops
+  /// that may not have QUAL_OMP_OFFLOAD_KNOWN_NDRANGE setup yet.
+  /// This method should be used by both loop collapsing and
+  /// fixupKnownNDRange(), so that their behavior is synchronized
+  /// regarding the loop paritioning and the actual specific vs default
+  /// ND-range used for the kernel invocation.
+  bool shouldNotUseKnownNDRange(WRegionNode *W) const;
+
   /// Checks if the given OpenMP loop region may use SPIR paritioning
   /// with known loop(s) bounds and if it is profitable.
   /// It analyzes only QUAL_OMP_OFFLOAD_KNOWN_NDRANGE loops, which means

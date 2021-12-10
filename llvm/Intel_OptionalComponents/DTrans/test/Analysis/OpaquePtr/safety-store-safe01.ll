@@ -11,7 +11,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i32 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK:   Field info: Written{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -19,6 +19,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i32 
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i32*, i32*, i32* }
@@ -28,7 +29,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i32*
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32*
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32*
@@ -36,6 +37,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i32*
 ; CHECK: 2)Field LLVM Type: i32*
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 %struct.test03a = type { %struct.test03b*, %struct.test03b*, %struct.test03b* }
@@ -46,7 +48,7 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: 0)Field LLVM Type: %struct.test03b*
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: %struct.test03b*
@@ -54,9 +56,10 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct, %st
 ; CHECK: 2)Field LLVM Type: %struct.test03b*
 ; CHECK:   Field info: Written{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -64,6 +67,7 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct, %st
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK:   Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03b
 
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -16,7 +16,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %b) !intel.dtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: 1)Field LLVM Type: i16
@@ -24,6 +24,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %b) !intel.dtr
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 ; This test checks when memset only writes part of the structure, and includes
 ; the padding bytes in the call to memset.
@@ -34,7 +35,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %b) !intel.dtr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: 1)Field LLVM Type: i16
@@ -42,6 +43,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %b) !intel.dtr
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !8 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

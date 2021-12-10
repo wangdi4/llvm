@@ -22,6 +22,7 @@ MODULE_ANALYSIS("callgraph", CallGraphAnalysis())
 #if INTEL_FEATURE_SW_DTRANS
 MODULE_ANALYSIS("dtransanalysis", DTransAnalysis())    // INTEL
 MODULE_ANALYSIS("dtrans-fieldmodref-analysis", DTransFieldModRefAnalysis()) // INTEL
+MODULE_ANALYSIS("dtrans-fieldmodrefop-analysis", DTransFieldModRefOPAnalysis()) // INTEL
 MODULE_ANALYSIS("dtrans-module-fieldmodref-result", DTransFieldModRefResult()) // INTEL
 MODULE_ANALYSIS("dtrans-immutable-analysis", DTransImmutableAnalysis()) // INTEL
 MODULE_ANALYSIS("dtrans-safetyanalyzer", dtransOP::DTransSafetyAnalyzer()) // INTEL

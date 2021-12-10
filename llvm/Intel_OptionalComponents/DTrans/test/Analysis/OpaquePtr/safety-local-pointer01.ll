@@ -12,8 +12,9 @@ define void @test01() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Local pointer
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Should identify as "Local pointer" when allocating pointer to array
@@ -24,8 +25,9 @@ define void @test02() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Local pointer
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Should identify as "Local pointer" when allocating array of
@@ -36,8 +38,9 @@ define void @test03() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Local pointer
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Should identify as "Local pointer" when allocating pointer to pointer
@@ -48,8 +51,9 @@ define void @test04() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Local pointer
+; CHECK: End LLVMType: %struct.test04
 
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -13,7 +13,7 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !inte
   ret i32 %vField
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -21,6 +21,7 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !inte
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 %struct.test02 = type { i32*, i32*, i32* }
 define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
@@ -31,7 +32,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 }
 ; TODO: Field types will be 'p0' when opaque pointers are enabled
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32*
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32*
@@ -39,6 +40,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 2)Field LLVM Type: i32*
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 %struct.test03a = type { %struct.test03b*, %struct.test03b*, %struct.test03b* }
@@ -52,7 +54,7 @@ define i32 @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !int
 }
 ; TODO: Field types will be 'p0' when opaque pointers are enabled
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: 0)Field LLVM Type: %struct.test03b*
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: %struct.test03b*
@@ -60,9 +62,10 @@ define i32 @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 2)Field LLVM Type: %struct.test03b*
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -70,6 +73,7 @@ define i32 @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info: Read{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03b
 
 
 ; Load element zero using a pointer to the structure
@@ -80,12 +84,13 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read UnusedValue NonGEPAccess{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test04
 
 ; Load element zero of a nested structure using a pointer to the structure
 %struct.test05a = type { %struct.test05b }
@@ -97,18 +102,20 @@ define i32 @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct) !int
   ret i32 %vField
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05a
+; CHECK: LLVMType: %struct.test05a
 ; CHECK: 0)Field LLVM Type: %struct.test05b
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05b
+; CHECK: LLVMType: %struct.test05b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read NonGEPAccess{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05b
 
 
 !1 = !{i32 0, i32 0}  ; i32
