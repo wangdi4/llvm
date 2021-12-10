@@ -107,10 +107,11 @@ EXTERN int omp_target_is_present(const void *ptr, int device_num) {
   DeviceTy &Device = *PM->Devices[device_num];
   bool IsLast; // not used
   bool IsHostPtr;
-  void *TgtPtr = Device.getTgtPtrBegin(const_cast<void *>(ptr), 0, IsLast,
-                                       /*UpdateRefCount=*/false,
-                                       /*UseHoldRefCount=*/false, IsHostPtr);
-  int rc = (TgtPtr != NULL);
+  TargetPointerResultTy TPR =
+      Device.getTgtPtrBegin(const_cast<void *>(ptr), 0, IsLast,
+                            /*UpdateRefCount=*/false,
+                            /*UseHoldRefCount=*/false, IsHostPtr);
+  int rc = (TPR.TargetPointer != NULL);
   // Under unified memory the host pointer can be returned by the
   // getTgtPtrBegin() function which means that there is no device
   // corresponding point for ptr. This function should return false
@@ -340,7 +341,7 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
 
   DeviceTy& Device = *PM->Devices[device_num];
   bool IsLast, IsHostPtr;
-  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, false, IsHostPtr);
+  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, false, IsHostPtr).TargetPointer;
   if (rc == NULL)
      DP("omp_get_mapped_ptr : cannot find device pointer\n");
   DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
