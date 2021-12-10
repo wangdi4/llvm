@@ -18,16 +18,19 @@
 @_CTA1H = internal unnamed_addr constant %struct.test01.eh.CatchableTypeArray.1 { i32 1, [1 x %struct.test01.eh.CatchableType*] [%struct.test01.eh.CatchableType* null ] }
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.eh.CatchableType
+; CHECK: LLVMType: %struct.test01.eh.CatchableType
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test01.eh.CatchableType
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.eh.CatchableTypeArray.1
+; CHECK: LLVMType: %struct.test01.eh.CatchableTypeArray.1
 ; CHECK: Safety data: Bad casting | Global instance | Has initializer list{{ *$}}
+; CHECK: End LLVMType: %struct.test01.eh.CatchableTypeArray.1
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01.eh.ThrowInfo
+; CHECK: LLVMType: %struct.test01.eh.ThrowInfo
 ; CHECK: Safety data: Unsafe pointer store | Global instance | Has initializer list{{ *$}}
+; CHECK: End LLVMType: %struct.test01.eh.ThrowInfo
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i8 0, i32 1}  ; i8*

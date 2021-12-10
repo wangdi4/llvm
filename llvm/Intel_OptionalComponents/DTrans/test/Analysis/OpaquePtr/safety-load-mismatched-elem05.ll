@@ -17,12 +17,14 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting
+; CHECK: End LLVMType: %struct.test01b
 
 
 %struct.test02a = type { %struct.test02b*, %struct.test02b*, %struct.test02b* }
@@ -34,12 +36,14 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 ; This case does not trigger a "Mismatched element access" because it is using
@@ -53,12 +57,14 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03b
 
 
 %struct.test04a = type { %struct.test04b** }
@@ -70,12 +76,14 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04a
+; CHECK: LLVMType: %struct.test04a
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test04a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04b
+; CHECK: LLVMType: %struct.test04b
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test04b
 
 
 ; This case does not trigger a "Mismatched element access" because it is using
@@ -91,12 +99,14 @@ define void @test05(%struct.test05a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05a
+; CHECK: LLVMType: %struct.test05a
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test05a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05b
+; CHECK: LLVMType: %struct.test05b
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test05b
 
 !1 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
 !2 = !{i32 0, i32 0}  ; i32

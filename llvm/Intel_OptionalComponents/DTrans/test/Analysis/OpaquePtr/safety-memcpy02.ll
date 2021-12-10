@@ -16,7 +16,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i16
@@ -24,6 +24,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; CHECK: 2)Field LLVM Type: i8
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Copy that uses a multiple of the structure size, such as for an array of structures.
@@ -35,7 +36,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i16
@@ -43,6 +44,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; CHECK: 2)Field LLVM Type: i8
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Copy that a multiple of the structure size, such as for an array of
@@ -58,7 +60,7 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i16
@@ -66,6 +68,7 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; CHECK: 2)Field LLVM Type: i8
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Copy a structure, where the size of the copy cannot be resolved to a multiple
@@ -80,8 +83,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; This test checks when a structure is composed of structures. Each of the
@@ -96,7 +100,7 @@ define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %pStruct1, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05a
+; CHECK: LLVMType: %struct.test05a
 ; CHECK: 0)Field LLVM Type: i16
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i32
@@ -104,9 +108,10 @@ define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %pStruct1, %s
 ; CHECK: 2)Field LLVM Type: [2 x i32]
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05b
+; CHECK: LLVMType: %struct.test05b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i16
@@ -114,10 +119,12 @@ define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %pStruct1, %s
 ; CHECK: 2)Field LLVM Type: i8
 ; CHECK: Field info: Written
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05c
+; CHECK: LLVMType: %struct.test05c
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test05c
 
 
 ; This test checks when a structure is composed of pointers to structures.
@@ -133,7 +140,7 @@ define void @test06(%struct.test06c* "intel_dtrans_func_index"="1" %pStruct1, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06a
+; CHECK: LLVMType: %struct.test06a
 ; CHECK: 0)Field LLVM Type: i16
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -141,9 +148,10 @@ define void @test06(%struct.test06c* "intel_dtrans_func_index"="1" %pStruct1, %s
 ; CHECK: 2)Field LLVM Type: [2 x i32]
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test06a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06b
+; CHECK: LLVMType: %struct.test06b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i16
@@ -151,16 +159,18 @@ define void @test06(%struct.test06c* "intel_dtrans_func_index"="1" %pStruct1, %s
 ; CHECK: 2)Field LLVM Type: i8
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test06b
 
 ; Not including the actual types of the pointer fields in check lines, because
 ; with opaque pointers they will just be 'ptr'
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06c
+; CHECK: LLVMType: %struct.test06c
 ; CHECK: 0)Field LLVM Type:
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type:
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test06c
 
 
 ; Copy a subset of the structure using a pointer to the start of the structure.
@@ -172,7 +182,7 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test07
+; CHECK: LLVMType: %struct.test07
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: 1)Field LLVM Type: i32
@@ -182,6 +192,7 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; CHECK: 3)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test07
 
 declare !intel.dtrans.func.type !24 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
 

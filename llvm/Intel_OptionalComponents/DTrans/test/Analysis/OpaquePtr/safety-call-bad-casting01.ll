@@ -16,8 +16,9 @@ define void @test01() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: class._ZTSSt9exception.std::exception
+; CHECK: LLVMType: %"class._ZTSSt9exception.std::exception"
 ; CHECK: Safety data: Bad casting | System object | Has vtable{{ *$}}
+; CHECK: End LLVMType: %"class._ZTSSt9exception.std::exception"
 
 
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @__cxa_allocate_exception(i64)

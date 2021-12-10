@@ -25,26 +25,29 @@ define void @test01() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a0
+; CHECK: LLVMType: %struct.test01a0
 ; CHECK: Field LLVM Type: %struct.test01a1
 ; CHECK: DTrans Type: %struct.test01a1
 ; CHECK: Safety data: Contains nested structure
+; CHECK: End LLVMType: %struct.test01a0
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a1
+; CHECK: LLVMType: %struct.test01a1
 ; CHECK: Field LLVM Type: [4 x %struct.test01a2]
 ; CHECK: DTrans Type: [4 x %struct.test01a2]
 ; CHECK: Safety data: Nested structure | Contains nested structure
+; CHECK: End LLVMType: %struct.test01a1
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a2
+; CHECK: LLVMType: %struct.test01a2
 ; CHECK-NONOPAQUE: Field LLVM Type: %struct.test01a2impl*
 ; CHECK-OPAQUE: Field LLVM Type: ptr
 ; CHECK: DTrans Type: %struct.test01a2impl*
 ; CHECK: Safety data: Nested structure
+; CHECK: End LLVMType: %struct.test01a2
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a2impl
+; CHECK: LLVMType: %struct.test01a2impl
 ; CHECK: Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK-NONOPAQUE: Field LLVM Type: %struct.test01a3*
@@ -54,22 +57,25 @@ define void @test01() {
 ; CHECK-OPAQUE: Field LLVM Type: ptr
 ; CHECK: DTrans Type: %struct.test01a4*
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01a2impl
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a3
+; CHECK: LLVMType: %struct.test01a3
 ; CHECK: Field LLVM Type: i16
 ; CHECK: DTrans Type: i16
 ; CHECK: Field LLVM Type: i16
 ; CHECK: DTrans Type: i16
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01a3
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a4
+; CHECK: LLVMType: %struct.test01a4
 ; CHECK: Field LLVM Type: i64
 ; CHECK: DTrans Type: i64
 ; CHECK: Field LLVM Type: [8 x i16]
 ; CHECK: DTrans Type: [8 x i16]
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01a4
 
 ; CHECK: DTRANS_ArrayInfo:
 ; CHECK: LLVMType: [4 x %struct.test01a2]

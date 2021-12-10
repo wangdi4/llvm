@@ -13,16 +13,19 @@
 @globalStruct = internal global %struct.test01a zeroinitializer
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Global instance | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Global instance | Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01c
+; CHECK: LLVMType: %struct.test01c
 ; CHECK: Safety data: Global instance | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01c
 
 ; TODO: Even though there is a pointer of this type in a global instantiation,
 ; this is not treated as having the "Global pointer" safety flag because
@@ -30,12 +33,14 @@
 ; be changed in the future to record that there is effectively a global
 ; pointer to this type.
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01d
+; CHECK: LLVMType: %struct.test01d
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01d
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01e
+; CHECK: LLVMType: %struct.test01e
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01e
 
 
 !1 = !{i32 0, i32 1}  ; i32*

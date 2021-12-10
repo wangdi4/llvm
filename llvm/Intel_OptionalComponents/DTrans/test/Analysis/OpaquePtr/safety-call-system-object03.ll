@@ -14,8 +14,9 @@ define void @test01(%"class._ZTSSt9exception.std::exception"* "intel_dtrans_func
 declare !intel.dtrans.func.type !6 void @_ZNSt9exceptionD1Ev(%"class._ZTSSt9exception.std::exception"* "intel_dtrans_func_index"="1")
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: class._ZTSSt9exception.std::exception
+; CHECK: LLVMType: %"class._ZTSSt9exception.std::exception"
 ; CHECK: Safety data: Address taken | System object | Has vtable{{ *$}}
+; CHECK: End LLVMType: %"class._ZTSSt9exception.std::exception"
 
 
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)

@@ -27,12 +27,14 @@ define void @foo(%"class.XMLPlatformUtilsException" %arg) {
 }
 
 ; CHECK:DTRANS_StructInfo:
-; CHECK: Name: class.XMLException
+; CHECK: LLVMType: %class.XMLException
 ; CHECK: Safety data: Nested structure | Has vtable{{ *}}
+; CHECK: End LLVMType: %class.XMLException
 
 ; CHECK:DTRANS_StructInfo:
-; CHECK: Name: class.XMLPlatformUtilsException
+; CHECK: LLVMType: %class.XMLPlatformUtilsException
 ; CHECK: Safety data: Contains nested structure{{ *}}
+; CHECK: End LLVMType: %class.XMLPlatformUtilsException
 
 !1 = !{%"class.XMLException" zeroinitializer, i32 0}  ; %"class.XMLException"
 !2 = !{!"F", i1 true, i32 0, !3}  ; i32 (...)

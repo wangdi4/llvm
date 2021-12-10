@@ -16,7 +16,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i32
@@ -28,6 +28,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 4)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Write a subset of structure fields, starting from a GEP of field 0.
@@ -39,7 +40,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written ComplexUse
 ; CHECK: 1)Field LLVM Type: i32
@@ -51,6 +52,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 4)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Write beyond the end of the structure, starting from a GEP of field 0.
@@ -62,8 +64,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Write a subset of the structure, starting and ending on a field boundary.
@@ -75,7 +78,7 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -87,6 +90,7 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct) !int
 ; CHECK: 4)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Write a subset of the structure, with a size that extends beyond the structure end.
@@ -98,8 +102,9 @@ define void @test05(%struct.test05* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test05
+; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Write a subset of the structure, with a size that does not end on a field boundary.
@@ -111,8 +116,9 @@ define void @test06(%struct.test06* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test06
+; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test06
 
 
 declare !intel.dtrans.func.type !15 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

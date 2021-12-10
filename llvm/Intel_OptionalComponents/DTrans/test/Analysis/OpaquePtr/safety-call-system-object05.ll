@@ -16,8 +16,9 @@ define void @test01(%struct._ZTS8_IO_FILE._IO_FILE* "intel_dtrans_func_index"="1
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct._ZTS8_IO_FILE._IO_FILE
+; CHECK: LLVMType: %struct._ZTS8_IO_FILE._IO_FILE
 ; CHECK: Safety data: Address taken | System object{{ *$}}
+; CHECK: End LLVMType: %struct._ZTS8_IO_FILE._IO_FILE
 
 
 declare !intel.dtrans.func.type !13 i64 @fwrite(i8* "intel_dtrans_func_index"="1", i64, i64, %struct._ZTS8_IO_FILE._IO_FILE* "intel_dtrans_func_index"="2")

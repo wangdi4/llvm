@@ -16,12 +16,14 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct1) !i
 }
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; 'ptrtoint' that does not go to the same size as a pointer is not permitted.
@@ -31,8 +33,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 !1 = !{i32 0, i32 0}  ; i32

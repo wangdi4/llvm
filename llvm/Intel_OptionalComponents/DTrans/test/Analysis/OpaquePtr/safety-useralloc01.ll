@@ -45,6 +45,7 @@ declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @malloc(i64
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test = type { i64, i64 }
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test
 
 ; CHECK-LABEL: Function: AcquireMagicMemory
 ; CHECK: Instruction:   %mem = call {{.*}} @malloc

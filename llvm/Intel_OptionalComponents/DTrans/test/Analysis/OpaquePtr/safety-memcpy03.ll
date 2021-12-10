@@ -20,12 +20,14 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStructA, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; Test with memcpy where the source and target types match, but the destination
@@ -40,12 +42,14 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStructA, %s
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 ; Test with memcpy where the source and target types do not match, when one
@@ -64,16 +68,19 @@ define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStructA, %s
  ; pointee, and the other isn't because the structure pointer types do not match.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03a
+; CHECK: LLVMType: %struct.test03a
 ; CHECK: Safety data: Bad memfunc manipulation{{ *$}}
+; CHECK: End LLVMType: %struct.test03a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03b
+; CHECK: LLVMType: %struct.test03b
 ; CHECK: Safety data: Bad memfunc manipulation | Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03c
+; CHECK: LLVMType: %struct.test03c
 ; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test03c
 
 declare !intel.dtrans.func.type !15 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
 

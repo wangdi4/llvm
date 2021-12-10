@@ -25,8 +25,9 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01i(i32 %x) !intel.dtr
 ; match the signature of the indirect call.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global pointer | System object{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -23,6 +23,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK:     Single Value: i32 3
 ; CHECK: Safety data: Global instance | Has initializer list{{ *}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Copy a subset of structure fields, starting from a GEP of field 0.
@@ -44,6 +45,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK:     Single Value: i32 3
 ; CHECK: Safety data: Global instance | Has initializer list | Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Copy a subset of the structure, with a size that does not end on a field
@@ -74,6 +76,7 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK:   4)Field LLVM Type: i32
 ; CHECK:     Multiple Value: [ 5 ] <incomplete>
 ; CHECK: Safety data: Global instance | Has initializer list | Bad memfunc size{{ *}}
+; CHECK: End LLVMType: %struct.test03
 
 ; Copy from one structure type to another. This is not supported by DTrans as a
 ; simplification for what the transformations need to handle. This should result
@@ -100,6 +103,7 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStructA, %s
 ; CHECK:   2)Field LLVM Type: i32
 ; CHECK:     Multiple Value: [ 3 ] <incomplete>
 ; CHECK:   Safety data: Global instance | Has initializer list | Bad memfunc manipulation{{ *}}
+; CHECK: End LLVMType: %struct.test04a
 
 ; CHECK-LABEL: LLVMType: %struct.test04b
 ; CHECK:   0)Field LLVM Type: i32
@@ -109,6 +113,7 @@ define void @test04(%struct.test04a* "intel_dtrans_func_index"="1" %pStructA, %s
 ; CHECK:   2)Field LLVM Type: i32
 ; CHECK:     Single Value: i32 6
 ; CHECK:   Safety data: Global instance | Has initializer list | Bad memfunc manipulation{{ *}}
+; CHECK: End LLVMType: %struct.test04b
 
 declare !intel.dtrans.func.type !12 void @llvm.memcpy.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)
 

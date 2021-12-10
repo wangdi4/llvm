@@ -19,11 +19,12 @@
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data:{{.*}}Address taken{{.*}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01c
 ; CHECK: Safety data:{{.*}}Address taken{{.*}}
-
+; CHECK: End LLVMType: %struct.test01c
 
 %struct.test01a = type { i32*, i32 }
 %struct.test01c = type { i32*, i32 }

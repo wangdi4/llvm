@@ -26,6 +26,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK:  1)Field LLVM Type: i32
 ; CHECK:    No Value
 ; CHECK:  Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 ; CHECK:  LLVMType: %struct.test01inner
 ; CHECK:  0)Field LLVM Type: i32
@@ -33,6 +34,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK:  1)Field LLVM Type: i32
 ; CHECK:    No Value
 ; CHECK:  Safety data: Nested structure{{ *$}}
+; CHECK:  End LLVMType: %struct.test01inner
 
 declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

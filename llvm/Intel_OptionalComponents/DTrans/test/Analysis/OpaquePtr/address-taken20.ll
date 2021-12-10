@@ -7,6 +7,7 @@
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.MYSTRUCT = type { i32, i32 }
 ; CHECK: Safety data: Global instance | Has initializer list | Address taken{{ *$}}
+; CHECK: End LLVMType: %struct.MYSTRUCT
 
 %struct.MYSTRUCT = type { i32, i32 }
 

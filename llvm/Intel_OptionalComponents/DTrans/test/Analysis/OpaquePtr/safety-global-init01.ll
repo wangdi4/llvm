@@ -14,8 +14,9 @@ define void @test01() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; This case is for a pointer, and does not have an initializer list.
@@ -26,8 +27,9 @@ define void @test02() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; This case is for an initialized pointer, and zero initialized instance.
@@ -40,8 +42,9 @@ define void @test03() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Global pointer | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; An instance with an initializer should trigger "Has initializer list"
@@ -53,8 +56,9 @@ define void @test04() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: Global instance | Has initializer list{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; An array of instances with initializers should trigger "Has initializer list"
@@ -64,8 +68,9 @@ define void @test05() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test05
+; CHECK: LLVMType: %struct.test05
 ; CHECK: Safety data: Global instance | Has initializer list | Global array{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 ; An array of pointers should not trigger "Has initializer list"
@@ -76,8 +81,9 @@ define void @test06() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test06
+; CHECK: LLVMType: %struct.test06
 ; CHECK: Safety data: Global pointer | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test06
 
 
 ; An instance initialized with undef should not trigger "Has initializer list"
@@ -89,8 +95,9 @@ define void @test07() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.test07
+; CHECK: LLVMType: %struct.test07
 ; CHECK: Safety data: Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test07
 
 
 !1 = !{i32 0, i32 0}  ; i32

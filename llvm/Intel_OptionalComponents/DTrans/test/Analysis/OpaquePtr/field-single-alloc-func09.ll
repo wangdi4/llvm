@@ -23,6 +23,7 @@
 ; CHECK: Multiple Value: [  ] <incomplete>
 ; CHECK: Bottom Alloc Function
 ; CHECK: Safety data: Contains nested structure | Local instance
+; CHECK: End LLVMType: %struct.MYSTRUCT
 
 define i32 @main() {
   %localstruct = alloca %struct.MYSTRUCT

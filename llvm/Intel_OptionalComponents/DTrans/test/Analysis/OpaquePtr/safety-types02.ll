@@ -18,39 +18,43 @@
 %struct.derived2 = type { %struct.derived1, i32 }
 %struct.empty = type { }
 %struct.fptrs = type { void (i32, i64*, i64)*, i32, i32 }
-%struct.zeroararry = type { i32, [0 x i32] }
+%struct.zeroarray = type { i32, [0 x i32] }
 define void @test01() {
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.base
+; CHECK: LLVMType: %struct.base
 ; CHECK-NONOPAQUE: Field LLVM Type: i32 (...)**
 ; CHECK-OPAQUE: Field LLVM Type: ptr
 ; CHECK: DTrans Type: i32 (...)**
 ; CHECK: Safety data: Nested structure | Has vtable
+; CHECK: End LLVMType: %struct.base
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.derived1
+; CHECK: LLVMType: %struct.derived1
 ; CHECK: Field LLVM Type: %struct.base
 ; CHECK: DTrans Type: %struct.base
 ; CHECK: Field LLVM Type: i8
 ; CHECK: DTrans Type: i8
 ; CHECK: Safety data: Nested structure | Contains nested structure
+; CHECK: End LLVMType: %struct.derived1
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.derived2
+; CHECK: LLVMType: %struct.derived2
 ; CHECK: Field LLVM Type: %struct.derived1
 ; CHECK: DTrans Type: %struct.derived1
 ; CHECK: Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK: Safety data: Contains nested structure
+; CHECK: End LLVMType: %struct.derived2
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.empty
+; CHECK: LLVMType: %struct.empty
 ; CHECK: Safety data: No fields in structure
+; CHECK: End LLVMType: %struct.empty
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.fptrs
+; CHECK: LLVMType: %struct.fptrs
 ; CHECK-NONOPAQUE: Field LLVM Type: void (i32, i64*, i64)*
 ; CHECK-OPAQUE: Field LLVM Type: ptr
 ; CHECK: DTrans Type: void (i32, i64*, i64)*
@@ -59,14 +63,16 @@ define void @test01() {
 ; CHECK: Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK: Safety data: Has function ptr
+; CHECK: End LLVMType: %struct.fptrs
 
 ; CHECK: DTRANS_StructInfo:
-; CHECK: Name: struct.zeroararry
+; CHECK: LLVMType: %struct.zeroarray
 ; CHECK: Field LLVM Type: i32
 ; CHECK: DTrans Type: i32
 ; CHECK: Field LLVM Type: [0 x i32]
 ; CHECK: DTrans Type: [0 x i32]
 ; CHECK: Safety data: Has zero-sized array
+; CHECK: End LLVMType: %struct.zeroarray
 
 
 !1 = !{!"F", i1 true, i32 0, !2}  ; i32 (...)
@@ -86,6 +92,6 @@ define void @test01() {
 !15 = !{!"S", %struct.derived2 zeroinitializer, i32 2, !6, !2} ; { %struct.derived1, i32 }
 !16 = !{!"S", %struct.empty zeroinitializer, i32 0} ; { }
 !17 = !{!"S", %struct.fptrs zeroinitializer, i32 3, !11, !2, !2} ; { void (i32, i64*, i64)*, i32, i32 }
-!18 = !{!"S", %struct.zeroararry zeroinitializer, i32 2, !2, !12} ; { i32, [0 x i32] }
+!18 = !{!"S", %struct.zeroarray zeroinitializer, i32 2, !2, !12} ; { i32, [0 x i32] }
 
 !intel.dtrans.types = !{!13, !14, !15, !16, !17, !18}

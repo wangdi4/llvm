@@ -31,7 +31,7 @@ define i32 @test01(i32 %in) {
 }
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read Written{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -40,6 +40,7 @@ define i32 @test01(i32 %in) {
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info: Read Written{{ *$}}
 ; CHECK: Safety data: Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }

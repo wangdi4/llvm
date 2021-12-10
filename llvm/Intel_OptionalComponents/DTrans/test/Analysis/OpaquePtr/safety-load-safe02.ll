@@ -15,7 +15,7 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !inte
   ret i32 %value
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read ComplexUse{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -23,6 +23,7 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct) !inte
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info: Read ComplexUse{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{i32 0, i32 0}  ; i32

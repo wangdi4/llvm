@@ -17,7 +17,7 @@ define internal i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStru
   ret i32 %val
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:
 ; CHECK-SAME: ComplexUse
@@ -28,6 +28,7 @@ define internal i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStru
 ; CHECK: Field info:
 ; CHECK-SAME: ComplexUse
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Getting the address of a field for a call to 'memset' is also considered a
@@ -41,7 +42,7 @@ define internal void @test02(i32 %x) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:
 ; CHECK-SAME: ComplexUse
@@ -51,6 +52,7 @@ define internal void @test02(i32 %x) {
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:
 ; CHECK-NOT: ComplexUse
+; CHECK: End LLVMType: %struct.test02
 
 declare !intel.dtrans.func.type !6 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
 

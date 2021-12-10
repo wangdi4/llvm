@@ -19,6 +19,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Single Value: float 0.000000e+00
 ; CHECK:   Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test memset call that sets a non-zero value.
@@ -36,6 +37,7 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.fun
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Multiple Value: [  ] <incomplete>
 ; CHECK:   Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Test memset that writes 0 to the entire structure when allocating and setting
@@ -54,6 +56,7 @@ define "intel_dtrans_func_index"="1" %struct.test03* @test03() !intel.dtrans.fun
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Single Value: float 0.000000e+00
 ; CHECK:   Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Test memset that writes 0 to part of the structure.
@@ -73,6 +76,7 @@ define "intel_dtrans_func_index"="1" %struct.test04* @test04() !intel.dtrans.fun
 ; CHECK:   2)Field LLVM Type: i32
 ; CHECK:     No Value
 ; CHECK:   Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Test memset that writes 0 to part of the structure that does not set all
@@ -97,6 +101,7 @@ define "intel_dtrans_func_index"="1" %struct.test05* @test05() !intel.dtrans.fun
 ; CHECK:   2)Field LLVM Type: i32
 ; CHECK:     Multiple Value: [  ] <incomplete>
 ; CHECK:   Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test05
 
 
 declare !intel.dtrans.func.type !14 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1" nocapture writeonly, i8, i64, i1)

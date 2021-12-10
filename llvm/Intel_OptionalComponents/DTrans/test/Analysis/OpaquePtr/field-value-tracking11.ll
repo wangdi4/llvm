@@ -18,6 +18,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Single Value: float 0.000000e+00
 ; CHECK:   Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test calloc to allocate %n copies of a structure
@@ -34,6 +35,7 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02(i64 %n) !intel.dtra
 ; CHECK:   1)Field LLVM Type: float
 ; CHECK:     Single Value: float 0.000000e+00
 ; CHECK:   Safety data: No issues found{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !8 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)

@@ -16,8 +16,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i64 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test with pointer to structure type when calling memset using a runtime
@@ -29,8 +30,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %a, i64 %size)
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad memfunc size{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

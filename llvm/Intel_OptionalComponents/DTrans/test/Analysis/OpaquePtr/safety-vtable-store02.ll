@@ -28,16 +28,19 @@ define void @foo(%"class.XMLPlatformUtilsException" %arg) {
 }
 
 ; CHECK:DTRANS_StructInfo:
-; CHECK: Name: class.XMLException
+; CHECK: LLVMType: %class.XMLException
 ; CHECK: Safety data: Bad casting | Mismatched element access | Nested structure | Has vtable{{ *}}
+; CHECK: End LLVMType: %class.XMLException
 
 ; CHECK:DTRANS_StructInfo:
-; CHECK: Name: class.XMLPlatformUtilsException
+; CHECK: LLVMType: %class.XMLPlatformUtilsException
 ; CHECK: Safety data: Contains nested structure{{ *}}
+; CHECK: End LLVMType: %class.XMLPlatformUtilsException
 
 ; CHECK:DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *}}
+; CHECK: End LLVMType: %struct.test01
 
 
 !1 = !{%"class.XMLException" zeroinitializer, i32 0}  ; %"class.XMLException"

@@ -20,7 +20,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i32
@@ -28,6 +28,7 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Move that uses a multiple of the structure size, such as for an array of structures.
@@ -39,7 +40,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %st
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Written
 ; CHECK: 1)Field LLVM Type: i16
@@ -47,6 +48,7 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; CHECK: 2)Field LLVM Type: i8
 ; CHECK: Field info: Written
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !9 void @llvm.memmove.p0i8.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8* "intel_dtrans_func_index"="2", i64, i1)

@@ -21,7 +21,7 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; Not including the actual types of the pointer fields in check lines, because
 ; with opaque pointers they will just be 'ptr'
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: 0)Field LLVM Type: i64
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type:
@@ -33,14 +33,16 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
 ; CHECK: 4)Field LLVM Type: i64
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test01b
 
 
 ; Test where pointer passed to memset is value loaded from a field, and does not
@@ -54,10 +56,11 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !int
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: 0)Field LLVM Type:
 ; CHECK: Field info: Read{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Test case where pointer-to-pointer to structure type is passed to memset.
@@ -69,7 +72,7 @@ define "intel_dtrans_func_index"="1" %struct.test03** @test03() !intel.dtrans.fu
   ret %struct.test03** %structs
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
@@ -77,6 +80,7 @@ define "intel_dtrans_func_index"="1" %struct.test03** @test03() !intel.dtrans.fu
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test03
 
 
 declare !intel.dtrans.func.type !12 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

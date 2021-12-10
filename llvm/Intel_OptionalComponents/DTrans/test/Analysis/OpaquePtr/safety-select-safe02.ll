@@ -27,12 +27,14 @@ define internal void @test01helper(%class.test01.derived* "intel_dtrans_func_ind
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: class.test01.base
+; CHECK: LLVMType: %class.test01.base
 ; CHECK: Safety data: Bad casting | Mismatched element access | Nested structure{{ *$}}
+; CHECK: End LLVMType: %class.test01.base
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: class.test01.derived
+; CHECK: LLVMType: %class.test01.derived
 ; CHECK: Safety data: Bad casting | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %class.test01.derived
 
 
 !1 = !{i32 0, i32 0}  ; i32

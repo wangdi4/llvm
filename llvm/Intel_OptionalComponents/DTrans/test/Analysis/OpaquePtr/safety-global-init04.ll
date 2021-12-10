@@ -13,9 +13,11 @@
 
 ; CHECK-LABEL: LLVMType: %struct.test01a = type { i32, i32 }
 ; CHECK: Safety data: Unsafe pointer store | Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: LLVMType: %struct.test01b = type { i64 }
 ; CHECK: Safety data: Bad casting | Global instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 !0 = !{!"A", i32 2, !1} ; [2 x %struct.test01a*]
 !1 = !{%struct.test01a zeroinitializer, i32 1} ; %struct.test01a*

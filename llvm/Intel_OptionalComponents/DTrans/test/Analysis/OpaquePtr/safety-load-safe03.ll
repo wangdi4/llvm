@@ -13,20 +13,23 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01c
+; CHECK: LLVMType: %struct.test01c
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read UnusedValue NonGEPAccess{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01c
 
 
 ; Load element zero of a nested structure using a pointer to the structure, when
@@ -41,20 +44,23 @@ define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct) !in
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02a
+; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02b
+; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02c
+; CHECK: LLVMType: %struct.test02c
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info: Read UnusedValue NonGEPAccess{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test02c
 
 
 

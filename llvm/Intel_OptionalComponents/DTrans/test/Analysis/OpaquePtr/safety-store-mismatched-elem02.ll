@@ -14,8 +14,9 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStruct, i8 %
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 %struct.test02 = type { i32*, i32*, i32* }
@@ -26,8 +27,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStruct, i16 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 ; This case triggers a "Mismatched element access" even though it is using
@@ -41,8 +43,9 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %pStruct, i64 
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test03
+; CHECK: LLVMType: %struct.test03
 ; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: End LLVMType: %struct.test03
 
 
 ; This case does not trigger a "Mismatched element access" because it is using a
@@ -57,8 +60,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStruct, i32*
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test04
+; CHECK: LLVMType: %struct.test04
 ; CHECK: Safety data: No issues found
+; CHECK: End LLVMType: %struct.test04
 
 
 !1 = !{i32 0, i32 1}  ; i32*

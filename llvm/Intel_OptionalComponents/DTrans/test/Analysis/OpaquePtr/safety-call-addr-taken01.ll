@@ -22,12 +22,14 @@ define void @test01h(i64 %in) {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Address taken | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 
 !1 = !{i32 0, i32 0}  ; i32

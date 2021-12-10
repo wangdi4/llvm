@@ -26,6 +26,7 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in, 
 ; CHECK: Field info: Written
 ; CHECK: Readers:{{ *$}}
 ; CHECK: Writers: test01
+; CHECK: End LLVMType: %struct.test01
 
 
 declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64)

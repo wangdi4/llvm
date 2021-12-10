@@ -19,8 +19,9 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %pStr
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01
+; CHECK: LLVMType: %struct.test01
 ; CHECK: Unsafe pointer merge{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; In this case, there is a dominant type, and an i8* associated with the
@@ -42,8 +43,9 @@ define internal void @test02() {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test02
+; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Global pointer{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

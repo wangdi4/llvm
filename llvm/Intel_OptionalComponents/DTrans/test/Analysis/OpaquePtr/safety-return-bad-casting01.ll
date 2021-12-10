@@ -13,6 +13,7 @@ define "intel_dtrans_func_index"="1" i32* @test01(%struct.test01* "intel_dtrans_
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Return a pointer to a structure as a pointer to a different type of structure
@@ -25,10 +26,12 @@ define "intel_dtrans_func_index"="1" %struct.test02b* @test02(%struct.test02a* "
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02a
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test02a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02b
 ; CHECK: Safety data: Bad casting{{ *$}}
+; CHECK: End LLVMType: %struct.test02b
 
 
 !1 = !{i64 0, i32 0}  ; i64

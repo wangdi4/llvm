@@ -15,16 +15,19 @@ define i64 @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStruct) !int
   ret i64 %val
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01a
+; CHECK: LLVMType: %struct.test01a
 ; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01a
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01b
+; CHECK: LLVMType: %struct.test01b
 ; CHECK: Safety data: Nested structure | Contains nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01b
 
 ; CHECK-LABEL: DTRANS_StructInfo:
-; CHECK: Name: struct.test01c
+; CHECK: LLVMType: %struct.test01c
 ; CHECK: Safety data: Nested structure{{ *$}}
+; CHECK: End LLVMType: %struct.test01c
 
 
 !1 = !{i64 0, i32 0}  ; i64

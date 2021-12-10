@@ -14,6 +14,7 @@ define "intel_dtrans_func_index"="1" i8* @test3(%struct.test01* "intel_dtrans_fu
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test01
 ; CHECK: Safety data: Address taken{{ *$}}
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Return a pointer-sized int for a pointer to a structure.
@@ -25,6 +26,7 @@ define i64 @test4(%struct.test02* "intel_dtrans_func_index"="1" %pStruct) !intel
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.test02
 ; CHECK: Safety data: Address taken{{ *$}}
+; CHECK: End LLVMType: %struct.test02
 
 
 !1 = !{i32 0, i32 0}  ; i32
