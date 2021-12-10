@@ -1092,7 +1092,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
   if (auto CastOp = dyn_cast<llvm::CastInst>(Inst)) {
     llvm::Type *DstTy = CastOp->getDestTy();
     auto CastOpcode = CastOp->getOpcode();
-    if ((CastOpcode == llvm::Instruction::FPToUI &&
+    if (isa<FixedVectorType>(DstTy) && (CastOpcode == llvm::Instruction::FPToUI &&
          DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
         (CastOpcode == llvm::Instruction::FPToSI &&
          DstTy->getScalarType()->getPrimitiveSizeInBits() < 32)) {
