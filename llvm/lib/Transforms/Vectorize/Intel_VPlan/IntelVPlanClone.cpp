@@ -39,10 +39,12 @@ void VPValueMapper::remapOperands(VPBasicBlock *OrigVPBB) {
         auto *MD = LoadStoreInst->getMetadata(Kind);
         if (!MD)
           return;
-        auto *NewMD =
-            Value2ValueMap[ClonedVPBB->getParent()->getVPMetadataAsValue(MD)];
-        if (!NewMD)
+        VPMetadataAsValue *MDVal =
+            ClonedVPBB->getParent()->getVPMetadataAsValue(MD);
+        if (!Value2ValueMap.count(MDVal))
           return;
+        auto *NewMD = Value2ValueMap[MDVal];
+        assert(NewMD && "expected non-null metadata");
         LoadStoreInst->setMetadata(
             Kind, cast<MDNode>(cast<VPMetadataAsValue>(NewMD)->getMetadata()));
       };

@@ -1760,6 +1760,8 @@ void VPlanDivergenceAnalysis::cloneVectorShapes(
     VPValue *OrigVal = Pair.first;
     VPValue *ClonedVal = Pair.second;
 
+    assert(ClonedVal && "unexpected null clone");
+
     if (isa<VPBasicBlock>(OrigVal))
       continue;
 
