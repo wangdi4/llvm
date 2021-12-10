@@ -1057,10 +1057,10 @@ VPBasicBlock *VPlanCFGMerger::createTopTest(VPlan *VecPlan,
   return TestBB;
 }
 
-
 void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
                                              PlanDescr &MainDescr,
-                                             PlanDescr *PRemDescr) {
+                                             PlanDescr *PRemDescr,
+                                             PlanDescr *PPrevDescr) {
   assert((MainDescr.Type == CfgMergerPlanDescr::LoopType::LTMain &&
           MainDescr.Plan == &Plan) &&
          "expected main vplan");
@@ -1093,14 +1093,16 @@ void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
     // If there is a pre-pre vplan (e.g. scalar remainder after vectorized one)
     // we generate the toptest for the previous vplan (vectorized remainder)
     // before the previous check.
+    VPBasicBlock *MergeBB =
+        PPrevDescr ? PPrevDescr->MergeBefore : PRemDescr->PrevMerge;
     VPBasicBlock *TopTest2 =
-        createTopTest(PRemDescr->Plan, TopTest, PRemDescr->PrevMerge, TopTest,
+        createTopTest(PRemDescr->Plan, TopTest, MergeBB, TopTest,
                       Peel ? Peel->Plan : nullptr, PRemDescr->VF);
     if (Peel)
-      updateMergeBlockIncomings(*Peel, PRemDescr->PrevMerge, TopTest2,
+      updateMergeBlockIncomings(*Peel, MergeBB, TopTest2,
                                 false /* UseLiveIn */);
     else
-      updateMergeBlockIncomings(MainDescr, PRemDescr->PrevMerge, TopTest2,
+      updateMergeBlockIncomings(MainDescr, MergeBB, TopTest2,
                                 true /* UseLiveIn */);
   }
 }
@@ -1373,6 +1375,11 @@ void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,
 // |  |  |          +-----------------------+        |
 // |  |  |                   |       _______________/
 // |  |  |                   |      /
+// |  |  |          +-----------------------+
+// |  |  |          | Merge btw main/vecrem |
+// |  |  |          +-----------------------+
+// |  |  |                   |
+// |  |  |                   |
 // |  |  |         ( RemUB == OrigUB ? )  -true____        : Check7
 // |  |   \                false                   \
 //  \  \   \____________     |                      \
@@ -1462,12 +1469,54 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
         // Create peel count instruction, updating the upper bound of the
         // peel and insert the needed checks before peel.
         insertPeelCntAndChecks(P, FinalRemainderMerge, PrevP->PrevMerge);
+
         // Create trip count checks before main loop.
-        createTCCheckBeforeMain(&P, *PrevP, RemDescr);
+        // Check whether we have a remainder, and it has an additional
+        // remainder. If so we need to pass that additional previous
+        // remainder to form the correct cfg
+        PlanDescr *PPrevRem = nullptr;
+        if (RemDescr && RemDescr->isNonMaskedVecRemainder()) {
+          auto PIter = std::prev(Iter, 2);
+          if (PIter != Plans.begin())
+            PPrevRem = &*(std::prev(Iter, 3));
+        }
+        createTCCheckBeforeMain(&P, *PrevP, RemDescr, PPrevRem);
       } else {
         // Create the needed trip count checks after VPlan when needed.
         // See Check6, Check7 on the diagram above.
         createTCCheckAfter(P, *std::prev(Iter, 1));
+        if (P.isNonMaskedVecRemainder()) {
+          // We need to create a merge block between main loop and non-masked
+          // vectorized remainder.
+          auto MergeBlk =
+              createMergeBlockBefore(P.LastBB->getSingleSuccessor());
+          updateMergeBlockIncomings(P, MergeBlk, P.LastBB,
+                                    false /* UseLiveIn */);
+          // Need to relink uses of outgoing values to the phis from new block.
+          auto NextBB = MergeBlk->getSingleSuccessor();
+          for (VPInstruction &Inst : *MergeBlk) {
+            auto *MergePhi = dyn_cast<VPPHINode>(&Inst);
+            // Can have VPBranchInst
+            if (!MergePhi)
+              continue;
+            for (VPValue *Op : MergePhi->operands()) {
+              // The replaceUsesWithIf() does not work here as we have
+              // (intentionally and temporary at this stage) type inconsistency
+              // between phi and its operands. Operands at this stage are
+              // VPlanAdapter which are of type token.
+              SmallVector<VPUser *, 2> UsersToUpdate(make_filter_range(
+                  Op->users(), [MergePhi, Op, NextBB](VPUser *U) {
+                    auto *Phi = dyn_cast<VPPHINode>(U);
+                    return Phi && Phi != MergePhi &&
+                           Phi->getMergeId() == MergePhi->getMergeId() &&
+                           Phi->getIncomingBlock(Op) == NextBB;
+                  }));
+              for (VPUser *U : UsersToUpdate)
+                U->replaceUsesOfWith(Op, MergePhi);
+            }
+          }
+          P.PrevMerge = MergeBlk;
+        }
       }
     } else {
       // First or masked or scalar remainder.
@@ -1491,8 +1540,15 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
       // we need to generate the needed trip count check before it.
       assert(P.Type == LT::LTMain && "expected main loop");
       PlanDescr *PrevD = IsFirst ? nullptr : &*(std::prev(Iter, 1));
+      // PPrevD is a remainder after non-masked mode remainder.
+      PlanDescr *PPrevD = nullptr;
+      if (PrevD && PrevD->isNonMaskedVecRemainder()) {
+        auto PIter = std::prev(Iter, 1);
+        if (PIter != Plans.begin())
+          PPrevD = &*(std::prev(Iter, 2));
+      }
       // Check4, Check5 on the diagram above
-      createTCCheckBeforeMain(nullptr, P, PrevD);
+      createTCCheckBeforeMain(nullptr, P, PrevD, PPrevD);
     }
   }
 
