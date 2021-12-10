@@ -17,13 +17,10 @@
 #include "rtl.h"
 
 #include <cassert>
-<<<<<<< HEAD
+#include <cstdint>
 #if INTEL_COLLAB
 #include <cstring>
 #endif // INTEL_COLLAB
-=======
-#include <cstdint>
->>>>>>> 7c8f4e7b85ed98497f37571d72609f39a8eed447
 #include <vector>
 
 int AsyncInfoTy::synchronize() {
@@ -1565,10 +1562,10 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
     } else {
 #if INTEL_COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ) {
-        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr);
+        TPR = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr);
         TgtBaseOffset = 0;
       } else {
-        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
+        TPR = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
                                             /*UpdateRefCount=*/false,
                                             /*UseHoldRefCount=*/false, IsHostPtr);
         TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
@@ -1579,9 +1576,9 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
       TPR = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
                                   /*UpdateRefCount=*/false,
                                   /*UseHoldRefCount=*/false, IsHostPtr);
-      TgtPtrBegin = TPR.TargetPointer;
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
 #endif // INTEL_COLLAB
+      TgtPtrBegin = TPR.TargetPointer;
 #ifdef OMPTARGET_DEBUG
 #if INTEL_COLLAB
       DP("Obtained target argument (Begin: " DPxMOD ", Offset: %" PRId64

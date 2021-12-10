@@ -341,7 +341,7 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
 
   DeviceTy& Device = *PM->Devices[device_num];
   bool IsLast, IsHostPtr;
-  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, false, IsHostPtr);
+  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, false, IsHostPtr).TargetPointer;
   if (rc == NULL)
      DP("omp_get_mapped_ptr : cannot find device pointer\n");
   DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
