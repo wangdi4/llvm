@@ -613,7 +613,7 @@ if.end:                                           ; preds = %entry
   ret float** %arrayidx4
 }
 
-define void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* nocapture %this, i32 %c, %struct.Mem* %mem) align 2 !dbg !338 {
+define void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* nocapture writeonly %this, i32 %c, %struct.Mem* %mem) align 2 !dbg !338 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !339, metadata !DIExpression()), !dbg !340
   call void @llvm.dbg.value(metadata i32 %c, metadata !341, metadata !DIExpression()), !dbg !342
@@ -636,7 +636,7 @@ entry:
   ret void
 }
 
-define void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* nocapture %this, i32 %c, %struct.Mem* %mem) align 2 !dbg !354 {
+define void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* nocapture writeonly %this, i32 %c, %struct.Mem* %mem) align 2 !dbg !354 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !355, metadata !DIExpression()), !dbg !356
   call void @llvm.dbg.value(metadata i32 %c, metadata !357, metadata !DIExpression()), !dbg !358

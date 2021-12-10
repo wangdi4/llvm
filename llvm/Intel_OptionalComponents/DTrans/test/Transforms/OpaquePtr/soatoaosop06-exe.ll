@@ -620,7 +620,7 @@ if.end:                                           ; preds = %entry
   ret float** %arrayidx4
 }
 
-define void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* nocapture "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !dbg !338 !intel.dtrans.func.type !704 {
+define void @"Arr<int*>::Arr(int, %struct.Mem*)"(%struct.Arr* nocapture writeonly "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !dbg !338 !intel.dtrans.func.type !704 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr* %this, metadata !339, metadata !DIExpression()), !dbg !340
   call void @llvm.dbg.value(metadata i32 %c, metadata !341, metadata !DIExpression()), !dbg !342
@@ -643,7 +643,7 @@ entry:
   ret void
 }
 
-define void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* nocapture "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !dbg !354 !intel.dtrans.func.type !705 {
+define void @"Arr<float*>::Arr(int, %struct.Mem*)"(%struct.Arr.0* nocapture writeonly "intel_dtrans_func_index"="1" %this, i32 %c, %struct.Mem* "intel_dtrans_func_index"="2" %mem) align 2 !dbg !354 !intel.dtrans.func.type !705 {
 entry:
   call void @llvm.dbg.value(metadata %struct.Arr.0* %this, metadata !355, metadata !DIExpression()), !dbg !356
   call void @llvm.dbg.value(metadata i32 %c, metadata !357, metadata !DIExpression()), !dbg !358

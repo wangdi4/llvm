@@ -687,6 +687,7 @@ bool SOAToAOSOPCFGInfo::populateCFGInformation(Module &M,
           case Attribute::DereferenceableOrNull:
           case Attribute::Alignment:
           case Attribute::Returned:
+          case Attribute::WriteOnly:
             continue;
           default:
             if (Arg->hasAttribute(Kind))
