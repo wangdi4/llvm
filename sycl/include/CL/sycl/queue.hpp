@@ -310,6 +310,7 @@ public:
           // __devicelib_assert_fail isn't supported by Device-side Runtime
           // Linking against fallback impl of __devicelib_assert_fail is
           // performed by program manager class
+          // Fallback assert isn't supported for FPGA
           submitAssertCapture(*this, E, DeviceSecondaryQueue, CodeLoc);
         }
       };
