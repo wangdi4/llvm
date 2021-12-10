@@ -12170,7 +12170,18 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   if (IsTopLevelTargetLoop) {
     // Use NDRANGE clause only for top-level loops enclosed into
     // a target region.
+    bool ShouldNotUseKnownNDRange = shouldNotUseKnownNDRange(W);
+
     if (CollapseAlways ||
+	// Check if fixupKnownNDRange() will eventually decide not to use
+	// known ND-range for the kernel. If it does so, the kernel
+	// will be invoked with 1D range. If we do not collapse the loop nest
+	// here, then the outer loops will run with GWS 1 and LWS 1, which means
+	// they will run serially. This should be avoided for performance sake.
+	ShouldNotUseKnownNDRange ||
+	// FIXME: this is a temporary limitation. We need to decide
+	//        which loops to collapse for SPIR target and leave
+	//        3 of them for 3D-range parallelization.
         NumLoops > 3 ||
         // Always collapse "omp distribute" loop nests.
         // Ideally, on SPIR targets each iteration of the collapsed loop nest
@@ -12192,9 +12203,6 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         // that it has to choose some N and use it both for global
         // and local sizes for 0 dimension.
         WRegionUtils::isDistributeNode(W)) {
-      // FIXME: this is a temporary limitation. We need to decide
-      //        which loops to collapse for SPIR target and leave
-      //        3 of them for 3D-range parallelization.
       if (CanHoistCombinedUBBeforeTarget &&
           VPOParoptUtils::getSPIRExecutionScheme() ==
           spirv::ImplicitSIMDSPMDES) {
@@ -12210,6 +12218,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
              VPOParoptUtils::getSPIRExecutionScheme() ==
              spirv::ImplicitSIMDSPMDES) {
       // Do not collapse the loop nest for SPIR target.
+
       if (isTargetSPIRV()) {
         if (W->getCollapse() == 0)
           LLVM_DEBUG(dbgs() <<
@@ -12907,24 +12916,18 @@ void VPOParoptTransform::assignParallelDimensions() const {
   }
 }
 
-// Reset QUAL_OMP_OFFLOAD_KNOWN_NDRANGE clauses for OpenMP loop regions
-// that should not use SPIR partitioning with known loop bounds.
-bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
+// Return true, if the given region should not use specific ND-range
+// partitioning, e.g. it cannot use it or using it is unprofitable.
+bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   if (!W->getIsOmpLoop())
-    return false;
-
-  if (!W->getWRNLoopInfo().isKnownNDRange())
-    return false;
-
-  assert(VPOParoptUtils::getSPIRExecutionScheme() ==
-         spirv::ImplicitSIMDSPMDES &&
-         "Unexpected known ND-range with disabled ND-range parallelization.");
+    return true;
 
   WRegionNode *WTarget =
       WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-  assert(WTarget && "Unexpected known ND-range with no parent target region.");
 
-  bool RemoveKnownNDRange = false;
+  // If there is no parent target region, known ND-range cannot be used.
+  if (!WTarget)
+    return true;
 
   // Reductions require global locks. With SPMD mode there will be
   // too many of them (basically, a lock per each sub-group) and it
@@ -12933,28 +12936,28 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   // CMPLRLLVM-10535, CMPLRLLVM-10704, CMPLRLLVM-11080.
 #endif  // INTEL_CUSTOMIZATION
   if (W->canHaveReduction() && !W->getRed().items().empty())
-    RemoveKnownNDRange = true;
+    return true;
 
   // Check if there is an enclosing teams region.
   WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
   if (!WTeams && !VPOParoptUtils::getSPIRImplicitMultipleTeams())
     // "omp target parallel for" is not allowed to use multiple WGs implicitly.
     // It has to use one team/WG by specification.
-    RemoveKnownNDRange = true;
+    return true;
 
   // "omp teams" with num_teams() clause overrules ImplicitSIMDSPMDES mode.
   //
   // Emit opt-report only if we can actually use ND-range parallelization,
   // i.e. NDInfoAI is not null, otherwise, the report will be misleading.
   if (WTeams && WTeams->getNumTeams()) {
-    if (isTargetSPIRV()) {
+    if (isTargetSPIRV() && W->getWRNLoopInfo().isKnownNDRange()) {
       // Emit opt-report only during SPIR compilation.
       OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
       R << "Performance may be reduced due to the enclosing teams region " <<
           "specifying num_teams";
       ORE.emit(R);
     }
-    RemoveKnownNDRange = true;
+    return true;
   }
 
   // Same as above, should not use ND-range parallelization with
@@ -12962,7 +12965,7 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   // This check's intended to cover Distribute WRNs as they
   // can't have reduction clauses themselves
   if (WTeams && !WTeams->getRed().items().empty())
-    RemoveKnownNDRange = true;
+    return true;
 
   // Detect cases that do not imply "distribute" behavior.
   // We cannot use ND-range partitioning for them.
@@ -12984,10 +12987,29 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   if (WTeams)
     if (!WRegionUtils::isDistributeNode(W) &&
         !WRegionUtils::isDistributeParLoopNode(W))
-      RemoveKnownNDRange = true;
+      return true;
 
+  return false;
+}
 
-  if (!RemoveKnownNDRange)
+// Reset QUAL_OMP_OFFLOAD_KNOWN_NDRANGE clauses for OpenMP loop regions
+// that should not use SPIR partitioning with known loop bounds.
+bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
+  if (!W->getIsOmpLoop())
+    return false;
+
+  if (!W->getWRNLoopInfo().isKnownNDRange())
+    return false;
+
+  assert(VPOParoptUtils::getSPIRExecutionScheme() ==
+         spirv::ImplicitSIMDSPMDES &&
+         "Unexpected known ND-range with disabled ND-range parallelization.");
+
+  WRegionNode *WTarget =
+      WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  assert(WTarget && "Unexpected known ND-range with no parent target region.");
+
+  if (!shouldNotUseKnownNDRange(W))
     return false;
 
   // Remove QUAL.OMP.OFFLOAD.KNOWN.NDRANGE clause from the loop region.
