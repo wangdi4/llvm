@@ -241,6 +241,11 @@ public:
   bool isMaskedRemainder() const {
     return Type == LTRemainder && isa<VPlanMasked>(Plan);
   }
+
+  bool isNonMaskedVecRemainder() const {
+    return Type == LTRemainder && isa<VPlanNonMasked>(Plan);
+  }
+
   bool isMaskedOrScalarRemainder() const {
     return Type == LTRemainder &&
            (isa<VPlanMasked>(Plan) || isa<VPlanScalar>(Plan));
