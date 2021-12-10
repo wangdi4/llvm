@@ -404,16 +404,6 @@ void VPBasicBlock::addInstruction(VPInstruction *Instruction,
   }
 }
 
-// TODO: Please, remove this interface once C/T/F blocks have been removed.
-void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
-  if (getNumSuccessors() > 1) {
-    ToBB->setCBlock(CBlock);
-    ToBB->setTBlock(TBlock);
-    ToBB->setFBlock(FBlock);
-    CBlock = TBlock = FBlock = nullptr;
-  }
-}
-
 // Unlinks the instruction from VPBasicBlock's instructions and adds in
 // UnlinkedVPInsns vector. The VPInstructions in UnlinkedVPInsns are deleted
 // when VPlan's destructor is called.
@@ -740,7 +730,6 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
 
   VPBasicBlock *NewBB = new VPBasicBlock(NewName, Parent);
   NewBB->setTerminator();
-  moveConditionalEOBTo(NewBB);
   NewBB->moveTripCountInfoFrom(this);
 
   auto End = end();
