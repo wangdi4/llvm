@@ -392,6 +392,8 @@ list (APPEND OCL_IMAGE_CALLBACK_SOURCE_FILE
 # project header files
 list (APPEND HEADER_FILES
   cl_image_declaration.h
+  long_vector_types.h
+  opencl_cth_pre_release.h
   transpose_functions.h
   )
 
