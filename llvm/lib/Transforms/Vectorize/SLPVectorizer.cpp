@@ -8459,6 +8459,23 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
   else if (auto *IE = dyn_cast<InsertElementInst>(VL0))
     ScalarTy = IE->getOperand(1)->getType();
   auto *VecTy = FixedVectorType::get(ScalarTy, E->Scalars.size());
+#if INTEL_CUSTOMIZATION
+  auto HasOp = [VL0](const MultiNode &MN) {
+    for (size_t Lane = 0, NumLanes = MN.getNumLanes(); Lane < NumLanes; ++Lane)
+      for (int OpIdx = 0, NumOps = MN.getNumOperands(); OpIdx < NumOps; ++OpIdx)
+        if (MN.getOperand(Lane, OpIdx)->getFrontier() == VL0)
+          return true;
+    return false;
+  };
+  bool IsPartOfMultiNode = any_of(MultiNodes, HasOp);
+  // MultiNode reordering made reassociations that might have introduced
+  // wraparounds that weren't originally present. Also, only Add/Sub on
+  // integers could be part of the MultiNode so it's safe to not
+  // propagateIRFlags at all.
+  assert((!IsPartOfMultiNode || E->getOpcode() == Instruction::Add ||
+          E->getOpcode() == Instruction::Sub) &&
+         "IRFlags propagation only expects integer MultiNodes so far!");
+#endif // INTEL_CUSTOMIZATION
   switch (ShuffleOrOp) {
     case Instruction::PHI: {
       assert(
@@ -8720,7 +8737,12 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       Value *V = Builder.CreateBinOp(
           static_cast<Instruction::BinaryOps>(E->getOpcode()), LHS,
           RHS);
-      propagateIRFlags(V, E->Scalars, VL0);
+
+#if INTEL_CUSTOMIZATION
+      if (!IsPartOfMultiNode)
+        propagateIRFlags(V, E->Scalars, VL0);
+      // TODO: See if Metadata propagation is legal for MultiNodes.
+#endif // INTEL_CUSTOMIZATION
       if (auto *I = dyn_cast<Instruction>(V))
         V = propagateMetadata(I, E->Scalars);
 
@@ -9098,8 +9120,13 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
           },
           Mask, &OpScalars, &AltScalars);
 
-      propagateIRFlags(V0, OpScalars);
-      propagateIRFlags(V1, AltScalars);
+#if INTEL_CUSTOMIZATION
+      if (!IsPartOfMultiNode) {
+        // TODO: See if Metadata propagation is legal for MultiNodes.
+        propagateIRFlags(V0, OpScalars);
+        propagateIRFlags(V1, AltScalars);
+      }
+#endif // INTEL_CUSTOMIZATION
 
       Value *V = Builder.CreateShuffleVector(V0, V1, Mask);
       if (auto *I = dyn_cast<Instruction>(V)) {
