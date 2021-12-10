@@ -264,8 +264,6 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
     VPBasicBlock *SuccVPBB = getOrCreateVPBB(TI->getSuccessor(0));
     assert(SuccVPBB && "VPBB Successor not found");
     VPBB->setTerminator(SuccVPBB);
-    VPBB->setCBlock(BB);
-    VPBB->setTBlock(TI->getSuccessor(0));
   } else if (NumSuccs == 2) {
     VPBasicBlock *SuccVPBB0 = getOrCreateVPBB(TI->getSuccessor(0));
     assert(SuccVPBB0 && "Successor 0 not found");
@@ -289,11 +287,6 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
       VPCondBit = IRDef2VPValue[BrCond];
     }
     VPBB->setTerminator(SuccVPBB0, SuccVPBB1, VPCondBit);
-
-    VPBB->setCBlock(BB);
-    VPBB->setTBlock(TI->getSuccessor(0));
-    VPBB->setFBlock(TI->getSuccessor(1));
-
   } else if (NumSuccs == 0) {
     assert(!cast<ReturnInst>(TI)->getReturnValue() && "Expected void return!");
     VPBB->setTerminator();

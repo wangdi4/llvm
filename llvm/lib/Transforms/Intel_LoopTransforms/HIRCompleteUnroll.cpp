@@ -93,6 +93,11 @@ static cl::opt<unsigned> CommandLineOptLevel(
     cl::desc(
         "Opt level for complete unroll (2 or 3). This affects unroll limits."));
 
+static cl::opt<float> GEPSavingsMultiplier(
+    "hir-complete-unroll-gepsavingsmultiplier", cl::init(1.5), cl::ReallyHidden,
+    cl::desc(
+        "Multiplier for GEPSavings."));
+
 const unsigned O2LoopTripThreshold = 63;
 const unsigned O3LoopTripThreshold = 63;
 
@@ -2097,7 +2102,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
         // Ideally, the savings should be outer loop trip count multiplied by
         // unique occurences but that skews the cost model too much so we only
         // double the saving.
-        GEPSavings += (2 * UniqueOccurences * BaseCost);
+        GEPSavings += (GEPSavingsMultiplier *
+                       (float) UniqueOccurences * (float) BaseCost);
 
       } else if (HCU.IsPreVec && isMemIdiomStore(Ref, OuterLoop)) {
         // Add extra cost for memset/memcpy like stores in pre-vec pass so that

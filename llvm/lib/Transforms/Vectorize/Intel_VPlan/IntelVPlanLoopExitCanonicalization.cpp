@@ -301,7 +301,6 @@ void mergeLoopExits(VPLoop *VPL) {
   if (LatchExitBlock)
     OldCondBit = OrigLoopLatch->getCondBit();
 
-  OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
   NewLoopLatch->moveTripCountInfoFrom(OrigLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
