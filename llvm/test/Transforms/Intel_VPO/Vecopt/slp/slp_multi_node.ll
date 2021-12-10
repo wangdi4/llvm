@@ -110,9 +110,8 @@ define void @wrap_flags_simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; FIXME: Wraparound flags are wrong here.
-; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <2 x i32> <i32 42, i32 43>, [[TMP1]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw <2 x i32> [[TMP4]], [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
@@ -210,9 +209,8 @@ define void @wrap_flags_jr33142(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = mul nuw nsw <2 x i32> [[TMP1]], <i32 7, i32 7>
-; FIXME: Wraparound flags are wrong here.
-; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw <2 x i32> <i32 -1, i32 -1>, [[TMP3]]
-; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <2 x i32> [[TMP5]], [[TMP4]]
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> <i32 -1, i32 -1>, [[TMP3]]
+; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i32> [[TMP5]], [[TMP4]]
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[C]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP6]], <2 x i32>* [[TMP7]], align 4
@@ -228,7 +226,6 @@ entry:
   %b0 = load i32, i32 *%gep.b0
   %b1 = load i32, i32 *%gep.b1
 
-;
 ;     A0  7       A1  7
 ;      \ /         \ /
 ;   B0  *       B1  *
@@ -236,9 +233,8 @@ entry:
 ;     +  -1       +  -1
 ;      \ /         \ /
 ;       +           +
-;
 ; MultiNode is re-associating compute to "(B + -1) + (A * 7)", possibly to
-; shorten the dependency chain and fails to drop wraparound flags properly.
+; shorten the dependency chain, and used to keep incorrect wraparound flags.
 
   %lane0.mul = mul nuw nsw i32 %a0, 7
   %lane1.mul = mul nuw nsw i32 %a1, 7
@@ -265,11 +261,10 @@ define void @wrap_flags_alt_opcode(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; FIXME: Wraparound flags are wrong here.
-; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <2 x i32> [[TMP1]], <i32 42, i32 43>
-; CHECK-NEXT:    [[TMP5:%.*]] = sub nsw <2 x i32> [[TMP1]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP1]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> [[TMP1]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <2 x i32> [[TMP4]], <2 x i32> [[TMP5]], <2 x i32> <i32 0, i32 3>
-; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <2 x i32> [[TMP6]], [[TMP3]]
+; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i32> [[TMP6]], [[TMP3]]
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[C]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP7]], <2 x i32>* [[TMP8]], align 4
