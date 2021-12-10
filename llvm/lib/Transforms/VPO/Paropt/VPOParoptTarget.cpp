@@ -435,9 +435,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(
             ConstantInt::get(Type::getInt64Ty(C), Attributes1));
 
         uint64_t UseGPURedWGLimit =
-            (HasTeamsReduction && (AtomicFreeReduction ||
+            (HasTeamsReduction && AtomicFreeReduction &&
              (AtomicFreeReductionCtrl &
-              VPOParoptAtomicFreeReduction::Kind_Global)))
+              VPOParoptAtomicFreeReduction::Kind_Global))
                 ? AtomicFreeRedGlobalBufSize
                 : 0;
         KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
@@ -445,10 +445,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(
             ConstantInt::get(Type::getInt64Ty(C), UseGPURedWGLimit));
 
         uint64_t UseGPURedWILimit =
-            (HasTeamsReduction &&
-             (AtomicFreeReduction ||
-              (AtomicFreeReductionCtrl &
-               VPOParoptAtomicFreeReduction::Kind_Local)) &&
+            (AtomicFreeReduction &&
+             (AtomicFreeReductionCtrl &
+              VPOParoptAtomicFreeReduction::Kind_Local) &&
              UsedLocalTreeReduction.count(WT))
                 ? AtomicFreeRedLocalBufSize
                 : 0;

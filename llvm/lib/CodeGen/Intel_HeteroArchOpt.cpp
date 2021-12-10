@@ -52,7 +52,7 @@ static cl::opt<uint32_t>
 // apply Hetero Arch Optimization.
 static cl::opt<uint32_t>
     HeteroArchGatherCostThreshold("hetero-arch-gather-cost-threshold",
-                                  cl::init(45), cl::ReallyHidden);
+                                  cl::init(47), cl::ReallyHidden);
 
 // Defines the smallest density of gather instructions in order to
 // apply Hetero Arch Optimization.
@@ -186,7 +186,8 @@ void HeteroArchOpt::processLoop(Loop *L) {
   // Identify qualified candidates based on heuristics and cost model.
   for (auto LC : LoopCandidates) {
     auto LoopDepth = LC.first->getLoopDepth();
-    if (LoopDepth < HeteroArchLoopDepthThreshold)
+    // only interested in the innermost loop
+    if (LoopDepth < MaxLD)
       continue;
     auto NumBB = LC.first->getNumBlocks();
     if (NumBB > HeteroArchBBNumThreshold)

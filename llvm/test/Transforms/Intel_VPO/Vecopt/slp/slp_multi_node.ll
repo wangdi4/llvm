@@ -99,8 +99,107 @@ entry:
   ret void
 }
 
-define void @wrap_flags(i32 *%a, i32 *%b, i32 *%c) #0 {
-; CHECK-LABEL: @wrap_flags(
+define void @wrap_flags_simple(i32 *%a, i32 *%b, i32 *%c) #0 {
+; CHECK-LABEL: @wrap_flags_simple(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
+; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
+; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
+; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
+; FIXME: Wraparound flags are wrong here.
+; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <2 x i32> <i32 42, i32 43>, [[TMP1]]
+; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw <2 x i32> [[TMP4]], [[TMP3]]
+; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
+; CHECK-NEXT:    ret void
+;
+entry:
+  %gep.a0 = getelementptr i32, i32 *%a, i32 0
+  %gep.a1 = getelementptr i32, i32 *%a, i32 1
+  %gep.b0 = getelementptr i32, i32 *%b, i32 0
+  %gep.b1 = getelementptr i32, i32 *%b, i32 1
+  %a0 = load i32, i32 *%gep.a0
+  %a1 = load i32, i32 *%gep.a1
+  %b0 = load i32, i32 *%gep.b0
+  %b1 = load i32, i32 *%gep.b1
+
+;  A0  B0  C1  A1
+;   \ /     \ /
+;    +   C0  +   B1
+;     \ /     \ /
+;      +       +
+; MultiNode reorders B0<->C0.
+  %lane0.add1 = add nsw nuw i32 %a0, %b0
+  %lane0.add2 = add nsw nuw i32 %lane0.add1, 42
+
+  %lane1.add1 = add nsw nuw i32 43, %a1
+  %lane1.add2 = add nsw nuw i32 %lane1.add1, %b1
+
+  %gep1 = getelementptr inbounds i32, i32* %c, i64 1
+  store i32 %lane0.add2, i32* %c, align 4
+  store i32 %lane1.add2, i32* %gep1, align 4
+  ret void
+}
+
+; MultiNode only works on Add/Sub which means FP types aren't affected by the
+; wrap flags issue. Also, reassociation itself requires FMF on both operations,
+; so we'd have ability to infer something if MultiNodes will ever start
+; supporting FP.
+define void @fmf_flags_simple(float *%a, float *%b, float *%c) #0 {
+; CHECK-LABEL: @fmf_flags_simple(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr float, float* [[A:%.*]], i64 0
+; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr float, float* [[A]], i64 1
+; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr float, float* [[B:%.*]], i64 0
+; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr float, float* [[B]], i64 1
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[GEP_A0]] to <2 x float>*
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x float>, <2 x float>* [[TMP0]], align 4
+; CHECK-NEXT:    [[B0:%.*]] = load float, float* [[GEP_B0]], align 4
+; CHECK-NEXT:    [[B1:%.*]] = load float, float* [[GEP_B1]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> <float poison, float 4.300000e+01>, float [[B0]], i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = fadd fast <2 x float> [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x float> <float 4.200000e+01, float poison>, float [[B1]], i32 1
+; CHECK-NEXT:    [[TMP5:%.*]] = fadd fast <2 x float> [[TMP3]], [[TMP4]]
+; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds float, float* [[C:%.*]], i64 1
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast float* [[C]] to <2 x float>*
+; CHECK-NEXT:    store <2 x float> [[TMP5]], <2 x float>* [[TMP6]], align 4
+; CHECK-NEXT:    ret void
+;
+entry:
+  %gep.a0 = getelementptr float, float *%a, i64 0
+  %gep.a1 = getelementptr float, float *%a, i64 1
+  %gep.b0 = getelementptr float, float *%b, i64 0
+  %gep.b1 = getelementptr float, float *%b, i64 1
+  %a0 = load float, float *%gep.a0
+  %a1 = load float, float *%gep.a1
+  %b0 = load float, float *%gep.b0
+  %b1 = load float, float *%gep.b1
+
+;  A0  B0  C1  A1
+;   \ /     \ /
+;    +   C0  +   B1
+;     \ /     \ /
+;      +       +
+; No MultiNode transformation here so far.
+  %lane0.add1 = fadd fast float %a0, %b0
+  %lane0.add2 = fadd fast float %lane0.add1, 42.0
+
+  %lane1.add1 = fadd fast float 43.0, %a1
+  %lane1.add2 = fadd fast float %lane1.add1, %b1
+
+  %gep1 = getelementptr inbounds float, float* %c, i64 1
+  store float %lane0.add2, float* %c, align 4
+  store float %lane1.add2, float* %gep1, align 4
+  ret void
+}
+
+define void @wrap_flags_jr33142(i32 *%a, i32 *%b, i32 *%c) #0 {
+; CHECK-LABEL: @wrap_flags_jr33142(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
 ; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
@@ -148,6 +247,54 @@ entry:
 
   %lane0.add2 = add nsw i32 %lane0.add1, -1
   %lane1.add2 = add nsw i32 %lane1.add1, -1
+
+  %gep1 = getelementptr inbounds i32, i32* %c, i64 1
+  store i32 %lane0.add2, i32* %c, align 4
+  store i32 %lane1.add2, i32* %gep1, align 4
+  ret void
+}
+
+define void @wrap_flags_alt_opcode(i32 *%a, i32 *%b, i32 *%c) #0 {
+; CHECK-LABEL: @wrap_flags_alt_opcode(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
+; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
+; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
+; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
+; FIXME: Wraparound flags are wrong here.
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <2 x i32> [[TMP1]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP5:%.*]] = sub nsw <2 x i32> [[TMP1]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <2 x i32> [[TMP4]], <2 x i32> [[TMP5]], <2 x i32> <i32 0, i32 3>
+; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <2 x i32> [[TMP6]], [[TMP3]]
+; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    store <2 x i32> [[TMP7]], <2 x i32>* [[TMP8]], align 4
+; CHECK-NEXT:    ret void
+;
+entry:
+  %gep.a0 = getelementptr i32, i32 *%a, i32 0
+  %gep.a1 = getelementptr i32, i32 *%a, i32 1
+  %gep.b0 = getelementptr i32, i32 *%b, i32 0
+  %gep.b1 = getelementptr i32, i32 *%b, i32 1
+  %a0 = load i32, i32 *%gep.a0
+  %a1 = load i32, i32 *%gep.a1
+  %b0 = load i32, i32 *%gep.b0
+  %b1 = load i32, i32 *%gep.b1
+
+;  A0  B0  A1  C1
+;   \ /     \ /
+;    +   C0  -   B1
+;     \ /     \ /
+;      +       +
+  %lane0.add1 = add nsw i32 %a0, %b0
+  %lane0.add2 = add nsw i32 %lane0.add1, 42
+
+  %lane1.add1 = sub nsw i32 %a1, 43
+  %lane1.add2 = add nsw i32 %lane1.add1, %b1
 
   %gep1 = getelementptr inbounds i32, i32* %c, i64 1
   store i32 %lane0.add2, i32* %c, align 4

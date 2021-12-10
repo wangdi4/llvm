@@ -3340,6 +3340,14 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
   // Kernel-dependent flags
   auto KernelFlags = KernelProperties[DeviceId][Kernel].IndirectAccessFlags;
 
+  // Tracking of individually "map" variables is disabled.
+  // Unconditionally set indirect memory access, may be an overkill
+  // for now.  Future level0 would auto detect which memory is
+  // needs to be resident
+  KernelFlags |= (AllocKinds[DeviceId] == TARGET_ALLOC_DEVICE) ?
+                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE :
+                    ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+
   // Other flags due to users' memory allocation
   if (MemAllocInfo[DeviceId]->getNumImplicitArgs(TARGET_ALLOC_DEVICE) > 0)
     KernelFlags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
@@ -5701,34 +5709,6 @@ EXTERN int32_t __tgt_rtl_run_target_region_nowait(
     int32_t NumArgs, void *AsyncEvent) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
                              NumArgs, 1, 0, nullptr, AsyncEvent);
-}
-
-EXTERN int32_t __tgt_rtl_manifest_data_for_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtPtrs, size_t NumPtrs) {
-  if (NumPtrs == 0)
-    return OFFLOAD_SUCCESS;
-  ze_kernel_handle_t kernel = *static_cast<ze_kernel_handle_t *>(TgtEntryPtr);
-  std::unique_lock<std::mutex> dataLock(DeviceInfo->Mutexes[DeviceId]);
-
-  auto &flags =
-      DeviceInfo->KernelProperties[DeviceId][kernel].IndirectAccessFlags;
-
-  ScopedTimerTy tmManifestData(DeviceId, "DataManifest");
-
-  uint32_t flagsAll = ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST |
-                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED |
-                      ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-
-  for (size_t i = 0; i < NumPtrs && flags != flagsAll; i++) {
-    auto memType = DeviceInfo->getMemAllocType(TgtPtrs[i]);
-    if (memType == ZE_MEMORY_TYPE_HOST)
-      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
-    else if (memType == ZE_MEMORY_TYPE_SHARED)
-      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
-    else if (memType == ZE_MEMORY_TYPE_DEVICE)
-      flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-  }
-  return OFFLOAD_SUCCESS;
 }
 
 EXTERN void __tgt_rtl_get_offload_queue(int32_t DeviceId, void *Interop,
