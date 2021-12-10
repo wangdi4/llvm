@@ -329,12 +329,13 @@ DeviceTy::getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
 
 // Used by targetDataBegin, targetDataEnd, targetDataUpdate and target.
 // Return the target pointer begin (where the data will be moved).
-// Decrement the reference counter if called from targetDataEnd.
-void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
-                               bool UpdateRefCount, bool UseHoldRefCount,
-                               bool &IsHostPtr, bool MustContain,
-                               bool ForceDelete) {
-  void *rc = NULL;
+// Decrement the reference counter if called from targetDataEnd. The data is
+// excepted to be mapped already, so the result will never be new.
+TargetPointerResultTy
+DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
+                         bool UpdateRefCount, bool UseHoldRefCount,
+                         bool &IsHostPtr, bool MustContain, bool ForceDelete) {
+  void *TargetPointer = NULL;
   IsHostPtr = false;
   IsLast = false;
   DataMapMtx.lock();
@@ -376,12 +377,16 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
          "Size=%" PRId64 ", DynRefCount=%s%s, HoldRefCount=%s%s\n",
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size, HT.dynRefCountToStr().c_str(),
          DynRefCountAction, HT.holdRefCountToStr().c_str(), HoldRefCountAction);
+<<<<<<< HEAD
     rc = (void *)tp;
 #if INTEL_COLLAB
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
                   !managed_memory_supported()) ||
              is_device_accessible_ptr(HstPtrBegin)) {
 #else  // INTEL_COLLAB
+=======
+    TargetPointer = (void *)tp;
+>>>>>>> 7c8f4e7b85ed98497f37571d72609f39a8eed447
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
     // If the value isn't found in the mapping and unified shared memory
@@ -390,15 +395,20 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
        "memory\n",
        DPxPTR((uintptr_t)HstPtrBegin), Size);
+<<<<<<< HEAD
 #if INTEL_COLLAB
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
 #endif // INTEL_COLLAB
        IsHostPtr = true;
     rc = HstPtrBegin;
+=======
+    IsHostPtr = true;
+    TargetPointer = HstPtrBegin;
+>>>>>>> 7c8f4e7b85ed98497f37571d72609f39a8eed447
   }
 
   DataMapMtx.unlock();
-  return rc;
+  return {{false, IsHostPtr}, lr.Entry, TargetPointer};
 }
 
 // Return the target pointer begin (where the data will be moved).
