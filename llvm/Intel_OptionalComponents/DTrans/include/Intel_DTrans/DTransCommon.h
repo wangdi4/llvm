@@ -32,8 +32,9 @@ void initializeDTransPasses(PassRegistry&);
 // Analysis passes
 void initializeDTransAnalysisWrapperPass(PassRegistry&);
 void initializeDTransFieldModRefAnalysisWrapperPass(PassRegistry&);
+void initializeDTransFieldModRefOPAnalysisWrapperPass(PassRegistry&);
 void initializeDTransFieldModRefResultWrapperPass(PassRegistry&);
-void initializeDTransImmutableAnalysisWrapperPass(PassRegistry &);
+void initializeDTransImmutableAnalysisWrapperPass(PassRegistry&);
 void initializeDTransSafetyAnalyzerWrapperPass(PassRegistry&);
 
 // Transform passes

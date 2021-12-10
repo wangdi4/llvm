@@ -195,6 +195,7 @@ constexpr bool EnableResolveTypes = true;
 void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnalysisWrapperPass(PR);
   initializeDTransFieldModRefAnalysisWrapperPass(PR);
+  initializeDTransFieldModRefOPAnalysisWrapperPass(PR);
   initializeDTransFieldModRefResultWrapperPass(PR);
   initializeDTransSafetyAnalyzerWrapperPass(PR);
   initializeDTransImmutableAnalysisWrapperPass(PR);
@@ -414,6 +415,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransImmutableAnalysisWrapperPass();
   (void)llvm::createDTransSafetyAnalyzerTestWrapperPass();
   (void)llvm::createDTransFieldModRefAnalysisWrapperPass();
+  (void)llvm::createDTransFieldModRefOPAnalysisWrapperPass();
   (void)llvm::createDTransFieldModRefResultWrapperPass();
   (void)llvm::createDTransDynCloneWrapperPass();
   (void)llvm::createDTransDynCloneOPWrapperPass();
