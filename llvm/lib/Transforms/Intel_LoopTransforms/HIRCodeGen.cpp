@@ -1488,6 +1488,29 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     assert(Upper->getType() == Lp->getIVType() &&
            "IVtype does not match upper type");
 
+    if (Lp->isSIMD()) {
+      // Here we are when a simd loop was not vectorized. Need some special
+      // efforts to allow the post-loopopt vectorizer to accept the loops
+      // w/o additional adjustments of the bottom test. The acceptable form of
+      // the bottom test is as follows:
+      //
+      //     %upper_1 = %upper + 1
+      //     ...; loop body
+      //     %i_curr = load %i_var
+      //     %i_next = %i_curr + 1
+      //     %bot_test = icmp ne %i_next, %upper_1
+      //
+      // instead of usually generated:
+      //
+      //     ... ; loop body
+      //     %i_curr = load %i_var
+      //     %i_next = %i_curr + 1
+      //     %bot_test = icmp ne %i_curr, %upper
+      //
+      Upper =
+          Builder.CreateAdd(Upper, ConstantInt::getSigned(Upper->getType(), 1));
+    }
+
     LoopBB = BasicBlock::Create(F.getContext(), LName, &F);
 
     // explicit fallthru to loop, terminates current bblock
@@ -1559,9 +1582,16 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     // For step of 1, generate canonical comparison type of '!='. These are more
     // likely to be handled by LLVM passes like loop strength reduction.
     if (ConstStepVal && ConstStepVal->isOne()) {
-      // Generates: (i != upper).
-      EndCond =
-          Builder.CreateICmp(CmpInst::ICMP_NE, CurVar, Upper, "cond" + LName);
+      if (!Lp->isSIMD()) {
+        // Generates: (i != upper).
+        EndCond =
+            Builder.CreateICmp(CmpInst::ICMP_NE, CurVar, Upper, "cond" + LName);
+      } else {
+        // See the comment about simd loops above.
+        // Generates: (i+1 != upper1).
+        EndCond = Builder.CreateICmp(CmpInst::ICMP_NE, NextVar, Upper,
+                                     "cond" + LName);
+      }
     } else {
       // Generates: (i+1 <= upper).
       EndCond = Builder.CreateICmp(HasSignedIV ? CmpInst::ICMP_SLE
