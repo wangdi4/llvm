@@ -321,7 +321,6 @@ include(GNUInstallDirs)
 
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
 
@@ -335,10 +334,6 @@ if(NOT LLVM_TOOLS_INSTALL_DIR STREQUAL "bin")
     )
 endif()
 # end INTEL_CUSTOMIZATION
-=======
-set(LLVM_TOOLS_INSTALL_DIR "${CMAKE_INSTALL_BINDIR}" CACHE STRING
-    "Path for binary subdirectory (defaults to '${CMAKE_INSTALL_BINDIR}')")
->>>>>>> e3020877538ac8ef290d7b46b23efd39b1cb702e
 mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
 
 set(LLVM_UTILS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE STRING
