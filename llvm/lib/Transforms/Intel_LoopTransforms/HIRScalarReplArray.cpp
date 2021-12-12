@@ -1118,6 +1118,13 @@ bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
     return false;
   }
 
+  if (Lp->isSIMD()) {
+    // If the SIMD directive was left on a loop then it might be
+    // an attemp to vectorize it after loopopt. We skip such loops
+    // to not introduce unneeded recurrences.
+    return false;
+  }
+
   return true;
 }
 
