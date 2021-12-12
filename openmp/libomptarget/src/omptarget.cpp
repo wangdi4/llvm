@@ -17,13 +17,9 @@
 #include "rtl.h"
 
 #include <cassert>
-<<<<<<< HEAD
-#include <cstdint>
 #if INTEL_COLLAB
 #include <cstring>
 #endif // INTEL_COLLAB
-=======
->>>>>>> 8425bde82d0d96033ed74edbb94aba8e1dbee0c9
 #include <vector>
 
 int AsyncInfoTy::synchronize() {
@@ -1548,10 +1544,10 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
     } else {
 #if INTEL_COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ) {
-        TPR = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr);
+        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBase, sizeof(void *), IsLast, false, false, IsHostPtr);
         TgtBaseOffset = 0;
       } else {
-        TPR = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
+        TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
                                             /*UpdateRefCount=*/false,
                                             /*UseHoldRefCount=*/false, IsHostPtr);
         TgtBaseOffset =(intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
@@ -1559,18 +1555,11 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
 #else // INTEL COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)
         HstPtrBase = *reinterpret_cast<void **>(HstPtrBase);
-<<<<<<< HEAD
-      TPR = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
-                                  /*UpdateRefCount=*/false,
-                                  /*UseHoldRefCount=*/false, IsHostPtr);
-=======
       TgtPtrBegin = Device.getTgtPtrBegin(HstPtrBegin, ArgSizes[I], IsLast,
                                           /*UpdateRefCount=*/false,
                                           /*UseHoldRefCount=*/false, IsHostPtr);
->>>>>>> 8425bde82d0d96033ed74edbb94aba8e1dbee0c9
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
 #endif // INTEL_COLLAB
-      TgtPtrBegin = TPR.TargetPointer;
 #ifdef OMPTARGET_DEBUG
 #if INTEL_COLLAB
       DP("Obtained target argument (Begin: " DPxMOD ", Offset: %" PRId64

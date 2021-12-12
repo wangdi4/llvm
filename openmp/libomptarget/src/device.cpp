@@ -376,16 +376,12 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
          "Size=%" PRId64 ", DynRefCount=%s%s, HoldRefCount=%s%s\n",
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size, HT.dynRefCountToStr().c_str(),
          DynRefCountAction, HT.holdRefCountToStr().c_str(), HoldRefCountAction);
-<<<<<<< HEAD
-    TargetPointer = (void *)tp;
+    rc = (void *)tp;
 #if INTEL_COLLAB
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
                   !managed_memory_supported()) ||
              is_device_accessible_ptr(HstPtrBegin)) {
 #else  // INTEL_COLLAB
-=======
-    rc = (void *)tp;
->>>>>>> 8425bde82d0d96033ed74edbb94aba8e1dbee0c9
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
     // If the value isn't found in the mapping and unified shared memory
@@ -394,16 +390,11 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
        "memory\n",
        DPxPTR((uintptr_t)HstPtrBegin), Size);
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
 #endif // INTEL_COLLAB
        IsHostPtr = true;
-    TargetPointer = HstPtrBegin;
-=======
-    IsHostPtr = true;
     rc = HstPtrBegin;
->>>>>>> 8425bde82d0d96033ed74edbb94aba8e1dbee0c9
   }
 
   DataMapMtx.unlock();
