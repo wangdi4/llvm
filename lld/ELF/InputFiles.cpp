@@ -614,7 +614,6 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
       continue;
     const Elf_Shdr &sec = objSections[i];
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // If the section name starts with .gnu.lto then a GNU
     // LTO file was found.
@@ -623,11 +622,6 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
       this->isGNULTOFile = true;
 #endif
 
-    if (sec.sh_type == ELF::SHT_LLVM_CALL_GRAPH_PROFILE)
-      cgProfileSectionIndex = i;
-
-=======
->>>>>>> 1eaa9b4374f5559a2332b056ae66ddf78ad8bfff
     // SHF_EXCLUDE'ed sections are discarded by the linker. However,
     // if -r is given, we'll let the final link discard such sections.
     // This is compatible with GNU.
