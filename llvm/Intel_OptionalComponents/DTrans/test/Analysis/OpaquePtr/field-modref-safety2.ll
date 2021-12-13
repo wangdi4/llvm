@@ -87,6 +87,7 @@ done:
 ; CHECK: RWState: bottom
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: bottom
+; CHECK: End LLVMType: %struct.test02
 
 
 declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
