@@ -311,7 +311,12 @@ Instruction *llvm::FindEarliestCapture(const Value *V, Function &F,
 
 void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
                                 unsigned MaxUsesToExplore) {
-  assert(V->getType()->isPointerTy() && "Capture is for pointers only!");
+#if INTEL_CUSTOMIZATION
+  // xmain allows noalias on vector-of-pointers, need to adjust this assert
+  // accordingly.
+  assert(V->getType()->getScalarType()->isPointerTy()
+         && "Capture is for pointers only!");
+#endif // INTEL_CUSTOMIZATION
   if (MaxUsesToExplore == 0)
     MaxUsesToExplore = DefaultMaxUsesToExplore;
 
@@ -448,6 +453,7 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
     case Instruction::PHI:
     case Instruction::Select:
     case Instruction::AddrSpaceCast:
+    case Instruction::ExtractElement: // INTEL
       // The original value is not captured via this if the new value isn't.
       if (!AddUses(I))
         return;
