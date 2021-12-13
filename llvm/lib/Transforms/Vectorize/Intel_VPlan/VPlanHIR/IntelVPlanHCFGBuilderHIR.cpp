@@ -1531,18 +1531,15 @@ public:
   /// Fill in the data from list of explicit reductions
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurrValue) {
-    Type *RType = CurrValue.getRef()->getDestType();
-    assert(isa<PointerType>(RType) &&
-           "SIMD reduction descriptor DDRef is not pointer type.");
     // Get pointee type of descriptor ref
-    RType = cast<PointerType>(RType)->getElementType();
+    Type *RType = cast<RegDDRef>(CurrValue.getRef())->getBasePtrElementType();
     // Translate HIRLegality descriptor's UpdateInstructions to corresponding
     // VPInstructions
     for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {
-      VPValue *UpdateVPInst = Decomposer.getVPValueForNode(UpdateInst);
-      assert(UpdateVPInst && isa<VPInstruction>(UpdateVPInst) &&
-             "Instruction that updates reduction descriptor is not valid.");
-      Descriptor.addUpdateVPInst(cast<VPInstruction>(UpdateVPInst));
+      auto *VPInst =
+          dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst));
+      assert(VPInst && "Instruction updating reduction descriptor is invalid.");
+      Descriptor.addUpdateVPInst(VPInst);
     }
     // Set start value of descriptor (can be null)
     Descriptor.setStart(
