@@ -317,8 +317,6 @@ if (CMAKE_BUILD_TYPE AND
   message(FATAL_ERROR "Invalid value for CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 endif()
 
-include(GNUInstallDirs)
-
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
 # INTEL_CUSTOMIZATION
@@ -659,9 +657,9 @@ option (LLVM_ENABLE_SPHINX "Use Sphinx to generate llvm documentation." OFF)
 option (LLVM_ENABLE_OCAMLDOC "Build OCaml bindings documentation." ON)
 option (LLVM_ENABLE_BINDINGS "Build bindings." ON)
 
-set(LLVM_INSTALL_DOXYGEN_HTML_DIR "${CMAKE_INSTALL_DOCDIR}/llvm/doxygen-html"
+set(LLVM_INSTALL_DOXYGEN_HTML_DIR "share/doc/llvm/doxygen-html"
     CACHE STRING "Doxygen-generated HTML documentation install directory")
-set(LLVM_INSTALL_OCAMLDOC_HTML_DIR "${CMAKE_INSTALL_DOCDIR}/llvm/ocaml-html"
+set(LLVM_INSTALL_OCAMLDOC_HTML_DIR "share/doc/llvm/ocaml-html"
     CACHE STRING "OCamldoc-generated HTML documentation install directory")
 
 option (LLVM_BUILD_EXTERNAL_COMPILER_RT
@@ -1707,7 +1705,7 @@ endif()
 
 if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
   install(DIRECTORY include/llvm include/llvm-c
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    DESTINATION include
     COMPONENT llvm-headers
     FILES_MATCHING
     PATTERN "*.def"
@@ -1718,7 +1716,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
     )
 
   install(DIRECTORY ${LLVM_INCLUDE_DIR}/llvm ${LLVM_INCLUDE_DIR}/llvm-c
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    DESTINATION include
     COMPONENT llvm-headers
     FILES_MATCHING
     PATTERN "*.def"
@@ -1732,13 +1730,13 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
 
   if (LLVM_INSTALL_MODULEMAPS)
     install(DIRECTORY include/llvm include/llvm-c
-            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+            DESTINATION include
             COMPONENT llvm-headers
             FILES_MATCHING
             PATTERN "module.modulemap"
             )
     install(FILES include/llvm/module.install.modulemap
-            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/llvm"
+            DESTINATION include/llvm
             COMPONENT llvm-headers
             RENAME "module.extern.modulemap"
             )
