@@ -23,6 +23,7 @@
 #include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
@@ -2851,6 +2852,92 @@ public:
     // the AddressTaken safety check.
     bool HasICMatch = HasIndirectCallMatch(&Call);
     size_t CallArgCnt = Call.arg_size();
+
+    // Functions marked with callback metadata can take parameters and forward
+    // them to another function. These parameters need to be checked against
+    // the types expected for the functions they are forwarded to.
+    if (F && F->hasMetadata(LLVMContext::MD_callback)) {
+      // Populate the set of abstract calls that will be analyzed against the
+      // parameters passed to this callsite.
+      SmallVector<const Use *, 4> CallbackUses;
+      AbstractCallSite::getCallbackUses(Call, CallbackUses);
+      for (const Use *U : CallbackUses) {
+        AbstractCallSite ACS(U);
+        assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+
+        // Mark the value passed to the broker function that represents the
+        // callback target as a special argument so that it does not need to be
+        // processed when looping over the values of the callsite below.
+        Value *Op = ACS.getCalledOperand();
+        SpecialArguments.insert(Op);
+
+        // Check the values forwarded to the broker function to check whether
+        // their type matches the expected type.
+        Function *TargetFunc = ACS.getCalledFunction();
+        unsigned NumCalleeArgs = ACS.getNumArgOperands();
+        for (unsigned Idx = 0; Idx < NumCalleeArgs; ++Idx) {
+          // If the broker function passes the parameter through to the callee,
+          // get the parameter corresponding to the target function argument and
+          // check whether the types match.
+          Value *Param = ACS.getCallArgOperand(Idx);
+          if (Param) {
+            // This argument will be processed here because it is being
+            // forwarded to a call made by the callback routine. Mark it as a
+            // "special argument" so that it is not processed when iterating
+            // over the original function call arguments.
+            SpecialArguments.insert(Param);
+            ValueTypeInfo *ParamInfo =
+                PTA.getValueTypeInfo(&Call, ACS.getCallArgOperandNo(Idx));
+            // If there is no info for the parameter, the PtrTypeAnalyzer did
+            // not find it to be a type of interest.
+            if (!ParamInfo)
+              continue;
+
+            if (TargetFunc && Idx < TargetFunc->arg_size()) {
+              bool Mismatched = false;
+              DTransType *ParamDomTy =
+                  PTA.getDominantType(*ParamInfo, ValueTypeInfo::VAT_Use);
+              if (!ParamDomTy)
+                Mismatched = true;
+
+              Argument *FormalVal = TargetFunc->getArg(Idx);
+              ValueTypeInfo *FormalValInfo = PTA.getValueTypeInfo(FormalVal);
+              if (FormalValInfo) {
+                // Check the parameter type against the expected type
+                DTransType *ExpectedDomTy =
+                    PTA.getDominantType(*FormalValInfo, ValueTypeInfo::VAT_Use);
+                if (!ExpectedDomTy || ParamDomTy != ExpectedDomTy)
+                  Mismatched = true;
+              } else {
+                setAllAliasedTypeSafetyData(
+                    ParamInfo, dtrans::UnhandledUse,
+                    "Value passed to broker function argument of unknown type",
+                    &Call);
+              }
+
+              if (Mismatched) {
+                setAllAliasedTypeSafetyData(ParamInfo, dtrans::MismatchedArgUse,
+                                            "Value passed to broker function "
+                                            "argument of unknown type",
+                                            &Call);
+                if (FormalValInfo)
+                  setAllAliasedTypeSafetyData(FormalValInfo,
+                                              dtrans::MismatchedArgUse,
+                                              "Value passed to broker function "
+                                              "argument of unknown type",
+                                              &Call);
+              }
+            } else {
+              setAllAliasedTypeSafetyData(
+                  ParamInfo, dtrans::UnhandledUse,
+                  "Value passed to unanalyzable broker function",
+                  &Call);
+            }
+          }
+        }
+      }
+    }
+
     for (unsigned ArgNum = 0; ArgNum < CallArgCnt; ++ArgNum) {
       Value *Param = Call.getArgOperand(ArgNum);
       if (SpecialArguments.count(Param))
