@@ -85,7 +85,7 @@ define void @read01.1(%struct.test01* "intel_dtrans_func_index"="1" %st) !intel.
 ; CHECK: RWState: bottom
 ; CHECK: 2)Field DTrans Type: i64
 ; CHECK: RWState: computed
-
+; CHECK: End LLVMType: %struct.test01
 
 declare !intel.dtrans.func.type !14 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 

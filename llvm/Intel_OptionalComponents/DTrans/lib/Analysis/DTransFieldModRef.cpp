@@ -1466,6 +1466,9 @@ void DTransModRefAnalyzerImpl<InfoClass>::printCandidateInfo(StringRef Header) {
          << "\n";
       ++FNum;
     }
+    OS << "End LLVMType: ";
+    Ty->print(OS);
+    OS << "\n";
     OS.flush();
     return OutputVal;
   };

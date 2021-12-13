@@ -45,6 +45,7 @@ done:
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: computed
+; CHECK: End LLVMType: %struct.test01
 
 
 ; Test allocating storage for a field that does escape. This should disqualify
@@ -86,6 +87,7 @@ done:
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: bottom
+; CHECK: End LLVMType: %struct.test02
 
 
 ; Test allocating storage with alignment adjustments that does not escape. This
@@ -129,6 +131,7 @@ done:
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: computed
+; CHECK: End LLVMType: %struct.test03
 
 
 ; Test allocating storage with alignment adjustments that are not supported. This
@@ -174,6 +177,7 @@ done:
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: bottom
+; CHECK: End LLVMType: %struct.test04
 
 
 ; Test with GEP of non-pointer field that escapes
@@ -189,6 +193,7 @@ define internal void @test05(%struct.test05* "intel_dtrans_func_index"="1" %in, 
 ; CHECK: RWState: bottom
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: computed
+; CHECK: End LLVMType: %struct.test05
 
 
 ; Test with GEP of pointer field that escapes
@@ -204,6 +209,7 @@ define internal void @test06(%struct.test06* "intel_dtrans_func_index"="1" %in, 
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: bottom
+; CHECK: End LLVMType: %struct.test06
 
 
 ; Test with byte-flattened GEP forms that do NOT escape
@@ -226,6 +232,7 @@ define internal void @test07(%struct.test07* "intel_dtrans_func_index"="1" %in) 
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: computed
+; CHECK: End LLVMType: %struct.test07
 
 
 ; Test use of unsupported field types
@@ -240,6 +247,7 @@ define internal void @test08(%struct.test08* "intel_dtrans_func_index"="1" %in) 
 ; CHECK: RWState: bottom
 ; CHECK: 2)Field DTrans Type: i32
 ; CHECK: RWState: computed
+; CHECK: End LLVMType: %struct.test08
 
 
 %struct.test09 = type { i32, [2 x %struct.test09b] }
@@ -252,6 +260,7 @@ define internal void @test09(%struct.test09* "intel_dtrans_func_index"="1" %in) 
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: [2 x %struct.test09b]
 ; CHECK: RWState: bottom
+; CHECK: End LLVMType: %struct.test09
 
 ; %struct.test09b should have been disqualified due to array within
 ; %struct.test09.
@@ -277,6 +286,8 @@ test10_b1:
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: computed
+; CHECK: End LLVMType: %struct.test10
+
 
 ; Test that a field address used in a SelectInst is suported.
 %struct.test11 = type { i32*, i32* }
@@ -300,6 +311,7 @@ test11_entry:
 ; CHECK: RWState: computed
 ; CHECK: 1)Field DTrans Type: i32*
 ; CHECK: RWState: computed
+; CHECK: End LLVMType: %struct.test11
 
 
 declare !intel.dtrans.func.type !24 "intel_dtrans_func_index"="1" i8* @malloc(i64)
