@@ -817,7 +817,7 @@ def : InstRW<[GLCWriteResGroup37], (instregex "^FICOM(P?)(16|32)m$")>;
 def GLCWriteResGroup38 : SchedWriteRes<[GLCPort00_05]>;
 def : InstRW<[GLCWriteResGroup38], (instregex "^FINCSTP$",
                                               "^FNOP$",
-                                              "^MMX_P(ADD|SUB)(B|D|Q|W)irr$")>;
+                                              "^MMX_P(ADD|SUB)(B|D|Q|W)rr$")>;
 
 def GLCWriteResGroup39 : SchedWriteRes<[GLCPort00, GLCPort00_05, GLCPort02_03_11]> {
   let Latency = 7;
@@ -1013,22 +1013,22 @@ def GLCWriteResGroup66 : SchedWriteRes<[GLCPort02_03_11, GLCPort05]> {
   let Latency = 7;
   let NumMicroOps = 3;
 }
-def : InstRW<[GLCWriteResGroup66, ReadAfterVecLd], (instregex "^MMX_PACKSS(DW|WB)irm$",
-                                                              "^MMX_PACKUSWBirm$")>;
+def : InstRW<[GLCWriteResGroup66, ReadAfterVecLd], (instregex "^MMX_PACKSS(DW|WB)rm$",
+                                                              "^MMX_PACKUSWBrm$")>;
 
 def GLCWriteResGroup67 : SchedWriteRes<[GLCPort05]> {
   let ResourceCycles = [2];
   let Latency = 4;
   let NumMicroOps = 2;
 }
-def : InstRW<[GLCWriteResGroup67], (instregex "^MMX_PACKSS(DW|WB)irr$",
-                                              "^MMX_PACKUSWBirr$")>;
+def : InstRW<[GLCWriteResGroup67], (instregex "^MMX_PACKSS(DW|WB)rr$",
+                                              "^MMX_PACKUSWBrr$")>;
 
 def GLCWriteResGroup68 : SchedWriteRes<[GLCPort00_05, GLCPort02_03_11]> {
   let Latency = 7;
   let NumMicroOps = 2;
 }
-def : InstRW<[GLCWriteResGroup68, ReadAfterVecLd], (instregex "^MMX_P(ADD|SUB)(B|D|Q|W)irm$")>;
+def : InstRW<[GLCWriteResGroup68, ReadAfterVecLd], (instregex "^MMX_P(ADD|SUB)(B|D|Q|W)rm$")>;
 
 def GLCWriteResGroup69 : SchedWriteRes<[GLCPort00, GLCPort05]> {
   let Latency = 3;
