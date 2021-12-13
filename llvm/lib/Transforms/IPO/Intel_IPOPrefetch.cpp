@@ -1705,9 +1705,6 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   FunctionType *FTy = F->getFunctionType();
   std::vector<Type *> Params;
 
-  // Keep track of whether we have a live 'returned' argument
-  bool HasLiveReturnedArg = false;
-
   // Set up to build a new list of parameter attributes.
   SmallVector<AttributeSet, 8> ArgAttrVec;
   const AttributeList &PAL = F->getAttributes();
@@ -1725,7 +1722,6 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
       Params.push_back(I->getType());
       ArgAlive[i] = true;
       ArgAttrVec.push_back(PAL.getParamAttrs(i));
-      HasLiveReturnedArg |= PAL.hasParamAttr(i, Attribute::Returned);
     } else {
       ++NumArgumentsEliminated;
       LLVM_DEBUG(dbgs() << "Removing argument " << i << " (" << I->getName()
