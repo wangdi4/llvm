@@ -1221,6 +1221,46 @@ DDTest::classifyPair(const CanonExpr *Src, const HLLoop *SrcLoopNest,
   return Subscript::MIV;
 }
 
+// Given a single blob CE %t, which is marked SExt or ZExt, constuct sext(%t)
+// and zext(%t).
+const CanonExpr *DDTest::addExt(const CanonExpr *CE) {
+  // Only single blob canonical expression with  no IVs and demoninator=1 is
+  // allowed.
+  if (!CE->isSingleBlob(true /*allow conversion*/)) {
+    return CE;
+  }
+
+  if (!CE->isZExt() && !CE->isSExt()) {
+    return CE;
+  }
+
+  auto *DestTy = CE->getDestType();
+  auto &BU = CE->getBlobUtils();
+  auto Blob = BU.getBlob(CE->getSingleBlobIndex());
+  int64_t BlobCoeff = CE->getSingleBlobCoeff();
+
+  unsigned NewBlobIdx;
+  BlobTy NewBlob;
+  if (CE->isZExt() && (BlobCoeff > 0)) {
+    NewBlob = BU.createZeroExtendBlob(Blob, DestTy, true, &NewBlobIdx);
+  } else if (CE->isSExt()) {
+    NewBlob = BU.createSignExtendBlob(Blob, DestTy, true, &NewBlobIdx);
+  } else {
+    return CE;
+  }
+
+  auto *NewCE = CE->getCanonExprUtils().createStandAloneBlobCanonExpr(
+      NewBlobIdx, CE->getDefinedAtLevel());
+
+  if (BlobCoeff != 1) {
+    NewCE->setBlobCoeff(NewBlobIdx, BlobCoeff);
+  }
+
+  push(NewCE);
+
+  return NewCE;
+}
+
 // Given a CE of the form-
 // 4 * sext(%t) + c   or    sext(4 * %t) + c
 //
@@ -1341,7 +1381,22 @@ bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
 
   Y = stripExt(Y, StripSExt, StripZExtY);
 
+  if (isKnownPredicateImpl(Pred, X, Y))
+    return true;
+
+  // If result is still unknown, try to add SExt/ZExt to X and Y and compare
+  // them.
+
+  if (X->isZExt() || X->isSExt()) {
+    X = addExt(X);
+  }
+
+  if (Y->isZExt() || Y->isSExt()) {
+    Y = addExt(Y);
+  }
+
   return isKnownPredicateImpl(Pred, X, Y);
+
 }
 
 // All subscripts are all the same type.
