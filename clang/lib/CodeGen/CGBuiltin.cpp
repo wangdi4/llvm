@@ -22300,7 +22300,7 @@ static std::string createMangledSIMDName(const FunctionProtoType *ProtoType,
   }
 
   Out << '_' << FuncName;
-  return Out.str();
+  return Buffer;
 }
 
 namespace {

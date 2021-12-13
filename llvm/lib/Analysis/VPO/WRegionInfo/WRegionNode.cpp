@@ -1446,6 +1446,13 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
 
+#if INTEL_CUSTOMIZATION
+      if (!CurrentBundleDDRefs.empty() &&
+          WRegionUtils::supportsRegDDRefs(C.getClauseID()))
+        RI->setHOrig(CurrentBundleDDRefs[I]);
+      if (ClauseInfo.getIsF90DopeVector())
+        RI->setIsF90DopeVector(true);
+#endif // INTEL_CUSTOMIZATION
       if (IsTyped) {
         LLVMContext &Ctxt = V->getContext();
         RI->setIsTyped(true);
@@ -1460,13 +1467,6 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
      // reduction-modifier on a Reduction clause
      //   if (IsTask)
      //     RI->setIsTask(IsTask);
-#if INTEL_CUSTOMIZATION
-      if (!CurrentBundleDDRefs.empty() &&
-          WRegionUtils::supportsRegDDRefs(C.getClauseID()))
-        RI->setHOrig(CurrentBundleDDRefs[I]);
-      if (ClauseInfo.getIsF90DopeVector())
-        RI->setIsF90DopeVector(true);
-#endif // INTEL_CUSTOMIZATION
 
       if (ReductionKind == ReductionItem::WRNReductionUdr) {
         assert(((I + 4) < NumArgs) &&

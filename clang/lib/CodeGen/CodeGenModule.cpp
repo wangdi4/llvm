@@ -2445,50 +2445,48 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
 /// the function declaration, the "T" marker will be replaced with "PTR_TO_PTR".
 static std::string getDevPtrAttrString(const FunctionDecl *FD,
                                        const OMPDeclareVariantAttr *Attr) {
-  if (Attr->adjustArgsNeedDevicePtr_size() == 0)
-    return "";
+  std::string Buffer;
+  if (Attr->adjustArgsNeedDevicePtr_size()) {
+    llvm::raw_string_ostream OS(Buffer);
 
-  SmallString<128> Buffer;
-  llvm::raw_svector_ostream OS(Buffer);
-  // The adjustArgsNeedDevicePtr list contains the parameters specified with
-  // the 'need_device_ptr' adjust-op in the 'adjust_args' clause. So, if a
-  // parameter is present in the adjust args list, and its position as
-  // declared in the function parameter list equals the current parameter
-  // number, then a T (or PTR_TO_PTR) is emitted. Otherwse, an F.
-  for (unsigned N = 0, NumParams = FD->getNumParams(); N != NumParams; ++N) {
-    if (N != 0)
-      OS << ",";
-    auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(),
-        [&N](Expr *&E) {
-          E = E->IgnoreParenImpCasts();
-          if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
-            if (const auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl()))
-              if (N == PVD->getFunctionScopeIndex())
-                return true;
-          return false;
-        });
-    if (I != Attr->adjustArgsNeedDevicePtr_end()) {
-      if (FD->getParamDecl(N)->getType()->isReferenceType())
-        OS << "PTR_TO_PTR";
-      else
-        OS << "T";
-    } else
+    // The adjustArgsNeedDevicePtr list contains the parameters specified with
+    // the 'need_device_ptr' adjust-op in the 'adjust_args' clause. So, if a
+    // parameter is present in the adjust args list, and its position as
+    // declared in the function parameter list equals the current parameter
+    // number, then a T (or PTR_TO_PTR) is emitted. Otherwse, an F.
+    for (unsigned N = 0, NumParams = FD->getNumParams(); N != NumParams; ++N) {
+      if (N != 0)
+        OS << ",";
+      auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(), [&N](Expr *&E) {
+        E = E->IgnoreParenImpCasts();
+        if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
+          if (const auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl()))
+            if (N == PVD->getFunctionScopeIndex())
+              return true;
+        return false;
+      });
+      if (I != Attr->adjustArgsNeedDevicePtr_end()) {
+        if (FD->getParamDecl(N)->getType()->isReferenceType())
+          OS << "PTR_TO_PTR";
+        else
+          OS << "T";
+      } else
         OS << "F";
+    }
   }
-  return std::string(OS.str());
+  return Buffer;
 }
 
 static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
-  SmallString<128> Buffer;
-  llvm::raw_svector_ostream OS(Buffer);
-
+  std::string Buffer;
   if (Attr->appendArgs_size()) {
+    llvm::raw_string_ostream OS(Buffer);
     for (auto InterOpType : Attr->appendArgs()) {
       OS << ";interop:";
       OS << OMPDeclareVariantAttr::ConvertInteropTypeToStr(InterOpType);
     }
   }
-  return std::string(OS.str());
+  return Buffer;
 }
 
 /// For functions with related 'omp declare variant' functions, create
@@ -2628,8 +2626,8 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
     ItaniumMC.reset(
         ItaniumMangleContext::create(Context, Context.getDiagnostics()));
 
-  SmallString<256> Buffer;
-  llvm::raw_svector_ostream Out(Buffer);
+  std::string Buffer;
+  llvm::raw_string_ostream Out(Buffer);
   ItaniumMC->mangleName(GD, Out);
   assert(!Buffer.empty() && "Itanium name mangling failed.");
 
@@ -2644,7 +2642,7 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
         Out << "_" << GetStableMangledName(MainFileName);
     }
 
-  return std::string(Buffer.str());
+  return Buffer;
 }
 #endif // INTEL_COLLAB
 
