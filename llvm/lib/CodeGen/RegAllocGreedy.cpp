@@ -776,7 +776,7 @@ MCRegister RAGreedy::tryAssign(LiveInterval &VirtReg,
     return PhysReg;
 
 #if INTEL_CUSTOMIZATION
-  if (EnableHeuristic && getStage(VirtReg) == RS_Split2)
+  if (EnableHeuristic && ExtraInfo->getStage(VirtReg) == RS_Split2)
     return PhysReg; // Avoid (RS_Spill) trivial siblings get physical registers
 #endif // INTEL_CUSTOMIZATION
 
@@ -2002,10 +2002,9 @@ unsigned RAGreedy::tryBlockSplit(LiveInterval &VirtReg, AllocationOrder &Order,
   // Sort out the new intervals created by splitting. The remainder interval
   // goes straight to spilling, the new local ranges get to stay RS_New.
   for (unsigned I = 0, E = LREdit.size(); I != E; ++I) {
-<<<<<<< HEAD
    const LiveInterval &LI = LIS->getInterval(LREdit.get(I));
 #if INTEL_CUSTOMIZATION
-    if (getOrInitStage(LI.reg()) == RS_New && IntvMap[I] == 0) {
+    if (ExtraInfo->getOrInitStage(LI.reg()) == RS_New && IntvMap[I] == 0) {
       bool EnableMemoryStage = false;
       if (EnableHeuristic) {
         int LoopOpts = 0;
@@ -2026,16 +2025,11 @@ unsigned RAGreedy::tryBlockSplit(LiveInterval &VirtReg, AllocationOrder &Order,
           EnableMemoryStage = true;
       }
       if (EnableMemoryStage)
-        setStage(LI, RS_Memory);
+        ExtraInfo->setStage(LI, RS_Memory);
       else
-        setStage(LI, RS_Spill);
+        ExtraInfo->setStage(LI, RS_Spill);
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    const LiveInterval &LI = LIS->getInterval(LREdit.get(I));
-    if (ExtraInfo->getOrInitStage(LI.reg()) == RS_New && IntvMap[I] == 0)
-      ExtraInfo->setStage(LI, RS_Spill);
->>>>>>> 657adcb0779d2d119737f2ca557a87456024a5ac
   }
 
   if (VerifyEnabled)
