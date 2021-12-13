@@ -659,7 +659,7 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
 static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
                               IRBuilder<> &Builder, const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
-  Type *BasePtrTy = GEP->getSourceElementType()->getScalarType();
+  Type *BasePtrTy = GEP->getSourceElementType();
   unsigned LoadCount = 0;
   unsigned ConstCount = 0;
 
