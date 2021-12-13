@@ -772,8 +772,16 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         }
       }
     }
+    // -falgn-stack=maintain-16-byte means -mstack-alignment=16 -mstackrealign
+    // FIXME: Option processing in this manner doesn't allow for full override
+    // with -falign-stack=assume-?-byte values.
+    if (A->getOption().matches(options::OPT_falign_stack_EQ_maintain_16_byte)) {
+      DAL->AddJoinedArg(A, Opts.getOption(options::OPT_mstack_alignment), "16");
+      DAL->getLastArg(options::OPT_mstack_alignment)->claim();
+      DAL->AddFlagArg(A, Opts.getOption(options::OPT_mstackrealign));
+      DAL->getLastArg(options::OPT_mstackrealign)->claim();
+    }
 #endif // INTEL_CUSTOMIZATION
-
 
     // Pick up inputs via the -- option.
     if (A->getOption().matches(options::OPT__DASH_DASH)) {
