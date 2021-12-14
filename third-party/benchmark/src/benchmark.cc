@@ -377,17 +377,7 @@ void RunBenchmarks(const std::vector<BenchmarkInstance>& benchmarks,
 
 // Disable deprecated warnings temporarily because we need to reference
 // CSVReporter but don't want to trigger -Werror=-Wdeprecated-declarations
-<<<<<<< HEAD
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(__INTEL_LLVM_COMPILER)                         // INTEL
-#pragma clang diagnostic push                                // INTEL
-#pragma clang diagnostic ignored "-Wdeprecated-declarations" // INTEL
-#endif
-=======
 BENCHMARK_DISABLE_DEPRECATED_WARNING
->>>>>>> a290770fa848cfe9b46dcc2c44e06e15cafd0f23
 
 std::unique_ptr<BenchmarkReporter> CreateReporter(
     std::string const& name, ConsoleReporter::OutputOptions output_opts) {
@@ -404,15 +394,7 @@ std::unique_ptr<BenchmarkReporter> CreateReporter(
   }
 }
 
-<<<<<<< HEAD
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#elif defined(__INTEL_LLVM_COMPILER) // INTEL
-#pragma clang diagnostic pop         // INTEL
-#endif
-=======
 BENCHMARK_RESTORE_DEPRECATED_WARNING
->>>>>>> a290770fa848cfe9b46dcc2c44e06e15cafd0f23
 
 }  // end namespace
 
