@@ -69,6 +69,7 @@
 ; CHECK-NEXT:     BuiltinImportLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
+; CHECK:          Function Integration/Inlining
 ; CHECK:          Dead Argument Elimination
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          CleanupWrappedKernelLegacy
