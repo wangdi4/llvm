@@ -12595,15 +12595,12 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   bool IsCompareCapture = false;
 #endif // INTEL_COLLAB
   for (const OMPClause *C : Clauses) {
-<<<<<<< HEAD
-    switch (C->getClauseKind()) {
-    case OMPC_read:
-    case OMPC_write:
-    case OMPC_update:
+    if (C->getClauseKind() == OMPC_read || C->getClauseKind() == OMPC_write ||
+        C->getClauseKind() == OMPC_update ||
 #if INTEL_COLLAB
-    case OMPC_compare:
+        C->getClauseKind() == OMPC_compare ||
 #endif // INTEL_COLLAB
-    case OMPC_capture: {
+        C->getClauseKind() == OMPC_capture) {
 #if INTEL_COLLAB
       if (!IsCompareCapture &&
           ((C->getClauseKind() == OMPC_capture && AtomicKind == OMPC_compare) ||
@@ -12612,11 +12609,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
         IsCompareCapture = true;
       } else
 #endif // INTEL_COLLAB
-=======
-    if (C->getClauseKind() == OMPC_read || C->getClauseKind() == OMPC_write ||
-        C->getClauseKind() == OMPC_update ||
-        C->getClauseKind() == OMPC_capture) {
->>>>>>> d6449d0d08222cbe0789cd67091f27d2061e7f9e
       if (AtomicKind != OMPC_unknown) {
         Diag(C->getBeginLoc(), diag::err_omp_atomic_several_clauses)
             << SourceRange(C->getBeginLoc(), C->getEndLoc());
