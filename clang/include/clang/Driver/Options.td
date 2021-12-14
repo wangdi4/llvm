@@ -3783,6 +3783,10 @@ def falign_stack_EQ_assume_16_byte : Flag<["-"], "falign-stack=assume-16-byte">,
 def falign_stack_EQ_assume_4_byte : Flag<["-"], "falign-stack=assume-4-byte">,
   Group<f_Group>, Alias<mstack_alignment>, AliasArgs<["4"]>,
   HelpText<"Assume the stack is aligned on 4-byte boundaries">;
+def falign_stack_EQ_maintain_16_byte
+  : Flag<["-"], "falign-stack=maintain-16-byte">, Group<f_Group>,
+    HelpText<"Do not assume any alignment, but maintain alignment in case the "
+    "stack is already aligned">;
 #endif // INTEL_CUSTOMIZATION
 def mstack_probe_size : Joined<["-"], "mstack-probe-size=">, Group<m_Group>, Flags<[CC1Option]>,
   HelpText<"Set the stack probe size">,

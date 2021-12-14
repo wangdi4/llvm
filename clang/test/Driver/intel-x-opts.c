@@ -276,3 +276,8 @@
 // OVERRIDE_ARCH_X: overriding '-march=nocona' option with '-x broadwell'
 // OVERRIDE_QX_ARCH: overriding '/Qxbroadwell' option with '/arch:AVX2'
 // OVERRIDE_ARCH_QX: overriding '/arch:AVX2' option with '/Qxbroadwell'
+
+// No override diagnostic with the same option
+// RUN: %clang -### -xbroadwell -xbroadwell -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=OVERRIDE_SAME %s
+// OVERRIDE_SAME-NOT: overriding {{.*}} option with

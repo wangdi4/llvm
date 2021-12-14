@@ -529,6 +529,8 @@
 // -falign-stack
 // RUN: %clang -### -falign-stack=assume-4-byte %s 2>&1 | FileCheck %s -check-prefix CHECK-ALIGN-STACK -DBYTESIZE=4
 // RUN: %clang -### -falign-stack=assume-16-byte %s 2>&1 | FileCheck %s -check-prefix CHECK-ALIGN-STACK -DBYTESIZE=16
+// RUN: %clang -### -falign-stack=maintain-16-byte %s 2>&1 | FileCheck %s -check-prefixes=CHECK-ALIGN-STACK-MAINTAIN,CHECK-ALIGN-STACK -DBYTESIZE=16
+// CHECK-ALIGN-STACK-MAINTAIN: "-mstackrealign"
 // CHECK-ALIGN-STACK: "-mstack-alignment=[[BYTESIZE]]"
 
 // Behavior with /Qcf-protection option
