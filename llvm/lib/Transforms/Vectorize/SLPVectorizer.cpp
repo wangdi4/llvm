@@ -1178,7 +1178,7 @@ public:
     void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
       std::swap(OpsVec[OpIdx1][Lane], OpsVec[OpIdx2][Lane]);
     }
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
     // We eventually want to completely switch to community version of
     // Look-ahead scores calculation stuff. For now enable access to
@@ -1186,18 +1186,11 @@ public:
     // outside of the class.
   public:
 #endif // INTEL_CUSTOMIZATION
-    // The hard-coded scores listed here are not very important. When computing
-    // the scores of matching one sub-tree with another, we are basically
-    // counting the number of values that are matching. So even if all scores
-    // are set to 1, we would still get a decent matching result.
-=======
-
     // The hard-coded scores listed here are not very important, though it shall
     // be higher for better matches to improve the resulting cost. When
     // computing the scores of matching one sub-tree with another, we are
     // basically counting the number of values that are matching. So even if all
     // scores are set to 1, we would still get a decent matching result.
->>>>>>> bd053769867f988500dc1b451c6439eefcf7643f
     // However, sometimes we have to break ties. For example we may have to
     // choose between matching loads vs matching opcodes. This is what these
     // scores are helping us with: they provide the order of preference. Also,
@@ -1313,12 +1306,8 @@ public:
       return VLOperands::ScoreFail;
     }
 
-<<<<<<< HEAD
   private: // INTEL
-    /// Holds the values and their lane that are taking part in the look-ahead
-=======
     /// Holds the values and their lanes that are taking part in the look-ahead
->>>>>>> bd053769867f988500dc1b451c6439eefcf7643f
     /// score calculation. This is used in the external uses cost calculation.
     /// Need to hold all the lanes in case of splat/broadcast at least to
     /// correctly check for the use in the different lane.
@@ -4531,7 +4520,7 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
 // and we count the number of matches.
 int BoUpSLP::getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
   // Get the shallow score of V1 and V2.
-  int ShallowScoreAtThisLevel = VLOperands::getShallowScore(V1, V2, *DL, *SE);
+  int ShallowScoreAtThisLevel = VLOperands::getShallowScore(V1, V2, *DL, *SE, CurrentMultiNode->getNumLanes());
 
   // If reached MaxLevel,
   // or if V1 and V2 are not instructions,
@@ -4918,7 +4907,7 @@ int BoUpSLP::getMNScore() const {
       if (OperandL->getValue() == OperandR->getValue() ||
           VLOperands::getShallowScore(OperandL->getValue(),
                                       OperandR->getValue(), *DL,
-                                      *SE) == VLOperands::ScoreFail) {
+                                      *SE, CurrentMultiNode->getNumLanes()) == VLOperands::ScoreFail) {
         AreConsecutive = false;
         break;
       }
