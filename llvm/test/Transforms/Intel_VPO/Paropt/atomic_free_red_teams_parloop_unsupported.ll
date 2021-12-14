@@ -24,9 +24,6 @@ target triple = "spir64"
 target device_triples = "spir64"
 
 
-; CHECK-NOT: red_buf
-; CHECK-NOT: teams_counter
-; CHECK-NOT: atomic.free.red.local
 ; CHECK-NOT: atomic.free.red.global
 
 ; Function Attrs: convergent noinline nounwind

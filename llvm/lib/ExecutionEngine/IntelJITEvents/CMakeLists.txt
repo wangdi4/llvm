@@ -2,7 +2,7 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/.. )
 
 if(NOT DEFINED ITTAPI_GIT_REPOSITORY)
   if(INTEL_CUSTOMIZATION)
-    set(ITTAPI_GIT_REPOSITORY ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-ittapi)
+    set(ITTAPI_GIT_REPOSITORY https://github.com/intel-innersource/applications.compilers.source.ittapi)
     if( DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "" )
       set(ITTAPI_GIT_REPOSITORY  $ENV{ICS_GIT_MIRROR}/dpd_icl-ittapi)
       STRING(REGEX REPLACE "\\\\" "/" ITTAPI_GIT_REPOSITORY "${ITTAPI_GIT_REPOSITORY}")

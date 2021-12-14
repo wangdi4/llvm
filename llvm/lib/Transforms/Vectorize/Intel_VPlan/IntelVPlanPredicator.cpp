@@ -321,6 +321,11 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     return It->second[AtBlock];
   }
 
+  LLVM_DEBUG(dbgs() << "Propagating PredicateTerm "
+                    << Term.OriginBlock->getName() << " "
+                    << Term.Condition->getName() << " Negate: " << Term.Negate
+                    << "\n");
+
   VPValue *Val = createDefiningValueForPredicateTerm(Term);
   assert(Val && "Value for PredicateTerm wasn't created!");
 
@@ -335,10 +340,19 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
   computeLiveInsForIDF(Term, LiveInBlocks);
 
+  LLVM_DEBUG({
+    dbgs() << "LiveInBlocks:\n";
+    for (auto *BB : LiveInBlocks)
+      dbgs() << BB->getName() << " ";
+  });
+
   VPlanForwardIDFCalculator IDF(*Plan.getDT());
   IDF.setDefiningBlocks(DefBlocks);
   IDF.setLiveInBlocks(LiveInBlocks);
   IDF.calculate(IDFPHIBlocks);
+
+  LLVM_DEBUG(dbgs() << "\nIDFPHIBlocks:\n";
+             for (auto *BB : IDFPHIBlocks) { dbgs() << BB->getName() << " "; } dbgs() << "\n");
 
   DenseMap<VPBasicBlock *, VPValue *> &LiveValueMap =
       PredicateTerm2LiveInMap[Term];
@@ -531,12 +545,15 @@ void VPlanPredicator::linearizeRegion() {
     // is correct.
     ++CurrBlockIndex;
 
-   // Process incoming edges to the CurrBlock. Once this iterations finishes,
-   // CurrBlock's incoming edges are properly set. Also create new basic blocks
-   // if CurrBlock is a point of re-convergence of several divergent conditions
-   // (or even of a single one if uniform incoming edges are present). Blocks
-   // that would need post-processing for blends creation are marked as such as
-   // well.
+    LLVM_DEBUG(dbgs() << "Processing incoming edges to " << CurrBlock->getName()
+                      << "\n");
+
+    // Process incoming edges to the CurrBlock. Once this iterations finishes,
+    // CurrBlock's incoming edges are properly set. Also create new basic blocks
+    // if CurrBlock is a point of re-convergence of several divergent conditions
+    // (or even of a single one if uniform incoming edges are present). Blocks
+    // that would need post-processing for blends creation are marked as such as
+    // well.
     SmallVector<VPBasicBlock *, 4> UniformEdges;
     SmallVector<VPBasicBlock *, 4> RemainingDivergentEdges;
     SmallVectorImpl<VPBasicBlock *> &RemovedDivergentEdges =
@@ -563,6 +580,7 @@ void VPlanPredicator::linearizeRegion() {
 
       // No more fixups needed, al predecessors are uniform edges that we didn't
       // touch.
+      LLVM_DEBUG(dbgs() << "No fixup needed\n");
       continue;
     }
 
@@ -577,7 +595,9 @@ void VPlanPredicator::linearizeRegion() {
           Src->setTerminator(TargetToKeep);
         };
 
+    LLVM_DEBUG(dbgs() << "Remaining divergent edges:");
     for (auto *Pred : RemainingDivergentEdges) {
+      LLVM_DEBUG(dbgs() << " " << Pred->getName());
       // The edge is in the linearized subgraph and is processed first. Keep it,
       // but remove other successors of the pred to perform linearization.
       assert(!shouldPreserveOutgoingEdges(Pred) &&
@@ -585,7 +605,9 @@ void VPlanPredicator::linearizeRegion() {
       DropDivergentEdgesFromAndLinkWith(Pred, CurrBlock);
     }
 
+    LLVM_DEBUG(dbgs() << "\nAlready dropped divergent edges:");
     for (auto *Pred : RemovedDivergentEdges) {
+      LLVM_DEBUG(dbgs() << " " << Pred->getName());
       // Check if Pred is in the same linearized sub-graph that the CurrBlock
       // is. In other words, do we reach any of the remaining edges when going
       // through Pred's single successors chain?
@@ -638,6 +660,8 @@ void VPlanPredicator::linearizeRegion() {
         DropDivergentEdgesFromAndLinkWith(LastProcessed, CurrBlock);
       }
     }
+
+    LLVM_DEBUG(dbgs() << "\n");
 
     // All incoming edges to CurrBlock are correct now.
     assert(none_of(CurrBlock->getPredecessors(),

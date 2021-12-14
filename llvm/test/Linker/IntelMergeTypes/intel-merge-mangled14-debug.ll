@@ -1,12 +1,10 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-dtrans-types -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled02-a.ll %S/Inputs/intel-merge-mangled02-b.ll %S/Inputs/intel-merge-mangled02-c.ll %S/Inputs/intel-merge-mangled02-d.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-quick-module-verify -irmover-type-merging=false -debug-only=irmover-dtrans-types -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled02-a.ll %S/Inputs/intel-merge-mangled02-b.ll %S/Inputs/intel-merge-mangled02-c.ll %S/Inputs/intel-merge-mangled02-d.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types were correctly merged when templates
-; are used. It is the same test case as intel-merge-mangled02.ll but checks
-; the debug information. The goal is to check the IR mover correctly merged
-; the different versions of the template class TestClass and it doesn't
-; generate alternate names. It was generated from the following example:
+; are used. It is the same test case as intel-merge-mangled14.ll but checks
+; the debug information. It was generated from the following example:
 
 ; simple.cpp:
 ;   #include "simple.h"
@@ -82,6 +80,8 @@
 ; CHECK:     Destination type: None
 ; CHECK:   Source type: %class._ZTS9TestClassIdE.TestClass = type { double }
 ; CHECK:     Destination type: None
+; CHECK: Running destination module simple verifier
+; CHECK: Destination module passed simple verification
 ; CHECK: -------------------------------------------------------
 
 ; CHECK: Merging types from source module:
@@ -90,18 +90,24 @@
 ; CHECK:     Destination type: %class._ZTS9TestClassIiE.TestClass = type { i32 }
 ; CHECK:   Source type: %class._ZTS9TestClassIdE.TestClass.1 = type { double }
 ; CHECK:     Destination type: %class._ZTS9TestClassIdE.TestClass = type { double }
+; CHECK: Running destination module simple verifier
+; CHECK: Destination module passed simple verification
 ; CHECK: -------------------------------------------------------
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: Inputs/intel-merge-mangled02-c.ll
 ; CHECK:   Source type: %class._ZTS9TestClassIiE.TestClass.2 = type { i32 }
 ; CHECK:     Destination type: %class._ZTS9TestClassIiE.TestClass = type { i32 }
+; CHECK: Running destination module simple verifier
+; CHECK: Destination module passed simple verification
 ; CHECK: -------------------------------------------------------
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: Inputs/intel-merge-mangled02-d.ll
 ; CHECK:   Source type: %class._ZTS9TestClassIdE.TestClass.3 = type { double }
 ; CHECK:     Destination type: %class._ZTS9TestClassIdE.TestClass = type { double }
+; CHECK: Running destination module simple verifier
+; CHECK: Destination module passed simple verification
 ; CHECK: -------------------------------------------------------
 
 

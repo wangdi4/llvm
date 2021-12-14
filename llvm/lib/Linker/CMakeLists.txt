@@ -19,7 +19,7 @@ add_llvm_component_library(LLVMLinker
 # INTEL_FEATURE_SW_DTRANS
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
 if (p)
-  target_link_libraries(LLVMLinker PRIVATE LLVMDemangle
+  target_link_libraries(LLVMLinker PUBLIC LLVMDemangle
                                            LLVMIntel_DTrans
                                            LLVMIntel_DTransAnalysis)
 endif()

@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -irmover-enable-merge-by-mangled-names -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-mangled-names -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled03-a.ll %S/Inputs/intel-merge-mangled03-b.ll %S/Inputs/intel-merge-mangled03-c.ll %S/Inputs/intel-merge-mangled03-d.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-dtrans-types -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled03-a.ll %S/Inputs/intel-merge-mangled03-b.ll %S/Inputs/intel-merge-mangled03-c.ll %S/Inputs/intel-merge-mangled03-d.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types were correctly merged when there are
 ; anonymous structures inside the class. It is the same test case as
