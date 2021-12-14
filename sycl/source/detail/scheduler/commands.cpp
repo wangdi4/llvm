@@ -169,6 +169,13 @@ getPiEvents(const std::vector<EventImplPtr> &EventImpls) {
   return RetPiEvents;
 }
 
+static void flushCrossQueueDeps(const std::vector<EventImplPtr> &EventImpls,
+                                const QueueImplPtr &Queue) {
+  for (auto &EventImpl : EventImpls) {
+    EventImpl->flushIfNeeded(Queue);
+  }
+}
+
 class DispatchHostTask {
   ExecCGCommand *MThisCmd;
   std::vector<interop_handle::ReqToMem> MReqToMem;
@@ -325,6 +332,7 @@ void Command::waitForEvents(QueueImplPtr Queue,
 #endif
 
       std::vector<RT::PiEvent> RawEvents = getPiEvents(EventImpls);
+      flushCrossQueueDeps(EventImpls, getWorkerQueue());
       const detail::plugin &Plugin = Queue->getPlugin();
       Plugin.call<PiApiKind::piEnqueueEventsWait>(
           Queue->getHandleRef(), RawEvents.size(), &RawEvents[0], &Event);
@@ -1072,6 +1080,7 @@ cl_int MapMemObject::enqueueImp() {
   waitForPreparedHostEvents();
   std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
   std::vector<RT::PiEvent> RawEvents = getPiEvents(EventImpls);
+  flushCrossQueueDeps(EventImpls, getWorkerQueue());
 
   RT::PiEvent &Event = MEvent->getHandleRef();
   *MDstPtr = MemoryManager::map(
@@ -1149,6 +1158,7 @@ cl_int UnMapMemObject::enqueueImp() {
   waitForPreparedHostEvents();
   std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
   std::vector<RT::PiEvent> RawEvents = getPiEvents(EventImpls);
+  flushCrossQueueDeps(EventImpls, getWorkerQueue());
 
   RT::PiEvent &Event = MEvent->getHandleRef();
   MemoryManager::unmap(MDstAllocaCmd->getSYCLMemObj(),
@@ -1249,6 +1259,7 @@ cl_int MemCpyCommand::enqueueImp() {
   RT::PiEvent &Event = MEvent->getHandleRef();
 
   auto RawEvents = getPiEvents(EventImpls);
+  flushCrossQueueDeps(EventImpls, getWorkerQueue());
 
   MemoryManager::copy(
       MSrcAllocaCmd->getSYCLMemObj(), MSrcAllocaCmd->getMemAllocation(),
@@ -1399,6 +1410,7 @@ cl_int MemCpyCommandHost::enqueueImp() {
     return CL_SUCCESS;
   }
 
+  flushCrossQueueDeps(EventImpls, getWorkerQueue());
   MemoryManager::copy(
       MSrcAllocaCmd->getSYCLMemObj(), MSrcAllocaCmd->getMemAllocation(),
       MSrcQueue, MSrcReq.MDims, MSrcReq.MMemoryRange, MSrcReq.MAccessRange,
@@ -1997,6 +2009,7 @@ cl_int ExecCGCommand::enqueueImp() {
     waitForPreparedHostEvents();
   std::vector<EventImplPtr> EventImpls = MPreparedDepsEvents;
   auto RawEvents = getPiEvents(EventImpls);
+  flushCrossQueueDeps(EventImpls, getWorkerQueue());
 
   RT::PiEvent &Event = MEvent->getHandleRef();
 
