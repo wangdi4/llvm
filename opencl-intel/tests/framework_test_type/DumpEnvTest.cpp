@@ -101,16 +101,6 @@ protected:
   std::vector<std::pair<std::string, std::string>> m_env;
 };
 
-TEST_F(DumpEnvTest, StatsAndPrefix) {
-  m_env = {{"VOLCANO_STATS", "InstCounter"},
-           {"CL_CONFIG_DUMP_FILE_NAME_PREFIX", "StatFile"}};
-  std::string prefix("StatFile");
-  std::vector<std::string> suffix = {".ll"};
-  std::vector<std::vector<std::string>> patterns = {
-      {m_kernelName, "InstCounter.CanVect"}};
-  ASSERT_NO_FATAL_FAILURE(testBody(prefix, suffix, patterns));
-}
-
 TEST_F(DumpEnvTest, StatsEqualizerAll) {
   m_env = {{"VOLCANO_EQUALIZER_STATS", "All"}};
   std::vector<std::string> suffix = {"_eq.ll"};

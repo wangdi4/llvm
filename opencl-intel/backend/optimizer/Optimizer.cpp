@@ -30,6 +30,9 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/DiagnosticHandler.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Metadata.h"
@@ -47,6 +50,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
@@ -93,7 +97,6 @@ static cl::opt<bool>
                                 cl::Hidden,
                                 cl::desc("Enable native subgroup functionality"));
 
-using TStringToVFState = Intel::OpenCL::DeviceBackend::TStringToVFState;
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
@@ -104,8 +107,6 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
 llvm::Pass *createOCLVecClonePass(const CPUDetect *, bool IsOCL);
-llvm::Pass *createOCLVPOCheckVFPass(const intel::OptimizerConfig &Config,
-                                    TStringToVFState &kernelVFStates);
 llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
@@ -443,8 +444,7 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
-    bool IsSYCL, bool IsOMP, TStringToVFState &kernelVFStates,
-    DebuggingServiceType debugType) {
+    bool IsSYCL, bool IsOMP, DebuggingServiceType debugType) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
@@ -543,6 +543,9 @@ static void populatePassesPostFailCheck(
   if (EnableNativeOpenCLSubgroups)
     PM.add(createKernelSubGroupInfoPass());
 
+  VectorVariant::ISAClass ISA =
+      VectorizerCommon::getCPUIdISA(pConfig->GetCpuId());
+
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
       && OptLevel != 0) {
@@ -587,11 +590,13 @@ static void populatePassesPostFailCheck(
         // Calculate VL.
         PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));
 
-        // Do all vectorization factor checks here.
-        PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
-
-        VectorVariant::ISAClass ISA =
-            VectorizerCommon::getCPUIdISA(pConfig->GetCpuId());
+        // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
+        // TODO: we should run SetVectorizationFactor unconditionally when we
+        // get rid of WeightedInstCounter. Currently we're setting the initial
+        // VF ('recommended_vector_length' metadata) in WeightedInstCounter
+        // pass, SetVectorizationFactor must run after it to avoid overwriting
+        // the fine-tuned VF.
+        PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
         PM.add(createVectorVariantLoweringLegacyPass(ISA));
         PM.add(createCreateSimdVariantPropagationLegacyPass());
         PM.add(createSGSizeCollectorLegacyPass(ISA));
@@ -656,7 +661,7 @@ static void populatePassesPostFailCheck(
     // prepare subgroup_emu_size for sub-group emulation.
     if (UseVplan && EnableNativeOpenCLSubgroups) {
       PM.add(createOCLReqdSubGroupSizePass());
-      PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
+      PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
     }
   }
 #ifdef _DEBUG
@@ -910,14 +915,41 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_RtlModules,
-                              OptLevel, pConfig, m_undefinedExternalFunctions,
-                              isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-                              UnrollLoops, EnableVPlan, m_IsSYCL, m_IsOMP,
-                              m_kernelToVFState, m_debugType);
+  populatePassesPostFailCheck(
+      m_PostFailCheckPM, pModule, m_RtlModules, OptLevel, pConfig,
+      m_undefinedExternalFunctions, isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+      UnrollLoops, EnableVPlan, m_IsSYCL, m_IsOMP, m_debugType);
 }
 
-void OptimizerOCL::Optimize() {
+/// Customized diagnostic handler to be registered to LLVMContext before running
+/// passes. Prints error messages and throw exception if received an error
+/// diagnostic.
+/// - Handles VFAnalysisDiagInfo emitted by VFAnalysis.
+class OCLDiagnosticHandler : public llvm::DiagnosticHandler {
+public:
+  OCLDiagnosticHandler(llvm::raw_ostream &OS) : OS(OS) {}
+  bool handleDiagnostics(const llvm::DiagnosticInfo &DI) override {
+    // Handle VFAnalysisDiagInfo emitted by VFAnalysis.
+    if (auto *VFADI = dyn_cast<llvm::VFAnalysisDiagInfo>(&DI)) {
+      OS << llvm::LLVMContext::getDiagnosticMessagePrefix(VFADI->getSeverity())
+         << ": ";
+      VFADI->print(OS);
+      OS << ".\n";
+      if (VFADI->getSeverity() == DS_Error)
+        throw Exceptions::CompilerException(
+            "Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
+      return true;
+    }
+    return false;
+  }
+
+private:
+  llvm::DiagnosticPrinterRawOStream OS;
+};
+
+void OptimizerOCL::Optimize(llvm::raw_ostream &LogStream) {
+  m_M->getContext().setDiagnosticHandler(
+      std::make_unique<OCLDiagnosticHandler>(LogStream));
   legacy::PassManager materializerPM;
   if (m_IsSYCL)
     materializerPM.add(createSPIRVToOCL20Legacy());
@@ -968,10 +1000,6 @@ Optimizer::Optimizer(llvm::Module *M,
   CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
   m_debugType = getDebuggingServiceType(Config->GetDebugInfoFlag(), M,
                                         Config->GetUseNativeDebuggerFlag());
-}
-
-const TStringToVFState& Optimizer::GetKernelVFStates() const {
-  return m_kernelToVFState;
 }
 
 bool Optimizer::hasUndefinedExternals() const {

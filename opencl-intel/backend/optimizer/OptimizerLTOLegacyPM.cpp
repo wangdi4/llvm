@@ -231,7 +231,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
   MPM.add(createCleanupWrappedKernelLegacyPass());
 }
 
-void OptimizerLTOLegacyPM::Optimize() {
+void OptimizerLTOLegacyPM::Optimize(llvm::raw_ostream &LogStream) {
   MaterializerMPM.run(*m_M);
 
   FPM.doInitialization();
