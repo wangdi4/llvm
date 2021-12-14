@@ -7,8 +7,8 @@
 ;}
 ; unsigned min recognition for safe reduction analysis
 ;
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-temp-cleanup -hir-safe-reduction-analysis -hir-safe-reduction-analysis-check-intrinsic=true | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -hir-safe-reduction-analysis-check-intrinsic=true 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-temp-cleanup -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 ;
 ; CHECK:   %min.011 = (%0 <u %min.011) ? %0 : %min.011; <Safe Reduction>
 ;
