@@ -24,7 +24,6 @@ namespace CodeGen {
 class Address {
   llvm::Value *Pointer;
   CharUnits Alignment;
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // True if this address has been remapped directly and should not generate
   // the load normally required for variables with reference type.
@@ -33,12 +32,10 @@ public:
   bool hasRemovedReference() { return ReferenceRemovedWithRemap; }
   void setRemovedReference() { ReferenceRemovedWithRemap = true; }
 #endif // INTEL_COLLAB
-=======
 
 protected:
-  Address(nullptr_t) : Pointer(nullptr) {}
+  Address(std::nullptr_t) : Pointer(nullptr) {} // INTEL
 
->>>>>>> b8d121eb1d619adca637bfd926d08a095c93b117
 public:
   Address(llvm::Value *pointer, CharUnits alignment)
       : Pointer(pointer), Alignment(alignment) {
@@ -87,7 +84,7 @@ public:
 /// A specialization of Address that requires the address to be an
 /// LLVM Constant.
 class ConstantAddress : public Address {
-  ConstantAddress(nullptr_t) : Address(nullptr) {}
+  ConstantAddress(std::nullptr_t) : Address(nullptr) {} // INTEL
 
 public:
   ConstantAddress(llvm::Constant *pointer, CharUnits alignment)
