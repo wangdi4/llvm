@@ -56,6 +56,8 @@ static hsa_status_t locking_async_memcpy(enum CopyDirection direction,
   if (err != HSA_STATUS_SUCCESS)
     return err;
 
+#pragma GCC diagnostic push                               // INTEL
+#pragma GCC diagnostic ignored "-Wcovered-switch-default" // INTEL
   switch (direction) {
   case H2D:
     err = invoke_hsa_copy(signal, dest, agent, lockedPtr, size);
@@ -66,6 +68,7 @@ static hsa_status_t locking_async_memcpy(enum CopyDirection direction,
   default:
     err = HSA_STATUS_ERROR; // fall into unlock before returning
   }
+#pragma GCC diagnostic pop // INTEL
 
   if (err != HSA_STATUS_SUCCESS) {
     // do not leak locked host pointers, but discard potential error message
