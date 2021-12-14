@@ -1156,6 +1156,7 @@ private:
       RKind = IsMax ? RecurKind::UMax : RecurKind::UMin;
       break;
     default:
+      assert(CmpInst::isFPPredicate(Pred) && "expected FP predicate");
       RKind = IsMax ? RecurKind::FMax : RecurKind::FMin;
       break;
     }
@@ -1248,9 +1249,13 @@ private:
         auto Opcode = ChainCurrent->OpCode;
         // Predicate type is needed to determine reduction kind for min/max
         // reductions. For other reductions predicate is undefined.
-        auto Pred = Opcode == Instruction::Select
-                        ? (*RedCurrent)->getPredicate().Kind
-                        : PredicateTy::BAD_ICMP_PREDICATE;
+        auto Pred = PredicateTy::BAD_ICMP_PREDICATE;
+        if (Opcode == Instruction::Select) {
+          Pred = isa<SelectInst>((*RedCurrent)->getLLVMInstruction())
+                     ? (*RedCurrent)->getPredicate().Kind
+                     : PredicateTy::FIRST_FCMP_PREDICATE;
+        }
+
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
             (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom);
