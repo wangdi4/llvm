@@ -32,7 +32,7 @@ public:
   ~OptimizerLTOLegacyPM();
 
   /// Run pass manager on a module.
-  void Optimize() override;
+  void Optimize(llvm::raw_ostream &LogStream) override;
 
 private:
   /// Add passes to pass managers.

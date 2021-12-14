@@ -127,54 +127,6 @@ static void LogVectorVariantFailureFunctions(
     }
 }
 
-static bool LogKernelVFState(llvm::raw_ostream &logs,
-                             const TStringToVFState &state)
-{
-    bool checkFailed = false;
-    for (const auto & si :state)
-    {
-       const std::string &kernelName = si.first;
-       const VFState &vfState = si.second;
-       if (vfState.isMultiConstraint)
-       {
-           logs << "Error in kernel <" << kernelName << "> "
-                << "Only allow specifying one of "
-                   "CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint and "
-                   "intel_reqd_sub_group_size!\n";
-           checkFailed = true;
-       }
-
-       if (vfState.hasUnsupportedPatterns)
-       {
-           logs << "Warning in kernel <" << kernelName << "> "
-                << "Has unsupported patterns, can't vectorize.\n";
-       }
-
-       if (vfState.isSubGroupBroken)
-       {
-         logs << "Error in kernel <" << kernelName << "> "
-              << "Subgroup calls in scalar function can't be resolved!\n";
-         checkFailed = true;
-       }
-
-       if (vfState.isVFFalledBack)
-       {
-           logs << "Warning in kernel <" << kernelName << "> "
-                << "specified intel_vec_len_hint can't be satisfied. "
-                << "Fall back to autovectorization mode.\n";
-       }
-
-       for (const auto &item : vfState.unimplementOps)
-       {
-           logs << "Error in kernel <" << kernelName << "> "
-                << item.first << " with vectorization factor "
-                << item.second << " is unimplemented!\n";
-           checkFailed = true;
-       }
-    }
-    return !checkFailed;
-}
-
 /**
  * Generates the log record (to the given stream) enumerating global names
    whose depth attribute is ignored.
@@ -593,16 +545,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       break;
     };
 
-    optimizer->Optimize();
-
-    {
-      bool checkSuccess = Utils::LogKernelVFState(
-          pResult->LogS(), optimizer->GetKernelVFStates());
-      if (!checkSuccess) {
-        throw Exceptions::CompilerException(
-            "Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
-      }
-    }
+    optimizer->Optimize(pResult->LogS());
 
     if (optimizer->hasVectorVariantFailure()) {
       std::map<std::string, std::vector<std::string>> Reasons;

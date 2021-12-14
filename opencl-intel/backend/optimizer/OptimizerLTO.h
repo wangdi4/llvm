@@ -16,6 +16,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace Intel {
 namespace OpenCL {
@@ -33,7 +34,7 @@ public:
   ~OptimizerLTO();
 
   /// Run pass manager on a module.
-  void Optimize() override;
+  void Optimize(llvm::raw_ostream &LogStream) override;
 
 private:
   /// Register a callback to the start of the pipeline.

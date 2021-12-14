@@ -19,6 +19,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <vector>
 
@@ -55,13 +56,11 @@ public:
 
   enum InvalidGVType { FPGA_DEPTH_IS_IGNORED };
 
-  virtual void Optimize() = 0;
+  virtual void Optimize(llvm::raw_ostream &LogStream) = 0;
 
   bool hasUndefinedExternals() const;
 
   const std::vector<std::string> &GetUndefinedExternals() const;
-
-  const TStringToVFState &GetKernelVFStates() const;
 
   /// @brief recursion was detected after standard LLVM optimizations
   /// @return for SYCL returns true if the recursive function also calls
@@ -102,8 +101,6 @@ protected:
   const intel::OptimizerConfig *Config;
   StringRef CPUPrefix;
   std::vector<std::string> m_undefinedExternalFunctions;
-  // For OCLVPOCheckVF Pass
-  TStringToVFState m_kernelToVFState;
   // Indicates whether the module comes from SYCL.
   // The only noticeable difference between SYCL flow and OpenCL flow is the
   // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++
@@ -133,7 +130,7 @@ public:
 
   ~OptimizerOCL();
 
-  void Optimize() override;
+  void Optimize(llvm::raw_ostream &LogStream) override;
 
   /// @brief register OpenCL passes to LLVM PassRegistry
   static void initializePasses();

@@ -39,7 +39,7 @@ OptimizerLTO::OptimizerLTO(Module *M,
 
 OptimizerLTO::~OptimizerLTO() {}
 
-void OptimizerLTO::Optimize() {
+void OptimizerLTO::Optimize(llvm::raw_ostream &LogStream) {
   TargetMachine *TM = Config->GetTargetMachine();
   assert(TM && "Uninitialized TargetMachine!");
 
