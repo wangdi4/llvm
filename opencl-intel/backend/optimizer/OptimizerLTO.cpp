@@ -20,7 +20,9 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -153,9 +155,13 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
     MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
     if (Level != OptimizationLevel::O0) {
+      auto InlineParams = getInlineParams();
+      InlineParams.DefaultThreshold = 4096;
+      MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
       // AddImplicitArgs pass may create dead implicit arguments.
       MPM.addPass(DeadArgumentEliminationPass());
-    }
+    } else
+      MPM.addPass(AlwaysInlinerPass());
     MPM.addPass(PrepareKernelArgsPass());
   });
 }

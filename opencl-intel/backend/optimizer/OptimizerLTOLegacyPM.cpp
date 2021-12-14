@@ -193,6 +193,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
         MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
         MPM.add(createBuiltinCallToInstLegacyPass());
+        MPM.add(createFunctionInliningPass(4096));
         // AddImplicitArgs pass may create dead implicit arguments.
         MPM.add(createDeadArgEliminationPass());
         MPM.add(createPrepareKernelArgsLegacyPass(false));
@@ -225,6 +226,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
     MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
     MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
     MPM.add(createBuiltinCallToInstLegacyPass());
+    MPM.add(createAlwaysInlinerLegacyPass());
     MPM.add(createPrepareKernelArgsLegacyPass(false));
   }
 

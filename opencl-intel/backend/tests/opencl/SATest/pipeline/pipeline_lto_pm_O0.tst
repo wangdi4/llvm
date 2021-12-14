@@ -47,4 +47,5 @@
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
+; CHECK:      Running pass: AlwaysInlinerPass
 ; CHECK-NEXT: Running pass: PrepareKernelArgsPass

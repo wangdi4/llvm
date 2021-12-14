@@ -56,5 +56,6 @@
 ; CHECK-NEXT:     BuiltinImportLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
+; CHECK:          Inliner for always_inline functions
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK-NEXT:     CleanupWrappedKernelLegacy
