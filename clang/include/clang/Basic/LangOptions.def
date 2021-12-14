@@ -107,6 +107,9 @@ LANGOPT(ShowIntelCompatUnused       , 1, 0,
         "Emit a diagnostic when an Intel compatibility feature is disabled and could have been used")
 LANGOPT(OpenMPTargetSimd       , 1, 0,
         "OpenMP target simd enabled")
+LANGOPT(
+    OpenMPDeclareTargetScalarDefaultMapFirstPrivate	, 1, 0,
+    "Specify defaultmap for scalar variable with declare target attribute")
 
 LANGOPT(KeepImportTemps        , 1, 0,
         "Keep temporary files needed for #import processing")

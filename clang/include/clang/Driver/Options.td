@@ -7094,6 +7094,11 @@ defm sycl_allow_func_ptr: BoolFOption<"sycl-allow-func-ptr",
   NegFlag<SetFalse, [], "Disallow">,
   BothFlags<[CC1Option, CoreOption], " function pointers in SYCL device.">>;
 #if INTEL_CUSTOMIZATION
+def fopenmp_declare_target_scalar_defaultmap_firstprivate
+    : Flag<["-"], "fopenmp-declare-target-scalar-defaultmap-firstprivate">,
+      Flags<[CC1Option]>,
+      MarshallingInfoFlag<
+          LangOpts<"OpenMPDeclareTargetScalarDefaultMapFirstPrivate">>;
 def fenable_variant_function_pointers
     : Flag<["-"], "fenable-variant-function-pointers">,
       HelpText<"Enable variant function pointers.">,
