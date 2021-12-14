@@ -34,7 +34,7 @@ define void @_ZGVeN16uuuuu__ZTSN2cl4sycl6detail19__pf_kernel_wrapperI7manSYCLEE(
 ; CHECK:       new.loop.latch10:
 ; CHECK-NEXT:    br label %VPlannedBB22
 ; CHECK:       VPlannedBB22:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT16:%.*]] = insertelement <16 x i32> poison, i32 [[TMP21:%.*]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT16:%.*]] = insertelement <16 x i32> poison, i32 [[TMP21:%.*]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT16_FR:%.*]] = freeze <16 x i32> [[BROADCAST_SPLATINSERT16]]
 ; CHECK-NEXT:    [[TMP22:%.*]] = icmp ne <16 x i32> [[BROADCAST_SPLATINSERT16_FR]], <i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000>
 ; CHECK-NEXT:    [[PREDBLEND20:%.*]] = select <16 x i1> [[TMP15:%.*]], <16 x i32> <i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000, i32 10000>, <16 x i32> [[BROADCAST_SPLAT19:%.*]]

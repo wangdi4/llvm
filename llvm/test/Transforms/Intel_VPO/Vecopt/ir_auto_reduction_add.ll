@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[RED_INIT_INSERT0:%.*]] = insertelement <4 x i32> <i32 poison, i32 0, i32 0, i32 0>, i32 [[INIT0:%.*]], i32 0
+; CHECK-NEXT:    [[RED_INIT_INSERT0:%.*]] = insertelement <4 x i32> <i32 poison, i32 0, i32 0, i32 0>, i32 [[INIT0:%.*]], i64 0
 ; CHECK:       vector.body:
 ; CHECK:         [[VEC_PHI40:%.*]] = phi <4 x i32> [ [[TMP4:%.*]], [[VECTOR_BODY0:%.*]] ], [ [[RED_INIT_INSERT0]], [[VPLANNEDBB20:%.*]] ]
 ; CHECK:         [[TMP4]] = add nsw <4 x i32> [[WIDE_LOAD0:%.*]], [[VEC_PHI40]]

@@ -15,7 +15,7 @@ define i1 @test1(i32 %c) {
 
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i32 0
+; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i64 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[SHUFFLE]], <i32 115, i32 109, i32 104, i32 100>
 ; CHECK-NEXT:    [[_12:%.*]] = icmp eq i32 [[C]], 119
