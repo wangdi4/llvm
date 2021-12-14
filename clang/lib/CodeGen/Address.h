@@ -34,7 +34,7 @@ public:
 #endif // INTEL_COLLAB
 
 protected:
-  Address(std::nullptr_t) : Pointer(nullptr) {} // INTEL
+  Address(std::nullptr_t) : Pointer(nullptr) {}
 
 public:
   Address(llvm::Value *pointer, CharUnits alignment)
@@ -84,7 +84,7 @@ public:
 /// A specialization of Address that requires the address to be an
 /// LLVM Constant.
 class ConstantAddress : public Address {
-  ConstantAddress(std::nullptr_t) : Address(nullptr) {} // INTEL
+  ConstantAddress(std::nullptr_t) : Address(nullptr) {}
 
 public:
   ConstantAddress(llvm::Constant *pointer, CharUnits alignment)
