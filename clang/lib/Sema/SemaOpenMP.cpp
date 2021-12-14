@@ -2217,7 +2217,8 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
     Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
         OMPDeclareTargetDeclAttr::getDeviceType(VD);
     if (!DevTy || *DevTy != OMPDeclareTargetDeclAttr::DT_NoHost)
-      return false;
+      if (!LangOpts.OpenMPDeclareTargetScalarDefaultMapFirstPrivate)
+        return false;
   }
 
   if (DSAStack->getCurrentDirective() != OMPD_unknown &&
