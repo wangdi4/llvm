@@ -406,14 +406,12 @@ declare i32 @fflush(%opaque*)
 ; CHECK: declare i32 @ffs(i32) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare i32 @ffs(i32)
 
-; CHECK: declare i32 @ffsl(i64)
-; CHECK-KNOWN-SAME: [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
-; CHECK-UNKNOWN-NOT: #{{.*}}
+; CHECK-KNOWN: declare i32 @ffsl(i64) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+; CHECK-UNKNOWN: declare i32 @ffsl(i64){{$}}
 declare i32 @ffsl(i64)
 
-; CHECK: declare i32 @ffsll(i64)
-; CHECK-KNOWN-SAME: [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
-; CHECK-UNKNOWN-NOT: #{{.*}}
+; CHECK-KNOWN: declare i32 @ffsll(i64) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+; CHECK-UNKNOWN:  declare i32 @ffsll(i64){{$}}
 declare i32 @ffsll(i64)
 
 ; CHECK: declare noundef i32 @fgetc(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
