@@ -12595,14 +12595,12 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   bool IsCompareCapture = false;
 #endif // INTEL_COLLAB
   for (const OMPClause *C : Clauses) {
-    switch (C->getClauseKind()) {
-    case OMPC_read:
-    case OMPC_write:
-    case OMPC_update:
+    if (C->getClauseKind() == OMPC_read || C->getClauseKind() == OMPC_write ||
+        C->getClauseKind() == OMPC_update ||
 #if INTEL_COLLAB
-    case OMPC_compare:
+        C->getClauseKind() == OMPC_compare ||
 #endif // INTEL_COLLAB
-    case OMPC_capture: {
+        C->getClauseKind() == OMPC_capture) {
 #if INTEL_COLLAB
       if (!IsCompareCapture &&
           ((C->getClauseKind() == OMPC_capture && AtomicKind == OMPC_compare) ||
@@ -12620,13 +12618,12 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
         AtomicKind = C->getClauseKind();
         AtomicKindLoc = C->getBeginLoc();
       }
-      break;
     }
-    case OMPC_seq_cst:
-    case OMPC_acq_rel:
-    case OMPC_acquire:
-    case OMPC_release:
-    case OMPC_relaxed: {
+    if (C->getClauseKind() == OMPC_seq_cst ||
+        C->getClauseKind() == OMPC_acq_rel ||
+        C->getClauseKind() == OMPC_acquire ||
+        C->getClauseKind() == OMPC_release ||
+        C->getClauseKind() == OMPC_relaxed) {
       if (MemOrderKind != OMPC_unknown) {
         Diag(C->getBeginLoc(), diag::err_omp_several_mem_order_clauses)
             << getOpenMPDirectiveName(OMPD_atomic) << 0
@@ -12637,10 +12634,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
         MemOrderKind = C->getClauseKind();
         MemOrderLoc = C->getBeginLoc();
       }
-      break;
-    }
-    default:
-      llvm_unreachable("unknown clause is encountered");
     }
   }
   // OpenMP 5.0, 2.17.7 atomic Construct, Restrictions
