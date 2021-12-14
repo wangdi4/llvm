@@ -2321,7 +2321,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
                                        bool IsMasked) {
   // If we encounter a call to OpenCL sincos function, i.e., a call to
   // _Z6sincosfPf, the code in Intel_SVMLEmitter.cpp, currently maps that call
-  // to _Z14sincos_ret2ptrDv<VF>_fPS_S1_ variant. The following code correctly
+  // to _Z6sincosDv<VF>_fPS_ variant. The following code correctly
   // sets up the input/output arguments for that function.  '_Z6sincosfPf' has
   // the form,
   //
@@ -2329,13 +2329,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // %cosVal = load float, float* %cosPtr
   //
   // The following code replaces that function call with
-  // %16 = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float>
-  //                                                       %wide.input,
-  //                                                       <8 x float>*
-  //                                                       %sinPtr.vec,
-  //                                                       <8 x float>*
-  //                                                       %cosPtr.vec)
-  // %wide.sin.InitVal = load <8 x float>, <8 x float>* %SinPtr.vec
+  // %wide.sinVal = call <8 x float> @_Z6sincosDv8_fPS_(<8 x float> %wide.input,
+  //                                                    <8 x float>*
+  //                                                    %cosPtr.vec)
   // %wide.load2 = load <8 x float>, <8 x float>* %cosPtr.vec, align 4
 
   // TODO: This is a temporary solution to fix performance issues with DPC++
@@ -2358,14 +2354,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // While vectorizing VPAllocatePrivate created for CosPtr, the base pointer to
   // wide alloca was added to LoopPrivateVPWidenMap.
   auto *WideCosPtr = cast<AllocaInst>(LoopPrivateVPWidenMap[CosPtr]);
-  auto *WideSinPtr = cast<AllocaInst>(WideCosPtr->clone());
-  WideSinPtr->insertAfter(WideCosPtr);
-  WideSinPtr->setName("sinPtr.vec");
   VecArgs.push_back(Arg1);
-  VecArgs.push_back(WideSinPtr);
   VecArgs.push_back(WideCosPtr);
   VecArgTys.push_back(Arg1->getType());
-  VecArgTys.push_back(WideSinPtr->getType());
   VecArgTys.push_back(WideCosPtr->getType());
 
   Function *CalledFunc = VPCall->getCalledFunction();
@@ -2395,10 +2386,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
 #endif
 
-  Value *WideSinLoad =
-      Builder.CreateAlignedLoad(WideSinPtr->getAllocatedType(), WideSinPtr,
-                                WideSinPtr->getAlign(), "wide.sin.InitVal");
-  VPWidenMap[VPCall] = WideSinLoad;
+  VPWidenMap[VPCall] = VecCall;
 }
 
 void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
