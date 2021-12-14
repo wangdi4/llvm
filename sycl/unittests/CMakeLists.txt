@@ -21,16 +21,11 @@ endif()
 add_subdirectory(allowlist)
 add_subdirectory(config)
 add_subdirectory(misc)
-<<<<<<< HEAD
-add_subdirectory(pi)
 # INTEL_CUSTOMIZATION
 if (NOT SYCL_BUILD_INSTRUMENTED_COVERAGE)
   add_subdirectory(kernel-and-program)
 endif()
 # end INTEL_CUSTOMIZATION
-=======
-add_subdirectory(kernel-and-program)
->>>>>>> a95c12accdae52518d30d4983ab95ad6d87e77d6
 add_subdirectory(queue)
 add_subdirectory(scheduler)
 add_subdirectory(stream)
