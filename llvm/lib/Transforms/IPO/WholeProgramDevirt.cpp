@@ -720,7 +720,12 @@ struct DevirtModule {
 
   bool run();
 
-<<<<<<< HEAD
+  // Look up the corresponding ValueInfo entry of `TheFn` in `ExportSummary`.
+  //
+  // Caller guarantees that `ExportSummary` is not nullptr.
+  static ValueInfo lookUpFunctionValueInfo(Function *TheFn,
+                                           ModuleSummaryIndex *ExportSummary);
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Lower the module using the action and summary passed as command line
@@ -735,14 +740,6 @@ private:
   IntelDevirtMultiversion &IntelDevirtMV;
 
 #else  // INTEL_FEATURE_SW_DTRANS
-=======
-  // Look up the corresponding ValueInfo entry of `TheFn` in `ExportSummary`.
-  //
-  // Caller guarantees that `ExportSummary` is not nullptr.
-  static ValueInfo lookUpFunctionValueInfo(Function *TheFn,
-                                           ModuleSummaryIndex *ExportSummary);
-
->>>>>>> 09a704c5efba2c07af5b457bf3afc5eb746f22c2
   // Lower the module using the action and summary passed as command line
   // arguments. For testing purposes only.
   static bool
@@ -1230,7 +1227,6 @@ bool DevirtModule::tryFindVirtualCallTargets(
     if (Fn->getName() == "__cxa_pure_virtual")
       continue;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     // Windows form of pure virtual
@@ -1239,14 +1235,13 @@ bool DevirtModule::tryFindVirtualCallTargets(
       continue;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
+
     // We can disregard unreachable functions as possible call targets, as
     // unreachable functions shouldn't be called.
     if (ExportSummary && (mustBeUnreachableFunction(
                              lookUpFunctionValueInfo(Fn, ExportSummary)))) {
       continue;
     }
->>>>>>> 09a704c5efba2c07af5b457bf3afc5eb746f22c2
 
     TargetsForSlot.push_back({Fn, &TM});
   }
@@ -2518,12 +2513,8 @@ bool DevirtModule::run() {
                      cast<MDString>(S.first.TypeID)->getString())
                  .WPDRes[S.first.ByteOffset];
     if (tryFindVirtualCallTargets(TargetsForSlot, TypeMemberInfos,
-<<<<<<< HEAD
-                                  S.first.ByteOffset)) {
-=======
                                   S.first.ByteOffset, ExportSummary)) {
 
->>>>>>> 09a704c5efba2c07af5b457bf3afc5eb746f22c2
       if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION
