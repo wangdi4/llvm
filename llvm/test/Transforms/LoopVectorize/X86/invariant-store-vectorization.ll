@@ -123,11 +123,6 @@ define void @inv_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* %b, 
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <16 x i32> [[BROADCAST_SPLATINSERT]], <16 x i32> poison, <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT8:%.*]] = insertelement <16 x i32> poison, i32 [[NTRUNC]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT9:%.*]] = shufflevector <16 x i32> [[BROADCAST_SPLATINSERT8]], <16 x i32> poison, <16 x i32> zeroinitializer
-<<<<<<< HEAD
-=======
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT10:%.*]] = insertelement <16 x i32*> poison, i32* [[A]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT11:%.*]] = shufflevector <16 x i32*> [[BROADCAST_SPLATINSERT10]], <16 x i32*> poison, <16 x i32> zeroinitializer
->>>>>>> e6ad9ef4e7ae6506e822c9ccf9a960354173210b
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
@@ -157,11 +152,6 @@ define void @inv_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* %b, 
 ; CHECK-NEXT:    [[BROADCAST_SPLAT20:%.*]] = shufflevector <8 x i32> [[BROADCAST_SPLATINSERT19]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT21:%.*]] = insertelement <8 x i32> poison, i32 [[NTRUNC]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT22:%.*]] = shufflevector <8 x i32> [[BROADCAST_SPLATINSERT21]], <8 x i32> poison, <8 x i32> zeroinitializer
-<<<<<<< HEAD
-=======
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT23:%.*]] = insertelement <8 x i32*> poison, i32* [[A]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT24:%.*]] = shufflevector <8 x i32*> [[BROADCAST_SPLATINSERT23]], <8 x i32*> poison, <8 x i32> zeroinitializer
->>>>>>> e6ad9ef4e7ae6506e822c9ccf9a960354173210b
 ; CHECK-NEXT:    br label [[VEC_EPILOG_VECTOR_BODY:%.*]]
 ; CHECK:       vec.epilog.vector.body:
 ; CHECK-NEXT:    [[INDEX15:%.*]] = phi i64 [ [[VEC_EPILOG_RESUME_VAL]], [[VEC_EPILOG_PH]] ], [ [[INDEX_NEXT16:%.*]], [[VEC_EPILOG_VECTOR_BODY]] ]
@@ -261,11 +251,6 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <16 x i32> [[BROADCAST_SPLATINSERT]], <16 x i32> poison, <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT18:%.*]] = insertelement <16 x i32> poison, i32 [[NTRUNC]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT19:%.*]] = shufflevector <16 x i32> [[BROADCAST_SPLATINSERT18]], <16 x i32> poison, <16 x i32> zeroinitializer
-<<<<<<< HEAD
-=======
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <16 x i32*> poison, i32* [[A]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT21:%.*]] = shufflevector <16 x i32*> [[BROADCAST_SPLATINSERT20]], <16 x i32*> poison, <16 x i32> zeroinitializer
->>>>>>> e6ad9ef4e7ae6506e822c9ccf9a960354173210b
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
@@ -298,11 +283,6 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    [[BROADCAST_SPLAT30:%.*]] = shufflevector <8 x i32> [[BROADCAST_SPLATINSERT29]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT31:%.*]] = insertelement <8 x i32> poison, i32 [[NTRUNC]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT32:%.*]] = shufflevector <8 x i32> [[BROADCAST_SPLATINSERT31]], <8 x i32> poison, <8 x i32> zeroinitializer
-<<<<<<< HEAD
-=======
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT34:%.*]] = insertelement <8 x i32*> poison, i32* [[A]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT35:%.*]] = shufflevector <8 x i32*> [[BROADCAST_SPLATINSERT34]], <8 x i32*> poison, <8 x i32> zeroinitializer
->>>>>>> e6ad9ef4e7ae6506e822c9ccf9a960354173210b
 ; CHECK-NEXT:    br label [[VEC_EPILOG_VECTOR_BODY:%.*]]
 ; CHECK:       vec.epilog.vector.body:
 ; CHECK-NEXT:    [[INDEX25:%.*]] = phi i64 [ [[VEC_EPILOG_RESUME_VAL]], [[VEC_EPILOG_PH]] ], [ [[INDEX_NEXT26:%.*]], [[VEC_EPILOG_VECTOR_BODY]] ]

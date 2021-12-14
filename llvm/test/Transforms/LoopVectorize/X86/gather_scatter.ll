@@ -416,7 +416,6 @@ define void @foo2(%struct.In* noalias %in, float* noalias %out, i32* noalias %tr
 ; FVW2-NEXT:    br i1 [[TMP16]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP2:![0-9]+]]
 ; FVW2:       for.end:
 ; FVW2-NEXT:    ret void
-; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In*, align 8
@@ -662,7 +661,6 @@ define void @foo3(%struct.In* noalias %in, %struct.Out* noalias %out, i32* noali
 ; FVW2-NEXT:    br i1 [[TMP16]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP3:![0-9]+]]
 ; FVW2:       for.end:
 ; FVW2-NEXT:    ret void
-; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In*, align 8
@@ -894,7 +892,6 @@ define void @foo2_addrspace(%struct.In addrspace(1)* noalias %in, float addrspac
 ; FVW2-NEXT:    br i1 [[TMP16]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP4:![0-9]+]]
 ; FVW2:       for.end:
 ; FVW2-NEXT:    ret void
-; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In addrspace(1)*, align 8
@@ -1126,7 +1123,6 @@ define void @foo2_addrspace2(%struct.In addrspace(1)* noalias %in, float addrspa
 ; FVW2-NEXT:    br i1 [[TMP16]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP5:![0-9]+]]
 ; FVW2:       for.end:
 ; FVW2-NEXT:    ret void
-; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In addrspace(1)*, align 8
@@ -1358,7 +1354,6 @@ define void @foo2_addrspace3(%struct.In addrspace(0)* noalias %in, float addrspa
 ; FVW2-NEXT:    br i1 [[TMP16]], label [[FOR_END:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP6:![0-9]+]]
 ; FVW2:       for.end:
 ; FVW2-NEXT:    ret void
-; END INTEL_CUSTOMIZATION
 ;
 entry:
   %in.addr = alloca %struct.In addrspace(0)*, align 8
@@ -1667,63 +1662,31 @@ define void @test_gather_not_profitable_pr48429(i32 %d, float* readonly %ptr, fl
 ; FVW2-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, float* [[TMP11]], i64 2
 ; FVW2-NEXT:    [[TMP14:%.*]] = bitcast float* [[TMP13]] to <2 x float>*
 ; FVW2-NEXT:    [[WIDE_LOAD20:%.*]] = load <2 x float>, <2 x float>* [[TMP14]], align 4, !alias.scope !7
-; FVW2-NEXT:    [[TMP15:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i32 0
+; FVW2-NEXT:    [[TMP15:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i64 0
 ; FVW2-NEXT:    store float [[TMP15]], float* [[NEXT_GEP16]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP16:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i32 1
+; FVW2-NEXT:    [[TMP16:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i64 1
 ; FVW2-NEXT:    store float [[TMP16]], float* [[NEXT_GEP17]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP17:%.*]] = extractelement <2 x float> [[WIDE_LOAD20]], i32 0
+; FVW2-NEXT:    [[TMP17:%.*]] = extractelement <2 x float> [[WIDE_LOAD20]], i64 0
 ; FVW2-NEXT:    store float [[TMP17]], float* [[NEXT_GEP18]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP18:%.*]] = extractelement <2 x float> [[WIDE_LOAD20]], i32 1
+; FVW2-NEXT:    [[TMP18:%.*]] = extractelement <2 x float> [[WIDE_LOAD20]], i64 1
 ; FVW2-NEXT:    store float [[TMP18]], float* [[NEXT_GEP19]], align 4, !alias.scope !10, !noalias !12
 ; FVW2-NEXT:    [[TMP19:%.*]] = bitcast float* [[NEXT_GEP]] to <2 x float>*
 ; FVW2-NEXT:    [[WIDE_LOAD21:%.*]] = load <2 x float>, <2 x float>* [[TMP19]], align 4, !alias.scope !14
 ; FVW2-NEXT:    [[TMP20:%.*]] = getelementptr float, float* [[NEXT_GEP]], i64 2
 ; FVW2-NEXT:    [[TMP21:%.*]] = bitcast float* [[TMP20]] to <2 x float>*
-<<<<<<< HEAD
 ; FVW2-NEXT:    [[WIDE_LOAD22:%.*]] = load <2 x float>, <2 x float>* [[TMP21]], align 4, !alias.scope !14
 ; FVW2-NEXT:    [[TMP22:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP16]], i64 1
 ; FVW2-NEXT:    [[TMP23:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP17]], i64 1
 ; FVW2-NEXT:    [[TMP24:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP18]], i64 1
 ; FVW2-NEXT:    [[TMP25:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP19]], i64 1
-; FVW2-NEXT:    [[TMP26:%.*]] = extractelement <2 x float> [[WIDE_LOAD21]], i32 0
+; FVW2-NEXT:    [[TMP26:%.*]] = extractelement <2 x float> [[WIDE_LOAD21]], i64 0
 ; FVW2-NEXT:    store float [[TMP26]], float* [[TMP22]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP27:%.*]] = extractelement <2 x float> [[WIDE_LOAD21]], i32 1
+; FVW2-NEXT:    [[TMP27:%.*]] = extractelement <2 x float> [[WIDE_LOAD21]], i64 1
 ; FVW2-NEXT:    store float [[TMP27]], float* [[TMP23]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP28:%.*]] = extractelement <2 x float> [[WIDE_LOAD22]], i32 0
+; FVW2-NEXT:    [[TMP28:%.*]] = extractelement <2 x float> [[WIDE_LOAD22]], i64 0
 ; FVW2-NEXT:    store float [[TMP28]], float* [[TMP24]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP29:%.*]] = extractelement <2 x float> [[WIDE_LOAD22]], i32 1
+; FVW2-NEXT:    [[TMP29:%.*]] = extractelement <2 x float> [[WIDE_LOAD22]], i64 1
 ; FVW2-NEXT:    store float [[TMP29]], float* [[TMP25]], align 4, !alias.scope !10, !noalias !12
-=======
-; FVW2-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x float>, <2 x float>* [[TMP21]], align 4, !alias.scope !7
-; FVW2-NEXT:    [[TMP22:%.*]] = getelementptr inbounds float, float* [[TMP20]], i64 2
-; FVW2-NEXT:    [[TMP23:%.*]] = bitcast float* [[TMP22]] to <2 x float>*
-; FVW2-NEXT:    [[WIDE_LOAD20:%.*]] = load <2 x float>, <2 x float>* [[TMP23]], align 4, !alias.scope !7
-; FVW2-NEXT:    [[TMP24:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i64 0
-; FVW2-NEXT:    store float [[TMP24]], float* [[NEXT_GEP16]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP25:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i64 1
-; FVW2-NEXT:    store float [[TMP25]], float* [[NEXT_GEP17]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP26:%.*]] = extractelement <2 x float> [[WIDE_LOAD20]], i64 0
-; FVW2-NEXT:    store float [[TMP26]], float* [[NEXT_GEP18]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP27:%.*]] = extractelement <2 x float> [[WIDE_LOAD20]], i64 1
-; FVW2-NEXT:    store float [[TMP27]], float* [[NEXT_GEP19]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP28:%.*]] = bitcast float* [[NEXT_GEP]] to <2 x float>*
-; FVW2-NEXT:    [[WIDE_LOAD21:%.*]] = load <2 x float>, <2 x float>* [[TMP28]], align 4, !alias.scope !14
-; FVW2-NEXT:    [[TMP29:%.*]] = getelementptr float, float* [[NEXT_GEP]], i64 2
-; FVW2-NEXT:    [[TMP30:%.*]] = bitcast float* [[TMP29]] to <2 x float>*
-; FVW2-NEXT:    [[WIDE_LOAD22:%.*]] = load <2 x float>, <2 x float>* [[TMP30]], align 4, !alias.scope !14
-; FVW2-NEXT:    [[TMP31:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP16]], i64 1
-; FVW2-NEXT:    [[TMP32:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP17]], i64 1
-; FVW2-NEXT:    [[TMP33:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP18]], i64 1
-; FVW2-NEXT:    [[TMP34:%.*]] = getelementptr inbounds float, float* [[NEXT_GEP19]], i64 1
-; FVW2-NEXT:    [[TMP35:%.*]] = extractelement <2 x float> [[WIDE_LOAD21]], i64 0
-; FVW2-NEXT:    store float [[TMP35]], float* [[TMP31]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP36:%.*]] = extractelement <2 x float> [[WIDE_LOAD21]], i64 1
-; FVW2-NEXT:    store float [[TMP36]], float* [[TMP32]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP37:%.*]] = extractelement <2 x float> [[WIDE_LOAD22]], i64 0
-; FVW2-NEXT:    store float [[TMP37]], float* [[TMP33]], align 4, !alias.scope !10, !noalias !12
-; FVW2-NEXT:    [[TMP38:%.*]] = extractelement <2 x float> [[WIDE_LOAD22]], i64 1
-; FVW2-NEXT:    store float [[TMP38]], float* [[TMP34]], align 4, !alias.scope !10, !noalias !12
->>>>>>> e6ad9ef4e7ae6506e822c9ccf9a960354173210b
 ; FVW2-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4
 ; FVW2-NEXT:    [[TMP30:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
 ; FVW2-NEXT:    br i1 [[TMP30]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP15:![0-9]+]]
