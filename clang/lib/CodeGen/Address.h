@@ -32,14 +32,18 @@ public:
   bool hasRemovedReference() { return ReferenceRemovedWithRemap; }
   void setRemovedReference() { ReferenceRemovedWithRemap = true; }
 #endif // INTEL_COLLAB
+
+protected:
+  Address(std::nullptr_t) : Pointer(nullptr) {} // INTEL
+
 public:
   Address(llvm::Value *pointer, CharUnits alignment)
       : Pointer(pointer), Alignment(alignment) {
-    assert((!alignment.isZero() || pointer == nullptr) &&
-           "creating valid address with invalid alignment");
+    assert(pointer != nullptr && "Pointer cannot be null");
+    assert(!alignment.isZero() && "Alignment cannot be zero");
   }
 
-  static Address invalid() { return Address(nullptr, CharUnits()); }
+  static Address invalid() { return Address(nullptr); }
   bool isValid() const { return Pointer != nullptr; }
 
   llvm::Value *getPointer() const {
@@ -80,12 +84,14 @@ public:
 /// A specialization of Address that requires the address to be an
 /// LLVM Constant.
 class ConstantAddress : public Address {
+  ConstantAddress(std::nullptr_t) : Address(nullptr) {} // INTEL
+
 public:
   ConstantAddress(llvm::Constant *pointer, CharUnits alignment)
     : Address(pointer, alignment) {}
 
   static ConstantAddress invalid() {
-    return ConstantAddress(nullptr, CharUnits());
+    return ConstantAddress(nullptr);
   }
 
   llvm::Constant *getPointer() const {
