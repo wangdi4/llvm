@@ -86,7 +86,6 @@ public:
   llvm::LoadInst *CreateAlignedLoad(llvm::Type *Ty, llvm::Value *Addr,
                                     CharUnits Align,
                                     const llvm::Twine &Name = "") {
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (Ty->isPointerTy() && !Ty->getPointerElementType()->isFunctionTy() &&
         Addr->getType()->getPointerAddressSpace() !=
@@ -94,11 +93,8 @@ public:
       Ty = Ty->getPointerElementType()->getPointerTo(
           Addr->getType()->getPointerAddressSpace());
 #endif //INTEL_COLLAB
-    assert(Addr->getType()->getPointerElementType() == Ty);
-=======
     assert(llvm::cast<llvm::PointerType>(Addr->getType())
                ->isOpaqueOrPointeeTypeMatches(Ty));
->>>>>>> b4f46555d7462a88a8743026459ae40412ed4ed2
     return CreateAlignedLoad(Ty, Addr, Align.getAsAlign(), Name);
   }
 
