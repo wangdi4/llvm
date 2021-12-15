@@ -1615,8 +1615,8 @@ exit:
   ret void
 }
 
-define void @uniform_br_under_outer_mask_6(i1 %uniform) {
-; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_6
+define void @uniform_br_under_outer_mask_5(i1 %uniform) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_5
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
@@ -1695,8 +1695,8 @@ exit:
   ret void
 }
 
-define void @uniform_br_under_outer_mask_7(i1 %uniform) {
-; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_7
+define void @uniform_br_under_outer_mask_6(i1 %uniform) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_6
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
@@ -1767,8 +1767,8 @@ exit:
   ret void
 }
 
-define void @uniform_br_under_outer_mask_8(i1 %uniform, i32 %n, i32 %m) {
-; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_8
+define void @uniform_br_under_outer_mask_7(i1 %uniform) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_7
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
@@ -1818,6 +1818,10 @@ define void @uniform_br_under_outer_mask_8(i1 %uniform, i32 %n, i32 %m) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
@@ -1849,17 +1853,20 @@ if.else:
   br i1 %else.varying, label %bb1, label %bb2
 
 bb1:
-  br label %exit
+  br label %if.end
 
 bb2:
+  br label %if.end
+
+if.end:
   br label %exit
 
 exit:
   ret void
 }
 
-define void @uniform_br_under_outer_mask_9(i1 %uniform, i1 %u.then, i1 %u.else) {
-; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_9
+define void @uniform_br_under_outer_mask_8(i1 %uniform, i1 %u.then, i1 %u.else) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_8
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_U_THEN_NOT:%.*]] = not i1 [[U_THEN0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_U_ELSE_NOT:%.*]] = not i1 [[U_ELSE0:%.*]]
@@ -1907,6 +1914,10 @@ define void @uniform_br_under_outer_mask_9(i1 %uniform, i1 %u.then, i1 %u.else) 
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
@@ -1936,17 +1947,20 @@ if.else:
   br i1 %u.else, label %bb1, label %bb2
 
 bb1:
-  br label %exit
+  br label %if.end
 
 bb2:
+  br label %if.end
+
+if.end:
   br label %exit
 
 exit:
   ret void
 }
 
-define void @uniform_br_under_outer_mask_10(i1 %uniform, i1 %u.else) {
-; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_10
+define void @uniform_br_under_outer_mask_9(i1 %uniform, i1 %u.else) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_9
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_U_ELSE_NOT:%.*]] = not i1 [[U_ELSE0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
@@ -1995,6 +2009,10 @@ define void @uniform_br_under_outer_mask_10(i1 %uniform, i1 %u.else) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
@@ -2025,19 +2043,21 @@ if.else:
   br i1 %u.else, label %bb1, label %bb2
 
 bb1:
-  br label %exit
+  br label %if.end
 
 bb2:
+  br label %if.end
+
+if.end:
   br label %exit
 
 exit:
   ret void
 }
 
-define void @uniform_br_under_outer_mask_11(i1 %uniform) {
-; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_11
+define void @uniform_br_under_outer_mask_10(i1 %uniform) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_10
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
@@ -2048,27 +2068,27 @@ define void @uniform_br_under_outer_mask_11(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING2:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING2_NOT:%.*]] = not i1 [[VP_VARYING2]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_VARYING]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING2:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
-; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING2_NOT:%.*]] = not i1 [[VP_VARYING2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_VARYING2_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_VARYING2_NOT]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_VARYING2_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_VARYING2_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB3_BR_VP_UNIFORM]] i1 [[VP_BB2_BR_VP_VARYING2_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = or i1 [[VP_BB3_BR_VP_UNIFORM]] i1 [[VP_BB2_BR_VP_VARYING2_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = or i1 [[VP_VARYING_NOT]] i1 [[VP_BB2_BR_VP_VARYING2_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
@@ -2098,9 +2118,68 @@ if:
   br i1 %uniform, label %if.then, label %if.end
 
 if.then:
-  br label %exit
+  br label %if.end
 
 if.end:
+  br label %exit
+
+exit:
+  ret void
+}
+
+define void @uniform_br_under_outer_mask_11(i1 %u0, i1 %u1) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_11
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_U0_NOT:%.*]] = not i1 [[U00:%.*]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_U1:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[U10:%.*]]
+; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_U0_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_U0_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB3_BR_VP_U1]] i1 [[VP_BB2_BR_VP_U0_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
+; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+;      D
+;     / \
+;    U   U
+;    |\ /|
+;    + o +
+;     \|/
+;      o
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = call i1 @varying(i32 %lane)
+  br i1 %varying, label %if0, label %if1
+
+if0:
+  br i1 %u0, label %exit, label %bb
+
+if1:
+  br i1 %u1, label %bb, label %exit
+
+bb:
   br label %exit
 
 exit:

@@ -513,6 +513,7 @@ void HLInst::verify() const {
       auto *FakeRef = *FakeIter;
       if (FakeRef->isMemRef()) {
         bool hasMatchingOpRef = false;
+        (void)hasMatchingOpRef;
         for (auto OpIter = op_ddref_begin(), OpEndIter = op_ddref_end();
              OpIter != OpEndIter; ++OpIter) {
           auto *OpRef = *OpIter;
