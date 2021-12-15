@@ -11861,7 +11861,8 @@ class OpenMPAtomicCompareChecker {
   /// True if the form is a maximum operation.
   bool IsCompareMax = false;
 
-  bool checkConditionOperation(BinaryOperator *CondOp, unsigned DiagId, unsigned NoteId);
+  bool checkConditionOperation(Expr *Op, unsigned DiagId, unsigned NoteId);
+
 public:
   OpenMPAtomicCompareChecker(Sema &SemaRef) : SemaRef(SemaRef) {}
   /// Check specified statement that it is suitable for 'atomic compare'
@@ -11893,51 +11894,72 @@ public:
 }
 
 // Check and classify the compare expression. X must have been already determined.
-bool OpenMPAtomicCompareChecker::checkConditionOperation(BinaryOperator *CondOp,
+bool OpenMPAtomicCompareChecker::checkConditionOperation(Expr *Op,
                                                          unsigned DiagId,
                                                          unsigned NoteId) {
   AtomicCompareCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
   SourceRange ErrorRange, NoteRange;
 
-  BinaryOperator::Opcode OC = CondOp->getOpcode();
-  if (OC == BO_GT || OC == BO_LT || OC == BO_EQ) {
-    Expr *CompareL = CondOp->getLHS()->IgnoreParenImpCasts();
-    Expr *CompareR = CondOp->getRHS()->IgnoreParenImpCasts();
-    llvm::FoldingSetNodeID XId, CLId, CRId;
-    X->Profile(XId, SemaRef.getASTContext(), /*Canonical=*/true);
-    CompareL->Profile(CLId, SemaRef.getASTContext(),
-                      /*Canonical=*/true);
-    CompareR->Profile(CRId, SemaRef.getASTContext(),
-                      /*Canonical=*/true);
-    bool XOnLeft = (XId == CLId);
-    bool XOnRight = (XId == CRId);
-    if (XOnLeft || XOnRight) {
-      if (OC == BO_EQ) {
-        // x = x == e ? d : x;
-        if (XOnLeft) {
-          Expected = CompareR;
+  if (auto *OCE = dyn_cast<CXXOperatorCallExpr>(Op)) {
+    // Call operators are not valid but may appear in the uninstantiated IR.
+    // Diagnose only if operator doesn't match.
+    OverloadedOperatorKind K = OCE->getOperator();
+    if (K != OO_Less && K != OO_Greater && K != OO_EqualEqual) {
+      ErrorFound = NotAnOrdOp;
+      NoteLoc = ErrorLoc = OCE->getOperatorLoc();
+      NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+    } else {
+      if (!OCE->getType()->isDependentType()) {
+        ErrorFound = NotAnOrdOp;
+        NoteLoc = ErrorLoc = OCE->getOperatorLoc();
+        NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+      }
+    }
+  } else if (auto *CondOp = dyn_cast<BinaryOperator>(Op)) {
+    BinaryOperator::Opcode OC = CondOp->getOpcode();
+    if (OC == BO_GT || OC == BO_LT || OC == BO_EQ) {
+      Expr *CompareL = CondOp->getLHS()->IgnoreParenImpCasts();
+      Expr *CompareR = CondOp->getRHS()->IgnoreParenImpCasts();
+      llvm::FoldingSetNodeID XId, CLId, CRId;
+      X->Profile(XId, SemaRef.getASTContext(), /*Canonical=*/true);
+      CompareL->Profile(CLId, SemaRef.getASTContext(),
+                        /*Canonical=*/true);
+      CompareR->Profile(CRId, SemaRef.getASTContext(),
+                        /*Canonical=*/true);
+      bool XOnLeft = (XId == CLId);
+      bool XOnRight = (XId == CRId);
+      if (XOnLeft || XOnRight) {
+        if (OC == BO_EQ) {
+          // x = x == e ? d : x;
+          if (XOnLeft) {
+            Expected = CompareR;
+          } else {
+            // 'x' not matched to LHS of comparison.
+            ErrorFound = CannotMatchX;
+            NoteLoc = ErrorLoc = CompareL->getBeginLoc();
+            NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+          }
         } else {
-          // 'x' not matched to LHS of comparison.
-          ErrorFound = CannotMatchX;
-          NoteLoc = ErrorLoc = CompareL->getBeginLoc();
-          NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+          // x = expr ordop x ? expr : x;
+          // x = x ordop expr ? expr : x;
+          E = XOnLeft ? CompareR : CompareL;
+          IsCompareMin = (XOnRight && OC == BO_LT) || (XOnLeft && OC == BO_GT);
+          IsCompareMax = (XOnRight && OC == BO_GT) || (XOnLeft && OC == BO_LT);
         }
       } else {
-        // x = expr ordop x ? expr : x;
-        // x = x ordop expr ? expr : x;
-        E = XOnLeft ? CompareR : CompareL;
-        IsCompareMin = (XOnRight && OC == BO_LT) || (XOnLeft && OC == BO_GT);
-        IsCompareMax = (XOnRight && OC == BO_GT) || (XOnLeft && OC == BO_LT);
+        ErrorFound = CannotMatchX;
+        NoteLoc = ErrorLoc = CondOp->getBeginLoc();
+        NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
       }
     } else {
-      ErrorFound = CannotMatchX;
-      NoteLoc = ErrorLoc = CondOp->getBeginLoc();
+      ErrorFound = NotAnOrdOp;
+      NoteLoc = ErrorLoc = CondOp->getOperatorLoc();
       NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
     }
   } else {
     ErrorFound = NotAnOrdOp;
-    NoteLoc = ErrorLoc = CondOp->getOperatorLoc();
+    NoteLoc = ErrorLoc = Op->getExprLoc();
     NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
   }
   if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
@@ -11967,7 +11989,7 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(BinaryOperator *BO,
     X = BO->getLHS()->IgnoreParenImpCasts();
     if (auto *CE = dyn_cast<ConditionalOperator>(
             BO->getRHS()->IgnoreParenImpCasts())) {
-      if (auto *CondOp = dyn_cast<BinaryOperator>(CE->getCond())) {
+      if (Expr *CondOp = CE->getCond()) {
         if (checkConditionOperation(CondOp, DiagId, NoteId))
           return false;
         if (Expected)
@@ -12030,7 +12052,7 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *If,
         if (auto *BO = dyn_cast<BinaryOperator>(S)) {
           if (BO->getOpcode() == BO_Assign) {
             X = BO->getLHS()->IgnoreParenImpCasts();
-            if (auto *CondOp = dyn_cast<BinaryOperator>(If->getCond())) {
+            if (Expr *CondOp = If->getCond()) {
               if (checkConditionOperation(CondOp, DiagId, NoteId))
                 return false;
               if (Expected)
