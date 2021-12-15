@@ -1575,6 +1575,9 @@ static bool handleNonPreemptibleIfunc(Symbol &sym) {
   //   linker-defined symbols __rela?_iplt_{start,end}.
   if (!sym.isGnuIFunc() || sym.isPreemptible || config->zIfuncNoplt)
     return false;
+  // Skip unreferenced non-preemptible ifunc.
+  if (!(sym.needsGot || sym.needsPlt || sym.hasDirectReloc))
+    return true;
 
   sym.isInIplt = true;
 
