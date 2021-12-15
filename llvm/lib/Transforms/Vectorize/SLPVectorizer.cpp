@@ -5449,11 +5449,22 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     unsigned CurrLane = 0;
 #endif // INTEL_CUSTOMIZATION
     for (Value *V : VL) {
+      if (isConstant(V)) {
+        ReuseShuffleIndicies.emplace_back(
+            isa<UndefValue>(V) ? UndefMaskElem : UniqueValues.size());
+        UniqueValues.emplace_back(V);
+        continue;
+      }
       auto Res = UniquePositions.try_emplace(V, UniqueValues.size());
+<<<<<<< HEAD
       ReuseShuffleIndicies.emplace_back(isa<UndefValue>(V) ? -1
                                                            : Res.first->second);
 #if INTEL_CUSTOMIZATION
       if (Res.second) {
+=======
+      ReuseShuffleIndicies.emplace_back(Res.first->second);
+      if (Res.second)
+>>>>>>> 6f2e087631790b3de5dee1eabfd916adc1825b84
         UniqueValues.emplace_back(V);
         // If we shorten the VL, we should also shorten the OpDirection.
         if (UserTreeIdx.UserTE)
@@ -5467,6 +5478,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       ReuseShuffleIndicies.clear();
     } else {
       LLVM_DEBUG(dbgs() << "SLP: Shuffle for reused scalars.\n");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // When we are building MultiNode it is important to not compress
       // initial scalars even if there are duplicates because MN leaf
@@ -5474,6 +5486,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // MultiNode reordering may change original set of scalars so that
       // all scalar operands may even become unique.
       if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
+=======
+      if (NumUniqueScalarValues <= 1 ||
+          (NumUniqueScalarValues == 2 &&
+           any_of(UniqueValues, UndefValue::classof)) ||
+>>>>>>> 6f2e087631790b3de5dee1eabfd916adc1825b84
           !llvm::isPowerOf2_32(NumUniqueScalarValues)) {
         LLVM_DEBUG(dbgs() << "SLP: Scalar used twice in bundle.\n");
         newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
@@ -6963,6 +6980,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     if (isSplat(VL)) {
       // Found the broadcasting of the single scalar, calculate the cost as the
       // broadcast.
+      assert(VecTy == FinalVecTy &&
+             "No reused scalars expected for broadcast.");
       return TTI->getShuffleCost(TargetTransformInfo::SK_Broadcast, VecTy);
     }
     InstructionCost ReuseShuffleCost = 0;
