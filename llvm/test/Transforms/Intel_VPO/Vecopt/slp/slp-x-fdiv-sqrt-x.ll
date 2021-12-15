@@ -79,8 +79,8 @@ define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, do
 ; FORCED-NEXT:    [[I248:%.*]] = call fast double @llvm.sqrt.f64(double [[I247]])
 ; FORCED-NEXT:    [[TMP14:%.*]] = insertelement <2 x double> poison, double [[I245]], i32 0
 ; FORCED-NEXT:    [[TMP15:%.*]] = insertelement <2 x double> [[TMP14]], double [[I248]], i32 1
-; FORCED-NEXT:    [[TMP16:%.*]] = fmul fast <2 x double> [[TMP12]], [[TMP15]]
-; FORCED-NEXT:    [[TMP17:%.*]] = fadd fast <2 x double> [[TMP12]], [[TMP15]]
+; FORCED-NEXT:    [[TMP16:%.*]] = fmul fast <2 x double> [[TMP15]], [[TMP12]]
+; FORCED-NEXT:    [[TMP17:%.*]] = fadd fast <2 x double> [[TMP15]], [[TMP12]]
 ; FORCED-NEXT:    [[TMP18:%.*]] = shufflevector <2 x double> [[TMP16]], <2 x double> [[TMP17]], <2 x i32> <i32 0, i32 3>
 ; FORCED-NEXT:    [[GEP1:%.*]] = getelementptr double, double* [[P:%.*]], i32 0
 ; FORCED-NEXT:    [[GEP2:%.*]] = getelementptr double, double* [[P]], i32 1

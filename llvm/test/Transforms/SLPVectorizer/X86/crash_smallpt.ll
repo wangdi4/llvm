@@ -30,8 +30,10 @@ define void @main() #0 {
 ; CHECK-NEXT:    br i1 undef, label [[COND_TRUE63_US:%.*]], label [[COND_FALSE66_US:%.*]]
 ; CHECK:       cond.false66.us:
 ; CHECK-NEXT:    [[ADD_I276_US:%.*]] = fadd double 0.000000e+00, undef
-; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <2 x double> <double poison, double 0xBFA5CC2D1960285F>, double [[ADD_I276_US]], i32 0
-; CHECK-NEXT:    [[TMP1:%.*]] = fadd <2 x double> <double 0.000000e+00, double undef>, [[TMP0]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <2 x double> <double poison, double undef>, double [[ADD_I276_US]], i32 0
+; CHECK-NEXT:    [[TMP1:%.*]] = fadd <2 x double> [[TMP0]], <double 0.000000e+00, double 0xBFA5CC2D1960285F>
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul <2 x double> [[TMP1]], <double 1.400000e+02, double 1.400000e+02>
 ; CHECK-NEXT:    [[TMP3:%.*]] = fadd <2 x double> [[TMP2]], <double 5.000000e+01, double 5.200000e+01>
 ; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x double> [[TMP1]], i32 0
