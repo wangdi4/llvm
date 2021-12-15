@@ -374,7 +374,7 @@ define i8 @test_fptosi_i8(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtoi(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtoi(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = trunc i32 [[TMP3]] to i8
@@ -390,7 +390,7 @@ define i16 @test_fptosi_i16(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtoi(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtoi(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = trunc i32 [[TMP3]] to i16
@@ -406,7 +406,7 @@ define i32 @test_fptosi_i32(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtoi(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtoi(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    ret i32 [[TMP3]]
@@ -421,7 +421,7 @@ define i64 @test_fptosi_i64(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @__qtoj(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @__qtoj(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    ret i64 [[TMP3]]
@@ -436,7 +436,7 @@ define i128 @test_fptosi_i128(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i128 @__qtom(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i128 @__qtom(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    ret i128 [[TMP3]]
@@ -451,7 +451,7 @@ define i8 @test_fptoui_i8(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtou(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtou(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = trunc i32 [[TMP3]] to i8
@@ -467,7 +467,7 @@ define i16 @test_fptoui_i16(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtou(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtou(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = trunc i32 [[TMP3]] to i16
@@ -483,7 +483,7 @@ define i32 @test_fptoui_i32(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtou(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @__qtou(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    ret i32 [[TMP3]]
@@ -498,7 +498,7 @@ define i64 @test_fptoui_i64(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @__qtok(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @__qtok(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    ret i64 [[TMP3]]
@@ -513,7 +513,7 @@ define i128 @test_fptoui_i128(fp128 %x) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP2]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP1]], align 16
-; CHECK-NEXT:    [[TMP3:%.*]] = call i128 @__qton(fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i128 @__qton(fp128* [[TMP1]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP1]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    ret i128 [[TMP3]]
