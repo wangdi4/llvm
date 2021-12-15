@@ -79,7 +79,7 @@ Address CodeGenFunction::CreateTempAllocaWithoutCast(llvm::Type *Ty,
   if (CapturedStmtInfo && !ArraySize)
     CapturedStmtInfo->recordValueDefinition(Alloca);
 #endif // INTEL_COLLAB
-  return Address(Alloca, Align);
+  return Address(Alloca, Ty, Align);
 }
 
 /// CreateTempAlloca - This creates a alloca and inserts it into the entry
@@ -114,11 +114,13 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
         *this, V, getASTAllocaAddressSpace(), LangAS::Default,
         Ty->getPointerTo(DestAddrSpace), /*non-null*/ true);
   }
+
 #if INTEL_COLLAB
   if (CapturedStmtInfo && !ArraySize)
     CapturedStmtInfo->recordValueDefinition(V);
 #endif // INTEL_COLLAB
-  return Address(V, Align);
+
+  return Address(V, Ty, Align);
 }
 
 /// CreateTempAlloca - This creates an alloca and inserts it into the entry
@@ -161,7 +163,7 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
                                     /*ArraySize=*/nullptr, Alloca);
 
   if (Ty->isConstantMatrixType()) {
-    auto *ArrayTy = cast<llvm::ArrayType>(Result.getType()->getElementType());
+    auto *ArrayTy = cast<llvm::ArrayType>(Result.getElementType());
     auto *VectorTy = llvm::FixedVectorType::get(ArrayTy->getElementType(),
                                                 ArrayTy->getNumElements());
 
@@ -1197,7 +1199,8 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
   // Otherwise, use the alignment of the type.
   CharUnits Align =
       CGM.getNaturalPointeeTypeAlignment(E->getType(), BaseInfo, TBAAInfo);
-  return Address(EmitScalarExpr(E), Align);
+  llvm::Type *ElemTy = ConvertTypeForMem(E->getType()->getPointeeType());
+  return Address(EmitScalarExpr(E), ElemTy, Align);
 }
 
 llvm::Value *CodeGenFunction::EmitNonNullRValueCheck(RValue RV, QualType T) {
