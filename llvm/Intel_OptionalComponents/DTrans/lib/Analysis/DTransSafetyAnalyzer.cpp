@@ -2834,10 +2834,13 @@ public:
 
     DTransType *TargetType = nullptr;
     if (F) {
-      if (TM.isSimpleType(F->getValueType()))
-        TargetType = TM.getOrCreateSimpleType(F->getValueType());
-      else
-        TargetType = MDReader.getDTransTypeFromMD(F);
+      ValueTypeInfo *TargetFuncInfo = PTA.getValueTypeInfo(F);
+      if (TargetFuncInfo) {
+        DTransType *TargetFuncPtrTy =
+            PTA.getDominantType(*TargetFuncInfo, ValueTypeInfo::VAT_Decl);
+        if (TargetFuncPtrTy && TargetFuncPtrTy->isPointerTy())
+          TargetType = TargetFuncPtrTy->getPointerElementType();
+      }
     } else {
       // An indirect call should have metadata info to define the expected type
       // of the call.
