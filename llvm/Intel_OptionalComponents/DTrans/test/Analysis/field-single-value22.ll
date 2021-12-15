@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check that consistent writes to fields do not destroy single values.
 ; Here, ints and floats in different structures have different values.

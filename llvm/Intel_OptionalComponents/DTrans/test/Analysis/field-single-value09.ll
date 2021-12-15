@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check union nested within an outer struct.
 ; Expecting Mutiple Value on the union member, as well as the outer struct.
