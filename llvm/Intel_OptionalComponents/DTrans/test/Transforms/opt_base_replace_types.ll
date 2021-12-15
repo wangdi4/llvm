@@ -11,10 +11,26 @@
 ; RUN:struct.test11a,struct.test12a,struct.test13a,struct.test14a,\
 ; RUN:struct.test15a,struct.test16a 2>&1 | FileCheck %s
 
+; Test with new pass manager
+; RUN: opt  < %s -whole-program-assume -S \
+; RUN: -passes='internalize,dtrans-optbasetest' \
+; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
+; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
+; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\
+; RUN:struct.test11a,struct.test12a,struct.test13a,struct.test14a,\
+; RUN:struct.test15a,struct.test16a 2>&1 | FileCheck %s
+
 ; Test when base class is used without dtrans analysis parameter to
 ; be sure all the types and dependent types are found without relying
 ; on the analysis pass.
 ; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest \
+; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
+; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
+; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\
+; RUN:struct.test11a,struct.test12a,struct.test13a,struct.test14a,\
+; RUN:struct.test15a,struct.test16a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -S \
+; RUN: -passes='internalize,dtrans-optbasetest' \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
 ; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
 ; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\

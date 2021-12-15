@@ -2,6 +2,10 @@
 ; RUN:   grep "DILocalVariable(name: \"x\"" %t | count 1
 ; RUN:   grep "DILocalVariable(name: \"y\"" %t | count 1
 ; RUN:   grep "DILocalVariable(name: \"z\"" %t | count 1
+; RUN: opt -S -whole-program-assume -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.MyStruct -o %t %s
+; RUN:   grep "DILocalVariable(name: \"x\"" %t | count 1
+; RUN:   grep "DILocalVariable(name: \"y\"" %t | count 1
+; RUN:   grep "DILocalVariable(name: \"z\"" %t | count 1
 
 ; This test is to verify that when the DTrans optimization base class clones
 ; a function containing debug variables in different lexical blocks that it
