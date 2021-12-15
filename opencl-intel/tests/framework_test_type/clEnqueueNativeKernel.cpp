@@ -195,6 +195,8 @@ TEST_F(EnqueueNativeKernelTest, multiTBBThreadEnqueueWait) {
                         ASSERT_OCL_SUCCESS(err, "clEnqueueNativeKernel");
                         err = clWaitForEvents(1, &e);
                         ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
+                        err = clReleaseEvent(e);
+                        ASSERT_OCL_SUCCESS(err, "clReleaseEvent");
                       }
                     });
 }
