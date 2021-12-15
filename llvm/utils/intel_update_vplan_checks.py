@@ -65,11 +65,7 @@ IR_VALUE_RE = re.compile(r'(\s+|[\(\!])%([\w\.]+?)([,\s\(\)\}]|\Z)')
 VP_VALUE_RE = re.compile(r'vp[0-9]+')
 VP_NAMED_VALUE_RE = re.compile(r'vp\.[\w\.]+\.[0-9]+')
 VPBB_RE = re.compile(r'\b(BB[0-9]+|blend\.bb[0-9]+|intermediate\.bb[0-9]+|new.loop.latch[0-9]+|cascaded.if.block[0-9]+|PeelBlk[0-9]+|RemBlk[0-9]+|merge\.blk[0-9]+|peel\.check[lzv][0-9]+)')
-REGION_RE = re.compile(r'(region[0-9]+)')
-VPLOOP_RE = re.compile(r'(loop[0-9]+)')
 VPLAN_NAME_RE = re.compile(r'(\s[^\s]+:[^\s]+\.#)[0-9]+')
-PREDICATOR_IF_STMT_RE = re.compile(r'(If[FT][0-9]+)')
-PREDICATOR_BLOCK_PREDICATE_RE = re.compile(r'(BP[0-9]+)')
 ANALYSIS_PRINTING_RE = re.compile(r'Pass::print not implemented|Printing analysis')
 
 def scrub_body(body):
@@ -125,15 +121,6 @@ def genericize_check_lines(lines):
       var = 'VP'
     if VPBB_RE.match(var):
       var = var.rstrip('0123456789')
-    if REGION_RE.match(var):
-      var = 'REGION'
-    if VPLOOP_RE.match(var):
-      var = 'LOOP'
-
-    if PREDICATOR_IF_STMT_RE.match(var):
-      var = get_predicator_if_stmt_name_prefix(var)
-    if PREDICATOR_BLOCK_PREDICATE_RE.match(var):
-      var = 'BP'
 
     # var_before_genericizing = var
     if not orig_var.isdigit():
@@ -232,11 +219,7 @@ def genericize_check_lines(lines):
     # FIXME: why isn't it enough to perform substitution once?
     tmp =  IR_VALUE_RE.sub(transform_line_vars, tmp)
     tmp = VPBB_RE.sub(transform_vpbb, tmp)
-    tmp = REGION_RE.sub(transform_region, tmp)
-    tmp = VPLOOP_RE.sub(transform_vploop, tmp)
     tmp = VPLAN_NAME_RE.sub(transform_vplan_name, tmp)
-    tmp = PREDICATOR_IF_STMT_RE.sub(transform_predicator_if_stmt, tmp)
-    tmp = PREDICATOR_BLOCK_PREDICATE_RE.sub(transform_predicator_block_predicate, tmp)
 
     # For external defs, add the part after ext_defs_separator that was split earlier
     if in_ext_defs == True:
