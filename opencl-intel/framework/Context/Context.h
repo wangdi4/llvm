@@ -31,7 +31,6 @@
 #include "cl_heap.h"
 #include "cl_shared_ptr.h"
 #include "sampler.h"
-#include "tbb/concurrent_map.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -576,7 +575,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_program GetLibraryProgram() { return m_backendLibraryProgram; }
 
         /// Get backend library kernels.
-        tbb::concurrent_map<threadid_t, std::map<std::string, cl_kernel>>
+        std::map<threadid_t, std::map<std::string, cl_kernel>>
             &GetLibraryKernels() {
           return m_backendLibraryKernels;
         }
@@ -729,7 +728,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Holds the backend library program.
         cl_program                              m_backendLibraryProgram;
-        tbb::concurrent_map<threadid_t, std::map<std::string, cl_kernel>>
+        std::map<threadid_t, std::map<std::string, cl_kernel>>
             m_backendLibraryKernels;
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
