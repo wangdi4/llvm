@@ -99,10 +99,6 @@ public:
                   CharUnits alignment)
       : Address(pointer, elementType, alignment) {}
 
-  // Deprecated: Use constructor with explicit element type instead.
-  ConstantAddress(llvm::Constant *pointer, CharUnits alignment)
-      : Address(pointer, alignment) {}
-
   static ConstantAddress invalid() {
     return ConstantAddress(nullptr);
   }

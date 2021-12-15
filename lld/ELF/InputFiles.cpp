@@ -47,7 +47,7 @@ std::vector<ArchiveFile *> elf::archiveFiles;
 std::vector<BinaryFile *> elf::binaryFiles;
 std::vector<BitcodeFile *> elf::bitcodeFiles;
 std::vector<LazyObjFile *> elf::lazyObjFiles;
-std::vector<InputFile *> elf::objectFiles;
+std::vector<ELFFileBase *> elf::objectFiles;
 std::vector<SharedFile *> elf::sharedFiles;
 std::vector<InputFile *> elf::gNULTOFiles; // INTEL
 
@@ -210,7 +210,7 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   }
 
   // Regular object file
-  objectFiles.push_back(file);
+  objectFiles.push_back(cast<ELFFileBase>(file));
   cast<ObjFile<ELFT>>(file)->parse();
 #if INTEL_CUSTOMIZATION
   // If the input file is a GNU LTO file then add it
