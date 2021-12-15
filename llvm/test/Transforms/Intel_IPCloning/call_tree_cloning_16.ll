@@ -122,7 +122,7 @@ attributes #3 = { nounwind }
 ;!llvm.ident = !{!0}
 !llvm.module.flags = !{!1}
 
-;!0 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang add846e1e605ac55068506c9a42f2c827a58167d) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm e91f74aa3e2ef6dcafd3fffbaf503f16ff0f530c)"}
+;!0 = !{!"clang version 7.0.0"}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}

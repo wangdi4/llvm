@@ -86,14 +86,14 @@ attributes #2 = { alwaysinline nounwind uwtable "correctly-rounded-divide-sqrt-f
 !llvm.dbg.intel.emit_class_debug_always = !{!6}
 !llvm.ident = !{!7}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C89, file: !1, producer: "clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 4668d7db80db694dac3b2d8715db968c3d2890c0) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 93109e580f7bc040fe7f398453ec23067fd1aeee)", isOptimized: true, runtimeVersion: 0, emissionKind: LineTablesOnly, enums: !2)
+!0 = distinct !DICompileUnit(language: DW_LANG_C89, file: !1, producer: "clang version 6.0.0")
 !1 = !DIFile(filename: "test1.c", directory: "/export/users/ochupina/ipo_trackers/inllist")
 !2 = !{}
 !3 = !{i32 2, !"Dwarf Version", i32 4}
 !4 = !{i32 2, !"Debug Info Version", i32 3}
 !5 = !{i32 1, !"wchar_size", i32 4}
 !6 = !{!"true"}
-!7 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 4668d7db80db694dac3b2d8715db968c3d2890c0) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 93109e580f7bc040fe7f398453ec23067fd1aeee)"}
+!7 = !{!"clang version 6.0.0"}
 !8 = distinct !DISubprogram(name: "f1", scope: !1, file: !1, line: 1, type: !9, isLocal: false, isDefinition: true, scopeLine: 1, isOptimized: true, unit: !0, retainedNodes: !2)
 !9 = !DISubroutineType(types: !2)
 !10 = !DILocation(line: 2, column: 3, scope: !8)
