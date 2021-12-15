@@ -3092,12 +3092,15 @@ ContextModule::initializeLibraryProgram(SharedPtr<Context> &Ctx,
   // Create Kernels for current thread.
   threadid_t TID = clMyThreadId();
   std::vector<std::string> KernelNamesVec = SplitString(KernelNames, ';');
-  for (auto &KName : KernelNamesVec) {
+  {
+    OclAutoMutex mu(&m_backendLibraryMutex);
+    for (auto &KName : KernelNamesVec) {
       cl_kernel K = CreateLibraryKernelForThread(Ctx, TID, KName);
       if (!K) {
           LOG_ERROR(TEXT("Failed to create library kernel %s"), KName.c_str());
           return CL_OUT_OF_RESOURCES;
       }
+    }
   }
   return Err;
 }
@@ -3157,6 +3160,7 @@ cl_kernel ContextModule::CreateLibraryKernelForThread(SharedPtr<Context> &Ctx,
 
 SharedPtr<Kernel> ContextModule::GetLibraryKernel(SharedPtr<Context> &Ctx,
                                                   const std::string &Name) {
+  OclAutoMutex mu(&m_backendLibraryMutex);
   threadid_t TID = clMyThreadId();
   auto &Kernels = Ctx->GetLibraryKernels();
   cl_kernel K = (Kernels.count(TID) && Kernels[TID].count(Name))
