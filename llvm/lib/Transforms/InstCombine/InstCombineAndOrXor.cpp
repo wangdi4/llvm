@@ -2138,6 +2138,15 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
     if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
       return X;
 #endif // INTEL_CUSTOMIZATION
+  // If there's a 'not' of the shifted value, swap the select operands:
+  // ~(iN X s>> (N-1)) & Y --> (X s< 0) ? 0 : Y
+  if (match(&I, m_c_And(m_OneUse(m_Not(
+                            m_AShr(m_Value(X), m_SpecificInt(FullShift)))),
+                        m_Value(Y)))) {
+    Constant *Zero = ConstantInt::getNullValue(Ty);
+    Value *Cmp = Builder.CreateICmpSLT(X, Zero, "isneg");
+    return SelectInst::Create(Cmp, Zero, Y);
+  }
 
   // (~x) & y  -->  ~(x | (~y))  iff that gets rid of inversions
   if (sinkNotIntoOtherHandOfAndOrOr(I))
