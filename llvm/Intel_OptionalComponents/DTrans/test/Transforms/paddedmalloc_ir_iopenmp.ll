@@ -3,6 +3,7 @@
 ; function successfully when -fiopenmp is used.
 
 ; RUN: opt  < %s -whole-program-assume -dtrans-test-paddedmalloc -vpo-paropt -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtrans-test-paddedmalloc -passes='vpo-paropt,dtrans-paddedmalloc' -S 2>&1 | FileCheck %s
 
 %struct.testStruct = type { i8* }
 
