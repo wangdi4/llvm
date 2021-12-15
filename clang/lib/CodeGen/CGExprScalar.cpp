@@ -3574,10 +3574,10 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   if (CGF.getLangOpts().isSignedOverflowDefined())
     return CGF.Builder.CreateGEP(elemTy, pointer, index, "add.ptr");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   Value *result = CGF.EmitCheckedInBoundsGEP(
-      pointer, index, isSigned, isSubtraction, op.E->getExprLoc(), "add.ptr");
+      elemTy, pointer, index, isSigned, isSubtraction, op.E->getExprLoc(),
+      "add.ptr");
   // Intel TBAA for pointer arithmetic
   if (CGF.CGM.getCodeGenOpts().StructPathTBAA &&
       CGF.getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
@@ -3591,11 +3591,6 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   }
   return result;
 #endif // INTEL_CUSTOMIZATION
-=======
-  return CGF.EmitCheckedInBoundsGEP(
-      elemTy, pointer, index, isSigned, isSubtraction, op.E->getExprLoc(),
-      "add.ptr");
->>>>>>> d930c3155c1ba5114ad12fc15635cb0a2480ac9f
 }
 
 // Construct an fmuladd intrinsic to represent a fused mul-add of MulOp and
@@ -5133,13 +5128,8 @@ CodeGenFunction::EmitCheckedInBoundsGEP(llvm::Type *ElemTy, Value *Ptr,
                                         bool SignedIndices, bool IsSubtraction,
                                         SourceLocation Loc, const Twine &Name) {
   llvm::Type *PtrTy = Ptr->getType();
-<<<<<<< HEAD
-  Value *GEPVal = Builder.CreateInBoundsGEP(
-      PtrTy->getPointerElementType(), Ptr, IdxList, Name);
-  recordNoAliasPtr(Ptr, GEPVal); // INTEL
-=======
   Value *GEPVal = Builder.CreateInBoundsGEP(ElemTy, Ptr, IdxList, Name);
->>>>>>> d930c3155c1ba5114ad12fc15635cb0a2480ac9f
+  recordNoAliasPtr(Ptr, GEPVal); // INTEL
 
   // If the pointer overflow sanitizer isn't enabled, do nothing.
   if (!SanOpts.has(SanitizerKind::PointerOverflow))
