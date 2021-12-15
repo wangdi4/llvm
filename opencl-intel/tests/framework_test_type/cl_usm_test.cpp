@@ -663,6 +663,8 @@ static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
   err = clWaitForEvents(1, &e);
   ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
+  err = clReleaseEvent(e);
+  ASSERT_OCL_SUCCESS(err, "clReleaseEvent");
 
   ASSERT_EQ(*result, 1);
 
@@ -675,6 +677,8 @@ static void testSetKernelArgMemPointer(cl_context context, cl_device_id device,
   ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
   err = clWaitForEvents(1, &e);
   ASSERT_OCL_SUCCESS(err, "clWaitForEvents");
+  err = clReleaseEvent(e);
+  ASSERT_OCL_SUCCESS(err, "clReleaseEvent");
 
   err = clMemFreeINTEL(context, buffer);
   EXPECT_OCL_SUCCESS(err, "clMemFreeINTEL");
@@ -711,17 +715,28 @@ TEST_F(USMTest, setKernelArgMemPointerMultiThreads) {
   ASSERT_NO_FATAL_FAILURE(
       BuildProgram(m_context, m_device, source, 1, program));
 
+  // Create out-of-order queue for this sub-test since it is probably not
+  // thread-safe to enqueue concurrently into an in-order command queue.
+  cl_int err;
+  cl_command_queue_properties properties[] = {
+      CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
+  cl_command_queue queue =
+      clCreateCommandQueueWithProperties(m_context, m_device, properties, &err);
+  EXPECT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+
   int numThreads = getMaxNumExternalThreads();
-  tbb::parallel_for(tbb::blocked_range<int>(0, numThreads * 10),
+  tbb::parallel_for(tbb::blocked_range<int>(0, numThreads),
                     [&](tbb::blocked_range<int>(range)) {
                       for (int i = range.begin(); i < range.end(); ++i) {
                         ASSERT_NO_FATAL_FAILURE(testSetKernelArgMemPointer(
-                            m_context, m_device, m_queue, program));
+                            m_context, m_device, queue, program));
                       }
                     });
 
-  cl_int err = clReleaseProgram(program);
+  err = clReleaseProgram(program);
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+  err = clReleaseCommandQueue(queue);
+  EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
 }
 
 TEST_F(USMTest, setKernelExecInfo) {
