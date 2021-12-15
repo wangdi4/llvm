@@ -32,12 +32,22 @@
 // CHECK-ZI: "-gcodeview"
 // CHECK-ZI: "-debug-info-kind=constructor"
 
-// -ax support (accept, but don't use)
-// RUN: %clang_cl -### /c /QaxCORE-AVX2 %s 2>&1 | \
-// RUN:  FileCheck -check-prefix=CHECK-AX %s
-// RUN: %clang -### -c -axCORE-AVX2 %s 2>&1 | \
-// RUN:  FileCheck -check-prefix=CHECK-AX %s
-// CHECK-AX: argument unused
+// RUN: %clang -### -axbroadwell  %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
+// RUN: %clang -### -ax=broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
+// RUN: %clang -### -ax=haswell,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+// RUN: %clang -### -axhaswell,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+//
+// RUN: %clang_cl -### /Qaxbroadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s --check-prefixes=CHECK-AX-BROADWELL
+// RUN: %clang_cl -### /Qaxhaswell,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
+//
+// CHECK-AX-BROADWELL: "-ax=broadwell"
+// CHECK-AX-BOTH: "-ax=haswell,broadwell"
 
 // -Qfreestanding
 // RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
