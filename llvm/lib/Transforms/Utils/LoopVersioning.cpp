@@ -87,22 +87,17 @@ void LoopVersioning::versionLoop(
   } else
     RuntimeCheck = MemRuntimeCheck ? MemRuntimeCheck : SCEVRuntimeCheck;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // https://bugs.llvm.org/show_bug.cgi?id=52426
   // LoopLoadElim assumes the RC is optional, this is the least risky fix
   if (!RuntimeCheck) return;
 #endif // INTEL_CUSTOMIZATION
 
-  assert(RuntimeCheck && "called even though we don't need "
-                         "any runtime checks");
-=======
   if (!RuntimeCheck) {
     LLVM_DEBUG(dbgs() << DEBUG_TYPE " No MemRuntimeCheck or SCEVRuntimeCheck found"
                       << ", set RuntimeCheck to False\n");
     RuntimeCheck = ConstantInt::getFalse(RuntimeCheckBB->getContext());
   }
->>>>>>> fbf6c8ac1589a4be68ee549257f1d528937ac582
 
   // Rename the block to make the IR more readable.
   RuntimeCheckBB->setName(VersionedLoop->getHeader()->getName() +
