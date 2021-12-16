@@ -180,6 +180,7 @@
 ; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
 
 ; RUN: opt < %s -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"
@@ -552,7 +553,7 @@ attributes #12 = { builtin nounwind }
 !8 = !{i64 16, !"_ZTS8Derived2"}
 !9 = !{i64 32, !"_ZTSM8Derived2FbPviE.virtual"}
 !10 = !{i32 1, !"wchar_size", i32 4}
-!11 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 5be402b1c6a5f2f334635d9257915bd7c3f4b734) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm f36c84b6396d62d17021894e327aec5aa228dbaf)"}
+!11 = !{!"clang version 8.0.0"}
 !12 = !{!13, !13, i64 0}
 !13 = !{!"vtable pointer", !14, i64 0}
 !14 = !{!"Simple C++ TBAA"}

@@ -1109,7 +1109,13 @@ void DeleteFieldOPImpl::postprocessCall(CallBase *Call) {
   // the element_llvm_types here that returns llvm::Type objects, instead of
   // DTransTypes because the call info objects track the pointee type.
   auto CallElemTypes = CInfo->getElementTypesRef();
-  for (auto *PointeeTy : CallElemTypes.element_llvm_types())
+  for (auto *PointeeTy : CallElemTypes.element_llvm_types()) {
+    // For an array of elements, identify the element type to see if it is
+    // being transformed, and will require updating the size argument to be a
+    // multiple of the new size.
+    while (PointeeTy->isArrayTy())
+      PointeeTy = PointeeTy->getArrayElementType();
+
     for (auto &ONPair : OrigToNewTypeMapping) {
       llvm::Type *OrigTy = ONPair.first;
       llvm::Type *ReplTy = ONPair.second;
@@ -1130,6 +1136,7 @@ void DeleteFieldOPImpl::postprocessCall(CallBase *Call) {
       const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       dtrans::updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
     }
+  }
 }
 
 char DTransDeleteFieldOPWrapper::ID = 0;

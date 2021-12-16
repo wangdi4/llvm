@@ -291,12 +291,13 @@ private:
       LaunderIntrinsicsForRegion;
 
   /// Atomic-free reduction global buffers per reduction item.
+  DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedLocalBufs;
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
 
   struct LocalUpdateInfo {
     BasicBlock *UpdateBB = nullptr;
     BasicBlock *ExitBB = nullptr;
-    Value *IVPhi = nullptr;
+    PHINode *IVPhi = nullptr;
     Instruction *LocalId = nullptr;
   };
   /// BBs that perform updates within the atomic-free reduction loops.

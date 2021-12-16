@@ -31,10 +31,6 @@ static cl::opt<bool>
     ShowLLVMInst("hir-details-llvm-inst", cl::init(false), cl::Hidden,
                  cl::desc("Show LLVM instructions instead of dummy HLInst"));
 
-static cl::opt<bool> CheckIntrinsicSafeReduction(
-    "hir-safe-reduction-analysis-check-intrinsic", cl::init(false), cl::Hidden,
-    cl::desc("Check safe reduction for intrinsic calls"));
-
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   unsigned NumOp = getNumOperandsInternal();
@@ -517,6 +513,7 @@ void HLInst::verify() const {
       auto *FakeRef = *FakeIter;
       if (FakeRef->isMemRef()) {
         bool hasMatchingOpRef = false;
+        (void)hasMatchingOpRef;
         for (auto OpIter = op_ddref_begin(), OpEndIter = op_ddref_end();
              OpIter != OpEndIter; ++OpIter) {
           auto *OpRef = *OpIter;
@@ -602,7 +599,7 @@ bool HLInst::isReductionOp(unsigned *OpCode) const {
 bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
   Intrinsic::ID Id;
 
-  if (CheckIntrinsicSafeReduction && isIntrinCall(Id)) {
+  if (isIntrinCall(Id)) {
     if (IsMin && (Id == Intrinsic::minnum || Id == Intrinsic::minimum)) {
       return true;
     }

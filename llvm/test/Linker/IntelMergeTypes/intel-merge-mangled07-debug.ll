@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -irmover-enable-merge-by-mangled-names -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-mangled-names -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled07-a.ll %S/Inputs/intel-merge-mangled07-b.ll 2>&1 | FileCheck %s -check-prefix=CHECK-AB
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-dtrans-types -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled07-a.ll %S/Inputs/intel-merge-mangled07-b.ll 2>&1 | FileCheck %s -check-prefix=CHECK-AB
 
 ; NOTE: These test cases can be removed once we move to opaque pointers.
 
@@ -79,7 +79,7 @@
 ; CHECK-AB: !4 = !{%struct._ZTS11TestStructA.TestStructA zeroinitializer, i32 1}
 
 
-; RUN: llvm-link -irmover-enable-merge-by-mangled-names -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-mangled-names -S %S/Inputs/intel-merge-mangled07-b.ll %S/Inputs/intel-merge-mangled07-a.ll 2>&1 | FileCheck %s -check-prefix=CHECK-BA
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -debug-only=irmover-dtrans-types -S %S/Inputs/intel-merge-mangled07-b.ll %S/Inputs/intel-merge-mangled07-a.ll 2>&1 | FileCheck %s -check-prefix=CHECK-BA
 
 ; This test checks that the incomplete type is linked correctly when the linking
 ; order is changed. In this case, there is no type to repair because the

@@ -763,6 +763,25 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
     return nullptr;
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  // Check that targets for automatic-multiversion-dispatch specified are legal.
+  {
+    bool IncorrectTargetNameSeen = false;
+    for (const std::string &TargetName : Opts->AutoMultiVersionTargets) {
+      if (!Target->isValidCPUName(TargetName)) {
+        Diags.Report(diag::err_target_unknown_cpu) << TargetName;
+        IncorrectTargetNameSeen = true;
+      }
+    }
+    if (IncorrectTargetNameSeen) {
+      SmallVector<StringRef, 32> ValidList;
+      Target->fillValidCPUList(ValidList);
+      if (!ValidList.empty())
+        Diags.Report(diag::note_valid_options) << llvm::join(ValidList, ", ");
+    }
+  }
+#endif //INTEL_CUSTOMIZATION
+
   // Set the target ABI if specified.
   if (!Opts->ABI.empty() && !Target->setABI(Opts->ABI)) {
     Diags.Report(diag::err_target_unknown_abi) << Opts->ABI;

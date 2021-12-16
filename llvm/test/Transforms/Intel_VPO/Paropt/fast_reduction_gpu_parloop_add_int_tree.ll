@@ -45,7 +45,7 @@ target device_triples = "spir64"
 ; CHECK: store i32 %[[PRIV_VAL]], i32 addrspace(3)* %[[LOCAL_BUF_PTR]], align 4
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
-; CHECK: %[[IDX_PHI:[^,]+]] = phi i64 [ %[[TREE_LOOP_UB]]
+; CHECK: %[[IDX_PHI:[^,]+]] = phi i64 [ %{{[0-9]+}}, %{{[a-z.]+}} ], [ %[[TREE_LOOP_UB]]
 ; CHECK: %[[CMP0:[^,]+]] = icmp eq i64 %[[IDX_PHI]], 0
 ; CHECK: br i1 %[[CMP0]], label %atomic.free.red.local.update.update.exit, label %atomic.free.red.local.update.update.idcheck
 ; CHECK-LABEL: atomic.free.red.local.update.update.idcheck:

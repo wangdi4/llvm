@@ -124,7 +124,7 @@ attributes #5 = { nounwind }
 
 !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
 !1 = distinct !DIGlobalVariable(name: "glob", scope: !2, file: !3, line: 17, type: !6, isLocal: false, isDefinition: true)
-!2 = distinct !DICompileUnit(language: DW_LANG_C89, file: !3, producer: "clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 6b9bbf6f8fb943b10e475a754c407b0c06e3ca95) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 57f190924c00ec3ba4944ff14132dc2ade478278)", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !4, globals: !5, nameTableKind: None)
+!2 = distinct !DICompileUnit(language: DW_LANG_C89, file: !3, producer: "clang version 8.0.0", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !4, globals: !5, nameTableKind: None)
 !3 = !DIFile(filename: "test.c", directory: "/export/iusers/cczhao/Workspaces/xmainipo/llvm/test/Transforms/Intel_IPCloning")
 !4 = !{}
 !5 = !{!0}

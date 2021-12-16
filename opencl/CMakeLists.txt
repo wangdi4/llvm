@@ -17,12 +17,12 @@ if(INTEL_CUSTOMIZATION)
   if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
     STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
   else()
-    set(GITSERVER "ssh://git-amr-2.devtools.intel.com:29418")
+    set(GITSERVER "https://github.com/intel-innersource")
   endif()
  set(OCL_HEADERS_REPO
-   "${GITSERVER}/dpd_icl-opencl-headers")
+   "${GITSERVER}/applications.compilers.source.opencl-headers")
  set(OCL_LOADER_REPO
-   "${GITSERVER}/dpd_icl-opencl-icd-loader")
+   "${GITSERVER}/applications.compilers.source.opencl-icd-loader")
 endif(INTEL_CUSTOMIZATION)
 
 # Repo tags/hashes

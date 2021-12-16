@@ -1953,11 +1953,24 @@ private:
     assert(FuncInfo &&
            "Expected VisitModule to create info for all defined functions");
 
-    // We expect a declaration type set with one pointer entry to describe the
-    // function
+    // We expect the declaration type set to have one pointer entry to describe
+    // the function. However, we can ignore the Argument, if there are no users.
+    // Also, we can try to infer the type based on the usage to see if it is
+    // used as a single type.
     auto &AliasSet = FuncInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    if (AliasSet.empty() && !Arg->hasNUsesOrMore(1))
+      return;
+
     if (AliasSet.size() != 1) {
-      ResultInfo->setUnhandled();
+      inferTypeFromUse(Arg, ResultInfo);
+      auto &UseAliasSet =
+          ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+      if (UseAliasSet.size() == 1) {
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, *UseAliasSet.begin());
+        ResultInfo->setCompletelyAnalyzed();
+      } else {
+        ResultInfo->setUnhandled();
+      }
       return;
     }
 
@@ -2160,6 +2173,11 @@ private:
     unsigned NumArg = Call->arg_size();
     for (unsigned AI = 0; AI < NumArg; ++AI) {
       Value *Arg = Call->getArgOperand(AI);
+      // We can ignore parameters that are the address of functions, since
+      // we do not track safety data on a pointer to a function type.
+      if (isa<Function>(Arg))
+        continue;
+
       if (dtrans::hasPointerType(Arg->getType())) {
         ValueTypeInfo *ParamInfo = PTA.getOrCreateValueTypeInfo(Call, AI);
         // Check whether the argument should have a pointer type, and the type,

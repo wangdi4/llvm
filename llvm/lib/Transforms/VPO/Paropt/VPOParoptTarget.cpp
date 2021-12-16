@@ -4947,12 +4947,12 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
     PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi");
     Phi->addIncoming(VariantCall, ThenTerm->getParent());
     Phi->addIncoming(BaseCall, ElseTerm->getParent());
-    for (User *U : BaseCall->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U)) {
-        if (UI != Phi) { // don't replace in Phi
-          UI->replaceUsesOfWith(BaseCall, Phi);
-        }
-      }
+    BaseCall->replaceUsesWithIf(Phi, [Phi](Use &U) {
+      if (auto *UI = dyn_cast<Instruction>(U.getUser()))
+        if (UI != Phi) // don't replace in Phi
+          return true;
+      return false;
+    });
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDispatchCode\n");

@@ -2,6 +2,7 @@
 ; if a structure doesn't have fields.
 
 ;  RUN: opt < %s -S -whole-program-assume -dtrans-reorderfields  -disable-output  2>/dev/null
+;  RUN: opt < %s -S -whole-program-assume -passes=dtrans-reorderfields  -disable-output  2>/dev/null
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

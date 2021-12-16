@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt  -whole-program-assume < %s -disable-output -dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
+; RUN: opt  -whole-program-assume < %s -disable-output -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa 2>&1 | FileCheck %s
 
 ; This test verifies that the dtrans aostosoa disqualified a structure that
 ; contains types that are not supported by the transformation.

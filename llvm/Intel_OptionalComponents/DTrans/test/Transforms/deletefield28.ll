@@ -1,15 +1,10 @@
 ; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
 ; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
-; This test fails because the allocation size used for the @malloc
-; call does not update correctly to reflect the changed structure
-; type because the allocation type is cast to an array of structures
-; (CMPLRLLVM-27696)
-; XFAIL: *
-
 ; This test verifies that the index arguments of GEP instructions are correctly
 ; updated when they are accessing a field within a fixed array of a structure
-; with a deleted field.
+; with a deleted field, and that the size of the allocation of the array is
+; updated.
 
 %struct.test = type { i32, i64, i32 }
 

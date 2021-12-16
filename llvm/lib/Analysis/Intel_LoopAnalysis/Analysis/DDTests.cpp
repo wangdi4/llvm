@@ -1240,11 +1240,10 @@ const CanonExpr *DDTest::addExt(const CanonExpr *CE) {
   int64_t BlobCoeff = CE->getSingleBlobCoeff();
 
   unsigned NewBlobIdx;
-  BlobTy NewBlob;
   if (CE->isZExt() && (BlobCoeff > 0)) {
-    NewBlob = BU.createZeroExtendBlob(Blob, DestTy, true, &NewBlobIdx);
+    BU.createZeroExtendBlob(Blob, DestTy, true, &NewBlobIdx);
   } else if (CE->isSExt()) {
-    NewBlob = BU.createSignExtendBlob(Blob, DestTy, true, &NewBlobIdx);
+    BU.createSignExtendBlob(Blob, DestTy, true, &NewBlobIdx);
   } else {
     return CE;
   }

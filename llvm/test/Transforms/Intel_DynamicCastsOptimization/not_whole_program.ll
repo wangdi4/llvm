@@ -1,4 +1,5 @@
 ; RUN: opt < %s -S -optimize-dyn-casts | FileCheck %s
+; RUN: opt < %s -S -passes=optimize-dyn-casts | FileCheck %s
 
 
 ; Test case with dlopen that loads dynamic library in runtime.
@@ -178,5 +179,5 @@ attributes #6 = { norecurse uwtable "correctly-rounded-divide-sqrt-fp-math"="fal
 !llvm.ident = !{!0}
 !llvm.module.flags = !{!1}
 
-!0 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 9560b68107fa41b498c1dd9bb039bc99d7439a73) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 7265afc0f489fd006043245b58d866cc098f2a55)"}
+!0 = !{!"clang version 6.0.0"}
 !1 = !{i32 1, !"wchar_size", i32 4}

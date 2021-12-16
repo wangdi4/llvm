@@ -8162,6 +8162,20 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
   }
 
+#if INTEL_CUSTOMIZATION
+  // Forward -ax option
+  if (const Arg *Tgts = Args.getLastArg(options::OPT_ax)) {
+    SmallString<128> TargetInfo("-ax=");
+
+    for (unsigned i = 0; i < Tgts->getNumValues(); ++i) {
+      if (i)
+        TargetInfo += ',';
+      TargetInfo += Tgts->getValue(i);
+    }
+    CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // For all the host SYCL offloading compile jobs we need to pass the targets
   // information using -fsycl-targets= option.
   if (isa<CompileJobAction>(JA) && JA.isHostOffloading(Action::OFK_SYCL)) {

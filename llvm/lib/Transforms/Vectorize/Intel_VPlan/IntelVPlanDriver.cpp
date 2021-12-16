@@ -382,8 +382,11 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
       std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
       VPLoop *VLoop = Plan->getMainLoop(true);
       // Masked variant is not generated for loops without normalized induction.
-      if (!VLoop->hasNormalizedInduction())
+      if (!VLoop->hasNormalizedInduction()) {
+        LLVM_DEBUG(dbgs() << "skipping masked_mode: non-normalized "
+                          << Plan->getName() << "\n";);
         continue;
+      }
       if (Pair.second.MaskedModeLoop)
         // Already have it.
         continue;
@@ -398,8 +401,11 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
       }
       // Check if we can process VPlan in masked mode. E.g. the code for some
       // entities processing is not implemented yet.
-      if (!canProcessMaskedVariant(*Plan))
+      if (!canProcessMaskedVariant(*Plan)) {
+        LLVM_DEBUG(dbgs() << "skipping masked_mode: can't process "
+                          << Plan->getName() << "\n";);
         continue;
+      }
 
       // Check whether we have a known TC and it's a power of two and is
       // less than maximum VF. In such cases the masked mode loop will be
@@ -414,8 +420,11 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
       if (!VLoop->getTripCountInfo().IsEstimated) {
         auto Max = *(std::max_element(LVP.getVectorFactors().begin(),
                                       LVP.getVectorFactors().end()));
-        if (isPowerOf2_64(TripCount) && TripCount <= Max)
+        if (isPowerOf2_64(TripCount) && TripCount <= Max) {
+          LLVM_DEBUG(dbgs() << "skipping masked_mode: trip count "
+                            << Plan->getName() << "\n";);
           continue;
+        }
       }
 
       MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);

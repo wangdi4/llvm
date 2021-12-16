@@ -91,6 +91,11 @@ public:
   /// * CUDA compilation uses it to control parts of CUDA compilation
   ///   in clang that depend on specific version of the CUDA SDK.
   llvm::VersionTuple SDKVersion;
+
+#ifdef INTEL_CUSTOMIZATION
+  /// If given, list of names of the target CPUs to multiversion code for
+  std::vector<std::string> AutoMultiVersionTargets;
+#endif //INTEL_CUSTOMIZATION
 };
 
 }  // end namespace clang

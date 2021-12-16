@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-outofboundsok=false -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -dtrans-outofboundsok=false -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check that the OUTERSTRUCT is marked Field Address Taken Call, with the second
 ; field specifically AddressTaken, and that the INNERSTRUCT is not Field

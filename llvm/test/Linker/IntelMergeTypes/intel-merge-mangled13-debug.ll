@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -debug-only=irmover-mangled-names -irmover-enable-merge-by-mangled-names -irmover-enable-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled13-a.ll %S/Inputs/intel-merge-mangled13-b.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled13-a.ll %S/Inputs/intel-merge-mangled13-b.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the structures without mangled names were merged
 ; correctly. It is the same test case as intel-merge-mangled13.ll but it
