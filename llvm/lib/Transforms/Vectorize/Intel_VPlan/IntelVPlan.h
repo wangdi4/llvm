@@ -607,6 +607,19 @@ public:
                            // finalization during CG.
                            // TODO: Remove when non-explicit remainder loop
                            // support is deprecated.
+    PrivateFinalMasked,    // No special class implemented. Represents the last
+                        // value of unconditional private in masked mode loop.
+                        // Three operands: liveout, execution mask, and
+                        // fall-through value that comes out when the execution
+                        // mask is 0 (loop is not executed). The last value is
+                        // calculated as extract of the item correspnding MSB
+                        // set in the mask.
+    PrivateFinalMaskedMem, // No special class implemented. Represents the last
+                           // value of in-memory unconditional private in
+                           // masked mode loop. Two operands: liveout and
+                           // execution mask. The last value is calculated as
+                           // extract of the item correspnding MSB set in the
+                           // mask.
     PrivateFinalArray,
     PrivateLastValueNonPOD,
     GeneralMemOptConflict,

@@ -164,11 +164,16 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
       return !TopVPLoop->contains(I);
     return false;
   };
+
+  // Map to keep live-in values for encountered VPPrivateFinal-s.
+  // We fill it in the loop below and use during transforming
+  // those VPPrivateFinal into VPPrivateFinalMasked.
+  DenseMap<VPInstruction*, VPValue*> PrivFinalLiveInMap;
+
   for (auto &Pair : RecurrentValsAndLiveOuts) {
     VPInstruction *LiveOutVal = Pair.second;
     VPPHINode *LiveOutVPPhi =
         VPBldr.createPhiInstruction(LiveOutVal->getType());
-    LiveOutVal->replaceUsesWithIf(LiveOutVPPhi, InsnNotInLoop);
     // New loop latch has two predecessors: loop header and the first part of
     // the old loop latch.
     auto NewLoopLatchPred =
@@ -177,14 +182,88 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
     assert(NewLoopLatchPred != NewLoopLatch->getPredecessors().end() &&
            "Basic block is not a predecessor of the new loop latch.");
     LiveOutVPPhi->addIncoming(LiveOutVal, *NewLoopLatchPred);
-    VPValue *IncomingValFromHeader =
-        Pair.first ? cast<VPValue>(Pair.first)
-                   : cast<VPValue>(MaskedVPlan->getVPConstant(
-                         UndefValue::get(LiveOutVPPhi->getType())));
+    VPValue *IncomingValFromHeader = Pair.first;
+    if (!IncomingValFromHeader) {
+      // Liveout w/o header phi. That can be an unconditional last private
+      // only. In such cases we should take the loop incoming value as an
+      // operand of the latch phi. Even the unconditional last private does not
+      // have any incoming value, if this masked mode loop is a
+      // remainder and there are no iterations executed in that remainder we
+      // need to pass through the value that comes from the main loop.
+      //
+      // First take the out-of-the-loop use of that liveot, it should be a
+      // PrivateFinal instruction.
+      auto LOUserIt = llvm::find_if(LiveOutVal->users(), InsnNotInLoop);
+      assert(LOUserIt != LiveOutVal->user_end() &&
+             "Expected not-in-the-loop user");
+      auto *UseInst = cast<VPInstruction>(*LOUserIt);
+      assert(UseInst->getOpcode() == VPInstruction::PrivateFinalUncond &&
+             "Expected liveout private");
+
+      // Then find the external use to get incoming value.
+      auto Iter = llvm::find_if(UseInst->users(), [](VPUser *U) {
+        return isa<VPExternalUse>(U) || isa<VPLiveOutValue>(U);
+      });
+      assert(Iter != UseInst->user_end() && "Expected non-null external use");
+
+      int MergeId;
+      if (auto *ExternalUse = dyn_cast<VPExternalUse>(*Iter))
+        MergeId = ExternalUse->getMergeId();
+      else
+        MergeId = cast<VPLiveOutValue>(*Iter)->getMergeId();
+
+      IncomingValFromHeader =
+          const_cast<VPLiveInValue *>(MaskedVPlan->getLiveInValue(MergeId));
+      // Save for future replacement
+      LLVM_DEBUG(dbgs() << "IncomingVal for: "; UseInst->printAsOperand(dbgs());
+                 dbgs() << " is ";
+                 IncomingValFromHeader->printAsOperand(dbgs()););
+      PrivFinalLiveInMap[UseInst] = IncomingValFromHeader;
+    }
+    else {
+      // When the VPPHINode in the header exists.
+      VPPHINode *HeaderPhi = Pair.first;
+      HeaderPhi->setIncomingValue(HeaderPhi->getBlockIndex(NewLoopLatch),
+                                  LiveOutVPPhi);
+    }
     LiveOutVPPhi->addIncoming(IncomingValFromHeader, Header);
-    if (Pair.first)
-      Pair.first->setIncomingValue(Pair.first->getBlockIndex(NewLoopLatch),
-                                   LiveOutVPPhi);
+    LiveOutVal->replaceUsesWithIf(LiveOutVPPhi, InsnNotInLoop);
+  }
+
+  // Replace all POD unconditional last private final calculations with the
+  // masked ones.
+  auto *ExitBB = TopVPLoop->getExitBlock();
+  // Get instructions to process in advance as we will add/remove instructions.
+  SmallVector<VPInstruction *, 4> ToProcess(map_range(
+      make_filter_range(*ExitBB,
+                        [](VPInstruction &I) {
+                          return I.getOpcode() ==
+                                     VPInstruction::PrivateFinalUncond ||
+                                 I.getOpcode() ==
+                                     VPInstruction::PrivateFinalUncondMem;
+                        }),
+      [](VPInstruction &I) { return &I; }));
+
+  // Replace PrivateFinalUncond[Mem] with PrivateFinalMasked[Mem]
+  for (VPInstruction *I : ToProcess) {
+    VPBldr.setInsertPoint(&*I);
+    VPInstruction *NewPriv;
+    if (I->getOpcode() == VPInstruction::PrivateFinalUncond) {
+      VPValue *Incoming = PrivFinalLiveInMap[I];
+      assert(Incoming && "Expected non-null incoming value");
+      NewPriv =
+          VPBldr.createNaryOp(VPInstruction::PrivateFinalMasked, I->getType(),
+                              {I->getOperand(0), NewHeaderCond, Incoming});
+    } else {
+      NewPriv =
+          VPBldr.createNaryOp(VPInstruction::PrivateFinalMaskedMem,
+                              I->getType(), {I->getOperand(0), NewHeaderCond});
+    }
+    NewPriv->setName(I->getName());
+    NewPriv->setDebugLocation(I->getDebugLocation());
+
+    I->replaceAllUsesWith(NewPriv);
+    ExitBB->eraseInstruction(I);
   }
 
   MaskedVPlan->getDT()->recalculate(*MaskedVPlan.get());
