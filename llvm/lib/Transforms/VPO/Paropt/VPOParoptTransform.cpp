@@ -3103,9 +3103,10 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   Builder.SetInsertPoint(HeaderBB, HeaderBB->begin());
   auto *IVPhi = Builder.CreatePHI(SizeTy, 0);
 
-  Builder.SetInsertPoint(UpdateBB);
-  if (auto *UpdateBBTerm = UpdateBB->getTerminator())
-    UpdateBBTerm->eraseFromParent();
+  if (IsArraySection)
+    Builder.SetInsertPoint(UpdateBB);
+  else
+    Builder.SetInsertPoint(UpdateBB->getTerminator());
   UpdateBB->setName("atomic.free.red.local.update.update.body");
   auto *IVNext = cast<BinaryOperator>(
       GenTreeUpdate ? Builder.CreateLShr(IVPhi, ConstantInt::get(SizeTy, 1))
@@ -3123,8 +3124,9 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       IVNext);
   BarrierCI->getCalledFunction()->setConvergent();
 
-  Builder.CreateBr(HeaderBB);
   // NOTE: consider using SplitBlockAndInsertIfThenElse
+  if (IsArraySection)
+    Builder.CreateBr(ExitBB);
   auto *LatchBB = SplitBlock(UpdateBB, BarrierCI, DT, LI);
   LatchBB->setName("atomic.free.red.local.update.update.latch");
   if (IsArraySection)
@@ -3178,10 +3180,10 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
                (IsGlobalMem ? spirv::CrossWorkgroupMemory : spirv::None))},
       ExitBB->getFirstNonPHI());
   ExitBarrierCI->getCalledFunction()->setConvergent();
-  Builder.SetInsertPoint((IsArraySection ? UpdateBB : ExitBB));
 
-  if (!DT->getNode(ExitBB))
-    DT->addNewBlock(ExitBB, HeaderBB);
+  LatchBB->getTerminator()->setSuccessor(0, HeaderBB);
+
+  Builder.SetInsertPoint(IsArraySection ? UpdateBB : ExitBB);
 
   // Final write-back for array section is done in genRedAggregateInitOrFini,
   // here we handle scalars only

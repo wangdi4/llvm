@@ -22,6 +22,13 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-cfg-builder"
 
+static cl::opt<bool> ImportOrigBBNames(
+    "vplan-import-orig-bb-names", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Import incoming LLVM IR BasicBlocks' names. The names should not "
+        "match those created by the VPlan pass to avoid name collisions as "
+        "they are imported without unification."));
+
 template <class CFGBuilder>
 void VPlanCFGBuilderBase<CFGBuilder>::fixPhiNodes() {
   for (auto *Phi : PhisToFix) {
@@ -40,14 +47,15 @@ void VPlanCFGBuilderBase<CFGBuilder>::fixPhiNodes() {
 
 template <class CFGBuilder>
 VPBasicBlock *VPlanCFGBuilderBase<CFGBuilder>::getOrCreateVPBB(BasicBlock *BB) {
-
   VPBasicBlock *VPBB;
   auto BlockIt = BB2VPBB.find(BB);
 
   if (BlockIt == BB2VPBB.end()) {
     // New VPBB
     LLVM_DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
-    VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+    VPBB = new VPBasicBlock(
+        ImportOrigBBNames ? BB->getName() : VPlanUtils::createUniqueName("BB"),
+        Plan);
     BB2VPBB[BB] = VPBB;
     VPBB->setOriginalBB(BB);
     Plan->insertAtBack(VPBB);

@@ -45,6 +45,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:  Live-in values:
 ; CHECK-NEXT:  ID: 0 Value: i32 [[SUM_070:%.*]]
+; CHECK-NEXT:  ID: 1 Value: i64 undef
 ; CHECK-NEXT:  ID: 2 Value: i64 0
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:

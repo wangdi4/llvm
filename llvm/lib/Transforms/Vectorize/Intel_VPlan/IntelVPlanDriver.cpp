@@ -228,8 +228,6 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     // We need special processing for those instructions in masked mode,
     // as we need to extract last value not from (VF-1)th lane but from
     // the lane defined by the execution mask.
-    case VPInstruction::PrivateFinalUncond:
-    case VPInstruction::PrivateFinalUncondMem:
     case VPInstruction::PrivateFinalArray:
     case VPInstruction::PrivateLastValueNonPOD:
       return false;
@@ -248,14 +246,44 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
   // false and the value will not be calculated during the loop iterations.
   // So we need to skip conditional private finalization instructions in case if
   // there is no valid last index value for it.
+  // The transformation looks like below:
+  //
+  // For in-memory privates:
+  //
+  //  %lv = private-final-masked-mem i32 %vec_val, i1 %exec_mask
+  //  store %lv, %orig_mem
+  // ===>
+  //  %check_mask = all-zero-check i1 %exec_mask
+  //  %br label %mask_zero, label %mask_non_zero
+  // mask_non_zero:
+  //  %lv = private-final-masked-mem i32 %vec_val, i1 %exec_mask
+  //  store %lv, %orig_mem
+  // mask_zero:
+  //
+  // For registerized privates:
+  //
+  // loop_exit:
+  //  ...
+  //  %lv = private-final-masked i32 %vec_val, i1 %exec_mask, %orig_val
+  // ===>
+  // loop_exit:
+  //  ...
+  //  %check_mask = all-zero-check i1 %exec_mask
+  //  %br label %mask_zero, label %mask_non_zero
+  // mask_non_zero:
+  //  %lv = private-final-masked i32 %vec_val, i1 %exec_mask, %orig_val
+  // mask_zero:
+  //  %lv2 = phi [%lv, %mask_non_zero], [%orig_val, %loop_exit]
+  //
   const auto &VPInstRange = map_range(
-      make_filter_range(vpinstructions(Plan),
-                        [](const VPInstruction &VPInst) {
-                          return VPInst.getOpcode() ==
-                                     VPInstruction::PrivateFinalCond ||
-                                 VPInst.getOpcode() ==
-                                     VPInstruction::PrivateFinalCondMem;
-                        }),
+      make_filter_range(
+          vpinstructions(Plan),
+          [](const VPInstruction &VPInst) {
+            return VPInst.getOpcode() == VPInstruction::PrivateFinalCond ||
+                   VPInst.getOpcode() == VPInstruction::PrivateFinalCondMem ||
+                   VPInst.getOpcode() == VPInstruction::PrivateFinalMasked ||
+                   VPInst.getOpcode() == VPInstruction::PrivateFinalMaskedMem;
+          }),
       [](VPInstruction &VPInst) { return &VPInst; });
 
   SmallVector<VPInstruction *, 2> FinalVPInst(VPInstRange.begin(),
@@ -269,8 +297,8 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
     VPBasicBlock *VPBBFalse;
     VPInstruction *NextInst = &*std::next(VPInst->getIterator());
 
-    if (VPInst->getOpcode() == VPInstruction::PrivateFinalCondMem) {
-
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalCondMem ||
+        VPInst->getOpcode() == VPInstruction::PrivateFinalMaskedMem) {
       assert(VPInst->getNumUsers() == 1 &&
              "Expected exactly one user of memory private finalization "
              "instruction");
@@ -280,9 +308,7 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
              "finalization instruction");
       VPBBFalse = VPBlockUtils::splitBlock(
           VPBBTrue, std::next(NextInst->getIterator()), VPLI, DT, PDT);
-
     } else {
-
       VPBBFalse = VPBlockUtils::splitBlock(VPBBTrue, NextInst->getIterator(),
                                            VPLI, DT, PDT);
       Builder.setInsertPoint(&*VPBBFalse->begin());
@@ -294,11 +320,20 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
     }
 
     Builder.setInsertPoint(VPBB);
-    VPValue *LastIndex = VPInst->getOperand(1);
-    VPCmpInst *CmpInst = Builder.createCmpInst(
-        CmpInst::ICMP_NE, LastIndex,
-        Plan->getVPConstant(ConstantInt::get(LastIndex->getType(), -1)));
-    DA->updateDivergence(*CmpInst);
+    VPCmpInst *CmpInst;
+
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalMasked ||
+        VPInst->getOpcode() == VPInstruction::PrivateFinalMaskedMem) {
+      CmpInst = cast<VPCmpInst>(VPInst->getOperand(1));
+    } else {
+      // The index operand of the VPPrivateFinalCond is initialized with -1,
+      // so comparing it with -1 we check the lanes where it was re-assigned.
+      VPValue *LastIndex = VPInst->getOperand(1);
+      CmpInst = Builder.createCmpInst(
+          CmpInst::ICMP_NE, LastIndex,
+          Plan->getVPConstant(ConstantInt::get(LastIndex->getType(), -1)));
+      DA->updateDivergence(*CmpInst);
+    }
 
     VPValue *AllZeroCheck = Builder.createAllZeroCheck(CmpInst);
     DA->updateDivergence(*AllZeroCheck);

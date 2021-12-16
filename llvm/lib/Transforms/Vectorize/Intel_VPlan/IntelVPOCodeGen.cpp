@@ -1800,6 +1800,47 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     VPScalarMap[VPInst][0] = PrivExtract;
     return;
   }
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem: {
+    // Pseudo IR generated to finalize unconditional last private in masked mode
+    // loop.
+    // %priv.final = private-final-masked %exit, %mask, %orig
+    //  ==>
+    // %bsfintmask = bitcast.<2 x i1>.i2(%mask); Obtain lane for extraction
+    // %lz = @llvm.ctlz.i2(%bsfintmask, 1);
+    // %lane = VF - 1 - %lz;
+    // %last_val = extractelement %exit, %lane ; extract final value
+    //
+    // NOTE: The block above is encapsulated into the check of mask is zero in
+    // VPlan, before CG, so the code will be generated in the mask_nonzero block
+    // below.
+    //
+    // orig_bb:
+    //   %pred = all_zero_check(%mask)
+    //   br %pred label %mask_zero, label %mask_nonzero
+    // mask_nonzero:
+    //   ; this one is transformed by this routine.
+    //   %priv.final = private-final-masked %exit, %mask, %orig
+    //   %br label %mask_zero
+    // mask_zero:
+    //   %last_v = phi [%priv_final, %b_nz], [%orig, %orig_bb]
+    //
+    Value *VecMask = getVectorValue(VPInst->getOperand(1));
+    Type *IntTy = IntegerType::get(Builder.getContext(), VF);
+    Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
+
+    Module *M = OrigLoop->getHeader()->getModule();
+    Function *CTLZ =
+        Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
+    Value *BsfCall =
+        Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
+    Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+    Value *VecExit = getVectorValue(VPInst->getOperand(0));
+    Value *PrivExtract =
+        Builder.CreateExtractElement(VecExit, Lane, "priv.extract");
+    VPScalarMap[VPInst][0] = PrivExtract;
+    return;
+  }
   case VPInstruction::PrivateFinalArray: {
     // We need to copy array from last private allocated memory into the
     // original array location.

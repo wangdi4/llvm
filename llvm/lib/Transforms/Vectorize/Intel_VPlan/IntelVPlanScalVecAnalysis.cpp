@@ -390,6 +390,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem:
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalUncond: {
     // The instruction is extract. It produces a scalar return value.
@@ -895,6 +897,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::RemOrigLiveOutHIR:
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:
+  case VPInstruction::PrivateFinalMasked:
+  case VPInstruction::PrivateFinalMaskedMem:
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalCondMem:

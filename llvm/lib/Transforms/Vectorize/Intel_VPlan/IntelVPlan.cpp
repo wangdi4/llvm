@@ -365,6 +365,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-uc";
   case VPInstruction::PrivateFinalUncondMem:
     return "private-final-uc-mem";
+  case VPInstruction::PrivateFinalMasked:
+    return "private-final-masked";
+  case VPInstruction::PrivateFinalMaskedMem:
+    return "private-final-masked-mem";
   case VPInstruction::VLSLoad:
     return "vls-load";
   case VPInstruction::VLSStore:
