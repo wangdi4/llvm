@@ -1200,7 +1200,6 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
     uint8_t type = eSym.getType();
     uint64_t value = eSym.st_value;
     uint64_t size = eSym.st_size;
-    StringRefZ name = this->stringTable.data() + eSym.st_name;
 
     if (eSym.st_shndx == SHN_UNDEF) {
       undefineds.push_back(i);
@@ -1208,9 +1207,10 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
     }
 
     Symbol *sym = this->symbols[i];
+    const StringRef name = sym->getName();
     if (eSym.st_shndx == SHN_COMMON) {
       if (value == 0 || value >= UINT32_MAX)
-        fatal(toString(this) + ": common symbol '" + StringRef(name.data) +
+        fatal(toString(this) + ": common symbol '" + name +
               "' has invalid alignment: " + Twine(value));
       sym->resolve(
           CommonSymbol{this, name, binding, stOther, type, value, size});
@@ -1932,7 +1932,8 @@ template <class ELFT> void LazyObjFile::parse() {
     // Get existing symbols or insert placeholder symbols.
     for (size_t i = firstGlobal, end = eSyms.size(); i != end; ++i)
       if (eSyms[i].st_shndx != SHN_UNDEF)
-        this->symbols[i] = symtab->insert(CHECK(eSyms[i].getName(strtab), this));
+        this->symbols[i] =
+            symtab->insert(CHECK(eSyms[i].getName(strtab), this));
 
     // Replace existing symbols with LazyObject symbols.
     //
