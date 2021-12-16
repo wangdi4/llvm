@@ -2468,9 +2468,29 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
     std::tie(BufTy, std::ignore, std::ignore) =
         VPOParoptUtils::getItemInfo(RedI);
 
+    Module *M = F->getParent();
+    assert(M && "Function has no parent module.");
+    Triple TT(M->getTargetTriple());
+
+    GlobalValue::LinkageTypes BufLinkage =
+        GlobalValue::LinkageTypes::ExternalWeakLinkage;
+    Constant *Initializer = nullptr;
+    // MSVC linker does not support multiple definitions of extern_weak
+    // symbols with the same name in different modules, so we have to define
+    // the variable with private linkage for the host compilation.
+    //
+    // FIXME: we need to think about not using global variables. These host
+    //        variables are eventually just used to tell libomptarget know
+    //        that it needs to allocate some memory on the device.
+    //        I believe we could as well use nullptr for this purpose.
+    if (TT.isOSWindows() && !hasOffloadCompilation()) {
+      BufLinkage = GlobalValue::LinkageTypes::PrivateLinkage;
+      Initializer = Constant::getNullValue(BufTy);
+    }
+
     auto *NewBuf = new GlobalVariable(
         *F->getParent(), BufTy, false,
-        GlobalValue::LinkageTypes::ExternalWeakLinkage, nullptr, "red_buf",
+        BufLinkage, Initializer, "red_buf",
         nullptr, GlobalValue::NotThreadLocal,
         isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
     NewBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
