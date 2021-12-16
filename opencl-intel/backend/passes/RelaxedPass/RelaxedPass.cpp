@@ -132,25 +132,30 @@ extern "C" {
 
 #define RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length, \
                                              addrspace)                        \
-  INSERT_MAP_TO_RELAXED_20(map, func, "fPU3AS" #addrspace "f", length,         \
+  INSERT_MAP_TO_RELAXED_20(map, func, "fP" addrspace "f", length,              \
                            native_length)                                      \
-  INSERT_MAP_TO_RELAXED_20(map, func, "Dv2_fPU3AS" #addrspace "S_", length,    \
+  INSERT_MAP_TO_RELAXED_20(map, func, "Dv2_fP" addrspace "S_", length,         \
                            native_length)                                      \
-  INSERT_MAP_TO_RELAXED_20(map, func, "Dv3_fPU3AS" #addrspace "S_", length,    \
+  INSERT_MAP_TO_RELAXED_20(map, func, "Dv3_fP" addrspace "S_", length,         \
                            native_length)                                      \
-  INSERT_MAP_TO_RELAXED_20(map, func, "Dv4_fPU3AS" #addrspace "S_", length,    \
+  INSERT_MAP_TO_RELAXED_20(map, func, "Dv4_fP" addrspace "S_", length,         \
                            native_length)                                      \
-  INSERT_MAP_TO_RELAXED_20(map, func, "Dv8_fPU3AS" #addrspace "S_", length,    \
+  INSERT_MAP_TO_RELAXED_20(map, func, "Dv8_fP" addrspace "S_", length,         \
                            native_length)                                      \
-  INSERT_MAP_TO_RELAXED_20(map, func, "Dv16_fPU3AS" #addrspace "S_", length,   \
+  INSERT_MAP_TO_RELAXED_20(map, func, "Dv16_fP" addrspace "S_", length,        \
                            native_length)
 
 // Table 7.2 of OCL 2.0 built-ins, two argument(vector, pointer to vector)
 #define RELAXED_MATH_2_0_P2_vX_pvY(map, func, length, native_length)           \
-  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length, 1)    \
-  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length, 2)    \
-  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length, 3)    \
-  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length, 4)
+  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length,       \
+                                       "U3AS1")                                \
+  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length,       \
+                                       "U3AS2")                                \
+  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length,       \
+                                       "U3AS3")                                \
+  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length,       \
+                                       "U3AS4")                                \
+  RELAXED_MATH_2_0_P2_vX_pvY_ADDRSPACE(map, func, length, native_length, "")
 
 namespace intel{
 
