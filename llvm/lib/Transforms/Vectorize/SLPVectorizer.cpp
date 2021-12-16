@@ -5453,6 +5453,12 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         ReuseShuffleIndicies.emplace_back(
             isa<UndefValue>(V) ? UndefMaskElem : UniqueValues.size());
         UniqueValues.emplace_back(V);
+#if INTEL_CUSTOMIZATION
+        // If we shorten the VL, we should also shorten the OpDirection.
+        if (UserTreeIdx.UserTE)
+          UniqueOpDirection.push_back(UserTreeIdx.OpDirection[CurrLane]);
+        ++CurrLane;
+#endif // INTEL_CUSTOMIZATION
         continue;
       }
       auto Res = UniquePositions.try_emplace(V, UniqueValues.size());
