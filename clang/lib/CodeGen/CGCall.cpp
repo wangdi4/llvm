@@ -3123,8 +3123,8 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
     case ABIArgInfo::Indirect:
     case ABIArgInfo::IndirectAliased: {
       assert(NumIRArgs == 1);
-      Address ParamAddr =
-          Address(Fn->getArg(FirstIRArg), ArgI.getIndirectAlign());
+      Address ParamAddr = Address(Fn->getArg(FirstIRArg), ConvertTypeForMem(Ty),
+                                  ArgI.getIndirectAlign());
 
       if (!hasScalarEvaluationKind(Ty)) {
         // Aggregates and complex variables are accessed by reference. All we
@@ -5343,10 +5343,15 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           I->copyInto(*this, AI);
         } else {
           // Skip the extra memcpy call.
+<<<<<<< HEAD
           auto *T = V->getType()->getPointerElementType()->getPointerTo(
 #if INTEL_COLLAB
               CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
+=======
+          auto *T = llvm::PointerType::getWithSamePointeeType(
+              cast<llvm::PointerType>(V->getType()),
+>>>>>>> 2d89382b5a21423180c7860163bb0e4cd3082e4b
               CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
           IRCallArgs[FirstIRArg] = getTargetHooks().performAddrSpaceCast(
