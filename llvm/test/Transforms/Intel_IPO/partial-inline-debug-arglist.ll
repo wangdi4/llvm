@@ -1,5 +1,5 @@
-; RUN: opt -S -skip-partial-inlining-cost-analysis -partial-inliner < %s \
-; RUN:  | FileCheck %s
+; RUN: opt -S -skip-partial-inlining-cost-analysis -partial-inliner < %s | FileCheck %s
+; RUN: opt -S -skip-partial-inlining-cost-analysis -passes=partial-inliner < %s | FileCheck %s
 ;
 ; When the partial inliner code extracts a region containing debug information,
 ; make sure the debug emission is code extracted properly.
