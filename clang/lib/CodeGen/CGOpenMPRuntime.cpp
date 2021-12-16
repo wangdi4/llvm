@@ -6629,9 +6629,13 @@ int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
                            Line);
 
   // Register the information for the entry associated with this target region.
-  return OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+  int Index = OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
       DeviceID, FileID, ParentName, Line, nullptr, nullptr,
       OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion);
+  if (Index == -1)
+    CGM.Error(D.getBeginLoc(),
+              "multiple target regions at same the location is not supported");
+  return Index;
 }
 #endif // INTEL_COLLAB
 
