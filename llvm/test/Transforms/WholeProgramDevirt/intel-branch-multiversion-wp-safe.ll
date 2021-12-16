@@ -179,7 +179,7 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 !4 = !{i64 16, !"_ZTS8Derived2"}
 !5 = !{i64 16, !"_ZTSM8Derived2FbiE.virtual"}
 !6 = !{i32 1, !"wchar_size", i32 4}
-!7 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang ff38d5989c66cc12167cbe397bfb5d6915c4838f)"}
+!7 = !{!"clang version 8.0.0"}
 !8 = !{!9, !9, i64 0}
 !9 = !{!"unspecified pointer", !10, i64 0}
 !10 = !{!"omnipotent char", !11, i64 0}
