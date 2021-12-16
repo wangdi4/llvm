@@ -1,4 +1,5 @@
 ; RUN: opt -inline < %s -S -o - | FileCheck %s
+; RUN: opt -passes=inline < %s -S -o - | FileCheck %s
 
 ; Check that "ptrnoalias" on actual arguments in the call site will be converted into
 ; alias.scope/noalias metadata after inlining.
