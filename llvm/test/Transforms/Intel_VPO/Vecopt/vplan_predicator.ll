@@ -6,6 +6,233 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+define void @simple() {
+; CHECK-LABEL:  VPlan IR for: simple
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Uni] br bb1
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb1: # preds: entry
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: bb1
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+;   entry
+;   / |
+;  bb1|
+;    \|
+;   exit
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = call i1 @varying(i32 %lane)
+  br i1 %varying, label %bb1, label %exit
+
+bb1:
+  br label %exit
+
+exit:
+  ret void
+}
+
+define void @test() {
+; CHECK-LABEL:  VPlan IR for: test
+; CHECK-NEXT:    : # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br if.else
+; CHECK-EMPTY:
+; CHECK-NEXT:    if.else: # preds:
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_DEF_FALSE:%.*]] = add i32 [[VP_LANE]] i32 1
+; CHECK-NEXT:     [DA: Uni] br if.true
+; CHECK-EMPTY:
+; CHECK-NEXT:    if.true: # preds: if.else
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_DEF_TRUE:%.*]] = add i32 [[VP_LANE]] i32 0
+; CHECK-NEXT:     [DA: Uni] br if.end
+; CHECK-EMPTY:
+; CHECK-NEXT:    if.end: # preds: if.true
+; CHECK-NEXT:     [DA: Div] i32 [[VP_MERGE_BLEND_IF_TRUE:%.*]] = blend [ i32 [[VP_DEF_FALSE]], i1 [[VP_VARYING_NOT]] ], [ i32 [[VP_DEF_TRUE]], i1 [[VP_VARYING]] ]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = call i1 @varying(i32 %lane)
+  br i1 %varying, label %if.true, label %if.else
+
+if.true:
+  %def.true = add nsw nuw i32 %lane, 0
+  br label %if.end
+
+if.else:
+  %def.false = add nsw nuw i32 %lane, 1
+  br label %if.end
+
+if.end:
+  %merge = phi i32 [ %def.true, %if.true ], [ %def.false, %if.else ]
+  ret void
+}
+
+define void @test_2_hammocks() {
+; CHECK-LABEL:  VPlan IR for: test_2_hammocks
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb2
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb2: # preds: entry
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br bb1
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb1: # preds: bb2
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb3
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb3: # preds: bb1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_VARYING_NOT:%.*]] = not i1 [[VP_BB3_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb5
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb5: # preds: bb3
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br bb4
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb4: # preds: bb5
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB3_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: bb4
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+;      entry
+;      /   \
+;    bb1   bb2
+;      \   /
+;       bb3
+;      /   \
+;    bb4   bb5
+;      \   /
+;       exit
+
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = call i1 @varying(i32 %lane)
+  br i1 %varying, label %bb1, label %bb2
+
+bb1:
+  br label %bb3
+
+bb2:
+  br label %bb3
+
+bb3:
+  %bb3.varying = call i1 @varying(i32 %lane)
+  br i1 %bb3.varying, label %bb4, label %bb5
+
+bb4:
+  br label %exit
+
+bb5:
+  br label %exit
+
+exit:
+  ret void
+}
+
+define void @test_nested_if_else() {
+; CHECK-LABEL:  VPlan IR for: test_nested_if_else
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb2
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb2: # preds: entry
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_VARYING_NOT:%.*]] = not i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB0]]: # preds: bb2
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_BB2_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb6
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb6: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_BB2_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br bb5
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb5: # preds: bb6
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb1
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb1: # preds: bb5
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT:%.*]] = not i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]: # preds: bb1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb4
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb4: # preds: [[BB1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br bb3
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb3: # preds: bb4
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB1_BR_VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: bb3
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+;         entry
+;        /    \
+;      bb1    bb2
+;      / \    / \
+;    bb3 bb4 bb5 bb6
+;      \  |   |  /
+;       \ |   | /
+;         exit
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = call i1 @varying(i32 %lane)
+  br i1 %varying, label %bb1, label %bb2
+
+bb1:
+  %bb1.varying = call i1 @varying(i32 %lane)
+  br i1 %bb1.varying, label %bb3, label %bb4
+
+bb3:
+  br label %exit
+
+bb4:
+  br label %exit
+
+bb2:
+  %bb2.varying = call i1 @varying(i32 %lane)
+  br i1 %bb2.varying, label %bb5, label %bb6
+
+bb5:
+  br label %exit
+
+bb6:
+  br label %exit
+
+exit:
+  ret void
+}
+
 define void @test_uniform_edge_to_divergent_block(i1 *%uniform.ptr) {
 ; CHECK-LABEL:  VPlan IR for: test_uniform_edge_to_divergent_block
 ; CHECK-NEXT:    entry: # preds:
@@ -321,6 +548,254 @@ bb6:
 
 bb7:
   %phi = phi i32 [5, %bb5], [ 3, %bb3 ], [ 4, %bb4 ],[ 6, %bb6 ], [ 2, %bb2 ]
+  ret void
+}
+
+define void @test_uni_loop(i32 %vf) {
+; CHECK-LABEL:  VPlan IR for: test_uni_loop
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] br header
+; CHECK-EMPTY:
+; CHECK-NEXT:    header: # preds: entry, latch
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, entry ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], entry ],  [ i32 [[VP_VEC_NEXT:%.*]], latch ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Uni] br if.then
+; CHECK-EMPTY:
+; CHECK-NEXT:    if.then: # preds: header
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND]]
+; CHECK-NEXT:     [DA: Uni] br latch
+; CHECK-EMPTY:
+; CHECK-NEXT:    latch: # preds: if.then
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_IF_THEN:%.*]] = blend [ i32 0, i1 true ], [ i32 1, i1 [[VP_COND]] ]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXIT_COND]], exit, header
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: latch
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  br label %header
+
+header:
+  %loop_iv = phi i32 [ 0, %entry ], [ %loop_iv.next, %latch ]
+  %vec = phi i32 [ %lane, %entry ], [ %vec.next, %latch ]
+  %cond = icmp eq i32 %lane, 3
+  br i1 %cond, label %if.then, label %latch
+
+if.then:
+  br label %latch
+
+latch:
+  %phi = phi i32 [ 0, %header ], [ 1, %if.then]
+  %loop_iv.next = add nsw nuw i32 %loop_iv, 1
+  %vec.next = add nsw nuw i32 %vec, %vf
+  %exit_cond = icmp eq i32 %loop_iv, 42
+  br i1 %exit_cond, label %exit, label %header
+
+exit:
+  ret void
+}
+
+; Simplified form of loop-cfu normalization. Can't represent what LoopCFU
+; actually does because it breaks SSA form (e.g. for the IV phi/update). It's
+; "restored" after predication/linearization.
+define void @test_div_loop(i32 %vf) {
+; CHECK-LABEL:  VPlan IR for: test_div_loop
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP_LANE]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Uni] br header
+; CHECK-EMPTY:
+; CHECK-NEXT:    header: # preds: entry, latch
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 [[VP_MUL]], entry ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], latch ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK:%.*]] = phi  [ i1 true, entry ],  [ i1 [[VP_MASK_NEXT:%.*]], latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_PREV:%.*]] = phi  [ i32 undef, entry ],  [ i32 [[VP_LIVEOUT_BLEND_ACTIVE:%.*]], latch ]
+; CHECK-NEXT:     [DA: Uni] br active
+; CHECK-EMPTY:
+; CHECK-NEXT:    active: # preds: header
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_MASK]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD:%.*]] = add i32 [[VP_LOOP_IV]] i32 7
+; CHECK-NEXT:     [DA: Uni] br latch
+; CHECK-EMPTY:
+; CHECK-NEXT:    latch: # preds: active
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_BLEND_ACTIVE]] = blend [ i32 [[VP_LIVEOUT_PREV]], i1 true ], [ i32 [[VP_LOOP_IV]], i1 [[VP_MASK]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_DIV_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_NOT:%.*]] = xor i1 [[VP_DIV_EXIT_COND]] i1 true
+; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_NEXT]] = and i1 [[VP_MASK]] i1 [[VP_NOT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = call i1 [[VP_MASK_NEXT]] i1 (i1)* @allzero
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXIT_COND]], exit, header
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: latch
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_USE:%.*]] = phi  [ i32 [[VP_LIVEOUT_BLEND_ACTIVE]], latch ]
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %mul = mul nsw nuw i32 %lane, %lane
+  br label %header
+
+header:
+  %loop_iv = phi i32 [ %mul, %entry ], [ %loop_iv.next, %latch ]
+  %mask = phi i1 [ true, %entry ], [ %mask.next, %latch ]
+  %liveout.prev = phi i32 [ undef, %entry ], [ %liveout, %latch ]
+  br i1 %mask, label %active, label %latch
+
+active:
+  %add = add i32 %loop_iv, 7
+  br label %latch
+
+latch:
+  %liveout = phi i32 [ %liveout.prev, %header ], [ %loop_iv, %active ]
+  %loop_iv.next = add nsw nuw i32 %loop_iv, 1
+  %div_exit_cond = icmp eq i32 %loop_iv, 42
+  %not = xor i1 %div_exit_cond, true
+  %mask.next = and i1 %mask, %not
+  %exit_cond = call i1 @allzero(i1 %mask.next)
+  br i1 %exit_cond, label %exit, label %header
+
+exit:
+  %liveout.use = phi i32 [ %liveout, %latch ]
+  ret void
+}
+
+define void @test_uni_loop_div_top_test(i32 %vf) {
+; CHECK-LABEL:  VPlan IR for: test_uni_loop_div_top_test
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[VP_TOPTEST]]
+; CHECK-NEXT:     [DA: Uni] br preheader
+; CHECK-EMPTY:
+; CHECK-NEXT:    preheader: # preds: entry
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] br header
+; CHECK-EMPTY:
+; CHECK-NEXT:    header: # preds: preheader, header
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, preheader ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], header ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], preheader ],  [ i32 [[VP_VEC_NEXT:%.*]], header ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP2:%.*]] = all-zero-check i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = or i1 [[VP2]] i1 [[VP_EXIT_COND]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], loop.exit, header
+; CHECK-EMPTY:
+; CHECK-NEXT:    loop.exit: # preds: header
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: loop.exit
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %toptest = call i1 @varying(i32 %lane)
+  br i1 %toptest, label %exit, label %preheader
+
+preheader:
+  br label %header
+
+header:
+  %loop_iv = phi i32 [ 0, %preheader ], [ %loop_iv.next, %header ]
+  %vec = phi i32 [ %lane, %preheader ], [ %vec.next, %header ]
+  %loop_iv.next = add nsw nuw i32 %loop_iv, 1
+  %vec.next = add nsw nuw i32 %vec, %vf
+  %exit_cond = icmp eq i32 %loop_iv, 42
+  br i1 %exit_cond, label %loop.exit, label %header
+
+loop.exit:
+  br label %exit
+
+exit:
+  ret void
+}
+
+; Checks that two top-level loops don't cause any asserts.
+define void @test_two_loops(i32 %vf) {
+; CHECK-LABEL:  VPlan IR for: test_two_loops
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[VP_TOPTEST]]
+; CHECK-NEXT:     [DA: Uni] br preheader
+; CHECK-EMPTY:
+; CHECK-NEXT:    preheader: # preds: entry
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] br header
+; CHECK-EMPTY:
+; CHECK-NEXT:    header: # preds: preheader, header
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 0, preheader ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], header ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], preheader ],  [ i32 [[VP_VEC_NEXT:%.*]], header ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp eq i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp eq i32 [[VP_LOOP_IV]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP2:%.*]] = all-zero-check i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = or i1 [[VP2]] i1 [[VP_EXIT_COND]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], loop.exit, header
+; CHECK-EMPTY:
+; CHECK-NEXT:    loop.exit: # preds: header
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] br header2
+; CHECK-EMPTY:
+; CHECK-NEXT:    header2: # preds: loop.exit, header2
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV2:%.*]] = phi  [ i32 0, loop.exit ],  [ i32 [[VP_LOOP_IV2_NEXT:%.*]], header2 ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV2_NEXT]] = add i32 [[VP_LOOP_IV2]] i32 1
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND2:%.*]] = icmp eq i32 [[VP_LOOP_IV2]] i32 42
+; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = all-zero-check i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = or i1 [[VP6]] i1 [[VP_EXIT_COND2]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], loop.exit2, header2
+; CHECK-EMPTY:
+; CHECK-NEXT:    loop.exit2: # preds: header2
+; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]
+; CHECK-NEXT:     [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: loop.exit2
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %toptest = call i1 @varying(i32 %lane)
+  br i1 %toptest, label %exit, label %preheader
+
+preheader:
+  br label %header
+
+header:
+  %loop_iv = phi i32 [ 0, %preheader ], [ %loop_iv.next, %header ]
+  %vec = phi i32 [ %lane, %preheader ], [ %vec.next, %header ]
+  %cond = icmp eq i32 %lane, 3
+  %loop_iv.next = add nsw nuw i32 %loop_iv, 1
+  %vec.next = add nsw nuw i32 %vec, %vf
+  %exit_cond = icmp eq i32 %loop_iv, 42
+  br i1 %exit_cond, label %loop.exit, label %header
+
+loop.exit:
+  br label %header2
+
+header2:
+  %loop_iv2 = phi i32 [ 0, %loop.exit ], [ %loop_iv2.next, %header2 ]
+  %loop_iv2.next = add nsw nuw i32 %loop_iv2, 1
+  %exit_cond2 = icmp eq i32 %loop_iv2, 42
+  br i1 %exit_cond2, label %loop.exit2, label %header2
+
+loop.exit2:
+  br label %exit
+
+exit:
   ret void
 }
 
@@ -1963,3 +2438,6 @@ exit:
 
 declare i1 @varying(i32)
 declare i32 @llvm.vplan.laneid()
+declare i1 @allzero(i1) #0
+
+attributes #0 = { "opencl-vec-uniform-return" }
