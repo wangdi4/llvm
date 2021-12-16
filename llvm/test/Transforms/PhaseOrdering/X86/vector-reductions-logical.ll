@@ -22,7 +22,7 @@ define float @test_merge_allof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i4 [[TMP4]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T_FR]], <4 x float> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[SHIFT]], [[T_FR]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i32 0
+; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i64 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
@@ -94,19 +94,19 @@ return:
 define float @test_merge_anyof_v4sf(<4 x float> %t) {
 ; CHECK-LABEL: @test_merge_anyof_v4sf(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VECEXT:%.*]] = extractelement <4 x float> [[T:%.*]], i32 0
+; CHECK-NEXT:    [[VECEXT:%.*]] = extractelement <4 x float> [[T:%.*]], i64 0
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp olt float [[VECEXT]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[CMP]], label [[RETURN:%.*]], label [[LOR_LHS_FALSE:%.*]]
 ; CHECK:       lor.lhs.false:
-; CHECK-NEXT:    [[VECEXT2:%.*]] = extractelement <4 x float> [[T]], i32 1
+; CHECK-NEXT:    [[VECEXT2:%.*]] = extractelement <4 x float> [[T]], i64 1
 ; CHECK-NEXT:    [[CMP4:%.*]] = fcmp olt float [[VECEXT2]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[CMP4]], label [[RETURN]], label [[LOR_LHS_FALSE6:%.*]]
 ; CHECK:       lor.lhs.false6:
-; CHECK-NEXT:    [[VECEXT7:%.*]] = extractelement <4 x float> [[T]], i32 2
+; CHECK-NEXT:    [[VECEXT7:%.*]] = extractelement <4 x float> [[T]], i64 2
 ; CHECK-NEXT:    [[CMP9:%.*]] = fcmp olt float [[VECEXT7]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[CMP9]], label [[RETURN]], label [[LOR_LHS_FALSE11:%.*]]
 ; CHECK:       lor.lhs.false11:
-; CHECK-NEXT:    [[VECEXT12:%.*]] = extractelement <4 x float> [[T]], i32 3
+; CHECK-NEXT:    [[VECEXT12:%.*]] = extractelement <4 x float> [[T]], i64 3
 ; CHECK-NEXT:    [[CMP14:%.*]] = fcmp olt float [[VECEXT12]], 0.000000e+00
 ; CHECK-NEXT:    [[CMP19:%.*]] = fcmp ogt float [[VECEXT]], 1.000000e+00
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[CMP14]], i1 true, i1 [[CMP19]]
@@ -199,7 +199,7 @@ define float @test_separate_allof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i4 [[TMP4]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T_FR]], <4 x float> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[SHIFT]], [[T_FR]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i32 0
+; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i64 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
@@ -274,19 +274,19 @@ return:
 define float @test_separate_anyof_v4sf(<4 x float> %t) {
 ; CHECK-LABEL: @test_separate_anyof_v4sf(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VECEXT:%.*]] = extractelement <4 x float> [[T:%.*]], i32 0
+; CHECK-NEXT:    [[VECEXT:%.*]] = extractelement <4 x float> [[T:%.*]], i64 0
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp olt float [[VECEXT]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[CMP]], label [[RETURN:%.*]], label [[LOR_LHS_FALSE:%.*]]
 ; CHECK:       lor.lhs.false:
-; CHECK-NEXT:    [[VECEXT2:%.*]] = extractelement <4 x float> [[T]], i32 1
+; CHECK-NEXT:    [[VECEXT2:%.*]] = extractelement <4 x float> [[T]], i64 1
 ; CHECK-NEXT:    [[CMP4:%.*]] = fcmp olt float [[VECEXT2]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[CMP4]], label [[RETURN]], label [[LOR_LHS_FALSE6:%.*]]
 ; CHECK:       lor.lhs.false6:
-; CHECK-NEXT:    [[VECEXT7:%.*]] = extractelement <4 x float> [[T]], i32 2
+; CHECK-NEXT:    [[VECEXT7:%.*]] = extractelement <4 x float> [[T]], i64 2
 ; CHECK-NEXT:    [[CMP9:%.*]] = fcmp olt float [[VECEXT7]], 0.000000e+00
 ; CHECK-NEXT:    br i1 [[CMP9]], label [[RETURN]], label [[LOR_LHS_FALSE11:%.*]]
 ; CHECK:       lor.lhs.false11:
-; CHECK-NEXT:    [[VECEXT12:%.*]] = extractelement <4 x float> [[T]], i32 3
+; CHECK-NEXT:    [[VECEXT12:%.*]] = extractelement <4 x float> [[T]], i64 3
 ; CHECK-NEXT:    [[CMP14:%.*]] = fcmp olt float [[VECEXT12]], 0.000000e+00
 ; CHECK-NEXT:    [[CMP18:%.*]] = fcmp ogt float [[VECEXT]], 1.000000e+00
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[CMP14]], i1 true, i1 [[CMP18]]
@@ -382,7 +382,7 @@ define float @test_merge_allof_v4si(<4 x i32> %t) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i4 [[TMP4]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x i32> [[T_FR]], <4 x i32> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <4 x i32> [[T_FR]], [[SHIFT]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP6]], i32 0
+; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP6]], i64 0
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[ADD]] to float
 ; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[CONV]]
 ; CHECK-NEXT:    br label [[RETURN]]
@@ -453,20 +453,20 @@ define float @test_merge_anyof_v4si(<4 x i32> %t) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i1> [[TMP0]] to i4
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ne i4 [[TMP1]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp sgt <4 x i32> [[T_FR]], <i32 255, i32 255, i32 255, i32 255>
-; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <4 x i1> [[TMP3]], i32 0
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <4 x i1> [[TMP3]], i64 0
 ; CHECK-NEXT:    [[OR_COND3:%.*]] = or i1 [[TMP2]], [[TMP4]]
-; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <4 x i1> [[TMP3]], i32 1
+; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <4 x i1> [[TMP3]], i64 1
 ; CHECK-NEXT:    [[OR_COND4:%.*]] = or i1 [[OR_COND3]], [[TMP5]]
-; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <4 x i1> [[TMP3]], i32 2
+; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <4 x i1> [[TMP3]], i64 2
 ; CHECK-NEXT:    [[OR_COND5:%.*]] = or i1 [[OR_COND4]], [[TMP6]]
-; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x i1> [[TMP3]], i32 3
+; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x i1> [[TMP3]], i64 3
 ; CHECK-NEXT:    [[OR_COND6:%.*]] = or i1 [[OR_COND5]], [[TMP7]]
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x i32> [[T_FR]], <4 x i32> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nsw <4 x i32> [[SHIFT]], [[T_FR]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP8]], i32 0
+; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP8]], i64 0
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[ADD]] to float
-; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[OR_COND6]], float 0.000000e+00, float [[CONV]]
-; CHECK-NEXT:    ret float [[TMP7]]
+; CHECK-NEXT:    [[TMP9:%.*]] = select i1 [[OR_COND6]], float 0.000000e+00, float [[CONV]]
+; CHECK-NEXT:    ret float [[TMP9]]
 ;
 entry:
   %vecext = extractelement <4 x i32> %t, i32 0
@@ -537,7 +537,7 @@ define i32 @test_separate_allof_v4si(<4 x i32> %t) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i4 [[TMP4]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x i32> [[T_FR]], <4 x i32> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <4 x i32> [[T_FR]], [[SHIFT]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP6]], i32 0
+; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP6]], i64 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], i32 0, i32 [[ADD]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
@@ -615,7 +615,7 @@ define i32 @test_separate_anyof_v4si(<4 x i32> %t) {
 ; CHECK-NEXT:    [[DOTNOT7:%.*]] = icmp eq i4 [[TMP3]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x i32> [[T_FR]], <4 x i32> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <4 x i32> [[SHIFT]], [[T_FR]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP4]], i32 0
+; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP4]], i64 0
 ; CHECK-NEXT:    [[TMP5:%.*]] = select i1 [[DOTNOT7]], i32 [[ADD]], i32 0
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:

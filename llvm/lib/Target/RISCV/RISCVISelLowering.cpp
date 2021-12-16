@@ -4480,19 +4480,19 @@ SDValue RISCVTargetLowering::lowerVECREDUCE(SDValue Op,
   }
 
   MVT M1VT = getLMUL1VT(ContainerVT);
+  MVT XLenVT = Subtarget.getXLenVT();
 
   SDValue Mask, VL;
   std::tie(Mask, VL) = getDefaultVLOps(VecVT, ContainerVT, DL, DAG, Subtarget);
 
-  // FIXME: This is a VLMAX splat which might be too large and can prevent
-  // vsetvli removal.
   SDValue NeutralElem =
       DAG.getNeutralElement(BaseOpc, DL, VecEltVT, SDNodeFlags());
-  SDValue IdentitySplat = DAG.getSplatVector(M1VT, DL, NeutralElem);
+  SDValue IdentitySplat = lowerScalarSplat(
+      NeutralElem, DAG.getConstant(1, DL, XLenVT), M1VT, DL, DAG, Subtarget);
   SDValue Reduction = DAG.getNode(RVVOpcode, DL, M1VT, DAG.getUNDEF(M1VT), Vec,
                                   IdentitySplat, Mask, VL);
   SDValue Elt0 = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, VecEltVT, Reduction,
-                             DAG.getConstant(0, DL, Subtarget.getXLenVT()));
+                             DAG.getConstant(0, DL, XLenVT));
   return DAG.getSExtOrTrunc(Elt0, DL, Op.getValueType());
 }
 
@@ -4541,17 +4541,17 @@ SDValue RISCVTargetLowering::lowerFPVECREDUCE(SDValue Op,
   }
 
   MVT M1VT = getLMUL1VT(VectorVal.getSimpleValueType());
+  MVT XLenVT = Subtarget.getXLenVT();
 
   SDValue Mask, VL;
   std::tie(Mask, VL) = getDefaultVLOps(VecVT, ContainerVT, DL, DAG, Subtarget);
 
-  // FIXME: This is a VLMAX splat which might be too large and can prevent
-  // vsetvli removal.
-  SDValue ScalarSplat = DAG.getSplatVector(M1VT, DL, ScalarVal);
+  SDValue ScalarSplat = lowerScalarSplat(
+      ScalarVal, DAG.getConstant(1, DL, XLenVT), M1VT, DL, DAG, Subtarget);
   SDValue Reduction = DAG.getNode(RVVOpcode, DL, M1VT, DAG.getUNDEF(M1VT),
                                   VectorVal, ScalarSplat, Mask, VL);
   return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, VecEltVT, Reduction,
-                     DAG.getConstant(0, DL, Subtarget.getXLenVT()));
+                     DAG.getConstant(0, DL, XLenVT));
 }
 
 static unsigned getRVVVPReductionOp(unsigned ISDOpcode) {
@@ -4613,13 +4613,13 @@ SDValue RISCVTargetLowering::lowerVPREDUCE(SDValue Op,
   MVT XLenVT = Subtarget.getXLenVT();
   MVT ResVT = !VecVT.isInteger() || VecEltVT.bitsGE(XLenVT) ? VecEltVT : XLenVT;
 
-  // FIXME: This is a VLMAX splat which might be too large and can prevent
-  // vsetvli removal.
-  SDValue StartSplat = DAG.getSplatVector(M1VT, DL, Op.getOperand(0));
+  SDValue StartSplat =
+      lowerScalarSplat(Op.getOperand(0), DAG.getConstant(1, DL, XLenVT), M1VT,
+                       DL, DAG, Subtarget);
   SDValue Reduction =
       DAG.getNode(RVVOpcode, DL, M1VT, StartSplat, Vec, StartSplat, Mask, VL);
   SDValue Elt0 = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, ResVT, Reduction,
-                             DAG.getConstant(0, DL, Subtarget.getXLenVT()));
+                             DAG.getConstant(0, DL, XLenVT));
   if (!VecVT.isInteger())
     return Elt0;
   return DAG.getSExtOrTrunc(Elt0, DL, Op.getValueType());
@@ -9572,8 +9572,8 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
           return std::make_pair(0U, RC);
       }
     } else if (Constraint == "vm") {
-      if (TRI->isTypeLegalForClass(RISCV::VMRegClass, VT.SimpleTy))
-        return std::make_pair(0U, &RISCV::VMRegClass);
+      if (TRI->isTypeLegalForClass(RISCV::VMV0RegClass, VT.SimpleTy))
+        return std::make_pair(0U, &RISCV::VMV0RegClass);
     }
   }
 
@@ -10112,17 +10112,29 @@ bool RISCVTargetLowering::splitValueIntoRegisterParts(
     unsigned ValueVTBitSize = ValueVT.getSizeInBits().getKnownMinSize();
     unsigned PartVTBitSize = PartVT.getSizeInBits().getKnownMinSize();
     if (PartVTBitSize % ValueVTBitSize == 0) {
+      assert(PartVTBitSize >= ValueVTBitSize);
       // If the element types are different, bitcast to the same element type of
       // PartVT first.
+      // Give an example here, we want copy a <vscale x 1 x i8> value to
+      // <vscale x 4 x i16>.
+      // We need to convert <vscale x 1 x i8> to <vscale x 8 x i8> by insert
+      // subvector, then we can bitcast to <vscale x 4 x i16>.
       if (ValueEltVT != PartEltVT) {
-        unsigned Count = ValueVTBitSize / PartEltVT.getSizeInBits();
-        assert(Count != 0 && "The number of element should not be zero.");
-        EVT SameEltTypeVT =
-            EVT::getVectorVT(Context, PartEltVT, Count, /*IsScalable=*/true);
-        Val = DAG.getNode(ISD::BITCAST, DL, SameEltTypeVT, Val);
+        if (PartVTBitSize > ValueVTBitSize) {
+          unsigned Count = PartVTBitSize / ValueEltVT.getFixedSizeInBits();
+          assert(Count != 0 && "The number of element should not be zero.");
+          EVT SameEltTypeVT =
+              EVT::getVectorVT(Context, ValueEltVT, Count, /*IsScalable=*/true);
+          Val = DAG.getNode(ISD::INSERT_SUBVECTOR, DL, SameEltTypeVT,
+                            DAG.getUNDEF(SameEltTypeVT), Val,
+                            DAG.getVectorIdxConstant(0, DL));
+        }
+        Val = DAG.getNode(ISD::BITCAST, DL, PartVT, Val);
+      } else {
+        Val =
+            DAG.getNode(ISD::INSERT_SUBVECTOR, DL, PartVT, DAG.getUNDEF(PartVT),
+                        Val, DAG.getVectorIdxConstant(0, DL));
       }
-      Val = DAG.getNode(ISD::INSERT_SUBVECTOR, DL, PartVT, DAG.getUNDEF(PartVT),
-                        Val, DAG.getConstant(0, DL, Subtarget.getXLenVT()));
       Parts[0] = Val;
       return true;
     }
@@ -10152,19 +10164,23 @@ SDValue RISCVTargetLowering::joinRegisterPartsIntoValue(
     unsigned ValueVTBitSize = ValueVT.getSizeInBits().getKnownMinSize();
     unsigned PartVTBitSize = PartVT.getSizeInBits().getKnownMinSize();
     if (PartVTBitSize % ValueVTBitSize == 0) {
+      assert(PartVTBitSize >= ValueVTBitSize);
       EVT SameEltTypeVT = ValueVT;
       // If the element types are different, convert it to the same element type
       // of PartVT.
+      // Give an example here, we want copy a <vscale x 1 x i8> value from
+      // <vscale x 4 x i16>.
+      // We need to convert <vscale x 4 x i16> to <vscale x 8 x i8> first,
+      // then we can extract <vscale x 1 x i8>.
       if (ValueEltVT != PartEltVT) {
-        unsigned Count = ValueVTBitSize / PartEltVT.getSizeInBits();
+        unsigned Count = PartVTBitSize / ValueEltVT.getFixedSizeInBits();
         assert(Count != 0 && "The number of element should not be zero.");
         SameEltTypeVT =
-            EVT::getVectorVT(Context, PartEltVT, Count, /*IsScalable=*/true);
+            EVT::getVectorVT(Context, ValueEltVT, Count, /*IsScalable=*/true);
+        Val = DAG.getNode(ISD::BITCAST, DL, SameEltTypeVT, Val);
       }
-      Val = DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, SameEltTypeVT, Val,
-                        DAG.getConstant(0, DL, Subtarget.getXLenVT()));
-      if (ValueEltVT != PartEltVT)
-        Val = DAG.getNode(ISD::BITCAST, DL, ValueVT, Val);
+      Val = DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, ValueVT, Val,
+                        DAG.getVectorIdxConstant(0, DL));
       return Val;
     }
   }

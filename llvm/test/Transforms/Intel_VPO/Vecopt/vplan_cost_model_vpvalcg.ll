@@ -367,7 +367,7 @@ define void @foo() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP1:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP0]] to <4 x i64*>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 16 for instruction:   [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> [[TMP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> undef)
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2:%.*]] = sub nsw <4 x i64> zeroinitializer, [[VEC_PHI0]]
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP2]], i32 0
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP2]], i64 0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[SCALAR_GEP30:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 1024, i64 [[DOTEXTRACT_0_0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[MM_VECTORGEP40:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> <[1024 x i32]* @arr.i32.3, [1024 x i32]* @arr.i32.3, [1024 x i32]* @arr.i32.3, [1024 x i32]* @arr.i32.3>, <4 x i64> <i64 1024, i64 1024, i64 1024, i64 1024>, <4 x i64> [[TMP2]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP3:%.*]] = getelementptr i32, i32* [[SCALAR_GEP30]], i64 -3

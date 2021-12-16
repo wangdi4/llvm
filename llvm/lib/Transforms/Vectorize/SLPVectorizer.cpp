@@ -768,27 +768,26 @@ static void addMask(SmallVectorImpl<int> &Mask, ArrayRef<int> SubMask) {
 /// after:   6 3 5 4 7 2 1 0
 static void fixupOrderingIndices(SmallVectorImpl<unsigned> &Order) {
   const unsigned Sz = Order.size();
-  SmallBitVector UsedIndices(Sz);
-  SmallVector<int> MaskedIndices;
+  SmallBitVector UnusedIndices(Sz, /*t=*/true);
+  SmallBitVector MaskedIndices(Sz);
   for (unsigned I = 0; I < Sz; ++I) {
     if (Order[I] < Sz)
-      UsedIndices.set(Order[I]);
+      UnusedIndices.reset(Order[I]);
     else
-      MaskedIndices.push_back(I);
+      MaskedIndices.set(I);
   }
-  if (MaskedIndices.empty())
+  if (MaskedIndices.none())
     return;
-  SmallVector<int> AvailableIndices(MaskedIndices.size());
-  unsigned Cnt = 0;
-  int Idx = UsedIndices.find_first();
-  do {
-    AvailableIndices[Cnt] = Idx;
-    Idx = UsedIndices.find_next(Idx);
-    ++Cnt;
-  } while (Idx > 0);
-  assert(Cnt == MaskedIndices.size() && "Non-synced masked/available indices.");
-  for (int I = 0, E = MaskedIndices.size(); I < E; ++I)
-    Order[MaskedIndices[I]] = AvailableIndices[I];
+  assert(UnusedIndices.count() == MaskedIndices.count() &&
+         "Non-synced masked/available indices.");
+  int Idx = UnusedIndices.find_first();
+  int MIdx = MaskedIndices.find_first();
+  while (MIdx >= 0) {
+    assert(Idx >= 0 && "Indices must be synced.");
+    Order[MIdx] = Idx;
+    Idx = UnusedIndices.find_next(Idx);
+    MIdx = MaskedIndices.find_next(MIdx);
+  }
 }
 
 namespace llvm {
@@ -961,6 +960,13 @@ public:
   /// implements the checks only for possibly ordered scalars (Loads,
   /// ExtractElement, ExtractValue), which can be part of the graph.
   Optional<OrdersType> findReusedOrderedScalars(const TreeEntry &TE);
+
+  /// Gets reordering data for the given tree entry. If the entry is vectorized
+  /// - just return ReorderIndices, otherwise check if the scalars can be
+  /// reordered and return the most optimal order.
+  /// \param TopToBottom If true, include the order of vectorized stores and
+  /// insertelement nodes, otherwise skip them.
+  Optional<OrdersType> getReorderingData(const TreeEntry &TE, bool TopToBottom);
 
   /// Reorders the current graph to the most profitable order starting from the
   /// root node to the leaf nodes. The best order is chosen only from the nodes
@@ -3724,6 +3730,50 @@ BoUpSLP::findReusedOrderedScalars(const BoUpSLP::TreeEntry &TE) {
   return None;
 }
 
+Optional<BoUpSLP::OrdersType> BoUpSLP::getReorderingData(const TreeEntry &TE,
+                                                         bool TopToBottom) {
+  // No need to reorder if need to shuffle reuses, still need to shuffle the
+  // node.
+  if (!TE.ReuseShuffleIndices.empty())
+    return None;
+  if (TE.State == TreeEntry::Vectorize &&
+      (isa<LoadInst, ExtractElementInst, ExtractValueInst>(TE.getMainOp()) ||
+       (TopToBottom && isa<StoreInst, InsertElementInst>(TE.getMainOp()))) &&
+      !TE.isAltShuffle())
+    return TE.ReorderIndices;
+  if (TE.State == TreeEntry::NeedToGather) {
+    // TODO: add analysis of other gather nodes with extractelement
+    // instructions and other values/instructions, not only undefs.
+    if (((TE.getOpcode() == Instruction::ExtractElement &&
+          !TE.isAltShuffle()) ||
+         (all_of(TE.Scalars,
+                 [](Value *V) {
+                   return isa<UndefValue, ExtractElementInst>(V);
+                 }) &&
+          any_of(TE.Scalars,
+                 [](Value *V) { return isa<ExtractElementInst>(V); }))) &&
+        all_of(TE.Scalars,
+               [](Value *V) {
+                 auto *EE = dyn_cast<ExtractElementInst>(V);
+                 return !EE || isa<FixedVectorType>(EE->getVectorOperandType());
+               }) &&
+        allSameType(TE.Scalars)) {
+      // Check that gather of extractelements can be represented as
+      // just a shuffle of a single vector.
+      OrdersType CurrentOrder;
+      bool Reuse = canReuseExtract(TE.Scalars, TE.getMainOp(), CurrentOrder);
+      if (Reuse || !CurrentOrder.empty()) {
+        if (!CurrentOrder.empty())
+          fixupOrderingIndices(CurrentOrder);
+        return CurrentOrder;
+      }
+    }
+    if (Optional<OrdersType> CurrentOrder = findReusedOrderedScalars(TE))
+      return CurrentOrder;
+  }
+  return None;
+}
+
 void BoUpSLP::reorderTopToBottom() {
   // Maps VF to the graph nodes.
   DenseMap<unsigned, SmallPtrSet<TreeEntry *, 4>> VFToOrderedEntries;
@@ -3734,39 +3784,11 @@ void BoUpSLP::reorderTopToBottom() {
   // Currently the are vectorized loads,extracts + some gathering of extracts.
   for_each(VectorizableTree, [this, &VFToOrderedEntries, &GathersToOrders](
                                  const std::unique_ptr<TreeEntry> &TE) {
-    // No need to reorder if need to shuffle reuses, still need to shuffle the
-    // node.
-    if (!TE->ReuseShuffleIndices.empty())
-      return;
-    if (TE->State == TreeEntry::Vectorize &&
-        isa<LoadInst, ExtractElementInst, ExtractValueInst, StoreInst,
-            InsertElementInst>(TE->getMainOp()) &&
-        !TE->isAltShuffle()) {
+    if (Optional<OrdersType> CurrentOrder =
+            getReorderingData(*TE.get(), /*TopToBottom=*/true)) {
       VFToOrderedEntries[TE->Scalars.size()].insert(TE.get());
-      return;
-    }
-    if (TE->State == TreeEntry::NeedToGather) {
-      if (TE->getOpcode() == Instruction::ExtractElement &&
-          !TE->isAltShuffle() &&
-          isa<FixedVectorType>(cast<ExtractElementInst>(TE->getMainOp())
-                                   ->getVectorOperandType()) &&
-          allSameType(TE->Scalars) && allSameBlock(TE->Scalars)) {
-        // Check that gather of extractelements can be represented as
-        // just a shuffle of a single vector.
-        OrdersType CurrentOrder;
-        bool Reuse =
-            canReuseExtract(TE->Scalars, TE->getMainOp(), CurrentOrder);
-        if (Reuse || !CurrentOrder.empty()) {
-          VFToOrderedEntries[TE->Scalars.size()].insert(TE.get());
-          GathersToOrders.try_emplace(TE.get(), CurrentOrder);
-          return;
-        }
-      }
-      if (Optional<OrdersType> CurrentOrder =
-              findReusedOrderedScalars(*TE.get())) {
-        VFToOrderedEntries[TE->Scalars.size()].insert(TE.get());
+      if (TE->State != TreeEntry::Vectorize)
         GathersToOrders.try_emplace(TE.get(), *CurrentOrder);
-      }
     }
   });
 
@@ -3898,44 +3920,11 @@ void BoUpSLP::reorderBottomToTop(bool IgnoreReorder) {
                                  const std::unique_ptr<TreeEntry> &TE) {
     if (TE->State != TreeEntry::Vectorize)
       NonVectorized.push_back(TE.get());
-    // No need to reorder if need to shuffle reuses, still need to shuffle the
-    // node.
-    if (!TE->ReuseShuffleIndices.empty())
-      return;
-    if (TE->State == TreeEntry::Vectorize &&
-        isa<LoadInst, ExtractElementInst, ExtractValueInst>(TE->getMainOp()) &&
-        !TE->isAltShuffle()) {
+    if (Optional<OrdersType> CurrentOrder =
+            getReorderingData(*TE.get(), /*TopToBottom=*/false)) {
       OrderedEntries.insert(TE.get());
-      return;
-    }
-    if (TE->State == TreeEntry::NeedToGather) {
-      if (TE->getOpcode() == Instruction::ExtractElement &&
-          !TE->isAltShuffle() &&
-          isa<FixedVectorType>(cast<ExtractElementInst>(TE->getMainOp())
-                                   ->getVectorOperandType()) &&
-          allSameType(TE->Scalars) && allSameBlock(TE->Scalars)) {
-        // Check that gather of extractelements can be represented as
-        // just a shuffle of a single vector with a single user only.
-        OrdersType CurrentOrder;
-        bool Reuse =
-            canReuseExtract(TE->Scalars, TE->getMainOp(), CurrentOrder);
-        if ((Reuse || !CurrentOrder.empty()) &&
-            !any_of(VectorizableTree,
-                    [&TE](const std::unique_ptr<TreeEntry> &Entry) {
-                      return Entry->State == TreeEntry::NeedToGather &&
-                             Entry.get() != TE.get() &&
-                             Entry->isSame(TE->Scalars);
-                    })) {
-          OrderedEntries.insert(TE.get());
-          GathersToOrders.try_emplace(TE.get(), CurrentOrder);
-          return;
-        }
-      }
-      if (Optional<OrdersType> CurrentOrder =
-              findReusedOrderedScalars(*TE.get())) {
-        OrderedEntries.insert(TE.get());
+      if (TE->State != TreeEntry::Vectorize)
         GathersToOrders.try_emplace(TE.get(), *CurrentOrder);
-      }
     }
   });
 
@@ -6452,10 +6441,17 @@ unsigned BoUpSLP::canMapToVector(Type *T, const DataLayout &DL) const {
 
 bool BoUpSLP::canReuseExtract(ArrayRef<Value *> VL, Value *OpValue,
                               SmallVectorImpl<unsigned> &CurrentOrder) const {
-  Instruction *E0 = cast<Instruction>(OpValue);
-  assert(E0->getOpcode() == Instruction::ExtractElement ||
-         E0->getOpcode() == Instruction::ExtractValue);
-  assert(E0->getOpcode() == getSameOpcode(VL).getOpcode() && "Invalid opcode");
+  const auto *It = find_if(VL, [](Value *V) {
+    return isa<ExtractElementInst, ExtractValueInst>(V);
+  });
+  assert(It != VL.end() && "Expected at least one extract instruction.");
+  auto *E0 = cast<Instruction>(*It);
+  assert(all_of(VL,
+                [](Value *V) {
+                  return isa<UndefValue, ExtractElementInst, ExtractValueInst>(
+                      V);
+                }) &&
+         "Invalid opcode");
   // Check if all of the extracts come from the same vector and from the
   // correct offset.
   Value *Vec = E0->getOperand(0);
@@ -6488,23 +6484,28 @@ bool BoUpSLP::canReuseExtract(ArrayRef<Value *> VL, Value *OpValue,
   // Also, later we can check that all the indices are used and we have a
   // consecutive access in the extract instructions, by checking that no
   // element of CurrentOrder still has value E + 1.
-  CurrentOrder.assign(E, E + 1);
+  CurrentOrder.assign(E, E);
   unsigned I = 0;
   for (; I < E; ++I) {
-    auto *Inst = cast<Instruction>(VL[I]);
+    auto *Inst = dyn_cast<Instruction>(VL[I]);
+    if (!Inst)
+      continue;
     if (Inst->getOperand(0) != Vec)
       break;
+    if (auto *EE = dyn_cast<ExtractElementInst>(Inst))
+      if (isa<UndefValue>(EE->getIndexOperand()))
+        continue;
     Optional<unsigned> Idx = getExtractIndex(Inst);
     if (!Idx)
       break;
     const unsigned ExtIdx = *Idx;
     if (ExtIdx != I) {
-      if (ExtIdx >= E || CurrentOrder[ExtIdx] != E + 1)
+      if (ExtIdx >= E || CurrentOrder[ExtIdx] != E)
         break;
       ShouldKeepOrder = false;
       CurrentOrder[ExtIdx] = I;
     } else {
-      if (CurrentOrder[I] != E + 1)
+      if (CurrentOrder[I] != E)
         break;
       CurrentOrder[I] = I;
     }
@@ -7486,15 +7487,15 @@ static bool isLoadCombineCandidateImpl(Value *Root, unsigned NumElts,
       FoundOr = true;
   }
   // Check if the input is an extended load of the required or/shift expression.
-  Value *LoadPtr;
+  Value *Load;
   if ((MustMatchOrInst && !FoundOr) || ZextLoad == Root ||
-      !match(ZextLoad, m_ZExt(m_Load(m_Value(LoadPtr)))))
+      !match(ZextLoad, m_ZExt(m_Value(Load))) || !isa<LoadInst>(Load))
     return false;
 
   // Require that the total load bit width is a legal integer type.
   // For example, <8 x i8> --> i64 is a legal integer on a 64-bit target.
   // But <16 x i8> --> i128 is not, so the backend probably can't reduce it.
-  Type *SrcTy = LoadPtr->getType()->getPointerElementType();
+  Type *SrcTy = Load->getType();
   unsigned LoadBitWidth = SrcTy->getIntegerBitWidth() * NumElts;
   if (!TTI->isTypeLegal(IntegerType::get(Root->getContext(), LoadBitWidth)))
     return false;
@@ -11736,8 +11737,7 @@ private:
            "A call to the llvm.fmuladd intrinsic is not handled yet");
 
     ++NumVectorInstructions;
-    return createSimpleTargetReduction(Builder, TTI, VectorizedValue, RdxKind,
-                                       ReductionOps.back());
+    return createSimpleTargetReduction(Builder, TTI, VectorizedValue, RdxKind);
   }
 };
 
@@ -12170,6 +12170,59 @@ tryToVectorizeSequence(SmallVectorImpl<T *> &Incoming,
   return Changed;
 }
 
+/// Compare two cmp instructions. If IsCompatibility is true, function returns
+/// true if 2 cmps have same/swapped predicates and mos compatible corresponding
+/// operands. If IsCompatibility is false, function implements strict weak
+/// ordering relation between two cmp instructions, returning true if the first
+/// instruction is "less" than the second, i.e. its predicate is less than the
+/// predicate of the second or the operands IDs are less than the operands IDs
+/// of the second cmp instruction.
+template <bool IsCompatibility>
+static bool compareCmp(Value *V, Value *V2,
+                       function_ref<bool(Instruction *)> IsDeleted) {
+  auto *CI1 = cast<CmpInst>(V);
+  auto *CI2 = cast<CmpInst>(V2);
+  if (IsDeleted(CI2) || !isValidElementType(CI2->getType()))
+    return false;
+  if (CI1->getOperand(0)->getType()->getTypeID() <
+      CI2->getOperand(0)->getType()->getTypeID())
+    return !IsCompatibility;
+  if (CI1->getOperand(0)->getType()->getTypeID() >
+      CI2->getOperand(0)->getType()->getTypeID())
+    return false;
+  CmpInst::Predicate Pred1 = CI1->getPredicate();
+  CmpInst::Predicate Pred2 = CI2->getPredicate();
+  CmpInst::Predicate SwapPred1 = CmpInst::getSwappedPredicate(Pred1);
+  CmpInst::Predicate SwapPred2 = CmpInst::getSwappedPredicate(Pred2);
+  CmpInst::Predicate BasePred1 = std::min(Pred1, SwapPred1);
+  CmpInst::Predicate BasePred2 = std::min(Pred2, SwapPred2);
+  if (BasePred1 < BasePred2)
+    return !IsCompatibility;
+  if (BasePred1 > BasePred2)
+    return false;
+  // Compare operands.
+  bool LEPreds = Pred1 <= Pred2;
+  bool GEPreds = Pred1 >= Pred2;
+  for (int I = 0, E = CI1->getNumOperands(); I < E; ++I) {
+    auto *Op1 = CI1->getOperand(LEPreds ? I : E - I - 1);
+    auto *Op2 = CI2->getOperand(GEPreds ? I : E - I - 1);
+    if (Op1->getValueID() < Op2->getValueID())
+      return !IsCompatibility;
+    if (Op1->getValueID() > Op2->getValueID())
+      return false;
+    if (auto *I1 = dyn_cast<Instruction>(Op1))
+      if (auto *I2 = dyn_cast<Instruction>(Op2)) {
+        if (I1->getParent() != I2->getParent())
+          return false;
+        InstructionsState S = getSameOpcode({I1, I2});
+        if (S.getOpcode())
+          continue;
+        return false;
+      }
+  }
+  return IsCompatibility;
+}
+
 bool SLPVectorizerPass::vectorizeSimpleInstructions(
     SmallVectorImpl<Instruction *> &Instructions, BasicBlock *BB, BoUpSLP &R,
     bool AtTerminator) {
@@ -12202,89 +12255,15 @@ bool SLPVectorizerPass::vectorizeSimpleInstructions(
     // Try to vectorize list of compares.
     // Sort by type, compare predicate, etc.
     auto &&CompareSorter = [&R](Value *V, Value *V2) {
-      auto *CI1 = cast<CmpInst>(V);
-      auto *CI2 = cast<CmpInst>(V2);
-      if (R.isDeleted(CI2) || !isValidElementType(CI2->getType()))
-        return false;
-      if (CI1->getOperand(0)->getType()->getTypeID() <
-          CI2->getOperand(0)->getType()->getTypeID())
-        return true;
-      if (CI1->getOperand(0)->getType()->getTypeID() >
-          CI2->getOperand(0)->getType()->getTypeID())
-        return false;
-#if INTEL_COLLAB
-      CmpInst::Predicate Pred1 = CI1->getPredicate();
-      CmpInst::Predicate Pred2 = CI2->getPredicate();
-      CmpInst::Predicate SwapPred1 = CmpInst::getSwappedPredicate(Pred1);
-      CmpInst::Predicate SwapPred2 = CmpInst::getSwappedPredicate(Pred2);
-      CmpInst::Predicate BasePred1 = std::min(Pred1, SwapPred1);
-      CmpInst::Predicate BasePred2 = std::min(Pred2, SwapPred2);
-      if (BasePred1 < BasePred2)
-        return true;
-      if (BasePred1 > BasePred2)
-        return false;
-      // Compare operands.
-      for (int I = 0, E = CI1->getNumOperands(); I < E; ++I) {
-        auto *Op1 = CI1->getOperand(Pred1 <= Pred2 ? I : E - I - 1);
-        auto *Op2 = CI2->getOperand(Pred1 >= Pred2 ? I : E - I - 1);
-        if (Op1->getValueID() < Op2->getValueID())
-          return true;
-        if (Op1->getValueID() > Op2->getValueID())
-          return false;
-        if (auto *I1 = dyn_cast<Instruction>(Op1))
-          if (auto *I2 = dyn_cast<Instruction>(Op2)) {
-            if (I1->getParent() != I2->getParent())
-              return false;
-            InstructionsState S = getSameOpcode({I1, I2});
-            if (S.getOpcode())
-              continue;
-            return false;
-          }
-      }
-      return false;
-#else // INTEL_COLLAB
-      return CI1->getPredicate() < CI2->getPredicate() ||
-             (CI1->getPredicate() > CI2->getPredicate() &&
-              CI1->getPredicate() <
-                  CmpInst::getSwappedPredicate(CI2->getPredicate()));
-#endif // INTEL_COLLAB
+      return compareCmp<false>(V, V2,
+                               [&R](Instruction *I) { return R.isDeleted(I); });
     };
 
     auto &&AreCompatibleCompares = [&R](Value *V1, Value *V2) {
       if (V1 == V2)
         return true;
-      auto *CI1 = cast<CmpInst>(V1);
-      auto *CI2 = cast<CmpInst>(V2);
-      if (R.isDeleted(CI2) || !isValidElementType(CI2->getType()))
-        return false;
-      if (CI1->getOperand(0)->getType() != CI2->getOperand(0)->getType())
-        return false;
-#if INTEL_COLLAB
-      CmpInst::Predicate Pred1 = CI1->getPredicate();
-      CmpInst::Predicate Pred2 = CI2->getPredicate();
-      if (Pred1 != Pred2 && Pred1 != CmpInst::getSwappedPredicate(Pred2))
-        return false;
-      // Compare operands.
-      for (int I = 0, E = CI1->getNumOperands(); I < E; ++I) {
-        auto *Op1 = CI1->getOperand(I);
-        auto *Op2 = CI2->getOperand(Pred1 == Pred2 ? I : E - I - 1);
-        if (Op1->getValueID() != Op2->getValueID())
-          return false;
-        if (auto *I1 = dyn_cast<Instruction>(Op1))
-          if (auto *I2 = dyn_cast<Instruction>(Op2)) {
-            if (I1->getParent() != I2->getParent())
-              return false;
-            InstructionsState S = getSameOpcode({I1, I2});
-            if (!S.getOpcode())
-              return false;
-          }
-      }
-      return true;
-#else // INTEL_COLLAB
-      return CI1->getPredicate() == CI2->getPredicate() ||
-             CI1->getPredicate() ==
-                 CmpInst::getSwappedPredicate(CI2->getPredicate());
-#endif // INTEL_COLLAB
+      return compareCmp<true>(V1, V2,
+                              [&R](Instruction *I) { return R.isDeleted(I); });
     };
     auto Limit = [&R](Value *V) {
       unsigned EltSize = R.getVectorElementSize(V);
