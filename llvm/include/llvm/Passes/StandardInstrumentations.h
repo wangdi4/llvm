@@ -510,11 +510,7 @@ class StandardInstrumentations {
   InLineChangePrinter PrintChangedDiff;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   DotCfgChangeReporter WebsiteChangeReporter;
-<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  IRChangedTester ChangeTester;
-=======
->>>>>>> 864ca4248354dc7abeaa374a8aac72971d0fe585
   VerifyInstrumentation Verify;
 
   bool VerifyEach;
