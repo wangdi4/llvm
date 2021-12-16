@@ -839,3 +839,9 @@
 // RUN: %clang_cl -### /Qfinite-math-only- -c %s 2>&1 | FileCheck --check-prefix=CHECK-NO-FINITE-MATH-ONLY %s
 // CHECK-NO-FINITE-MATH-ONLY-NOT: clang{{.*}} "-ffinite-math-only"
 
+// Use of -O0 with clang-cl should emit an unused diagnostic
+// RUN: %clang_cl -### /O0 --intel %s 2>&1 \
+// RUN:   | FileCheck --check-prefix O0_UNUSED %s
+// RUN: %clang_cl -### /O0 --intel -fsycl %s 2>&1 \
+// RUN:   | FileCheck --check-prefix O0_UNUSED %s
+// O0_UNUSED: argument unused during compilation

@@ -582,9 +582,9 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
 
   if (IsIntelMode()) {
     // The Intel compiler defaults to -O2
-    if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O,
-                     options::OPT_g_Group, options::OPT_intel_debug_Group,
-                     options::OPT__SLASH_Z7)) {
+    if (!Args.hasArgNoClaim(
+            options::OPT_O_Group, options::OPT__SLASH_O, options::OPT_g_Group,
+            options::OPT_intel_debug_Group, options::OPT__SLASH_Z7)) {
       addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
       // "-vectorize-loops" and "-vectorize-slp" are enabled when optimization
       // level is -O2 or higher. The implied -O2 is appended to the options
