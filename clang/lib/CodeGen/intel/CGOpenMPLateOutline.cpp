@@ -3582,9 +3582,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     }
 
     int Order = CGM.getOpenMPRuntime().registerTargetRegion(S, ParentName);
-    assert(Order >= 0 && "No entry for the target region");
-
-    Outliner.emitOMPTargetDirective(Order);
+    if (Order >= 0)
+      Outliner.emitOMPTargetDirective(Order);
     break;
   }
   case OMPD_target_data:
