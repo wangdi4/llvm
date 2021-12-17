@@ -3932,6 +3932,9 @@ public:
         Visit(C);
       }
     }
+    if (Expr *Callee = S->getCallee())
+      if (auto *CE = dyn_cast<MemberExpr>(Callee->IgnoreParenImpCasts()))
+        Visit(CE->getBase());
   }
   void VisitStmt(Stmt *S) {
     for (Stmt *C : S->children()) {
