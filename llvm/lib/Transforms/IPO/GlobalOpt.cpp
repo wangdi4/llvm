@@ -353,8 +353,9 @@ static bool CleanupConstantGlobalUsers(GlobalVariable *GV,
 #endif // INTEL_CUSTOMIZATION
       // A load from zeroinitializer is always zeroinitializer, regardless of
       // any applied offset.
-      if (Init->isNullValue()) {
-        LI->replaceAllUsesWith(Constant::getNullValue(LI->getType()));
+      if (Constant *Res =
+              ConstantFoldLoadFromUniformValue(Init, LI->getType())) {
+        LI->replaceAllUsesWith(Res);
         EraseFromParent(LI);
         continue;
       }
