@@ -86,7 +86,9 @@ static cl::opt<bool> EnableFullDTransTypesCheck(
 
 // Enable verifying that there is no repeated types or special empty structures
 // in the destination module. An assertion will be called if one of the
-// previous conditions happen. This should be used for testing purposes.
+// previous conditions happen. Also, check that the DTrans types in the
+// destination's type manager match with the types in the DTrans metadata.
+// This should be used for testing purposes.
 static cl::opt<bool> EnableVerify(
     "irmover-enable-module-verify", cl::Hidden, cl::init(false),
     cl::desc("enable verifying destination module in irmover"));
@@ -161,6 +163,15 @@ public:
       return nullptr;
 
     return DTransSTMap[ST];
+  }
+
+  // Return the DTransStructType mapped to the input structure name if it
+  // is available, else return nullptr
+  DTransStructType *getDTransStructure(StringRef StructName) {
+    if (!TM || StructName.empty())
+      return nullptr;
+
+    return TM->getStructType(StructName);
   }
 
   // True if the TypeMetadataReader was initialized correctly
@@ -2721,145 +2732,17 @@ static bool isSpecialEmptyStructToFuncMapping(PointerType *SrcPtr,
 } // namespace
 
 #if INTEL_FEATURE_SW_DTRANS
-// Verify that there are not repeated types in the destination module.
+// Verify that there are not repeated types in the destination module. Also,
+// this function checks that the DTrans types in the destination type manager
+// match with the destination's DTrans metadata. This function is similar
+// to quickVerifyDestinationModule, with the exception that it reads the
+// DTrans metadata, traverses through the structures collected, and compares
+// each entry with the same DTrans structure in the destination module. This
+// process can be expensive and should only be used for debugging purposes.
 void IRLinker::verifyDestinationModule() {
 
-  // Result from comparing two structures
-  enum StructAnalysisResult {
-    SAME,              // Both structures are the same
-    DIFF,              // Both structures aren't the same
-    INCOMPLETE         // Couldn't complete the check (missing information)
-  };
-
-  // We need to verify with multiple types that contains mangled names. The
-  // reason is that we can have two modules, with two structures that contains
-  // the same mangled names but they are different. This happens usually in C:
-  //
-  //   file1.c:
-  //
-  //     struct Test {
-  //       int i;
-  //     }
-  //
-  //   file2.c:
-  //
-  //     struct Test {
-  //       float j;
-  //     }
-  //
-  // The modules generated at compile step will have the following structures:
-  //
-  //   file1.o:  %"struct.MANGLEDNAME.Test" = types { i32 }
-  //   file2.o:  %"struct.MANGLEDNAME.Test" = types { float }
-  //
-  // During the merging process then we will have the following:
-  //
-  //   lto.o:
-  //
-  //     %"struct.MANGLEDNAME.Test" = types { i32 }
-  //     %"struct.MANGLEDNAME.Test.0" = types { float }
-  //
-  // Although the mangles names matches, they are different structures.
-  std::function
-  <StructAnalysisResult(StructType *, StructType *, SetVector<StructType *> &,
-                        DTransStructsMap &)>
-      TypesAreTheSame = [&TypesAreTheSame](StructType *SrcST,
-                         StructType *DstST, SetVector<StructType *> &Visited,
-                         DTransStructsMap &DTMap) -> StructAnalysisResult {
-
-    // If both structures are the same then there is nothing to check
-    if (SrcST == DstST)
-      return StructAnalysisResult::SAME;
-
-    // Structure is currently visited, nothing to check
-    if (!Visited.insert(SrcST))
-      return StructAnalysisResult::SAME;
-
-    if (isBaseStructure(SrcST) != isBaseStructure(DstST))
-      return StructAnalysisResult::DIFF;
-
-    if (isAnonStructure(SrcST) != isAnonStructure(DstST))
-      return StructAnalysisResult::DIFF;
-
-    if (SrcST->getNumElements() != DstST->getNumElements())
-      return StructAnalysisResult::DIFF;
-
-    DTransStructType *SrcDTStruct = DTMap.getDTransStructure(SrcST);
-    DTransStructType *DstDTStruct = DTMap.getDTransStructure(DstST);
-
-    for (unsigned I = 0, E = SrcST->getNumElements(); I < E; I++) {
-      Type *SrcElem = SrcST->getElementType(I);
-      Type *DstElem = DstST->getElementType(I);
-
-      // If the fields are pointers, then try to use the DTrans metadata if
-      // available and the pointer is opaque
-      if (SrcElem->isPointerTy() && DstElem->isPointerTy()) {
-        assert((SrcElem->isOpaquePointerTy() ==
-                DstElem->isOpaquePointerTy()) &&
-               "Mixed typed pointers with opaque pointers during IR merging");
-
-        // If type is an opaque pointer then we will get the element from the
-        // DTrans metadata
-        if (SrcElem->isOpaquePointerTy()) {
-          // If the pointer is opaque but there is no DTrans metadata then the
-          // result is incomplete
-          if (!SrcDTStruct || !DstDTStruct)
-            return StructAnalysisResult::INCOMPLETE;
-
-          auto *SrcFieldTy = SrcDTStruct->getFieldType(I);
-          auto *DstFieldTy = DstDTStruct->getFieldType(I);
-
-          assert(SrcFieldTy && "Field missing from source structure");
-          assert(DstFieldTy && "Field missing from destination structure");
-
-          // Check if both pointers are the same using the DTrans type
-          if (SrcFieldTy->compare(*DstFieldTy))
-            continue;
-          else
-            return StructAnalysisResult::DIFF;
-        }
-      }
-
-      // Else if the fields are array or vector then we are going to
-      // make sure the element type matches
-      else if ((SrcElem->isArrayTy() && DstElem->isArrayTy()) ||
-               (SrcElem->isVectorTy() && DstElem->isVectorTy())) {
-
-        // If there is no DTrans metadata then return incomplete
-        if (!SrcDTStruct || !DstDTStruct)
-          return StructAnalysisResult::INCOMPLETE;
-
-        auto *SrcFieldTy = SrcDTStruct->getFieldType(I);
-        auto *DstFieldTy = DstDTStruct->getFieldType(I);
-
-        assert(SrcFieldTy && "Field missing from source structure");
-        assert(DstFieldTy && "Field missing from destination structure");
-
-        if (SrcFieldTy->compare(*DstFieldTy))
-          continue;
-        else
-          return StructAnalysisResult::DIFF;
-      }
-
-      // Field is not a pointer, a pointer with type or a sequential type
-      if (SrcElem == DstElem)
-        continue;
-
-      auto *SrcElemStr = dyn_cast<StructType>(SrcElem);
-      auto *DstElemStr = dyn_cast<StructType>(DstElem);
-
-      if (SrcElemStr && DstElemStr) {
-        StructAnalysisResult Result =
-            TypesAreTheSame(SrcElemStr, DstElemStr, Visited, DTMap);
-        if (Result != StructAnalysisResult::SAME)
-          return Result;
-      } else {
-        return StructAnalysisResult::DIFF;
-      }
-    }
-
-    return StructAnalysisResult::SAME;
-  };
+  DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
+    dbgs() << "Running destination module verifier\n");
 
   NamedMDNode *DTransMDTypes = DstM.getNamedMetadata("intel.dtrans.types");
   if (!DTransMDTypes) {
@@ -2889,8 +2772,6 @@ void IRLinker::verifyDestinationModule() {
     return;
   }
 
-  DenseMap<StringRef, SetVector<StructType *>> UniqueTypesMap;
-
   for (StructType *ST : Types) {
     if (!ST->hasName())
       continue;
@@ -2904,44 +2785,101 @@ void IRLinker::verifyDestinationModule() {
     if (isAnonStructure(ST))
       continue;
 
-    StringRef MangledName = getMangledNameFromStructure(ST);
-    if (MangledName.empty())
+    auto *DTinMap = DTMap.getDTransStructure(ST);
+    if (!DTinMap) {
+      assert(AllowsIncompleteMD && "Missing DTransStructType in "
+                                   "destination metadata");
+      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
+          dbgs() << "Warning: Missing DTrans type in metadata for: " << *ST
+                 << "\n");
       continue;
+    }
 
-    if (UniqueTypesMap.count(MangledName) == 0) {
-      SetVector<StructType *> NewVect;
-      NewVect.insert(ST);
-      UniqueTypesMap.insert({MangledName, NewVect});
-    } else {
-      for (auto DstST: UniqueTypesMap[MangledName]) {
-        SetVector<StructType *> Visited;
-        StructAnalysisResult Result = TypesAreTheSame(ST, DstST, Visited, DTMap);
-
-        switch (Result) {
-        case StructAnalysisResult::DIFF:
-          break;
-        case StructAnalysisResult::INCOMPLETE:
-          if (!EnableIncompleteDTransMetadata)
-            llvm_unreachable("Incomplete IR mover verification");
-
-          DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
-            dbgs() << "Verification found an incomplete result: \n";
-            dbgs() << "  Source: " << *ST << "\n";
-            dbgs() << "  Destination: " << *DstST << "\n";
-          });
-          return;
-        case StructAnalysisResult::SAME:
-          DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
-            dbgs() << "Verification found a duplicate: \n";
-            dbgs() << "  Source: " << *ST << "\n";
-            dbgs() << "  Destination: " << *DstST << "\n";
-          });
-          llvm_unreachable("Type is not unique in the destination module");
-        }
+    // We only need to verify the structures that don't have clean names
+    // since there is a chance that they are repeated structures. The reason
+    // is that we can have two modules, with two structures that contain the
+    // same mangled names but they are different. This happens usually in C:
+    //
+    //   file1.c:
+    //
+    //     struct Test {
+    //       int i;
+    //     }
+    //
+    //   file2.c:
+    //
+    //     struct Test {
+    //       float j;
+    //     }
+    //
+    // The modules generated at compile step will have the following structures:
+    //
+    //   file1.o:  %"struct.MANGLEDNAME.Test" = types { i32 }
+    //   file2.o:  %"struct.MANGLEDNAME.Test" = types { float }
+    //
+    // During the merging process then we will have the following:
+    //
+    //   lto.o:
+    //
+    //     %"struct.MANGLEDNAME.Test" = types { i32 }
+    //     %"struct.MANGLEDNAME.Test.0" = types { float }
+    //
+    // Although the mangled names matches, they are different structures.
+    if (!isStructureNameClean(ST)) {
+      // The structure names should be the same.
+      StringRef CleanName = getStructureNameClean(ST);
+      auto *DTCleanNameST = DTMap.getDTransStructure(CleanName);
+      if (!DTCleanNameST) {
+        assert(AllowsIncompleteMD && "Missing DTransStructType in "
+                                     "type mapper");
+        DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
+            dbgs() << "Warning: Missing DTrans type in map for: " << *ST
+                   << "\n");
+        continue;
       }
 
-      UniqueTypesMap[MangledName].insert(ST);
+      DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
+        dbgs() << "Possible type mismatch between:\n";
+        dbgs() << "  Structure name: " << ST->getName() << "\n";
+        dbgs() << "  Clean name: " << CleanName << "\n";
+      });
+
+      assert(!(DTCleanNameST->compare(*DTinMap)) && "DTransType matches "
+          "between two structures");
+
+      DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
+          dbgs() << "  Pass assertions, two different structures\n\n");
     }
+
+    // Check that the DTrans type in the destination type manager matches
+    // with the DTrans metadata collected.
+    auto *DTinDstTM = DstTM->getStructType(ST->getName());
+    if (!DTinDstTM) {
+      assert(AllowsIncompleteMD && "Missing DTransStructType in destination "
+          "type manager when it is available in DTrans metadata");
+      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
+          dbgs() << "Warning: DTransStructType not generated in type "
+                 << "manager for: " << *ST << "\n");
+      continue;
+    }
+    assert(DTinMap->compare(*DTinDstTM) && "Mismatch between DTrans type in "
+        "destination type manager and DTrans destination metadata");
+
+/***************** Begin special functions ***************************/
+    // Make sure that the fields were repaired. This is only when we aren't
+    // dealing with opaque pointers
+    for (unsigned I = 0, E = ST->getNumElements(); I < E; I++) {
+
+      auto *PtrField = dyn_cast<PointerType>(ST->getElementType(I));
+      if (!PtrField)
+        continue;
+
+      assert(!isSpecialEmptyStructToFuncMapping(PtrField,
+          DTinMap->getFieldType(I)) && "Found special empty field in "
+          "a structure");
+    }
+/***************** End special functions ***************************/
+
   }
 
   DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
@@ -3908,9 +3846,11 @@ Error IRLinker::run() {
 #if INTEL_FEATURE_SW_DTRANS
   TypeMap.updateDTransTypeManager();
 
+  // Call the full verification that checks for repeated types and the metadata
   if (EnableVerify)
     verifyDestinationModule();
 
+  // Call the simple verification that checks the repeated types only
   if (EnableQuickVerify)
     quickVerifyDestinationModule();
 

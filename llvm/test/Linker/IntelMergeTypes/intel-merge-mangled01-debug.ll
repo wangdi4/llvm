@@ -49,12 +49,16 @@
 ; CHECK-SAME: Inputs/intel-merge-mangled01-a.ll
 ; CHECK:   Source type: %class._ZTS9TestClass.TestClass = type { i32 }
 ; CHECK:     Destination type: None
+; CHECK: Running destination module verifier
+; CHECK: Destination module passed verification
 ; CHECK: -------------------------------------------------------
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: Inputs/intel-merge-mangled01-b.ll
 ; CHECK:   Source type: %class._ZTS9TestClass.TestClass.0 = type { i32 }
 ; CHECK:     Destination type: %class._ZTS9TestClass.TestClass = type { i32 }
+; CHECK: Running destination module verifier
+; CHECK: Destination module passed verification
 ; CHECK: -------------------------------------------------------
 
 
