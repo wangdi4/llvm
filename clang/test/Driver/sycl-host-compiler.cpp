@@ -63,7 +63,6 @@
 // RUN:  | FileCheck -check-prefix=HOST_COMPILER_NOARG %s
 // HOST_COMPILER_NOARG: missing argument to '-fsycl-host-compiler='
 
-<<<<<<< HEAD
 /// error for -fsycl-host-compiler and -fsycl-unnamed-lambda combination 
 // RUN: %clangxx -fsycl -fsycl-host-compiler=g++ -fsycl-unnamed-lambda -c -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=HOST_COMPILER_AND_UNNAMED_LAMBDA %s
@@ -74,10 +73,9 @@
 // RUN:  | FileCheck -check-prefix=FNO_SYCL_UNNAMED_LAMBDA %s
 // FNO_SYCL_UNNAMED_LAMBDA:clang{{.*}} "-fsycl-is-device" {{.*}} "-fno-sycl-unnamed-lambda"
 // FNO_SYCL_UNNAMED_LAMBDA-NOT:"-fsycl-unnamed-lambda"
-=======
+
 /// Warning should not be emitted when using -fsycl-host-compiler when linking
 // RUN: touch %t.o
 // RUN: %clangxx -fsycl -fsycl-host-compiler=g++ %t.o -### 2>&1 \
 // RUN:  | FileCheck -check-prefix=WARNING_HOST_COMPILER %s
 // WARNING_HOST_COMPILER-NOT: warning: argument unused during compilation: '-fsycl-host-compiler=g++' [-Wunused-command-line-argument]
->>>>>>> 756c2e8fb45e44b51b32bd8a22b3c325f17bb5c9
