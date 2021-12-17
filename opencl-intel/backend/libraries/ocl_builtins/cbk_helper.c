@@ -337,16 +337,16 @@ __SOA16_Image_I_COORD_CBK const soa16_coord_translate_i_callback[CBK_ARRAY_SIZE]
 };    //the list of soa16 integer coordinate translation callback
 
 
-Image_I_COORD_CBK const call_coord_translate_i_callback(int samplerIndex){
+Image_I_COORD_CBK const call_coord_translate_i_callback(size_t samplerIndex){
     return coord_translate_i_callback[samplerIndex];
 }
-SOA4_Image_I_COORD_CBK const call_soa4_coord_translate_i_callback(int samplerIndex){
+SOA4_Image_I_COORD_CBK const call_soa4_coord_translate_i_callback(size_t samplerIndex){
     return soa4_coord_translate_i_callback[samplerIndex];
 }
-SOA8_Image_I_COORD_CBK const call_soa8_coord_translate_i_callback(int samplerIndex){
+SOA8_Image_I_COORD_CBK const call_soa8_coord_translate_i_callback(size_t samplerIndex){
     return soa8_coord_translate_i_callback[samplerIndex];
 }
-SOA16_Image_I_COORD_CBK const call_soa16_coord_translate_i_callback(int samplerIndex){
+SOA16_Image_I_COORD_CBK const call_soa16_coord_translate_i_callback(size_t samplerIndex){
     return soa16_coord_translate_i_callback[samplerIndex];
 }
 
