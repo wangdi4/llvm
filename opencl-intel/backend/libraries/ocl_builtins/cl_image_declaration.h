@@ -111,10 +111,10 @@ int4 call_Image_I_COORD_CBK      (__private void* cbk, __private void* image, in
 void call_SOA4_Image_I_COORD_CBK (__private void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private int4* translated_coord_x, __private int4* translated_coord_y);
 void call_SOA8_Image_I_COORD_CBK (__private void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private int8* translated_coord_x, __private int8* translated_coord_y);
 void call_SOA16_Image_I_COORD_CBK (__private void* cbk, __private void* image, int16 coord_x, int16 coord_y, __private int16* translated_coord_x, __private int16* translated_coord_y);
-Image_I_COORD_CBK const call_coord_translate_i_callback(int samplerIndex);
-SOA4_Image_I_COORD_CBK const call_soa4_coord_translate_i_callback(int samplerIndex);
-SOA8_Image_I_COORD_CBK const call_soa8_coord_translate_i_callback(int samplerIndex);
-SOA16_Image_I_COORD_CBK const call_soa16_coord_translate_i_callback(int samplerIndex);
+Image_I_COORD_CBK const call_coord_translate_i_callback(size_t samplerIndex);
+SOA4_Image_I_COORD_CBK const call_soa4_coord_translate_i_callback(size_t samplerIndex);
+SOA8_Image_I_COORD_CBK const call_soa8_coord_translate_i_callback(size_t samplerIndex);
+SOA16_Image_I_COORD_CBK const call_soa16_coord_translate_i_callback(size_t samplerIndex);
 
 /// Integer coordinate translation callbacks
 
