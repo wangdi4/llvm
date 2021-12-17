@@ -22685,15 +22685,8 @@ SDValue DAGCombiner::SimplifyVBinOp(SDNode *N, const SDLoc &DL) {
 
   SDValue LHS = N->getOperand(0);
   SDValue RHS = N->getOperand(1);
-  SDValue Ops[] = {LHS, RHS};
   unsigned Opcode = N->getOpcode();
   SDNodeFlags Flags = N->getFlags();
-
-  // See if we can constant fold the vector operation.
-  // TODO: This isn't vector-specific any more - remove me.
-  if (SDValue Fold = DAG.FoldConstantArithmetic(Opcode, SDLoc(LHS),
-                                                LHS.getValueType(), Ops))
-    return Fold;
 
   // Move unary shuffles with identical masks after a vector binop:
   // VBinOp (shuffle A, Undef, Mask), (shuffle B, Undef, Mask))
