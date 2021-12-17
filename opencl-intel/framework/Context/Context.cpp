@@ -962,17 +962,11 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
 
     assert ( nullptr != ppBuffer );
 
-    cl_ulong ulMaxMemAllocSize = GetMaxMemAllocSize();
-    LOG_DEBUG(TEXT("GetMaxMemAllocSize() = %d"), ulMaxMemAllocSize);
+    // Check buffer size
+    cl_err_code clErr = CheckMemAllocSize(szSize);
+    if (CL_FAILED(clErr))
+      return clErr;
 
-    // check buffer size
-    if (szSize == 0 || szSize > ulMaxMemAllocSize)
-    {
-        LOG_ERROR(TEXT("szSize == %d, ulMaxMemAllocSize =%d"), szSize, ulMaxMemAllocSize);
-        return CL_INVALID_BUFFER_SIZE;
-    }
-
-    cl_err_code clErr;
     clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_MEM_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_NONE, this, ppBuffer);
     if (CL_FAILED(clErr))
     {
@@ -1199,32 +1193,53 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
 
     return CL_SUCCESS;
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Context::GetMaxMemAllocSize
+// Context::QueryMaxMemAllocSize^M
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_ulong Context::GetMaxMemAllocSize()
-{
-    if ( 0 != m_ulMaxMemAllocSize )
-    {
-        return m_ulMaxMemAllocSize;
+cl_err_code Context::QueryMaxMemAllocSize() {
+  if (0 == m_ulMaxMemAllocSize) {
+    LOG_DEBUG(TEXT("%s"), TEXT("Enter QueryMaxMemAllocSize"));
+
+    cl_ulong ulDevMaxAllocMemSize = 0;
+    cl_err_code clErr;
+    for (cl_uint ui = 0; ui < m_mapDevices.Count(); ++ui) {
+      clErr = m_ppAllDevices[ui]->GetRootDevice()->GetInfo(
+          CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &ulDevMaxAllocMemSize,
+          nullptr);
+      if (CL_FAILED(clErr)) {
+        LOG_ERROR(
+            TEXT("Device can't handle CL_DEVICE_MAX_MEM_ALLOC_SIZE query."),
+            "");
+        return clErr;
+      }
+
+      m_ulMaxMemAllocSize = (0 == m_ulMaxMemAllocSize) ? ulDevMaxAllocMemSize
+                            : (ulDevMaxAllocMemSize < m_ulMaxMemAllocSize)
+                                ? ulDevMaxAllocMemSize
+                                : m_ulMaxMemAllocSize;
     }
+  }
 
-    LOG_DEBUG(TEXT("%s"), TEXT("Enter GetMaxMemAllocSize"));
+  return CL_SUCCESS;
+}
 
-    cl_ulong ulGlobalMemSize = 0;
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::CheckMemAllocSize
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::CheckMemAllocSize(size_t size) {
+  cl_err_code clErr = QueryMaxMemAllocSize();
+  if (CL_FAILED(clErr))
+    return clErr;
 
-    for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
-    {
-        cl_err_code clErr = m_ppAllDevices[ui]->GetInfo(CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &ulGlobalMemSize, nullptr);
-        if (CL_FAILED(clErr))
-        {
-            continue;
-        }
-        m_ulMaxMemAllocSize = (0 == m_ulMaxMemAllocSize) ? ulGlobalMemSize :
-                                    (ulGlobalMemSize < m_ulMaxMemAllocSize) ? ulGlobalMemSize : m_ulMaxMemAllocSize;
-    }
+  if (size == 0 || size > m_ulMaxMemAllocSize) {
+    LOG_ERROR(TEXT("size is zero or greater than "
+                   "CL_DEVICE_MAX_MEM_ALLOC_SIZE for any device"),
+              "");
+    return CL_INVALID_BUFFER_SIZE;
+  }
 
-    return m_ulMaxMemAllocSize;
+  return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1668,30 +1683,24 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel>& pKernel, cl_kernel_ex
         {
             if (szParamValueSize == 0 || szParamValueSize % sizeof(void*) != 0)
                 return CL_INVALID_VALUE;
-            std::vector<SharedPtr<USMBuffer> > usmBufs;
+
+            std::vector<SharedPtr<USMBuffer>> usmBufs;
+            cl_int clErr = QueryMaxMemAllocSize();
+            if (CL_SUCCESS != clErr)
+              return clErr;
+
             for (size_t i = 0; i < szParamValueSize / sizeof(void *); i++) {
               void *ptr = ((void *const *)pParamValue)[i];
               SharedPtr<USMBuffer> buf = GetUSMBufferContainingAddr(ptr);
               if (nullptr == buf.GetPtr()) {
                 // Try to allocate USM wrapper for the system pointer.
                 // There is no way to know size of system buffer, so we
-                // just set size to query of CL_DEVICE_MAX_MEM_ALLOC_SIZE.
-                cl_int err;
-                cl_ulong size = 0;
-                cl_uint numDevices = m_mapDevices.Count();
-                for (cl_uint i = 0; i < numDevices; i++) {
-                  cl_ulong allocSize;
-                  err = m_ppAllDevices[i]->GetRootDevice()->GetInfo(
-                      CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(allocSize),
-                      &allocSize, nullptr);
-                  if (CL_SUCCESS != err)
-                    return CL_INVALID_VALUE;
-                  size = (0 == i) ? allocSize : std::min(size, allocSize);
-                }
-                void *usmPtr = USMAlloc(CL_MEM_TYPE_SHARED_INTEL, nullptr,
-                                        nullptr, size, ptr, 0, &err);
-                if (CL_SUCCESS != err)
-                  return CL_INVALID_VALUE;
+                // just set size to query of CL_DEVICE_MAX_MEM_ALLOC_SIZE / 2
+                void *usmPtr =
+                    USMAlloc(CL_MEM_TYPE_SHARED_INTEL, nullptr, nullptr,
+                             m_ulMaxMemAllocSize / 2, ptr, 0, &clErr);
+                if (CL_SUCCESS != clErr)
+                  return clErr;
                 buf = m_usmBuffers[usmPtr];
               }
               usmBufs.push_back(buf);
@@ -1749,6 +1758,11 @@ void* Context::SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlig
         return nullptr;
     }
 
+    // Check size limitation.
+    cl_err_code err = CheckMemAllocSize(size);
+    if (CL_SUCCESS != err)
+      return nullptr;
+
     const tSetOfDevices& devices = *GetAllRootDevices();
     for (tSetOfDevices::const_iterator iter = devices.begin(); iter != devices.end(); iter++)
     {
@@ -1759,15 +1773,6 @@ void* Context::SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlig
             ((flags & CL_MEM_SVM_ATOMICS) && !(devSvmCapabilities & CL_DEVICE_SVM_ATOMICS)))
         {
             LOG_ERROR(TEXT("CL_MEM_SVM_FINE_GRAIN_BUFFER or CL_MEM_SVM_ATOMICS is specified in flags and these are not supported by all devices in context"), "");
-            return nullptr;
-        }
-
-        cl_ulong ulDevMaxAllocSize;
-        err = (*iter)->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, nullptr);
-        ASSERT_RET_VAL(CL_SUCCEEDED(err), "device can't handle CL_DEVICE_MAX_MEM_ALLOC_SIZE query", nullptr);
-        if (size > ulDevMaxAllocSize)
-        {
-            LOG_ERROR(TEXT("size is > CL_DEVICE_MAX_ALLOC_SIZE value for a device in context"), "");
             return nullptr;
         }
     }
@@ -1895,6 +1900,13 @@ cl_mem_alloc_flags_intel Context::ParseUSMAllocProperties(
     return flags;
 }
 
+#define USM_ALLOC_ERR_RET(err)                                                 \
+  {                                                                            \
+    if (errcode)                                                               \
+      *errcode = err;                                                          \
+    return nullptr;                                                            \
+  }
+
 void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
                         cl_device_id device,
                         const cl_mem_properties_intel* properties,
@@ -1909,23 +1921,21 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
         return userPtr;
     }
 
-#define USM_ALLOC_ERR_RET(err)                                                 \
-  {                                                                            \
-    if (errcode)                                                               \
-      *errcode = err;                                                          \
-    return nullptr;                                                            \
-  }
-
     // Check alignment
     size_t forceAlignment = 0;
-    if (0 != alignment)
-    {
-        if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
-            USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
-        forceAlignment = alignment;
+    if (0 != alignment) {
+      if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
+        USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
+      forceAlignment = alignment;
     }
 
-    cl_int err;
+    // Check the size limitation
+    cl_int err = CheckMemAllocSize(size);
+
+    if (CL_SUCCESS != err)
+      USM_ALLOC_ERR_RET(err);
+
+    // Parse the allocation properties
     cl_mem_alloc_flags_intel flags = ParseUSMAllocProperties(properties,
                                                              &err);
     if (CL_SUCCESS != err)
@@ -2003,19 +2013,6 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
         {
             capSupported = false;
             break;
-        }
-
-        // Check size
-        cl_ulong ulDevMaxAllocSize;
-        err = rootDevice->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE,
-            sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, nullptr);
-        if (CL_SUCCESS != err)
-            USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
-        if (0 == size || size > ulDevMaxAllocSize)
-        {
-            LOG_ERROR(TEXT("size is zero or greater than "
-                           "CL_DEVICE_MAX_MEM_ALLOC_SIZE for any device"), "");
-            USM_ALLOC_ERR_RET(CL_INVALID_BUFFER_SIZE);
         }
     }
     if (!capSupported)
