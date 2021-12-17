@@ -48,6 +48,7 @@
 ; CHECK:   Checking for metadata loss in destination module verification:
 ; CHECK:     llvm::Type: %struct._ZTS11TestStructB.TestStructB = type { i32*, i32* }
 ; CHECK:     DTransType: None
+; CHECK: Warning: Missing DTrans type in metadata for: %struct._ZTS11TestStructB.TestStructB = type { i32*, i32* }
 
 ; CHECK: Merging types from source module:
 ; CHECK-SAME: intel-merge-mangled12-b.ll
@@ -57,6 +58,7 @@
 ; CHECK:   Checking for metadata loss in destination module verification:
 ; CHECK:     llvm::Type: %struct._ZTS11TestStructB.TestStructB = type { i32*, i32* }
 ; CHECK:     DTransType: None
+; CHECK: Warning: Missing DTrans type in metadata for: %struct._ZTS11TestStructB.TestStructB = type { i32*, i32* }
 
 
 ;end INTEL_FEATURE_SW_DTRANS
