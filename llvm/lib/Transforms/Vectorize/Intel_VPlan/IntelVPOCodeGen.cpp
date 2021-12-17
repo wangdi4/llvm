@@ -51,7 +51,8 @@ static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
 
 /// Return true if \p Var a variable identified for SOA-layout.
 static bool isSOAAccess(const VPValue *Var, const VPlanVector *Plan) {
-  return Plan->getVPlanDA()->isSOAShape(Var);
+  return Plan->getVPlanDA()->isSOAShape(Var) ||
+         Plan->getVPlanDA()->hasBeenSOAConverted(Var);
 }
 
 /// Return true if \p Var has a SOA unit-stride access.
@@ -213,11 +214,14 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     Ops = Ops.drop_front();
 
     Type *SourceElementType = VPGEP->getSourceElementType();
-    if (!VPGEP->isOpaque())
-      // FIXME: SOA transformation cuts lots of corners and doesn't preserve
-      // consistency in SourceElementType.
+    // TODO: SOAMemRef transformations needs to be updated to correctly set
+    // SourceElementType which can then be used here.
+    if (!VPGEP->isOpaque()) {
       SourceElementType =
           GepBasePtr->getType()->getScalarType()->getPointerElementType();
+    } else if (isSOAAccess(VPGEP, Plan)) {
+      SourceElementType = getSOAType(SourceElementType, VF);
+    }
 
     if (VPGEP->isInBounds())
       SerialInst =
@@ -1123,14 +1127,17 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     llvm::transform(GEP->indices(), std::back_inserter(OpsV),
                     [GetVectorOp](VPValue *Op) { return GetVectorOp(Op); });
 
+    // TODO: SOAMemRef transformations needs to be updated to correctly set
+    // SourceElementType which can then be used here.
     StringRef GepName =
         isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
-    // FIXME: SOA transformation cuts lots of corners and doesn't preserve
-    // consistency in SourceElementType.
-    Type *SourceElementType = GEP->isOpaque() ? GEP->getSourceElementType()
-                                              : WideGepBasePtr->getType()
-                                                    ->getScalarType()
-                                                    ->getPointerElementType();
+    Type *SourceElementType =
+        GEP->isOpaque() ? isSOAAccess(GEP, Plan)
+                              ? getSOAType(GEP->getSourceElementType(), VF)
+                              : GEP->getSourceElementType()
+                        : WideGepBasePtr->getType()
+                              ->getScalarType()
+                              ->getPointerElementType();
 
     Value *VectorGEP = Builder.CreateGEP(SourceElementType,
                                          WideGepBasePtr, OpsV, GepName);
@@ -4027,9 +4034,12 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
   if (isSOAAccess(VPPhi, Plan)) {
-    Type *ElemTy = PhiTy->getPointerElementType();
-    PhiTy = PointerType::get(getSOAType(ElemTy, VF),
-                             cast<PointerType>(PhiTy)->getAddressSpace());
+    auto *PtrTy = cast<PointerType>(PhiTy);
+    if (!PtrTy->isOpaque()) {
+      Type *ElemTy = PhiTy->getPointerElementType();
+      PhiTy = PointerType::get(getSOAType(ElemTy, VF),
+                               cast<PointerType>(PhiTy)->getAddressSpace());
+    }
   }
   // FIXME: Replace with proper SVA.
   bool EmitScalarOnly = !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;

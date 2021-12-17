@@ -103,6 +103,11 @@ static cl::opt<bool>
                           cl::desc("Print VPGEPInstruction's SourceElementType "
                                    "even for non-opaque pointers."));
 
+static cl::opt<bool>
+    VPlanDumpDAShapes("vplan-dump-da-shapes", cl::init(false), cl::Hidden,
+                      cl::desc("Print VPlan instructions' DA shape "
+                               "instead of simple Uni/Div."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   V.print(OS);
@@ -420,7 +425,9 @@ void VPInstruction::print(raw_ostream &O) const {
   // Print DA information.
   if (DA) {
     O << "DA: ";
-    if (DA->isDivergent(*this))
+    if (VPlanDumpDAShapes)
+      DA->getVectorShape(*this).print(O);
+    else if (DA->isDivergent(*this))
       O << "Div";
     else
       O << "Uni";
