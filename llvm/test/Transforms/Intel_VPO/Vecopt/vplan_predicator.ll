@@ -1656,13 +1656,13 @@ define void @uniform_br_under_outer_mask_1(i1 %uniform) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[UNIFORM0:%.*]]
-; CHECK-NEXT:     [DA: Uni] br if.then
+; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, if.end
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.then: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Uni] br if.end
+; CHECK-NEXT:      if.then: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br if.end
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.end: # preds: if.then
+; CHECK-NEXT:    if.end: # preds: if.then, [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] br exit
 ; CHECK-EMPTY:
@@ -1833,13 +1833,13 @@ define void @uniform_br_under_outer_mask_4(i1 %uniform) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0:%.*]]
-; CHECK-NEXT:     [DA: Uni] br if.then
+; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, exit
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.then: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Uni] br exit
+; CHECK-NEXT:      if.then: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br exit
 ; CHECK-EMPTY:
-; CHECK-NEXT:    exit: # preds: if.then
+; CHECK-NEXT:    exit: # preds: if.then, [[BB0]]
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
@@ -1881,25 +1881,25 @@ define void @uniform_br_under_outer_mask_5(i1 %uniform) {
 ; CHECK-NEXT:    [[BB0]]: # preds: if
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
-; CHECK-NEXT:     [DA: Uni] br if.else
+; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, if.else
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.else: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Uni] br if.else2
+; CHECK-NEXT:      if.else: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:       [DA: Uni] br if.else2
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.else2: # preds: if.else
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Uni] br if.then
+; CHECK-NEXT:      if.else2: # preds: if.else
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:       [DA: Uni] br if.end
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.then: # preds: if.else2
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Uni] br if.then2
+; CHECK-NEXT:      if.then: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br if.then2
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.then2: # preds: if.then
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Uni] br if.end
+; CHECK-NEXT:      if.then2: # preds: if.then
+; CHECK-NEXT:       [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br if.end
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.end: # preds: if.then2
+; CHECK-NEXT:    if.end: # preds: if.else2, if.then2
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Uni] br exit
 ; CHECK-EMPTY:
@@ -1961,25 +1961,25 @@ define void @uniform_br_under_outer_mask_6(i1 %uniform) {
 ; CHECK-NEXT:    [[BB0]]: # preds: if
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
-; CHECK-NEXT:     [DA: Uni] br if.else
+; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, if.else
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.else: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Uni] br if.else2
+; CHECK-NEXT:      if.else: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:       [DA: Uni] br if.else2
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.else2: # preds: if.else
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Uni] br if.then
+; CHECK-NEXT:      if.else2: # preds: if.else
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:       [DA: Uni] br exit
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.then: # preds: if.else2
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Uni] br if.then2
+; CHECK-NEXT:      if.then: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br if.then2
 ; CHECK-EMPTY:
-; CHECK-NEXT:    if.then2: # preds: if.then
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Uni] br exit
+; CHECK-NEXT:      if.then2: # preds: if.then
+; CHECK-NEXT:       [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br exit
 ; CHECK-EMPTY:
-; CHECK-NEXT:    exit: # preds: if.then2
+; CHECK-NEXT:    exit: # preds: if.else2, if.then2
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
