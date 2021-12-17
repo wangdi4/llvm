@@ -2448,13 +2448,24 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
   bool FoundProperItem = false;
 
   for (ReductionItem *RedI : RedClause.items()) {
-    if (RedI->getIsArraySection() || RedI->getType() == ReductionItem::WRNReductionUdr)
+    if (RedI->getType() == ReductionItem::WRNReductionUdr)
       continue;
 #if INTEL_CUSTOMIZATION
     if (RedI->getIsF90DopeVector())
       continue;
 #endif // INTEL_CUSTOMIZATION
     FoundProperItem = true;
+
+    if (RedI->getIsArraySection())
+      computeArraySectionTypeOffsetSize(W, *RedI, EntryCI);
+
+    Type *BufTy = nullptr;
+    Value *NumElems = nullptr;
+
+    std::tie(BufTy, NumElems, std::ignore) = VPOParoptUtils::getItemInfo(RedI);
+
+    if (NumElems && !isa<ConstantInt>(NumElems))
+      continue;
 
     uint64_t Size = DL.getPointerSizeInBits() / 8;
     uint64_t MapType = TGT_MAP_PRIVATE;
@@ -2464,9 +2475,12 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
         Type::getInt64Ty(F->getContext()),
         Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
 
-    Type *BufTy = nullptr;
-    std::tie(BufTy, std::ignore, std::ignore) =
-        VPOParoptUtils::getItemInfo(RedI);
+    assert(BufTy && "Found untyped reduction item");
+    if (RedI->getIsArraySection()) {
+      assert(NumElems && "No elements number specified for array section");
+      BufTy =
+          ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
+    }
 
     Module *M = F->getParent();
     assert(M && "Function has no parent module.");

@@ -1608,6 +1608,14 @@ private:
   bool deduplicateRuntimeCalls(Function &F,
                                OMPInformationCache::RuntimeFunctionInfo &RFI,
                                Value *ReplVal = nullptr) {
+#if INTEL_COLLAB
+    // Deduplication of runtime calls currently works incorrectly for spirv
+    // kernels because of runtime calls simulation, so do not do it if function
+    // is a spirv kernel.
+    if (F.getCallingConv() == CallingConv::SPIR_KERNEL)
+      return false;
+
+#endif // INTEL_COLLAB
     auto *UV = RFI.getUseVector(F);
     if (!UV || UV->size() + (ReplVal != nullptr) < 2)
       return false;

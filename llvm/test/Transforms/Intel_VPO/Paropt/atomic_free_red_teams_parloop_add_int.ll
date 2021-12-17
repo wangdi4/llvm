@@ -63,9 +63,9 @@ target device_triples = "spir64"
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi i64
 ; CHECK: %[[SUM_PHI:[^,]+]] = phi i32
 ; CHECK: %[[EXIT_COND:[^,]+]] = icmp uge i64 %[[IDX_PHI]], %[[NUM_GROUPS]]
+; CHECK: %[[GLOBAL_GEP:[^,]+]] = getelementptr i32, i32 addrspace(1)* %red_buf, i64 %[[IDX_PHI]]
 ; CHECK: br i1 %[[EXIT_COND]], label %atomic.free.red.global.update.store, label %atomic.free.red.global.update.body
 ; CHECK-LABEL: atomic.free.red.global.update.body:
-; CHECK: %[[GLOBAL_GEP:[^,]+]] = getelementptr i32, i32 addrspace(1)* %red_buf, i64 %[[IDX_PHI]]
 ; CHECK: %[[CUR_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP]], align 4
 ; CHECK: add i32 %[[SUM_PHI]], %[[CUR_VAL]]
 ; CHECK: add i64 %[[IDX_PHI]], 1
