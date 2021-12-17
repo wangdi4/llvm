@@ -5220,10 +5220,9 @@ InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
   };
 
   static const CostTblEntry SKXScatterQTbl[] = {
-    { ISD::MSCATTER, MVT::v2i32, 4 }, // vpscatterqd xmm version.
-                                      // FIXME: Maybe xmm version is 3?
-    { ISD::MSCATTER, MVT::v4i32, 4 }, // vpscatterqd ymm version.
-    { ISD::MSCATTER, MVT::v8i32, 8 }, // vpscatterqd zmm version.
+    { ISD::MSCATTER, MVT::v2i32, 8 }, // vpscatterqd xmm version.
+    { ISD::MSCATTER, MVT::v4i32, 9 }, // vpscatterqd ymm version.
+    { ISD::MSCATTER, MVT::v8i32, 11 }, // vpscatterqd zmm version.
 
     { ISD::MSCATTER, MVT::v2f32, 4 }, // vpscatterqps xmm version.
                                       // FIXME: Maybe xmm version is 3?
@@ -5259,7 +5258,7 @@ InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
 
   static const CostTblEntry SKXGatherQTbl[] = {
     { ISD::MGATHER, MVT::v2i32, 3 }, // vpgatherqd xmm version.
-    { ISD::MGATHER, MVT::v4i32, 3 }, // vpgatherqd ymm version.
+    { ISD::MGATHER, MVT::v4i32, 4 }, // vpgatherqd ymm version.
     { ISD::MGATHER, MVT::v8i32, 4 }, // vpgatherqd zmm version.
 
     { ISD::MGATHER, MVT::v2f32, 3 }, // vpgatherqps xmm version.
