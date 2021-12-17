@@ -11,27 +11,15 @@ code add_l = [{
     *tmp = oldValue + $Arg1VarName;
     return oldValue;
   }];
-code add_g_fp32 = [{
+code bin_op_g_fp = [{
     while (true)
     {
       $ReturnType oldValue = *$Arg0VarName;
-      int oldValueInt = *((int*)&oldValue);
-      $ReturnType addValue = oldValue + $Arg1VarName;
-      int addInt = *((int*)&addValue);
+      $IntType oldValueInt = *(($IntType*)&oldValue);
+      $ReturnType addValue = oldValue $BINOP $Arg1VarName;
+      $IntType addInt = *(($IntType*)&addValue);
       if (oldValueInt == addInt) return oldValue;
-      int retValInt = __sync_val_compare_and_swap((int*)$Arg0VarName, oldValueInt, addInt);
-      if (oldValueInt == retValInt) return oldValue;
-    }
-  }];
-code add_g_fp64 = [{
-    while (true)
-    {
-      $ReturnType oldValue = *$Arg0VarName;
-      long oldValueInt = *((long*)&oldValue);
-      $ReturnType addValue = oldValue + $Arg1VarName;
-      long addInt = *((long*)&addValue);
-      if (oldValueInt == addInt) return oldValue;
-      long retValInt = __sync_val_compare_and_swap((long*)$Arg0VarName, oldValueInt, addInt);
+      $IntType retValInt = __sync_val_compare_and_swap(($IntType*)$Arg0VarName, oldValueInt, addInt);
       if (oldValueInt == retValInt) return oldValue;
     }
   }];
@@ -332,12 +320,12 @@ OclBuiltinImpl atom_add_g     = OclBuiltinImpl<atom_add_global, [v1i32, v1u32, v
 OclBuiltinImpl atom_add_vl    = OclBuiltinImpl<atom_add_vol_local, [v1i32, v1u32, v1f32, v1f64, v1i64, v1u64], 0, add_l>;
 OclBuiltinImpl atom_add_l     = OclBuiltinImpl<atom_add_local, [v1i32, v1u32, v1f32, v1f64, v1i64, v1u64], 0, add_l>;
 
-OclBuiltinImpl atomic_add_gf   = OclBuiltinImpl<atomic_add_global, [v1f32], 0, add_g_fp32>;
-OclBuiltinImpl atom_add_vgf    = OclBuiltinImpl<atom_add_vol_global, [v1f32], 0, add_g_fp32>;
-OclBuiltinImpl atom_add_gf     = OclBuiltinImpl<atom_add_global, [v1f32], 0, add_g_fp32>;
-OclBuiltinImpl atomic_add_gf64   = OclBuiltinImpl<atomic_add_global, [v1f64], 0, add_g_fp64>;
-OclBuiltinImpl atom_add_vgf64    = OclBuiltinImpl<atom_add_vol_global, [v1f64], 0, add_g_fp64>;
-OclBuiltinImpl atom_add_gf64     = OclBuiltinImpl<atom_add_global, [v1f64], 0, add_g_fp64>;
+OclBuiltinImpl atomic_add_gf   = OclBuiltinImpl<atomic_add_global, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","+"]]>;
+OclBuiltinImpl atom_add_vgf    = OclBuiltinImpl<atom_add_vol_global, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","+"]]>;
+OclBuiltinImpl atom_add_gf     = OclBuiltinImpl<atom_add_global, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","+"]]>;
+OclBuiltinImpl atomic_add_gf64   = OclBuiltinImpl<atomic_add_global, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","+"]]>;
+OclBuiltinImpl atom_add_vgf64    = OclBuiltinImpl<atom_add_vol_global, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","+"]]>;
+OclBuiltinImpl atom_add_gf64     = OclBuiltinImpl<atom_add_global, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","+"]]>;
 // sub
 OclBuiltinImpl atomic_sub_g   = OclBuiltinImpl<atomic_sub_global, [v1i32, v1u32], 0, sub_g>;
 OclBuiltinImpl atomic_sub_l   = OclBuiltinImpl<atomic_sub_local, [v1i32, v1u32], 0, sub_l>;
@@ -345,6 +333,14 @@ OclBuiltinImpl atom_sub_vg    = OclBuiltinImpl<atom_sub_vol_global, [v1i32, v1u3
 OclBuiltinImpl atom_sub_g     = OclBuiltinImpl<atom_sub_global, [v1i32, v1u32, v1i64, v1u64], 0, sub_g>;
 OclBuiltinImpl atom_sub_vl    = OclBuiltinImpl<atom_sub_vol_local, [v1i32, v1u32, v1i64, v1u64], 0, sub_l>;
 OclBuiltinImpl atom_sub_l     = OclBuiltinImpl<atom_sub_local, [v1i32, v1u32, v1i64, v1u64], 0, sub_l>;
+
+OclBuiltinImpl atomic_sub_gf   = OclBuiltinImpl<atomic_sub_global, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","-"]]>;
+OclBuiltinImpl atom_sub_vgf    = OclBuiltinImpl<atom_sub_vol_global, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","-"]]>;
+OclBuiltinImpl atom_sub_gf     = OclBuiltinImpl<atom_sub_global, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","-"]]>;
+OclBuiltinImpl atomic_sub_gf64   = OclBuiltinImpl<atomic_sub_global, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","-"]]>;
+OclBuiltinImpl atom_sub_vgf64    = OclBuiltinImpl<atom_sub_vol_global, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","-"]]>;
+OclBuiltinImpl atom_sub_gf64     = OclBuiltinImpl<atom_sub_global, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","-"]]>;
+
 // xchg
 OclBuiltinImpl atomic_xchg_g   = OclBuiltinImpl<atomic_xchg_global, [v1i32, v1u32], 0, xchg_g>;
 OclBuiltinImpl atomic_xchg_l   = OclBuiltinImpl<atomic_xchg_local, [v1i32, v1u32, v1f32], 0, xchg_l>;
@@ -897,32 +893,41 @@ code atomic_fetch_relop_explicit_scope_l_code = [{
 
 // atomic_fetch_key builtins
 OclBuiltinImpl atomic_fetch_add_g_impl = OclBuiltinImpl<atomic_fetch_add_g, atomic_fetch_add_g.Types, 0, atomic_fetch_key_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_g_impl = OclBuiltinImpl<atomic_fetch_add_explicit_g, atomic_fetch_add_explicit_g.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_g_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_g, [v1f32], 0, add_g_fp32>;
-OclBuiltinImpl atomic_fetch_add_explicit_g_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_g, [v1f64], 0, add_g_fp64>;
+OclBuiltinImpl atomic_fetch_add_explicit_g_impl = OclBuiltinImpl<atomic_fetch_add_explicit_g, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_key_explicit_code, [["$KEY","add"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_g_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_g, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","+"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_g_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_g, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","+"]]>;
 OclBuiltinImpl atomic_fetch_add_explicit_scope_g_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_g, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_binop_explicit_scope_g_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_scope_g_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_g, [v1f32], 0, add_g_fp32>;
-OclBuiltinImpl atomic_fetch_add_explicit_scope_g_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_g, [v1f64], 0, add_g_fp64>;
+OclBuiltinImpl atomic_fetch_add_explicit_scope_g_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_g, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","+"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_scope_g_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_g, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","+"]]>;
 
 OclBuiltinImpl atomic_fetch_add_gen_impl = OclBuiltinImpl<atomic_fetch_add_gen, atomic_fetch_add_gen.Types, 0, atomic_fetch_key_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_gen_impl = OclBuiltinImpl<atomic_fetch_add_explicit_gen, atomic_fetch_add_explicit_gen.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_gen_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_gen, [v1f32], 0, add_g_fp32>;
-OclBuiltinImpl atomic_fetch_add_explicit_gen_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_gen, [v1f64], 0, add_g_fp64>;
+OclBuiltinImpl atomic_fetch_add_explicit_gen_impl = OclBuiltinImpl<atomic_fetch_add_explicit_gen, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_key_explicit_code, [["$KEY","add"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_gen_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_gen, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","+"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_gen_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_gen, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","+"]]>;
 OclBuiltinImpl atomic_fetch_add_explicit_scope_gen_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_gen, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_binop_explicit_scope_g_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_scope_gen_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_gen, [v1f32], 0, add_g_fp32>;
-OclBuiltinImpl atomic_fetch_add_explicit_scope_gen_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_gen, [v1f64], 0, add_g_fp64>;
+OclBuiltinImpl atomic_fetch_add_explicit_scope_gen_fp32_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_gen, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","+"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_scope_gen_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_gen, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","+"]]>;
 
 OclBuiltinImpl atomic_fetch_add_l_impl = OclBuiltinImpl<atomic_fetch_add_l, atomic_fetch_add_l.Types, 0, atomic_fetch_key_code, [["$KEY","add"]]>;
 OclBuiltinImpl atomic_fetch_add_explicit_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_l, atomic_fetch_add_explicit_l.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","add"]]>;
 OclBuiltinImpl atomic_fetch_add_explicit_scope_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_l, atomic_fetch_add_explicit_scope_l.Types, 0, atomic_fetch_binop_explicit_scope_l_code, [["$KEY","add"]]>;
 
 OclBuiltinImpl atomic_fetch_sub_g_impl = OclBuiltinImpl<atomic_fetch_sub_g, atomic_fetch_sub_g.Types, 0, atomic_fetch_key_code, [["$KEY","sub"]]>;
-OclBuiltinImpl atomic_fetch_sub_explicit_g_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_g, atomic_fetch_sub_explicit_g.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","sub"]]>;
-OclBuiltinImpl atomic_fetch_sub_explicit_scope_g_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_g, atomic_fetch_sub_explicit_scope_g.Types, 0, atomic_fetch_binop_explicit_scope_g_code, [["$KEY","sub"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_g_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_g, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_key_explicit_code, [["$KEY","sub"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_g_fp32_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_g, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","-"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_g_fp64_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_g, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","-"]]>;
+
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_g_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_g, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_binop_explicit_scope_g_code, [["$KEY","sub"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_g_fp32_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_g, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","-"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_g_fp64_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_g, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","-"]]>;
 
 OclBuiltinImpl atomic_fetch_sub_gen_impl = OclBuiltinImpl<atomic_fetch_sub_gen, atomic_fetch_sub_gen.Types, 0, atomic_fetch_key_code, [["$KEY","sub"]]>;
-OclBuiltinImpl atomic_fetch_sub_explicit_gen_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_gen, atomic_fetch_sub_explicit_gen.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","sub"]]>;
-OclBuiltinImpl atomic_fetch_sub_explicit_scope_gen_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_gen, atomic_fetch_sub_explicit_scope_gen.Types, 0, atomic_fetch_binop_explicit_scope_g_code, [["$KEY","sub"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_gen_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_gen, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_key_explicit_code, [["$KEY","sub"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_gen_fp32_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_gen, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","-"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_gen_fp64_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_gen, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","-"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_gen_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_gen, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_binop_explicit_scope_g_code, [["$KEY","sub"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_gen_fp32_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_gen, [v1f32], 0, bin_op_g_fp, [["$IntType","int"], ["$BINOP","-"]]>;
+OclBuiltinImpl atomic_fetch_sub_explicit_scope_gen_fp64_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_scope_gen, [v1f64], 0, bin_op_g_fp, [["$IntType","long"], ["$BINOP","-"]]>;
 
 OclBuiltinImpl atomic_fetch_sub_l_impl = OclBuiltinImpl<atomic_fetch_sub_l, atomic_fetch_sub_l.Types, 0, atomic_fetch_key_code, [["$KEY","sub"]]>;
 OclBuiltinImpl atomic_fetch_sub_explicit_l_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_l, atomic_fetch_sub_explicit_l.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","sub"]]>;

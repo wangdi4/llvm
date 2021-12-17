@@ -8,11 +8,11 @@ let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64],
     Attrs = [OVERLOADABLE, INLINE],
     NeedForwardDecl = 1  in {
     def ocl20_add : OclBuiltin<"__ocl20_add", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+    def ocl20_sub : OclBuiltin<"__ocl20_sub", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
 }
 let Types = [v1i32, v1u32, v1i64, v1u64],
     Attrs = [OVERLOADABLE, INLINE],
     NeedForwardDecl = 1  in {
-    def ocl20_sub : OclBuiltin<"__ocl20_sub", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
     def ocl20_or  : OclBuiltin<"__ocl20_or",  (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
     def ocl20_xor : OclBuiltin<"__ocl20_xor", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
     def ocl20_and : OclBuiltin<"__ocl20_and", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;

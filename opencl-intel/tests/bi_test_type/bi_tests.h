@@ -24,7 +24,6 @@ protected:
   std::vector<cl_mem>           buffers;
 };
 
-bool atomic_add_float_test();
 bool atomic_min_max_float_test();
 
 #endif // __BI_TESTS_H__
