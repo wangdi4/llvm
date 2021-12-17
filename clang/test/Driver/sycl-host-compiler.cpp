@@ -73,3 +73,9 @@
 // RUN:  | FileCheck -check-prefix=FNO_SYCL_UNNAMED_LAMBDA %s
 // FNO_SYCL_UNNAMED_LAMBDA:clang{{.*}} "-fsycl-is-device" {{.*}} "-fno-sycl-unnamed-lambda"
 // FNO_SYCL_UNNAMED_LAMBDA-NOT:"-fsycl-unnamed-lambda"
+
+/// Warning should not be emitted when using -fsycl-host-compiler when linking
+// RUN: touch %t.o
+// RUN: %clangxx -fsycl -fsycl-host-compiler=g++ %t.o -### 2>&1 \
+// RUN:  | FileCheck -check-prefix=WARNING_HOST_COMPILER %s
+// WARNING_HOST_COMPILER-NOT: warning: argument unused during compilation: '-fsycl-host-compiler=g++' [-Wunused-command-line-argument]
