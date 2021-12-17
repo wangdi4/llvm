@@ -84,6 +84,7 @@ static cl::opt<bool>
 #define SOASeq VPVectorShape::SOASeq
 #define SOAStr VPVectorShape::SOAStr
 #define SOARnd VPVectorShape::SOARnd
+#define SOACvt VPVectorShape::SOACvt
 #define Undef  VPVectorShape::Undef
 
 const VPVectorShape::VPShapeDescriptor
@@ -118,15 +119,16 @@ MulConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 
 const VPVectorShape::VPShapeDescriptor
 GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /* ptr\index      Uni,      Seq,      Str,      Rnd,      Undef */
-  /* Uni      */   {Uni,      Str,      Str,      Rnd,      Undef},
-  /* Seq      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
-  /* Str      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
-  /* Rnd      */   {Rnd,      Rnd,      Rnd,      Rnd,      Undef},
-  /* SOASeq   */   {SOASeq,   SOAStr,   SOARnd,   SOARnd,   Undef},
-  /* SOAStr   */   {SOAStr,   SOAStr,   SOARnd,   SOARnd,   Undef},
-  /* SOARnd   */   {SOARnd,   SOARnd,   SOARnd,   SOARnd,   Undef},
-  /* Undef    */   {Undef,    Undef,    Undef,    Undef,    Undef}
+  /* ptr\index       Uni,    Seq,    Str,    Rnd,    Undef */
+  /* Uni         */ {Uni,    Str,    Str,    Rnd,    Undef},
+  /* Seq         */ {Str,    Rnd,    Rnd,    Rnd,    Undef},
+  /* Str         */ {Str,    Rnd,    Rnd,    Rnd,    Undef},
+  /* Rnd         */ {Rnd,    Rnd,    Rnd,    Rnd,    Undef},
+  /* SOASeq      */ {SOASeq, SOAStr, SOARnd, SOARnd, Undef},
+  /* SOAStr      */ {SOAStr, SOAStr, SOARnd, SOARnd, Undef},
+  /* SOARnd      */ {SOARnd, SOARnd, SOARnd, SOARnd, Undef},
+  /* SOACvt      */ {SOACvt, SOACvt, SOACvt, SOACvt, Undef},
+  /* Undef       */ {Undef,  Undef,  Undef,  Undef,  Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
@@ -148,6 +150,7 @@ SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 #undef SOASeq
 #undef SOAStr
 #undef SOARnd
+#undef SOACvt
 #undef Undef
 
 static void assertOperandsDefined(const VPInstruction &I,
@@ -690,7 +693,6 @@ bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape OldShape,
 bool VPlanDivergenceAnalysis::updateVectorShape(const VPValue *V,
                                                 VPVectorShape Shape) {
   VPVectorShape OldShape = getVectorShape(*V);
-
   // Has shape changed in any way?
   if (shapesAreDifferent(OldShape, Shape)) {
     VectorShapes[V] = Shape;
@@ -722,15 +724,26 @@ bool VPlanDivergenceAnalysis::isSOAShape(const VPValue *Val) const {
   return getVectorShape(*Val).isSOAShape();
 }
 
+/// Return true given variable has been transformed by SOAMemRefTransform.
+bool VPlanDivergenceAnalysis::hasBeenSOAConverted(const VPValue *Val) const {
+  assert(Val && "Expected a non-null value.");
+  return getVectorShape(*Val).isSOAConverted();
+}
+
 // Returns a SOASequential vector shape with the given stride.
 VPVectorShape
 VPlanDivergenceAnalysis::getSOASequentialVectorShape(int64_t Stride) {
   return {VPVectorShape::SOASeq, getConstantInt(Stride)};
 }
 
-// Returns a SOARandom vector shape with the given stride.
+// Returns a SOARandom vector shape.
 VPVectorShape VPlanDivergenceAnalysis::getSOARandomVectorShape() {
   return {VPVectorShape::SOARnd};
+}
+
+// Returns a SOACvt vector shape.
+VPVectorShape VPlanDivergenceAnalysis::getSOAConvertedVectorShape() {
+  return {VPVectorShape::SOACvt};
 }
 
 // Verify the shape of each instruction in give Block \p VPBB.
@@ -1032,7 +1045,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
 
   // If shape is not random, then a new stride (in bytes) can be calculated for
   // the gep. Gep stride is always in bytes.
-  if (NewDesc != VPVectorShape::SOARnd) {
+  if (NewDesc != VPVectorShape::SOARnd && NewDesc != VPVectorShape::SOACvt) {
     auto *Gep = dyn_cast<VPGEPInstruction>(I);
     Type *PointedToTy =
         Gep ? Gep->getResultElementType()

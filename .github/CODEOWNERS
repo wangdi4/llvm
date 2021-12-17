@@ -264,10 +264,11 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanFunctionVectorizer.cpp @aelovikov-intel @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLCSSA.cpp @aelovikov-intel @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLCSSA.h @aelovikov-intel @sguggill
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.cpp @mamasten @kmitropo
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.h @mamasten @kmitropo
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp @kmitropo @mamasten
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.h @kmitropo @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.cpp @mamasten @aelovikov-intel
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.h @mamasten @aelovikov-intel
+/llvm/test/Transforms/Intel_VPO/Vecopt/loop-cfu/ @mamasten @aelovikov-intel
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.h @mamasten @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.cpp @ivankelarev @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.h @ivankelarev @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.cpp @kmitropo @skozhukh
@@ -297,6 +298,7 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.h @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.cpp @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.h @aelovikov-intel @skozhukh @sguggill @karthik-senthil
+/llvm/test/Transforms/Intel_VPO/Vecopt/vls/ @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 
 /llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h @mamasten @kmitropo @turinevgeny @skozhukh
 /llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h @mamasten @kmitropo @turinevgeny @skozhukh

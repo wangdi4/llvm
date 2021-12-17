@@ -118,6 +118,14 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "nary-reassociate"
 
+#if INTEL_CUSTOMIZATION
+// Algorithm does not scale well for very large blocks: N^2 with chain length.
+// Adding this limit does not seem to have any impact on performance.
+// See notes in CMPLRLLVM-32930 for more details.
+static cl::opt<unsigned> NaryReassocInstLimit("nary-reassoc-inst-limit",
+                                              cl::Hidden, cl::init(2000));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 class NaryReassociateLegacyPass : public FunctionPass {
@@ -226,6 +234,19 @@ bool NaryReassociatePass::runImpl(Function &F, AssumptionCache *AC_,
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
+// get..size() method iterates over the whole block, we can stop instead.
+static bool BlockOverSize(BasicBlock *BB, unsigned size) {
+  unsigned count = 0;
+  for (auto &I : *BB) {
+    (void)I;
+    if (++count > size)
+      return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool NaryReassociatePass::doOneIteration(Function &F) {
   bool Changed = false;
   SeenExprs.clear();
@@ -235,6 +256,10 @@ bool NaryReassociatePass::doOneIteration(Function &F) {
   SmallVector<WeakTrackingVH, 16> DeadInsts;
   for (const auto Node : depth_first(DT)) {
     BasicBlock *BB = Node->getBlock();
+#if INTEL_CUSTOMIZATION
+    if (BlockOverSize(BB, NaryReassocInstLimit))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     for (Instruction &OrigI : *BB) {
       const SCEV *OrigSCEV = nullptr;
       if (Instruction *NewI = tryReassociate(&OrigI, OrigSCEV)) {
