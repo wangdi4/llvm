@@ -53,15 +53,31 @@ target device_triples = "spir64"
 ; CHECK: lshr
 ; CHECK: br label %atomic.free.red.local.update.update.header
 ; CHECK-LABEL: red.update.body.from.tree:
-; CHECK: %[[DST_PTR_FROM:[^,]+]] = phi i32 addrspace(3)*
+; CHECK: %[[DST_PTR_FROM:[^,]+]] = phi i32 addrspace(1)*
 ; CHECK: %[[SRC_PTR_FROM:[^,]+]] = phi i32 addrspace(3)* [ %[[LOCAL_BUF_BASE]]
-; CHECK: %[[DST_VAL:[^,]+]] = load i32, i32 addrspace(3)*  %[[DST_PTR_FROM]]
+; CHECK: %[[DST_VAL:[^,]+]] = load i32, i32 addrspace(1)*  %[[DST_PTR_FROM]]
 ; CHECK: %[[SRC_VAL:[^,]+]] = load i32, i32 addrspace(3)*  %[[SRC_PTR_FROM]]
 ; CHECK: %[[NEW_VAL:[^,]+]] = add i32 %[[DST_VAL]], %[[SRC_VAL]]
 ; CHECK: br i1
-; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(3)* %[[DST_PTR_FROM]]
+; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(1)* %[[DST_PTR_FROM]]
 ; CHECK-NEXT: br label
 ; CHECK-LABEL: red.update.done.from.tree:
+; CHECK-LABEL: counter_check:
+; CHECK-LABEL: atomic.free.red.global.update.header:
+; CHECK: %[[IDX_PHI_GLOBAL:[^,]+]] = phi i64
+; CHECK: %[[GLOBAL_OFFSET:[^,]+]] = mul i64 %[[IDX_PHI_GLOBAL]], 1
+; CHECK: %[[GLOBAL_BUF_BASE:[^,]+]] = getelementptr [1 x i32], [1 x i32] addrspace(1)* %[[GLOBAL_BUF:[^,]+]], i64 %[[GLOBAL_OFFSET]]
+; CHECK: %[[GLOBAL_BUF_BC:[^,]+]] = bitcast [1 x i32] addrspace(1)* %[[GLOBAL_BUF_BASE]] to i32 addrspace(1)*
+; CHECK-LABEL: atomic.free.red.global.update.body:
+; CHECK-LABEL: red.update.body:
+; CHECK: %[[DST_PTR_GLOBAL:[^,]+]] = phi i32 addrspace(1)*
+; CHECK: %[[SRC_PTR_GLOBAL:[^,]+]] = phi i32 addrspace(1)* [ %[[GLOBAL_BUF_BC]]
+; CHECK: %[[SRC_VAL_GLOBAL:[^,]+]] = load i32, i32 addrspace(1)*  %[[SRC_PTR_GLOBAL]]
+; CHECK: %[[DST_VAL_GLOBAL:[^,]+]] = load i32, i32 addrspace(1)*  %[[DST_PTR_GLOBAL]]
+; CHECK: %[[NEW_VAL_GLOBAL:[^,]+]] = add i32 %[[DST_VAL_GLOBAL]], %[[SRC_VAL_GLOBAL]]
+; CHECK: store i32 %[[NEW_VAL_GLOBAL]], i32 addrspace(1)* %[[DST_PTR_GLOBAL]]
+; CHECK: br i1 %red.cpy.done73, label %item.exit, label %red.update.body
+; CHECK-NOT: store
 
 ; Function Attrs: convergent noinline nounwind optnone
 define hidden i32 @main() #0 {

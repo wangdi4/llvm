@@ -300,9 +300,17 @@ private:
     PHINode *IVPhi = nullptr;
     Instruction *LocalId = nullptr;
   };
+  struct GlobalUpdateInfo {
+    BasicBlock *EntryBB = nullptr;
+    BasicBlock *UpdateBB = nullptr;
+    BasicBlock *ExitBB = nullptr;
+    PHINode *IVPhi = nullptr;
+    BasicBlock *ScalarUpdateBB = nullptr;
+    BasicBlock *LatchBB = nullptr;
+  };
   /// BBs that perform updates within the atomic-free reduction loops.
   DenseMap<WRegionNode *, LocalUpdateInfo> AtomicFreeRedLocalUpdateInfos;
-  DenseMap<WRegionNode *, BasicBlock *> AtomicFreeRedGlobalUpdateBBs;
+  DenseMap<WRegionNode *, GlobalUpdateInfo> AtomicFreeRedGlobalUpdateInfos;
   DenseSet<WRNTargetNode *> UsedLocalTreeReduction;
 
   /// Struct that keeps all the information needed to pass to
