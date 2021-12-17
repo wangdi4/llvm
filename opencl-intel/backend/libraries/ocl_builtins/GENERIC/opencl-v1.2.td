@@ -1217,8 +1217,6 @@ def soa_fast_normalize4       : OclBuiltin<"soa_fast_normalize4",   (outs), (ins
 let Types = [v1i32, v1u32],
     Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def atomic_sub_global : OclBuiltin<"atomic_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
-def atomic_sub_local  : OclBuiltin<"atomic_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_inc_global : OclBuiltin<"atomic_inc", (outs gentype:$ret), (ins pgentype:$p), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_inc_local  : OclBuiltin<"atomic_inc", (outs gentype:$ret), (ins pgentype:$p), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_dec_global : OclBuiltin<"atomic_dec", (outs gentype:$ret), (ins pgentype:$p), [], [], 1, 0>, VOLATILE_GLOBAL;
@@ -1254,6 +1252,8 @@ let Types = [v1i32, v1u32, v1f32, v1f64],
     NeedForwardDecl = 1 in {
 def atomic_add_global : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_add_local  : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_sub_global : OclBuiltin<"atomic_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_sub_local  : OclBuiltin<"atomic_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 }
 
 let Types = [v1i32, v1u32, v1i64, v1u64],

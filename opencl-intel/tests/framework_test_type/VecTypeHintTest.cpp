@@ -107,7 +107,7 @@ bool VecTypeHintTest()
     for(int i = 0; i < num_kernels; i++)
     {
       std::ostringstream patternStrStream;
-      patternStrStream << "Kernel <kernel" << i+1 << "> was";
+      patternStrStream << "Kernel \"kernel" << i+1 << "\" was";
       std::string patternStr = patternStrStream.str();
 
       size_t new_place = strLog.find(patternStr, place) + patternStr.size();

@@ -59,7 +59,7 @@ static bool vectorizerModeTest(std::string const& mode)
       return deathTestFailure();
     }
 
-    const std::string kernelName("<test_kernel>");
+    const std::string kernelName("\"test_kernel\"");
     const char *ocl_test_program =
         "__kernel void test_kernel(__global float* inout)\n"
         "{\n"

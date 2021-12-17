@@ -90,10 +90,6 @@ cl_mem BITest::createBuffer(size_t size, cl_mem_flags flags, void *host_ptr) {
   return buf;
 }
 
-TEST(BuiltinTestType, Test_atomic_add_float) {
-  EXPECT_TRUE(atomic_add_float_test());
-}
-
 TEST(BuiltinTestType, Test_atomic_min_max_float) {
   EXPECT_TRUE(atomic_min_max_float_test());
 }
