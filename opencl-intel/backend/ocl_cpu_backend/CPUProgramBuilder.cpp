@@ -351,15 +351,15 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
       }
 
       if (dontVectorize) {
-        buildResult.LogS() << "Vectorization of kernel <"
+        buildResult.LogS() << "Vectorization of kernel \""
                            << spKernel->GetKernelName()
-                           << "> was disabled by the developer\n";
+                           << "\" was disabled by the developer\n";
       } else if (vecSize <= 1) {
-        buildResult.LogS() << "Kernel <" << spKernel->GetKernelName()
-                           << "> was not vectorized\n";
+        buildResult.LogS() << "Kernel \"" << spKernel->GetKernelName()
+                           << "\" was not vectorized\n";
       } else {
-        buildResult.LogS() << "Kernel <" << spKernel->GetKernelName()
-                           << "> was successfully vectorized ("
+        buildResult.LogS() << "Kernel \"" << spKernel->GetKernelName()
+                           << "\" was successfully vectorized ("
                            << spKernelProps->GetMinGroupSizeFactorial()
                            << ")\n";
       }
