@@ -6429,8 +6429,12 @@ static void handleSYCLUnmaskedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  D->addAttr(SYCLDeviceAttr::CreateImplicit(S.Context));
-  D->addAttr(SYCLDeviceIndirectlyCallableAttr::CreateImplicit(S.Context));
+  if (!D->hasAttr<SYCLDeviceAttr>())
+    D->addAttr(SYCLDeviceAttr::CreateImplicit(S.Context));
+  if (!D->hasAttr<SYCLDeviceIndirectlyCallableAttr>())
+    D->addAttr(SYCLDeviceIndirectlyCallableAttr::CreateImplicit(S.Context));
+  if (!D->hasAttr<NoInlineAttr>())
+    D->addAttr(NoInlineAttr::CreateImplicit(S.Context));
 
   handleSimpleAttribute<SYCLUnmaskedAttr>(S, D, AL);
 }
