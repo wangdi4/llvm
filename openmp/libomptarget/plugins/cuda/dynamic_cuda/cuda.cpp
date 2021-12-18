@@ -20,6 +20,7 @@
 
 #include <dlfcn.h>
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 DLWRAP_INTERNAL(cuInit, 1)
 
@@ -78,6 +79,10 @@ DLWRAP(cuEventDestroy, 1)
 
 DLWRAP_FINALIZE()
 #else // INTEL_CUSTOMIZATION
+=======
+DLWRAP_INITIALIZE();
+
+>>>>>>> 38af5b4fd12117186ed9314c6997db169363f8c3
 DLWRAP_INTERNAL(cuInit, 1);
 
 DLWRAP(cuCtxGetDevice, 1);
