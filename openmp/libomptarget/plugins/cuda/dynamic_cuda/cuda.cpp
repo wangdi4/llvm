@@ -21,6 +21,8 @@
 #include <dlfcn.h>
 
 #if INTEL_CUSTOMIZATION
+DLWRAP_INITIALIZE()
+
 DLWRAP_INTERNAL(cuInit, 1)
 
 DLWRAP(cuCtxGetDevice, 1)

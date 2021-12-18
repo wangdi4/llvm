@@ -18,6 +18,8 @@
 #include <dlfcn.h>
 
 #if INTEL_CUSTOMIZATION
+DLWRAP_INITIALIZE()
+
 DLWRAP_INTERNAL(hsa_init, 0)
 
 DLWRAP(hsa_status_string, 2)
