@@ -132,7 +132,8 @@ cl_ulong GetMaxMemAllocSize(const CPUDeviceConfig &config, bool* isForced = null
         if (0 == maxMemAllocSize)
         {
             // fallback to default max memory alloc size
-            maxMemAllocSize = MAX(128*1024*1024, GetGlobalMemorySize(config)/4);
+            maxMemAllocSize =
+                MAX(128 * 1024 * 1024, GetGlobalMemorySize(config) / 2);
             forced = false;
         }
     }

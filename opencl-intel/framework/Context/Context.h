@@ -602,7 +602,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ******************************************************************************************/         
         virtual ~Context();
 
-        cl_ulong    GetMaxMemAllocSize();
+        cl_err_code QueryMaxMemAllocSize();
+        cl_err_code CheckMemAllocSize(size_t size);
         cl_err_code GetMaxImageDimensions(  size_t &psz2dWidth,
                                             size_t &psz2dHeight,
                                             size_t &psz3dWidth,

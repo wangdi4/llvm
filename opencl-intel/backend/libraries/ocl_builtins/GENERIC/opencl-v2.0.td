@@ -46,16 +46,6 @@ def atomic_init_g : OclBuiltin<"atomic_init",  (outs),
 def atomic_init_gen : OclBuiltin<"atomic_init",  (outs),
     (ins patomgentype:$object, gentype:$value), [], [], 1, 0>, VOLATILE_GENERIC;
 
-def atomic_fetch_add_explicit_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
-def atomic_fetch_add_explicit_scope_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
-
-def atomic_fetch_add_explicit_gen : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GENERIC;
-def atomic_fetch_add_explicit_scope_gen : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GENERIC;
-
 // static pass for generic address space requires us to have all combinations of pointers in argument list
 // SECPTR is used to build gpgentype, lpgentype, ppgentype, and add posfix _gp, _lp, _pp to OclBuiltin define
 // VOLATILE_GLOBAL is applied to all arguments pointers of the function. Thus, it is not allowed
@@ -206,13 +196,21 @@ def atomic_fetch_max_explicit_scope_l : OclBuiltin<"atomic_fetch_max_explicit", 
     (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
 }
 
-let Types = [v1i32, v1u32, v1i64, v1u64],
+let Types = [v1i32, v1u32, v1f32, v1i64, v1u64, v1f64],
     Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
 def atomic_fetch_add_g : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_add_explicit_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_fetch_add_explicit_scope_g : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GLOBAL;
 
 def atomic_fetch_add_gen : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GENERIC;
+def atomic_fetch_add_explicit_gen : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GENERIC;
+def atomic_fetch_add_explicit_scope_gen : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GENERIC;
 
 def atomic_fetch_sub_g : OclBuiltin<"atomic_fetch_sub",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
@@ -227,7 +225,10 @@ def atomic_fetch_sub_explicit_gen : OclBuiltin<"atomic_fetch_sub_explicit",  (ou
     (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_GENERIC;
 def atomic_fetch_sub_explicit_scope_gen : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_GENERIC;
+}
 
+let Types = [v1i32, v1u32, v1i64, v1u64],
+    Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
 def atomic_fetch_or_g : OclBuiltin<"atomic_fetch_or",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_fetch_or_explicit_g : OclBuiltin<"atomic_fetch_or_explicit",  (outs gentype:$ret),
@@ -304,9 +305,18 @@ let Types = [v1i32, v1u32, v1f32, v1i64, v1u64, v1f64],
 def atomic_init_l : OclBuiltin<"atomic_init",  (outs),
     (ins patomgentype:$object, gentype:$value), [], [], 1, 0>, VOLATILE_LOCAL;
 
+def atomic_fetch_add_l : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_fetch_add_explicit_l : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_fetch_add_explicit_scope_l : OclBuiltin<"atomic_fetch_add_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
+
+def atomic_fetch_sub_l : OclBuiltin<"atomic_fetch_sub",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_sub_explicit_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
+    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_fetch_sub_explicit_scope_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
 
 // static pass for generic address space requires us to have all combinations of pointers in argument list
@@ -332,16 +342,6 @@ foreach SECPTR = ["gp", "lp", "pp"] in {
 
 let Types = [v1i32, v1u32, v1i64, v1u64],
     Attrs = [OVERLOADABLE], NeedForwardDecl = 1 in {
-def atomic_fetch_add_l : OclBuiltin<"atomic_fetch_add",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
-
-def atomic_fetch_sub_l : OclBuiltin<"atomic_fetch_sub",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
-def atomic_fetch_sub_explicit_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand, memory_order:$order), [], [], 1, 0>, VOLATILE_LOCAL;
-def atomic_fetch_sub_explicit_scope_l : OclBuiltin<"atomic_fetch_sub_explicit",  (outs gentype:$ret),
-    (ins patomgentype:$object, gentype:$operand, memory_order:$order, memory_scope:$scope), [], [], 1, 0>, VOLATILE_LOCAL;
-
 def atomic_fetch_or_l : OclBuiltin<"atomic_fetch_or",  (outs gentype:$ret),
     (ins patomgentype:$object, gentype:$operand), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_fetch_or_explicit_l : OclBuiltin<"atomic_fetch_or_explicit",  (outs gentype:$ret),
