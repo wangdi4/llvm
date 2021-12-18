@@ -17,7 +17,6 @@
 
 #include <dlfcn.h>
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 DLWRAP_INTERNAL(hsa_init, 0)
 
@@ -56,10 +55,8 @@ DLWRAP(hsa_amd_memory_unlock, 1)
 
 DLWRAP_FINALIZE()
 #else
-=======
 DLWRAP_INITIALIZE();
 
->>>>>>> 38af5b4fd12117186ed9314c6997db169363f8c3
 DLWRAP_INTERNAL(hsa_init, 0);
 
 DLWRAP(hsa_status_string, 2);
