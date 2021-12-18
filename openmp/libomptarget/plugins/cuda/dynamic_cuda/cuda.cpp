@@ -78,6 +78,8 @@ DLWRAP(cuEventDestroy, 1)
 
 DLWRAP_FINALIZE()
 #else // INTEL_CUSTOMIZATION
+DLWRAP_INITIALIZE();
+
 DLWRAP_INTERNAL(cuInit, 1);
 
 DLWRAP(cuCtxGetDevice, 1);

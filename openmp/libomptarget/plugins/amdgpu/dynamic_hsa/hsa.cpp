@@ -55,6 +55,8 @@ DLWRAP(hsa_amd_memory_unlock, 1)
 
 DLWRAP_FINALIZE()
 #else
+DLWRAP_INITIALIZE();
+
 DLWRAP_INTERNAL(hsa_init, 0);
 
 DLWRAP(hsa_status_string, 2);
