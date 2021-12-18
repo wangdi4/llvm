@@ -464,8 +464,44 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
          "No dedicated pre-header?");
 
   auto *Cond = Block->getCondBit();
+  if (Cond && Plan.getVPlanDA()->isDivergent(*Cond))
+    return false;
+
   bool BlockIsUniform = Block2PredicateTermsAndUniformity[Block].second;
-  return BlockIsUniform && (!Cond || !Plan.getVPlanDA()->isDivergent(*Cond));
+  if (BlockIsUniform)
+    return true;
+
+  if (!Cond)
+    return false;
+
+  // Try to preserve uniform condition under a top-level mask.
+  if (!isa<VPExternalDef>(Cond))
+    // Non-trivial in case of all-false outer mask.
+    return false;
+
+  VPBasicBlock *PostDom = Plan.getPDT()->getNode(Block)->getIDom()->getBlock();
+  for (auto It = std::next(df_begin(Block)), End = df_end(Block);
+       It != End;) {
+    if (*It == PostDom) {
+      It.skipChildren();
+      continue;
+    }
+
+    // No outer edge going into the region.
+    if (!Plan.getDT()->dominates(Block, *It))
+      return false;
+
+    // No intermix of subregions between each other.
+    if (llvm::none_of(Block->getSuccessors(),
+                      [&It, DT = Plan.getDT()](const VPBasicBlock *Succ) {
+                        return DT->dominates(Succ, *It);
+                      }))
+      return false;
+
+    ++It;
+  }
+
+  return true;
 }
 
 namespace {
@@ -615,32 +651,27 @@ void VPlanPredicator::linearizeRegion() {
       // Check if Pred is in the same linearized sub-graph that the CurrBlock
       // is. In other words, do we reach any of the remaining edges when going
       // through Pred's single successors chain?
-
+      //
+      // We rely on the fact that the only preserved uniform control flow under
+      // a top-level divergent condition is if the subregions formed by it are
+      // isolated. However, I don't know a nice way to assert for that here. Any
+      // improvements in that area in shouldPreserveOutgoingEdges have to be
+      // accompanied with a change here as well.
       VPBasicBlock *LastProcessed = Pred;
-      VPBasicBlock *PredSucc = Pred->getSingleSuccessor();
-      // Don't go into the blocks that haven't been processed before this one
-      // , including itself.
-      while (PredSucc && BlockOrdering.getIndex(PredSucc) < CurrBlockIndex) {
-        LastProcessed = PredSucc;
-        auto EdgeFormsLinearizedChain =
-            [this, &BlockOrdering, CurrBlockIndex](const VPBasicBlock *From,
-                                                   const VPBasicBlock *To) {
-              return !VPBlockUtils::isBackEdge(From, To, VPLI) &&
-                     BlockOrdering.getIndex(To) < CurrBlockIndex;
-            };
-        assert(count_if(PredSucc->getSuccessors(),
-                        [EdgeFormsLinearizedChain,
-                         PredSucc](const VPBasicBlock *Succ) {
-                          return EdgeFormsLinearizedChain(PredSucc, Succ);
-                        }) <= 1 &&
-               "Broken linearized chain!");
-        auto *SavedPtr = PredSucc;
-        PredSucc = nullptr;
-        for (auto *Succ : SavedPtr->getSuccessors())
-          if (EdgeFormsLinearizedChain(SavedPtr, Succ)) {
-            PredSucc = Succ;
-            break;
-          }
+      int LastProcessedIdx = BlockOrdering.getIndex(LastProcessed);
+      auto It = df_begin(LastProcessed);
+      auto End = df_end(LastProcessed);
+      while  (It != End) {
+        int Idx = BlockOrdering.getIndex(*It);
+        if (Idx >= CurrBlockIndex) {
+          It.skipChildren();
+          continue;
+        }
+        if (Idx > LastProcessedIdx) {
+          LastProcessed = *It;
+          LastProcessedIdx = Idx;
+        }
+        ++It;
       }
 
       if (is_contained(LastProcessed->getSuccessors(), CurrBlock)) {

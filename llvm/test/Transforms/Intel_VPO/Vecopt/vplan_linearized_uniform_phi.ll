@@ -3,11 +3,10 @@
 ; RUN: opt < %s -vplan-vec -vplan-force-vf=2 -S 2>&1 | FileCheck %s --check-prefixes=CG
 ; RUN: opt < %s -vplan-force-vf=2 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -remove-region-directives -disable-output -print-after=hir-vplan-vec 2>&1 | FileCheck %s --check-prefixes=HIR-CG
 
-define void @foo(i64 *%p, i1 %uniform) #0 {
+define void @foo(i64 *%p, i1 *%uniform.ptr) #0 {
 ; VPLAN-LABEL:  VPlan after predicator:
-; VPLAN-NEXT:  VPlan IR for: foo:header
+; VPLAN-NEXT:  VPlan IR for: foo:header.#{{[0-9]+}}
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB1]]: # preds: [[BB0]]
@@ -23,11 +22,13 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = load i1* [[UNIFORM_PTR0:%.*]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[VP_UNIFORM]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[UNIFORM0]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -69,19 +70,35 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
 ;
 ;
-; CG:  define void @foo(i64* [[P0:%.*]], i1 [[UNIFORM0:%.*]]) #0 {
+; CG:  define void @foo(i64* [[P0:%.*]], i1* [[UNIFORM_PTR0:%.*]]) #0 {
 ; CG:       vector.body:
-; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10:%.*]] ], [ [[TMP9:%.*]], [[VPLANNEDBB90:%.*]] ]
-; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB10]] ], [ [[TMP8:%.*]], [[VPLANNEDBB90]] ]
-; CG-NEXT:    [[TMP1:%.*]] = icmp sgt <2 x i64> [[VEC_PHI0]], zeroinitializer
+; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10:%.*]] ], [ [[TMP14:%.*]], [[VPLANNEDBB90:%.*]] ]
+; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB10]] ], [ [[TMP13:%.*]], [[VPLANNEDBB90]] ]
+; CG-NEXT:    [[TMP0:%.*]] = icmp sgt <2 x i64> [[VEC_PHI0]], zeroinitializer
 ; CG-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB3:
+; CG-NEXT:    [[TMP1:%.*]] = bitcast <2 x i1> [[TMP0]] to i2
+; CG-NEXT:    [[TMP2:%.*]] = icmp ne i2 [[TMP1]], 0
+; CG-NEXT:    br i1 [[TMP2]], label [[PRED_LOAD_IF0:%.*]], label [[TMP4:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  pred.load.if:
+; CG-NEXT:    [[TMP3:%.*]] = load i1, i1* [[UNIFORM_PTR0]], align 1
+; CG-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i32 0
+; CG-NEXT:    br label [[TMP4]]
+; CG-EMPTY:
+; CG-NEXT:  4:
+; CG-NEXT:    [[TMP5:%.*]] = phi <2 x i1> [ poison, [[VPLANNEDBB30]] ], [ [[BROADCAST_SPLATINSERT0]], [[PRED_LOAD_IF0]] ]
+; CG-NEXT:    br label [[PRED_LOAD_CONTINUE0:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  pred.load.continue:
+; CG-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i1> [[TMP5]], <2 x i1> poison, <2 x i32> zeroinitializer
+; CG-NEXT:    [[TMP6:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT0]], <i1 true, i1 true>
 ; CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB4:
-; CG-NEXT:    [[TMP2:%.*]] = and <2 x i1> [[TMP1]], [[TMP0:%.*]]
-; CG-NEXT:    [[TMP3:%.*]] = and <2 x i1> [[TMP1]], [[BROADCAST_SPLAT0:%.*]]
+; CG-NEXT:    [[TMP7:%.*]] = and <2 x i1> [[TMP0]], [[TMP6]]
+; CG-NEXT:    [[TMP8:%.*]] = and <2 x i1> [[TMP0]], [[BROADCAST_SPLAT0]]
 ; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB5:
@@ -91,12 +108,12 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; CG-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB7:
-; CG-NEXT:    [[PREDBLEND0:%.*]] = select <2 x i1> [[TMP3]], <2 x i64> <i64 1, i64 1>, <2 x i64> <i64 2, i64 2>
-; CG-NEXT:    [[TMP4:%.*]] = bitcast <2 x i1> [[TMP1]] to i2
-; CG-NEXT:    [[CTTZ0:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP4]], i1 false)
-; CG-NEXT:    [[TMP5:%.*]] = extractelement <2 x i64> [[PREDBLEND0]], i2 [[CTTZ0]]
-; CG-NEXT:    [[TMP6:%.*]] = add i64 [[TMP5]], 1
-; CG-NEXT:    [[BROADCAST_SPLATINSERT100:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CG-NEXT:    [[PREDBLEND0:%.*]] = select <2 x i1> [[TMP8]], <2 x i64> <i64 1, i64 1>, <2 x i64> <i64 2, i64 2>
+; CG-NEXT:    [[TMP9:%.*]] = bitcast <2 x i1> [[TMP0]] to i2
+; CG-NEXT:    [[CTTZ0:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP9]], i1 false)
+; CG-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[PREDBLEND0]], i2 [[CTTZ0]]
+; CG-NEXT:    [[TMP11:%.*]] = add i64 [[TMP10]], 1
+; CG-NEXT:    [[BROADCAST_SPLATINSERT100:%.*]] = insertelement <2 x i64> poison, i64 [[TMP11]], i32 0
 ; CG-NEXT:    [[BROADCAST_SPLAT110:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT100]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CG-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; CG-EMPTY:
@@ -104,42 +121,59 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; CG-NEXT:    br label [[VPLANNEDBB90]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB9:
-; CG-NEXT:    [[PREDBLEND120:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> [[BROADCAST_SPLAT110]], <2 x i64> <i64 -1, i64 -1>
+; CG-NEXT:    [[PREDBLEND120:%.*]] = select <2 x i1> [[TMP0]], <2 x i64> [[BROADCAST_SPLAT110]], <2 x i64> <i64 -1, i64 -1>
 ; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI0]]
-; CG-NEXT:    [[TMP7:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
-; CG-NEXT:    store <2 x i64> [[PREDBLEND120]], <2 x i64>* [[TMP7]], align 4
-; CG-NEXT:    [[TMP8]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CG-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CG-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], 4
-; CG-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB130:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
+; CG-NEXT:    [[TMP12:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
+; CG-NEXT:    store <2 x i64> [[PREDBLEND120]], <2 x i64>* [[TMP12]], align 4
+; CG-NEXT:    [[TMP13]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CG-NEXT:    [[TMP14]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CG-NEXT:    [[TMP15:%.*]] = icmp uge i64 [[TMP14]], 4
+; CG-NEXT:    br i1 [[TMP15]], label [[VPLANNEDBB130:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
 ;
-; HIR-CG-LABEL: BEGIN REGION { modified }
-; HIR-CG-NEXT:        %.copy = -1;
-; HIR-CG-NEXT:        %.vec = <i64 0, i64 1> > 0;
-; HIR-CG-NEXT:        %.vec4 = %uniform != 0;
-; HIR-CG-NEXT:        %.vec5 = %.vec4  ^  -1;
-; HIR-CG-NEXT:        %.vec6 = %.vec  &  %.vec5;
-; HIR-CG-NEXT:        %.vec7 = %.vec  &  %.vec4;
-; HIR-CG-NEXT:        %.copy8 = 2;
-; HIR-CG-NEXT:        %.copy9 = 1;
-; HIR-CG-NEXT:        %select = (%.vec7 == <i1 true, i1 true>) ? %.copy9 : %.copy8;
-; HIR-CG-NEXT:        %.copy10 = %select + 1;
-; HIR-CG-NEXT:        %select11 = (%.vec == <i1 true, i1 true>) ? %.copy10 : %.copy;
-; HIR-CG-NEXT:        (<2 x i64>*)(%p)[0] = %select11;
-; HIR-CG-NEXT:        %.copy = -1;
-; HIR-CG-NEXT:        %.vec = <i64 0, i64 1> + 2 > 0;
-; HIR-CG-NEXT:        %.vec4 = %uniform != 0;
-; HIR-CG-NEXT:        %.vec5 = %.vec4  ^  -1;
-; HIR-CG-NEXT:        %.vec6 = %.vec  &  %.vec5;
-; HIR-CG-NEXT:        %.vec7 = %.vec  &  %.vec4;
-; HIR-CG-NEXT:        %.copy8 = 2;
-; HIR-CG-NEXT:        %.copy9 = 1;
-; HIR-CG-NEXT:        %select = (%.vec7 == <i1 true, i1 true>) ? %.copy9 : %.copy8;
+; HIR-CG-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
+; HIR-CG-NEXT:  Function: foo
+; HIR-CG-EMPTY:
+; HIR-CG-NEXT:  BEGIN REGION { modified }
+; HIR-CG-NEXT:        [[DOTCOPY0:%.*]] = -1
+; HIR-CG-NEXT:        [[DOTVEC0:%.*]] = <i64 0, i64 1> > 0
+; HIR-CG-NEXT:        [[TMP0:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC0]])
+; HIR-CG-NEXT:        [[CMP0:%.*]] = [[TMP0]] != 0
+; HIR-CG-NEXT:        [[DOTUNIFLOAD0:%.*]] = undef
+; HIR-CG-NEXT:        if ([[CMP0]] == 1)
+; HIR-CG-NEXT:        {
+; HIR-CG-NEXT:           [[DOTUNIFLOAD0]] = ([[UNIFORM_PTR0:%.*]])[0]
+; HIR-CG-NEXT:        }
+; HIR-CG-NEXT:        [[DOTVEC40:%.*]] = [[DOTUNIFLOAD0]] != 0
+; HIR-CG-NEXT:        [[DOTVEC50:%.*]] = [[DOTVEC40]]  ^  -1
+; HIR-CG-NEXT:        [[DOTVEC60:%.*]] = [[DOTVEC0]]  &  [[DOTVEC50]]
+; HIR-CG-NEXT:        [[DOTVEC70:%.*]] = [[DOTVEC0]]  &  [[DOTVEC40]]
+; HIR-CG-NEXT:        [[DOTCOPY80:%.*]] = 2
+; HIR-CG-NEXT:        [[DOTCOPY90:%.*]] = 1
+; HIR-CG-NEXT:        [[SELECT0:%.*]] = ([[DOTVEC70]] == <i1 true, i1 true>) ? [[DOTCOPY90]] : [[DOTCOPY80]]
+; HIR-CG-NEXT:        [[DOTCOPY100:%.*]] = [[SELECT0]] + 1
+; HIR-CG-NEXT:        [[SELECT110:%.*]] = ([[DOTVEC0]] == <i1 true, i1 true>) ? [[DOTCOPY100]] : [[DOTCOPY0]]
+; HIR-CG-NEXT:        (<2 x i64>*)([[P0:%.*]])[0] = [[SELECT110]]
+; HIR-CG-NEXT:        [[DOTCOPY0]] = -1
+; HIR-CG-NEXT:        [[DOTVEC0]] = <i64 0, i64 1> + 2 > 0
+; HIR-CG-NEXT:        [[TMP0]] = bitcast.<2 x i1>.i2([[DOTVEC0]])
+; HIR-CG-NEXT:        [[CMP0]] = [[TMP0]] != 0
+; HIR-CG-NEXT:        [[DOTUNIFLOAD0]] = undef
+; HIR-CG-NEXT:        if ([[CMP0]] == 1)
+; HIR-CG-NEXT:        {
+; HIR-CG-NEXT:           [[DOTUNIFLOAD0]] = ([[UNIFORM_PTR0]])[0]
+; HIR-CG-NEXT:        }
+; HIR-CG-NEXT:        [[DOTVEC40]] = [[DOTUNIFLOAD0]] != 0
+; HIR-CG-NEXT:        [[DOTVEC50]] = [[DOTVEC40]]  ^  -1
+; HIR-CG-NEXT:        [[DOTVEC60]] = [[DOTVEC0]]  &  [[DOTVEC50]]
+; HIR-CG-NEXT:        [[DOTVEC70]] = [[DOTVEC0]]  &  [[DOTVEC40]]
+; HIR-CG-NEXT:        [[DOTCOPY80]] = 2
+; HIR-CG-NEXT:        [[DOTCOPY90]] = 1
+; HIR-CG-NEXT:        [[SELECT0]] = ([[DOTVEC70]] == <i1 true, i1 true>) ? [[DOTCOPY90]] : [[DOTCOPY80]]
 ; The %val's "add" is kept on vector so the issue doesn't exist for HIR yet (scalarization support isn't mature enough)
-; HIR-CG-NEXT:        %.copy10 = %select + 1;
-; HIR-CG-NEXT:        %select11 = (%.vec == <i1 true, i1 true>) ? %.copy10 : %.copy;
-; HIR-CG-NEXT:        (<2 x i64>*)(%p)[2] = %select11;
-; HIR-CG-NEXT:        ret ;
+; HIR-CG-NEXT:        [[DOTCOPY100]] = [[SELECT0]] + 1
+; HIR-CG-NEXT:        [[SELECT110]] = ([[DOTVEC0]] == <i1 true, i1 true>) ? [[DOTCOPY100]] : [[DOTCOPY0]]
+; HIR-CG-NEXT:        (<2 x i64>*)([[P0]])[2] = [[SELECT110]]
+; HIR-CG-NEXT:        ret
 ; HIR-CG-NEXT:  END REGION
 ;
 entry:
@@ -152,6 +186,7 @@ header:
   br i1 %cond, label %uni.start, label %latch
 
 uni.start:
+  %uniform = load i1, i1 *%uniform.ptr
   br i1 %uniform, label %if.then, label %if.else
 
 if.then:
@@ -180,30 +215,12 @@ exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }
-; The above function could be used to test through 'lli' like
-;
-; Original incorrect behavior:
-; $ opt -vplan-vec -vplan-force-vf=2 -remove-region-directives -S %s | lli  ; echo $?
-; 3
-; Expected correct results:
-; $ opt -remove-region-directives -S %s | lli  ; echo $?
-; 2
-;
-; define i32 @main() {
-;   %p = alloca i64, i64 42
-;   call void @foo(i64 *%p, i1 true)
-;   %q = getelementptr i64, i64 *%p, i64 1
-;   %ret = load i64, i64 *%q
-;   %trunc = trunc i64 %ret to i32
-;   ret i32 %trunc
-; }
-
 
 ; Used to crash with the first iteration of the patch. Not sure how to reproduce
 ; the same now that blends with undef are optimized inside predicator.
 define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-LABEL:  VPlan after predicator:
-; VPLAN-NEXT:  VPlan IR for: uniform_with_undef:header
+; VPLAN-NEXT:  VPlan IR for: uniform_with_undef:header.#{{[0-9]+}}
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; VPLAN-EMPTY:

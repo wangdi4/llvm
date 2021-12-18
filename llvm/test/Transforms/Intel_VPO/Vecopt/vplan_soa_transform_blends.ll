@@ -2,11 +2,10 @@
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -vplan-print-after-transformed-soa-geps\
 ; RUN: -vplan-enable-soa -disable-output %s 2>&1 | FileCheck %s
 
-define void @uniform_with_undef(i64 *%p, i1 %uniform) #0 {
+define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-LABEL:  VPlan after Dump Transformed SOA GEPs:
-; CHECK-NEXT:  VPlan IR for: uniform_with_undef:simd.loop
+; CHECK-NEXT:  VPlan IR for: uniform_with_undef:simd.loop.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
@@ -25,11 +24,13 @@ define void @uniform_with_undef(i64 *%p, i1 %uniform) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = load i1* [[UNIFORM_PTR0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[VP_UNIFORM]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -92,6 +93,7 @@ simd.loop:
   br i1 %cond, label %uni.start, label %latch
 
 uni.start:
+  %uniform = load i1, i1 *%uniform.ptr
   br i1 %uniform, label %if, label %else
 
 if:
