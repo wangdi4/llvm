@@ -2160,13 +2160,18 @@ LLVMValueRef LLVMConstFCmp(LLVMRealPredicate Predicate,
 LLVMValueRef LLVMConstShl(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
 LLVMValueRef LLVMConstLShr(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
 LLVMValueRef LLVMConstAShr(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
-LLVMValueRef LLVMConstGEP(LLVMValueRef ConstantVal,
-                          LLVMValueRef *ConstantIndices, unsigned NumIndices);
+LLVM_ATTRIBUTE_C_DEPRECATED(
+    LLVMValueRef LLVMConstGEP(LLVMValueRef ConstantVal,
+                              LLVMValueRef *ConstantIndices,
+                              unsigned NumIndices),
+    "Use LLVMConstGEP2 instead to support opaque pointers");
 LLVMValueRef LLVMConstGEP2(LLVMTypeRef Ty, LLVMValueRef ConstantVal,
                            LLVMValueRef *ConstantIndices, unsigned NumIndices);
-LLVMValueRef LLVMConstInBoundsGEP(LLVMValueRef ConstantVal,
-                                  LLVMValueRef *ConstantIndices,
-                                  unsigned NumIndices);
+LLVM_ATTRIBUTE_C_DEPRECATED(
+    LLVMValueRef LLVMConstInBoundsGEP(LLVMValueRef ConstantVal,
+                                      LLVMValueRef *ConstantIndices,
+                                      unsigned NumIndices),
+    "Use LLVMConstInBoundsGEP2 instead to support opaque pointers");
 LLVMValueRef LLVMConstInBoundsGEP2(LLVMTypeRef Ty, LLVMValueRef ConstantVal,
                                    LLVMValueRef *ConstantIndices,
                                    unsigned NumIndices);
@@ -3507,7 +3512,7 @@ LLVMTypeRef LLVMGetAllocatedType(LLVMValueRef Alloca);
  */
 
 /**
- * Check whether the given GEP instruction is inbounds.
+ * Check whether the given GEP operator is inbounds.
  */
 LLVMBool LLVMIsInBounds(LLVMValueRef GEP);
 
@@ -3517,7 +3522,7 @@ LLVMBool LLVMIsInBounds(LLVMValueRef GEP);
 void LLVMSetIsInBounds(LLVMValueRef GEP, LLVMBool InBounds);
 
 /**
- * Get the source element type of the given GEP instruction.
+ * Get the source element type of the given GEP operator.
  */
 LLVMTypeRef LLVMGetGEPSourceElementType(LLVMValueRef GEP);
 
@@ -3571,7 +3576,7 @@ LLVMBasicBlockRef LLVMGetIncomingBlock(LLVMValueRef PhiNode, unsigned Index);
 
 /**
  * Obtain the number of indices.
- * NB: This also works on GEP.
+ * NB: This also works on GEP operators.
  */
 unsigned LLVMGetNumIndices(LLVMValueRef Inst);
 

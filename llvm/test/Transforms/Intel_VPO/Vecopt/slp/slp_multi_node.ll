@@ -15,8 +15,8 @@ define void @simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
@@ -110,8 +110,8 @@ define void @wrap_flags_simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> <i32 42, i32 43>, [[TMP1]]
-; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
+; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
@@ -161,7 +161,7 @@ define void @fmf_flags_simple(float *%a, float *%b, float *%c) #0 {
 ; CHECK-NEXT:    [[B0:%.*]] = load float, float* [[GEP_B0]], align 4
 ; CHECK-NEXT:    [[B1:%.*]] = load float, float* [[GEP_B1]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> <float poison, float 4.300000e+01>, float [[B0]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = fadd fast <2 x float> [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[TMP3:%.*]] = fadd fast <2 x float> [[TMP2]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x float> <float 4.200000e+01, float poison>, float [[B1]], i32 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = fadd fast <2 x float> [[TMP3]], [[TMP4]]
 ; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds float, float* [[C:%.*]], i64 1

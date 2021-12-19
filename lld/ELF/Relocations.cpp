@@ -739,8 +739,6 @@ template <class ELFT> void elf::reportUndefinedSymbols() {
 // Returns true if the undefined symbol will produce an error message.
 static bool maybeReportUndefined(Symbol &sym, InputSectionBase &sec,
                                  uint64_t offset) {
-  if (!sym.isUndefined())
-    return false;
   // If versioned, issue an error (even if the symbol is weak) because we don't
   // know the defining filename which is required to construct a Verneed entry.
   if (*sym.getVersionSuffix() == '@') {
@@ -1327,7 +1325,8 @@ static void scanReloc(InputSectionBase &sec, OffsetGetter &getOffset, RelTy *&i,
 
   // Error if the target symbol is undefined. Symbol index 0 may be used by
   // marker relocations, e.g. R_*_NONE and R_ARM_V4BX. Don't error on them.
-  if (symIndex != 0 && maybeReportUndefined(sym, sec, rel.r_offset))
+  if (sym.isUndefined() && symIndex != 0 &&
+      maybeReportUndefined(sym, sec, rel.r_offset))
     return;
 
   const uint8_t *relocatedAddr = sec.data().begin() + rel.r_offset;
@@ -1575,6 +1574,9 @@ static bool handleNonPreemptibleIfunc(Symbol &sym) {
   //   linker-defined symbols __rela?_iplt_{start,end}.
   if (!sym.isGnuIFunc() || sym.isPreemptible || config->zIfuncNoplt)
     return false;
+  // Skip unreferenced non-preemptible ifunc.
+  if (!(sym.needsGot || sym.needsPlt || sym.hasDirectReloc))
+    return true;
 
   sym.isInIplt = true;
 
@@ -1582,7 +1584,7 @@ static bool handleNonPreemptibleIfunc(Symbol &sym) {
   // original section/value pairs. For non-GOT non-PLT relocation case below, we
   // may alter section/value, so create a copy of the symbol to make
   // section/value fixed.
-  auto *directSym = make<Defined>(cast<Defined>(sym));
+  auto *directSym = makeDefined(cast<Defined>(sym));
   addPltEntry(in.iplt, in.igotPlt, in.relaIplt, target->iRelativeRel,
               *directSym);
   sym.pltIndex = directSym->pltIndex;
@@ -1626,6 +1628,7 @@ void elf::postScanRelocations() {
           replaceWithDefined(
               sym, in.plt,
               target->pltHeaderSize + target->pltEntrySize * sym.pltIndex, 0);
+          sym.needsCopy = true;
           if (config->emachine == EM_PPC) {
             // PPC32 canonical PLT entries are at the beginning of .glink
             cast<Defined>(sym).value = in.plt->headerSize;
@@ -1633,7 +1636,6 @@ void elf::postScanRelocations() {
             cast<PPC32GlinkSection>(in.plt)->canonical_plts.push_back(&sym);
           }
         }
-        sym.needsPltAddr = true;
       }
     }
   };
@@ -1642,7 +1644,7 @@ void elf::postScanRelocations() {
 
   // Local symbols may need the aforementioned non-preemptible ifunc and GOT
   // handling. They don't need regular PLT.
-  for (InputFile *file : objectFiles)
+  for (ELFFileBase *file : objectFiles)
     for (Symbol *sym : cast<ELFFileBase>(file)->getLocalSymbols())
       fn(*sym);
 }

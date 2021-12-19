@@ -42,6 +42,10 @@ static cl::opt<bool>
                                    " callsites processed by inliner but decided"
                                    " to be not inlined"));
 
+static cl::opt<bool> EnableInlineDeferral("inline-deferral", cl::init(false),
+                                          cl::Hidden,
+                                          cl::desc("Enable deferred inlining"));
+
 // An integer used to limit the cost of inline deferral.  The default negative
 // number tells shouldBeDeferred to only take the secondary cost into account.
 static cl::opt<int>
@@ -143,8 +147,9 @@ llvm::InlineCost static getDefaultInlineAdvice(
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
                          ILIC, WPI);                                   // INTEL
   };
-  return llvm::shouldInline(CB, GetInlineCost, ORE,
-                            Params.EnableDeferral.getValueOr(false));
+  return llvm::shouldInline(
+      CB, GetInlineCost, ORE,
+      Params.EnableDeferral.getValueOr(EnableInlineDeferral));
 }
 
 #if INTEL_CUSTOMIZATION

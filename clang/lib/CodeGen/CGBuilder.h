@@ -93,7 +93,8 @@ public:
       Ty = Ty->getPointerElementType()->getPointerTo(
           Addr->getType()->getPointerAddressSpace());
 #endif //INTEL_COLLAB
-    assert(Addr->getType()->getPointerElementType() == Ty);
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(Ty));
     return CreateAlignedLoad(Ty, Addr, Align.getAsAlign(), Name);
   }
 
@@ -122,13 +123,15 @@ public:
   /// Emit a load from an i1 flag variable.
   llvm::LoadInst *CreateFlagLoad(llvm::Value *Addr,
                                  const llvm::Twine &Name = "") {
-    assert(Addr->getType()->getPointerElementType() == getInt1Ty());
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(getInt1Ty()));
     return CreateAlignedLoad(getInt1Ty(), Addr, CharUnits::One(), Name);
   }
 
   /// Emit a store to an i1 flag variable.
   llvm::StoreInst *CreateFlagStore(bool Value, llvm::Value *Addr) {
-    assert(Addr->getType()->getPointerElementType() == getInt1Ty());
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(getInt1Ty()));
     return CreateAlignedStore(getInt1(Value), Addr, CharUnits::One());
   }
 
@@ -200,8 +203,9 @@ public:
   /// preserving information like the alignment and address space.
   Address CreateElementBitCast(Address Addr, llvm::Type *Ty,
                                const llvm::Twine &Name = "") {
-    auto PtrTy = Ty->getPointerTo(Addr.getAddressSpace());
-    return CreateBitCast(Addr, PtrTy, Name);
+    auto *PtrTy = Ty->getPointerTo(Addr.getAddressSpace());
+    return Address(CreateBitCast(Addr.getPointer(), PtrTy, Name),
+                   Ty, Addr.getAlignment());
   }
 
   using CGBuilderBaseTy::CreatePointerBitCastOrAddrSpaceCast;
@@ -229,6 +233,7 @@ public:
 
     return Address(CreateStructGEP(Addr.getElementType(),
                                    Addr.getPointer(), Index, Name),
+                   ElTy->getElementType(Index),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
 
@@ -250,6 +255,7 @@ public:
     return Address(
         CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                           {getSize(CharUnits::Zero()), getSize(Index)}, Name),
+        ElTy->getElementType(),
         Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
@@ -266,6 +272,7 @@ public:
 
     return Address(CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                                      getSize(Index), Name),
+                   ElTy,
                    Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
@@ -282,6 +289,7 @@ public:
 
     return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(),
                              getSize(Index), Name),
+                   Addr.getElementType(),
                    Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
@@ -291,6 +299,7 @@ public:
     assert(Addr.getElementType() == TypeCache.Int8Ty);
     return Address(CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                                      getSize(Offset), Name),
+                   Addr.getElementType(),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
   Address CreateConstByteGEP(Address Addr, CharUnits Offset,
@@ -298,6 +307,7 @@ public:
     assert(Addr.getElementType() == TypeCache.Int8Ty);
     return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(),
                              getSize(Offset), Name),
+                   Addr.getElementType(),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
 
@@ -313,8 +323,9 @@ public:
         /*isSigned=*/true);
     if (!GEP->accumulateConstantOffset(DL, Offset))
       llvm_unreachable("offset of GEP with constants is always computable");
-    return Address(GEP, Addr.getAlignment().alignmentAtOffset(
-                            CharUnits::fromQuantity(Offset.getSExtValue())));
+    return Address(GEP, GEP->getResultElementType(),
+                   Addr.getAlignment().alignmentAtOffset(
+                       CharUnits::fromQuantity(Offset.getSExtValue())));
   }
 
   using CGBuilderBaseTy::CreateMemCpy;
@@ -365,6 +376,7 @@ public:
 
     return Address(CreatePreserveStructAccessIndex(ElTy, Addr.getPointer(),
                                                    Index, FieldIndex, DbgInfo),
+                   ElTy->getElementType(Index),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
 };

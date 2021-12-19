@@ -349,7 +349,7 @@ struct HSALifetime {
   // cleanup without risking running outside of the lifetime of HSA
   const hsa_status_t S;
 
-  bool success() { return S == HSA_STATUS_SUCCESS; }
+  bool HSAInitSuccess() { return S == HSA_STATUS_SUCCESS; }
   HSALifetime() : S(hsa_init()) {}
 
   ~HSALifetime() {
@@ -363,9 +363,63 @@ struct HSALifetime {
   }
 };
 
+// Handle scheduling of multiple hsa_queue's per device to
+// multiple threads (one scheduler per device)
+class HSAQueueScheduler {
+public:
+  HSAQueueScheduler() : current(0) {}
+
+  HSAQueueScheduler(const HSAQueueScheduler &) = delete;
+
+  HSAQueueScheduler(HSAQueueScheduler &&q) {
+    current = q.current.load();
+    for (uint8_t i = 0; i < NUM_QUEUES_PER_DEVICE; i++) {
+      HSAQueues[i] = q.HSAQueues[i];
+      q.HSAQueues[i] = nullptr;
+    }
+  }
+
+  // \return false if any HSA queue creation fails
+  bool CreateQueues(hsa_agent_t HSAAgent, uint32_t queue_size) {
+    for (uint8_t i = 0; i < NUM_QUEUES_PER_DEVICE; i++) {
+      hsa_queue_t *Q = nullptr;
+      hsa_status_t rc =
+          hsa_queue_create(HSAAgent, queue_size, HSA_QUEUE_TYPE_MULTI,
+                           callbackQueue, NULL, UINT32_MAX, UINT32_MAX, &Q);
+      if (rc != HSA_STATUS_SUCCESS) {
+        DP("Failed to create HSA queue %d\n", i);
+        return false;
+      }
+      HSAQueues[i] = Q;
+    }
+    return true;
+  }
+
+  ~HSAQueueScheduler() {
+    for (uint8_t i = 0; i < NUM_QUEUES_PER_DEVICE; i++) {
+      if (HSAQueues[i]) {
+        hsa_status_t err = hsa_queue_destroy(HSAQueues[i]);
+        if (err != HSA_STATUS_SUCCESS)
+          DP("Error destroying HSA queue");
+      }
+    }
+  }
+
+  // \return next queue to use for device
+  hsa_queue_t *Next() {
+    return HSAQueues[(current.fetch_add(1, std::memory_order_relaxed)) %
+                     NUM_QUEUES_PER_DEVICE];
+  }
+
+private:
+  // Number of queues per device
+  enum : uint8_t { NUM_QUEUES_PER_DEVICE = 4 };
+  hsa_queue_t *HSAQueues[NUM_QUEUES_PER_DEVICE] = {};
+  std::atomic<uint8_t> current;
+};
+
 /// Class containing all the device information
-class RTLDeviceInfoTy {
-  HSALifetime HSA; // First field => constructed first and destructed last
+class RTLDeviceInfoTy : HSALifetime {
   std::vector<std::list<FuncOrGblEntryTy>> FuncGblEntries;
 
   struct QueueDeleter {
@@ -390,8 +444,7 @@ public:
 
   // GPU devices
   std::vector<hsa_agent_t> HSAAgents;
-  std::vector<std::unique_ptr<hsa_queue_t, QueueDeleter>>
-      HSAQueues; // one per gpu
+  std::vector<HSAQueueScheduler> HSAQueueSchedulers; // one per gpu
 
   // CPUs
   std::vector<hsa_agent_t> CPUAgents;
@@ -669,7 +722,7 @@ public:
     //  1 => tracing dispatch only
     // >1 => verbosity increase
 
-    if (!HSA.success()) {
+    if (!HSAInitSuccess()) {
       DP("Error when initializing HSA in " GETNAME(TARGET_NAME) "\n");
       return;
     }
@@ -708,7 +761,7 @@ public:
     }
 
     // Init the device info
-    HSAQueues.resize(NumberOfDevices);
+    HSAQueueSchedulers.reserve(NumberOfDevices);
     FuncGblEntries.resize(NumberOfDevices);
     ThreadsPerGroup.resize(NumberOfDevices);
     ComputeUnits.resize(NumberOfDevices);
@@ -751,15 +804,10 @@ public:
       }
 
       {
-        hsa_queue_t *Q = nullptr;
-        hsa_status_t rc =
-            hsa_queue_create(HSAAgents[i], queue_size, HSA_QUEUE_TYPE_MULTI,
-                             callbackQueue, NULL, UINT32_MAX, UINT32_MAX, &Q);
-        if (rc != HSA_STATUS_SUCCESS) {
-          DP("Failed to create HSA queue %d\n", i);
+        HSAQueueScheduler QSched;
+        if (!QSched.CreateQueues(HSAAgents[i], queue_size))
           return;
-        }
-        HSAQueues[i].reset(Q);
+        HSAQueueSchedulers.emplace_back(std::move(QSched));
       }
 
       deviceStateStore[i] = {nullptr, 0};
@@ -787,7 +835,7 @@ public:
 
   ~RTLDeviceInfoTy() {
     DP("Finalizing the " GETNAME(TARGET_NAME) " DeviceInfo.\n");
-    if (!HSA.success()) {
+    if (!HSAInitSuccess()) {
       // Then none of these can have been set up and they can't be torn down
       return;
     }
@@ -1128,7 +1176,7 @@ int32_t runRegionLocked(int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
 
   // Run on the device.
   {
-    hsa_queue_t *queue = DeviceInfo.HSAQueues[device_id].get();
+    hsa_queue_t *queue = DeviceInfo.HSAQueueSchedulers[device_id].Next();
     if (!queue) {
       return OFFLOAD_FAIL;
     }
@@ -2256,7 +2304,10 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
 int32_t __tgt_rtl_run_target_team_region_async(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t num_teams,
-    int32_t thread_limit, uint64_t loop_tripcount) {
+    int32_t thread_limit, uint64_t loop_tripcount,
+    __tgt_async_info *AsyncInfo) {
+  assert(AsyncInfo && "AsyncInfo is nullptr");
+  initAsyncInfo(AsyncInfo);
 
   DeviceInfo.load_run_lock.lock_shared();
   int32_t res =
@@ -2272,16 +2323,13 @@ int32_t __tgt_rtl_run_target_region_async(int32_t device_id,
                                           ptrdiff_t *tgt_offsets,
                                           int32_t arg_num,
                                           __tgt_async_info *AsyncInfo) {
-  assert(AsyncInfo && "AsyncInfo is nullptr");
-  initAsyncInfo(AsyncInfo);
-
   // use one team and one thread
   // fix thread num
   int32_t team_num = 1;
   int32_t thread_limit = 0; // use default
-  return __tgt_rtl_run_target_team_region_async(device_id, tgt_entry_ptr,
-                                                tgt_args, tgt_offsets, arg_num,
-                                                team_num, thread_limit, 0);
+  return __tgt_rtl_run_target_team_region_async(
+      device_id, tgt_entry_ptr, tgt_args, tgt_offsets, arg_num, team_num,
+      thread_limit, 0, AsyncInfo);
 }
 
 int32_t __tgt_rtl_synchronize(int32_t device_id, __tgt_async_info *AsyncInfo) {
