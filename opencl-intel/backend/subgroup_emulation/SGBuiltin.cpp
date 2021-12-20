@@ -102,7 +102,7 @@ bool SGBuiltin::insertSGBarrierForSGCalls(Module &M) {
           });
       assert(!MatchingVariants.empty() &&
              "sub-group calls with unsupported VF should be checked in "
-             "OCLVPOCheckVF Pass");
+             "SetVectorizationFactor Pass");
 
       for (auto &Info : MatchingVariants)
         VecVariantsStr.insert(std::get<2>(Info));

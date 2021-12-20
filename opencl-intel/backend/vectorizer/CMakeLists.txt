@@ -67,7 +67,6 @@ set(TARGET_INCLUDE_FILES
   OCLBranchProbability/OCLBranchProbability.h
   OCLVecClone/OCLVecClone.h
   OCLVecClone/OCLPostVect.h
-  OCLVPOCheckVF/OCLVPOCheckVF.h
   Packetizer/Packetizer.h
   PostDominanceFrontier/PostDominanceFrontier.h
   Predication/Linearizer.h
@@ -102,7 +101,6 @@ set(TARGET_SOURCE_FILES
   OCLBranchProbability/OCLBranchProbability.cpp
   OCLVecClone/OCLVecClone.cpp
   OCLVecClone/OCLPostVect.cpp
-  OCLVPOCheckVF/OCLVPOCheckVF.cpp
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   PostDominanceFrontier/PostDominanceFrontier.cpp

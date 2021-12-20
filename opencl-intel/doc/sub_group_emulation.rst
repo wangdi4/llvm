@@ -26,7 +26,7 @@ should be transformed to:
     y = 0; // OpenCL SPEC says it should be 0
 
 
-OCLVPOCheckVF
+SetVectorizationFactor
 -------------
 Check whether current ``VF`` (From env var, ``intel_reqd_sub_group_size``,
 ``intel_vec_len_hint``, ``InstCounter`` Pass) can be satisfied.
@@ -45,7 +45,7 @@ Check whether current ``VF`` (From env var, ``intel_reqd_sub_group_size``,
    So if the parant function of sub-group call can't be vectorized for some
    reasons, then sub-group semantics is broken. In such cases, if sub-group
    emulation is enabled, we will record the SG Emulation Size.
-6. Set up ``ocl_recommended_vector_length`` for VPO; Set up ``sg_emu_size``
+6. Set up ``recommended_vector_length`` for VPO; Set up ``sg_emu_size``
    for sub-group emulation.
 
 GroupBuiltin
