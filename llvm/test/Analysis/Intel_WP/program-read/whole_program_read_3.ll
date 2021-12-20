@@ -5,9 +5,19 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
+; RUN:    -plugin-opt=legacy-pass-manager \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
+
+; RUN: llvm-as %s -o %t.bc
+; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
+; RUN:    -plugin-opt=O3 \
+; RUN:    -plugin-opt=new-pass-manager \
+; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
+; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
+; RUN:    2>&1 | FileCheck %s
+
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
 ; CHECK: SYMBOL NAME: __dso_handle
