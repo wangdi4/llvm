@@ -270,22 +270,6 @@ private:
     // Get or generate LLVMContext for current thread.
     llvm::LLVMContext& getLLVMContext();
 };
-
-    typedef struct {
-      // Indicate more than one of constraints for vectorization factor
-      // is specified.
-      bool isMultiConstraint;
-      // Indicate there are some patterns in the kernel which disable
-      // vectorization.
-      bool hasUnsupportedPatterns;
-      // Indicate the subgroup calls can't be handled correctly.
-      bool isSubGroupBroken;
-      // Indicate the vectorization factor is falled back to auto
-      // vectorization mode.
-      bool isVFFalledBack;
-      // Record the unimplement sub_group/work_group builtins with
-      // specified vectorization factor.
-      std::vector<std::pair<std::string, unsigned>> unimplementOps;
-    } VFState;
-    typedef std::map<std::string, VFState> TStringToVFState;
-}}}
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
