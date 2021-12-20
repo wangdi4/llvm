@@ -5505,25 +5505,19 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       ReuseShuffleIndicies.clear();
     } else {
       LLVM_DEBUG(dbgs() << "SLP: Shuffle for reused scalars.\n");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-      // When we are building MultiNode it is important to not compress
-      // initial scalars even if there are duplicates because MN leaf
-      // operands must have same width as trunk nodes.
-      // MultiNode reordering may change original set of scalars so that
-      // all scalar operands may even become unique.
-      if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
-          (NumUniqueScalarValues == 2 &&
-           any_of(UniqueValues, UndefValue::classof)) ||
-=======
-      if (NumUniqueScalarValues <= 1 ||
-          (UniquePositions.size() == 1 && all_of(UniqueValues,
-                                                 [](Value *V) {
-                                                   return isa<UndefValue>(V) ||
-                                                          !isConstant(V);
-                                                 })) ||
->>>>>>> fcaf290d0278bb83387e1a1d972c55e08b8c40e3
-          !llvm::isPowerOf2_32(NumUniqueScalarValues)) {
+          // When we are building MultiNode it is important to not compress
+          // initial scalars even if there are duplicates because MN leaf
+          // operands must have same width as trunk nodes.
+          // MultiNode reordering may change original set of scalars so that
+          // all scalar operands may even become unique.
+          if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
+              (UniquePositions.size() == 1 &&
+               all_of(UniqueValues,
+                      [](Value *V) {
+                        return isa<UndefValue>(V) || !isConstant(V);
+                      })) ||
+              !llvm::isPowerOf2_32(NumUniqueScalarValues)) {
         LLVM_DEBUG(dbgs() << "SLP: Scalar used twice in bundle.\n");
         newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
         return false;
