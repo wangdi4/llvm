@@ -730,14 +730,18 @@ determinePointerAccessAttrs(Argument *A,
       const unsigned UseIndex = CB.getDataOperandNo(U);
       const bool IsOperandBundleUse = UseIndex >= CB.arg_size();
 
-      if (UseIndex >= F->arg_size() && !IsOperandBundleUse) {
+#if INTEL_CUSTOMIZATION
+      if (UseIndex >= F->arg_size() && !IsOperandBundleUse &&
+          !AbstractCallSite::getCallbackArg(CB, UseIndex)) {
+#endif // INTEL_CUSTOMIZATION
         assert(F->isVarArg() && "More params than args in non-varargs call");
         return Attribute::None;
       }
 
       Captures &= !CB.doesNotCapture(UseIndex);
 
-      if (CB.isArgOperand(U) && SCCNodes.count(F->getArg(UseIndex))) {
+      if (CB.isArgOperand(U) && UseIndex < F->arg_size() && // INTEL
+          SCCNodes.count(F->getArg(UseIndex))) {            // INTEL
         // This is an argument which is part of the speculative SCC.  Note that
         // only operands corresponding to formal arguments of the callee can
         // participate in the speculation.
