@@ -242,6 +242,10 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   SI.registerCallbacks(PIC, &FAM);
   PassBuilder PB(TM, Conf.PTO, PGOOpt, &PIC);
 
+#if INTEL_CUSTOMIZATION
+  PB.addWholeProgramUtils(Conf.WPUtils);
+#endif // INTEL_CUSTOMIZATION
+
   RegisterPassPlugins(Conf.PassPlugins, PB);
 
   std::unique_ptr<TargetLibraryInfoImpl> TLII(
@@ -291,10 +295,6 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
     OL = OptimizationLevel::O3;
     break;
   }
-
-#if INTEL_CUSTOMIZATION
-  MPM.addWholeProgramUtils(Conf.WPUtils);
-#endif // INTEL_CUSTOMIZATION
 
   // Parse a custom pipeline if asked to.
   if (!Conf.OptPipeline.empty()) {

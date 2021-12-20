@@ -50,6 +50,7 @@
 ; CHECK: Running pass:
 ; CHECK-SAME: dtrans::WeakAlignPass
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
@@ -57,8 +58,8 @@
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
-; CHECK-NEXT: Running pass: ArgumentPromotionPass on (foo)
-; CHECK-NEXT: Running pass: ArgumentPromotionPass on (main)
+; CHECK: Running pass: ArgumentPromotionPass on (foo)
+; CHECK: Running pass: ArgumentPromotionPass on (main)
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.
@@ -75,12 +76,13 @@
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 ;
-; CHECK-LABEL: define i32 @main(i32 %n) local_unnamed_addr {
+; CHECK-LABEL: define i32 @main(i32 %n) local_unnamed_addr #1 {
 ; CHECK-NEXT:    call fastcc void @foo(i32 %n)
 ; CHECK-NEXT:    ret i32 0
 ; CHECK-NEXT:  }
 ;
-; CHECK-LABEL: attributes #0 = { noinline uwtable }
+; CHECK-LABEL: attributes #0 = { noinline norecurse uwtable }
+; CHECK-LABEL: attributes #1 = { norecurse }
 
 declare void @bar() local_unnamed_addr
 
