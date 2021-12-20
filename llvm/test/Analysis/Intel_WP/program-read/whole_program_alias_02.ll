@@ -20,6 +20,17 @@
 ; RUN:          -filetype=obj
 ; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
+; RUN:    -plugin-opt=legacy-pass-manager \
+; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
+; RUN:    -plugin-opt=-whole-program-assume-executable %t.bc %t7.o -o %t \
+; RUN:    2>&1 | FileCheck %s
+
+; RUN: llvm-as %s -o %t.bc
+; RUN: llc %p/Inputs/whole_program_alias_sub2.ll -o %t7.o \
+; RUN:          -filetype=obj
+; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
+; RUN:    -plugin-opt=O3 \
+; RUN:    -plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-assume-executable %t.bc %t7.o -o %t \
 ; RUN:    2>&1 | FileCheck %s
