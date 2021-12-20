@@ -1921,18 +1921,30 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     return FAM.getResult<AAManager>(F);
   };
 
+#if INTEL_CUSTOMIZATION
+  Module &M = *C.begin()->getFunction().getParent();
+  auto MAM = AM.getResult<ModuleAnalysisManagerCGSCCProxy>(C, CG);
+  auto WPInfo = MAM.getCachedResult<WholeProgramAnalysis>(M);
+#endif // INTEL_CUSTOMIZATION
+
   SmallVector<Function *, 8> Functions;
   for (LazyCallGraph::Node &N : C) {
     Functions.push_back(&N.getFunction());
+#if INTEL_CUSTOMIZATION
+    Function *F = &N.getFunction();
+    // Treat “main” as non-recursive function if there are no uses
+    // when whole-program-safe is true.
+    if (F && F->getName() == "main" && F->use_empty()) {
+      if (WPInfo && WPInfo->isWholeProgramSafe()) {
+        F->setDoesNotRecurse();
+        ++NumNoRecurse;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
 #if INTEL_CUSTOMIZATION
-  // NOTE: We may want to pass the whole program analysis here when the new
-  // pass manager is turned on by default. Currently, the functions collected
-  // in the new pass manager are different than the legacy pass manager.
-  // The legacy pass manager includes declarations in the Functions vector,
-  // while the new pass manager isn't adding them.
-  auto ChangedFunctions = deriveAttrsInPostOrder(Functions, AARGetter, nullptr);
+  auto ChangedFunctions = deriveAttrsInPostOrder(Functions, AARGetter, WPInfo);
 #endif // INTEL_CUSTOMIZATION
   if (ChangedFunctions.empty())
     return PreservedAnalyses::all();
@@ -1961,6 +1973,9 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
   PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
   // We already invalidated all relevant function analyses above.
   PA.preserveSet<AllAnalysesOn<Function>>();
+#if INTEL_CUSTOMIZATION
+  PA.preserve<WholeProgramAnalysis>();
+#endif // INTEL_CUSTOMIZATION
   return PA;
 }
 

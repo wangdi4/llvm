@@ -5,6 +5,7 @@
 ; main are noticed.
 
 ; RUN: opt < %s -wholeprogramanalysis -whole-program-assume-read -whole-program-assume-executable -whole-program-assume-hidden -function-attrs -rpo-function-attrs -disable-output -stats 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<wholeprogram>,function-attrs,rpo-function-attrs' -whole-program-assume-read -whole-program-assume-executable -whole-program-assume-hidden -disable-output -stats 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; CHECK:   5 function-attrs - Number of functions marked as norecurse

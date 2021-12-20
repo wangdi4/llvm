@@ -43,6 +43,7 @@
 ;
 
 ; RUN: opt < %s -disable-output -wholeprogramanalysis -debug-only=whole-program-analysis 2>&1  | FileCheck %s
+; RUN: opt < %s -disable-output -passes='require<wholeprogram>' -debug-only=whole-program-analysis 2>&1  | FileCheck %s
 
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS
 ; CHECK:  LIBFUNCS NOT FOUND: 5
