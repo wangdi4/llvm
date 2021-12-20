@@ -23,8 +23,8 @@ using namespace clang;
 using namespace llvm::opt;
 
 #if INTEL_CUSTOMIZATION
-std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
-                                bool IsArchOpt) {
+std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
+                           bool IsArchOpt = false) {
   StringRef CPU;
   if (Triple.getArch() == llvm::Triple::x86 && !IsArchOpt) { // 32-bit-only
     CPU = llvm::StringSwitch<StringRef>(Arch)
