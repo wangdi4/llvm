@@ -1,6 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-report=0xe807 -inline-prof-instr-hot-percentage=50 -inline-prof-instr-hot-count=2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<profile-summary>,inline' -dtrans-inline-heuristics -inline-report=0xe807 -inline-prof-instr-hot-percentage=50 -inline-prof-instr-hot-count=2 -S 2>&1 | FileCheck %s
 
 ; Test that only one of the the two hottest calls is inlined as a hot call
 ; because even though inline-prof-instr-hot-count=2
