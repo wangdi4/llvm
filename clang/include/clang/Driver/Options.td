@@ -2720,10 +2720,10 @@ def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
   HelpText<"Parse OpenMP pragmas and generate parallel code. Advanced users "
   "who prefer to use OpenMP* as it is implemented by the LLVM community "
   "can get most of that functionality by using -fopenmp.">;
+#endif // INTEL_CUSTOMIZATION
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Set OpenMP version (e.g. 45 for OpenMP 4.5, 50 for OpenMP 5.0). Default value is 50.">;
-#endif // INTEL_CUSTOMIZATION
 defm openmp_extensions: BoolFOption<"openmp-extensions",
   LangOpts<"OpenMPExtensions">, DefaultTrue,
   PosFlag<SetTrue, [CC1Option, NoArgumentUnused],
