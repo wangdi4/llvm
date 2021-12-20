@@ -228,39 +228,10 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/tools/llvm-cov/ @robertcox-github @pvbattin
 /llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
 
-<<<<<<< HEAD
 # JIRA: ???
 /llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
-=======
-# Documentation
-sycl/ReleaseNotes.md @pvchupin @tfzhu
-sycl/doc/ @pvchupin @bader
-sycl/doc/extensions/ @intel/dpcpp-specification-reviewers
-sycl/doc/extensions/SPIRV/ @AlexeySotkin @bashbaug @mbelicki
-sycl/doc/dev @bader @vladimirlaz
-
-# Sub-groups
-sycl/include/CL/sycl/detail/spirv.hpp @Pennycook @AlexeySachkov
-sycl/include/sycl/ext/intel/group_algorithm.hpp @Pennycook @AlexeySachkov
-sycl/include/sycl/ext/intel/sub_group.hpp @Pennycook @AlexeySachkov
-sycl/include/sycl/ext/intel/sub_group_host.hpp @Pennycook @AlexeySachkov
-
-# PI API
-sycl/include/CL/sycl/detail/pi.def @smaslov-intel
-sycl/include/CL/sycl/detail/pi.h   @smaslov-intel
-sycl/include/CL/sycl/detail/pi.hpp @smaslov-intel
-sycl/include/CL/sycl/detail/pi* @smaslov-intel
-sycl/plugins/ @smaslov-intel
-sycl/source/detail/pi.cpp @smaslov-intel
-sycl/source/detail/plugin.hpp @smaslov-intel
-sycl/source/detail/posix_pi.cpp @smaslov-intel
-sycl/source/detail/windows_pi.cpp @smaslov-intel
-
-# ESIMD CPU emulator plug-in
-sycl/plugins/esimd_cpu/ @kbobrovs @smaslov-intel
->>>>>>> 76cb2d5bedba992b9ff0225879312f4334e21bdc
 
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
 /llvm/docs/Intel/VPO/ @sguggill @skozhukh @alexey-bataev
