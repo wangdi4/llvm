@@ -2727,8 +2727,12 @@ def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
   "can get most of that functionality by using -fopenmp.">;
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
+<<<<<<< HEAD
   HelpText<"Choose which OpenMP version to link with.">;
 #endif // INTEL_CUSTOMIZATION
+=======
+  HelpText<"Set OpenMP version (e.g. 45 for OpenMP 4.5, 50 for OpenMP 5.0). Default value is 50.">;
+>>>>>>> 0060060fef5da582799a706b6ba8c6ec9fcda2a2
 defm openmp_extensions: BoolFOption<"openmp-extensions",
   LangOpts<"OpenMPExtensions">, DefaultTrue,
   PosFlag<SetTrue, [CC1Option, NoArgumentUnused],
