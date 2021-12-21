@@ -954,8 +954,10 @@ class AttrBuilder {
 
 public:
   AttrBuilder() = default;
+#if !INTEL_CUSTOMIZATION
   AttrBuilder(const AttrBuilder &) = delete;
   AttrBuilder(AttrBuilder &&) = default;
+#endif // INTEL_CUSTOMIZATION
 
   AttrBuilder(const Attribute &A) {
     addAttribute(A);
