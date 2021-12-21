@@ -5505,6 +5505,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       ReuseShuffleIndicies.clear();
     } else {
       LLVM_DEBUG(dbgs() << "SLP: Shuffle for reused scalars.\n");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // When we are building MultiNode it is important to not compress
       // initial scalars even if there are duplicates because MN leaf
@@ -5514,6 +5515,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
           (NumUniqueScalarValues == 2 &&
            any_of(UniqueValues, UndefValue::classof)) ||
+=======
+      if (NumUniqueScalarValues <= 1 ||
+          (UniquePositions.size() == 1 && all_of(UniqueValues,
+                                                 [](Value *V) {
+                                                   return isa<UndefValue>(V) ||
+                                                          !isConstant(V);
+                                                 })) ||
+>>>>>>> ab9078f3d369656c09b5e34bcda6a5d62699a3fb
           !llvm::isPowerOf2_32(NumUniqueScalarValues)) {
         LLVM_DEBUG(dbgs() << "SLP: Scalar used twice in bundle.\n");
         newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
@@ -12505,10 +12514,15 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
       return true;
     if (Opcodes1.size() > Opcodes2.size())
       return false;
+    Optional<bool> ConstOrder;
     for (int I = 0, E = Opcodes1.size(); I < E; ++I) {
       // Undefs are compatible with any other value.
-      if (isa<UndefValue>(Opcodes1[I]) || isa<UndefValue>(Opcodes2[I]))
+      if (isa<UndefValue>(Opcodes1[I]) || isa<UndefValue>(Opcodes2[I])) {
+        if (!ConstOrder)
+          ConstOrder =
+              !isa<UndefValue>(Opcodes1[I]) && isa<UndefValue>(Opcodes2[I]);
         continue;
+      }
       if (auto *I1 = dyn_cast<Instruction>(Opcodes1[I]))
         if (auto *I2 = dyn_cast<Instruction>(Opcodes2[I])) {
           DomTreeNodeBase<BasicBlock> *NodeI1 = DT->getNode(I1->getParent());
@@ -12527,14 +12541,17 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
             continue;
           return I1->getOpcode() < I2->getOpcode();
         }
-      if (isa<Constant>(Opcodes1[I]) && isa<Constant>(Opcodes2[I]))
+      if (isa<Constant>(Opcodes1[I]) && isa<Constant>(Opcodes2[I])) {
+        if (!ConstOrder)
+          ConstOrder = Opcodes1[I]->getValueID() < Opcodes2[I]->getValueID();
         continue;
+      }
       if (Opcodes1[I]->getValueID() < Opcodes2[I]->getValueID())
         return true;
       if (Opcodes1[I]->getValueID() > Opcodes2[I]->getValueID())
         return false;
     }
-    return false;
+    return ConstOrder && *ConstOrder;
   };
   auto AreCompatiblePHIs = [&PHIToOpcodes](Value *V1, Value *V2) {
     if (V1 == V2)
