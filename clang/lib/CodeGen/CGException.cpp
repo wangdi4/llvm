@@ -429,12 +429,8 @@ Address CodeGenFunction::getExceptionSlot() {
 #else
   if (!ExceptionSlot)
     ExceptionSlot = CreateTempAlloca(Int8PtrTy, "exn.slot");
-<<<<<<< HEAD
 #endif  // INTEL_COLLAB
-  return Address(ExceptionSlot, getPointerAlign());
-=======
   return Address(ExceptionSlot, Int8PtrTy, getPointerAlign());
->>>>>>> e751d97863fb48b7dd844e48c0ba564f6970b726
 }
 
 Address CodeGenFunction::getEHSelectorSlot() {
@@ -448,12 +444,8 @@ Address CodeGenFunction::getEHSelectorSlot() {
 #else
   if (!EHSelectorSlot)
     EHSelectorSlot = CreateTempAlloca(Int32Ty, "ehselector.slot");
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-  return Address(EHSelectorSlot, CharUnits::fromQuantity(4));
-=======
   return Address(EHSelectorSlot, Int32Ty, CharUnits::fromQuantity(4));
->>>>>>> e751d97863fb48b7dd844e48c0ba564f6970b726
 }
 
 llvm::Value *CodeGenFunction::getExceptionFromSlot() {
