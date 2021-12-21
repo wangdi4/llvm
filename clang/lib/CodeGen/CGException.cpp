@@ -400,8 +400,8 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
 
   // __cxa_allocate_exception returns a void*;  we need to cast this
   // to the appropriate type for the object.
-  llvm::Type *ty = ConvertTypeForMem(e->getType())->getPointerTo();
-  Address typedAddr = Builder.CreateBitCast(addr, ty);
+  llvm::Type *ty = ConvertTypeForMem(e->getType());
+  Address typedAddr = Builder.CreateElementBitCast(addr, ty);
 
   // FIXME: this isn't quite right!  If there's a final unelided call
   // to a copy constructor, then according to [except.terminate]p1 we
@@ -429,8 +429,12 @@ Address CodeGenFunction::getExceptionSlot() {
 #else
   if (!ExceptionSlot)
     ExceptionSlot = CreateTempAlloca(Int8PtrTy, "exn.slot");
+<<<<<<< HEAD
 #endif  // INTEL_COLLAB
   return Address(ExceptionSlot, getPointerAlign());
+=======
+  return Address(ExceptionSlot, Int8PtrTy, getPointerAlign());
+>>>>>>> e751d97863fb48b7dd844e48c0ba564f6970b726
 }
 
 Address CodeGenFunction::getEHSelectorSlot() {
@@ -444,8 +448,12 @@ Address CodeGenFunction::getEHSelectorSlot() {
 #else
   if (!EHSelectorSlot)
     EHSelectorSlot = CreateTempAlloca(Int32Ty, "ehselector.slot");
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
   return Address(EHSelectorSlot, CharUnits::fromQuantity(4));
+=======
+  return Address(EHSelectorSlot, Int32Ty, CharUnits::fromQuantity(4));
+>>>>>>> e751d97863fb48b7dd844e48c0ba564f6970b726
 }
 
 llvm::Value *CodeGenFunction::getExceptionFromSlot() {
