@@ -7819,7 +7819,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
     // Skip the entire loop if we don't meet the precondition.
     // If the condition constant folds and can be elided, avoid emitting the
     // whole loop.
-    bool CondConstant;
+    bool CondConstant = false;
     llvm::BasicBlock *ContBlock = nullptr;
     llvm::BasicBlock *ThenBlock = nullptr;
     if (ConstantFoldsToSimpleInteger(S.getPreCond(), CondConstant)) {
