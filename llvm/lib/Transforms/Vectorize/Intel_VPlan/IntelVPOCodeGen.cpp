@@ -1852,9 +1852,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // We need to copy array from last private allocated memory into the
     // original array location.
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
-    Type *ElementType = Orig->getType()->getPointerElementType();
 
     VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Type *ElementType = Priv->getAllocatedType();
     if (Priv->isSOALayout()) {
 
       assert(LoopPrivateVPWidenMap.count(Priv) > 0 &&
