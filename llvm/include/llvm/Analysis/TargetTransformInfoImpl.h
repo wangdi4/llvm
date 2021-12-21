@@ -851,6 +851,8 @@ public:
 
   bool supportsScalableVectors() const { return false; }
 
+  bool enableScalableVectorization() const { return false; }
+
   bool hasActiveVectorLength(unsigned Opcode, Type *DataType,
                              Align Alignment) const {
     return false;

@@ -1486,6 +1486,9 @@ public:
   /// \returns True if the target supports scalable vectors.
   bool supportsScalableVectors() const;
 
+  /// \return true when scalable vectorization is preferred.
+  bool enableScalableVectorization() const;
+
   /// \name Vector Predication Information
   /// @{
   /// Whether the target supports the %evl parameter of VP intrinsic efficiently
@@ -1893,6 +1896,7 @@ public:
                                                ReductionFlags) const = 0;
   virtual bool shouldExpandReduction(const IntrinsicInst *II) const = 0;
   virtual unsigned getGISelRematGlobalCost() const = 0;
+  virtual bool enableScalableVectorization() const = 0;
   virtual bool supportsScalableVectors() const = 0;
   virtual bool hasActiveVectorLength(unsigned Opcode, Type *DataType,
                                      Align Alignment) const = 0;
@@ -2575,6 +2579,10 @@ public:
 
   bool supportsScalableVectors() const override {
     return Impl.supportsScalableVectors();
+  }
+
+  bool enableScalableVectorization() const override {
+    return Impl.enableScalableVectorization();
   }
 
   bool hasActiveVectorLength(unsigned Opcode, Type *DataType,
