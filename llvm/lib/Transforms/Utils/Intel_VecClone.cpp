@@ -256,8 +256,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   //   initialization here to start at 0.
   for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
     Type* ArgType = (*ArgIt).getType();
-    AB = AttributeFuncs::typeIncompatible(ArgType);
-    Clone->removeFnAttrs(AB);
+    Clone->removeFnAttrs(AttributeFuncs::typeIncompatible(ArgType));
   }
 
   ArgIt = F.arg_begin();
