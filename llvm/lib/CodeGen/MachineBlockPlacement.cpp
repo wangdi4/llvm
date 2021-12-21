@@ -105,6 +105,10 @@ static cl::opt<unsigned> ShortInnerloopSize(
       cl::desc("maximum instructions size of short inner loop"
                "(e.g 7 instructions in total of inner loop)."),
       cl::init(7), cl::Hidden);
+static cl::opt<bool> PartialUnrollTwice(
+      "partail-unroll-twice",
+      cl::desc("partail unroll twice for short inner loop"),
+      cl::init(true), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 static cl::opt<unsigned> AlignAllNonFallThruBlocks(
     "align-all-nofallthru-blocks",
@@ -2904,8 +2908,6 @@ void MachineBlockPlacement::optimizeBranches() {
       // ChainBB has >= 8 instrs, to avoid too frequent branches penalty.
       // Default alignment is 16 bytes, it is a tradeoff between DSB set and
       // code size.
-      if (!F->getSubtarget().has2KDSB())
-        continue;
       // ChainBB belongs to a "outer" loop.
       MachineLoop *L = MLI->getLoopFor(ChainBB);
       if (!L)
@@ -2928,7 +2930,7 @@ void MachineBlockPlacement::optimizeBranches() {
           continue;
         MachineBasicBlock *MBB = *MBBIt;
         MachineBasicBlock *MBBNext = *MBBItNext;
-        if (!MBB || !MBBNext)
+        if (!MBB || !MBBNext || !MBB->isSuccessor(MBBNext))
           continue;
         MachineLoop *LMBB = MLI->getLoopFor(MBB);
         MachineLoop *LMBBNext = MLI->getLoopFor(MBBNext);
@@ -2942,17 +2944,220 @@ void MachineBlockPlacement::optimizeBranches() {
             // so they are the "inner" loop
             && MBBNext->isSuccessor(MBB)) {
           DebugLoc dl;
-          TII->insertBranch(*ChainBB, MBB, nullptr, Cond, dl);
-          BlockChain::iterator ChainBBPreIt = std::prev(ChainBBIt);
-          MachineBasicBlock *ChainBBPre = *ChainBBPreIt;
-          // Only if there is no BB fall through into ChainBB, then align ChainBB.
-          if(!ChainBBPre->isSuccessor(ChainBB))
-            ChainBB->setAlignment(Align(1ULL << AlignSpecificBlock));
-          MBB->setAlignment(Align(1ULL << AlignSpecificBlock));
-          LLVM_DEBUG(dbgs() << "Align and add JMP between " << getBlockName(ChainBB)
-                     << " and " << getBlockName(MBB) << " to hep DSB hit\n");
-          continue;
+          if (F->getSubtarget().has2KDSB())
+          {
+            TII->insertBranch(*ChainBB, MBB, nullptr, Cond, dl);
+            BlockChain::iterator ChainBBPreIt = std::prev(ChainBBIt);
+            MachineBasicBlock *ChainBBPre = *ChainBBPreIt;
+            // Only if there is no BB fall through into ChainBB, then align ChainBB.
+            if(!ChainBBPre->isSuccessor(ChainBB))
+              ChainBB->setAlignment(Align(1ULL << AlignSpecificBlock));
+            MBB->setAlignment(Align(1ULL << AlignSpecificBlock));
+            LLVM_DEBUG(dbgs() << "Align and add JMP between "
+                       << getBlockName(ChainBB) << " and " << getBlockName(MBB)
+                       << " to help DSB hit, LpDepth is "
+                       << LMBB->getLoopDepth() << "\n");
+          }
 
+          // Partial Unroll: duplicate inner loop
+          // Since inner loop is very short, it is possible that bounds in FE
+          // fetch bandwidth. To improve fetch bandwidth, unrolling inner loop
+          // to improve IpTB is a good way.
+          // From view of MLI, inner loop is actually the same loop of
+          // outer loop, so we call this kind of unroll as Partial Unroll.
+          // Take an example of unrolling once as below.
+          // Original CFG of MBB:
+          // ChainBB <------------------
+          //    |                      | ;outer loop
+          //   MBB <----               |
+          //  /  |      | ;inner loop  |
+          //Exit MBBNext-              |
+          //     |                     |
+          //  FMBBNext                 |
+          //     |                     |
+          //    ...---------------------
+          //  CFG after Partial Unroll once:
+          // ChainBB <----------------------
+          //    |                          | ;outer loop
+          //   MBB <---------              |
+          //  /   |          | ;inner loop |
+          // |  MBBNext------|---          |
+          // |     |         |  |          |
+          // |  NewMBB       |  |          |
+          // |  /  |         |  |          |
+          //Exit  NewMBBNext-|  |          |
+          //      |             |          |
+          //      FMBBNext <-----          |
+          //      |                        |
+          //     ...------------------------
+          // To match Target peak fetch bandwidth, unrolling twice if necessary.
+          //  CFG after Partial Unroll once:
+          // ChainBB <----------------------
+          //    |                          | ;outer loop
+          //   MBB <---------              |
+          //  /   |          | ;inner loop |
+          // |  MBBNext------|---          |
+          // |     |         |  |          |
+          // |  NewMBB2      |  |          |
+          // |  /  |         |  |          |
+          // | / NewMBBNext2-|--|          |
+          // |/    |         |  |          |
+          // |  NewMBB       |  |          |
+          // |  /  |         |  |          |
+          //Exit  NewMBBNext-|  |          |
+          //      |             |          |
+          //      FMBBNext <-----          |
+          //      |                        |
+          //     ...------------------------
+          // Step 1: Check short inner loop's unrolling condition:
+          // Besides above checking, MBB and MBBNext both only have two successors.
+          // And MBBNext's fall through BB must be its successor.
+          if( MBB->succ_size() != 2 || MBBNext->succ_size() != 2)
+            continue;
+          MachineBasicBlock *TMBBNext = nullptr, *FMBBNext = nullptr;
+          Cond.clear();
+          if (TII->analyzeBranch(*MBBNext, TMBBNext, FMBBNext, Cond, true))
+            continue;
+          BlockChain::iterator MBBItNextFT = std::next(MBBItNext);
+          FMBBNext = *MBBItNextFT;
+          if (!FMBBNext)
+            continue;
+          if (!MBBNext->isSuccessor(FMBBNext)) //Fallthrough must be its succusor.
+            continue;
+          // Only when Taken probability > Fall Through probability,
+          // then unrolling taken BBs.
+          BranchProbability ProbMBBNextT = MBPI->getEdgeProbability(MBBNext, MBB);
+          BranchProbability ProbMBBNextF = MBPI->getEdgeProbability(MBBNext, FMBBNext);
+          if (ProbMBBNextT > ProbMBBNextF) {
+            const BasicBlock* BB = MBB->getBasicBlock();
+            const BasicBlock* BBNext = MBBNext->getBasicBlock();
+            MachineBasicBlock* NewMBB = F->CreateMachineBasicBlock(BB);
+            MachineBasicBlock* NewMBBNext = F->CreateMachineBasicBlock(BBNext);
+            MachineFunction::iterator I = FMBBNext->getIterator();
+            F->insert(I, NewMBB);
+            F->insert(I, NewMBBNext);
+
+            // Duplicate MBB into the end of NewMBB
+            for (MachineBasicBlock::iterator I = MBB->begin(), E = MBB->end();
+                 I != E; ) {
+              MachineInstr *MI = &*I;
+              ++I;
+              if (MI->isCFIInstruction()) {
+                BuildMI(*NewMBB, NewMBB->end(), NewMBB->findDebugLoc(NewMBB->begin()),
+                        TII->get(TargetOpcode::CFI_INSTRUCTION)).addCFIIndex(
+                          MI->getOperand(0).getCFIIndex());
+                continue;
+              }
+              TII->duplicate(*NewMBB, NewMBB->end(), *MI);
+
+            }
+            // Duplicate MBBNext into the end of NewMBBNext
+            for (MachineBasicBlock::iterator I = MBBNext->begin(),
+                 E = MBBNext->end(); I != E;) {
+              MachineInstr *MI = &*I;
+              ++I;
+              if (MI->isCFIInstruction()) {
+                BuildMI(*NewMBBNext, NewMBBNext->end(), NewMBBNext->findDebugLoc(
+                    NewMBBNext->begin()),
+                  TII->get(TargetOpcode::CFI_INSTRUCTION)).addCFIIndex(
+                    MI->getOperand(0).getCFIIndex());
+                continue;
+              }
+              TII->duplicate(*NewMBBNext, NewMBBNext->end(), *MI);
+            }
+            // Update MBBNext's branch and successor
+            TII->reverseBranchCondition(Cond);
+            TII->removeBranch(*MBBNext);
+            TII->insertBranch(*MBBNext, FMBBNext, nullptr, Cond, dl);
+            MBBNext->replaceSuccessor(MBB, NewMBB);
+
+            // Update NewMBB's branch and successor
+            for (MachineBasicBlock *Succ : MBB->successors())
+              NewMBB->addSuccessor(Succ, MBPI->getEdgeProbability(MBB, Succ));
+            NewMBB->replaceSuccessor(MBBNext, NewMBBNext);
+
+            // Update NewMBBNext's branch and successor
+            NewMBBNext->addSuccessor(MBB);
+            NewMBBNext->addSuccessor(FMBBNext);
+
+            // Update probability for NewMBBNext;
+            auto MBBIter = find(NewMBBNext->successors(), MBB);
+            auto FMBBNextIter = find(NewMBBNext->successors(), FMBBNext);
+            NewMBBNext->setSuccProbability(MBBIter, ProbMBBNextT);
+            NewMBBNext->setSuccProbability(FMBBNextIter, ProbMBBNextF);
+
+            // Set NewMBB Freq to inherits CurMBB's block frequency.
+            BranchProbability ProbMBBNextF = MBPI->getEdgeProbability(MBBNext, NewMBB);
+            BranchProbability ProbNewMBBF = MBPI->getEdgeProbability(NewMBB, NewMBBNext);
+            MBFI->setBlockFreq(NewMBB, MBFI->getBlockFreq(MBBNext) * ProbMBBNextF);
+            MBFI->setBlockFreq(NewMBBNext, MBFI->getBlockFreq(NewMBB) * ProbNewMBBF);
+
+            // Add new BBs into MLoopInfo
+            L->addBasicBlockToLoop(NewMBB, MLI->getBase());
+            L->addBasicBlockToLoop(NewMBBNext, MLI->getBase());
+
+            LLVM_DEBUG(dbgs() << "Partial unroll once for " << getBlockName(MBB)
+                       << " and " << getBlockName(MBBNext)
+                       << " to help improve fetch bandwidth\n");
+
+            // Unrolling twice: Insert unroll2 in the front of newBB
+            // TODO: compute loop size
+            if (PartialUnrollTwice && F->getSubtarget().has4KDSB()) {
+              MachineBasicBlock* NewMBB2 = F->CreateMachineBasicBlock(BB);
+              MachineBasicBlock* NewMBBNext2 = F->CreateMachineBasicBlock(BBNext);
+              I = NewMBB->getIterator();
+              F->insert(I, NewMBB2);
+              F->insert(I, NewMBBNext2);
+
+              for (MachineBasicBlock::iterator I = MBB->begin(), E = MBB->end();
+                   I != E; ) {
+                MachineInstr *MI = &*I;
+                ++I;
+                if (MI->isCFIInstruction()) {
+                  BuildMI(*NewMBB2, NewMBB2->end(), NewMBB2->findDebugLoc(
+                      NewMBB2->begin()), TII->get(TargetOpcode::CFI_INSTRUCTION))
+                    .addCFIIndex(MI->getOperand(0).getCFIIndex());
+                  continue;
+                }
+                TII->duplicate(*NewMBB2, NewMBB2->end(), *MI);
+              }
+              //duplicate MBBNext into the end of NewMBBNext
+              for (MachineBasicBlock::iterator I = MBBNext->begin(), E = MBBNext->end();
+                   I != E;) {
+                MachineInstr *MI = &*I;
+                ++I;
+                if (MI->isCFIInstruction()) {
+                  BuildMI(*NewMBBNext2, NewMBBNext2->end(), NewMBBNext2->findDebugLoc(
+                      NewMBBNext2->begin()), TII->get(TargetOpcode::CFI_INSTRUCTION))
+                    .addCFIIndex(MI->getOperand(0).getCFIIndex());
+                  continue;
+                }
+                TII->duplicate(*NewMBBNext2, NewMBBNext2->end(), *MI);
+              }
+              for (MachineBasicBlock *Succ : MBB->successors())
+                NewMBB2->addSuccessor(Succ, MBPI->getEdgeProbability(MBB, Succ));
+              for (MachineBasicBlock *Succ : MBBNext->successors())
+                NewMBBNext2->addSuccessor(Succ, MBPI->getEdgeProbability(MBBNext, Succ));
+              MBBNext->replaceSuccessor(NewMBB, NewMBB2);
+              NewMBB2->replaceSuccessor(MBBNext, NewMBBNext2);
+
+              // Set NewMBB2 Freq to inherits CurMBB's block frequency.
+              ProbMBBNextF = MBPI->getEdgeProbability(MBBNext, NewMBB2);
+              ProbNewMBBF = MBPI->getEdgeProbability(NewMBB2, NewMBBNext2);
+              MBFI->setBlockFreq(NewMBB2, MBFI->getBlockFreq(MBBNext) * ProbMBBNextF);
+              MBFI->setBlockFreq(NewMBBNext2, MBFI->getBlockFreq(NewMBB2) * ProbNewMBBF);
+              // Set NewMBB Freq to inherits CurMBB's block frequency, AGAIN
+              ProbMBBNextF = MBPI->getEdgeProbability(NewMBBNext2, NewMBB);
+              ProbNewMBBF = MBPI->getEdgeProbability(NewMBB, NewMBBNext);
+              MBFI->setBlockFreq(NewMBB, MBFI->getBlockFreq(NewMBBNext2) * ProbMBBNextF);
+              MBFI->setBlockFreq(NewMBBNext, MBFI->getBlockFreq(NewMBB) * ProbNewMBBF);
+
+
+              // Add new BBs into MLoopInfo
+              L->addBasicBlockToLoop(NewMBB2, MLI->getBase());
+              L->addBasicBlockToLoop(NewMBBNext2, MLI->getBase());
+            }
+          }
         }
       }
 #endif // INTEL_CUSTOMIZATION
