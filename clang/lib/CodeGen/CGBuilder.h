@@ -379,6 +379,11 @@ public:
                    ElTy->getElementType(Index),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
+
+  using CGBuilderBaseTy::CreateLaunderInvariantGroup;
+  Address CreateLaunderInvariantGroup(Address Addr) {
+    return Addr.withPointer(CreateLaunderInvariantGroup(Addr.getPointer()));
+  }
 };
 
 }  // end namespace CodeGen
