@@ -8,6 +8,14 @@
 ; RUN: lld-link /out:%t_wpt3.exe /entry:main %t_wpt3.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace /force:unresolved \
+; RUN:     /opt:noltonewpassmanager \
+; RUN:     2>&1 | FileCheck %s
+
+; RUN: llvm-as -o %t_wpt3.bc %s
+; RUN: lld-link /out:%t_wpt3.exe /entry:main %t_wpt3.bc /subsystem:console  \
+; RUN:     /mllvm:-debug-only=whole-program-analysis \
+; RUN:     /mllvm:-whole-program-read-trace /force:unresolved \
+; RUN:     /opt:ltonewpassmanager \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE

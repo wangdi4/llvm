@@ -324,9 +324,12 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     // Cast's destination type on operands with SOA accesses need to be set up
     // with correct type.
     if (isSOAAccess(VPInst, Plan)) {
-      Type *ElemTy = cast<PointerType>(DestTy)->getElementType();
-      DestTy = PointerType::get(getSOAType(ElemTy, VF),
-                                cast<PointerType>(DestTy)->getAddressSpace());
+      auto *DestPtrTy = cast<PointerType>(DestTy);
+      if (!DestPtrTy->isOpaque()) {
+        Type *ElemTy = DestPtrTy->getElementType();
+        DestTy = PointerType::get(getSOAType(ElemTy, VF),
+                                  DestPtrTy->getAddressSpace());
+      }
     }
     SerialInst = Builder.CreateCast(
         static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0], DestTy);
@@ -1852,9 +1855,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // We need to copy array from last private allocated memory into the
     // original array location.
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
-    Type *ElementType = Orig->getType()->getPointerElementType();
 
     VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Type *ElementType = Priv->getAllocatedType();
     if (Priv->isSOALayout()) {
 
       assert(LoopPrivateVPWidenMap.count(Priv) > 0 &&
@@ -4034,11 +4037,11 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
   if (isSOAAccess(VPPhi, Plan)) {
-    auto *PtrTy = cast<PointerType>(PhiTy);
-    if (!PtrTy->isOpaque()) {
+    auto *PhiPtrTy = cast<PointerType>(PhiTy);
+    if (!PhiPtrTy->isOpaque()) {
       Type *ElemTy = PhiTy->getPointerElementType();
       PhiTy = PointerType::get(getSOAType(ElemTy, VF),
-                               cast<PointerType>(PhiTy)->getAddressSpace());
+                               PhiPtrTy->getAddressSpace());
     }
   }
   // FIXME: Replace with proper SVA.

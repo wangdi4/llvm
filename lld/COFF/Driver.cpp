@@ -1038,7 +1038,11 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
     rsp += quote(s) + "\n";
   }
 
+  // Add the arguments that MS-LINK supports
   for (auto *arg : args) {
+    std::string str = StringRef(arg->getValue()).lower();
+    StringRef LowerArg(str);
+
     switch (arg->getOption().getID()) {
     case OPT_linkrepro:
     case OPT_lldmap:
@@ -1047,7 +1051,8 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
     case OPT_intel_debug_mem:
     case OPT_intel_embedded_linker:
     case OPT_opt:
-      if (!StringRef(arg->getValue()).startswith("lld"))
+      if (!LowerArg.startswith("lld") &&
+          !LowerArg.endswith("ltonewpassmanager"))
         rsp += toString(*arg) + " ";
       break;
     case OPT_INPUT: {
