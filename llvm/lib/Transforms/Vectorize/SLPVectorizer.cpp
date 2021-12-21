@@ -5505,7 +5505,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       ReuseShuffleIndicies.clear();
     } else {
       LLVM_DEBUG(dbgs() << "SLP: Shuffle for reused scalars.\n");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // When we are building MultiNode it is important to not compress
       // initial scalars even if there are duplicates because MN leaf
@@ -5513,16 +5512,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // MultiNode reordering may change original set of scalars so that
       // all scalar operands may even become unique.
       if (BuildingMultiNode || NumUniqueScalarValues <= 1 ||
-          (NumUniqueScalarValues == 2 &&
-           any_of(UniqueValues, UndefValue::classof)) ||
-=======
-      if (NumUniqueScalarValues <= 1 ||
           (UniquePositions.size() == 1 && all_of(UniqueValues,
                                                  [](Value *V) {
                                                    return isa<UndefValue>(V) ||
                                                           !isConstant(V);
                                                  })) ||
->>>>>>> ab9078f3d369656c09b5e34bcda6a5d62699a3fb
           !llvm::isPowerOf2_32(NumUniqueScalarValues)) {
         LLVM_DEBUG(dbgs() << "SLP: Scalar used twice in bundle.\n");
         newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
