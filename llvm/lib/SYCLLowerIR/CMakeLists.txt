@@ -128,6 +128,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   LLVMTransformUtils
 
   LINK_COMPONENTS
+  Analysis
   Core
   Support
   )
