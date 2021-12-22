@@ -726,7 +726,17 @@ struct DevirtModule {
   static ValueInfo lookUpFunctionValueInfo(Function *TheFn,
                                            ModuleSummaryIndex *ExportSummary);
 
-<<<<<<< HEAD
+  // Returns true if the function definition must be unreachable.
+  //
+  // Note if this helper function returns true, `F` is guaranteed
+  // to be unreachable; if it returns false, `F` might still
+  // be unreachable but not covered by this helper function.
+  //
+  // Implementation-wise, if function definition is present, IR is analyzed; if
+  // not, look up function flags from ExportSummary as a fallback.
+  static bool mustBeUnreachableFunction(Function *const F,
+                                        ModuleSummaryIndex *ExportSummary);
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Lower the module using the action and summary passed as command line
@@ -741,19 +751,7 @@ private:
   IntelDevirtMultiversion &IntelDevirtMV;
 
 #else  // INTEL_FEATURE_SW_DTRANS
-=======
-  // Returns true if the function definition must be unreachable.
-  //
-  // Note if this helper function returns true, `F` is guaranteed
-  // to be unreachable; if it returns false, `F` might still
-  // be unreachable but not covered by this helper function.
-  //
-  // Implementation-wise, if function definition is present, IR is analyzed; if
-  // not, look up function flags from ExportSummary as a fallback.
-  static bool mustBeUnreachableFunction(Function *const F,
-                                        ModuleSummaryIndex *ExportSummary);
 
->>>>>>> 9c49f8d70592cd421691a194da259652fc7aec35
   // Lower the module using the action and summary passed as command line
   // arguments. For testing purposes only.
   static bool
