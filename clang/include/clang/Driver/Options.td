@@ -4388,7 +4388,6 @@ def o : JoinedOrSeparate<["-"], "o">, Flags<[NoXarchOption, RenderAsInput,
   CC1Option, CC1AsOption, FC1Option, FlangOption]>,
   HelpText<"Write output to <file>">, MetaVarName<"<file>">,
   MarshallingInfoString<FrontendOpts<"OutputFile">>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def pc : Joined<["-"], "pc">, Flags<[NoXarchOption]>;
 def : Joined<["-"], "pc=">, Alias<pc>, HelpText<"Initialize X87 floating "
@@ -4404,13 +4403,11 @@ def : Flag<["-"], "no-parallel-source-info">, Alias<parallel_source_info_EQ>,
   AliasArgs<["0"]>, HelpText<"Disable emission of source location information "
   "for parallel code generation.">;
 #endif // INTEL_CUSTOMIZATION
-=======
 def object_file_name_EQ : Joined<["-"], "object-file-name=">, Flags<[CC1Option, CC1AsOption, CoreOption]>,
   HelpText<"Set the output <file> for debug infos">, MetaVarName<"<file>">,
   MarshallingInfoString<CodeGenOpts<"ObjectFilenameForDebug">>;
 def object_file_name : Separate<["-"], "object-file-name">, Flags<[CC1Option, CC1AsOption, CoreOption]>,
     Alias<object_file_name_EQ>;
->>>>>>> a282ea4898efe2b2e57a93b44e90c9e497520cfb
 def pagezero__size : JoinedOrSeparate<["-"], "pagezero_size">;
 def pass_exit_codes : Flag<["-", "--"], "pass-exit-codes">, Flags<[Unsupported]>;
 def pedantic_errors : Flag<["-", "--"], "pedantic-errors">, Group<pedantic_Group>, Flags<[CC1Option]>,
