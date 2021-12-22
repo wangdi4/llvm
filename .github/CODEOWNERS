@@ -233,6 +233,7 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 
+<<<<<<< HEAD
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
 /llvm/docs/Intel/VPO/ @sguggill @skozhukh @alexey-bataev
 /llvm/include/llvm/Analysis/Intel_VectorVariant.h @sguggill @skozhukh @alexey-bataev
@@ -576,3 +577,71 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 # JIRA: CMPLRLLVM->Cmake
 **/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake @vzakhari
 **/cmake/ @intel-restricted/cmplrllvm-cmake @vzakhari
+=======
+# CUDA plugin
+sycl/plugins/cuda/ @intel/llvm-reviewers-cuda
+
+# Stream
+sycl/include/CL/sycl/detail/stream_impl.hpp @againull
+sycl/include/CL/sycl/stream.hpp @againull
+sycl/source/detail/stream_impl.cpp @againull
+sycl/source/stream.cpp @againull
+
+# FPGA extensions
+sycl/include/sycl/ext/intel/fpga_device_selector.hpp @MrSidims
+sycl/include/sycl/ext/intel/fpga_extensions.hpp @MrSidims
+sycl/include/sycl/ext/intel/fpga_reg.hpp @MrSidims
+sycl/include/sycl/ext/intel/pipes.hpp @MrSidims
+sycl/include/CL/sycl/pipes.hpp @MrSidims
+
+# Reduction extension
+sycl/include/sycl/ext/intel/reduction.hpp @v-klochkov
+
+# Function pointers
+sycl/include/sycl/ext/intel/function_pointer.hpp @AlexeySachkov
+sycl/source/function_pointer.cpp @AlexeySachkov
+
+# Half Type
+sycl/include/CL/sycl/half_type.hpp @AlexeySachkov
+sycl/source/half_type.cpp @AlexeySachkov
+
+# XPTI instrumentation utilities
+xpti/ @tovinkere @andykaylor @alexbatashev
+xptifw/ @tovinkere @andykaylor @alexbatashev
+
+# DPC++ tools
+llvm/**/append-file/ @mdtoguchi @AGindinson
+llvm/**/file-table-tform/ @mlychkov @AlexeySachkov @kbobrovs
+llvm/**/llvm-foreach/ @AlexeySachkov  @Fznamznon
+llvm/**/llvm-no-spir-kernel/ @AGindinson @AlexeySachkov
+llvm/**/sycl-post-link/ @mlychkov @AlexeySachkov @kbobrovs
+llvm/include/llvm/Support/PropertySetIO.h @mlychkov @AlexeySachkov @kbobrovs
+llvm/lib/Support/PropertySetIO.cpp @mlychkov @AlexeySachkov @kbobrovs
+llvm/unittests/Support/PropertySetIOTest.cpp @mlychkov @AlexeySachkov @kbobrovs
+llvm/include/llvm/Support/SimpleTable.h @mlychkov @AlexeySachkov @kbobrovs
+llvm/lib/Support/SimpleTable.cpp @mlychkov @AlexeySachkov @kbobrovs
+llvm/unittests/Support/SimpleTableTest.cpp @mlychkov @AlexeySachkov @kbobrovs
+llvm/lib/Support/Base64.cpp @mlychkov @AlexeySachkov @kbobrovs
+
+# Clang offload tools
+clang/tools/clang-offload-bundler/ @mlychkov @sndmitriev @AlexeySachkov
+clang/tools/clang-offload-wrapper/ @mlychkov @sndmitriev @AlexeySachkov @kbobrovs
+clang/tools/clang-offload-deps/ @sndmitriev @mlychkov @AlexeySachkov
+clang/tools/clang-offload-extract/ @sndmitriev @mlychkov @AlexeySachkov
+
+# Explicit SIMD
+SYCLLowerIR/ @kbobrovs @sndmitriev @kychendev @v-klochkov 
+esimd/ @kbobrovs @v-klochkov @kychendev
+sycl/include/sycl/ext/intel/experimental/esimd.hpp @kbobrovs @v-klochkov @kychendev
+sycl/doc/extensions/ExplicitSIMD/ @kbobrovs @v-klochkov @kychendev
+
+# ITT annotations
+llvm/lib/Transforms/Instrumentation/SPIRITTAnnotations.cpp @MrSidims @vzakhari
+llvm/include/llvm/Transforms/Instrumentation/SPIRITTAnnotations.h @MrSidims @vzakhari
+llvm/test/Transforms/SPIRITTAnnotations/* @MrSidims @vzakhari
+
+# Generic address space support for printf
+llvm/lib/SYCLLowerIR/MutatePrintfAddrspace.cpp @AGindinson @AlexeySachkov @mlychkov
+llvm/include/llvm/SYCLLowerIR/MutatePrintfAddrspace.h @AGindinson @AlexeySachkov @mlychkov
+llvm/test/SYCLLowerIR/printf_addrspace/* @AGindinson @AlexeySachkov @mlychkov
+>>>>>>> 2d62e51d8470a3f9fe1d550ed8b44385a88ff43b

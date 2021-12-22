@@ -45,9 +45,13 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/SYCLLowerIR/ESIMDVerifier.h"
+<<<<<<< HEAD
 #include "llvm/SYCLLowerIR/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
+=======
+#include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
+>>>>>>> 2d62e51d8470a3f9fe1d550ed8b44385a88ff43b
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
