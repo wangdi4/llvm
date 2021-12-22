@@ -1045,14 +1045,27 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     const Function &F, const TargetTransformInfo &TTI,
     SmallPtrSetImpl<Argument *> &ArgsToPromote,
     SmallPtrSetImpl<Argument *> &ByValArgsToTransform) {
+  // TODO: Check individual arguments so we can promote a subset?
+  SmallVector<Type *, 32> Types;
+  for (Argument *Arg : ArgsToPromote)
+    Types.push_back(Arg->getType()->getPointerElementType());
+  for (Argument *Arg : ByValArgsToTransform)
+    Types.push_back(Arg->getParamByValType());
+
   for (const Use &U : F.uses()) {
     AbstractCallSite CS(&U); // INTEL
     if (!CS)
       return false;
+<<<<<<< HEAD
     const Function *Caller = CS.getInstruction()->getCaller(); // INTEL
     const Function *Callee = CS.getCalledFunction();
     if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
         !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
+=======
+    const Function *Caller = CB->getCaller();
+    const Function *Callee = CB->getCalledFunction();
+    if (!TTI.areTypesABICompatible(Caller, Callee, Types))
+>>>>>>> f5ac23b5ae090d64d31f0b6624470af97dc20bf6
       return false;
   }
   return true;
