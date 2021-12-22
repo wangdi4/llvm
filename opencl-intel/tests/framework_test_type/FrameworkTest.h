@@ -166,9 +166,6 @@ void clGetCommandQueueInfo();
 void passBuildOptionByEnvTest();
 void UniformWorkGroupTest();
 void clKernelLocalMemSizeQueryTest();
-#ifdef _WIN32
-void clDisableMasterJoinTest();
-#endif
 #ifndef _WIN32
 bool cl_device_local_mem_size_unlimited_stack_test();
 bool TbbSetMaxThreads(int NumThreads);

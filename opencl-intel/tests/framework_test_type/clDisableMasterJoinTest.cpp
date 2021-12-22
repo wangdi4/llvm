@@ -25,7 +25,8 @@
 
 extern cl_device_type gDeviceType;
 
-class DisableMasterJoinTest {
+class DisableMasterJoinTest : public ::testing::Test {
+protected:
   cl_platform_id platform_private;
   cl_device_id device_private;
   cl_context context_private;
@@ -33,7 +34,17 @@ class DisableMasterJoinTest {
   cl_kernel kernel_private;
   cl_mem buffer_private;
   cl_program program_private;
-  std::string programSources;
+  const std::string programSources =
+      "__kernel void test(__global int* o)\n"
+      "{\n"
+      "    const int size = (PRI_MEM_SIZE - 1024*1024) / "
+      "sizeof(int);\n" // PRI_MEM_SIZE MB - 1MB of private memory
+      "    __private volatile int buf[size];\n"
+      "    int gid = get_global_id(0);\n"
+      "    for (int i = 0; i < size; ++i)\n"
+      "        buf[i] = gid;\n"
+      "    o[gid] = buf[gid + 1] + 2;\n"
+      "}";
 
   cl_ulong trySetPrivateMemSize(cl_ulong size, std::string unit = "");
   void clDevicePrivateMemSizeTestBody();
@@ -41,13 +52,6 @@ class DisableMasterJoinTest {
   void setUp();
   void buildFromBinary(const std::vector<unsigned char> &binary,
                        const std::string &options);
-
-public:
-  void testWithSource();
-  void testWithBinary();
-  void setProgramSources(const std::string &programSources) {
-    this->programSources = programSources;
-  }
 };
 
 void DisableMasterJoinTest::setUp() {
@@ -88,7 +92,8 @@ cl_ulong DisableMasterJoinTest::trySetPrivateMemSize(cl_ulong size,
   return size; // Pass STACK_SIZE to kernel
 }
 
-void DisableMasterJoinTest::testWithSource() {
+#ifdef _WIN32
+TEST_F(DisableMasterJoinTest, testWithSource) {
   printf("testWithSource\n");
   // Allocate stack size with size 8MB
   cl_ulong stackSize = trySetStackSize(STACK_SIZE);
@@ -109,6 +114,7 @@ void DisableMasterJoinTest::testWithSource() {
 
   clDevicePrivateMemSizeTestBody();
 }
+#endif
 
 void DisableMasterJoinTest::buildFromBinary(
     const std::vector<unsigned char> &binary, const std::string &options) {
@@ -128,7 +134,8 @@ void DisableMasterJoinTest::buildFromBinary(
   ASSERT_OCL_SUCCESS(iRet, "clBuildProgram");
 }
 
-void DisableMasterJoinTest::testWithBinary() {
+#ifdef _WIN32
+TEST_F(DisableMasterJoinTest, testWithBinary) {
   printf("testWithBinary\n");
 
   cl_ulong stackSize = trySetStackSize(STACK_SIZE);
@@ -165,6 +172,7 @@ void DisableMasterJoinTest::testWithBinary() {
 
   clDevicePrivateMemSizeTestBody();
 }
+#endif
 
 void DisableMasterJoinTest::cleanupPrivate() {
   if (buffer_private)
@@ -215,23 +223,4 @@ void DisableMasterJoinTest::clDevicePrivateMemSizeTestBody() {
   }
 
   cleanupPrivate();
-}
-
-void clDisableMasterJoinTest() {
-  class DisableMasterJoinTest disableMasterJoinTest;
-  std::string programSources =
-      "__kernel void test(__global int* o)\n"
-      "{\n"
-      "    const int size = (PRI_MEM_SIZE - 1024*1024) / "
-      "sizeof(int);\n" // PRI_MEM_SIZE MB - 1MB of private memory
-      "    printf(\"SIZE: %d \\n\", size);\n"
-      "    __private volatile int buf[size];\n"
-      "    int gid = get_global_id(0);\n"
-      "    for (int i = 0; i < size; ++i)\n"
-      "        buf[i] = gid;\n"
-      "    o[gid] = buf[gid + 1] + 2;\n"
-      "}";
-  disableMasterJoinTest.setProgramSources(programSources);
-  disableMasterJoinTest.testWithSource();
-  disableMasterJoinTest.testWithBinary();
 }
