@@ -31,6 +31,14 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+// Used for nonstandard runtime architectures where the data segment
+// may be remapped to non-local storage and must have a runtime check before
+// accessing. Loads should not be speculated or hoisted in these circumstances.
+static cl::opt<bool> GlobalLoadsUnsafe("global-loads-unsafe",
+                                         cl::Hidden, cl::init(false));
+#endif
+
 static bool isAligned(const Value *Base, const APInt &Offset, Align Alignment,
                       const DataLayout &DL) {
   Align BA = Base->getPointerAlignment(DL);
@@ -55,6 +63,11 @@ static bool isDereferenceableAndAlignedPointer(
   // Already visited?  Bail out, we've likely hit unreachable code.
   if (!Visited.insert(V).second)
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (isa<GlobalValue>(V) && GlobalLoadsUnsafe)
+    return false;
+#endif
 
   // Note that it is not safe to speculate into a malloc'd region because
   // malloc may return null.
