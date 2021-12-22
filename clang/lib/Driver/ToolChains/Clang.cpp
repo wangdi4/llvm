@@ -10275,12 +10275,16 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
       addArgs(CmdArgs, TCArgs, {"--ompoffload-explicit-simd"});
   }
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Turn on Dead Parameter Elimination Optimization with early optimizations
-  if (!(getToolChain().getTriple().isAMDGCN()) &&
+  // This is explicitly INTEL-customized to only happen for SYCL offload
+  if (JA.isDeviceOffloading(Action::OFK_SYCL) &&
+      !(getToolChain().getTriple().isAMDGCN()) &&
       TCArgs.hasFlag(options::OPT_fsycl_dead_args_optimization,
                      options::OPT_fno_sycl_dead_args_optimization,
                      isSYCLOptimizationO2orHigher(TCArgs)))
     addArgs(CmdArgs, TCArgs, {"-emit-param-info"});
+#endif // INTEL_CUSTOMIZATION
   // Enable PI program metadata
   if (getToolChain().getTriple().isNVPTX())
     addArgs(CmdArgs, TCArgs, {"-emit-program-metadata"});
