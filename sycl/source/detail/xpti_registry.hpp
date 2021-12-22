@@ -45,9 +45,6 @@ public:
       xptiFrameworkInitialize();
 
       // Memory allocation events
-<<<<<<< HEAD
-      initializeStream(SYCL_MEM_ALLOC_STREAM_NAME, 0, 1, "0.1");
-=======
       GMemAllocStreamID = xptiRegisterStream(SYCL_MEM_ALLOC_STREAM_NAME);
       initializeStream(SYCL_MEM_ALLOC_STREAM_NAME, 0, 1, "0.1");
       xpti::payload_t MAPayload("SYCL Memory Allocations Layer");
@@ -55,7 +52,6 @@ public:
       GMemAllocEvent = xptiMakeEvent("SYCL Memory Allocations", &MAPayload,
                                      xpti::trace_algorithm_event,
                                      xpti_at::active, &MAInstanceNo);
->>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
     });
 #endif
   }
