@@ -149,7 +149,6 @@ if( NOT CLANG_BUILT_STANDALONE )
     llvm-nm
     llvm-objcopy
     llvm-objdump
-    llvm-pdbutil
     llvm-profdata
     llvm-rc
     llvm-readelf
