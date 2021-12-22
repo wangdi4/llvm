@@ -733,15 +733,10 @@ determinePointerAccessAttrs(Argument *A,
       // Given we've explictily handled the callee operand above, what's left
       // must be a data operand (e.g. argument or operand bundle)
       const bool IsOperandBundleUse = UseIndex >= CB.arg_size();
-<<<<<<< HEAD
-
 #if INTEL_CUSTOMIZATION
       if (UseIndex >= F->arg_size() && !IsOperandBundleUse &&
           !AbstractCallSite::getCallbackArg(CB, UseIndex)) {
 #endif // INTEL_CUSTOMIZATION
-=======
-      if (UseIndex >= F->arg_size() && !IsOperandBundleUse) {
->>>>>>> 1fee7195c99a3cbeabb1ade35b00d974b4829e58
         assert(F->isVarArg() && "More params than args in non-varargs call");
         return Attribute::None;
       }
