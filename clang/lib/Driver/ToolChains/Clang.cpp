@@ -8382,7 +8382,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(Str));
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Arg *A = Args.getLastArg(options::OPT_fstack_limit_register_EQ)) {
     A->render(Args, CmdArgs);
@@ -8420,13 +8419,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
   addIntelOptimizationArgs(TC, Args, CmdArgs, false);
 #endif // INTEL_CUSTOMIZATION
-  // Add the output path to the object file for CodeView debug infos.
-  if (EmitCodeView && Output.isFilename())
-    addDebugObjectName(Args, CmdArgs, DebugCompilationDir,
-                       Output.getFilename());
 
-=======
->>>>>>> 5bb5142e80c9c6eb1a948d6d2ff4834e4e69741f
   // Add the "-o out -x type src.c" flags last. This is done primarily to make
   // the -cc1 command easier to edit when reproducing compiler crashes.
   if (Output.getType() == types::TY_Dependencies) {
