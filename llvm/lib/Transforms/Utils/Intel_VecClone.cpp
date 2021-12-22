@@ -410,7 +410,7 @@ BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
 }
 
 PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
-    Function *Clone, BasicBlock *EntryBlock, BasicBlock *LoopBlock,
+    Function *Clone, BasicBlock *LoopPreHeader, BasicBlock *LoopBlock,
     BasicBlock *LoopExitBlock, BasicBlock *ReturnBlock, int VectorLength) {
   // Create the phi node for the top of the loop block and add the back
   // edge to the loop from the loop exit.
@@ -433,7 +433,7 @@ PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
 
   BranchInst::Create(LoopBlock, ReturnBlock, VLCmp, LoopExitBlock);
 
-  Phi->addIncoming(IndInit, EntryBlock);
+  Phi->addIncoming(IndInit, LoopPreHeader);
   Phi->addIncoming(Induction, LoopExitBlock);
 
   LLVM_DEBUG(dbgs() << "After Loop Insertion\n");
@@ -1247,11 +1247,9 @@ static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
 // the front-end for simd loops.
 CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
                                           Function &F, VectorVariant &V,
-                                          BasicBlock *EntryBlock) {
+                                          BasicBlock *EntryBlock,
+                                          BasicBlock *LoopPreHeader) {
   std::vector<VectorKind> ParmKinds = V.getParameters();
-
-  BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
-      EntryBlock->getTerminator(), "simd.loop.preheader");
 
   IRBuilder<> Builder(&*EntryBlock->begin());
 
@@ -1364,9 +1362,11 @@ void VecCloneImpl::insertEndRegion(Module &M, Function *Clone,
 void VecCloneImpl::insertDirectiveIntrinsics(Module &M, Function *Clone,
                                              Function &F, VectorVariant &V,
                                              BasicBlock *EntryBlock,
+                                             BasicBlock *LoopPreHeader,
                                              BasicBlock *LoopExitBlock,
                                              BasicBlock *ReturnBlock) {
-  CallInst *EntryDirCall = insertBeginRegion(M, Clone, F, V, EntryBlock);
+  CallInst *EntryDirCall = insertBeginRegion(M, Clone, F, V, EntryBlock,
+                                             LoopPreHeader);
   insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock, EntryDirCall);
   LLVM_DEBUG(dbgs() << "After Directives Insertion\n");
   LLVM_DEBUG(Clone->dump());
@@ -1574,6 +1574,10 @@ bool VecCloneImpl::runImpl(Module &M) {
         continue;
 
       BasicBlock *LoopBlock = splitEntryIntoLoop(Clone, Variant, EntryBlock);
+
+      BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
+          EntryBlock->getTerminator(), "simd.loop.preheader");
+
       BasicBlock *ReturnBlock = splitLoopIntoReturn(Clone, &Clone->back());
       if (!ReturnBlock) {
         // OpenCL, it's valid to have an infinite loop inside kernel with no
@@ -1591,7 +1595,7 @@ bool VecCloneImpl::runImpl(Module &M) {
           Clone->getContext(), "simd.loop.exit", Clone, ReturnBlock);
       ReturnBlock->replaceAllUsesWith(LoopExitBlock);
 
-      PHINode *Phi = createPhiAndBackedgeForLoop(Clone, EntryBlock,
+      PHINode *Phi = createPhiAndBackedgeForLoop(Clone, LoopPreHeader,
                                                  LoopBlock, LoopExitBlock,
                                                  ReturnBlock,
                                                  Variant.getVlen());
@@ -1647,7 +1651,7 @@ bool VecCloneImpl::runImpl(Module &M) {
 #endif // INTEL_CUSTOMIZATION
 
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
-      insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock,
+      insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopPreHeader,
                                 LoopExitBlock, ReturnBlock);
       PrivateAllocas.clear();
 
