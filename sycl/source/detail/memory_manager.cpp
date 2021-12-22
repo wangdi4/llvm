@@ -132,14 +132,24 @@ void memBufferCreateHelper(const plugin &Plugin, pi_context Ctx,
     CorrID =
         emitMemAllocBeginTrace(0 /* mem object */, Size, 0 /* guard zone */);
     xpti::utils::finally _{[&] {
+<<<<<<< HEAD
       uintptr_t MemObjID = reinterpret_cast<uintptr_t>(*RetMem);
+=======
+      // C-style cast is required for MSVC
+      uintptr_t MemObjID = (uintptr_t)(*RetMem);
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
       pi_native_handle Ptr = 0;
       // Always use call_nocheck here, because call may throw an exception,
       // and this lambda will be called from destructor, which in combination
       // rewards us with UB.
       Plugin.call_nocheck<PiApiKind::piextMemGetNativeHandle>(*RetMem, &Ptr);
+<<<<<<< HEAD
       emitMemAllocEndTrace(MemObjID, reinterpret_cast<uintptr_t>(Ptr), Size,
                            0 /* guard zone */, CorrID);
+=======
+      emitMemAllocEndTrace(MemObjID, (uintptr_t)(Ptr), Size, 0 /* guard zone */,
+                           CorrID);
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
     }};
     Plugin.call<PiApiKind::piMemBufferCreate>(Ctx, Flags, Size, HostPtr, RetMem,
                                               Props);
@@ -151,13 +161,22 @@ void memReleaseHelper(const plugin &Plugin, pi_mem Mem) {
   // reference counter is 1. However, SYCL runtime currently only calls
   // piMemRetain only for OpenCL interop
   uint64_t CorrID = 0;
+<<<<<<< HEAD
   uintptr_t MemObjID = reinterpret_cast<uintptr_t>(Mem);
+=======
+  // C-style cast is required for MSVC
+  uintptr_t MemObjID = (uintptr_t)(Mem);
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
   uintptr_t Ptr = 0;
   // Do not make unnecessary PI calls without instrumentation enabled
   if (xptiTraceEnabled()) {
     pi_native_handle PtrHandle = 0;
     Plugin.call<PiApiKind::piextMemGetNativeHandle>(Mem, &PtrHandle);
+<<<<<<< HEAD
     Ptr = reinterpret_cast<uintptr_t>(PtrHandle);
+=======
+    Ptr = (uintptr_t)(PtrHandle);
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
   }
   // We only want to instrument piMemRelease
   {
@@ -174,12 +193,20 @@ void memBufferMapHelper(const plugin &Plugin, pi_queue Queue, pi_mem Buffer,
                         const pi_event *WaitList, pi_event *Event,
                         void **RetMap) {
   uint64_t CorrID = 0;
+<<<<<<< HEAD
   uintptr_t MemObjID = reinterpret_cast<uintptr_t>(Buffer);
+=======
+  uintptr_t MemObjID = (uintptr_t)(Buffer);
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
   // We only want to instrument piEnqueueMemBufferMap
   {
     CorrID = emitMemAllocBeginTrace(MemObjID, Size, 0 /* guard zone */);
     xpti::utils::finally _{[&] {
+<<<<<<< HEAD
       emitMemAllocEndTrace(MemObjID, reinterpret_cast<uintptr_t>(*RetMap), Size,
+=======
+      emitMemAllocEndTrace(MemObjID, (uintptr_t)(*RetMap), Size,
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
                            0 /* guard zone */, CorrID);
     }};
     Plugin.call<PiApiKind::piEnqueueMemBufferMap>(
@@ -192,8 +219,13 @@ void memUnmapHelper(const plugin &Plugin, pi_queue Queue, pi_mem Mem,
                     void *MappedPtr, pi_uint32 NumEvents,
                     const pi_event *WaitList, pi_event *Event) {
   uint64_t CorrID = 0;
+<<<<<<< HEAD
   uintptr_t MemObjID = reinterpret_cast<uintptr_t>(Mem);
   uintptr_t Ptr = reinterpret_cast<uintptr_t>(MappedPtr);
+=======
+  uintptr_t MemObjID = (uintptr_t)(Mem);
+  uintptr_t Ptr = (uintptr_t)(MappedPtr);
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
   // We only want to instrument piEnqueueMemUnmap
   {
     CorrID = emitMemReleaseBeginTrace(MemObjID, Ptr);
@@ -343,6 +375,7 @@ MemoryManager::allocateBufferObject(ContextImplPtr TargetContext, void *UserPtr,
 
   RT::PiMem NewMem = nullptr;
   const detail::plugin &Plugin = TargetContext->getPlugin();
+<<<<<<< HEAD
 
   if (PropsList.has_property<sycl::property::buffer::mem_channel>()) {
     auto Prop = PropsList.get_property<sycl::property::buffer::mem_channel>();
@@ -355,6 +388,10 @@ MemoryManager::allocateBufferObject(ContextImplPtr TargetContext, void *UserPtr,
     memBufferCreateHelper(Plugin, TargetContext->getHandleRef(), CreationFlags,
                           Size, UserPtr, &NewMem, nullptr);
   }
+=======
+  memBufferCreateHelper(Plugin, TargetContext->getHandleRef(), CreationFlags,
+                        Size, UserPtr, &NewMem, nullptr);
+>>>>>>> a068b1542912618085e548a0d95f2ef2bf13a174
   return NewMem;
 }
 
