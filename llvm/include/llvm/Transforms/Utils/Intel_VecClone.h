@@ -147,12 +147,14 @@ class VecCloneImpl {
     /// the loop.
     void insertDirectiveIntrinsics(Module &M, Function *Clone, Function &F,
                                    VectorVariant &V, BasicBlock *EntryBlock,
+                                   BasicBlock *LoopPreHeader,
                                    BasicBlock *LoopExitBlock,
                                    BasicBlock *ReturnBlock);
 
     /// \brief Create the basic block indicating the begin of the SIMD loop.
     CallInst *insertBeginRegion(Module &M, Function *Clone, Function &F,
-                                VectorVariant &V, BasicBlock *EntryBlock);
+                                VectorVariant &V, BasicBlock *EntryBlock,
+                                BasicBlock *LoopPreHeader);
 
     /// \brief Create the basic block indicating the end of the SIMD loop.
     void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopExitBlock,

@@ -5627,6 +5627,7 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
     }
   } else if (LoopHeaderBlocks.count(VPBB)) {
     auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
+    assert(CurVPLoop && "Non-null CurVPLoop expected.");
     auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
     // Main vector loop is already linked in (except in case merged CFG)
     if (isMergedCFG() || CurVPLoop->getLoopDepth() > 1)

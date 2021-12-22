@@ -260,7 +260,7 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
 
     // Analyze the users of the current-instruction.
     for (VPValue *User : CurrentI->users()) {
-      const VPInstruction *UseInst = dyn_cast<VPInstruction>(User);
+      const VPInstruction *UseInst = cast<VPInstruction>(User);
 
       // We are only interested in pointer or its alias which is either in the
       // Loop-preheader of within the loop itself.

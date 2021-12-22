@@ -1880,11 +1880,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       Phi->addIncoming(Builder.getInt64(0), BBLoop->getSinglePredecessor());
 
       // Loop body. Copying element in VF - 1 position from each vector.
-      Value *Ptr = Builder.CreateGEP(
-          Res->getType()->getScalarType()->getPointerElementType(), Res,
+      Value *Ptr = Builder.CreateGEP(getSOAType(ElementType, VF), Res,
           {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
       Value *Val =
-          Builder.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr);
+          Builder.CreateLoad(
+            cast<GetElementPtrInst>(Ptr)->getResultElementType(), Ptr);
       Value *Target =
           Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
       Builder.CreateStore(Val, Target);
