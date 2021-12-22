@@ -1486,10 +1486,12 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
         // See Check6, Check7 on the diagram above.
         createTCCheckAfter(P, *std::prev(Iter, 1));
         if (P.isNonMaskedVecRemainder()) {
+          auto *SingleSucc = P.LastBB->getSingleSuccessor();
+          assert(SingleSucc && "Non-null successor expected.");
           // We need to create a merge block between main loop and non-masked
           // vectorized remainder.
           auto MergeBlk =
-              createMergeBlockBefore(P.LastBB->getSingleSuccessor());
+              createMergeBlockBefore(SingleSucc);
           updateMergeBlockIncomings(P, MergeBlk, P.LastBB,
                                     false /* UseLiveIn */);
           // Need to relink uses of outgoing values to the phis from new block.
