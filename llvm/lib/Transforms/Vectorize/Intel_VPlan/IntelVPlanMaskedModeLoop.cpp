@@ -233,6 +233,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Replace all POD unconditional last private final calculations with the
   // masked ones.
   auto *ExitBB = TopVPLoop->getExitBlock();
+  assert(ExitBB && "Expected non-null exit block.");
   // Get instructions to process in advance as we will add/remove instructions.
   SmallVector<VPInstruction *, 4> ToProcess(map_range(
       make_filter_range(*ExitBB,
