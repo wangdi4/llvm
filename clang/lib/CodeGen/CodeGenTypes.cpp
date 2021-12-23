@@ -864,16 +864,13 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   if (!Entry) {
     Entry = llvm::StructType::create(getLLVMContext());
     addRecordTypeName(RD, Entry, "");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     CGM.addDTransType(RD, Entry);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
     if (RD->hasAttr<SYCLUsesAspectsAttr>())
       CGM.addTypeWithAspects(Entry->getName(), RD);
->>>>>>> 7a53ff6323b75e33d7c7df74d58ecd4dfdc7663f
   }
   llvm::StructType *Ty = Entry;
 
