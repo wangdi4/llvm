@@ -43179,7 +43179,11 @@ bool X86TargetLowering::isSplatValueForTargetNode(SDValue Op,
 
   return TargetLowering::isSplatValueForTargetNode(Op, DemandedElts, UndefElts,
                                                    Depth);
+<<<<<<< HEAD
 } // INTEL
+=======
+}
+>>>>>>> 8b58344efb2ea3bab28e373d7f9113a200742684
 
 // Helper to peek through bitops/trunc/setcc to determine size of source vector.
 // Allows combineBitcastvxi1 to determine what size vector generated a <X x i1>.
