@@ -478,6 +478,11 @@ public:
       assert(false); return false;
     }
 #endif // INTEL_COLLAB
+    /// Get the CaptureFields
+    llvm::SmallDenseMap<const VarDecl *, FieldDecl *> getCaptureFields() {
+      return CaptureFields;
+    }
+
   private:
     /// The kind of captured statement being generated.
     CapturedRegionKind Kind;
