@@ -1053,19 +1053,14 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     Types.push_back(Arg->getParamByValType());
 
   for (const Use &U : F.uses()) {
-    AbstractCallSite CS(&U); // INTEL
+#ifdef INTEL_CUSTOMIZATION
+    AbstractCallSite CS(&U);
     if (!CS)
       return false;
-<<<<<<< HEAD
-    const Function *Caller = CS.getInstruction()->getCaller(); // INTEL
+    const Function *Caller = CS.getInstruction()->getCaller();
     const Function *Callee = CS.getCalledFunction();
-    if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
-        !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
-=======
-    const Function *Caller = CB->getCaller();
-    const Function *Callee = CB->getCalledFunction();
+#endif // INTEL_CUSTOMIZATION
     if (!TTI.areTypesABICompatible(Caller, Callee, Types))
->>>>>>> f5ac23b5ae090d64d31f0b6624470af97dc20bf6
       return false;
   }
   return true;
