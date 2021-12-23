@@ -513,6 +513,16 @@ HLLoop *getLoopBlockingPragma(HLLoop *InnermostLoop,
     return nullptr;
   }
 
+  LLVM_DEBUG(dbgs() << "Final LoopToPragma: \n"; for (auto &P
+                                                      : LoopToPragma) {
+    dbgs() << "LoopLevel: " << P.first->getNestingLevel() << "\n";
+    for (auto &PP : P.second) {
+      dbgs() << "Level: " << PP.first << ", ";
+      PP.second->dump();
+      dbgs() << "\n";
+    }
+  });
+
   return OutermostPragmaLoop;
 }
 
@@ -1861,7 +1871,7 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
   return nullptr;
 }
 
-// This is where pragma conflicts are resolved legality checks are performed.
+// This is where pragma conflicts are resolved & legality checks are performed.
 // Pragmas conflicts are prioritized in the order they appear in the program
 // All LoopToPragma entries are assumed to have positive relative offsets.
 // TODO: output warnings for pragma conflicts
@@ -1901,12 +1911,18 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
       RegDDRef *Factor = LevelFactorPair.second;
 
       int64_t IntBlockSize;
-      if (!Factor->isIntConstant(&IntBlockSize) || IntBlockSize <= 0) {
-        // TODO : enable variable blocksizes
-
+      // A blocksize of 0 is invalid, while -1 means we use the default
+      // blocksize.
+      // TODO : Handle variable blocksizes
+      if (!Factor->isIntConstant(&IntBlockSize) || IntBlockSize == 0) {
         LLVM_DEBUG(dbgs() << "Ignoring block_loop directive due to invalid "
-                             "blocking factor\n");
+                             "blocking factor "
+                          << IntBlockSize << "\n");
         continue;
+      }
+
+      if (IntBlockSize == -1) {
+        IntBlockSize = DefaultBlockSize;
       }
 
       // Get the loop that the pragma level is referring to
@@ -1975,14 +1991,10 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   // Blocking using Pragma directives
   ORBuilder(*OutermostPragmaLoop).addRemark(OptReportVerbosity::Low, 25565u);
 
-  LLVM_DEBUG(dbgs() << "Final LoopToPragma: \n"; for (auto &P
-                                                      : LoopToPragma) {
+  LLVM_DEBUG(dbgs() << "Final LoopMap: \n"; for (auto &P
+                                                 : LoopMap) {
     dbgs() << "LoopLevel: " << P.first->getNestingLevel() << "\n";
-    for (auto &PP : P.second) {
-      dbgs() << "Level: " << PP.first << ", ";
-      PP.second->dump();
-      dbgs() << "\n";
-    }
+    dbgs() << "BlockFactor: " << P.second << "\n";
   });
   return OutermostPragmaLoop;
 }
