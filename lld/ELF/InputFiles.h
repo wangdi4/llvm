@@ -403,13 +403,13 @@ inline bool isBitcode(MemoryBufferRef mb) {
 
 std::string replaceThinLTOSuffix(StringRef path);
 
-extern std::vector<ArchiveFile *> archiveFiles;
-extern std::vector<BinaryFile *> binaryFiles;
-extern std::vector<BitcodeFile *> bitcodeFiles;
-extern std::vector<BitcodeFile *> lazyBitcodeFiles;
-extern std::vector<ELFFileBase *> objectFiles;
-extern std::vector<SharedFile *> sharedFiles;
-extern std::vector<InputFile *> gNULTOFiles;  // INTEL
+extern SmallVector<ArchiveFile *, 0> archiveFiles;
+extern SmallVector<BinaryFile *, 0> binaryFiles;
+extern SmallVector<BitcodeFile *, 0> bitcodeFiles;
+extern SmallVector<BitcodeFile *, 0> lazyBitcodeFiles;
+extern SmallVector<ELFFileBase *, 0> objectFiles;
+extern SmallVector<SharedFile *, 0> sharedFiles;
+extern SmallVector<InputFile *, 0> gNULTOFiles;  // INTEL
 
 } // namespace elf
 } // namespace lld
