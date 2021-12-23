@@ -43,6 +43,7 @@ using namespace lld::elf;
 bool InputFile::isInGroup;
 uint32_t InputFile::nextGroupId;
 
+<<<<<<< HEAD
 std::vector<ArchiveFile *> elf::archiveFiles;
 std::vector<BinaryFile *> elf::binaryFiles;
 std::vector<BitcodeFile *> elf::bitcodeFiles;
@@ -50,6 +51,14 @@ std::vector<BitcodeFile *> elf::lazyBitcodeFiles;
 std::vector<ELFFileBase *> elf::objectFiles;
 std::vector<SharedFile *> elf::sharedFiles;
 std::vector<InputFile *> elf::gNULTOFiles; // INTEL
+=======
+SmallVector<ArchiveFile *, 0> elf::archiveFiles;
+SmallVector<BinaryFile *, 0> elf::binaryFiles;
+SmallVector<BitcodeFile *, 0> elf::bitcodeFiles;
+SmallVector<BitcodeFile *, 0> elf::lazyBitcodeFiles;
+SmallVector<ELFFileBase *, 0> elf::objectFiles;
+SmallVector<SharedFile *, 0> elf::sharedFiles;
+>>>>>>> ba948c5a9c524b46e6c1f31090f0b85275947867
 
 std::unique_ptr<TarWriter> elf::tar;
 
