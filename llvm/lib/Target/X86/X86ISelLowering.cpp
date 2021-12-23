@@ -43142,7 +43142,6 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
       Op, DemandedBits, DemandedElts, DAG, Depth);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // TODO: This may be worth open sourcing in some form. Since it only effects
 // codegen for Intel CPUs until other vendors implement AVX512.
@@ -43160,7 +43159,6 @@ bool isBitcastUsedBySetcc(SDNode *BitCast) {
   return false;
 }
 #endif
-=======
 bool X86TargetLowering::isSplatValueForTargetNode(SDValue Op,
                                                   const APInt &DemandedElts,
                                                   APInt &UndefElts,
@@ -43181,8 +43179,7 @@ bool X86TargetLowering::isSplatValueForTargetNode(SDValue Op,
 
   return TargetLowering::isSplatValueForTargetNode(Op, DemandedElts, UndefElts,
                                                    Depth);
-};
->>>>>>> 4639461531e7325458dc6a37bc6d857c0df109f7
+} // INTEL
 
 // Helper to peek through bitops/trunc/setcc to determine size of source vector.
 // Allows combineBitcastvxi1 to determine what size vector generated a <X x i1>.
