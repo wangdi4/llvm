@@ -252,6 +252,8 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
       !SubstitutibleLoads.empty()
           ? SubstitutibleLoads[0]->getHLDDNode()->getTopSortNum()
           : 0;
+  bool InDifferentLoops = StoreRef->getHLDDNode()->getParentLoop() !=
+                          PostDomStoreRef->getHLDDNode()->getParentLoop();
 
   for (auto &LoadRefGroup : EqualityGroups) {
 
@@ -274,9 +276,25 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
         continue;
       }
 
-      // We have already reached lexically before StoreRef. Others refs in the
-      // group don't need to be analyzed.
+      // DSE can happen when two store refs are in different parent loops, 
+      // but intervening loads can occur before the first StoreRef like so:
+      // DO LOOP1
+      //   Load A[]
+      //   Store1 A[]
+      // END DO1
+      // DO LOOP2
+      //   Store2 A[]
+      // END DO2
+      // The basic analysis in this function only checks memory aliasing in a single
+      // loop iteration, so we give up if the load occurs anywhere inside the Loop
+      // of the first StoreRef. More expensive checks would require DD Analysis 
+      // to prove that the Load does not alias with the stores.
       if (LoadTopSortNum <= MinTopSortNum) {
+        if (InDifferentLoops &&
+            LoadTopSortNum >
+                StoreRef->getHLDDNode()->getParentLoop()->getTopSortNum()) {
+          return true;
+        }
         break;
       }
 
