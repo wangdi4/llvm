@@ -615,6 +615,8 @@ private:
   MetadataTypeMap VirtualMetadataIdMap;
   MetadataTypeMap GeneralizedMetadataIdMap;
 
+  llvm::DenseMap<StringRef, const RecordDecl *> TypesWithAspects;
+
 public:
   CodeGenModule(ASTContext &C, const HeaderSearchOptions &headersearchopts,
                 const PreprocessorOptions &ppopts,
@@ -1080,6 +1082,7 @@ public:
       llvm::FunctionType *FnType = nullptr, bool DontDefer = false,
       ForDefinition_t IsForDefinition = NotForDefinition);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 private:
   typedef llvm::DenseMap<llvm::FunctionType *, std::string> IntelGenFnMap;
@@ -1195,6 +1198,12 @@ public:
   }
 #endif // INTEL_COLLAB
 
+=======
+  void addTypeWithAspects(StringRef TypeName, const RecordDecl *RD) {
+    TypesWithAspects[TypeName] = RD;
+  }
+
+>>>>>>> 7a53ff6323b75e33d7c7df74d58ecd4dfdc7663f
   void generateIntelFPGAAnnotation(const Decl *D,
                                      llvm::SmallString<256> &AnnotStr);
   void addGlobalIntelFPGAAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
