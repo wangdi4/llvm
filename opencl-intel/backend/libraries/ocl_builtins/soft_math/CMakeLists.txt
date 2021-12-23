@@ -23,6 +23,10 @@ if(NOT WIN32)
                                   trunctfhf2.c trunctfsf2.c)
 endif(NOT WIN32)
 
+if(WIN32 AND BUILD_X64)
+  list(APPEND TARGET_SOURCE_FILES divti3.c udivti3.c udivmodti4.c)
+endif()
+
 add_opencl_library(
   ${TARGET_NAME}
   STATIC
