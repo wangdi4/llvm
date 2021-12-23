@@ -242,7 +242,7 @@ public:
 };
 
 // Class which stores specific lambda object.
-template <class KernelType, class KernelArgType, int Dims, bool StoreLocation>
+template <class KernelType, class KernelArgType, int Dims>
 class HostKernel : public HostKernelBase {
   using IDBuilder = sycl::detail::Builder;
   KernelType MKernel;
@@ -315,10 +315,6 @@ public:
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
-      if (StoreLocation) {
-        store_id(&ID);
-        store_item(&Item);
-      }
       runKernelWithArg<const sycl::id<Dims> &>(MKernel, ID);
     });
 #endif // INTEL
@@ -344,10 +340,6 @@ public:
           IDBuilder::createItem<Dims, false>(Range, ID);
       sycl::item<Dims, /*Offset=*/true> ItemWithOffset = Item;
 
-      if (StoreLocation) {
-        store_id(&ID);
-        store_item(&ItemWithOffset);
-      }
       runKernelWithArg<sycl::item<Dims, /*Offset=*/false>>(MKernel, Item);
     });
   }
@@ -380,10 +372,6 @@ public:
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
-      if (StoreLocation) {
-        store_id(&ID);
-        store_item(&Item);
-      }
       runKernelWithArg<sycl::item<Dims, /*Offset=*/true>>(MKernel, Item);
     });
   }
@@ -434,13 +422,6 @@ public:
         const sycl::nd_item<Dims> NDItem =
             IDBuilder::createNDItem<Dims>(GlobalItem, LocalItem, Group);
 
-        if (StoreLocation) {
-          store_id(&GlobalID);
-          store_item(&GlobalItem);
-          store_nd_item(&NDItem);
-          auto g = NDItem.get_group();
-          store_group(&g);
-        }
         runKernelWithArg<const sycl::nd_item<Dims>>(MKernel, NDItem);
 #if DPCPP_HOST_DEVICE_SERIAL // INTEL
       });
