@@ -11650,7 +11650,6 @@ private:
   bool checkBinaryOperation(BinaryOperator *AtomicBinOp, unsigned DiagId = 0,
                             unsigned NoteId = 0);
 };
-} // namespace
 
 bool OpenMPAtomicUpdateChecker::checkBinaryOperation(
     BinaryOperator *AtomicBinOp, unsigned DiagId, unsigned NoteId) {
@@ -12595,7 +12594,11 @@ bool OpenMPAtomicCompareCaptureChecker::checkStatement(Stmt *S, unsigned DiagId,
     X = V = Result = E = Expected = Desired = nullptr;
   return ErrorFound != NoError;
 }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+} // namespace
+>>>>>>> a364e8f6adeb4b42296413b6112a8bdfbd2ea116
 
 StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
                                             Stmt *AStmt,
