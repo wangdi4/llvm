@@ -460,6 +460,7 @@ public:
     /// Get the name of the capture helper.
     virtual StringRef getHelperName() const { return "__captured_stmt"; }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
@@ -478,6 +479,13 @@ public:
       assert(false); return false;
     }
 #endif // INTEL_COLLAB
+=======
+    /// Get the CaptureFields
+    llvm::SmallDenseMap<const VarDecl *, FieldDecl *> getCaptureFields() {
+      return CaptureFields;
+    }
+
+>>>>>>> 5eb271880c8fc59835797806ac44f736eaf3ddbd
   private:
     /// The kind of captured statement being generated.
     CapturedRegionKind Kind;
