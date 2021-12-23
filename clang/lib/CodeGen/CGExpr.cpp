@@ -2558,6 +2558,10 @@ CodeGenFunction::EmitLoadOfReference(LValue RefLVal,
   CharUnits Align = CGM.getNaturalTypeAlignment(
       PointeeType, PointeeBaseInfo, PointeeTBAAInfo,
       /* forPointeeType= */ true);
+#if INTEL_CUSTOMIZATION
+  // This is need to be removed see cmplrllvm-33708
+  return Address(Load, Align);
+#endif  // INTEL_CUSTOMIZATION
   return Address(Load, ConvertTypeForMem(PointeeType), Align);
 }
 

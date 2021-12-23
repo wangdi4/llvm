@@ -208,7 +208,12 @@ CodeGenFunction::MakeNaturalAlignPointeeAddrLValue(llvm::Value *V, QualType T) {
   TBAAAccessInfo TBAAInfo;
   CharUnits Align = CGM.getNaturalTypeAlignment(T, &BaseInfo, &TBAAInfo,
                                                 /* forPointeeType= */ true);
+#if INTEL_CUSTOMIZATION
+  // This is need to be removed see cmplrllvm-33708
+  Address Addr(V, Align);
+#else
   Address Addr(V, ConvertTypeForMem(T), Align);
+#endif // INTEL_CUSTOMIZATION
   return MakeAddrLValue(Addr, T, BaseInfo, TBAAInfo);
 }
 
