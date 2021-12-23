@@ -6,10 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "config/linux/syscall.h"
-#include "utils/UnitTest/Test.h"
-
 #include "src/__support/CPP/Functional.h"
+#include "src/__support/OSUtil/syscall.h"
+#include "utils/UnitTest/Test.h"
 
 TEST(LlvmLibcX86_64_SyscallTest, APITest) {
   // We only do a signature test here. Actual functionality tests are
@@ -39,6 +38,6 @@ TEST(LlvmLibcX86_64_SyscallTest, APITest) {
         return __llvm_libc::syscall(n, a1, a2, a3, a4, a5, a6);
       });
 
-  Function<long(long, void *)> notLongType(
+  Function<long(long, void *)> not_long_type(
       [](long n, void *a1) { return __llvm_libc::syscall(n, a1); });
 }
