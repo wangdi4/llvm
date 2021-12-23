@@ -312,24 +312,12 @@ public:
     detail::NDLoop<Dims>::iterate(
         /*LowerBound=*/Offset, Stride, UpperBound,
         [&](const sycl::id<Dims> &ID) {
-<<<<<<< HEAD
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
-      if (StoreLocation) {
-        store_id(&ID);
-        store_item(&Item);
-      }
       runKernelWithArg<const sycl::id<Dims> &>(MKernel, ID);
     });
 #endif // INTEL
-=======
-          sycl::item<Dims, /*Offset=*/true> Item =
-              IDBuilder::createItem<Dims, true>(Range, ID, Offset);
-
-          runKernelWithArg<const sycl::id<Dims> &>(MKernel, ID);
-        });
->>>>>>> e4791d11b000d74146a3a225cd68bc6af2e2d0d2
   }
 
   template <class ArgT = KernelArgType>
@@ -380,24 +368,12 @@ public:
     detail::NDLoop<Dims>::iterate(
         /*LowerBound=*/Offset, Stride, UpperBound,
         [&](const sycl::id<Dims> &ID) {
-<<<<<<< HEAD
 #endif // INTEL
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
-      if (StoreLocation) {
-        store_id(&ID);
-        store_item(&Item);
-      }
       runKernelWithArg<sycl::item<Dims, /*Offset=*/true>>(MKernel, Item);
     });
-=======
-          sycl::item<Dims, /*Offset=*/true> Item =
-              IDBuilder::createItem<Dims, true>(Range, ID, Offset);
-
-          runKernelWithArg<sycl::item<Dims, /*Offset=*/true>>(MKernel, Item);
-        });
->>>>>>> e4791d11b000d74146a3a225cd68bc6af2e2d0d2
   }
 
   template <class ArgT = KernelArgType>

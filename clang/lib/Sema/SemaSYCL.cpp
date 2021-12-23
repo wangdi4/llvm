@@ -114,21 +114,12 @@ public:
   /// \param Tmpl  whether the class is template instantiation or simple record
   static bool isSyclType(QualType Ty, StringRef Name, bool Tmpl = false);
 
-<<<<<<< HEAD
-  /// Checks whether given function is a standard SYCL API function with given
-  /// name.
-  /// \param FD    the function being checked.
-  /// \param Name  the function name to be checked against.
-  static bool isSyclFunction(const FunctionDecl *FD, StringRef Name);
-
 #ifdef INTEL_CUSTOMIZATION
   /// Checks whether given function is
   /// cl::sycl::ext::intel::non_uniform_sub_group::invoke_unmasked API.
   static bool isSyclInvokeUnmaskedFunction(const FunctionDecl *FD);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> e4791d11b000d74146a3a225cd68bc6af2e2d0d2
   /// Checks whether given clang type is a full specialization of the SYCL
   /// specialization constant class.
   static bool isSyclSpecConstantType(QualType Ty);
@@ -5049,29 +5040,6 @@ bool Util::isSyclType(QualType Ty, StringRef Name, bool Tmpl) {
   return matchQualifiedTypeName(Ty, Scopes);
 }
 
-<<<<<<< HEAD
-bool Util::isSyclFunction(const FunctionDecl *FD, StringRef Name) {
-  if (!FD->isFunctionOrMethod() || !FD->getIdentifier() ||
-      FD->getName().empty() || Name != FD->getName())
-    return false;
-
-  const DeclContext *DC = FD->getDeclContext();
-  if (DC->isTranslationUnit())
-    return false;
-
-  std::array<DeclContextDesc, 2> ScopesSycl = {
-      Util::MakeDeclContextDesc(Decl::Kind::Namespace, "cl"),
-      Util::MakeDeclContextDesc(Decl::Kind::Namespace, "sycl")};
-  std::array<DeclContextDesc, 5> ScopesOneapiExp = {
-      Util::MakeDeclContextDesc(Decl::Kind::Namespace, "cl"),
-      Util::MakeDeclContextDesc(Decl::Kind::Namespace, "sycl"),
-      Util::MakeDeclContextDesc(Decl::Kind::Namespace, "ext"),
-      Util::MakeDeclContextDesc(Decl::Kind::Namespace, "oneapi"),
-      Util::MakeDeclContextDesc(Decl::Kind::Namespace, "experimental")};
-
-  return matchContext(DC, ScopesSycl) || matchContext(DC, ScopesOneapiExp);
-}
-
 #if INTEL_CUSTOMIZATION
 bool Util::isSyclInvokeUnmaskedFunction(const FunctionDecl *FD) {
   const StringRef &Name = "invoke_unmasked";
@@ -5100,8 +5068,6 @@ bool Util::isSyclInvokeUnmaskedFunction(const FunctionDecl *FD) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> e4791d11b000d74146a3a225cd68bc6af2e2d0d2
 bool Util::isAccessorPropertyListType(QualType Ty) {
   std::array<DeclContextDesc, 5> Scopes = {
       Util::MakeDeclContextDesc(Decl::Kind::Namespace, "cl"),
