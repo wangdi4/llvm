@@ -1347,7 +1347,8 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
     const ConstantExpr *CE = cast<ConstantExpr>(E);
     if (llvm::Value *Result = ConstantEmitter(*this).tryEmitConstantExpr(CE)) {
       QualType RetType = cast<CallExpr>(CE->getSubExpr()->IgnoreImplicit())
-                             ->getCallReturnType(getContext());
+                             ->getCallReturnType(getContext())
+                             ->getPointeeType();
       return MakeNaturalAlignAddrLValue(Result, RetType);
     }
     return EmitLValue(cast<ConstantExpr>(E)->getSubExpr());
