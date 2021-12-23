@@ -102,8 +102,7 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
     tar = nullptr;
     memset(&in, 0, sizeof(in));
 
-    partitions.clear();
-    partitions.emplace_back();
+    partitions = {Partition()};
 
     SharedFile::vernauxNum = 0;
   };
@@ -120,8 +119,7 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
   script = std::make_unique<LinkerScript>();
   symtab = std::make_unique<SymbolTable>();
 
-  partitions.clear();
-  partitions.emplace_back();
+  partitions = {Partition()};
 
   config->progName = args[0];
 
