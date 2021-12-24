@@ -1874,7 +1874,7 @@ struct DSEState {
       Instruction *DefInst = Def->getMemoryInst();
       auto MaybeDefLoc = getLocForWrite(DefInst);
       if (!MaybeDefLoc || !isRemovable(DefInst))
-        return false;
+        continue;
 
       MemoryDef *UpperDef;
       // To conserve compile-time, we avoid walking to the next clobbering def.
