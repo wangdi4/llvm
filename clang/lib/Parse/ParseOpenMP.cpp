@@ -3570,9 +3570,13 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_read:
   case OMPC_write:
   case OMPC_capture:
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_compare:
 #endif // INTEL_COLLAB
+=======
+  case OMPC_compare:
+>>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:

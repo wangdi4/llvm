@@ -598,9 +598,13 @@ void OMPClauseProfiler::VisitOMPUpdateClause(const OMPUpdateClause *) {}
 
 void OMPClauseProfiler::VisitOMPCaptureClause(const OMPCaptureClause *) {}
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 void OMPClauseProfiler::VisitOMPCompareClause(const OMPCompareClause *) {}
 #endif // INTEL_COLLAB
+=======
+void OMPClauseProfiler::VisitOMPCompareClause(const OMPCompareClause *) {}
+>>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 
 void OMPClauseProfiler::VisitOMPSeqCstClause(const OMPSeqCstClause *) {}
 
