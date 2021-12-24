@@ -183,33 +183,19 @@ static bool isRemovable(Instruction *I) {
   if (StoreInst *SI = dyn_cast<StoreInst>(I))
     return SI->isUnordered();
 
-  if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
-    switch (II->getIntrinsicID()) {
-    default: llvm_unreachable("Does not have LocForWrite");
-    case Intrinsic::lifetime_end:
-      // Never remove dead lifetime_end's, e.g. because it is followed by a
-      // free.
-      return false;
-    case Intrinsic::init_trampoline:
-      // Always safe to remove init_trampoline.
-      return true;
-    case Intrinsic::memset:
-    case Intrinsic::memmove:
-    case Intrinsic::memcpy:
-    case Intrinsic::memcpy_inline:
-      // Don't remove volatile memory intrinsics.
-      return !cast<MemIntrinsic>(II)->isVolatile();
-    case Intrinsic::memcpy_element_unordered_atomic:
-    case Intrinsic::memmove_element_unordered_atomic:
-    case Intrinsic::memset_element_unordered_atomic:
-    case Intrinsic::masked_store:
-      return true;
-    }
-  }
+  // Note: only get here for calls with analyzable writes.
+  if (auto *CB = dyn_cast<CallBase>(I)) {
+    // Don't remove volatile memory intrinsics.
+    if (auto *MI = dyn_cast<MemIntrinsic>(CB))
+      return !MI->isVolatile();
 
-  // note: only get here for calls with analyzable writes.
-  if (auto *CB = dyn_cast<CallBase>(I))
+    // Never remove dead lifetime intrinsics, e.g. because they are followed by
+    // a free.
+    if (CB->isLifetimeStartOrEnd())
+      return false;
+
     return CB->use_empty() && CB->willReturn() && CB->doesNotThrow();
+  }
 
   return false;
 }
@@ -1210,23 +1196,14 @@ struct DSEState {
   /// loop. In particular, this guarantees that it only references a single
   /// MemoryLocation during execution of the containing function.
   bool isGuaranteedLoopInvariant(const Value *Ptr) {
-    auto IsGuaranteedLoopInvariantBase = [](const Value *Ptr) {
-      Ptr = Ptr->stripPointerCasts();
-      if (auto *I = dyn_cast<Instruction>(Ptr))
-        return I->getParent()->isEntryBlock();
-      return true;
-    };
-
     Ptr = Ptr->stripPointerCasts();
-    if (auto *I = dyn_cast<Instruction>(Ptr)) {
-      if (I->getParent()->isEntryBlock())
-        return true;
-    }
-    if (auto *GEP = dyn_cast<GEPOperator>(Ptr)) {
-      return IsGuaranteedLoopInvariantBase(GEP->getPointerOperand()) &&
-             GEP->hasAllConstantIndices();
-    }
-    return IsGuaranteedLoopInvariantBase(Ptr);
+    if (auto *GEP = dyn_cast<GEPOperator>(Ptr))
+      if (GEP->hasAllConstantIndices())
+        Ptr = GEP->getPointerOperand()->stripPointerCasts();
+
+    if (auto *I = dyn_cast<Instruction>(Ptr))
+      return I->getParent()->isEntryBlock();
+    return true;
   }
 
   // Find a MemoryDef writing to \p KillingLoc and dominating \p StartAccess,
@@ -1696,12 +1673,12 @@ struct DSEState {
         dbgs()
         << "Trying to eliminate MemoryDefs at the end of the function\n");
     for (MemoryDef *Def : llvm::reverse(MemDefs)) {
-      if (SkipStores.contains(Def) || !isRemovable(Def->getMemoryInst()))
+      if (SkipStores.contains(Def))
         continue;
 
       Instruction *DefI = Def->getMemoryInst();
       auto DefLoc = getLocForWriteEx(DefI);
-      if (!DefLoc)
+      if (!DefLoc || !isRemovable(DefI))
         continue;
 
       // NOTE: Currently eliminating writes at the end of a function is limited
@@ -1890,9 +1867,14 @@ struct DSEState {
     LLVM_DEBUG(dbgs() << "Trying to eliminate MemoryDefs that write the "
                          "already existing value\n");
     for (auto *Def : MemDefs) {
-      if (SkipStores.contains(Def) || MSSA.isLiveOnEntryDef(Def) ||
-          !isRemovable(Def->getMemoryInst()))
+      if (SkipStores.contains(Def) || MSSA.isLiveOnEntryDef(Def))
         continue;
+
+      Instruction *DefInst = Def->getMemoryInst();
+      auto MaybeDefLoc = getLocForWriteEx(DefInst);
+      if (!MaybeDefLoc || !isRemovable(DefInst))
+        return false;
+
       MemoryDef *UpperDef;
       // To conserve compile-time, we avoid walking to the next clobbering def.
       // Instead, we just try to get the optimized access, if it exists. DSE
@@ -1904,17 +1886,14 @@ struct DSEState {
       if (!UpperDef || MSSA.isLiveOnEntryDef(UpperDef))
         continue;
 
-      Instruction *DefInst = Def->getMemoryInst();
       Instruction *UpperInst = UpperDef->getMemoryInst();
-      auto IsRedundantStore = [this, DefInst,
-                               UpperInst](MemoryLocation UpperLoc) {
+      auto IsRedundantStore = [&]() {
         if (DefInst->isIdenticalTo(UpperInst))
           return true;
         if (auto *MemSetI = dyn_cast<MemSetInst>(UpperInst)) {
           if (auto *SI = dyn_cast<StoreInst>(DefInst)) {
-            auto MaybeDefLoc = getLocForWriteEx(DefInst);
-            if (!MaybeDefLoc)
-              return false;
+            // MemSetInst must have a write location.
+            MemoryLocation UpperLoc = *getLocForWriteEx(UpperInst);
             int64_t InstWriteOffset = 0;
             int64_t DepWriteOffset = 0;
             auto OR = isOverwrite(UpperInst, DefInst, UpperLoc, *MaybeDefLoc,
@@ -1927,9 +1906,7 @@ struct DSEState {
         return false;
       };
 
-      auto MaybeUpperLoc = getLocForWriteEx(UpperInst);
-      if (!MaybeUpperLoc || !IsRedundantStore(*MaybeUpperLoc) ||
-          isReadClobber(*MaybeUpperLoc, DefInst))
+      if (!IsRedundantStore() || isReadClobber(*MaybeDefLoc, DefInst))
         continue;
       LLVM_DEBUG(dbgs() << "DSE: Remove No-Op Store:\n  DEAD: " << *DefInst
                         << '\n');
