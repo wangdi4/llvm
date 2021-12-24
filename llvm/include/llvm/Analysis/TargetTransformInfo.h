@@ -1389,13 +1389,12 @@ public:
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
 
-  /// \returns True if the caller and callee agree on how \p Args will be passed
+  /// \returns True if the caller and callee agree on how \p Types will be
+  /// passed to or returned from the callee.
   /// to the callee.
-  /// \param[out] Args The list of compatible arguments.  The implementation may
-  /// filter out any incompatible args from this list.
-  bool areFunctionArgsABICompatible(const Function *Caller,
-                                    const Function *Callee,
-                                    SmallPtrSetImpl<Argument *> &Args) const;
+  /// \param Types List of types to check.
+  bool areTypesABICompatible(const Function *Caller, const Function *Callee,
+                             const ArrayRef<Type *> &Types) const;
 
   /// The type of load/store indexing.
   enum MemIndexedMode {
@@ -1485,6 +1484,9 @@ public:
 
   /// \returns True if the target supports scalable vectors.
   bool supportsScalableVectors() const;
+
+  /// \return true when scalable vectorization is preferred.
+  bool enableScalableVectorization() const;
 
   /// \name Vector Predication Information
   /// @{
@@ -1864,9 +1866,9 @@ public:
       unsigned SrcAlign, unsigned DestAlign) const = 0;
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
-  virtual bool
-  areFunctionArgsABICompatible(const Function *Caller, const Function *Callee,
-                               SmallPtrSetImpl<Argument *> &Args) const = 0;
+  virtual bool areTypesABICompatible(const Function *Caller,
+                                     const Function *Callee,
+                                     const ArrayRef<Type *> &Types) const = 0;
   virtual bool isIndexedLoadLegal(MemIndexedMode Mode, Type *Ty) const = 0;
   virtual bool isIndexedStoreLegal(MemIndexedMode Mode, Type *Ty) const = 0;
   virtual unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const = 0;
@@ -1893,6 +1895,7 @@ public:
                                                ReductionFlags) const = 0;
   virtual bool shouldExpandReduction(const IntrinsicInst *II) const = 0;
   virtual unsigned getGISelRematGlobalCost() const = 0;
+  virtual bool enableScalableVectorization() const = 0;
   virtual bool supportsScalableVectors() const = 0;
   virtual bool hasActiveVectorLength(unsigned Opcode, Type *DataType,
                                      Align Alignment) const = 0;
@@ -2510,10 +2513,9 @@ public:
                            const Function *Callee) const override {
     return Impl.areInlineCompatible(Caller, Callee);
   }
-  bool areFunctionArgsABICompatible(
-      const Function *Caller, const Function *Callee,
-      SmallPtrSetImpl<Argument *> &Args) const override {
-    return Impl.areFunctionArgsABICompatible(Caller, Callee, Args);
+  bool areTypesABICompatible(const Function *Caller, const Function *Callee,
+                             const ArrayRef<Type *> &Types) const override {
+    return Impl.areTypesABICompatible(Caller, Callee, Types);
   }
   bool isIndexedLoadLegal(MemIndexedMode Mode, Type *Ty) const override {
     return Impl.isIndexedLoadLegal(Mode, Ty, getDataLayout());
@@ -2575,6 +2577,10 @@ public:
 
   bool supportsScalableVectors() const override {
     return Impl.supportsScalableVectors();
+  }
+
+  bool enableScalableVectorization() const override {
+    return Impl.enableScalableVectorization();
   }
 
   bool hasActiveVectorLength(unsigned Opcode, Type *DataType,

@@ -1836,8 +1836,8 @@ void AOSToSOAOPTransformImpl::initializeIndexType(LLVMContext &Ctx,
   IndexInfo.Width = BitWidth;
   IndexInfo.LLVMType = Type::getIntNTy(Ctx, BitWidth);
   IndexInfo.DTType = TM.getOrCreateAtomicType(IndexInfo.LLVMType);
-  IndexInfo.IncompatibleTypeAttrs =
-      AttributeFuncs::typeIncompatible(IndexInfo.LLVMType);
+  IndexInfo.IncompatibleTypeAttrs.merge(
+      AttributeFuncs::typeIncompatible(IndexInfo.LLVMType));
 }
 
 // Return an integer type that will be used as a replacement type for pointers

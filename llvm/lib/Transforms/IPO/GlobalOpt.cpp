@@ -283,34 +283,6 @@ CleanupPointerRootUsers(GlobalVariable *GV,
 /// clean up the easy and obvious cruft.  This returns true if it made a change.
 static bool CleanupConstantGlobalUsers(GlobalVariable *GV,
                                        const DataLayout &DL) {
-
-#if INTEL_CUSTOMIZATION
-  // Return true if a null LLVM::Constant can be created using the input type.
-  // Else, return false. This list was created using the types allowed to make
-  // a null LLVM::Constant in the function Constant::getNullValue.
-  auto NullConstCanBeCreated = [](Type *Ty) {
-    switch (Ty->getTypeID()) {
-    case Type::IntegerTyID:
-    case Type::HalfTyID:
-    case Type::BFloatTyID:
-    case Type::FloatTyID:
-    case Type::DoubleTyID:
-    case Type::X86_FP80TyID:
-    case Type::FP128TyID:
-    case Type::PPC_FP128TyID:
-    case Type::PointerTyID:
-    case Type::StructTyID:
-    case Type::ArrayTyID:
-    case Type::FixedVectorTyID:
-    case Type::ScalableVectorTyID:
-    case Type::TokenTyID:
-      return true;
-    default:
-      return false;
-    }
-  };
-#endif // INTEL_CUSTOMIZATION
-
   Constant *Init = GV->getInitializer();
   SmallVector<User *, 8> WorkList(GV->users());
   SmallPtrSet<User *, 8> Visited;
@@ -336,41 +308,21 @@ static bool CleanupConstantGlobalUsers(GlobalVariable *GV,
     else if (auto *GEP = dyn_cast<GEPOperator>(U))
       append_range(WorkList, GEP->users());
     else if (auto *LI = dyn_cast<LoadInst>(U)) {
-#if INTEL_CUSTOMIZATION
-      // This is a workaround for CMPLRLLVM-33510. The LLVM community added the
-      // check if Init is a null LLVM::Constant, therefore create a null
-      // LLVM::Constant with LI's type. The issue is that LI can be a type that
-      // doesn't support LLVM::Constant (e.g. X86_MMX) and could produce an
-      // assertion. This issue was introduced by the following changes:
-      //
-      //   https://reviews.llvm.org/D114889
-      //
-      // For now, we are going to use a workaround until the community fixes
-      // the problem. NullConstCanBeCreated will check if the type of LI
-      // supports LLVM::Constant, else prevent the constant folding. This
-      // check can be removed once the issue is solved.
-      if (NullConstCanBeCreated(LI->getType())) {
-#endif // INTEL_CUSTOMIZATION
       // A load from zeroinitializer is always zeroinitializer, regardless of
       // any applied offset.
-      if (Constant *Res =
-              ConstantFoldLoadFromUniformValue(Init, LI->getType())) {
-        LI->replaceAllUsesWith(Res);
+      Type *Ty = LI->getType();
+      if (Init->isNullValue() && !Ty->isX86_MMXTy() && !Ty->isX86_AMXTy()) {
+        LI->replaceAllUsesWith(Constant::getNullValue(Ty));
         EraseFromParent(LI);
         continue;
       }
-
-#if INTEL_CUSTOMIZATION
-      }
-#endif // INTEL_CUSTOMIZATION
 
       Value *PtrOp = LI->getPointerOperand();
       APInt Offset(DL.getIndexTypeSizeInBits(PtrOp->getType()), 0);
       PtrOp = PtrOp->stripAndAccumulateConstantOffsets(
           DL, Offset, /* AllowNonInbounds */ true);
       if (PtrOp == GV) {
-        if (auto *Value = ConstantFoldLoadFromConst(Init, LI->getType(),
-                                                    Offset, DL)) {
+        if (auto *Value = ConstantFoldLoadFromConst(Init, Ty, Offset, DL)) {
           LI->replaceAllUsesWith(Value);
           EraseFromParent(LI);
         }
@@ -421,8 +373,7 @@ static bool isSafeSROAGEP(User *U) {
       return false;
   }
 
-  return llvm::all_of(U->users(),
-                      [](User *UU) { return isSafeSROAElementUse(UU); });
+  return llvm::all_of(U->users(), isSafeSROAElementUse);
 }
 
 /// Return true if the specified instruction is a safe user of a derived

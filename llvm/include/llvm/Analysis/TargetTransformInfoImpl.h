@@ -781,9 +781,8 @@ public:
             Callee->getFnAttribute("target-features"));
   }
 
-  bool areFunctionArgsABICompatible(const Function *Caller,
-                                    const Function *Callee,
-                                    SmallPtrSetImpl<Argument *> &Args) const {
+  bool areTypesABICompatible(const Function *Caller, const Function *Callee,
+                             const ArrayRef<Type *> &Types) const {
     return (Caller->getFnAttribute("target-cpu") ==
             Callee->getFnAttribute("target-cpu")) &&
            (Caller->getFnAttribute("target-features") ==
@@ -850,6 +849,8 @@ public:
   unsigned getGISelRematGlobalCost() const { return 1; }
 
   bool supportsScalableVectors() const { return false; }
+
+  bool enableScalableVectorization() const { return false; }
 
   bool hasActiveVectorLength(unsigned Opcode, Type *DataType,
                              Align Alignment) const {
