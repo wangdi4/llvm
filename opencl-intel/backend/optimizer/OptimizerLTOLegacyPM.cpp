@@ -69,9 +69,11 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     // We do not want to inline hot callsites for SamplePGO module-summary build
     // because profile annotation will happen again in ThinLTO backend, and we
     // want the IR of the hot path to match the profile.
-    PMBuilder.Inliner = createFunctionInliningPass(
-        PMBuilder.OptLevel, PMBuilder.SizeLevel, PMBuilder.PrepareForThinLTO,
-        PMBuilder.PrepareForLTO);
+    auto Params =
+        getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
+                        PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO);
+    Params.DefaultThreshold = 4096;
+    PMBuilder.Inliner = createFunctionInliningPass(Params);
   }
 
   // Initialize TTI
