@@ -11,6 +11,36 @@
 ; }
 
 ; Check that 1D-range is created for the runtime:
+; CHECK-LABEL: @foo
+; CHECK: [[UB0:%[a-zA-Z._0-9]+]] = load i64, i64* %.omp.uncollapsed.ub,
+; CHECK: [[UB0ADD:%[a-zA-Z._0-9]+]] = add nuw nsw i64 [[UB0]]
+; CHECK: [[UB0ZEROPRED:%[a-zA-Z._0-9]+]] = icmp slt i64 [[UB0]], 0
+
+; CHECK: [[UB1:%[a-zA-Z._0-9]+]] = load i64, i64* %.omp.uncollapsed.ub31,
+; CHECK: [[UB1ADD:%[a-zA-Z._0-9]+]] = add nuw nsw i64 [[UB1]]
+; CHECK: [[UB1ZEROPRED:%[a-zA-Z._0-9]+]] = icmp slt i64 [[UB1]], 0
+; CHECK: [[OR0:%[a-zA-Z._0-9]+]] = or i1 [[UB0ZEROPRED]], [[UB1ZEROPRED]]
+
+; CHECK: [[UB2:%[a-zA-Z._0-9]+]] = load i64, i64* %.omp.uncollapsed.ub39,
+; CHECK: [[UB2ADD:%[a-zA-Z._0-9]+]] = add nuw nsw i64 [[UB2]]
+; CHECK: [[UB2ZEROPRED:%[a-zA-Z._0-9]+]] = icmp slt i64 [[UB2]], 0
+; CHECK: [[OR1:%[a-zA-Z._0-9]+]] = or i1 [[OR0]], [[UB2ZEROPRED]]
+
+; CHECK: [[UB3:%[a-zA-Z._0-9]+]] = load i64, i64* %.omp.uncollapsed.ub47,
+; CHECK: [[UB3ADD:%[a-zA-Z._0-9]+]] = add nuw nsw i64 [[UB3]]
+; CHECK: [[UB3ZEROPRED:%[a-zA-Z._0-9]+]] = icmp slt i64 [[UB3]], 0
+; CHECK: [[OR2:%[a-zA-Z._0-9]+]] = or i1 [[OR1]], [[UB3ZEROPRED]]
+
+; CHECK: [[MUL0:%[a-zA-Z._0-9]+]] = mul nuw nsw i64 [[UB0ADD]], [[UB1ADD]]
+; CHECK: [[MUL1:%[a-zA-Z._0-9]+]] = mul nuw nsw i64 [[MUL0]], [[UB2ADD]]
+; CHECK: [[MUL2:%[a-zA-Z._0-9]+]] = mul nuw nsw i64 [[MUL1]], [[UB3ADD]]
+
+; Verify that we set the collapsed UB to 0, when any of the loops
+; has zero iterations:
+; CHECK: [[SEL:%[a-zA-Z._0-9]+]] = select i1 [[OR2]], i64 0, i64 [[MUL2]]
+; CHECK: [[COLLAPSEDUBVAL:%[a-zA-Z._0-9]+]] = sub nuw nsw i64 [[SEL]], 1
+; CHECK: store i64 [[COLLAPSEDUBVAL]], i64* [[COLLAPSEDUBPTR:%[a-zA-Z._0-9]+]]
+
 ; CHECK: [[NDDESC:%[a-zA-Z._0-9]+]] = alloca { i32, i32, i64, i64, i64 }
 ; CHECK: [[M0:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 0
 ; CHECK: store i32 1, i32* [[M0]]
@@ -19,7 +49,7 @@
 ; CHECK: [[M2:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 2
 ; CHECK: store i64 0, i64* [[M2]]
 ; CHECK: [[M3:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 3
-; CHECK: [[COLLAPSEDUB:%[a-zA-Z._0-9]+]] = load i64, i64* [[COLLAPSEDUBPTR:%[a-zA-Z._0-9]+]]
+; CHECK: [[COLLAPSEDUB:%[a-zA-Z._0-9]+]] = load i64, i64* [[COLLAPSEDUBPTR]]
 ; CHECK: store i64 [[COLLAPSEDUB]], i64* [[M3]]
 ; CHECK: [[M4:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 4
 ; CHECK: store i64 1, i64* [[M4]]
