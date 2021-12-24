@@ -7717,8 +7717,14 @@ void VPOParoptTransform::fixOmpBottomTestExpr(Loop *L) {
   Instruction *TermInst = Backedge->getTerminator();
   BranchInst *ExitBrInst = cast<BranchInst>(TermInst);
   ICmpInst *CondInst = cast<ICmpInst>(ExitBrInst->getCondition());
-  assert((CondInst->getPredicate() == CmpInst::ICMP_SLE ||
-         CondInst->getPredicate() == CmpInst::ICMP_ULE) &&
+  ICmpInst::Predicate OrigPred = CondInst->getPredicate();
+  // Nothing to do if the loop predicate is already slt/ult, which
+  // can happen if a GENERICLOOP construct is translated into SIMD
+  // in the prepare pass.
+  if (OrigPred == CmpInst::ICMP_SLT || OrigPred == CmpInst::ICMP_ULT)
+    return;
+
+  assert((OrigPred == CmpInst::ICMP_SLE || OrigPred == CmpInst::ICMP_ULE) &&
          "Expect incoming loop predicate is SLE or ULE");
   ICmpInst::Predicate NewPred = CondInst->getInversePredicate();
   CondInst->swapOperands();
