@@ -12622,16 +12622,29 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   //       of the original upper bound(s) produced by FE.
   Type *CombinedUBType = BeforeRegBuilder.getInt64Ty();
   SmallVector<Value *, 3> MulOperands;
+  Value *ZeroTripPredicate = nullptr;
   for (unsigned Idx = 0; Idx < NumLoops; ++Idx) {
     auto *UBPtrDef = W->getWRNLoopInfo().getNormUB(Idx);
     auto *UBType = W->getWRNLoopInfo().getNormUBElemTy(Idx);
     auto *UBVal = BeforeRegBuilder.CreateLoad(
         UBType, UBPtrDef, Twine(UBPtrDef->getName()) + Twine(".val"));
+    auto *UBValExt =
+        BeforeRegBuilder.CreateZExtOrTrunc(UBVal, CombinedUBType, ".zext");
     MulOperands.push_back(
-        BeforeRegBuilder.CreateAdd(
-            BeforeRegBuilder.CreateZExtOrTrunc(UBVal, CombinedUBType, ".zext"),
-            ConstantInt::get(CombinedUBType, 1),
-            "", true, true));
+        BeforeRegBuilder.CreateAdd(UBValExt,
+                                   ConstantInt::get(CombinedUBType, 1),
+                                   "", true, true));
+
+    // Create a predicate that is set to true, when any of the loops
+    // has zero iterations, i.e. its UB value is negative.
+    auto *IsZeroTrip =
+        BeforeRegBuilder.CreateICmp(ICmpInst::ICMP_SLT, UBValExt,
+                                    Constant::getNullValue(CombinedUBType));
+    if (!ZeroTripPredicate)
+      ZeroTripPredicate = IsZeroTrip;
+    else
+      ZeroTripPredicate =
+          BeforeRegBuilder.CreateOr(ZeroTripPredicate, IsZeroTrip);
   }
 
   Value *NewUpperBndVal = MulOperands.front();
@@ -12640,6 +12653,13 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         BeforeRegBuilder.CreateMul(NewUpperBndVal, MulOperands[Idx],
                                    "", true, true);
 
+  // If there are two loops with negative UB values, then the multiplication
+  // may end up being a positive number. We have to recognize the situation,
+  // when the combined iteration space is empty and produce zero UB.
+  NewUpperBndVal =
+      BeforeRegBuilder.CreateSelect(ZeroTripPredicate,
+                                    Constant::getNullValue(CombinedUBType),
+                                    NewUpperBndVal);
   NewUpperBndVal =
       BeforeRegBuilder.CreateSub(
           NewUpperBndVal, ConstantInt::get(CombinedUBType, 1), "", true, true);
