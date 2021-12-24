@@ -179,15 +179,6 @@ static bool isMangleOf(StringRef LHS, StringRef RHS) {
   return stripName(LHS) == RHS;
 }
 
-static bool isOptionalMangleOf(StringRef LHS, StringRef RHS) {
-  if (LHS == RHS)
-    return true;
-  // LHS should be mangled
-  if (!isMangledName(LHS))
-    return false;
-  return stripName(LHS) == RHS;
-}
-
 bool isEnqueueKernel(StringRef S) {
   return S == "__enqueue_kernel_basic" ||
          S == "__enqueue_kernel_basic_events" ||
@@ -268,36 +259,36 @@ bool isGetEnqueuedLocalSize(StringRef S) {
 }
 
 bool isGetGlobalLinearId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_LINEAR_GID);
+  return isMangleOf(S, NAME_GET_LINEAR_GID);
 }
 
 bool isGetLocalLinearId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
+  return isMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
 bool isGetGlobalSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_GLOBAL_SIZE);
+  return isMangleOf(S, NAME_GET_GLOBAL_SIZE);
 }
 
 bool isGetGroupId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_GROUP_ID);
+  return isMangleOf(S, NAME_GET_GROUP_ID);
 }
 
 bool isGetLocalSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_LOCAL_SIZE);
+  return isMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
 bool isGetNumGroups(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_NUM_GROUPS);
+  return isMangleOf(S, NAME_GET_NUM_GROUPS);
 }
 
 bool isGetWorkDim(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_WORK_DIM);
+  return isMangleOf(S, NAME_GET_WORK_DIM);
 }
 
-bool isGetLocalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_LID); }
+bool isGetLocalId(StringRef S) { return isMangleOf(S, NAME_GET_LID); }
 
-bool isGetGlobalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_GID); }
+bool isGetGlobalId(StringRef S) { return isMangleOf(S, NAME_GET_GID); }
 
 bool isAtomicBuiltin(StringRef S) {
   // S is atomic built-in name if
@@ -320,7 +311,7 @@ bool isGlobalCtorDtorOrCPPFunc(Function *F) {
 }
 
 bool isGlobalOffset(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_GLOBAL_OFFSET);
+  return isMangleOf(S, NAME_GET_GLOBAL_OFFSET);
 }
 
 StringRef nameGetBaseGID() { return NAME_GET_BASE_GID; }
@@ -608,27 +599,27 @@ bool isWorkGroupBarrier(StringRef S) {
 /// Subgroup builtin functions
 
 bool isGetSubGroupSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_SIZE);
+  return isMangleOf(S, NAME_GET_SUB_GROUP_SIZE);
 }
 
 bool isGetMaxSubGroupSize(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_MAX_SUB_GROUP_SIZE);
+  return isMangleOf(S, NAME_GET_MAX_SUB_GROUP_SIZE);
 }
 
 bool isGetNumSubGroups(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_NUM_SUB_GROUPS);
+  return isMangleOf(S, NAME_GET_NUM_SUB_GROUPS);
 }
 
 bool isGetEnqueuedNumSubGroups(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
+  return isMangleOf(S, NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
 }
 
 bool isGetSubGroupId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_ID);
+  return isMangleOf(S, NAME_GET_SUB_GROUP_ID);
 }
 
 bool isGetSubGroupLocalId(StringRef S) {
-  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
+  return isMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
 }
 
 bool isSubGroupAll(StringRef S) { return isMangleOf(S, NAME_SUB_GROUP_ALL); }
