@@ -3139,7 +3139,12 @@ Instruction *InstCombinerImpl::visitFree(CallInst &FI) {
   Value *Op = FI.getArgOperand(0);
 
   // free undef -> unreachable.
-  if (isa<UndefValue>(Op)) {
+#if INTEL_CUSTOMIZATION
+  // Only single-argument (with NumOperands == 2) free functions have
+  // known behavior with undef args. Other kinds of free functions (such as
+  // placement-delete) have user-defined behavior and may ignore their args.
+  if (FI.getNumOperands() == 2 && isa<UndefValue>(Op)) {
+#endif // INTEL_CUSTOMIZATION
     // Leave a marker since we can't modify the CFG here.
     CreateNonTerminatorUnreachable(&FI);
     return eraseInstFromFunction(FI);

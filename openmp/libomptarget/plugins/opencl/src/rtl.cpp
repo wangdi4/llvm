@@ -3810,13 +3810,30 @@ static void decideLoopKernelGroupArguments(
     assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
     DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
        PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
-    if (level[i].Ub < level[i].Lb) {
-      std::fill(GroupCounts, GroupCounts + 3, 1);
-      std::fill(GroupSizes, GroupSizes + 3, 1);
-      return;
+    if (level[i].Ub < level[i].Lb)
+      tripCounts[i] = 0;
+    else
+      tripCounts[i] =
+          (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
+  }
+
+  // Check if any of the loop has zero iterations.
+  if (tripCounts[0] == 0 || tripCounts[1] == 0 || tripCounts[2] == 0) {
+    std::fill(GroupSizes, GroupSizes + 3, 1);
+    std::fill(GroupCounts, GroupCounts + 3, 1);
+    if (distributeDim > 0 && tripCounts[distributeDim] != 0) {
+      // There is a distribute dimension, and the distribute loop
+      // has non-zero iterations, but some inner parallel loop
+      // has zero iterations. We still want to split the distribute
+      // loop's iterations between many WGs (of size 1), but the inner/lower
+      // dimensions should be 1x1.
+      // Note that this code is currently dead, because we are not
+      // hoisting the inner loops' bounds outside of the target regions.
+      // The code is here just for completeness.
+      size_t distributeTripCount = tripCounts[distributeDim];
+      GroupCounts[distributeDim] = distributeTripCount;
     }
-    tripCounts[i] =
-        (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
+    return;
   }
 
   if (!maxGroupSizeForced) {
