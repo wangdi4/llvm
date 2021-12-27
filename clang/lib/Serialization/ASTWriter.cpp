@@ -6302,9 +6302,7 @@ void OMPClauseWriter::VisitOMPUpdateClause(OMPUpdateClause *C) {
 
 void OMPClauseWriter::VisitOMPCaptureClause(OMPCaptureClause *) {}
 
-#if INTEL_COLLAB
 void OMPClauseWriter::VisitOMPCompareClause(OMPCompareClause *) {}
-#endif // INTEL_COLLAB
 
 void OMPClauseWriter::VisitOMPSeqCstClause(OMPSeqCstClause *) {}
 

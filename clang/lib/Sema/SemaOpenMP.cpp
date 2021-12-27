@@ -6629,6 +6629,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_write:
       case OMPC_update:
       case OMPC_capture:
+      case OMPC_compare:
       case OMPC_seq_cst:
       case OMPC_acq_rel:
       case OMPC_acquire:
@@ -13124,15 +13125,21 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
             SourceRange(Body->getBeginLoc(), Body->getBeginLoc());
         ErrorFound = NotACompoundStatement;
       }
-      if (ErrorFound != NoError) {
-        Diag(ErrorLoc, diag::err_omp_atomic_capture_not_compound_statement)
-            << ErrorRange;
-        Diag(NoteLoc, diag::note_omp_atomic_capture) << ErrorFound << NoteRange;
-        return StmtError();
-      }
-      if (CurContext->isDependentContext())
-        UE = V = E = X = nullptr;
     }
+    if (ErrorFound != NoError) {
+      Diag(ErrorLoc, diag::err_omp_atomic_capture_not_compound_statement)
+          << ErrorRange;
+      Diag(NoteLoc, diag::note_omp_atomic_capture) << ErrorFound << NoteRange;
+      return StmtError();
+    }
+    if (CurContext->isDependentContext())
+      UE = V = E = X = nullptr;
+  } else if (AtomicKind == OMPC_compare) {
+    // TODO: For now we emit an error here and in emitOMPAtomicExpr we ignore
+    // code gen.
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "atomic compare is not supported for now");
+    Diag(AtomicKindLoc, DiagID);
   }
 
   setFunctionHasBranchProtectedScope();
@@ -15221,6 +15228,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
+  case OMPC_compare:
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -16390,6 +16398,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
+  case OMPC_compare:
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -16896,6 +16905,7 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_read:
   case OMPC_write:
   case OMPC_capture:
+  case OMPC_compare:
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -17207,6 +17217,7 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
+  case OMPC_compare:
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -17401,11 +17412,9 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_capture:
     Res = ActOnOpenMPCaptureClause(StartLoc, EndLoc);
     break;
-#if INTEL_COLLAB
   case OMPC_compare:
     Res = ActOnOpenMPCompareClause(StartLoc, EndLoc);
     break;
-#endif // INTEL_COLLAB
   case OMPC_seq_cst:
     Res = ActOnOpenMPSeqCstClause(StartLoc, EndLoc);
     break;
@@ -17561,12 +17570,10 @@ OMPClause *Sema::ActOnOpenMPCaptureClause(SourceLocation StartLoc,
   return new (Context) OMPCaptureClause(StartLoc, EndLoc);
 }
 
-#if INTEL_COLLAB
 OMPClause *Sema::ActOnOpenMPCompareClause(SourceLocation StartLoc,
                                           SourceLocation EndLoc) {
   return new (Context) OMPCompareClause(StartLoc, EndLoc);
 }
-#endif // INTEL_COLLAB
 
 OMPClause *Sema::ActOnOpenMPSeqCstClause(SourceLocation StartLoc,
                                          SourceLocation EndLoc) {
@@ -18044,6 +18051,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
+  case OMPC_compare:
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
