@@ -6117,7 +6117,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     emitOMPAtomicCaptureExpr(CGF, AO, IsPostfixUpdate, V, X, E, UE,
                              IsXLHSInRHSPart, Loc);
     break;
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_compare: {
     bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
@@ -6127,11 +6126,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     break;
   }
 #endif // INTEL_COLLAB
-=======
-  case OMPC_compare:
-    // Do nothing here as we already emit an error.
-    break;
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:

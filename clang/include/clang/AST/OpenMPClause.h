@@ -2778,10 +2778,6 @@ public:
   }
 };
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 /// This represents 'compare' clause in the '#pragma omp atomic'
 /// directive.
 ///
@@ -2789,11 +2785,7 @@ public:
 /// #pragma omp atomic compare
 /// \endcode
 /// In this example directive '#pragma omp atomic' has 'compare' clause.
-<<<<<<< HEAD
-class OMPCompareClause : public OMPClause {
-=======
 class OMPCompareClause final : public OMPClause {
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 public:
   /// Build 'compare' clause.
   ///
@@ -2826,10 +2818,6 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_compare;
   }
 };
-<<<<<<< HEAD
-#endif // INTEL_COLLAB
-=======
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 
 /// This represents 'seq_cst' clause in the '#pragma omp atomic'
 /// directive.

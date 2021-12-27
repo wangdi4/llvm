@@ -142,13 +142,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
-<<<<<<< HEAD
-#if INTEL_COLLAB
   case OMPC_compare:
-#endif // INTEL_COLLAB
-=======
-  case OMPC_compare:
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -240,13 +234,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
-<<<<<<< HEAD
-#if INTEL_COLLAB
   case OMPC_compare:
-#endif // INTEL_COLLAB
-=======
-  case OMPC_compare:
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -2015,17 +2003,9 @@ void OMPClausePrinter::VisitOMPCaptureClause(OMPCaptureClause *) {
   OS << "capture";
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
 void OMPClausePrinter::VisitOMPCompareClause(OMPCompareClause *) {
   OS << "compare";
 }
-#endif // INTEL_COLLAB
-=======
-void OMPClausePrinter::VisitOMPCompareClause(OMPCompareClause *) {
-  OS << "compare";
-}
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 
 void OMPClausePrinter::VisitOMPSeqCstClause(OMPSeqCstClause *) {
   OS << "seq_cst";

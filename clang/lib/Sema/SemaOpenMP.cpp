@@ -12624,7 +12624,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
     case OMPC_read:
     case OMPC_write:
     case OMPC_update:
-<<<<<<< HEAD
 #if INTEL_COLLAB
     case OMPC_compare:
 #endif // INTEL_COLLAB
@@ -12637,10 +12636,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
         IsCompareCapture = true;
       } else
 #endif // INTEL_COLLAB
-=======
-    case OMPC_capture:
-    case OMPC_compare: {
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
       if (AtomicKind != OMPC_unknown) {
         Diag(C->getBeginLoc(), diag::err_omp_atomic_several_clauses)
             << SourceRange(C->getBeginLoc(), C->getEndLoc());
@@ -17417,17 +17412,9 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_capture:
     Res = ActOnOpenMPCaptureClause(StartLoc, EndLoc);
     break;
-<<<<<<< HEAD
-#if INTEL_COLLAB
   case OMPC_compare:
     Res = ActOnOpenMPCompareClause(StartLoc, EndLoc);
     break;
-#endif // INTEL_COLLAB
-=======
-  case OMPC_compare:
-    Res = ActOnOpenMPCompareClause(StartLoc, EndLoc);
-    break;
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
   case OMPC_seq_cst:
     Res = ActOnOpenMPSeqCstClause(StartLoc, EndLoc);
     break;
@@ -17583,18 +17570,10 @@ OMPClause *Sema::ActOnOpenMPCaptureClause(SourceLocation StartLoc,
   return new (Context) OMPCaptureClause(StartLoc, EndLoc);
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-=======
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 OMPClause *Sema::ActOnOpenMPCompareClause(SourceLocation StartLoc,
                                           SourceLocation EndLoc) {
   return new (Context) OMPCompareClause(StartLoc, EndLoc);
 }
-<<<<<<< HEAD
-#endif // INTEL_COLLAB
-=======
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 
 OMPClause *Sema::ActOnOpenMPSeqCstClause(SourceLocation StartLoc,
                                          SourceLocation EndLoc) {

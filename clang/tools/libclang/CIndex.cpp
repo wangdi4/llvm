@@ -2322,13 +2322,7 @@ void OMPClauseEnqueue::VisitOMPUpdateClause(const OMPUpdateClause *) {}
 
 void OMPClauseEnqueue::VisitOMPCaptureClause(const OMPCaptureClause *) {}
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
 void OMPClauseEnqueue::VisitOMPCompareClause(const OMPCompareClause *) {}
-#endif // INTEL_COLLAB
-=======
-void OMPClauseEnqueue::VisitOMPCompareClause(const OMPCompareClause *) {}
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
 
 void OMPClauseEnqueue::VisitOMPSeqCstClause(const OMPSeqCstClause *) {}
 

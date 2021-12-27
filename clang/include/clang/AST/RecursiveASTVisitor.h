@@ -3331,13 +3331,6 @@ bool RecursiveASTVisitor<Derived>::VisitOMPCaptureClause(OMPCaptureClause *) {
   return true;
 }
 
-#if INTEL_COLLAB
-template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPCompareClause(OMPCompareClause *) {
-  return true;
-}
-#endif // INTEL_COLLAB
-
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPCompareClause(OMPCompareClause *) {
   return true;

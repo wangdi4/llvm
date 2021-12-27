@@ -11768,17 +11768,9 @@ public:
   /// Called on well-formed 'capture' clause.
   OMPClause *ActOnOpenMPCaptureClause(SourceLocation StartLoc,
                                       SourceLocation EndLoc);
-<<<<<<< HEAD
-#if INTEL_COLLAB
   /// Called on well-formed 'compare' clause.
   OMPClause *ActOnOpenMPCompareClause(SourceLocation StartLoc,
                                       SourceLocation EndLoc);
-#endif // INTEL_COLLAB
-=======
-  /// Called on well-formed 'compare' clause.
-  OMPClause *ActOnOpenMPCompareClause(SourceLocation StartLoc,
-                                      SourceLocation EndLoc);
->>>>>>> c7a589a2c4e2db496d732821a8dba59508326250
   /// Called on well-formed 'seq_cst' clause.
   OMPClause *ActOnOpenMPSeqCstClause(SourceLocation StartLoc,
                                      SourceLocation EndLoc);
