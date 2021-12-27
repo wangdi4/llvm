@@ -7361,23 +7361,16 @@ static void handleSYCLIntelNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
   S.AddSYCLIntelNoGlobalWorkOffsetAttr(D, A, E);
 }
 
-<<<<<<< HEAD
-/// Handle the [[intel::doublepump]] and [[intel::singlepump]]
-/// attributes.
-template <typename AttrType>
-static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
-#if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, A))
-   return;
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-#endif // INTEL_CUSTOMIZATION
-
-  checkForDuplicateAttribute<AttrType>(S, D, A);
-=======
 /// Handle the [[intel::singlepump]] attribute.
 static void handleSYCLIntelFPGASinglePumpAttr(Sema &S, Decl *D,
                                               const ParsedAttr &AL) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, AL))
+   return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
+#endif // INTEL_CUSTOMIZATION
+
   checkForDuplicateAttribute<IntelFPGASinglePumpAttr>(S, D, AL);
 
   // If the declaration does not have an [[intel::fpga_memory]]
@@ -7388,11 +7381,17 @@ static void handleSYCLIntelFPGASinglePumpAttr(Sema &S, Decl *D,
 
   D->addAttr(::new (S.Context) IntelFPGASinglePumpAttr(S.Context, AL));
 }
->>>>>>> abd148c848b798d6311222e865827ad54efc591d
 
 /// Handle the [[intel::doublepump]] attribute.
 static void handleSYCLIntelFPGADoublePumpAttr(Sema &S, Decl *D,
                                               const ParsedAttr &AL) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, AL))
+   return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
+#endif // INTEL_CUSTOMIZATION
+
   checkForDuplicateAttribute<IntelFPGADoublePumpAttr>(S, D, AL);
 
   // If the declaration does not have an [[intel::fpga_memory]]
