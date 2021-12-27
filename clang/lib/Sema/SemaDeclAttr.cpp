@@ -7361,24 +7361,46 @@ static void handleSYCLIntelNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
   S.AddSYCLIntelNoGlobalWorkOffsetAttr(D, A, E);
 }
 
-/// Handle the [[intel::doublepump]] and [[intel::singlepump]]
-/// attributes.
-template <typename AttrType>
-static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+/// Handle the [[intel::singlepump]] attribute.
+static void handleSYCLIntelFPGASinglePumpAttr(Sema &S, Decl *D,
+                                              const ParsedAttr &AL) {
 #if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, A))
+  if (checkValidSYCLSpelling(S, AL))
    return;
 
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<AttrType>(S, D, A);
+  checkForDuplicateAttribute<IntelFPGASinglePumpAttr>(S, D, AL);
 
+  // If the declaration does not have an [[intel::fpga_memory]]
+  // attribute, this creates one as an implicit attribute.
   if (!D->hasAttr<IntelFPGAMemoryAttr>())
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         S.Context, IntelFPGAMemoryAttr::Default));
 
-  handleSimpleAttribute<AttrType>(S, D, A);
+  D->addAttr(::new (S.Context) IntelFPGASinglePumpAttr(S.Context, AL));
+}
+
+/// Handle the [[intel::doublepump]] attribute.
+static void handleSYCLIntelFPGADoublePumpAttr(Sema &S, Decl *D,
+                                              const ParsedAttr &AL) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, AL))
+   return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
+#endif // INTEL_CUSTOMIZATION
+
+  checkForDuplicateAttribute<IntelFPGADoublePumpAttr>(S, D, AL);
+
+  // If the declaration does not have an [[intel::fpga_memory]]
+  // attribute, this creates one as an implicit attribute.
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (S.Context) IntelFPGADoublePumpAttr(S.Context, AL));
 }
 
 /// Handle the [[intel::fpga_memory]] attribute.
@@ -11510,10 +11532,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   // Intel FPGA specific attributes
   case ParsedAttr::AT_IntelFPGADoublePump:
-    handleIntelFPGAPumpAttr<IntelFPGADoublePumpAttr>(S, D, AL);
+    handleSYCLIntelFPGADoublePumpAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGASinglePump:
-    handleIntelFPGAPumpAttr<IntelFPGASinglePumpAttr>(S, D, AL);
+    handleSYCLIntelFPGASinglePumpAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
