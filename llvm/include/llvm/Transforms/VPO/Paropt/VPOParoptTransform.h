@@ -1678,6 +1678,9 @@ private:
   ///   ...
   /// \endcode
   ///
+  /// If \p ReplaceUses is \b true (default), then original uses or %v are
+  /// replaced with %v1.
+  ///
   /// If \p InsertLoadInBeginningOfEntryBB is \b true, the load `%v1` is
   /// inserted in the beginning on EntryBB (BBlock containing `%0`), and the
   /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
@@ -1694,7 +1697,7 @@ private:
   /// \returns the pointer where \p V is stored (`%v.addr` above).
   Value *replaceWithStoreThenLoad(
       WRegionNode *W, Value *V, Instruction *InsertPtForStore,
-      bool InsertLoadInBeginningOfEntryBB = false,
+      bool ReplaceUses = true, bool InsertLoadInBeginningOfEntryBB = false,
       bool SelectAllocaInsertPtBasedOnParentWRegion = false,
       bool CastToAddrSpaceGeneric = false);
 

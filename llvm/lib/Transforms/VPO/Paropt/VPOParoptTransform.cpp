@@ -7591,7 +7591,7 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 //   If CastVAddrToAddrSpaceGeneric is true, then cast %v.addr to
 //   address space 4 (generic) before doing the store/load.
 Value *VPOParoptTransform::replaceWithStoreThenLoad(
-    WRegionNode *W, Value *V, Instruction *InsertPtForStore,
+    WRegionNode *W, Value *V, Instruction *InsertPtForStore, bool ReplaceUses,
     bool InsertLoadInBeginningOfEntryBB,
     bool SelectAllocaInsertPtBasedOnParentWRegion,
     bool CastToAddrSpaceGeneric) {
@@ -7599,8 +7599,9 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> UserInsts;
   SmallPtrSet<ConstantExpr *, 8> UserExprs;
-  WRegionUtils::findUsersInRegion(W, V, &UserInsts,
-                                  !InsertLoadInBeginningOfEntryBB, &UserExprs);
+  if (ReplaceUses)
+    WRegionUtils::findUsersInRegion(
+        W, V, &UserInsts, !InsertLoadInBeginningOfEntryBB, &UserExprs);
 
   Instruction *AllocaInsertPt =
       SelectAllocaInsertPtBasedOnParentWRegion
@@ -8484,6 +8485,7 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     // Make the changes (2), (3), (4), (5)
     Value *CapturedValAddr = //                                         (2)
         replaceWithStoreThenLoad(W, ValToCapture, InsertStoreBefore,
+                                 true, // Replace uses in the region
                                  true, // Insert (4) in beginning of NewEntryBB
                                  true, // Insert alloca based on parent WRegions
                                  isTargetSPIRV()); // Add addrspace cast to
@@ -8533,12 +8535,14 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
   SmallPtrSet<Value *, 16> HandledVals;
   using OpndAddrPairTy = SmallVector<Value *, 2>;
   SmallVector<OpndAddrPairTy, 16> OpndAddrPairs;
-  auto rename = [&](Value *Orig, bool CheckAlreadyHandled) {
+  auto rename = [&](Value *Orig, bool CheckAlreadyHandled,
+                    bool ReplaceUses = true) {
     if (CheckAlreadyHandled && HandledVals.find(Orig) != HandledVals.end())
       return false;
 
     HandledVals.insert(Orig);
-    Value *RenamedAddr = replaceWithStoreThenLoad(W, Orig, InsertBefore);
+    Value *RenamedAddr =
+        replaceWithStoreThenLoad(W, Orig, InsertBefore, ReplaceUses);
     if (!RenamedAddr)
       return false;
 
@@ -8583,17 +8587,36 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
   }
 
   if (W->canHaveMap()) {
+    // We need to make sure that we don't introduce new live-ins when renaming
+    // base/section ptrs, so we only do the replacement of base/section-ptrs in
+    // the region if they are the same as the base of the map-chain.
+    // ------------------------------------+------------------------------------
+    //   Before                            |  After
+    // ------------------------------------+------------------------------------
+    //                                     | %x.addr = ...
+    //                                     | %x.gep.addr = ...
+    //                                     |
+    //  MAP(i32* @x, i32* gep(@x, 0), ...) | MAP(i32* @x, i32* gep(@x, 0), ...
+    //                                     |  OPND.ADDR(@x, %x.addr)
+    //                                     |  OPND.ADDR(gep(@x, 0), %x.gep.addr)
+    //                                     |
+    //                                     | %x.renamed = load i32*, %x.addr
+    //                                     |
+    //  ... gep(@x, 0)                     | ... gep(%x.renamed, 0)
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
+      Value *MapIOrig = MapI->getOrig();
       if (MapI->getIsMapChain()) {
         MapChainTy const &MapChain = MapI->getMapChain();
         for (unsigned I = 0; I < MapChain.size(); ++I) {
           MapAggrTy *Aggr = MapChain[I];
-          Changed |= rename(Aggr->getSectionPtr(), true);
-          Changed |= rename(Aggr->getBasePtr(), true);
+          Value *SectionPtr = Aggr->getSectionPtr();
+          Value *BasePtr = Aggr->getBasePtr();
+          Changed |= rename(SectionPtr, true, SectionPtr == MapIOrig);
+          Changed |= rename(BasePtr, true, BasePtr == MapIOrig);
         }
       }
-      Changed |= rename(MapI->getOrig(), true);
+      Changed |= rename(MapIOrig, true);
     }
   }
 

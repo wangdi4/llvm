@@ -16,7 +16,7 @@
 ; the copy constructors for private versions of the 'a' are not guarded
 ; with a master-thread check. That would be incorrect, because the copies
 ; must be initialized in all threads.
-; CHECK: define{{.*}}spir_kernel void @__omp_offloading_805_be217a__Z3foo1A_l6({ [400 x i1] }* byval({ [400 x i1] })
+; CHECK: define{{.*}}spir_kernel void @__omp_offloading_805_be217a__Z3foo1A_l6(<{ [50 x i64] }>* byval(<{ [50 x i64] }>)
 ; Master-thread check will generate get_local_id calls:
 ; CHECK-NOT: get_local_id
 ; CHECK-DAG: call spir_func void @_ZTS1A.omp.copy_constr({{.*}}[[ATTR1:#[0-9]+]]
