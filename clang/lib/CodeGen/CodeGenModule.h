@@ -343,6 +343,9 @@ private:
   // translation unit has any target code.
   bool HasTargetCode = false;
 
+  // Cache for multiversion targets metadata
+  llvm::MDNode *AutoMultiVersionMetadata = nullptr;
+
   /// A vector of metadata strings for "#pragma comment( lib, ... )".
   SmallVector<llvm::MDNode *, 8> PCKLibMetadata;
   /// This function actually implements the same function as AddDependentLib,
@@ -741,6 +744,31 @@ public:
       NoObjCARCExceptionsMetadata = llvm::MDNode::get(getLLVMContext(), None);
     return NoObjCARCExceptionsMetadata;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  llvm::MDNode *getAutoMultiversionMetadata() {
+    if (AutoMultiVersionMetadata)
+      return AutoMultiVersionMetadata;
+
+    std::vector<std::string> &Targets =
+        Target.getTargetOpts().AutoMultiVersionTargets;
+    if (Targets.empty())
+      return nullptr;
+
+    using namespace llvm;
+    llvm::SmallVector<llvm::Metadata *> TargetMDs;
+    llvm::LLVMContext &Ctx = getLLVMContext();
+    llvm::Metadata *MagicStr =
+        llvm::MDString::get(Ctx, "auto-cpu-dispatch-target");
+    for (llvm::StringRef Target : Targets) {
+      std::array<llvm::Metadata *, 2> Ops = {MagicStr,
+                                             llvm::MDString::get(Ctx, Target)};
+      TargetMDs.push_back(llvm::MDNode::get(Ctx, Ops));
+    }
+    AutoMultiVersionMetadata = llvm::MDNode::get(Ctx, TargetMDs);
+    return AutoMultiVersionMetadata;
+  }
+#endif //INTEL_CUSTOMIZATION
 
   ASTContext &getContext() const { return Context; }
   const LangOptions &getLangOpts() const { return LangOpts; }

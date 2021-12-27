@@ -667,10 +667,15 @@ def i_allow_all_opts : Flag<["-"], "i_allow-all-opts">,
   Group<internal_driver_Group>, Flags<[NoXarchOption, HelpHidden]>,
   HelpText<"Allow for all options to be enabled when using the DPC++ enabled "
   "driver">;
-// Add -ax so it does not error out.
-// TODO - there is some usage of this option even though it isn't supported.
-// we are accepting it so we can get around these usages for now.
-def ax : Joined<["-"], "ax">;
+def ax : CommaJoined<["-"], "ax">,
+  Flags<[CC1Option]>, Group<m_Group>,
+  HelpText<"generate code specialized for processors specified by <codes> "
+  "while also generating generic IA-32 instructions">,
+  MetaVarName<"<codes>">,
+  MarshallingInfoStringVector<TargetOpts<"AutoMultiVersionTargets">>;
+def ax_EQ : CommaJoined<["-"], "ax=">,
+  Flags<[CC1Option]>, Group<m_Group>,
+  Alias<ax>;
 def _intel : Flag<["--"], "intel">, Flags<[NoXarchOption, CoreOption]>,
   HelpText<"Run in Intel Compiler mode">;
 def shared_intel : Flag<["-"], "shared-intel">, Flags<[NoXarchOption]>,
@@ -7467,7 +7472,9 @@ def _SLASH_Qbuiltin : CLFlag<"Qbuiltin">, Alias<fbuiltin>;
 def _SLASH_fp_EQ : CLJoined<"fp=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
 def _SLASH_fp_COL : CLJoined<"fp:">, Alias<ffp_model_EQ>;
-def _SLASH_ax : CLJoined<"Qax">, Alias<ax>;
+def _SLASH_ax : CLJoined<"Qax">, Alias<ax>,
+  HelpText<"generate code specialized for processors specified by <codes> "
+  "while also generating generic IA-32 instructions">;
 def _SLASH_Qcf_protection_EQ : CLJoined<"Qcf-protection=">, Alias<fcf_protection_EQ>,
   HelpText<"Instrument control-flow architecture protection. Options: return, branch, full, none.">;
 def _SLASH_Qcf_protection : CLFlag<"Qcf-protection">,
