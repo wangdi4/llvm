@@ -2794,6 +2794,15 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
+#ifdef INTEL_CUSTOMIZATION
+  // Skip declaration, functions that are mamually marked for multiversioning
+  // and those which are tuned by a user using attribute "target".
+  if (FD->hasBody() && !FD->hasAttr<TargetAttr>() && !FD->isMultiVersion() &&
+      !FD->hasAttr<OMPDeclareSimdDeclAttr>() &&
+      !FD->hasAttr<OMPDeclareVariantAttr>())
+    if (llvm::MDNode *AutoMultiVersionMetadata = getAutoMultiversionMetadata())
+      F->addMetadata("llvm.auto.cpu.dispatch", *AutoMultiVersionMetadata);
+#endif //INTEL_CUSTOMIZATION
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
