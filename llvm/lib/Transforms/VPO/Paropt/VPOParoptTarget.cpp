@@ -512,8 +512,29 @@ Function *VPOParoptTransform::finalizeKernelFunction(
             (MapIdx + 1 >= MapTypes.size() ||
              (MapTypes[MapIdx + 1] & TGT_MAP_MEMBER_OF) == 0)) {
           // We can pass it by value, but we have to adjust the data type.
-          Type *BlobTy = ArrayType::get(Type::getInt1Ty(C), MapSizeVal);
-          Type *AggrTy = StructType::get(BlobTy);
+          // It turns out some device compilers do not pass the by value
+          // argument objects to the kernels in contiguous manner, e.g.
+          // for types like { i8, i8 } they may use 2 4-byte registers
+          // for passing the members. To make the register usage more
+          // efficient, we represent any user type as a structure
+          // with the following members:
+          //   { [K x i64], [L x i32], [M x i16], [N x i8] }, where
+          // K >= 0, 0 <= L <= 1, 0 <= M <= 1, 0 <= N <= 1
+          unsigned ChunkWidth = 8;
+          uint64_t RemainingSize = MapSizeVal;
+          SmallVector<Type *, 4> ChunkTys;
+          while (ChunkWidth >= 1 && RemainingSize > 0) {
+            uint64_t ChunkSize = RemainingSize / ChunkWidth;
+            if (ChunkSize > 0)
+              ChunkTys.push_back(
+                  ArrayType::get(Type::getIntNTy(C, ChunkWidth * 8),
+                                 ChunkSize));
+
+            RemainingSize = (RemainingSize % ChunkWidth);
+            ChunkWidth >>= 1;
+          }
+          Type *AggrTy = StructType::get(C, ChunkTys, /*isPacked=*/true);
+
           // ByVal pointer arguments must be in addrspace(0).
           ParamsTy.push_back(PointerType::get(AggrTy,
                                               vpo::ADDRESS_SPACE_PRIVATE));
