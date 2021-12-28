@@ -529,6 +529,12 @@ void VPOCodeGen::finalizeLoop() {
     predicateInstructions();
   }
 
+  // Anchor point to emit/lower remarks from VPLoops to outgoing llvm::Loops.
+  // This should be done before LoopInfo gets invalidated/recomputed.
+  // TODO: Currently only scalar loop remarks are emitted here. Move invocation
+  // of lowerRemarksForVectorLoops here as well.
+  emitRemarksForScalarLoops();
+
   DT->recalculate(*LoopVectorBody->getParent());
   LI->releaseMemory();
   LI->analyze(*DT);
@@ -963,11 +969,13 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
 
   // Capture outgoing scalar loop.
   if (isa<VPScalarPeel>(LoopReuse))
-    OutgoingScalarLoops.push_back(std::make_pair(
-        CfgMergerPlanDescr::LoopType::LTPeel, LoopReuse->getLoop()));
+    OutgoingScalarLoopHeaders.push_back(
+        std::make_pair(CfgMergerPlanDescr::LoopType::LTPeel,
+                       LoopReuse->getLoop()->getHeader()));
   else
-    OutgoingScalarLoops.push_back(std::make_pair(
-        CfgMergerPlanDescr::LoopType::LTRemainder, LoopReuse->getLoop()));
+    OutgoingScalarLoopHeaders.push_back(
+        std::make_pair(CfgMergerPlanDescr::LoopType::LTRemainder,
+                       LoopReuse->getLoop()->getHeader()));
 
   // Make the current block predecessor of the original loop header.
   ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
@@ -4664,16 +4672,17 @@ void VPOCodeGen::lowerRemarksForVectorLoops() {
       LowerRemarksForLoop(VLP);
 }
 
-void VPOCodeGen::emitRemarksForScalarLoops(OptReportBuilder &ORBuilder) {
+void VPOCodeGen::emitRemarksForScalarLoops() {
   auto RemoveOptReport = [this](Loop *Lp) {
     MDNode *NewLoopID = OptReport::eraseOptReportFromLoopID(
         Lp->getLoopID(), *Plan->getLLVMContext());
     Lp->setLoopID(NewLoopID);
   };
 
-  for (auto &ScalarLoopPair : OutgoingScalarLoops) {
+  for (auto &ScalarLoopPair : OutgoingScalarLoopHeaders) {
     auto LpKind = ScalarLoopPair.first;
-    Loop *ScalarLp = ScalarLoopPair.second;
+    Loop *ScalarLp = LI->getLoopFor(ScalarLoopPair.second);
+    assert(ScalarLp && "Loop not found.");
 
     // Remove all opt-reports from scalar loop nest. They have been moved to
     // vectorized loops.

@@ -50,13 +50,14 @@ public:
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
              TargetLibraryInfo *TLI, unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
-             const VPlanVector *Plan, bool IsOmpSIMD = false,
+             const VPlanVector *Plan, OptReportBuilder &ORBuilder,
+             bool IsOmpSIMD = false,
              FatalErrorHandlerTy FatalErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
         VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
         Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        OrigPreHeader(OrigLoop->getLoopPreheader()), IsOmpSIMD(IsOmpSIMD),
-        FatalErrorHandler(FatalErrorHandler) {}
+        OrigPreHeader(OrigLoop->getLoopPreheader()), ORBuilder(ORBuilder),
+        IsOmpSIMD(IsOmpSIMD), FatalErrorHandler(FatalErrorHandler) {}
 
   ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
 
@@ -162,10 +163,7 @@ public:
 
   /// Lower opt-report remarks collected in VPlan data structures to outgoing
   /// IR.
-  void lowerVPlanOptReportRemarks(OptReportBuilder &ORBuilder) {
-    lowerRemarksForVectorLoops();
-    emitRemarksForScalarLoops(ORBuilder);
-  }
+  void lowerVPlanOptReportRemarks() { lowerRemarksForVectorLoops(); }
 
   /// Clone the given scalar loop \p OrigLP and insert the cloned loop on the
   /// edge between NewLoopPred and NewLoopSucc. The NewLoopPred and NewLoopSucc
@@ -556,10 +554,10 @@ private:
 
   OptReportStatsTracker OptRptStats;
 
-  // Set of scalar loops generated in outgoing vector code. We also track the
-  // type of scalar loop i.e. peel or remainder.
-  SmallVector<std::pair<CfgMergerPlanDescr::LoopType, Loop *>, 2>
-      OutgoingScalarLoops;
+  // Set of scalar loop header blocks generated in outgoing vector code. We also
+  // track the type of scalar loop i.e. peel or remainder.
+  SmallVector<std::pair<CfgMergerPlanDescr::LoopType, BasicBlock *>, 2>
+      OutgoingScalarLoopHeaders;
 
   // Get alignment for VPLoadStoreInst using underlying llvm::Instruction.
   Align getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst);
@@ -716,7 +714,7 @@ private:
   // TODO: We are not able to attach these remarks earlier in pipeline since
   // scalar loops don't have VPLoops in CFG. Explore alternative approaches for
   // such loops.
-  void emitRemarksForScalarLoops(OptReportBuilder &ORBuilder);
+  void emitRemarksForScalarLoops();
 
   /// Return a guaranteed peeling variant. Null is returned if we are not sure
   /// that the peel loop will be executed at run-time.
@@ -726,6 +724,10 @@ private:
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
   SmallDenseMap<const OVLSGroup *, Instruction *> VLSGroupLoadMap;
+
+  /// Opt-report builder object that will be used to emit/lower remarks into
+  /// outgoing loops.
+  OptReportBuilder &ORBuilder;
 
   // True if #pragma omp simd defined for OrigLoop
   bool IsOmpSIMD;
