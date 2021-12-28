@@ -160,7 +160,6 @@ llvm::ModulePass *createCoerceTypesPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
 llvm::ModulePass *createChooseVectorizationDimensionModulePass();
-llvm::FunctionPass *createAddFastMathPass();
 llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
@@ -330,7 +329,7 @@ static void populatePassesPreFailCheck(
 
   PM.add(createSetPreferVectorWidthPass(pConfig->GetCpuId()));
   if (isSPIRV && pConfig->GetRelaxedMath()) {
-    PM.add(createAddFastMathPass());
+    PM.add(llvm::createAddFastMathLegacyPass());
   }
 
   // Here we are internalizing non-kernal functions to allow inliner to remove

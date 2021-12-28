@@ -5,7 +5,6 @@ include_directories(${LLVM_INCLUDE_DIRS}
 
 # Backend passes
 set(OCL_BE_PASSES
-    AddFastMath
     AddTLSGlobals
     AutorunReplicator
     BuiltinLibInfo

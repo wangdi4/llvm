@@ -83,7 +83,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeRemoveAtExitPass(Registry);
     intel::initializeAddNTAttrPass(Registry);
     intel::initializeChooseVectorizationDimensionModulePassPass(Registry);
-    intel::initializeAddFastMathPass(Registry);
     intel::initializeVectorKernelDiscardPass(Registry);
     intel::initializeReduceCrossBarrierValuesPass(Registry);
     intel::initializeSetPreferVectorWidthPass(Registry);
