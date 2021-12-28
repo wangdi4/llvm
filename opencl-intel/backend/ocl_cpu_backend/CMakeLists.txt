@@ -217,7 +217,6 @@ set( BACKEND_PASSES
     LLVMBarrier
     SGEmulation
     LLVMVectorizer
-    AddFastMath
     AddTLSGlobals
     AutorunReplicator
     ChannelPipeTransformation
