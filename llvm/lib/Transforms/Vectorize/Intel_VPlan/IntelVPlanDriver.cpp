@@ -578,7 +578,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
                     << "\n");
 
   VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, VF, UF, &LVL,
-                      &VLSA, Plan, isOmpSIMDLoop, FatalErrorHandler);
+                      &VLSA, Plan, ORBuilder, isOmpSIMDLoop, FatalErrorHandler);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
   // Run VLS analysis before IR for the current loop is modified.
@@ -612,7 +612,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     }
   }
   addStatsFromCG<VPOCodeGen>(MainVPLoop, Plan->getVPLoopInfo(), &VCodeGen);
-  VCodeGen.lowerVPlanOptReportRemarks(ORBuilder);
+  VCodeGen.lowerVPlanOptReportRemarks();
 
   // Mark source and vector and scalar loops with isvectorized directive so that
   // WarnMissedTransforms pass will not complain that vector and scalar loops
