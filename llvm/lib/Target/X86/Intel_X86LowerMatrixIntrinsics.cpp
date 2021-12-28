@@ -66,6 +66,7 @@ public:
           case Intrinsic::experimental_matrix_sumad:
           case Intrinsic::experimental_matrix_usmad:
           case Intrinsic::experimental_matrix_uumad:
+          case Intrinsic::experimental_matrix_fill:
             Worklist.push_back(&*BBI);
             break;
           }
@@ -86,6 +87,7 @@ private:
   bool ProcessMatrixLoad(IntrinsicInst *II);
   bool ProcessMatrixStore(IntrinsicInst *II);
   bool ProcessMatrixMad(IntrinsicInst *II);
+  bool ProcessMatrixFill(IntrinsicInst *II);
 };
 
 } // end anonymous namespace
@@ -119,6 +121,9 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixIntrinsics(IntrinsicInst *II) {
   case Intrinsic::experimental_matrix_usmad:
   case Intrinsic::experimental_matrix_uumad:
     MadeChange |= ProcessMatrixMad(II);
+    break;
+  case Intrinsic::experimental_matrix_fill:
+    MadeChange |= ProcessMatrixFill(II);
     break;
   }
   return MadeChange;
@@ -343,6 +348,93 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
                               {II->getOperand(2)->getType()},
                               {II->getOperand(2)})};
   Value *NewInst = Builder.CreateIntrinsic(IID, None, Args);
+  II->replaceAllUsesWith(Builder.CreateIntrinsic(
+      Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
+  II->eraseFromParent();
+  return true;
+}
+
+bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
+  // Transform
+  // %fill = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4,
+  // i32 4, metadata !"matrix.packed.b")
+  // into:
+  // %tmp0 = call x86_amx @llvm.x86.tilezero.internal(i16 1, i16 16)
+  // %tmp1 = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx %tmp0)
+  IRBuilder<> Builder(II);
+
+  int64_t MRows = cast<ConstantInt>(II->getOperand(1))->getSExtValue();
+  int64_t MCols = cast<ConstantInt>(II->getOperand(2))->getSExtValue();
+  FixedVectorType *MatrixType = cast<FixedVectorType>(II->getType());
+  Type *MatrixElemType = MatrixType->getElementType();
+  int64_t Factor = 1;
+  int64_t SizeFactor = 1;
+  assert(MatrixElemType == II->getOperand(0)->getType() &&
+         "invalid MatrixElemType, MatrixElemType should equal to MatrixFill's "
+         "Source ElemType");
+  // Check whether we create a zero matrix by int_experimental_matrix_fill.
+  // We could have support filling a non-zero matrix but OCL-Optimizer help us
+  // do this thing and transform it into plain llvm IR.
+  if (isa<ConstantInt>(II->getOperand(0)))
+    assert(cast<ConstantInt>(II->getOperand(0))->isZero() &&
+           "MatrixFill's val is not zero!");
+  else if (isa<ConstantFP>(II->getOperand(0)))
+    assert(cast<ConstantFP>(II->getOperand(0))->isZero() &&
+           "MatrixFill's val is not zero!");
+  else {
+    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
+              "float!\n";
+    llvm_unreachable(nullptr);
+  }
+
+  if (MatrixElemType->isIntegerTy(16)) {
+    SizeFactor = 2;
+  } else if (MatrixElemType->isFloatTy() || MatrixElemType->isIntegerTy(32))
+    SizeFactor = 4;
+  else if (MatrixElemType->isIntegerTy(8))
+    SizeFactor = 1;
+  else {
+    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
+              "float!\n";
+    llvm_unreachable(nullptr);
+  }
+  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(3))->getMetadata();
+  // If it is packed_b, the type can only be int8/bf16.
+  // If it is row_major, the type can be int8/bf16/float/int32, Factor can only
+  // be 1.
+  if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+      MatrixElemType->isIntegerTy(8))
+    Factor = 4;
+  else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
+           MatrixElemType->isIntegerTy(16))
+    Factor = 2;
+  else if (cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
+    Factor = 1;
+  else {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+           << "!\n"
+           << "We support layout: matrix.rowmajor and matrix.packed.b!\n";
+    llvm_unreachable(nullptr);
+  }
+  // Handle cases where it is vxi8 and packedb.
+  assert(MRows >= Factor && MRows % Factor == 0 &&
+         "Invalid Matrix Rows Value!");
+  int64_t ResRows = MRows / Factor;
+  int64_t ResCols = MCols * Factor * SizeFactor;
+  if (ResRows > 16 || ResCols > 64) {
+    errs() << "Unsupported Size for tilezero! Rows = " << ResRows
+           << "Cols = " << ResCols << "!\n"
+           << "We support Size: Rows <= 16 and Cols <= 64!\n";
+    llvm_unreachable(nullptr);
+  }
+  Value *Rows = Builder.getInt16(ResRows);
+  Value *Cols = Builder.getInt16(ResCols);
+  // Create the argument list
+  std::array<Value *, 2> Args{Rows, Cols};
+  Value *NewInst =
+      Builder.CreateIntrinsic(Intrinsic::x86_tilezero_internal, None, Args);
   II->replaceAllUsesWith(Builder.CreateIntrinsic(
       Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
   II->eraseFromParent();

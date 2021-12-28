@@ -20,6 +20,78 @@ enrty:
   ret void
 }
 
+define <16 x i8> @test_fill_int8_rowmajor() {
+; CHECK-LABEL: @test_fill_int8_rowmajor(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 4)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  ret <16 x i8> %0
+}
+
+define <16 x i8> @test_fill_int8_packedb() {
+; CHECK-LABEL: @test_fill_int8_packedb(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 1, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.packed.b")
+  ret <16 x i8> %0
+}
+
+define <16 x i16> @test_fill_bf16_rowmajor() {
+; CHECK-LABEL: @test_fill_bf16_rowmajor(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 8)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i16> @llvm.x86.cast.tile.to.vector.v16i16(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  ret <16 x i16> %0
+}
+
+define <16 x i16> @test_fill_bf16_packedb() {
+; CHECK-LABEL: @test_fill_bf16_packedb(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 2, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i16> @llvm.x86.cast.tile.to.vector.v16i16(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.packed.b")
+  ret <16 x i16> %0
+}
+
+define <16 x float> @test_fill_float_rowmajor() {
+; CHECK-LABEL: @test_fill_float_rowmajor(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x float> @llvm.x86.cast.tile.to.vector.v16f32(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x float> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x float> @llvm.experimental.matrix.fill.v16f32(float 0.0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  ret <16 x float> %0
+}
+
+define <16 x i32> @test_fill_i32_rowmajor() {
+; CHECK-LABEL: @test_fill_i32_rowmajor(
+; CHECK-NEXT:  enrty:
+; CHECK-NEXT:    [[TMP0:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 4, i16 16)
+; CHECK-NEXT:    [[TMP1:%.*]] = call <16 x i32> @llvm.x86.cast.tile.to.vector.v16i32(x86_amx [[TMP0]])
+; CHECK-NEXT:    ret <16 x i32> [[TMP1]]
+;
+enrty:
+  %0 = call <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32 0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  ret <16 x i32> %0
+}
+
 define void @test_load_store_same_addrspace(i32* %ptr, i64 %stride, i32* %dst) {
 ; CHECK-LABEL: @test_load_store_same_addrspace(
 ; CHECK-NEXT:  enrty:
@@ -142,3 +214,7 @@ declare <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4
 declare <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16>, metadata, <450 x i16>, metadata, <225 x float>, metadata, i32, i32, i32, metadata)
 declare void @llvm.experimental.matrix.store.v225f32.p4f32(<225 x float>, float addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata)
 
+declare <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8, i32, i32, metadata)
+declare <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16, i32, i32, metadata)
+declare <16 x float> @llvm.experimental.matrix.fill.v16f32(float, i32, i32, metadata)
+declare <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32, i32, i32, metadata)
