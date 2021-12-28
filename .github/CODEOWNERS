@@ -3,7 +3,6 @@
 #
 * @intel-restricted/xmain-gatekeeper
 
-<<<<<<< HEAD
 # JIRA: N/A
 # Core parts of LLVM owned by the architecture group
 /llvm/lib/BinaryFormat/ @andykaylor
@@ -189,7 +188,7 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/test/Transforms/WholeProgramDevirt/ @robertcox-github @pvbattin
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
 /llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
-=======
+
 # Front-end compiler
 clang/ @intel/dpcpp-cfe-reviewers
 
@@ -207,7 +206,6 @@ opencl/opencl-aot/ @intel/dpcpp-tools-reviewers
 
 # Device library
 libdevice/ @intel/llvm-reviewers-runtime
->>>>>>> 2cb9e904e8820ade3a7f400f0cb851a40fc2dec2
 
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
 /compiler-rt/lib/profile/ @robertcox-github @pvbattin
@@ -248,7 +246,6 @@ libdevice/ @intel/llvm-reviewers-runtime
 /llvm/tools/llvm-cov/ @robertcox-github @pvbattin
 /llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
 
-<<<<<<< HEAD
 # JIRA: ???
 /llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 /llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
@@ -597,7 +594,7 @@ libdevice/ @intel/llvm-reviewers-runtime
 # JIRA: CMPLRLLVM->Cmake
 **/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake @vzakhari
 **/cmake/ @intel-restricted/cmplrllvm-cmake @vzakhari
-=======
+
 # Documentation
 sycl/ReleaseNotes.md @intel/dpcpp-doc-reviewers
 sycl/doc/ @intel/dpcpp-doc-reviewers
@@ -630,4 +627,3 @@ SYCLLowerIR/ @intel/dpcpp-esimd-reviewers
 esimd/ @intel/dpcpp-esimd-reviewers
 sycl/include/sycl/ext/intel/experimental/esimd.hpp @intel/dpcpp-esimd-reviewers
 sycl/doc/extensions/ExplicitSIMD/ @intel/dpcpp-esimd-reviewers
->>>>>>> 2cb9e904e8820ade3a7f400f0cb851a40fc2dec2
