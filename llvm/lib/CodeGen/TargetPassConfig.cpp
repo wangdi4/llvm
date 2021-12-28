@@ -348,7 +348,7 @@ static IdentifyingPassPtr overridePass(AnalysisID StandardID,
 
 // Find the FSProfile file name. The internal option takes the precedence
 // before getting from TargetMachine.
-static const std::string getFSProfileFile(const TargetMachine *TM) {
+static std::string getFSProfileFile(const TargetMachine *TM) {
   if (!FSProfileFile.empty())
     return FSProfileFile.getValue();
   const Optional<PGOOptions> &PGOOpt = TM->getPGOOption();
@@ -359,7 +359,7 @@ static const std::string getFSProfileFile(const TargetMachine *TM) {
 
 // Find the Profile remapping file name. The internal option takes the
 // precedence before getting from TargetMachine.
-static const std::string getFSRemappingFile(const TargetMachine *TM) {
+static std::string getFSRemappingFile(const TargetMachine *TM) {
   if (!FSRemappingFile.empty())
     return FSRemappingFile.getValue();
   const Optional<PGOOptions> &PGOOpt = TM->getPGOOption();
