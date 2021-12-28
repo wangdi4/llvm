@@ -18145,6 +18145,217 @@ The :ref:`align <attr_align>` parameter attribute can be provided
 for the ``%Ptr`` arguments.
 
 
+.. INTEL_CUSTOMIZATION
+
+Experimental joint matrix intrinsics
+------------------------------------
+These intrinsics operate on *joint matrices*. Elements of a joint matrix are
+distributed among a group of work-items.
+
+Set of elements which are owned or are directly accessible by single work-item
+is called *work-item slice* of the matrix.
+
+The group of work-items which owns all elements of the matrix is called *memory
+scope* of the matrix.  The memory scope for the intrinsics below is specified as
+a metadata string argument.  Currently, value of this argument must be one of
+the following strings:
+::
+
+    "scope.subgroup"
+    "scope.workgroup"
+
+A metadata string argument is also used by the intrinsics to specify layout of
+the matrix.  Value of such argument must be one of the following strings:
+::
+
+    "matrix.rowmajor"
+    "matrix.columnmajor"
+    "matrix.packed.a"
+    "matrix.packed.b"
+
+'``llvm.experimental.matrix.fill.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare <vectorty> @llvm.experimental.matrix.fill.*(
+          <type> %Input, i32 <Rows>, i32 <Cols>, metadata <Scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.fill..*``' intrinsics creates a new joint
+matrix initialized by the specified value.
+
+Arguments:
+""""""""""
+The first argument ``%Input`` is a value of an integer or floating point type.
+The second and third arguments, ``<Rows>`` and ``<Cols>``, specify the
+number of rows and columns of the matrix, and must be positive, constant
+integers. The fourth argument ``<Scope>`` is a metadata string that specifies
+memory scope for operations on the matrix.
+
+Semantics:
+""""""""""
+The '``llvm.experimental.matrix.fill.*``' intrinsic function creates a new
+``<Rows> x <Cols>`` joint matrix using a ``%Scope`` operand to specify memory
+scope for the matrix. All elements of the new matrix are initialized by the
+value of ``%Input``. The return type is ``<Rows> x <Cols>`` vector, which
+represents the matrix.
+
+
+'``llvm.experimental.matrix.wi.slice.length.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare i64
+      @llvm.experimental.matrix.wi.slice.length.*(<vectorty> <matrix>,
+                                                  i32 <rows>, i32 <columns>,
+                                                  metadata <layout>, metadata <scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.wi.slice.length``' intrinsic returns number of
+elements owned by the current work-item in a joint matrix.
+
+Arguments:
+""""""""""
+The first three arguments describe the matrix: the first argument is a vector
+which represents a flattened matrix, the second and third arguments are number
+of rows and columns in the matrix respectively. Elements of the vector must be
+either of any integer or any floating point type. ``rows`` and ``columns`` must
+be positive, constant integers.
+
+The fourth and fifth arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
+
+Semantics:
+""""""""""
+This intrinsics returns the number of matrix elements which are owned or
+directly accessible by the current work-item.
+
+Example:
+""""""""
+::
+
+    declare i64 @llvm.experimental.matrix.wi.slice.length.v256f32(<256 x float> %A, i32 16, i32 16, metadata !"matrix.columnmajor", metadata !"scope.subgroup")
+
+
+'``llvm.experimental.matrix.wi.slice.extractelement.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+    declare <ty>
+    @llvm.experimental.matrix.wi.slice.extractelement.*(<vectorty> <matrix>,
+                                                        i32 <rows>, i32 <columns>, <ty2> <index>,
+                                                        metadata <layout>, metadata <scope>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.wi.slice.extractelement.*``' intrinsic extracts one
+element from the current work-item slice.
+
+Arguments:
+""""""""""
+The first three arguments describe the matrix: the first argument is a vector
+which represent flattened matrix, the second and third arguments are number of
+rows and columns in the matrix respectively. Elements of the vector must be
+either of any integer or any floating point type. ``rows`` and ``columns`` must
+be positive, constant integers.
+
+The fourth argument specifies index of the element to be extracted from the
+current work-item slice. The ``index`` argument must be of an integer type.
+
+The fifth and sixth arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
+
+Semantics:
+""""""""""
+``llvm.experimental.matrix.wi.slice.extractelement.*`` interprets the current
+work-item slice as a vector with length equals to the value returned by
+``llvm.experimental.matrix.wi.slice.length.*``. This intrinsic operates on the
+current work-item slice only and returns the value of the element at position
+``index`` in the current work-item slice(vector). Type of the returned value
+match with the type of matrix elements. If the value of ``index`` exceeds the
+value returned by ``llvm.experimental.matrix.wi.slice.length.*``, the result is
+a ``poison value``.
+
+Example:
+""""""""
+::
+
+    declare float @llvm.experimental.matrix.wi.slice.extractelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, i64 %index,  metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+    declare i8 @llvm.experimental.matrix.wi.slice.extractelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i32 %index,  metadata !"matrix.columnmajor", metadata !"scope.subgroup")
+
+
+'``llvm.experimental.matrix.wi.slice.insertelement.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+::
+
+      declare <vectorty>
+      @llvm.experimental.matrix.wi.slice.insertelement.*(<vectorty> <matrix>,
+                                                         i32 <rows>, i32 <columns>,
+                                                         <ty> <val>, <ty2> <index>,
+                                                         metadata <layout>, metadata <scope>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.wi.slice.insertelement``' intrinsic inserts scalar
+value to the current work-item slice.
+
+Arguments:
+""""""""""
+The first three arguments describe the matrix: the first argument is a vector
+which represent flattened matrix, the second and third arguments are number of
+rows and columns in the matrix respectively. Elements of the vector must be
+either of any integer or any floating point type. ``rows`` and ``columns`` must
+be positive, constant integers.
+
+The fourth argument is the value to insert, its type must match with the type of
+matrix elements.  The fifth argument is an index indicating the position in the
+current work-item slice at which to insert the value. The ``index`` argument
+must be of an integer type.
+
+The sixth and seventh arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
+
+Semantics:
+""""""""""
+``llvm.experimental.matrix.wi.slice.insertelement.*`` interprets the current
+work-item slice as a vector with length equals to the value returned by
+``llvm.experimental.matrix.wi.slice.length.*``.  The return value is a copy of
+``matrix``, except one element at position ``index`` in the current work-item
+slice, where it gets the value ``val``.  If the value of ``index`` exceeds the
+value returned by ``llvm.experimental.matrix.wi.slice.length.*``, the result is
+a ``poison value``.
+
+Example:
+""""""""
+::
+
+      declare <256 x float> @llvm.experimental.matrix.wi.slice.insertelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, float %val, i64 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+      declare <64 x i8> @llvm.experimental.matrix.wi.slice.insertelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i8 %val, i32 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+
+.. END INTEL_CUSTOMIZATION
+
+
 Half Precision Floating-Point Intrinsics
 ----------------------------------------
 
