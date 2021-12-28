@@ -288,6 +288,7 @@ def : WriteRes<WriteFMoveX, [GLCPort00_01_05]> {
 def : WriteRes<WriteFMoveY, [GLCPort00_01_05]> {
   let Latency = 0;
 }
+defm : X86WriteResUnsupported<WriteFMoveZ>;
 def : WriteRes<WriteFMul, [GLCPort00]> {
   let Latency = 4;
 }
@@ -496,6 +497,7 @@ def : WriteRes<WriteVecMoveX, [GLCPort00_01_05]>;
 def : WriteRes<WriteVecMoveY, [GLCPort00_01_05]> {
   let Latency = 0;
 }
+defm : X86WriteResUnsupported<WriteVecMoveZ>;
 defm : GLCWriteResPair<WriteVecShift, [GLCPort00], 1, [1], 1, 6>;
 def : WriteRes<WriteVecShiftImm, [GLCPort00]>;
 def : WriteRes<WriteVecShiftImmX, [GLCPort00_01]>;
