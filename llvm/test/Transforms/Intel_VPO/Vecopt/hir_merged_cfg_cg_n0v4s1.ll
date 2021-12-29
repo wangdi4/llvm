@@ -1,4 +1,8 @@
 ; Test for basic functionality of HIR vectorizer CG for merged CFG.
+; Vec Scenario:
+;    - No peel
+;    - Main vector loop with VF=4
+;    - Scalar remainder
 
 ; Input HIR
 ; BEGIN REGION { }
