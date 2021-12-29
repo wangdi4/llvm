@@ -3428,12 +3428,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
     if (RedInit->getNumOperands() > 1) {
       auto *StartVPVal = RedInit->getStartValueOperand();
-      assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
-             "Unsupported reduction start value.");
-      // Insert start value into lane 0 of identity vector
+      // Insert start value into lane 0 of identity vector.
       HLInst *InsertElementInst = HLNodeUtilities.createInsertElementInst(
-          CopyInst->getLvalDDRef()->clone(), getUniformScalarRef(StartVPVal), 0,
-          "red.init.insert");
+          CopyInst->getLvalDDRef()->clone(),
+          getOrCreateScalarRef(StartVPVal, 0 /*Lane*/), 0, "red.init.insert");
       WInst = InsertElementInst;
       RedInitHLInsts.push_back(*InsertElementInst);
     }
@@ -3535,9 +3533,25 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
-  case VPInstruction::InductionInit:
+  case VPInstruction::InductionInit: {
+    // We expect induction-init to be only used to initialize the lower bound of
+    // vector loops, so we need to generate a scalar copy of the value for 0th
+    // lane.
+
+    // Ignore induction-inits where start value is 0 since that is the default
+    // lower bound we use while emitting a HLLoop.
+    if (auto *ConstInit = dyn_cast<VPConstant>(VPInst->getOperand(0))) {
+      if (ConstInit->getConstant()->isZeroValue())
+        return;
+    }
+
+    auto *ScalRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+    addVPValueScalRefMapping(VPInst, ScalRef, 0);
+    return;
+  }
+
   case VPInstruction::InductionFinal: {
-    // TODO: Add codegen for induction initialization/finalization
+    // TODO: Add codegen for induction finalization
     return;
   }
 
@@ -4296,7 +4310,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     addInst(ScalarPeel, nullptr /*Mask*/);
 
     // Update upper DDRef of scalar peel.
-    UBTemp->setSymbase(GenericRvalSymbase);
     ScalarPeel->setUpperDDRef(UBTemp);
     // Sets the defined at level of new bound to (nesting level - 1) as the
     // bound temp is defined just before the loop.
@@ -5551,19 +5564,34 @@ HLLabel *VPOCodeGenHIR::getOrCreateBlockLabel(const VPBasicBlock *VPBB) {
   return createBlockLabel(VPBB);
 }
 
-void VPOCodeGenHIR::setUBForVectorLoop(VPLoop *VPLp) {
+void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
   HLLoop *VecLoop = VPLoopHLLoopMap[VPLp];
 
   // Upper bound for the vectorized HLLoop is obtained from the vector-tc
   // VPInstruction that is generated for every vectorized VPLoop in its
-  // corresponding preheader block.
-  VPBasicBlock *VPLpPreheader = VPLp->getLoopPreheader();
-  VPInstruction *VectorTC = nullptr;
-  for (auto &I : *VPLpPreheader)
-    if (auto *TC = dyn_cast<VPVectorTripCountCalculation>(&I))
-      VectorTC = TC;
+  // corresponding preheader block. Lower bound is obtained from the
+  // induction-init instruction in preheader. These 2 instructions are obtained
+  // by following the def-use chain starting from the loop latch's CondBit.
+  VPValue *VectorTC;
+  VPCmpInst *LatchCond;
+  std::tie(VectorTC, LatchCond) = VPLp->getLoopUpperBound();
 
-  assert(VectorTC && "Vector TC computation expected in PH of vector loop.");
+  assert(VectorTC && isa<VPVectorTripCountCalculation>(VectorTC) &&
+         "Vector TC computation not found vector loop.");
+
+  unsigned AddOpIdx = LatchCond->getOperand(0) == VectorTC ? 1 : 0;
+  VPInstruction *IVAdd = cast<VPInstruction>(LatchCond->getOperand(AddOpIdx));
+  unsigned PhiOpIdx = isa<VPInductionInitStep>(IVAdd->getOperand(0)) ? 1 : 0;
+  VPPHINode *IVPhi = cast<VPPHINode>(IVAdd->getOperand(PhiOpIdx));
+  assert(IVPhi->getParent() == VPLp->getHeader() &&
+         "Header PHI expected to be used in IVAdd.");
+  auto IVInitIt = llvm::find_if(
+      IVPhi->operands(), [](VPValue *Op) { return isa<VPInductionInit>(Op); });
+
+  assert(IVInitIt != IVPhi->op_end() &&
+         "Induction-init not found for vector loop via def-use chain");
+  auto *VectorIVInit = cast<VPInductionInit>(*IVInitIt);
+
   RegDDRef *UBRef = getOrCreateScalarRef(VectorTC, 0 /*Lane*/);
   assert(UBRef && "Non-null ref expected to compute TC.");
   UBRef = UBRef->clone();
@@ -5577,6 +5605,15 @@ void VPOCodeGenHIR::setUBForVectorLoop(VPLoop *VPLp) {
   UBCanonExpr->addConstant(-1, true);
   UBRef->setSymbase(GenericRvalSymbase);
   VecLoop->setUpperDDRef(UBRef);
+
+  // Set LB of loop if available. We adjust def@level since LB is defined
+  // outside the loop.
+  RegDDRef *LBRef = getScalRefForVPVal(VectorIVInit, 0 /*Lane*/);
+  if (LBRef) {
+    VecLoop->setLowerDDRef(LBRef);
+    auto *LBCanonExpr = LBRef->getSingleCanonExpr();
+    LBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+  }
 
   // TODO: Use PH induction-init-step to set stride? Currently we are assuming
   // VF*UF by default.
@@ -5633,9 +5670,9 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
     if (isMergedCFG() || CurVPLoop->getLoopDepth() > 1)
       HLNodeUtilities.insertAfter(InsertPoint, CurHLLoop);
     HLNodeUtilities.insertAsFirstChild(CurHLLoop, Label);
-    // Setup upper bound and stride for vectorized loop.
+    // Setup lower/upper bound and stride for vectorized loop.
     if (isMergedCFG())
-      setUBForVectorLoop(CurVPLoop);
+      setBoundsForVectorLoop(CurVPLoop);
   } else if (LoopExitBlocks.count(VPBB)) {
     auto *CurVPLoop =
         Plan->getVPLoopInfo()->getLoopFor(VPBB->getSinglePredecessor());
