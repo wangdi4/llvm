@@ -302,6 +302,15 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
     llvm_unreachable("Number of successors not supported");
   }
   VPBB->getTerminator()->setDebugLocation(TI->getDebugLoc());
+
+  // If current terminator has llvm::Loop's LoopID metadata, then attach the
+  // same to corresponding VPBB terminator instruction.
+  if (auto *LpID = TI->getMetadata(LLVMContext::MD_loop)) {
+    auto *VPTI = VPBB->getTerminator();
+    VPTI->setLoopIDMetadata(LpID);
+    LLVM_DEBUG(dbgs() << "Adding loop ID: "; LpID->dump();
+               dbgs() << " to VPBranchInst: "; VPTI->dump());
+  }
 }
 
 void VPlanLoopCFGBuilder::buildCFG() {
