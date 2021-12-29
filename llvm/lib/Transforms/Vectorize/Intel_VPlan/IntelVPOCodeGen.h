@@ -716,6 +716,10 @@ private:
   // such loops.
   void emitRemarksForScalarLoops();
 
+  /// Preserve DbgLoc metatdata from incoming loop's LoopID in outgoing
+  /// vectorized loops. This ensures loop's LocRange info is not lost.
+  void preserveLoopIDDbgMDs();
+
   /// Return a guaranteed peeling variant. Null is returned if we are not sure
   /// that the peel loop will be executed at run-time.
   VPlanPeelingVariant *getGuaranteedPeeling() const;

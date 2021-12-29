@@ -120,6 +120,17 @@ VPCmpInst *VPLoop::getLatchComparison() const {
   return nullptr;
 }
 
+MDNode *VPLoop::getLoopID() const {
+  // Get the latch block and check the terminator for the metadata.
+  VPBranchInst *TI = getLoopLatch()->getTerminator();
+  MDNode *LoopID = TI->getLoopIDMetadata();
+
+  if (!LoopID || LoopID->getNumOperands() == 0 ||
+      LoopID->getOperand(0) != LoopID)
+    return nullptr;
+  return LoopID;
+}
+
 // Check that 'BB' doesn't have any uses outside of the 'L'
 //
 // Unlike LLVM's version of this we don't allow unreachable blocks, so DT check

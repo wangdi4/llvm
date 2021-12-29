@@ -470,6 +470,13 @@ void VPInstruction::print(raw_ostream &O) const {
       << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
     if (auto *LSI = dyn_cast<VPLoadStoreInst>(this))
       LSI->printDetails(O);
+    if (auto *Br = dyn_cast<VPBranchInst>(this)) {
+      if (auto *LpID = Br->getLoopIDMetadata()) {
+        O << "    LoopID: ";
+        LpID->print(O);
+        O << "\n";
+      }
+    }
     // Print other attributes here when imported.
     O << "    end of details\n";
   }

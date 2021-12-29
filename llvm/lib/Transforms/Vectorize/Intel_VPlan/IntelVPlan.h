@@ -1099,13 +1099,26 @@ public:
     setOperand(getNumOperands() - 1, Cond);
   }
 
+  /// Returns LoopID metadata node attached to this terminator instruction. This
+  /// is expected to be present only for loop latch terminator.
+  MDNode *getLoopIDMetadata() const { return LoopID; }
+
+  /// Set the LoopID metadata node for this terminator instruction.
+  void setLoopIDMetadata(MDNode *LpID) { LoopID = LpID; }
+
 protected:
   virtual VPBranchInst *cloneImpl() const final {
     VPBranchInst *Cloned = new VPBranchInst(getType());
     for (unsigned i = 0; i < getNumOperands(); i++)
       Cloned->addOperand(getOperand(i));
+    Cloned->setLoopIDMetadata(getLoopIDMetadata());
     return Cloned;
   }
+
+  // Capture the incoming loop's LoopID metadata. It can also be used internally
+  // by VPlan framework to attach some metadata related to the loop like TC
+  // estimates.
+  MDNode *LoopID = nullptr;
 };
 
 /// Concrete class for blending instruction. Was previously represented as
