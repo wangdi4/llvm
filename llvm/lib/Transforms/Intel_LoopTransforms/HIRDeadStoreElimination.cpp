@@ -276,7 +276,7 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
         continue;
       }
 
-      // DSE can happen when two store refs are in different parent loops, 
+      // DSE can happen when two store refs are in different parent loops,
       // but intervening loads can occur before the first StoreRef like so:
       // DO LOOP1
       //   Load A[]
@@ -285,10 +285,10 @@ foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
       // DO LOOP2
       //   Store2 A[]
       // END DO2
-      // The basic analysis in this function only checks memory aliasing in a single
-      // loop iteration, so we give up if the load occurs anywhere inside the Loop
-      // of the first StoreRef. More expensive checks would require DD Analysis 
-      // to prove that the Load does not alias with the stores.
+      // The basic analysis in this function only checks memory aliasing in a
+      // single loop iteration, so we give up if the load occurs anywhere inside
+      // the Loop of the first StoreRef. More expensive checks would require DD
+      // Analysis to prove that the Load does not alias with the stores.
       if (LoadTopSortNum <= MinTopSortNum) {
         if (InDifferentLoops &&
             LoadTopSortNum >
@@ -632,10 +632,7 @@ static bool isRefInvalidatedBeforeNode(const RegDDRef *Ref,
 
   unsigned Symbase = Ref->getSymbase();
 
-  bool IsRegionInvariant = ((Symbase == ConstantSymbase) ||
-                            EndNode->getParentRegion()->isLiveIn(Symbase));
-
-  if (IsRegionInvariant) {
+  if (Symbase == ConstantSymbase) {
     return false;
   }
 
