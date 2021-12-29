@@ -285,21 +285,22 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   return Clone;
 }
 
-// Checks whether the store of the entry block should be kept in the entry block
-// or it should be moved inside the simd loop.
-static bool shouldStoreStayInEntryBB(Function *Clone,
-                                     std::vector<VectorKind> &ParmKinds,
-                                     Instruction *Store) {
-  Value *StoreData = Store->getOperand(0);
-  Value *StoreAddr = Store->getOperand(1);
-  if (!isa<AllocaInst>(StoreAddr))
-    return false;
+// Find the alloca and store for any args that go through memory.
+static Optional<std::pair<StoreInst*, AllocaInst*>>
+getUnoptimizedArgInstructions(Argument &Arg) {
 
-  return llvm::any_of(
-      Clone->args(), [StoreData, ParmKinds](const Argument &Arg) {
-        VectorKind ArgKind = ParmKinds[Arg.getArgNo()];
-        return &Arg == StoreData && (ArgKind.isVector() || ArgKind.isLinear());
-      });
+  if (!Arg.hasOneUse())
+    return None;
+
+  auto *Store = dyn_cast<StoreInst>(Arg.user_back());
+  if (!Store)
+    return None;
+
+  auto *Alloca = dyn_cast<AllocaInst>(Store->getPointerOperand());
+  if (!Alloca)
+    return None;
+
+  return std::make_pair(Store, Alloca);
 }
 
 BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
@@ -317,39 +318,45 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
   SmallVector<Instruction *, 4> EntryInsts;
   for (auto BBIt = EntryBlock->begin(), BBEnd = EntryBlock->end();
        BBIt != BBEnd; ++BBIt) {
-    if (isa<AllocaInst>(BBIt) ||
-        (isa<StoreInst>(&*BBIt) &&
-         shouldStoreStayInEntryBB(Clone, V.getParameters(), &*BBIt))) {
-      // If this is a store of a vector parameter, keep it in the entry block
-      // because it will be modified with the vector alloca reference. Since
-      // the parameter has already been expanded, this becomes a vector store
-      // (i.e., packing instruction) that we do not want to appear in the
-      // scalar loop. It is correct to leave linear parameter stores in the
-      // entry or move them to the scalar loop, but leaving them in the entry
-      // block prevents an additional store inside the loop. If the store does
-      // not have a local alloca in the entry block, then is is moved inside the
-      // loop. Uniform parameter stores must be moved to the loop body to behave
-      // as uniform. Consider the following:
-      //
-      // __declspec(vector(uniform(x)))
-      // int foo(int a, int x) {
-      //   x++;
-      //   return (a + x);
-      // }
-      //
-      // Assume x = 1 for the call to foo. This implies x = 2 for the vector
-      // add. e.g., a[0:VL-1] + <2, 2, 2, 2>. If the initial store of x to the
-      // stack is done in the entry block outside of the loop, then x will be
-      // incremented by one each time within the loop because the increment of
-      // x will reside in the loop. Therefore, if the store of x is sunk into
-      // the loop, the initial value of 1 will always be stored to a temp
-      // before the increment, resulting in the value of 2 always being
-      // computed in the scalar loop.
-      EntryInsts.push_back(&*BBIt);
-
+    if (auto Alloca = dyn_cast<AllocaInst>(BBIt)) {
+      EntryInsts.push_back(Alloca);
       // Add alloca to SIMD loop private
-      if (auto AllocaVal = dyn_cast<AllocaInst>(BBIt))
-        PrivateAllocas.insert(AllocaVal);
+      PrivateAllocas.insert(Alloca);
+    }
+  }
+
+  // If this is a store of a vector parameter, keep it in the entry block
+  // because it will be modified with the vector alloca reference. Since
+  // the parameter has already been expanded, this becomes a vector store
+  // (i.e., packing instruction) that we do not want to appear in the
+  // scalar loop. It is correct to leave linear parameter stores in the
+  // entry or move them to the scalar loop, but leaving them in the entry
+  // block prevents an additional store inside the loop. If the store does
+  // not have a local alloca in the entry block, then is is moved inside the
+  // loop. Uniform parameter stores must be moved to the loop body to behave
+  // as uniform. Consider the following:
+  //
+  // __declspec(vector(uniform(x)))
+  // int foo(int a, int x) {
+  //   x++;
+  //   return (a + x);
+  // }
+  //
+  // Assume x = 1 for the call to foo. This implies x = 2 for the vector
+  // add. e.g., a[0:VL-1] + <2, 2, 2, 2>. If the initial store of x to the
+  // stack is done in the entry block outside of the loop, then x will be
+  // incremented by one each time within the loop because the increment of
+  // x will reside in the loop. Therefore, if the store of x is sunk into
+  // the loop, the initial value of 1 will always be stored to a temp
+  // before the increment, resulting in the value of 2 always being
+  // computed in the scalar loop.
+  std::vector<VectorKind> &ParmKinds = V.getParameters();
+  for (Argument &Arg : Clone->args()) {
+    VectorKind ArgKind = ParmKinds[Arg.getArgNo()];
+    auto IsOptimizedArg = getUnoptimizedArgInstructions(Arg);
+    if (IsOptimizedArg && (ArgKind.isVector() || ArgKind.isLinear())) {
+      StoreInst *ArgStore = IsOptimizedArg->first;
+      EntryInsts.push_back(ArgStore);
     }
   }
 
@@ -1004,35 +1011,19 @@ void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
     SmallDenseMap<Instruction*, int> LinearParmUsers;
 
     if (ParmKind.isLinear()) {
-
       int Stride = ParmKind.getStride();
-
-      for (User *ArgUser : Arg.users()) {
-
-        // Collect all uses of the parameter so that they can later be used to
-        // apply the stride.
-        if (StoreInst *ParmStore = dyn_cast<StoreInst>(ArgUser)) {
-
-          // This code traces the store of the parameter to its associated
-          // alloca. Then, we look for a load from that alloca to a temp. This
-          // is the value we need to add the stride to. This is for when
-          // Mem2Reg has not been run.
-          AllocaInst *Alloca = dyn_cast<AllocaInst>(ParmStore->getPointerOperand());
-
-          if (Alloca) {
-            for (auto *AU : Alloca->users())
-              if (LoadInst *ParmLoad = dyn_cast<LoadInst>(AU))
-                // The parameter is being loaded from an alloca to a new SSA
-                // temp. We must replace the users of this load with an
-                // instruction that adds the result of this load with the
-                // stride.
-                LinearParmUsers[ParmLoad] = Stride;
-          } else {
-            // Mem2Reg has run, so the parameter is directly referenced in the
-            // store instruction.
-            LinearParmUsers[ParmStore] = Stride;
-          }
-        } else {
+      auto IsOptimizedArg = getUnoptimizedArgInstructions(Arg);
+      if (IsOptimizedArg) {
+        AllocaInst *ArgAlloca = IsOptimizedArg->second;
+        for (auto *AU : ArgAlloca->users())
+          if (LoadInst *ArgLoad = dyn_cast<LoadInst>(AU))
+            // The parameter is being loaded from an alloca to a new SSA
+            // temp. We must replace the users of this load with an
+            // instruction that adds the result of this load with the
+            // stride.
+            LinearParmUsers[ArgLoad] = Stride;
+      } else {
+        for (User *ArgUser : Arg.users()) {
           // Mem2Reg has registerized the parameters, so users of it will use
           // it directly, and not through a load of the parameter.
           LinearParmUsers[cast<Instruction>(ArgUser)] = Stride;

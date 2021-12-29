@@ -924,9 +924,9 @@ private:
   // Get or create HLLabel corresponding to VPBB and return the same.
   HLLabel *getOrCreateBlockLabel(const VPBasicBlock *VPBB);
 
-  // Helper method to set upper bound and stride for vectorized HLLoops. The
-  // corresponding VPLoop is provided as input.
-  void setUBForVectorLoop(VPLoop *VPLp);
+  // Helper method to set lower, upper bound and stride for vectorized HLLoops.
+  // The corresponding VPLoop is provided as input.
+  void setBoundsForVectorLoop(VPLoop *VPLp);
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
