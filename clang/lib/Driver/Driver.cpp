@@ -836,7 +836,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 
   // Enforce -static if -miamcu is present.
   if (Args.hasFlag(options::OPT_miamcu, options::OPT_mno_iamcu, false))
-    DAL->AddFlagArg(0, Opts.getOption(options::OPT_static));
+    DAL->AddFlagArg(nullptr, Opts.getOption(options::OPT_static));
 
   // Use of -fintelfpga implies -g
   if (Args.hasArg(options::OPT_fintelfpga)) {
