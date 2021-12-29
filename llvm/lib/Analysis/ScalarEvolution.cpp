@@ -6755,7 +6755,7 @@ ScalarEvolution::getRangeRef(const SCEV *S,
     if (auto *I = dyn_cast<Instruction>(U->getValue())) {
       if (I->getType()->isIntOrIntVectorTy()) {
         // asserts for non-int types
-        auto ComputedRange = computeConstantRange(I, true, &AC, I);
+        auto ComputedRange = computeConstantRange(I, false, true, &AC, I);
         ConservativeResult =
           ConservativeResult.intersectWith(ComputedRange, RangeType);
       }
@@ -9570,7 +9570,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
 
     // Compute the max value of RHS.
     if (ComputeMaxBECountOnly) {
-      auto Range = computeConstantRange(RHSV, true, &AC, PN);
+      auto Range = computeConstantRange(RHSV, false, true, &AC, PN);
       RHSVal = IsSLTPred ? Range.getSignedMax() : Range.getUnsignedMax();
     } else {
       RHSVal = RHS->getValue();
