@@ -11,13 +11,14 @@
 // License.
 
 #include "Optimizer.h"
+#include "BarrierMain.h"
 #include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
 #include "OCLAliasAnalysis.h"
 #include "OclTune.h"
-#include "VecConfig.h"
 #include "PrintIRPass.h"
+#include "VecConfig.h"
 #include "mic_dev_limits.h"
 
 #include "VectorizerCommon.h"
@@ -109,8 +110,6 @@ llvm::Pass *createOCLReqdSubGroupSizePass();
 llvm::Pass *createOCLVecClonePass(const CPUDetect *, bool IsOCL);
 llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
-llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
-                                  bool useTLSGlobals);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
@@ -727,7 +726,7 @@ static void populatePassesPostFailCheck(
   PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
 
   PM.add(createUnifyFunctionExitNodesPass());
-  PM.add(createBarrierMainPass(OptLevel, debugType, UseTLSGlobals));
+  addBarrierMainPasses(PM, pRtlModuleList, OptLevel, debugType, UseTLSGlobals);
 
   // After adding loops run loop optimizations.
   if (OptLevel > 0) {
