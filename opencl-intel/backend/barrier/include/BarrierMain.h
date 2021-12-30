@@ -16,56 +16,15 @@
 #define __BARRIER_MAIN_H__
 
 #include "debuggingservicetype.h"
-#include "BuiltinLibInfo.h"
-#include "llvm/Pass.h"
-#include <map>
-#include <string>
-
-using namespace llvm;
+#include "llvm/IR/LegacyPassManager.h"
 
 namespace intel {
 
-
-  /// @brief BarrierMain pass is a module pass that handles the whole
-  /// barriers passes. It simply calls all other passes for you.
-  class BarrierMain : public ModulePass {
-
-  public:
-    static char ID;
-
-    /// @brief C'tor
-    /// @param optlevel the optimization level
-    /// @param debugType the type of debugging support enabled
-    /// @param useTLSGlobals use TLS globals instead of implicit arguments
-    BarrierMain(unsigned optLevel, DebuggingServiceType debugType, bool useTLSGlobals);
-
-    /// @brief D'tor
-    ~BarrierMain() {}
-
-    /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const override {
-      return "Intel OpenCL BarrierMain";
-    }
-
-    /// @brief execute pass on given module
-    /// @param M module to optimize
-    /// @returns True if module was modified
-    virtual bool runOnModule(Module &M) override;
-
-    /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<BuiltinLibInfo>();
-    }
-  private:
-    /// The optimization level being used
-    unsigned m_optLevel;
-
-    /// The type of debugging service enabled
-    DebuggingServiceType m_debugType;
-
-    /// Use TLS globals instead of implicit arguments
-    bool m_useTLSGlobals;
-  };
+void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
+                          llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
+                          unsigned OptLevel,
+                          intel::DebuggingServiceType DebugType,
+                          bool UseTLSGlobals);
 
 } // namespace intel
 
