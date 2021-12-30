@@ -90,6 +90,11 @@ public:
   /// If not found, return nullptr.
   VPCmpInst *getLatchComparison() const;
 
+  /// Return the loop id metadata node for this VPLoop if present. This is
+  /// obtained by checking loop latch's terminator instruction.
+  // TODO: Do we need a setter for LoopID?
+  MDNode *getLoopID() const;
+
   /// Return true if the loop has normalized induction.
   bool hasNormalizedInduction() const {
     assert(HasNormalizedInduction.hasValue() && "The flag is unset");

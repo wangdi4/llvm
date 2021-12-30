@@ -71,9 +71,8 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
 
 VPlanHCFGBuilder::~VPlanHCFGBuilder() = default;
 
-static TripCountInfo readIRLoopMetadata(Loop *Lp) {
+static TripCountInfo readIRLoopMetadata(MDNode *LoopID) {
   TripCountInfo TCInfo;
-  MDNode *LoopID = Lp->getLoopID();
   if (!LoopID)
     // Default construct to trigger usage of the default estimated trip count
     // later.
@@ -114,6 +113,8 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     assert(VPLatch && "No dedicated latch!");
     BasicBlock *Latch = VPLatch->getOriginalBB();
     assert(Latch && "Loop massaging happened before VPLoop's creation?");
+    // TODO: IR loop is needed here to query SCEV. Consider dropping it after
+    // transitioning SCEV query to loop ID metadata during CFG build.
     Loop *Lp = LI->getLoopFor(Latch);
     assert(Lp &&
            "VPLoopLatch does not correspond to Latch, massaging happened?");
@@ -132,7 +133,7 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     }
     // If not, check if an estimation for max TC can be obtained.
     // First, try reading pragmas.
-    TripCountInfo TCInfo = readIRLoopMetadata(Lp);
+    TripCountInfo TCInfo = readIRLoopMetadata(VPL->getLoopID());
     if (TripCountTy KnownMaxTC = SE->getSmallConstantMaxTripCount(Lp)) {
       // Then see if the compiler can infer a better estimate.
       TCInfo.MaxTripCount = std::min(TCInfo.MaxTripCount, KnownMaxTC);

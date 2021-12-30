@@ -520,7 +520,6 @@ void VPOCodeGen::finalizeLoop() {
     VPBasicBlock *VHeader = (*VPLI->begin())->getHeader();
     LoopVectorBody = cast<BasicBlock>(getScalarValue(VHeader, 0));
     LoopVectorBody->setName("vector.body");
-    LoopVectorBody->getTerminator()->setDebugLoc(OrigLoop->getStartLoc());
   } else {
     fixOutgoingValues();
     fixNonInductionVPPhis();
@@ -541,6 +540,9 @@ void VPOCodeGen::finalizeLoop() {
 
   NewLoop = LI->getLoopFor(LoopVectorBody);
   OrigLoop = LI->getLoopFor(LoopScalarBody);
+
+  // Preserve LocRange info in outgoing LoopID after LoopInfo is recomputed.
+  preserveLoopIDDbgMDs();
 }
 
 void VPOCodeGen::updateAnalysis() {
@@ -4701,4 +4703,38 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
       ORBuilder(*ScalarLp, *LI).addOrigin(25519u);
     }
   }
+}
+
+void VPOCodeGen::preserveLoopIDDbgMDs() {
+  auto PreserveMDsForLoop = [this](VPLoop *VPL) {
+    MDNode *LpID = VPL->getLoopID();
+    if (!LpID)
+      return;
+
+    SmallVector<MDNode *, 2> DbgLocMDs;
+    // Collect all DbgLoc metadata present in LoopID.
+    for (unsigned i = 1, e = LpID->getNumOperands(); i < e; i++) {
+      if (auto *DbgMD = dyn_cast<DILocation>(LpID->getOperand(i)))
+        DbgLocMDs.push_back(DbgMD);
+    }
+
+    if (DbgLocMDs.empty())
+      return;
+
+    // Identify the IR loop that corresponds to current VPLoop.
+    auto *VPLpHeader = VPL->getHeader();
+    auto *LpHeader = cast<BasicBlock>(getScalarValue(VPLpHeader, 0));
+    Loop *IRLp = LI->getLoopFor(LpHeader);
+    assert(IRLp && "Could not find IR loop corresponding to VPLoop.");
+
+    // Add the MDNodes to LoopID.
+    MDNode *NewLoopID = makePostTransformationMetadata(
+        IRLp->getHeader()->getContext(), IRLp->getLoopID(),
+        {} /*No MDs to drop*/, DbgLocMDs);
+    IRLp->setLoopID(NewLoopID);
+  };
+
+  for (VPLoop *OuterLoop : *Plan->getVPLoopInfo())
+    for (auto *VLP : post_order(OuterLoop))
+      PreserveMDsForLoop(VLP);
 }

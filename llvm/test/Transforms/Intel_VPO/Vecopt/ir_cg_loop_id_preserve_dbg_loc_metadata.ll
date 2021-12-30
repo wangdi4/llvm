@@ -9,9 +9,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-LABEL: define dso_local void @foo(i32* nocapture %A)
 ; CHECK:         vector.body:
 ; CHECK:           br i1 [[EXIT_COND:%.*]], label [[EXIT_BB:%.*]], label %vector.body, !llvm.loop [[VEC_LOOP_ID:!.*]]
-; FIXME: Vector loop's LoopID should contain loop's DbgLoc range MD similar to
-; scalar loop's LoopID !10.
-; CHECK:       [[VEC_LOOP_ID]] = distinct !{[[VEC_LOOP_ID]], [[IS_VEC_MD:!.*]]}
+; CHECK:       [[VEC_LOOP_ID]] = distinct !{[[VEC_LOOP_ID]], [[LOCRANGE_START:!.*]], [[LOCRANGE_END:!.*]], [[IS_VEC_MD:!.*]]}
+; CHECK:       [[LOCRANGE_START]] = !DILocation(line: 2, column: 1, scope: [[SCOPEMD:!.*]])
+; CHECK:       [[LOCRANGE_END]] = !DILocation(line: 2, column: 17, scope: [[SCOPEMD:!.*]])
 ; CHECK:       [[IS_VEC_MD]] = !{!"llvm.loop.isvectorized", i32 1}
 
 ; Function Attrs: mustprogress nounwind uwtable
