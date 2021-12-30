@@ -1891,6 +1891,18 @@ def int_experimental_matrix_wi_slice_insertelement
                llvm_i32_ty, llvm_i32_ty, LLVMVectorElementType<0>,
                llvm_anyint_ty, llvm_metadata_ty, llvm_metadata_ty]>;
 
+def int_experimental_matrix_extract_row_slice
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty], [llvm_anyvector_ty, llvm_i32_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
+               llvm_metadata_ty],
+               [ImmArg<ArgIndex<3>>, ImmArg<ArgIndex<4>>, ImmArg<ArgIndex<5>>]>;
+
+def int_experimental_matrix_insert_row_slice
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty], [LLVMMatchType<0>,
+               llvm_anyvector_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty],
+               [ImmArg<ArgIndex<4>>, ImmArg<ArgIndex<5>>, ImmArg<ArgIndex<6>>]>;
+
 #endif // INTEL_CUSTOMIZATION
 
 //===---------- Intrinsics to control hardware supported loops ----------===//
