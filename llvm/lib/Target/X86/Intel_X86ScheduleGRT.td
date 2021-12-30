@@ -281,6 +281,7 @@ defm : X86WriteRes<WriteFMaskedStore64, [GRTPort12_13, GRTPort20, GRTPort28_29],
 defm : X86WriteRes<WriteFMaskedStore64Y, [GRTPort12_13, GRTPort20, GRTPort28_29], 1, [2, 2, 2], 6>;
 def : WriteRes<WriteFMoveX, [GRTPort20_21_22]>;
 defm : X86WriteRes<WriteFMoveY, [GRTPort20_21_22], 1, [2], 2>;
+defm : X86WriteResUnsupported<WriteFMoveZ>;
 def : WriteRes<WriteFMul, [GRTPort20_21]> {
   let Latency = 4;
 }
@@ -546,6 +547,7 @@ def : WriteRes<WriteVecMoveToGpr, [GRTPort20]> {
 }
 def : WriteRes<WriteVecMoveX, [GRTPort20_21_22]>;
 defm : X86WriteRes<WriteVecMoveY, [GRTPort20_21_22], 1, [2], 2>;
+defm : X86WriteResUnsupported<WriteVecMoveZ>;
 defm : GRTWriteResPair<WriteVecShift, [GRTPort20_21_22], 1, [1], 1, 5>;
 def : WriteRes<WriteVecShiftImm, [GRTPort20_21_22]>;
 def : WriteRes<WriteVecShiftImmX, [GRTPort20_21_22]>;

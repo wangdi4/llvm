@@ -293,6 +293,7 @@ public:
   }
 
   void clearStreams() { MStreams.clear(); }
+  bool hasStreams() { return !MStreams.empty(); }
 };
 
 /// "Copy memory" command group class.

@@ -1,8 +1,10 @@
 // RUN: %clang_cc1 -verify=expected,omp45 -fopenmp -fopenmp-version=45 -ferror-limit 150 %s -Wuninitialized
 // RUN: %clang_cc1 -verify=expected,omp50 -fopenmp -ferror-limit 150 %s -Wuninitialized
+// RUN: %clang_cc1 -verify=expected,omp50,omp51 -fopenmp -fopenmp-version=51 -ferror-limit 150 %s -Wuninitialized
 
 // RUN: %clang_cc1 -verify=expected,omp45 -fopenmp-simd -fopenmp-version=45 -ferror-limit 150 %s -Wuninitialized
 // RUN: %clang_cc1 -verify=expected,omp50 -fopenmp-simd -ferror-limit 150 %s -Wuninitialized
+// RUN: %clang_cc1 -verify=expected,omp50,omp51 -fopenmp-simd -fopenmp-version=51 -ferror-limit 150 %s -Wuninitialized
 
 int foo() {
 L1:
@@ -896,19 +898,19 @@ int relaxed() {
 template <class T>
 T mixed() {
   T a, b = T();
-// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 2 {{'read' clause used here}}
 #pragma omp atomic read write
   a = b;
-// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 2 {{'write' clause used here}}
 #pragma omp atomic write read
   a = b;
-// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 2 {{'update' clause used here}}
 #pragma omp atomic update read
   a += b;
-// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 2 {{'capture' clause used here}}
 #pragma omp atomic capture read
   a = ++b;
@@ -917,19 +919,19 @@ T mixed() {
 
 int mixed() {
   int a, b = 0;
-// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 {{'read' clause used here}}
 #pragma omp atomic read write
   a = b;
-// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 {{'write' clause used here}}
 #pragma omp atomic write read
   a = b;
-// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 {{'write' clause used here}}
 #pragma omp atomic write update
   a = b;
-// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause}}
+// expected-error@+2 {{directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause}}
 // expected-note@+1 {{'write' clause used here}}
 #pragma omp atomic write capture
   a = b;
@@ -937,3 +939,15 @@ int mixed() {
   return mixed<int>();
 }
 
+#if _OPENMP >= 202011
+int compare() {
+  int a, b, c;
+#pragma omp atomic compare
+// omp51-error@+2 {{he statement for 'atomic compare' must be 'x = expr ordop x ? expr : x;', 'x = x ordop expr ? expr : x;', 'x = x == e ? d : x;', 'if(expr ordop x) {x=expr;}', 'if(x ordop expr) {x=expr;}', or 'if(x==e) {x=d;}' where x is an lvalue with scalar type}}
+// omp51-note@+1 {{expected an if statement or assignment expression}}
+  {
+    if (a == b)
+      a = c;
+  }
+}
+#endif

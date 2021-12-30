@@ -869,6 +869,8 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
     CGM.addDTransType(RD, Entry);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+    if (RD->hasAttr<SYCLUsesAspectsAttr>())
+      CGM.addTypeWithAspects(Entry->getName(), RD);
   }
   llvm::StructType *Ty = Entry;
 

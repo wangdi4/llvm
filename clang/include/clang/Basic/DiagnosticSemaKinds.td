@@ -10662,7 +10662,7 @@ def note_omp_atomic_compare_capture: Note<
   "expected an lvalue expression|cannot match 'r' component in expression}0">;
 #endif // INTEL_COLLAB
 def err_omp_atomic_several_clauses : Error<
-  "directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause">;
+  "directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause">;
 def err_omp_several_mem_order_clauses : Error<
   "directive '#pragma omp %0' cannot contain more than one %select{'seq_cst', 'relaxed', |}1'acq_rel', 'acquire' or 'release' clause">;
 def err_omp_atomic_incompatible_mem_order_clause : Error<
@@ -11243,8 +11243,6 @@ def err_coroutine_type_missing_specialization : Error<
   "specialization %0">;
 def err_coroutine_promise_incompatible_return_functions : Error<
   "the coroutine promise type %0 declares both 'return_value' and 'return_void'">;
-def err_coroutine_promise_requires_return_function : Error<
-  "the coroutine promise type %0 must declare either 'return_value' or 'return_void'">;
 def note_coroutine_promise_implicit_await_transform_required_here : Note<
   "call to 'await_transform' implicitly required by 'co_await' here">;
 def note_coroutine_promise_suspend_implicitly_required : Note<
@@ -11719,6 +11717,8 @@ def err_sycl_invalid_accessor_property_list_template_param : Error<
   "%select{parameter pack|type|non-negative integer}1">;
 def err_sycl_num_kernel_wrong_reqd_wg_size : Error<
   "%0 attribute must evenly divide the work-group size for the %1 attribute">;
+def err_sycl_invalid_aspect_argument : Error<
+  "%0 attribute argument is invalid; argument must be device aspect of type sycl::aspect">;
 
 def warn_sycl_pass_by_value_deprecated 
     : Warning<"passing kernel functions by value is deprecated in SYCL 2020">,

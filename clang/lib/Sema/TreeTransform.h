@@ -9772,14 +9772,12 @@ TreeTransform<Derived>::TransformOMPCaptureClause(OMPCaptureClause *C) {
   return C;
 }
 
-#if INTEL_COLLAB
 template <typename Derived>
 OMPClause *
 TreeTransform<Derived>::TransformOMPCompareClause(OMPCompareClause *C) {
   // No need to rebuild this clause, no template-dependent parameters.
   return C;
 }
-#endif // INTEL_COLLAB
 
 template <typename Derived>
 OMPClause *

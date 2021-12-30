@@ -180,9 +180,7 @@ def OMPC_Read : Clause<"read"> { let clangClass = "OMPReadClause"; }
 def OMPC_Write : Clause<"write"> { let clangClass = "OMPWriteClause"; }
 def OMPC_Update : Clause<"update"> { let clangClass = "OMPUpdateClause"; }
 def OMPC_Capture : Clause<"capture"> { let clangClass = "OMPCaptureClause"; }
-#if INTEL_COLLAB
 def OMPC_Compare : Clause<"compare"> { let clangClass = "OMPCompareClause"; }
-#endif // INTEL_COLLAB
 def OMPC_SeqCst : Clause<"seq_cst"> { let clangClass = "OMPSeqCstClause"; }
 def OMPC_AcqRel : Clause<"acq_rel"> { let clangClass = "OMPAcqRelClause"; }
 def OMPC_Acquire : Clause<"acquire"> { let clangClass = "OMPAcquireClause"; }
@@ -285,7 +283,7 @@ def OMPC_Allocate : Clause<"allocate"> {
 def OMPC_NonTemporal : Clause<"nontemporal"> {
   let clangClass = "OMPNontemporalClause";
   let flangClass = "Name";
-  let isValueList = true; 
+  let isValueList = true;
 }
 
 def OMP_ORDER_concurrent : ClauseVal<"concurrent",1,1> {}
@@ -576,9 +574,7 @@ def OMP_Atomic : Directive<"atomic"> {
     VersionedClause<OMPC_Write>,
     VersionedClause<OMPC_Update>,
     VersionedClause<OMPC_Capture>,
-#if INTEL_COLLAB
-    VersionedClause<OMPC_Compare, 51>,
-#endif // INTEL_COLLAB
+    VersionedClause<OMPC_Compare, 51>
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_SeqCst>,

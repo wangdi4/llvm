@@ -129,6 +129,11 @@ llvm_config.feature_config(
                           'X86': 'x86'})
      ])
 
+# INTEL_CUSTOMIZATION
+# Include the TC_WRAPPER_PATH environment variable if it is available
+llvm_config.with_system_environment(['TC_WRAPPER_PATH'])
+# end INTEL_CUSTOMIZATION
+
 # Set a fake constant version so that we get consistent output.
 config.environment['LLD_VERSION'] = 'LLD 1.0'
 
