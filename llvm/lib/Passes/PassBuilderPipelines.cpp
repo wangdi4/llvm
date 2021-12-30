@@ -654,6 +654,8 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
   if (EnableLoopInterchange)
     LPM2.addPass(LoopInterchangePass());
+  if (EnableLoopFlatten)
+    LPM2.addPass(LoopFlattenPass());
 
   // Do not enable unrolling in PreLinkThinLTO phase during sample PGO
   // because it changes IR to makes profile annotation in back compile
@@ -678,8 +680,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
                                               /*UseBlockFrequencyInfo=*/true));
   FPM.addPass(SimplifyCFGPass());
   addInstCombinePass(FPM, !DTransEnabled); // INTEL
-  if (EnableLoopFlatten)
-    FPM.addPass(createFunctionToLoopPassAdaptor(LoopFlattenPass()));
   // The loop passes in LPM2 (LoopFullUnrollPass) do not preserve MemorySSA.
   // *All* loop passes must preserve it, in order to be able to use it.
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2),
@@ -876,6 +876,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   if (EnableLoopInterchange)
     LPM2.addPass(LoopInterchangePass());
+  if (EnableLoopFlatten)
+    LPM2.addPass(LoopFlattenPass());
 
   // Do not enable unrolling in PreLinkThinLTO phase during sample PGO
   // because it changes IR to makes profile annotation in back compile
@@ -907,8 +909,6 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
-  if (EnableLoopFlatten)
-    FPM.addPass(createFunctionToLoopPassAdaptor(LoopFlattenPass()));
   // The loop passes in LPM2 (LoopIdiomRecognizePass, IndVarSimplifyPass,
   // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
   // *All* loop passes must preserve it, in order to be able to use it.
@@ -2874,9 +2874,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.addPass(DSEPass());
   MainFPM.addPass(MergedLoadStoreMotionPass());
 
-  // More loops are countable; try to optimize them.
-  if (EnableLoopFlatten && Level.getSpeedupLevel() > 1)
-    MainFPM.addPass(createFunctionToLoopPassAdaptor(LoopFlattenPass()));
 
   if (EnableConstraintElimination)
     MainFPM.addPass(ConstraintEliminationPass());
@@ -2884,6 +2881,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   LoopPassManager LPM;
   LPM.addPass(IndVarSimplifyPass());
   LPM.addPass(LoopDeletionPass());
+  if (EnableLoopFlatten && Level.getSpeedupLevel() > 1)
+    LPM.addPass(LoopFlattenPass());
   // FIXME: Add loop interchange.
 
 #if INTEL_CUSTOMIZATION
