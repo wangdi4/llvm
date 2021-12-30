@@ -2040,6 +2040,29 @@ static void replaceCommonSymbols() {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// This is the same function as replaceCommonSymbols but it checks the common
+// symbols that could be added by the GNU LTO files. These files contain at
+// least one common symbol (__gnu_lto_slim).
+static void replaceGNUCommonSymbols() {
+  llvm::TimeTraceScope timeScope("Replace GNU LTO common symbols");
+  for (auto *file : gNULTOFiles) {
+    for (Symbol *sym : file->getSymbols()) {
+      auto *s = dyn_cast<CommonSymbol>(sym);
+      if (!s)
+        continue;
+
+      auto *bss = make<BssSection>("COMMON", s->size, s->alignment);
+      bss->file = s->file;
+      bss->markDead();
+      inputSections.push_back(bss);
+      s->replace(Defined{s->file, s->getName(), s->binding, s->stOther, s->type,
+                         /*value=*/0, s->size, bss});
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 // If all references to a DSO happen to be weak, the DSO is not added
 // to DT_NEEDED. If that happens, we need to eliminate shared symbols
 // created from the DSO. Otherwise, they become dangling references
@@ -2604,6 +2627,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
 
   // Replace common symbols with regular symbols.
   replaceCommonSymbols();
+  replaceGNUCommonSymbols();   // INTEL
 
   {
     llvm::TimeTraceScope timeScope("Aggregate sections");
