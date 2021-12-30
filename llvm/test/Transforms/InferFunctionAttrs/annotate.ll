@@ -921,11 +921,7 @@ declare i8* @strncpy(i8*, i8*, i64)
 ; CHECK: declare noalias i8* @strndup(i8* nocapture readonly, i64 noundef) [[INACCESSIBLEMEMORARGONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare i8* @strndup(i8*, i64)
 
-<<<<<<< HEAD
-; CHECK: declare i64 @strnlen(i8*, i64) [[NOFREE_NOUNWIND_READONLY_WILLRETURN:#[0-9]+]] ;INTEL
-=======
 ; CHECK: declare i64 @strnlen(i8* nocapture, i64) [[ARGMEMONLY_NOFREE_NOUNWIND_READONLY_WILLRETURN:#[0-9]+]]
->>>>>>> 4683ce2cd899b2d682453e173c3466fa270c09f7
 declare i64 @strnlen(i8*, i64)
 
 ; CHECK: declare i8* @strpbrk(i8*, i8* nocapture) [[ARGMEMONLY_NOFREE_NOUNWIND_READONLY_WILLRETURN]]
