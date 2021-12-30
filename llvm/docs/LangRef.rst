@@ -18353,6 +18353,124 @@ Example:
       declare <256 x float> @llvm.experimental.matrix.wi.slice.insertelement.v256f32.i64(<256 x float> %A, i32 16, i32 16, float %val, i64 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
       declare <64 x i8> @llvm.experimental.matrix.wi.slice.insertelement.v64i8.i32(<64 x i8> %A, i32 16, i32 4, i8 %val, i32 %index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
 
+
+'``llvm.experimental.matrix.extract.row.slice``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+::
+
+      declare <vectorty>
+      @llvm.experimental.matrix.extract.row.slice.*(<vectorty2> <matrix>,
+                                                    i32 <rowindex>, i32 <colindex>, i32 <count>,
+                                                    i32 <rows>, i32 <cols>, metadata <layout>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.extract.row.slice``' intrinsic extracts consecutive
+values (in row-major order) from the matrix. A collection of the row-major
+consecutive values is called a row slice of the matrix.
+
+Arguments:
+""""""""""
+The first argument is a vector which represents a flattened matrix.
+
+The second and third arguments are the row and column index of the leader
+element of the row slice to be extracted.
+
+The fourth argument is a positive, constant integer that represents the length
+of the returned row slice.
+
+The fifth and sixth arguments describes the number of rows and columns of the
+matrix respectively.
+
+The seventh argument is a metadata string specifying the matrix layout.
+
+Semantics:
+""""""""""
+'``llvm.experimental.matrix.extract.row.slice``' extracts and returns a
+consecutive set of elements (called a row slice) out of the matrix, by viewing
+the matrix as a flattened vector in row-major order. The coordinates of the first
+element of the row slice in the matrix are specified by ``rowindex`` and
+``colindex``. ``count`` specifies the number of elements of the returned row
+slice.
+
+If any part of the row slice falls outside the matrix range, the result is a
+:ref:`poison value <poisonvalues>`.
+
+Example:
+""""""""
+::
+
+      ; Extracts a length-4 row slice from a 3-by-4 matrix, starting from A[0,1]
+      ; Return vector == [A[0,1], A[0,2], A[0,3], A[1,0]]
+      <result> = call <4 x i32> @llvm.experimental.matrix.extract.row.slice.v4i32.v12i32(<12 x i32> %A, i32 0, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+      ; Extracts a length-4 row slice from a 3-by-4 matrix, starting from A[2,1]
+      ; Return vector is a poison value, because the last element falls outside the matrix range
+      <result> = call <4 x i32> @llvm.experimental.matrix.extract.row.slice.v4i32.v12i32(<12 x i32> %A, i32 2, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+
+
+'``llvm.experimental.matrix.insert.row.slice``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+::
+
+      declare <vectorty>
+      @llvm.experimental.matrix.insert.row.slice.*(<vectorty> <matrix>, <vectorty2> <data>,
+                                                   i32 <rowindex>, i32 <colindex>, i32 <count>,
+                                                   i32 <rows>, i32 <cols>, metadata <layout>)
+
+Overview:
+"""""""""
+'``llvm.experimental.matrix.insert.row.slice``' intrinsic inserts data into
+consecutive positions (in row-major order) of the matrix.
+
+Arguments:
+""""""""""
+The first argument is a vector which represents a flattened matrix.
+
+The second argument is a vector which specifies the data to be inserted.
+
+The third and fourth arguments are the row and column index of the leader
+element of the row slice to be inserted.
+
+The fifth argument is a positive, constant integer that represents the length
+of the row slice to be inserted.
+
+The sixth and seventh arguments describes the number of rows and columns of the
+matrix respectively.
+
+The eighth argument is a metadata string specifying the matrix layout.
+
+Semantics:
+""""""""""
+'``llvm.experimental.matrix.insert.row.slice``' inserts data into consecutive
+positions (called a row slice) of the matrix, by viewing the matrix as a
+flattened vector in row-major order and returns a copy of the flattened matrix
+with corresponding elements updated. The coordinates of the first element of
+the row slice in the matrix are specified by ``rowindex`` and ``colindex``.
+``count`` specifies the number of elements to be inserted.
+
+If any part of the row slice falls outside the matrix range, the result is a
+:ref:`poison value <poisonvalues>`.
+
+Example:
+""""""""
+::
+
+      ; Inserts a length-4 row slice into a 3-by-4 matrix, starting from A[0,1]
+      ; [A[0,1], A[0,2], A[0,3], A[1,0]] <== %data
+      <result> = call <12 x i32> @llvm.experimental.matrix.insert.row.slice.v12i32.v4i32(<12 x i32> %A, <4 x i32> %data, i32 0, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+      ; Inserts a length-4 row slice into a 3-by-4 matrix, starting from A[2,1]
+      ; Result is a poison value, because the last element falls outside the matrix range
+      <result> = call <12 x i32> @llvm.experimental.matrix.insert.row.slice.v12i32.v4i32(<12 x i32> %A, <4 x i32> %data, i32 2, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
+
+
 .. END INTEL_CUSTOMIZATION
 
 
