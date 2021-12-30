@@ -21,6 +21,7 @@ include_directories(
 include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${CL_API_HEADERS}
+    ${BACKEND_ROOT_DIR}/barrier/include
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/metadata_api

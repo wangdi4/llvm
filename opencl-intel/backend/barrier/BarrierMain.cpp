@@ -12,15 +12,11 @@
 
 #include "BarrierMain.h"
 
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
-
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
 
@@ -44,113 +40,86 @@ extern "C" {
   Pass *createSGLoopConstructPass();
   Pass *createSGValueWidenPass(bool EnableDebug);
   Pass *createSubGroupBuiltinPass();
-
-  /// Support for static linking of modules for Windows
-  /// This pass is called by a modified Opt.exe
-  Pass *createBarrierMainPass(unsigned optLevel,
-                              intel::DebuggingServiceType debugType,
-                              bool useTLSGlobals) {
-    return new intel::BarrierMain(optLevel, debugType, useTLSGlobals);
-  }
 }
 
 namespace intel {
 
-  char intel::BarrierMain::ID = 0;
+void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
+                          SmallVector<Module *, 2> &RtlModuleList,
+                          unsigned OptLevel,
+                          intel::DebuggingServiceType DebugType,
+                          bool UseTLSGlobals) {
+  if (OptLevel > 0) {
+    // Currently, vectorizer is enabled only when OptLevel > 0.
+    PM.add((ModulePass *)createReplaceScalarWithMaskPass());
+    // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
+    PM.add(createResolveSubGroupWICallLegacyPass(RtlModuleList,
+                                                 /*ResolveSGBarrier*/ false));
 
-  BarrierMain::BarrierMain(unsigned optLevel, DebuggingServiceType debugType, bool useTLSGlobals)
-      : ModulePass(ID), m_optLevel(optLevel), m_debugType(debugType), m_useTLSGlobals(useTLSGlobals) {
+    PM.add(createDeadCodeEliminationPass());
+    PM.add(createCFGSimplificationPass());
+
+    PM.add(createPromoteMemoryToRegisterPass());
   }
 
-  bool BarrierMain::runOnModule(Module &M) {
-    legacy::PassManager barrierModulePM;
+  PM.add(createPhiCanonicalizationLegacyPass());
+  // Register barrier module passes
+  PM.add(createRedundantPhiNodeLegacyPass());
+  PM.add(createGroupBuiltinLegacyPass(RtlModuleList));
+  PM.add(createBarrierInFunctionLegacyPass());
 
-    barrierModulePM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
-    if( m_optLevel > 0 ) {
-      // Currently, vectorizer is enabled only when m_optLevel > 0.
-      barrierModulePM.add((ModulePass*)createReplaceScalarWithMaskPass());
-      // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
-      barrierModulePM.add(createResolveSubGroupWICallLegacyPass(
-          getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
-          /*ResolveSGBarrier*/ false));
+  // Only run this when not debugging or when not in native (gdb) debugging
+  if (DebugType != Native) {
+    // This optimization removes debug information from extraneous barrier
+    // calls by deleting them.
+    PM.add(
+        (ModulePass *)createRemoveDuplicationBarrierPass(DebugType == Native));
+  }
 
-      barrierModulePM.add(createDeadCodeEliminationPass());
-      barrierModulePM.add(createCFGSimplificationPass());
+  // Begin sub-group emulation
+  if (EnableSubGroupEmulation) {
+    PM.add(createSubGroupBuiltinPass());
+    PM.add(createSGBarrierPropagatePass());
+    PM.add(createSGBarrierSimplifyPass());
+  }
+  // Insert ImplicitGIDPass in the middle of subgroup emulation
+  // to track GIDs in emulation loops
+  if (DebugType == Native)
+    PM.add((ModulePass *)createImplicitGIDPass(/*HandleBarrier*/ true));
 
-      barrierModulePM.add(createPromoteMemoryToRegisterPass());
-    }
-
-    barrierModulePM.add(createPhiCanonicalizationLegacyPass());
-    //Register barrier module passes
-    barrierModulePM.add(createRedundantPhiNodeLegacyPass());
-    barrierModulePM.add(createGroupBuiltinLegacyPass(
-        getAnalysis<BuiltinLibInfo>().getBuiltinModules()));
-    barrierModulePM.add(createBarrierInFunctionLegacyPass());
-
-    // Only run this when not debugging or when not in native (gdb) debugging
-    if ( m_debugType != Native ) {
-      // This optimization removes debug information from extraneous barrier
-      // calls by deleting them.
-      barrierModulePM.add((ModulePass *)createRemoveDuplicationBarrierPass(
-          m_debugType == Native));
-    }
-
-    // Begin sub-group emulation
-    if (EnableSubGroupEmulation) {
-      barrierModulePM.add(createSubGroupBuiltinPass());
-      barrierModulePM.add(createSGBarrierPropagatePass());
-      barrierModulePM.add(createSGBarrierSimplifyPass());
-    }
-    // Insert ImplicitGIDPass in the middle of subgroup emulation
-    // to track GIDs in emulation loops
-    if (m_debugType == Native)
-      barrierModulePM.add(
-          (ModulePass *)createImplicitGIDPass(/*HandleBarrier*/ true));
-
-    // Resume sub-group emulation
-    if (EnableSubGroupEmulation) {
-      barrierModulePM.add(createSGValueWidenPass(m_debugType == Native));
-      barrierModulePM.add(createSGLoopConstructPass());
+  // Resume sub-group emulation
+  if (EnableSubGroupEmulation) {
+    PM.add(createSGValueWidenPass(DebugType == Native));
+    PM.add(createSGLoopConstructPass());
 #ifdef _DEBUG
-      barrierModulePM.add(createVerifierPass());
+    PM.add(createVerifierPass());
 #endif
-    }
+  }
     // End sub-group emulation
 
     // Since previous passes didn't resolve sub-group barriers, we need to
     // resolve them here.
-    barrierModulePM.add(createResolveSubGroupWICallLegacyPass(
-        getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
-        /*ResolveSGBarrier*/ true));
+    PM.add(createResolveSubGroupWICallLegacyPass(RtlModuleList,
+                                                 /*ResolveSGBarrier*/ true));
 
-    barrierModulePM.add(createSplitBBonBarrierLegacyPass());
+    PM.add(createSplitBBonBarrierLegacyPass());
 
-    if (m_optLevel > 0 && EnableReducingCrossBarrierValues) {
-      barrierModulePM.add(createReduceCrossBarrierValuesPass());
+    if (OptLevel > 0 && EnableReducingCrossBarrierValues) {
+      PM.add(createReduceCrossBarrierValuesPass());
 #ifdef _DEBUG
-      barrierModulePM.add(createVerifierPass());
+      PM.add(createVerifierPass());
 #endif
     }
     Pass *pBarrierPass = (ModulePass *)createKernelBarrierLegacyPass(
-        m_debugType == Native, m_useTLSGlobals);
-    barrierModulePM.add((ModulePass*)pBarrierPass);
+        DebugType == Native, UseTLSGlobals);
+    PM.add((ModulePass *)pBarrierPass);
 #ifdef _DEBUG
-    barrierModulePM.add(createVerifierPass());
+    PM.add(createVerifierPass());
 #endif
 
-    if( m_optLevel > 0 ) {
-      barrierModulePM.add(createPromoteMemoryToRegisterPass());
+    if (OptLevel > 0) {
+      PM.add(createPromoteMemoryToRegisterPass());
     }
-
-    //Run module passes
-    barrierModulePM.run(M);
-
-    return true;
-  }
-
-  // Register this pass...
-  //static RegisterPass<BarrierMain> BM("B-Main",
-  //  "Barrier Pass - Main pass",
-  //  false, true);
+}
 
 } // namespace intel
