@@ -137,8 +137,7 @@ public:
 
 private:
   // hold the collection of passes
-  llvm::legacy::PassManager m_PostFailCheckPM;
-  llvm::legacy::PassManager m_PreFailCheckPM;
+  llvm::legacy::PassManager m_PM;
   bool m_IsFpgaEmulator;
   bool m_IsEyeQEmulator;
 };

@@ -30,8 +30,7 @@ extern "C" {
   void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
 
   Pass *createImplicitGIDPass(bool HandleBarrier);
-  void* createReplaceScalarWithMaskPass();
-  Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
+  void *createReplaceScalarWithMaskPass();
   FunctionPass *createReduceCrossBarrierValuesPass();
 
   // subgroup emulation passes
