@@ -66,6 +66,8 @@ public:
           case Intrinsic::experimental_matrix_sumad:
           case Intrinsic::experimental_matrix_usmad:
           case Intrinsic::experimental_matrix_uumad:
+          case Intrinsic::experimental_matrix_extract_row_slice:
+          case Intrinsic::experimental_matrix_insert_row_slice:
           case Intrinsic::experimental_matrix_fill:
             Worklist.push_back(&*BBI);
             break;
@@ -87,6 +89,8 @@ private:
   bool ProcessMatrixLoad(IntrinsicInst *II);
   bool ProcessMatrixStore(IntrinsicInst *II);
   bool ProcessMatrixMad(IntrinsicInst *II);
+  bool ProcessMatrixExtractRowSlice(IntrinsicInst *II);
+  bool ProcessMatrixInsertRowSlice(IntrinsicInst *II);
   bool ProcessMatrixFill(IntrinsicInst *II);
 };
 
@@ -121,6 +125,12 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixIntrinsics(IntrinsicInst *II) {
   case Intrinsic::experimental_matrix_usmad:
   case Intrinsic::experimental_matrix_uumad:
     MadeChange |= ProcessMatrixMad(II);
+    break;
+  case Intrinsic::experimental_matrix_extract_row_slice:
+    MadeChange |= ProcessMatrixExtractRowSlice(II);
+    break;
+  case Intrinsic::experimental_matrix_insert_row_slice:
+    MadeChange |= ProcessMatrixInsertRowSlice(II);
     break;
   case Intrinsic::experimental_matrix_fill:
     MadeChange |= ProcessMatrixFill(II);
@@ -350,6 +360,74 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   Value *NewInst = Builder.CreateIntrinsic(IID, None, Args);
   II->replaceAllUsesWith(Builder.CreateIntrinsic(
       Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
+  II->eraseFromParent();
+  return true;
+}
+
+bool X86LowerMatrixIntrinsicsPass::ProcessMatrixExtractRowSlice(
+    IntrinsicInst *II) {
+  // Transform
+  // %slice = call <4 x i32>
+  // @llvm.experimental.matrix.extract.row.slice.v8i32(<16 x i32> %mat,  i32 %x,
+  // i32 %y, i32 4, i32 4, i32 4, metadata !"matrix.rowmajor") into several
+  // extractelement from %mat and insertelement to %slice.
+  IRBuilder<> Builder(II);
+  int64_t ElemNum = cast<ConstantInt>(II->getOperand(3))->getSExtValue();
+  FixedVectorType *SliceType = cast<FixedVectorType>(II->getType());
+
+  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
+  if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+           << "!\n"
+           << "We support layout for slicing: matrix.rowmajor!\n";
+    llvm_unreachable(nullptr);
+  }
+  // offset = which_row*num_of_cols+which_col
+  Value *Offset =
+      Builder.CreateAdd(Builder.CreateMul(II->getOperand(1), II->getOperand(5)),
+                        II->getOperand(2));
+  Value *DstSlice = PoisonValue::get(SliceType);
+  for (int64_t ElemI = 0; ElemI < ElemNum; ++ElemI) {
+    Value *Elem = Builder.CreateExtractElement(II->getOperand(0), Offset);
+    DstSlice =
+        Builder.CreateInsertElement(DstSlice, Elem, Builder.getInt32(ElemI));
+    if (ElemI < ElemNum - 1)
+      Offset = Builder.CreateAdd(Offset, Builder.getInt32(1));
+  }
+  II->replaceAllUsesWith(DstSlice);
+  II->eraseFromParent();
+  return true;
+}
+
+bool X86LowerMatrixIntrinsicsPass::ProcessMatrixInsertRowSlice(
+    IntrinsicInst *II) {
+  // Transform %0 = call <16 x i32>
+  // @llvm.experimental.matrix.insert.row.slice.v8i32(<16 x i32> %mat, <4 x i32>
+  // %slice, i32 %x, i32 %y, i32 4, i32 4, i32 4, metadata !"matrix.rowmajor")
+  // into several extractelement from %slice and insertelement to %mat.
+  IRBuilder<> Builder(II);
+  int64_t ElemNum = cast<ConstantInt>(II->getOperand(4))->getSExtValue();
+
+  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(7))->getMetadata();
+  if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+           << "!\n"
+           << "We support layout for slicing: matrix.rowmajor!\n";
+    llvm_unreachable(nullptr);
+  }
+  // offset = which_row*num_of_cols+which_col
+  Value *Offset =
+      Builder.CreateAdd(Builder.CreateMul(II->getOperand(2), II->getOperand(6)),
+                        II->getOperand(3));
+  Value *DstMatrix = II->getOperand(0);
+  for (int64_t ElemI = 0; ElemI < ElemNum; ++ElemI) {
+    Value *Elem = Builder.CreateExtractElement(II->getOperand(1),
+                                               Builder.getInt32(ElemI));
+    DstMatrix = Builder.CreateInsertElement(DstMatrix, Elem, Offset);
+    if (ElemI < ElemNum - 1)
+      Offset = Builder.CreateAdd(Offset, Builder.getInt32(1));
+  }
+  II->replaceAllUsesWith(DstMatrix);
   II->eraseFromParent();
   return true;
 }

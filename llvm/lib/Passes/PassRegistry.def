@@ -412,6 +412,8 @@ FUNCTION_ANALYSIS("hir-safe-reduction-analysis", loopopt::HIRSafeReductionAnalys
 FUNCTION_ANALYSIS("hir-sparse-array-reduction-analysis", loopopt::HIRSparseArrayReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
 FUNCTION_ANALYSIS("hir-array-section-analysis", loopopt::HIRArraySectionAnalysisPass())
+
+FUNCTION_ANALYSIS("dpcpp-kernel-soa-alloca-analysis", SoaAllocaAnalysis())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_ANALYSIS("vpo-wrncollection", WRegionCollectionAnalysis())
@@ -679,6 +681,8 @@ FUNCTION_PASS("hir-inter-loop-blocking", loopopt::HIRInterLoopBlockingPass())
 FUNCTION_PASS("hir-cross-loop-array-contraction", loopopt::HIRCrossLoopArrayContractionPass())
 #endif // INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("handle-pragma-vector-aligned", HandlePragmaVectorAlignedPass())
+
+FUNCTION_PASS("print<dpcpp-kernel-soa-alloca-analysis>", SoaAllocaAnalysisPrinter(dbgs()))
 
 FUNCTION_PASS("dpcpp-kernel-add-fast-math", AddFastMathPass())
 FUNCTION_PASS("dpcpp-kernel-builtin-call-to-inst", BuiltinCallToInstPass())
