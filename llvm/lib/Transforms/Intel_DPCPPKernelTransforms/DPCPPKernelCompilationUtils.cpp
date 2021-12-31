@@ -1742,7 +1742,8 @@ void initializeVectInfoOnce(
     static ErrorOr<std::unique_ptr<MemoryBuffer>> BufOrErr =
         MemoryBuffer::getFile(OptVectInfoFile, /* IsText */ true);
     if (BufOrErr) {
-      SmallVector<StringRef, 8192 * 3> Items;
+      SmallVector<StringRef, 0> Items;
+      Items.reserve(8192 * 3);
       SplitString(BufOrErr.get()->getBuffer(), Items, " \t\n\v\f\r,{}");
       assert(Items.size() % 3 == 0 &&
              "Invalid number of items in VectInfo.gen");
