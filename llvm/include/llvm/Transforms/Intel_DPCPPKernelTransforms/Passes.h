@@ -36,6 +36,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveSubGroupWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetVectorizationFactor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGBarrierPropagate.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGBarrierSimplify.h"

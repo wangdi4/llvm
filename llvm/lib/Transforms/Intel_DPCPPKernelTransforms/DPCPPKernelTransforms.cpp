@@ -55,6 +55,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeSGSizeCollectorIndirectLegacyPass(Registry);
   initializeSGValueWidenLegacyPass(Registry);
   initializeTaskSeqAsyncHandlingLegacyPass(Registry);
+  initializeSoaAllocaAnalysisLegacyPass(Registry);
   initializeSplitBBonBarrierLegacyPass(Registry);
   initializeUpdateCallAttrsLegacyPass(Registry);
   initializeVectorVariantFillInLegacyPass(Registry);

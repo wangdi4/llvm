@@ -86,6 +86,26 @@ Value *rootInputArgumentBySignature(Value *Arg, unsigned ParamNum,
 /// \return The "proper" retval if found, or NULL otherwise.
 Value *rootReturnValue(Value *RetVal, Type *RootTy, CallInst *CI);
 
+/// @brief Returns true if the llvm intrinsic is safe to ignore
+inline bool isSafeIntrinsic(Intrinsic::ID IntrinsicID) {
+  switch (IntrinsicID) {
+  case Intrinsic::lifetime_start:
+  case Intrinsic::lifetime_end:
+  case Intrinsic::var_annotation:
+  case Intrinsic::ptr_annotation:
+  case Intrinsic::invariant_start:
+  case Intrinsic::invariant_end:
+  case Intrinsic::dbg_addr:
+  case Intrinsic::dbg_label:
+  case Intrinsic::dbg_declare:
+  case Intrinsic::dbg_value:
+  case Intrinsic::annotation:
+  case Intrinsic::assume:
+    return true;
+  default:
+    return false;
+  }
+}
 } // namespace VectorizerUtils
 } // namespace llvm
 

@@ -45,6 +45,7 @@ FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
 ModulePass *createGroupBuiltinLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = {});
+FunctionPass *createSoaAllocaAnalysisLegacyPass();
 ModulePass *createSplitBBonBarrierLegacyPass();
 ModulePass *createWIRelatedValueWrapperPass();
 ModulePass *createDataPerBarrierWrapperPass();
