@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// Need to keep this disabled until the libomp in rdrive gets updated to include
+// the changes made in https://reviews.llvm.org/D107316.
+// REQUIRES: CMPLRLLVM-33826
+// end INTEL_CUSTOMIZATION
 // RUN: %libomptarget-compilexx-and-run-generic
 
 // UNSUPPORTED: amdgcn-amd-amdhsa
