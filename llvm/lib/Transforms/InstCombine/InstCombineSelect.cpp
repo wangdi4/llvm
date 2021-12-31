@@ -443,12 +443,20 @@ static bool isSelect01(const APInt &C1I, const APInt &C2I) {
 Instruction *InstCombinerImpl::foldSelectIntoOp(SelectInst &SI, Value *TrueVal,
                                                 Value *FalseVal) {
 #if INTEL_CUSTOMIZATION
-  // This transformation is not good for masking instruction.
+  // CMPLRLLVM-32859: This transformation inhibits AVX512 masking as it
+  // inserts an extra zero operand.
   if (getTargetTransformInfo().isAdvancedOptEnabled(
-    TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512))
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
     if (SI.getType()->isVectorTy())
       return nullptr;
+    // CMPLRLLVM-33537: Float types may be vectorized later and cause the
+    // same problem. This optimization in general is probably not needed
+    // for xmain.
+    if (SI.getType()->isFloatingPointTy())
+      return nullptr;
+  }
 #endif
+
   // See the comment above GetSelectFoldableOperands for a description of the
   // transformation we are doing here.
   if (auto *TVI = dyn_cast<BinaryOperator>(TrueVal)) {
