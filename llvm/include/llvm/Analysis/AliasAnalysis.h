@@ -60,11 +60,7 @@ class CatchReturnInst;
 class DominatorTree;
 class FenceInst;
 class Function;
-<<<<<<< HEAD
 class IntrinsicInst;    // INTEL
-class InvokeInst;
-=======
->>>>>>> 5ee769296ead9138d7905917f20fdcf736ea63d0
 class LoopInfo;
 class PreservedAnalyses;
 class TargetLibraryInfo;
