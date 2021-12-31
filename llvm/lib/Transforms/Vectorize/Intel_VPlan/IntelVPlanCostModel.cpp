@@ -841,6 +841,32 @@ unsigned VPlanTTICostModel::getTTICostForVF(
 
     llvm_unreachable("Unreachable code during VPCONFLICT handling.");
   }
+  case VPInstruction::GeneralMemOptConflict: {
+    // General memory conflict is not handled in VPlan CG thus it is not
+    // supported in CM for VF > 1. We still can see in VF = 1 Plan if
+    // cost modelling is performed before general conflict optimization
+    // into vectorizable forms of conflict.
+    assert(VF == 1 && "GeneralMemOptConflict supported for VF = 1 CM only.");
+    // The cost of GeneralMemOptConflict is determined as the sum of costs
+    // of all instructions within the Region of general conflict instruction.
+    //
+    // NOTE:
+    // We silently assume here that conflict region either consists of a single
+    // block or linear sequence of blocks, which doesn't have if's and loops.
+    // And we don't need to apply any heuristics on the code inside the region.
+    // The code has to be adjusted once the assumption doesn't hold anymore.
+    auto *VPConflict = cast<VPGeneralMemOptConflict>(VPInst);
+    unsigned Cost = 0;
+    for (const VPBasicBlock *RegionBlk : VPConflict->getRegion()->getBBs())
+      for (const VPInstruction &RegionInst : *RegionBlk) {
+        unsigned InstCost = VPlanTTICostModel::getTTICostForVF(&RegionInst, VF);
+        if (InstCost == UnknownCost)
+          continue;
+        Cost += InstCost;
+      }
+
+    return Cost;
+  }
   }
 }
 
