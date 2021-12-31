@@ -360,8 +360,6 @@ static void populatePassesPreFailCheck(
     PM.add(llvm::createLinearIdResolverPass());
   }
 
-  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
-
   if (isFpgaEmulator) {
       // ChannelPipeTransformation and SYCLPipesHack passes populate
       // channel/pipes error log.
@@ -462,7 +460,6 @@ static void populatePassesPostFailCheck(
       }));
   }
 
-  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisLegacyPass());
 
   if (isOcl20) {
@@ -896,27 +893,45 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   bool UnrollLoops = true;
 
   // Initialize TTI
-  m_PreFailCheckPM.add(createTargetTransformInfoWrapperPass(
-    targetMachine->getTargetIRAnalysis()));
-  m_PostFailCheckPM.add(createTargetTransformInfoWrapperPass(
-    targetMachine->getTargetIRAnalysis()));
+  m_PM.add(createTargetTransformInfoWrapperPass(
+      targetMachine->getTargetIRAnalysis()));
+  m_PM.add(createTargetTransformInfoWrapperPass(
+      targetMachine->getTargetIRAnalysis()));
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
   TargetLibraryInfoImpl TLII(Triple(pModule->getTargetTriple()));
-  m_PreFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
-  m_PostFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
+  m_PM.add(new TargetLibraryInfoWrapperPass(TLII));
+  m_PM.add(new TargetLibraryInfoWrapperPass(TLII));
+
+  auto materializerPM = [this]() {
+    if (m_IsSYCL)
+      m_PM.add(createSPIRVToOCL20Legacy());
+    m_PM.add(llvm::createNameAnonGlobalPass());
+    m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
+    m_PM.add(createDPCPPEqualizerLegacyPass(m_RtlModules));
+    Triple TargetTriple(m_M->getTargetTriple());
+    if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
+      if (TargetTriple.isOSLinux())
+        m_PM.add(createCoerceTypesPass());
+      else if (TargetTriple.isOSWindows())
+        m_PM.add(createCoerceWin64TypesLegacyPass());
+    }
+    if (m_IsFpgaEmulator)
+      m_PM.add(createRemoveAtExitPass());
+  };
+  materializerPM();
 
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_RtlModules, OptLevel,
-                             pConfig, isOcl20, m_IsFpgaEmulator, UnrollLoops,
-                             isSPIRV, EnableVPlan);
+  populatePassesPreFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
+                             isOcl20, m_IsFpgaEmulator, UnrollLoops, isSPIRV,
+                             EnableVPlan);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(
-      m_PostFailCheckPM, pModule, m_RtlModules, OptLevel, pConfig,
-      m_undefinedExternalFunctions, isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-      UnrollLoops, EnableVPlan, m_IsSYCL, m_IsOMP, m_debugType);
+  populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
+                              m_undefinedExternalFunctions, isOcl20,
+                              m_IsFpgaEmulator, m_IsEyeQEmulator, UnrollLoops,
+                              EnableVPlan, m_IsSYCL, m_IsOMP, m_debugType);
 }
 
 /// Customized diagnostic handler to be registered to LLVMContext before running
@@ -948,24 +963,8 @@ private:
 void OptimizerOCL::Optimize(llvm::raw_ostream &LogStream) {
   m_M->getContext().setDiagnosticHandler(
       std::make_unique<OCLDiagnosticHandler>(LogStream));
-  legacy::PassManager materializerPM;
-  if (m_IsSYCL)
-    materializerPM.add(createSPIRVToOCL20Legacy());
-  materializerPM.add(llvm::createNameAnonGlobalPass());
-  materializerPM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
-  materializerPM.add(createDPCPPEqualizerLegacyPass(m_RtlModules));
-  Triple TargetTriple(m_M->getTargetTriple());
-  if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
-    if (TargetTriple.isOSLinux())
-      materializerPM.add(createCoerceTypesPass());
-    else if (TargetTriple.isOSWindows())
-      materializerPM.add(createCoerceWin64TypesLegacyPass());
-  }
-  if (m_IsFpgaEmulator) {
-    materializerPM.add(createRemoveAtExitPass());
-  }
-  materializerPM.run(*m_M);
-  m_PreFailCheckPM.run(*m_M);
+
+  m_PM.run(*m_M);
 
   // if there are still unsupported recursive calls after standard LLVM
   // optimizations applied, compilation will report failure.
@@ -977,8 +976,6 @@ void OptimizerOCL::Optimize(llvm::raw_ostream &LogStream) {
   if (hasFpgaPipeDynamicAccess()) {
     return;
   }
-
-  m_PostFailCheckPM.run(*m_M);
 
   // if not all must vec functions have been vectorized.
   // Serves as a safe guard to not execute the code below that
