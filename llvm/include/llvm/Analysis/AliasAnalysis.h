@@ -61,7 +61,6 @@ class DominatorTree;
 class FenceInst;
 class Function;
 class IntrinsicInst;    // INTEL
-class InvokeInst;
 class LoopInfo;
 class PreservedAnalyses;
 class TargetLibraryInfo;
