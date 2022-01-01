@@ -8227,7 +8227,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     for (unsigned i = 0; i < Tgts->getNumValues(); ++i) {
       if (i)
         TargetInfo += ',';
-      TargetInfo += Tgts->getValue(i);
+      // Normalize CPU name, e.g. "CORE-AVX2" -> "core-avx2"
+      TargetInfo += x86::getCPUForIntel(Tgts->getValue(i), Triple);
     }
     CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
   }
