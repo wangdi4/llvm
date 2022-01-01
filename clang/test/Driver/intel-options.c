@@ -36,18 +36,18 @@
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
 // RUN: %clang -### -ax=broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
-// RUN: %clang -### -ax=haswell,broadwell %s -c 2>&1 | \
+// RUN: %clang -### -ax=CORE-AVX2,broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
-// RUN: %clang -### -axhaswell,broadwell %s -c 2>&1 | \
+// RUN: %clang -### -axCORE-AVX2,broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
 //
 // RUN: %clang_cl -### /Qaxbroadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s --check-prefixes=CHECK-AX-BROADWELL
-// RUN: %clang_cl -### /Qaxhaswell,broadwell %s -c 2>&1 | \
+// RUN: %clang_cl -### /Qaxcore-avx2,broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
 //
 // CHECK-AX-BROADWELL: "-ax=broadwell"
-// CHECK-AX-BOTH: "-ax=haswell,broadwell"
+// CHECK-AX-BOTH: "-ax=core-avx2,broadwell"
 
 // -Qfreestanding
 // RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
