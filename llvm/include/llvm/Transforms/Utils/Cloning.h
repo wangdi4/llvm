@@ -34,7 +34,6 @@ class AAResults;
 class AllocaInst;
 class BasicBlock;
 class BlockFrequencyInfo;
-class CallInst;
 class CallGraph;
 class DebugInfoFinder;
 class DominatorTree;
@@ -42,7 +41,6 @@ class Function;
 class InlineReport; // INTEL
 class InlineReportBuilder; // INTEL
 class Instruction;
-class InvokeInst;
 class Loop;
 class LoopInfo;
 class Module;
