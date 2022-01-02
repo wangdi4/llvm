@@ -184,9 +184,8 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CCPrintHeadersFilename(), CCLogDiagnosticsFilename(),
       CCCPrintBindings(false), CCPrintOptions(false), CCPrintHeaders(false),
       CCLogDiagnostics(false), CCGenDiagnostics(false),
-      CCPrintProcessStats(false), TargetTriple(TargetTriple),
-      CCCGenericGCCName(""), Saver(Alloc), CheckInputsExist(true),
-      GenReproducer(false),
+      CCPrintProcessStats(false), TargetTriple(TargetTriple), Saver(Alloc),
+      CheckInputsExist(true), GenReproducer(false),
 #if INTEL_CUSTOMIZATION
       SuppressMissingInputWarning(false), IntelPrintOptions(false),
       IntelMode(false), DPCPPMode(false) {
