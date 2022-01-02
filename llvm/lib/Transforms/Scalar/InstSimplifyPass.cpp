@@ -155,10 +155,24 @@ PreservedAnalyses InstSimplifyPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+#if INTEL_CUSTOMIZATION
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
+#endif // INTEL_CUSTOMIZATION
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
   const DataLayout &DL = F.getParent()->getDataLayout();
-  const SimplifyQuery SQ(DL, &TLI, &DT, &AC);
+#if INTEL_CUSTOMIZATION
+  // Pass TTI to support target-specific opts.
+  const SimplifyQuery SQ(
+    DL,
+    &TLI,
+    &DT,
+    &AC,
+    nullptr, /* CXTI */
+    true, /* UseInstrInfo */
+    true, /*CanUseUndef */
+    &TTI);
+#endif // INTEL_CUSTOMIZATION
   bool Changed = runImpl(F, SQ, &ORE);
   if (!Changed)
     return PreservedAnalyses::all();

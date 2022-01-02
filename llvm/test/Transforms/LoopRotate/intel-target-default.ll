@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -march=x86 -mcpu=pentium -S -loop-rotate -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=PENTIUM
-; RUN: opt < %s -march=x86 -mcpu=lakemont -S -loop-rotate -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=LMT
-; RUN: opt < %s -march=x86 -mcpu=pentium -S -loop-rotate -rotation-max-header-size=0 -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=PENTIUM-OPT
-; RUN: opt < %s -march=x86 -mcpu=lakemont -S -loop-rotate -rotation-max-header-size=16 -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=LMT-OPT
+; RUN: opt < %s -march=x86 -mcpu=pentium -S -passes="loop(loop-rotate)" -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=PENTIUM
+; RUN: opt < %s -march=x86 -mcpu=lakemont -S -passes="loop(loop-rotate)" -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=LMT
+; RUN: opt < %s -march=x86 -mcpu=pentium -S -passes="loop(loop-rotate)" -rotation-max-header-size=0 -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=PENTIUM-OPT
+; RUN: opt < %s -march=x86 -mcpu=lakemont -S -passes="loop(loop-rotate)" -rotation-max-header-size=16 -debug -debug-only=loop-rotate 2>&1 | FileCheck %s -check-prefix=LMT-OPT
 
 ; Loop should be rotated for Pentium but not for Lakemont.
 ; PENTIUM: rotating Loop at depth 1
