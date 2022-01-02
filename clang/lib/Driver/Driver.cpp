@@ -184,19 +184,12 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CCPrintHeadersFilename(), CCLogDiagnosticsFilename(),
       CCCPrintBindings(false), CCPrintOptions(false), CCPrintHeaders(false),
       CCLogDiagnostics(false), CCGenDiagnostics(false),
-<<<<<<< HEAD
-      CCPrintProcessStats(false), TargetTriple(TargetTriple),
-      CCCGenericGCCName(""), Saver(Alloc), CheckInputsExist(true),
-      GenReproducer(false),
+      CCPrintProcessStats(false), TargetTriple(TargetTriple), Saver(Alloc),
+      CheckInputsExist(true), GenReproducer(false),
 #if INTEL_CUSTOMIZATION
       SuppressMissingInputWarning(false), IntelPrintOptions(false),
       IntelMode(false), DPCPPMode(false) {
 #endif // INTEL_CUSTOMIZATION
-=======
-      CCPrintProcessStats(false), TargetTriple(TargetTriple), Saver(Alloc),
-      CheckInputsExist(true), GenReproducer(false),
-      SuppressMissingInputWarning(false) {
->>>>>>> f4ffcab1787ad19ad9c2596688306de8a45f904a
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
