@@ -25,11 +25,7 @@ namespace llvm {
 class ModuleSummaryIndex;
 class Pass;
 class TargetLibraryInfoImpl;
-<<<<<<< HEAD
-class TargetMachine;
 class InlineReportBuilder; // INTEL
-=======
->>>>>>> f85c91f1e512bd79959b6fc74294148d16ef34e0
 
 // The old pass manager infrastructure is hidden in a legacy namespace now.
 namespace legacy {
