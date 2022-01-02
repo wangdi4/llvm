@@ -86,19 +86,14 @@ private:
 public:
   BasicAAResult(const DataLayout &DL, const Function &F,
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
-<<<<<<< HEAD
                 DominatorTree *DT = nullptr, PhiValues *PV = nullptr,
                 unsigned OptLevel = 2u) // INTEL
-      : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV)
+      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) // INTEL
 #if INTEL_CUSTOMIZATION
   {
     setupWithOptLevel(OptLevel);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-                DominatorTree *DT = nullptr, PhiValues *PV = nullptr)
-      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) {}
->>>>>>> fd4808887ee47f3ec8a030e9211169ef4fb094c3
 
   BasicAAResult(const BasicAAResult &Arg)
       : AAResultBase(Arg), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI), AC(Arg.AC),
