@@ -1807,8 +1807,7 @@ protected: // INTEL
 #if INTEL_CUSTOMIZATION
   ExitLimit computeExitLimitFromICmp(const Loop *L, ICmpInst *ExitCond,
                                      ICmpInst::Predicate Pred, const SCEV *LHS,
-                                     const SCEV *RHS, bool ExitIfTrue,
-                                     bool IsSubExpr,
+                                     const SCEV *RHS, bool IsSubExpr,
                                      bool AllowPredicates = false);
 #endif // INTEL_CUSTOMIZATION
 
