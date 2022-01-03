@@ -1860,7 +1860,6 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
         .addAttribute(Attribute::ReadNone)
         .addAttribute(Attribute::ReadOnly)
         .addAttribute(Attribute::SwiftError)
-        .addAlignmentAttr(1)             // the int here is ignored
         .addDereferenceableAttr(1)       // the int here is ignored
         .addDereferenceableOrNullAttr(1) // the int here is ignored
         .addPreallocatedAttr(Ty)
@@ -1869,6 +1868,10 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
         .addStructRetAttr(Ty)
         .addByRefAttr(Ty)
         .addTypeAttr(Attribute::ElementType, Ty);
+
+  if (!Ty->isPtrOrPtrVectorTy())
+    // Attributes that only apply to pointers or vectors of pointers.
+    Incompatible.addAlignmentAttr(1); // the int here is ignored
 
   // Some attributes can apply to all "values" but there are no `void` values.
   if (Ty->isVoidTy())
