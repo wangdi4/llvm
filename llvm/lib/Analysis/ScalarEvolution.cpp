@@ -9276,6 +9276,31 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   const SCEV *LHS = getSCEV(ExitCond->getOperand(0));
   const SCEV *RHS = getSCEV(ExitCond->getOperand(1));
 
+#if INTEL_CUSTOMIZATION
+  ExitLimit EL = computeExitLimitFromICmp(
+      L, ExitCond, Pred, LHS, RHS, ExitIfTrue, ControlsExit, AllowPredicates);
+#endif // INTEL_CUSTOMIZATION
+  if (EL.hasAnyInfo()) return EL;
+
+  auto *ExhaustiveCount =
+      computeExitCountExhaustively(L, ExitCond, ExitIfTrue);
+
+  if (!isa<SCEVCouldNotCompute>(ExhaustiveCount))
+    return ExhaustiveCount;
+
+  return computeShiftCompareExitLimit(ExitCond->getOperand(0),
+                                      ExitCond->getOperand(1), L, OriginalPred);
+}
+ScalarEvolution::ExitLimit
+ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
+                                          ICmpInst *ExitCond, // INTEL
+                                          ICmpInst::Predicate Pred,
+                                          const SCEV *LHS, const SCEV *RHS,
+                                          bool ExitIfTrue,
+                                          bool ControlsExit,
+                                          bool AllowPredicates) {
+
+
   // Try to evaluate any dependencies out of the loop.
   LHS = getSCEVAtScope(LHS, L);
   RHS = getSCEVAtScope(RHS, L);
@@ -9392,14 +9417,7 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
     break;
   }
 
-  auto *ExhaustiveCount =
-      computeExitCountExhaustively(L, ExitCond, ExitIfTrue);
-
-  if (!isa<SCEVCouldNotCompute>(ExhaustiveCount))
-    return ExhaustiveCount;
-
-  return computeShiftCompareExitLimit(ExitCond->getOperand(0),
-                                      ExitCond->getOperand(1), L, OriginalPred);
+  return getCouldNotCompute();
 }
 
 ScalarEvolution::ExitLimit
