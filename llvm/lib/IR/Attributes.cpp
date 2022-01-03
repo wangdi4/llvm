@@ -1838,6 +1838,7 @@ bool AttrBuilder::operator==(const AttrBuilder &B) const {
 AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   AttrBuilder Incompatible;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // We want to be able to zero/sign extend vector parameters/return for
   // vector functions.
@@ -1853,6 +1854,15 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   if (!Ty->isPtrOrPtrVectorTy())
 #endif // INTEL_CUSTOMIZATION
     // Attribute that only apply to pointers.
+=======
+  if (!Ty->isIntegerTy())
+    // Attributes that only apply to integers.
+    Incompatible.addAttribute(Attribute::SExt)
+      .addAttribute(Attribute::ZExt);
+
+  if (!Ty->isPointerTy())
+    // Attributes that only apply to pointers.
+>>>>>>> d76279404073e676a31f592d87a2f60306a00a12
     Incompatible.addAttribute(Attribute::Nest)
         .addAttribute(Attribute::NoAlias)
         .addAttribute(Attribute::NoCapture)
@@ -1860,7 +1870,6 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
         .addAttribute(Attribute::ReadNone)
         .addAttribute(Attribute::ReadOnly)
         .addAttribute(Attribute::SwiftError)
-        .addAlignmentAttr(1)             // the int here is ignored
         .addDereferenceableAttr(1)       // the int here is ignored
         .addDereferenceableOrNullAttr(1) // the int here is ignored
         .addPreallocatedAttr(Ty)
@@ -1869,6 +1878,10 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
         .addStructRetAttr(Ty)
         .addByRefAttr(Ty)
         .addTypeAttr(Attribute::ElementType, Ty);
+
+  if (!Ty->isPtrOrPtrVectorTy())
+    // Attributes that only apply to pointers or vectors of pointers.
+    Incompatible.addAlignmentAttr(1); // the int here is ignored
 
   // Some attributes can apply to all "values" but there are no `void` values.
   if (Ty->isVoidTy())
