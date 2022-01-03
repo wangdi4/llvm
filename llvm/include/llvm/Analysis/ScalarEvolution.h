@@ -1804,12 +1804,13 @@ protected: // INTEL
   /// as opposed to the ICmpInst itself.  Note that the prior version can
   /// return more precise results in some cases and is preferred when caller
   /// has a materialized ICmp.
-  ExitLimit computeExitLimitFromICmp(const Loop *L, ICmpInst::Predicate Pred,
-                                     const SCEV *LHS, const SCEV *RHS,
-                                     bool ExitIfTrue,
+#if INTEL_CUSTOMIZATION
+  ExitLimit computeExitLimitFromICmp(const Loop *L, ICmpInst *ExitCond,
+                                     ICmpInst::Predicate Pred, const SCEV *LHS,
+                                     const SCEV *RHS, bool ExitIfTrue,
                                      bool IsSubExpr,
                                      bool AllowPredicates = false);
-
+#endif // INTEL_CUSTOMIZATION
 
   /// Compute the number of times the backedge of the specified loop will
   /// execute if its exit condition were a switch with a single exiting case
