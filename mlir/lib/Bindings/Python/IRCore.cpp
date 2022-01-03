@@ -868,7 +868,6 @@ void PyOperationBase::print(py::object fileObject, bool binary,
     mlirOpPrintingFlagsPrintGenericOpForm(flags);
 
   PyFileAccumulator accum(fileObject, binary);
-  py::gil_scoped_release();
   mlirOperationPrintWithFlags(operation, flags, accum.getCallback(),
                               accum.getUserData());
   mlirOpPrintingFlagsDestroy(flags);
@@ -1107,13 +1106,12 @@ void PyOperation::erase() {
 // PyOpView
 //------------------------------------------------------------------------------
 
-py::object
-PyOpView::buildGeneric(const py::object &cls, py::list resultTypeList,
-                       py::list operandList,
-                       llvm::Optional<py::dict> attributes,
-                       llvm::Optional<std::vector<PyBlock *>> successors,
-                       llvm::Optional<int> regions,
-                       DefaultingPyLocation location, py::object maybeIp) {
+py::object PyOpView::buildGeneric(
+    const py::object &cls, py::list resultTypeList, py::list operandList,
+    llvm::Optional<py::dict> attributes,
+    llvm::Optional<std::vector<PyBlock *>> successors,
+    llvm::Optional<int> regions, DefaultingPyLocation location,
+    const py::object &maybeIp) {
   PyMlirContextRef context = location->getContext();
   // Class level operation construction metadata.
   std::string name = py::cast<std::string>(cls.attr("OPERATION_NAME"));
@@ -1155,7 +1153,7 @@ PyOpView::buildGeneric(const py::object &cls, py::list resultTypeList,
   resultTypes.reserve(resultTypeList.size());
   if (resultSegmentSpecObj.is_none()) {
     // Non-variadic result unpacking.
-    for (auto it : llvm::enumerate(resultTypeList)) {
+    for (const auto &it : llvm::enumerate(resultTypeList)) {
       try {
         resultTypes.push_back(py::cast<PyType *>(it.value()));
         if (!resultTypes.back())
@@ -1179,7 +1177,7 @@ PyOpView::buildGeneric(const py::object &cls, py::list resultTypeList,
                                 .str());
     }
     resultSegmentLengths.reserve(resultTypeList.size());
-    for (auto it :
+    for (const auto &it :
          llvm::enumerate(llvm::zip(resultTypeList, resultSegmentSpec))) {
       int segmentSpec = std::get<1>(it.value());
       if (segmentSpec == 1 || segmentSpec == 0) {
@@ -1240,7 +1238,7 @@ PyOpView::buildGeneric(const py::object &cls, py::list resultTypeList,
   operands.reserve(operands.size());
   if (operandSegmentSpecObj.is_none()) {
     // Non-sized operand unpacking.
-    for (auto it : llvm::enumerate(operandList)) {
+    for (const auto &it : llvm::enumerate(operandList)) {
       try {
         operands.push_back(py::cast<PyValue *>(it.value()));
         if (!operands.back())
@@ -1264,7 +1262,7 @@ PyOpView::buildGeneric(const py::object &cls, py::list resultTypeList,
                                 .str());
     }
     operandSegmentLengths.reserve(operandList.size());
-    for (auto it :
+    for (const auto &it :
          llvm::enumerate(llvm::zip(operandList, operandSegmentSpec))) {
       int segmentSpec = std::get<1>(it.value());
       if (segmentSpec == 1 || segmentSpec == 0) {
@@ -1357,13 +1355,12 @@ PyOpView::buildGeneric(const py::object &cls, py::list resultTypeList,
   }
 
   // Delegate to create.
-  return PyOperation::create(std::move(name),
+  return PyOperation::create(name,
                              /*results=*/std::move(resultTypes),
                              /*operands=*/std::move(operands),
                              /*attributes=*/std::move(attributes),
                              /*successors=*/std::move(successors),
-                             /*regions=*/*regions, location,
-                             std::move(maybeIp));
+                             /*regions=*/*regions, location, maybeIp);
 }
 
 PyOpView::PyOpView(const py::object &operationObject)
@@ -1705,7 +1702,7 @@ void PySymbolTable::walkSymbolTables(PyOperationBase &from,
   if (userData.gotException) {
     std::string message("Exception raised in callback: ");
     message.append(userData.exceptionWhat);
-    throw std::runtime_error(std::move(message));
+    throw std::runtime_error(message);
   }
 }
 

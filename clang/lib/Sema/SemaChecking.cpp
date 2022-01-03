@@ -15733,7 +15733,7 @@ class SequenceChecker : public ConstEvaluatedExprVisitor<SequenceChecker> {
     const Expr *UsageExpr;
     SequenceTree::Seq Seq;
 
-    Usage() : UsageExpr(nullptr), Seq() {}
+    Usage() : UsageExpr(nullptr) {}
   };
 
   struct UsageInfo {
@@ -15742,7 +15742,7 @@ class SequenceChecker : public ConstEvaluatedExprVisitor<SequenceChecker> {
     /// Have we issued a diagnostic for this object already?
     bool Diagnosed;
 
-    UsageInfo() : Uses(), Diagnosed(false) {}
+    UsageInfo() : Diagnosed(false) {}
   };
   using UsageInfoMap = llvm::SmallDenseMap<Object, UsageInfo, 16>;
 
