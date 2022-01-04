@@ -157,14 +157,6 @@ Constant *ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty, APInt Offset,
 Constant *ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
                                        const DataLayout &DL);
 
-<<<<<<< HEAD
-/// ConstantFoldLoadThroughGEPConstantExpr - Given a constant and a
-/// getelementptr constantexpr, return the constant value being addressed by the
-/// constant expression, or null if something is funny and we can't decide.
-Constant *ConstantFoldLoadThroughGEPConstantExpr(Constant *C, ConstantExpr *CE,
-                                                 Type *Ty,
-                                                 const DataLayout &DL);
-
 #if INTEL_CUSTOMIZATION
 // Following function has been removed from llorg as of commit c5b5b7f. Keeping
 // it here because it is still needed by
@@ -178,8 +170,6 @@ Constant *ConstantFoldLoadThroughGEPIndices(Constant *C,
                                             ArrayRef<Constant *> Indices);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 71b2c4a3cf5c4709fcab66194b3277a31b849c22
 /// canConstantFoldCallTo - Return true if its even possible to fold a call to
 /// the specified function.
 bool canConstantFoldCallTo(const CallBase *Call, const Function *F);
