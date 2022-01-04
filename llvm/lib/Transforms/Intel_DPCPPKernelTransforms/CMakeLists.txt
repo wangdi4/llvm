@@ -33,6 +33,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerValuePass.cpp
   BarrierPass.cpp
   BarrierInFunctionPass.cpp
+  ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
   ResolveWICall.cpp
   SoaAllocaAnalysis.cpp

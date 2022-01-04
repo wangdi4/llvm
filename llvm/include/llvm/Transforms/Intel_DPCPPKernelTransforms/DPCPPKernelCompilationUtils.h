@@ -557,6 +557,66 @@ void initializeVectInfoOnce(
 void insertPrintf(const Twine &Prefix, Instruction *IP,
                   ArrayRef<Value *> Inputs = None);
 
+/// Create a get_sub_group_slice_length.() call.
+/// SIGNATURE:
+///   i64 get_sub_group_slice_length.(i32 immarg %total.element.count)
+/// This internal builtin will be resolved by ResolveSubGroupWICall pass
+/// as: ceil(%total.element.count / VF)
+CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
+                                           Instruction *IP,
+                                           const Twine &Name = "");
+
+/// Create a get_sub_group_rowslice_id() call.
+/// SIGNATURE:
+///   i64 get_sub_group_rowslice_id.<MatrixTypeMangle>.<IndexTypeMangle>(
+///   <MatrixType> %matrix, i32 immarg R, i32 immarg C, <IndexType> %index)
+/// where <MatrixType> must be a FixedVectorType, whose number of elements
+/// equals to R times C;
+/// and <IndexType> is an arbitrary integer type.
+/// This internal builtin will be resolved by ResolveSubGroupWICall pass.
+CallInst *createGetSubGroupRowSliceIdCall(Value *Matrix, unsigned R, unsigned C,
+                                          Value *Index, Instruction *IP,
+                                          const Twine &Name = "");
+
+/// Create a sub_group_rowslice_extractelement() call.
+/// SIGNATURE:
+///   <ElementType> sub_group_rowslice_extractelement.<ElementTypeMangle>(i64
+///   %rowslice.id)
+/// where %rowslice.id must be a call of get_sub_group_rowslice_id;
+/// and <ElementType> must match with the element type of the matrix argument
+/// associated with %rowslice.id.
+/// This internal builtin will be widen by vectorizer and resolved by
+/// ResolveSubGroupWICall pass.
+CallInst *createSubGroupRowSliceExtractElementCall(Value *RowSliceId,
+                                                   Type *ReturnType,
+                                                   Instruction *IP,
+                                                   const Twine &Name = "");
+
+/// Create a sub_group_rowslice_insertelement() call.
+/// SIGNATURE:
+///   void sub_group_rowslice_insertelement.<ElementTypeMangle>(
+///   i64 %rowslice.id, <ElementType> %element)
+/// where %rowslice.id must be a call of get_sub_group_rowslice_id;
+/// and <ElementType> must match with the element type of the matrix argument
+/// associated with %rowslice.id.
+/// This internal builtin will be widen by vectorizer and resolved by
+/// ResolveSubGroupWICall pass.
+CallInst *createSubGroupRowSliceInsertElementCall(Value *RowSliceId,
+                                                  Value *Data, Instruction *IP);
+
+/// Create a sub_group_insert_rowslice_to_matrix() call.
+/// SIGNATURE:
+///   <MatrixType> sub_group_insert_rowslice_to_matrix.<MatrixTypeMangle>(i64
+///   %rowslice.id)
+/// where %rowslice.id must be a call of get_sub_group_rowslice_id;
+/// and <MatrixType> must be the same as the typo of matrix argument associated
+/// with %rowslice.id.
+/// This internal builtin will be resolved by ResolveSubGroupWICall pass.
+CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
+                                                   Type *ReturnMatrixType,
+                                                   Instruction *IP,
+                                                   const Twine &Name = "");
+
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm
 
