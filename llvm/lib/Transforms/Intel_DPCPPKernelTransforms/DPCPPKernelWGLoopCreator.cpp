@@ -638,6 +638,18 @@ BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
     MD[VSP].reset(SSP);
   }
 
+  // To prevent Metadata merge, drop old Metadata. They were cloned anyway
+  // before vectorization.
+  SmallVector<std::pair<unsigned, MDNode *>, 32> MDs;
+  VectorF->getAllMetadata(MDs);
+  SmallDenseMap<unsigned, MDNode *, 32> VectorMDsMap;
+  VectorMDsMap.insert(MDs.begin(), MDs.end());
+  MDs.clear();
+  Fn->getAllMetadata(MDs);
+  for (const auto &MD : MDs)
+    if (MD.first != LLVMContext::MD_dbg && VectorMDsMap.count(MD.first))
+      Fn->setMetadata(MD.first, nullptr);
+
   // Do actual cloning work
   // TODO: replace manual inlining by llvm::InlineFunction()
   CloneFunctionInto(Fn, VectorF, ValueMap,
