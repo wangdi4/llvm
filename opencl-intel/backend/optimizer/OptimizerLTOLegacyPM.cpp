@@ -187,9 +187,6 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
                                               /*UseTLSGlobals*/ false));
         // Barrier passes end.
 
-        MPM.add(createLICMPass());
-        MPM.add(createLoopIdiomPass());
-        MPM.add(createCFGSimplificationPass());
         MPM.add(createAddImplicitArgsLegacyPass());
         MPM.add(createResolveWICallLegacyPass(false, false));
         MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
@@ -198,6 +195,27 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createFunctionInliningPass(4096));
         // AddImplicitArgs pass may create dead implicit arguments.
         MPM.add(createDeadArgEliminationPass());
+        MPM.add(createSROAPass());
+        MPM.add(createLICMPass());
+        MPM.add(createLoopIdiomPass());
+        MPM.add(createCFGSimplificationPass());
+        // PrepareKernelArgs pass creates a wrapper function and inlines the
+        // original kernel to the wrapper. The kernel usually contains several
+        // "noalias" pointer args, such as '%pSpecialBuf', '%pWorkDim', '%pWGId'
+        // and '%pLocalMemBase', and inliner (which is explicitly invoked in
+        // PrepareKernelArgs pass) would try to add new alias scopes for each
+        // noalias argument.
+        // See llvm/lib/Transforms/Utils/InlineFunction.cpp::AddAliasScopeMetadata()
+        // However, the added alias scopes are of relatively coarse granularity:
+        // e.g. A load from '%pSpecialBuf' with limited offset might be assumed
+        // to potentially access arbitrary memory range based on '%pSpecialBuf'
+        // after inlining.
+        // This makes AliasAnalysis-related transforms hard to optimize after
+        // PrepareKernelArgs pass.
+        // Also, PrepareKernelArgs only creates a thin wrapper for the kernel --
+        // this pass itself won't generate much suboptimal codes.
+        // Therefore, we basically should run the most optimization passes
+        // (especially AliasAnalysis-related) before the PrepareKernelArgs pass.
         MPM.add(createPrepareKernelArgsLegacyPass(false));
       });
 }
