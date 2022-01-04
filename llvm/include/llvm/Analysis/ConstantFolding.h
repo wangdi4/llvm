@@ -157,13 +157,6 @@ Constant *ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty, APInt Offset,
 Constant *ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
                                        const DataLayout &DL);
 
-/// ConstantFoldLoadThroughGEPConstantExpr - Given a constant and a
-/// getelementptr constantexpr, return the constant value being addressed by the
-/// constant expression, or null if something is funny and we can't decide.
-Constant *ConstantFoldLoadThroughGEPConstantExpr(Constant *C, ConstantExpr *CE,
-                                                 Type *Ty,
-                                                 const DataLayout &DL);
-
 #if INTEL_CUSTOMIZATION
 // Following function has been removed from llorg as of commit c5b5b7f. Keeping
 // it here because it is still needed by
