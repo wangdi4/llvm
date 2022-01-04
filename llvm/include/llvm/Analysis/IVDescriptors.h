@@ -192,20 +192,13 @@ public:
   RecurrenceDescriptor(Value *Start, Instruction *Exit, RecurKind K,
                        FastMathFlags FMF, Instruction *ExactFP, Type *RT,
                        bool Signed, bool Ordered,
-<<<<<<< HEAD
-                       SmallPtrSetImpl<Instruction *> &CI)
-#if INTEL_CUSTOMIZATION
-      : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
-        ExactFPMathInst(ExactFP) {
-#endif
-=======
                        SmallPtrSetImpl<Instruction *> &CI,
                        unsigned MinWidthCastToRecurTy)
-      : StartValue(Start), LoopExitInstr(Exit), Kind(K), FMF(FMF),
-        ExactFPMathInst(ExactFP), RecurrenceType(RT), IsSigned(Signed),
-        IsOrdered(Ordered),
+#if INTEL_CUSTOMIZATION
+      : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
+        ExactFPMathInst(ExactFP),
         MinWidthCastToRecurrenceType(MinWidthCastToRecurTy) {
->>>>>>> 961f51fdf04fd14f5dc5e7a6d53a5460249d947c
+#endif
     CastInsts.insert(CI.begin(), CI.end());
   }
 
@@ -338,20 +331,11 @@ public:
   /// recurrence.
   const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
 
-<<<<<<< HEAD
-=======
   /// Returns the minimum width used by the recurrence in bits.
   unsigned getMinWidthCastToRecurrenceTypeInBits() const {
     return MinWidthCastToRecurrenceType;
   }
 
-  /// Returns true if all source operands of the recurrence are SExtInsts.
-  bool isSigned() const { return IsSigned; }
-
-  /// Expose an ordered FP reduction to the instance users.
-  bool isOrdered() const { return IsOrdered; }
-
->>>>>>> 961f51fdf04fd14f5dc5e7a6d53a5460249d947c
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
   SmallVector<Instruction *, 4> getReductionOpChain(PHINode *Phi,
