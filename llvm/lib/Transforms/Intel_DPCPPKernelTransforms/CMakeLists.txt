@@ -4,6 +4,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddImplicitArgs.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
+  BuiltinLibInfoAnalysis.cpp
   CoerceWin64Types.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp

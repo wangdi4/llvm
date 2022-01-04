@@ -28,6 +28,7 @@ FunctionPass *createBuiltinCallToInstLegacyPass();
 ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");
+ModulePass *createBuiltinLibInfoAnalysisLegacyPass();
 ModulePass *createCreateSimdVariantPropagationLegacyPass();
 ModulePass *createCoerceWin64TypesLegacyPass();
 ModulePass *

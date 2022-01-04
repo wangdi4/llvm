@@ -3064,7 +3064,7 @@ EXTERN int32_t __tgt_rtl_manifest_data_for_region(
   DP("Stashing %zu implicit arguments for kernel " DPxMOD "\n", NumPtrs,
      DPxPTR(Kernel));
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  std::lock_guard<std::mutex>(DeviceInfo->Mutexes[DeviceId]);
+  std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
   KernelProperty.ImplicitArgs.clear();
   KernelProperty.ImplicitArgs.insert(TgtPtrs, TgtPtrs + NumPtrs);
 
