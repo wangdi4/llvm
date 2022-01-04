@@ -52,7 +52,6 @@
 ; CHECK-NEXT:     Intel Kernel WIRelatedValue Analysis
 ; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT:     Intel Kernel Barrier
-; CHECK:          Recognize loop idioms
 ; CHECK:          ImplicitArgsAnalysisLegacy
 ; CHECK:          LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     AddImplicitArgsLegacy
@@ -65,5 +64,9 @@
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          Function Integration/Inlining
 ; CHECK:          Dead Argument Elimination
+; CHECK:          SROA
+; CHECK:          Loop Invariant Code Motion
+; CHECK:          Recognize loop idioms
+; CHECK:          Simplify the CFG
 ; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          CleanupWrappedKernelLegacy
