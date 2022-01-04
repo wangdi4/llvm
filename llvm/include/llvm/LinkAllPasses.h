@@ -422,6 +422,7 @@ namespace {
       // DPCPP Kernel Transformations
       (void)llvm::createAddFunctionAttrsLegacyPass();
       (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createBuiltinLibInfoAnalysisLegacyPass();
       (void)llvm::createCoerceWin64TypesLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
       (void)llvm::createDPCPPKernelVecClonePass();

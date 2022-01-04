@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinCallToInst.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CoerceWin64Types.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
