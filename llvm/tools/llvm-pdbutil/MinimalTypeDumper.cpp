@@ -518,6 +518,36 @@ Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
   return Error::success();
 }
 
+#if INTEL_CUSTOMIZATION
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                               OEMTypeRecord &OEMType) {
+  auto Indices = OEMType.getTypeIndices();
+  auto Data = OEMType.getData();
+  uint32_t Size = Indices.size();
+  P.format("OEMId = {0}, OEMType = {1}, types count = {2}",
+           OEMType.OEMIdentifier, OEMType.OEMTypeID, Size);
+
+  if (Size > 0) {
+    auto Max = std::max_element(Indices.begin(), Indices.end());
+    uint32_t W = NumDigits(Max->getIndex()) + 2;
+    for (auto I : Indices)
+      P.formatLine("{0}: `{1}`", fmt_align(I, AlignStyle::Right, W),
+                   getTypeName(I));
+  }
+  Size = Data.size();
+  if (OEMType.isF90DescribedArray() && Size == 2)
+    P.format("ArrayRank = {0}, DescrSize = {1}",
+              Data[0], Data[1]);
+  else if (OEMType.isF90Descriptor() && Size == 1)
+    P.format("DescrSize = {0}", Data[0]);
+  else if (Size > 0) {
+    for (auto I : Indices)
+      P.formatLine("Data = {0}", I);
+  }
+  return Error::success();
+}
+#endif //INTEL_CUSTOMIZATION
+
 Error MinimalTypeDumpVisitor::visitKnownMember(CVMemberRecord &CVR,
                                                NestedTypeRecord &Nested) {
   P.format(" [name = `{0}`, parent = {1}]", Nested.Name, Nested.Type);

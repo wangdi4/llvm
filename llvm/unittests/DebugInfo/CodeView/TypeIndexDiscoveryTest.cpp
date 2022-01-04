@@ -607,3 +607,16 @@ TEST_F(TypeIndexIteratorTest, UsingNamespace) {
   writeSymbolRecords(UN);
   checkTypeReferences(0);
 }
+
+#if INTEL_CUSTOMIZATION
+TEST_F(TypeIndexIteratorTest, OEMType) {
+  ArrayRef<TypeIndex> Ids = {TypeIndex(49), TypeIndex(50)};
+  ArrayRef<uint32_t> Data = {77, 88};
+  OEMTypeRecord Record(
+      TypeLeafKind::LF_OEM_IDENT_MSF90,
+      TypeLeafKind::LF_recOEM_MSF90_DESCR_ARR,
+      Ids, Data);
+  writeTypeRecords(Record);
+  checkTypeReferences(0, Ids[0], Ids[1]);
+}
+#endif //INTEL_CUSTOMIZATION

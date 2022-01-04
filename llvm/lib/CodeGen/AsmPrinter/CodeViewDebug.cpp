@@ -82,6 +82,13 @@
 using namespace llvm;
 using namespace llvm::codeview;
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> DisableIntelCodeViewExtensions(
+    "disable-intel-codeview-oem-extensions", cl::Hidden,
+    cl::desc("Disable the emission of LF_OEM records"),
+    cl::init(false));
+#endif
+
 namespace {
 class CVMCAdapter : public CodeViewRecordStreamer {
 public:
@@ -1643,7 +1650,116 @@ TypeIndex CodeViewDebug::lowerTypeAlias(const DIDerivedType *Ty) {
   return UnderlyingTypeIndex;
 }
 
+#if INTEL_CUSTOMIZATION
+// FIXME: this calculation should really be done elsewhere
+static uint32_t getF90DescriptorSize(Triple::ArchType Arch, uint32_t ArrayDims) {
+  const uint32_t numberOfFixedFields = 6;
+  const uint32_t numberOfFieldsPerDim = 3;
+  uint32_t FieldSize = 0;
+
+  switch (Arch) {
+  case Triple::ArchType::x86:
+    FieldSize = 4;
+	break;
+  case Triple::ArchType::x86_64:
+    FieldSize = 8;
+	break;
+  default:
+    report_fatal_error("target architecture not supported for CodeView LF_OEM record");
+	break;
+  }
+
+  return (FieldSize * numberOfFixedFields) +              // size of fixed fields
+         (FieldSize * numberOfFieldsPerDim * ArrayDims);  // size of dimension fields
+}
+
+// Construct a Descriptor OEM Record, which has the following layout:
+//   LF_OEM (2)    0x100F
+//   OEM    (2)    LF_OEM_IDENT_MSF90
+//   recOEM (2)    LF_recOEM_F090_DESCRIPTOR
+//   count  (4)    1
+//   index  (4)    type index of the descriptor's underlying scalar
+//   data   (4)    size of the descriptor
+TypeIndex CodeViewDebug::lowerTypeOemMSF90Descriptor(const DIStringType *Ty,
+                                                     TypeIndex RefType) {
+  const uint32_t TypeIndicesCount = 1;
+  const uint32_t DataCount = 1;
+  uint32_t DescrSize =
+      getF90DescriptorSize(Triple(MMI->getModule()->getTargetTriple()).getArch(), 0);
+  TypeIndex Indices[TypeIndicesCount] = {RefType};
+  uint32_t Data[DataCount] = {DescrSize};
+
+  OEMTypeRecord OEM(TypeLeafKind::LF_OEM_IDENT_MSF90,
+                    TypeLeafKind::LF_recOEM_MSF90_DESCRIPTOR,
+                    Indices, Data);
+
+  addToUDTs(Ty);
+  return TypeTable.writeLeafType(OEM);
+}
+
+// Construct a Described Array OEM Record, which has the following layout:
+//   LF_OEM   (2)  0x100F
+//   OEM      (2)  LF_OEM_IDENT_MSF90
+//   recOEM   (2)  LF_recOEM_MSF90_DESCR_ARR
+//   count    (4)  2
+//   index[0] (4)  type index of array's elements
+//   index[1] (4)  type index of bounds key (either LF_REFSYM or 0),
+//                 only the simple case where index[1] is 0 is supported
+//   rank     (4)  number of array dimensions
+//   data     (4)  size of the array descriptor in bytes
+TypeIndex CodeViewDebug::lowerTypeOemMSF90DescribedArray(const DICompositeType *Ty) {
+  const uint32_t TypeIndicesCount = 2;
+  const uint32_t DataCount = 2;
+  const DIType *ElementType = Ty->getBaseType();
+  DINodeArray Elements = Ty->getElements();
+  TypeIndex ElementTypeIndex;
+  TypeIndex BoundsKey(0);
+
+  auto *ST = dyn_cast<DIStringType>(ElementType);
+  if (ST && ST->getStringLengthExp()) {
+    TypeIndex IndexType = getPointerSizeInBytes() == 8
+                            ? TypeIndex(SimpleTypeKind::UInt64Quad)
+                            : TypeIndex(SimpleTypeKind::UInt32Long);
+    ArrayRecord AR(TypeIndex(SimpleTypeKind::NarrowCharacter),
+	               IndexType, 0, ST->getName());
+    ElementTypeIndex = TypeTable.writeLeafType(AR);
+    recordTypeIndexForDINode(ST, ElementTypeIndex);
+  } else {
+    ElementTypeIndex = getTypeIndex(ElementType);
+  }
+
+  uint32_t DescrSize =
+      getF90DescriptorSize(Triple(MMI->getModule()->getTargetTriple()).getArch(),
+	                       Elements.size());
+  TypeIndex Indices[TypeIndicesCount] = {ElementTypeIndex, BoundsKey};
+  uint32_t Data[DataCount] = {Elements.size(), DescrSize};
+
+  OEMTypeRecord OEM(TypeLeafKind::LF_OEM_IDENT_MSF90,
+                    TypeLeafKind::LF_recOEM_MSF90_DESCR_ARR,
+                    Indices, Data);
+
+  return TypeTable.writeLeafType(OEM);
+}
+#endif // INTEL_CUSTOMIZATION
+
 TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
+  DINodeArray Elements = Ty->getElements();
+
+#if INTEL_CUSTOMIZATION
+  if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
+       Elements.size() > 0) {
+    assert(Elements[0]->getTag() == dwarf::DW_TAG_subrange_type);
+    const DISubrange *Subrange = cast<DISubrange>(Elements[0]);
+    auto *LE = Subrange->getLowerBound().dyn_cast<DIExpression *>();
+    if (LE && LE->getNumElements() > 0 &&
+        LE->getElement(0) == dwarf::DW_OP_push_object_address) {
+      // DW_OP_push_object_address opcode in the location expression
+      // of the bounds implies the array uses a descriptor.
+      return lowerTypeOemMSF90DescribedArray(Ty);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   const DIType *ElementType = Ty->getBaseType();
   TypeIndex ElementTypeIndex = getTypeIndex(ElementType);
   // IndexType is size_t, which depends on the bitness of the target.
@@ -1654,7 +1770,6 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
   uint64_t ElementSize = getBaseTypeSize(ElementType) / 8;
 
   // Add subranges to array type.
-  DINodeArray Elements = Ty->getElements();
   for (int i = Elements.size() - 1; i >= 0; --i) {
     const DINode *Element = Elements[i];
     assert(Element->getTag() == dwarf::DW_TAG_subrange_type);
@@ -1716,7 +1831,14 @@ TypeIndex CodeViewDebug::lowerTypeString(const DIStringType *Ty) {
   // Create a type of character array of ArraySize.
   ArrayRecord AR(CharType, IndexType, ArraySize, Name);
 
-  return TypeTable.writeLeafType(AR);
+  TypeIndex ArrayIndex = TypeTable.writeLeafType(AR);
+#if INTEL_CUSTOMIZATION
+  if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
+      ArraySize == 0) {
+    ArrayIndex = lowerTypeOemMSF90Descriptor(Ty, ArrayIndex);
+  }
+#endif // INTEL_CUSTOMIZATION
+  return ArrayIndex;
 }
 
 TypeIndex CodeViewDebug::lowerTypeBasic(const DIBasicType *Ty) {

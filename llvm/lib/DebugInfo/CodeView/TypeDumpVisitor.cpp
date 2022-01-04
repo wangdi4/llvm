@@ -568,3 +568,34 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
   W->printHex("Signature", EndPrecomp.getSignature());
   return Error::success();
 }
+
+#if INTEL_CUSTOMIZATION
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                        OEMTypeRecord &OEMType) {
+  W->printEnum("OEMId", unsigned(OEMType.getOEMIdentifier()),
+               makeArrayRef(LeafTypeNames));
+  W->printEnum("OEMType", unsigned(OEMType.getOEMTypeID()),
+               makeArrayRef(LeafTypeNames));
+
+  auto Indices = OEMType.getTypeIndices();
+  auto Data = OEMType.getData();
+  W->printNumber("Count", Indices.size());
+
+  if (OEMType.isF90DescribedArray()) {
+    printTypeIndex("ElementType", Indices[0]);
+    printTypeIndex("BoundsKey", Indices[1]);
+    W->printNumber("ArrayRank", Data[0]);
+    W->printNumber("DescrSize", Data[1]);
+  } else if (OEMType.isF90Descriptor()) {
+    printTypeIndex("RefType", Indices[0]);
+    W->printNumber("DescrSize", Data[0]);
+  } else {
+    for (size_t i = 0; i < Indices.size(); i++)
+      printTypeIndex("Type", Indices[i]);
+    for (size_t i = 0; i < Data.size(); i++)
+      W->printNumber("Data", Data[i]);
+  }
+
+  return Error::success();
+}
+#endif //INTEL_CUSTOMIZATION

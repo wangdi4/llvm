@@ -610,6 +610,15 @@ template <> void LeafRecordImpl<EndPrecompRecord>::map(IO &IO) {
   IO.mapRequired("Signature", Record.Signature);
 }
 
+#if INTEL_CUSTOMIZATION
+template <> void LeafRecordImpl<OEMTypeRecord>::map(IO &IO) {
+  IO.mapRequired("OEMId", Record.OEMIdentifier);
+  IO.mapRequired("OEMType", Record.OEMTypeID);
+  IO.mapRequired("TypeIndices", Record.TypeIndices);
+  IO.mapRequired("Data", Record.Data);
+}
+#endif //INTEL_CUSTOMIZATION
+
 template <> void MemberRecordImpl<OneMethodRecord>::map(IO &IO) {
   MappingTraits<OneMethodRecord>::mapping(IO, Record);
 }

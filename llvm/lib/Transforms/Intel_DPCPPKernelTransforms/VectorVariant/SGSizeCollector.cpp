@@ -21,6 +21,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 using namespace DPCPPKernelMetadataAPI;
 
 bool DPCPPEnableDirectFunctionCallVectorization = true;
@@ -74,7 +75,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
     return false;
   // No need to vectorize function calls in OMP offload,
   // we are not enforced by the execution model.
-  if (DPCPPKernelCompilationUtils::isGeneratedFromOMP(M))
+  if (isGeneratedFromOMP(M))
     return false;
 
   bool Modified = false;
@@ -101,14 +102,22 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
         continue;
       }
 
+      // We need to generate vector-variants for
+      // sub_group_rowslice_extractelement and sub_group_rowslice_insertelement
+      // even they are declarations.
+      // So that they get vectorized with proper VF, and then be resolved
+      // in ResolveSubGroupWICall pass correctly.
+      bool IsSubGroupRowSliceExtractOrInsert =
+          CalledFunc && CalledFunc->isDeclaration() &&
+          isSubGroupRowSliceAccessElement(CalledFunc->getName());
       if (!CalledFunc || CalledFunc->isIntrinsic() ||
-          CalledFunc->isDeclaration() ||
+          (CalledFunc->isDeclaration() && !IsSubGroupRowSliceExtractOrInsert) ||
           CalledFunc->getName().startswith("WG.boundaries.") ||
           // Workaround for Vectorizer not supporting byval/byref
           // parameters. We can ignore the children as they won't be called
           // in vector context.
           (!EnableVectorizationOfByvalByrefFunctionsOpt &&
-           DPCPPKernelCompilationUtils::hasByvalByrefArgs(CalledFunc))) {
+           hasByvalByrefArgs(CalledFunc))) {
 
         It = It.skipChildren();
         continue;
@@ -153,7 +162,11 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
         continue;
 
       std::vector<VectorKind> Parameters(F->arg_size(), VectorKind::vector());
-
+      // For sub_group_rowslice_extractelement(i64 %rowslice.id) or
+      // sub_group_rowslice_insertelement.i32(i64 %rowslice.id, i32 %val),
+      // The first arg %rowslice.id must be uniform.
+      if (isSubGroupRowSliceAccessElement(F->getName()))
+        Parameters[0] = VectorKind::uniform();
       VectorVariant VariantMasked(ISA, true, VecLength, Parameters,
                                   F->getName().str(), "");
       VectorVariant VariantUnmasked(ISA, false, VecLength, Parameters,
