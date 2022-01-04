@@ -149,10 +149,10 @@ public:
     virtual const char *GetKernelAttributes() const override;
 
     /**
-     * @returns true if the specified kernel has barrier operation in the kernel body,
-     *  false otherwise
+     * @returns true if the specified kernel has no barrier path in the kernel
+     * body, false otherwise
      */
-    virtual bool HasBarrierOperation() const override;
+    virtual bool HasNoBarrierPath() const override;
 
     /**
      * @returns true if the specified kernel has debug info,
@@ -232,7 +232,7 @@ public:
     void SetHintWGSize(const size_t* psize );
     void SetReqdNumSG(size_t value) { m_reqdNumSG = value; }
     void SetDAZ(bool value)        { m_DAZ = value; }
-    void SetHasBarrier(bool value) { m_hasBarrier = value; }
+    void SetHasNoBarrierPath(bool value) { m_hasNoBarrierPath = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
     void SetUseNativeSubgroups(bool value) { m_useNativeSubgroups = value; }
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
@@ -278,7 +278,7 @@ public:
     void Print() const override;
 
 protected:
-    bool m_hasBarrier;
+    bool m_hasNoBarrierPath;
     bool m_hasGlobalSync;
     bool m_useNativeSubgroups;
     bool m_DAZ;

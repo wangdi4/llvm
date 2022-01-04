@@ -1,7 +1,7 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown"
 
-define dso_local spir_func i32 @foo_with_barrier(i32 %m) #0 {
+define dso_local spir_func i32 @foo_without_barrier(i32 %m) #0 {
 entry:
   %cond = icmp eq i32 %m, 0
   br i1 %cond, label %if.then, label %if.else
@@ -12,9 +12,9 @@ if.else:
   store i32 %m, i32* %m.addr, align 4, !tbaa !9
   %0 = load i32, i32* %m.addr, align 4, !tbaa !9
   %sub1 = sub nsw i32 %0, 1
-  %call1 = call spir_func i32 @foo_with_barrier(i32 %sub1) #4
+  %call1 = call spir_func i32 @foo_without_barrier(i32 %sub1) #4
   %sub2 = sub nsw i32 %0, 2
-  %call2 = call spir_func i32 @foo_with_barrier(i32 %sub2) #4
+  %call2 = call spir_func i32 @foo_without_barrier(i32 %sub2) #4
   %add = add nsw i32 %call1, %call2
   ret i32 %add
 }
@@ -24,7 +24,7 @@ define dso_local spir_kernel void @test(i32 addrspace(1)* %m) #2 {
 entry:
   %call = call spir_func i64 @_Z12get_local_idj(i32 0) #5
   %conv = trunc i64 %call to i32
-  %call1 = call spir_func i32 @foo_with_barrier(i32 %conv) #4
+  %call1 = call spir_func i32 @foo_without_barrier(i32 %conv) #4
   store i32 %call1, i32 addrspace(1)* %m, align 4, !tbaa !9
   ret void
 }
