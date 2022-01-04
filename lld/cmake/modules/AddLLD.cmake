@@ -48,9 +48,11 @@ macro(add_lld_tool name)
     install(TARGETS ${name}
       ${export_to_lldtargets}
 # INTEL_CUSTOMIZATION
+      # Upstream has changed this to use CMAKE_INSTALL_BINDIR, but in xmain we
+      # want the destination to be determined by the LLVM_TOOLS_INSTALL_DIR
+      # option.
       RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
 # end INTEL_CUSTOMIZATION
-      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
       COMPONENT ${name})
 
     if(NOT CMAKE_CONFIGURATION_TYPES)
