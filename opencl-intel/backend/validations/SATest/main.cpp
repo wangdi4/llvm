@@ -71,7 +71,7 @@ EnableSubgroupEmulation("enable-subgroup-emu",
 llvm::cl::opt<VectorizerType>
 OptVectorizerType("vectorizer-type",
                llvm::cl::desc("Specify vectorizer type. "
-                              "Default value - volcano."),
+                              "Default value - default."),
                llvm::cl::values(
                 clEnumValN(VOLCANO_VECTORIZER, "volcano", "volcano vectorizer"),
                 clEnumValN(VPO_VECTORIZER,     "vpo",     "vplan vectorizer"),

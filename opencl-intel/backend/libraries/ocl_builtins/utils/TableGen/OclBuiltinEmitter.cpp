@@ -848,12 +848,9 @@ bool OclBuiltin::shouldGenerate() const {
 }
 
 /// OclBuiltinImpl
-OclBuiltinImpl::OclBuiltinImpl(const OclBuiltinDB& DB, const Record* R)
-: m_DB(DB)
-, m_Proto(DB.getOclBuiltin(std::string(R->getValueAsDef("Builtin")->getName())))
-{
-  appendImpl(R);
-}
+OclBuiltinImpl::OclBuiltinImpl(const OclBuiltinDB &DB, const Record *R)
+    : m_DB(DB), m_Proto(DB.getOclBuiltin(
+                    std::string(R->getValueAsDef("Builtin")->getName()))) {}
 
 OclBuiltinImpl::~OclBuiltinImpl()
 {
@@ -987,12 +984,11 @@ OclBuiltinImpl::getCImpl(const std::string& in) const
   return "";
 }
 
-void
-OclBuiltinImpl::appendImpl(const Record* R)
-{
+void OclBuiltinImpl::appendImpl(const Record *R, const char *Loc) {
   for (std::vector<Impl*>::iterator I = m_Impls.begin(), E = m_Impls.end(); I != E; ++I) {
-    if ((*I)->m_Record != R)
+    if ((*I)->m_Record != R || (*I)->m_Loc != Loc)
       continue;
+
     // If found, put it at the end.
     Impl* impl = (*I);
     m_Impls.erase(I);
@@ -1034,6 +1030,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
   }
 
   impl->m_Record = R;
+  impl->m_Loc = Loc;
   // IsDeclOnly
   impl->m_IsDeclOnly = R->getValueAsBit("IsDeclOnly");
   // CustomMacro
@@ -1195,45 +1192,12 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
       RecordResolver Resolver(*const_cast<Record*>(Rec));
       RecordRecTy* OBI = RecordRecTy::get(R.getClass("OclBuiltinImpl"));
 
-      const std::vector<RecordVal>& Values = Rec->getValues();
-      for (size_t i = 0, e = Values.size(); i !=e ; ++i) {
-        const RecordVal& RV = Values[i];
-        Init* Def = RV.getValue();
-
-        // UnsetInit could be converted to any type, skip it first.
-        if (dyn_cast<UnsetInit>(Def))
-          continue;
-
-        // Not convertible, skip it as well.
-        if (!Def->convertInitializerTo(OBI))
-          continue;
-
-        if (auto* VDInit = dyn_cast<VarDefInit>(Def)) {
-          Def = VDInit->resolveReferences(Resolver);
-          assert(isa<DefInit>(Def) && "Failed to resolve some references");
-        }
-
-        const Record* DefRec = cast<DefInit>(Def)->getDef();
-        const OclBuiltin* proto = getOclBuiltin(std::string(DefRec->getValueAsDef("Builtin")->getName()));
-
-        std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
-        if (m_ImplMap.end() == II) {
-          OclBuiltinImpl* OI = new OclBuiltinImpl(*this, DefRec);
-          assert(proto == OI->getOclBuiltin() && "OclBuiltinImpl prototype mismatches.");
-          m_ImplMap[OI->getOclBuiltin()] = OI;
-        } else
-          II->second->appendImpl(DefRec);
-      }
-
-      // Check its super classes.
-      ArrayRef<std::pair<Record *, SMRange>> SCs = Rec->getSuperClasses();
-      for (ArrayRef<std::pair<Record *, SMRange>>::reverse_iterator
-             I = SCs.rbegin(), E = SCs.rend(); I != E; ++I) {
-        const Record* Rec = I->first;
-        const std::vector<RecordVal>& Values = Rec->getValues();
-        for (size_t i = 0, e = Values.size(); i !=e ; ++i) {
-          const RecordVal& RV = Values[i];
-          Init* Def = RV.getValue();
+      auto CollectImpls = [this](RecordRecTy *OBI, const Record *Rec,
+                                 RecordResolver &Resolver) {
+        const std::vector<RecordVal> &Values = Rec->getValues();
+        for (const auto &RV : Values) {
+          const char *Loc = RV.getLoc().getPointer();
+          Init *Def = RV.getValue();
 
           // UnsetInit could be converted to any type, skip it first.
           if (dyn_cast<UnsetInit>(Def))
@@ -1243,22 +1207,32 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
           if (!Def->convertInitializerTo(OBI))
             continue;
 
-          if (auto* VDInit = dyn_cast<VarDefInit>(Def)) {
+          if (auto *VDInit = dyn_cast<VarDefInit>(Def)) {
             Def = VDInit->resolveReferences(Resolver);
             assert(isa<DefInit>(Def) && "Failed to resolve some references");
           }
 
-          const Record* DefRec = cast<DefInit>(Def)->getDef();
-          const OclBuiltin* proto = getOclBuiltin(std::string(DefRec->getValueAsDef("Builtin")->getName()));
+          const Record *DefRec = cast<DefInit>(Def)->getDef();
+          const OclBuiltin *proto = getOclBuiltin(
+              std::string(DefRec->getValueAsDef("Builtin")->getName()));
 
-          std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
+          auto II = m_ImplMap.find(proto);
           if (m_ImplMap.end() == II) {
-            OclBuiltinImpl* OI = new OclBuiltinImpl(*this, DefRec);
-            assert(proto == OI->getOclBuiltin() && "OclBuiltinImpl prototype mismatches.");
-            m_ImplMap[OI->getOclBuiltin()] = OI;
-          } else
-            II->second->appendImpl(DefRec);
+            OclBuiltinImpl *OI = new OclBuiltinImpl(*this, DefRec);
+            assert(proto == OI->getOclBuiltin() &&
+                   "OclBuiltinImpl prototype mismatches.");
+            II = m_ImplMap.insert({OI->getOclBuiltin(), OI}).first;
+          }
+          II->second->appendImpl(DefRec, Loc);
         }
+      };
+      CollectImpls(OBI, Rec, Resolver);
+
+      // Check its super classes.
+      ArrayRef<std::pair<Record *, SMRange>> SCs = Rec->getSuperClasses();
+      for (auto I = SCs.rbegin(), E = SCs.rend(); I != E; ++I) {
+        const Record *Rec = I->first;
+        CollectImpls(OBI, Rec, Resolver);
       }
     }
   }
