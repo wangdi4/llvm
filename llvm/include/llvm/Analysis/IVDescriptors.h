@@ -192,10 +192,12 @@ public:
   RecurrenceDescriptor(Value *Start, Instruction *Exit, RecurKind K,
                        FastMathFlags FMF, Instruction *ExactFP, Type *RT,
                        bool Signed, bool Ordered,
-                       SmallPtrSetImpl<Instruction *> &CI)
+                       SmallPtrSetImpl<Instruction *> &CI,
+                       unsigned MinWidthCastToRecurTy)
 #if INTEL_CUSTOMIZATION
       : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
-        ExactFPMathInst(ExactFP) {
+        ExactFPMathInst(ExactFP),
+        MinWidthCastToRecurrenceType(MinWidthCastToRecurTy) {
 #endif
     CastInsts.insert(CI.begin(), CI.end());
   }
@@ -329,6 +331,11 @@ public:
   /// recurrence.
   const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
 
+  /// Returns the minimum width used by the recurrence in bits.
+  unsigned getMinWidthCastToRecurrenceTypeInBits() const {
+    return MinWidthCastToRecurrenceType;
+  }
+
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
   SmallVector<Instruction *, 4> getReductionOpChain(PHINode *Phi,
@@ -345,6 +352,8 @@ private:
   Instruction *ExactFPMathInst = nullptr;
   // Instructions used for type-promoting the recurrence.
   SmallPtrSet<Instruction *, 8> CastInsts;
+  // The minimum width used by the recurrence.
+  unsigned MinWidthCastToRecurrenceType;
 };
 
 /// A struct for saving basic information about induction variables. // INTEL
