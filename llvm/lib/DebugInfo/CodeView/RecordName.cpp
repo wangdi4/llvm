@@ -247,6 +247,13 @@ Error TypeNameComputer::visitKnownRecord(CVType &CVR,
   return Error::success();
 }
 
+#if INTEL_CUSTOMIZATION
+Error TypeNameComputer::visitKnownRecord(CVType &CVR,
+                                         OEMTypeRecord &OEMType) {
+  return Error::success();
+}
+#endif //INTEL_CUSTOMIZATION
+
 std::string llvm::codeview::computeTypeName(TypeCollection &Types,
                                             TypeIndex Index) {
   TypeNameComputer Computer(Types);

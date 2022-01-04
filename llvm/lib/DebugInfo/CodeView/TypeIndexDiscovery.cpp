@@ -352,6 +352,13 @@ static void discoverTypeIndices(ArrayRef<uint8_t> Content, TypeLeafKind Kind,
   case TypeLeafKind::LF_POINTER:
     handlePointer(Content, Refs);
     break;
+#if INTEL_CUSTOMIZATION
+  case TypeLeafKind::LF_OEM:
+    Count = support::endian::read32le(Content.drop_front(4).data());
+    if (Count > 0)
+      Refs.push_back({TiRefKind::TypeRef, 8, Count});
+    break;
+#endif //INTEL_CUSTOMIZATION
   default:
     break;
   }

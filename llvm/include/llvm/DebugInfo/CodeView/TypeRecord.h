@@ -952,6 +952,60 @@ public:
   uint32_t Signature = 0;
 };
 
+#if INTEL_CUSTOMIZATION
+// LF_OEM
+// A leaf record extension mechanism which has the format:
+//
+//    2 bytes: leaf identifier (LF_OEM)
+//    2 bytes: OEM identifier
+//    2 bytes: type identifier
+//    4 bytes: count of type indices that follow
+//    array of type indexes (4 bytes each)
+//    additional information (varies by record type)
+class OEMTypeRecord : public TypeRecord {
+public:
+  OEMTypeRecord() = default;
+  explicit OEMTypeRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+
+  OEMTypeRecord(TypeLeafKind OEMID, TypeLeafKind OEMTypeID,
+                ArrayRef<TypeIndex> TypeIndices, ArrayRef<uint32_t> Data)
+      : TypeRecord(TypeRecordKind::OEMType), OEMIdentifier(OEMID),
+	    OEMTypeID(OEMTypeID),
+		TypeIndices(TypeIndices.begin(), TypeIndices.end()),
+		Data(Data.begin(), Data.end()) {
+          assert(isValid() && "Malformed OEMTypeRecord!");
+  }
+
+  bool isF90DescribedArray() const {
+    return OEMIdentifier == TypeLeafKind::LF_OEM_IDENT_MSF90 &&
+	       OEMTypeID == TypeLeafKind::LF_recOEM_MSF90_DESCR_ARR;
+  }
+
+  bool isF90Descriptor() const {
+    return OEMIdentifier == TypeLeafKind::LF_OEM_IDENT_MSF90 &&
+	       OEMTypeID == TypeLeafKind::LF_recOEM_MSF90_DESCRIPTOR;
+  }
+
+  bool isValid() const {
+    if (isF90DescribedArray() && TypeIndices.size() == 2 && Data.size() == 2)
+      return true;
+    if (isF90Descriptor() && TypeIndices.size() == 1 && Data.size() == 1)
+      return true;
+    return false;
+  }
+
+  TypeLeafKind getOEMIdentifier() const { return OEMIdentifier; }
+  TypeLeafKind getOEMTypeID() const { return OEMTypeID; }
+  ArrayRef<TypeIndex> getTypeIndices() const { return TypeIndices; }
+  ArrayRef<uint32_t> getData() const { return Data; }
+
+  TypeLeafKind OEMIdentifier;
+  TypeLeafKind OEMTypeID;
+  SmallVector<TypeIndex, 2> TypeIndices;  // Max used is 2 for known records.
+  SmallVector<uint32_t, 2> Data;          // Max used is 2 for known records.
+};
+#endif //INTEL_CUSTOMIZATION
+
 } // end namespace codeview
 } // end namespace llvm
 

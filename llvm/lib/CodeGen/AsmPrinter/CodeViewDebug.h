@@ -408,6 +408,12 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
 
   codeview::TypeIndex lowerType(const DIType *Ty, const DIType *ClassTy);
   codeview::TypeIndex lowerTypeAlias(const DIDerivedType *Ty);
+#if INTEL_CUSTOMIZATION
+  codeview::TypeIndex lowerTypeOemMSF90Descriptor(
+      const DIStringType *Ty,
+      codeview::TypeIndex RefType);
+  codeview::TypeIndex lowerTypeOemMSF90DescribedArray(const DICompositeType *Ty);
+#endif // INTEL_CUSTOMIZATION
   codeview::TypeIndex lowerTypeArray(const DICompositeType *Ty);
   codeview::TypeIndex lowerTypeString(const DIStringType *Ty);
   codeview::TypeIndex lowerTypeBasic(const DIBasicType *Ty);
