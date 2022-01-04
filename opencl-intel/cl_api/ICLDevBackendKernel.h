@@ -146,10 +146,10 @@ public:
     virtual bool HasPrintOperation() const = 0;
 
     /**
-     * @returns true if the specified kernel has barrier operation in the kernel body,
-     *  false otherwise
+     * @returns true if the specified kernel has no barrier path in the kernel
+     * body, false otherwise
      */
-    virtual bool HasBarrierOperation() const = 0;
+    virtual bool HasNoBarrierPath() const = 0;
 
     /**
      * @returns true if the specified kernel has debug info,

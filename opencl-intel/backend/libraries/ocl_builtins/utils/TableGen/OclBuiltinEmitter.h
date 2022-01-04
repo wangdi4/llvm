@@ -258,7 +258,7 @@ public:
 
   std::string getCImpl(const std::string&) const;
 
-  void appendImpl(const Record*);
+  void appendImpl(const Record *, const char *Loc);
 
   const OclBuiltin* getOclBuiltin() const { return m_Proto; }
 
@@ -269,6 +269,7 @@ protected:
 
   struct Impl {
     const Record* m_Record;
+    const char *m_Loc;
     std::vector<const OclType*> m_Types;
     std::map<std::string, std::string> m_customMacro;
     std::string m_Code;

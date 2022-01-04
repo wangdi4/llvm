@@ -37,7 +37,6 @@ namespace intel {
   bool KernelInfoPass::runOnFunction(Function &Func) {
     auto kernelInfo = KernelInternalMetadataAPI(&Func);
     kernelInfo.KernelExecutionLength.set(getExecutionLength(&Func));
-    kernelInfo.KernelHasBarrier.set(containsBarrier(&Func));
     kernelInfo.KernelHasGlobalSync.set(containsGlobalSync(&Func));
     return false;
   }
@@ -88,28 +87,6 @@ namespace intel {
         // because the first arguments is a pipe which is a __global opaque pointer.
         if (IS_ADDR_SPACE_GLOBAL(ptr->getAddressSpace()))
           return true;
-      }
-    }
-    return false;
-  }
-
-  bool KernelInfoPass::containsBarrier(Function *pFunc) {
-    for (inst_iterator ii = inst_begin(pFunc), e = inst_end(pFunc); ii != e; ++ii) {
-      CallInst *pCall = dyn_cast<CallInst>(&*ii);
-      if ( !pCall ) {
-        continue;
-      }
-      Function *pFunc = pCall->getCalledFunction();
-      if (!pFunc) {
-        continue;
-      }
-      std::string calledFuncName = pFunc->getName().str();
-      if (calledFuncName.find("barrier") != std::string::npos) {
-        return true;
-      }
-      if (CompilationUtils::isWorkGroupBuiltin(calledFuncName) ||
-          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(calledFuncName, pFunc->getParent())) {
-        return true;
       }
     }
     return false;

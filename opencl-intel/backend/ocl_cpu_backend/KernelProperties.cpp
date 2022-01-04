@@ -44,7 +44,7 @@ void KernelJITProperties::Deserialize(IInputStream &ist,
 }
 
 KernelProperties::KernelProperties()
-    : m_hasBarrier(false), m_hasGlobalSync(false), m_useNativeSubgroups(false),
+    : m_hasNoBarrierPath(false), m_hasGlobalSync(false), m_useNativeSubgroups(false),
       m_DAZ(false), m_optWGSize(0), m_totalImplSize(0), m_barrierBufferSize(0),
       m_privateMemorySize(0), m_maxPrivateMemorySize(0), m_reqdNumSG(0),
       m_kernelExecutionLength(0), m_vectorizationWidth(1),
@@ -62,7 +62,7 @@ void KernelProperties::Serialize(IOutputStream &ost,
   // Need to revert dbgPrint flag
   // Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
   Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
-  Serializer::SerialPrimitive<bool>(&m_hasBarrier, ost);
+  Serializer::SerialPrimitive<bool>(&m_hasNoBarrierPath, ost);
   Serializer::SerialPrimitive<bool>(&m_hasGlobalSync, ost);
   Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
   Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
@@ -123,7 +123,7 @@ void KernelProperties::Deserialize(IInputStream &ist,
   // Need to revert dbgPrint flag
   // Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
   Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
-  Serializer::DeserialPrimitive<bool>(&m_hasBarrier, ist);
+  Serializer::DeserialPrimitive<bool>(&m_hasNoBarrierPath, ist);
   Serializer::DeserialPrimitive<bool>(&m_hasGlobalSync, ist);
   Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
   Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
@@ -304,10 +304,7 @@ bool KernelProperties::HasGlobalSyncOperation() const
     return m_hasGlobalSync;
 }
 
-bool KernelProperties::HasBarrierOperation() const
-{
-    return m_hasBarrier;
-}
+bool KernelProperties::HasNoBarrierPath() const { return m_hasNoBarrierPath; }
 
 bool KernelProperties::HasDebugInfo() const
 {
@@ -455,7 +452,7 @@ void KernelProperties::Print() const {
       outs() << A[I] << ((I < Len - 1) ? ", " : "");
     outs() << "}\n";
   };
-  outs().indent(NS) << "hasBarrier: " << m_hasBarrier << "\n";
+  outs().indent(NS) << "hasNoBarrierPath: " << m_hasNoBarrierPath << "\n";
   outs().indent(NS) << "hasGlobalSync: " << m_hasGlobalSync << "\n";
   outs().indent(NS) << "useNativeSubgroups: " << m_useNativeSubgroups << "\n";
   outs().indent(NS) << "DAZ: " << m_DAZ << "\n";

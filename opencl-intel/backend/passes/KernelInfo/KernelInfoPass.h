@@ -89,10 +89,6 @@ namespace intel {
     /// @param pFunc ptr to function
     bool containsGlobalSync(Function *pFunc);
 
-    /// @brief checks if the function has a barrier in it
-    /// @param pFunc ptr to function
-    bool containsBarrier(Function *pFunc);
-
     /// @brief returns approximation of the execution lenght of the given func
     /// @param pFunc ptr to function
     size_t getExecutionLength(Function *pFunc);
