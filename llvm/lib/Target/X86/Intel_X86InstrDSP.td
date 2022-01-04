@@ -150,6 +150,15 @@ defm DVPDPBWUSD  : dspv1_3op_imm8_rw<0xa8, "dvpdpbwusd", loadv8i16>, TAPD;
 defm DVPDPBWUSDS : dspv1_3op_imm8_rw<0xa9, "dvpdpbwusds", loadv8i16>, TAPD;
 // end Chapter 4
 
+// Chapter 6
+defm DVPMULUWDQ     : dspv1_3op_imm8_w<0xa4, "dvpmuluwdq", loadv4i32>, TAXD, VEX_W;
+defm DVPMULWDQ      : dspv1_3op_imm8_w<0xa4, "dvpmulwdq", loadv4i32>, TAXS, VEX_W;
+defm DVPDPWDUUQ     : dspv1_3op_imm8_rw<0xa6, "dvpdpwduuq", loadv4i32>, TAXS, VEX_W;
+defm DVPDPWDSSQ     : dspv1_3op_imm8_rw<0xa6, "dvpdpwdssq", loadv4i32>, TAXD, VEX_W;
+defm DVPCR2BFRSDRE  : dspv1_3op_imm8_rw<0xa5, "dvpcr2bfrsdre", loadv8i16>, TAXD;
+defm DVPCR2BFRSDIMM : dspv1_3op_imm8_rw<0xa5, "dvpcr2bfrsdimm", loadv8i16>, TAXS;
+// end Chapter 6
+
 // Chapter 7
 defm DVPMULUDHHQ : dspv1_3op_w<0xcb, "dvpmuludhhq", loadv4i32>,
                    T_MAP8XS, VEX_W;

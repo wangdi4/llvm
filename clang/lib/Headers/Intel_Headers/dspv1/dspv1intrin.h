@@ -377,5 +377,27 @@ _mm_dsp_phaddlsdq_epi32(__m128i __A) {
   ((__m128i)__builtin_ia32_dvpdpbwusds((__v4su)(A), (__v16qu)(B), (__v8hu)(C), \
                                        (int)(D)))
 
+#define _mm_dsp_pmuluwdq_epi64(A, B, C)                                        \
+  ((__m128i)__builtin_ia32_dvpmuluwdq((__v8hu)(A), (__v4su)(B), (int)(C)))
+
+#define _mm_dsp_pmulwdq_epi64(A, B, C)                                         \
+  ((__m128i)__builtin_ia32_dvpmulwdq((__v8hu)(A), (__v4su)(B), (int)(C)))
+
+#define _mm_dsp_pdpwduuq_epi64(A, B, C, D)                                     \
+  ((__m128i)__builtin_ia32_dvpdpwduuq((__v2du)(A), (__v8hu)(B), (__v4su)(C),   \
+                                      (int)(D)))
+
+#define _mm_dsp_pdpwdssq_epi64(A, B, C, D)                                     \
+  ((__m128i)__builtin_ia32_dvpdpwdssq((__v2du)(A), (__v8hu)(B), (__v4su)(C),   \
+                                      (int)(D)))
+
+#define _mm_dsp_pcr2bfrsdre_epi32(A, B, C, D)                                  \
+  ((__m128i)__builtin_ia32_dvpcr2bfrsdre((__v4su)(A), (__v4su)(B),             \
+                                         (__v8hu)(C), (int)(D)))
+
+#define _mm_dsp_pcr2bfrsdimm_epi32(A, B, C, D)                                 \
+  ((__m128i)__builtin_ia32_dvpcr2bfrsdimm((__v4su)(A), (__v4su)(B),            \
+                                          (__v8hu)(C), (int)(D)))
+
 #undef __DEFAULT_FN_ATTRS128
 #endif // __DSPINTRIN_H
