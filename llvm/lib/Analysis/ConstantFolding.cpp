@@ -1392,6 +1392,7 @@ Constant *llvm::ConstantFoldCastOperand(unsigned Opcode, Constant *C,
   }
 }
 
+<<<<<<< HEAD
 Constant *llvm::ConstantFoldLoadThroughGEPConstantExpr(Constant *C,
                                                        ConstantExpr *CE,
                                                        Type *Ty,
@@ -1440,6 +1441,8 @@ static bool hasAnyImfFnAttr(const CallBase *Call) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 71b2c4a3cf5c4709fcab66194b3277a31b849c22
 //===----------------------------------------------------------------------===//
 //  Constant Folding for Calls
 //
