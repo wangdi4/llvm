@@ -746,7 +746,6 @@ void HeuristicPsadbw::initForVPlan() {
       continue;
 
     VPBasicBlock *Block = VPL->getHeader();
-    VPBasicBlock *PH = VPL->getLoopPreheader();
     VPBasicBlock *Latch = VPL->getLoopLatch();
 
     // Loop through PHI nodes.
@@ -754,26 +753,10 @@ void HeuristicPsadbw::initForVPlan() {
       assert(PhiNode.getNumIncomingValues() == 2 &&
              "A loop header is expected to have two predecessors.");
 
-      const auto *RedInitInst =
-        dyn_cast<VPReductionInit>(PhiNode.getIncomingValue(PH));
-      if (!RedInitInst)
-        continue;
-
       const auto *SumCarryOut =
         dyn_cast<VPInstruction>(PhiNode.getIncomingValue(Latch));
       if (!SumCarryOut || SumCarryOut->getOpcode() != Instruction::Add)
         continue;
-
-      // Check that there is VPReductionFinal among users of SumCarryOut.
-      const VPReductionFinal *ReductionFinalInst = nullptr;
-      auto It = llvm::find_if(SumCarryOut->users(),
-                              [](const auto* SumVPUser) {
-                                return (isa<VPReductionFinal>(SumVPUser));
-                              });
-      if (It == SumCarryOut->users().end())
-        continue;
-
-      ReductionFinalInst = cast<VPReductionFinal>(*It);
 
       // Now go up through ADD's operands starting from SumCarryOut and
       // find the patterns.  We model unrolled at source level or by HIR
@@ -808,9 +791,8 @@ void HeuristicPsadbw::initForVPlan() {
         if (RHS->getOpcode() == Instruction::Add)
           AddsStack.push(RHS);
 
-        // Add PhiNode, RedInitInst, ReductionFinalInst and AddInst into
-        // the list of pattern forming instruction whenever pattern is found
-        // along LHS operand or RHS operand of the add.
+        // Add PhiNode and AddInst into the list of pattern forming instruction
+        // whenever pattern is found.
         //
         // Make sure to run checkPsadwbPattern for LHS and RHS as there could
         // be patterns on the both ways and we want checkPsadwbPattern() to
@@ -818,9 +800,7 @@ void HeuristicPsadbw::initForVPlan() {
         bool PatternFound = checkPsadwbPattern(LHS, CurrPsadbwPatternInsts);
         if (checkPsadwbPattern(RHS, CurrPsadbwPatternInsts) || PatternFound) {
           CurrPsadbwPatternInsts.insert(&PhiNode);
-          CurrPsadbwPatternInsts.insert(RedInitInst);
           CurrPsadbwPatternInsts.insert(AddInst);
-          CurrPsadbwPatternInsts.insert(ReductionFinalInst);
         }
       }
 
