@@ -7,7 +7,7 @@
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: DPCPPEqualizerPass
-; CHECK-NEXT: Running pass: DuplicateCalledKernels
+; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
 ; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
