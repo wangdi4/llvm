@@ -7033,6 +7033,26 @@ def int_x86_dvpdpbwusds : GCCBuiltin<"__builtin_ia32_dvpdpbwusds">,
         Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v16i8_ty, llvm_v8i16_ty, llvm_i32_ty],
                   [IntrNoMem, ImmArg<ArgIndex<3>>]>;
 // end Chapter 4
+// Chapter 6
+def int_x86_dvpmuluwdq : GCCBuiltin<"__builtin_ia32_dvpmuluwdq">,
+        Intrinsic<[llvm_v2i64_ty], [llvm_v8i16_ty, llvm_v4i32_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<2>>]>;
+def int_x86_dvpmulwdq : GCCBuiltin<"__builtin_ia32_dvpmulwdq">,
+        Intrinsic<[llvm_v2i64_ty], [llvm_v8i16_ty, llvm_v4i32_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<2>>]>;
+def int_x86_dvpdpwduuq : GCCBuiltin<"__builtin_ia32_dvpdpwduuq">,
+        Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_v8i16_ty, llvm_v4i32_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpdpwdssq : GCCBuiltin<"__builtin_ia32_dvpdpwdssq">,
+        Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty, llvm_v8i16_ty, llvm_v4i32_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpcr2bfrsdre : GCCBuiltin<"__builtin_ia32_dvpcr2bfrsdre">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+def int_x86_dvpcr2bfrsdimm : GCCBuiltin<"__builtin_ia32_dvpcr2bfrsdimm">,
+        Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty, llvm_v4i32_ty, llvm_v8i16_ty, llvm_i32_ty],
+                  [IntrNoMem, ImmArg<ArgIndex<3>>]>;
+// end Chapter 6
 // Chapter 7
 def int_x86_dvpmuludhhq : GCCBuiltin<"__builtin_ia32_dvpmuludhhq">,
         Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty, llvm_v4i32_ty],

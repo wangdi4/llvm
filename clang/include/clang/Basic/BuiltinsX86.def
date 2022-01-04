@@ -2704,6 +2704,14 @@ TARGET_BUILTIN(__builtin_ia32_dvpdpbwsuds, "V4UiV4UiV16UcV8UsIi", "nV:128:", "ds
 TARGET_BUILTIN(__builtin_ia32_dvpdpbwusd, "V4UiV4UiV16UcV8UsIi", "nV:128:", "dspv1")
 TARGET_BUILTIN(__builtin_ia32_dvpdpbwusds, "V4UiV4UiV16UcV8UsIi", "nV:128:", "dspv1")
 // end Chapter 4
+// Chapter 6
+TARGET_BUILTIN(__builtin_ia32_dvpmuluwdq, "V2ULLiV8UsV4UiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpmulwdq, "V2ULLiV8UsV4UiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpdpwduuq, "V2ULLiV2ULLiV8UsV4UiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpdpwdssq, "V2ULLiV2ULLiV8UsV4UiIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpcr2bfrsdre, "V4UiV4UiV4UiV8UsIi", "nV:128:", "dspv1")
+TARGET_BUILTIN(__builtin_ia32_dvpcr2bfrsdimm, "V4UiV4UiV4UiV8UsIi", "nV:128:", "dspv1")
+// end Chapter 6
 // Chapter 7
 TARGET_BUILTIN(__builtin_ia32_dvpmuludhhq, "V2ULLiV4UiV4Ui", "nV:128:", "dspv1")
 TARGET_BUILTIN(__builtin_ia32_dvpmuldhhq, "V2LLiV4iV4i", "nV:128:", "dspv1")
