@@ -2098,7 +2098,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       CommaLocsTy CommaLocs;
       auto RunSignatureHelp = [&]() -> QualType {
         QualType PreferredType = Actions.ProduceCallSignatureHelp(
-            getCurScope(), LHS.get(), ArgExprs, PT.getOpenLocation());
+            LHS.get(), ArgExprs, PT.getOpenLocation());
         CalledSignatureHelp = true;
         return PreferredType;
       };
