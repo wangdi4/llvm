@@ -704,6 +704,14 @@ bool isSubGroupBarrier(StringRef S) {
          S == mangledSGBarrier(BarrierType::WithScope);
 }
 
+bool isSubGroupRowSliceExtractElement(StringRef S) {
+  return S.startswith(NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT);
+}
+
+bool isSubGroupRowSliceInsertElement(StringRef S) {
+  return S.startswith(NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT);
+}
+
 template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
   reflection::FunctionDescriptor FD;

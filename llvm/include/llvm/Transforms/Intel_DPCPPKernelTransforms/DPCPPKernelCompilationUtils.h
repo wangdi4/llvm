@@ -401,6 +401,19 @@ bool isSubGroupBuiltin(StringRef S);
 /// Returns true if \p S is the name of subgroup barrier.
 bool isSubGroupBarrier(StringRef S);
 
+/// Returns true if \p S is the name of subgroup rowslice extractelement.
+bool isSubGroupRowSliceExtractElement(StringRef S);
+
+/// Returns true if \p S is the name of subgroup rowslice insertelement.
+bool isSubGroupRowSliceInsertElement(StringRef S);
+
+/// Returns true if \p S is the name of subgroup rowslice
+/// extractelement/insertelement.
+inline bool isSubGroupRowSliceAccessElement(StringRef S) {
+  return isSubGroupRowSliceExtractElement(S) ||
+         isSubGroupRowSliceInsertElement(S);
+}
+
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
   return DPCPPKernelMetadataAPI::KernelList(M);
