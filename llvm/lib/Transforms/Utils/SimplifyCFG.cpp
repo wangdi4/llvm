@@ -8124,9 +8124,9 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   }
 
 #if INTEL_CUSTOMIZATION
-  // foldReductionBlockWithVectorization only support AVX512 currently.
+  // foldReductionBlockWithVectorization support AVX2 or above.
   if (TTI.isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2)) {
     if (foldReductionBlockWithVectorization(BI))
       return true;
   } else if (foldFcmpLadder(BI)) {
