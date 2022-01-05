@@ -24,6 +24,9 @@ class PassRegistry;
 class X86RegisterBankInfo;
 class X86Subtarget;
 class X86TargetMachine;
+#if INTEL_CUSTOMIZATION
+class ModulePass;
+#endif // INTEL_CUSTOMIZATION
 
 /// This pass converts a legalized DAG into a X86-specific DAG, ready for
 /// instruction scheduling.
@@ -67,6 +70,8 @@ FunctionPass *createIVSplitLegacyPass();
 FunctionPass *createX86SplitVectorValueTypePass();
 FunctionPass *createX86PRAExpandPseudoPass();
 FunctionPass *createX86VecSpillPass();
+/// This pass performs x86 intrinsics lowering right before ISel.
+ModulePass *createX86PreISelIntrinsicLoweringPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -218,6 +223,7 @@ void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
+void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);

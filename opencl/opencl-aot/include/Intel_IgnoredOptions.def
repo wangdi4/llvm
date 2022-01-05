@@ -40,6 +40,7 @@ OPTION_VALUE(OptXsParallel, "parallel", unsigned);
 OPTION_VALUE(OptXsProfile, "profile", bool);
 OPTION_VALUE(OptXsProfileSharedCounters, "profile-shared-counters", bool);
 OPTION_VALUE(OptXsQ, "q", bool);
+OPTION_VALUE(OptXsReadOnlyCacheSize, "read-only-cache-size", unsigned);
 OPTION_VALUE(OptXsReport, "report", bool);
 OPTION_VALUE(OptXsReuseExe, "reuse-exe", std::string);
 OPTION_VALUE(OptXsRingRootArbBalancedRw, "ring-root-arb-balanced-rw", bool);

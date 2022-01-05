@@ -69,6 +69,15 @@ let TargetPrefix = "x86" in {
       : Intrinsic<[llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
                   [llvm_i32_ty, llvm_i32_ty], []>;
 }
+
+// Read intel cpu core type, cpuid.1AH.eax[31:24]. This intrinsic may lazily
+// use cpuid to detect cpu core type and cache it into a global array in libirc
+// to minimize cost of frequently inquiring cpu core type. Read comments in
+// Intel_X86PreISelIntrinsicLowering.cpp:lowerFastCpuIdCoreType to know which
+// target it's capable to cache core type.
+let TargetPrefix = "x86" in {
+  def int_x86_intel_fast_cpuid_coretype : Intrinsic<[llvm_i8_ty], [], []>;
+}
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

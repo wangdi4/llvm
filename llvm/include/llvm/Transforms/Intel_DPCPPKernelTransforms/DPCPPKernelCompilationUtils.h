@@ -401,14 +401,20 @@ bool isSubGroupBuiltin(StringRef S);
 /// Returns true if \p S is the name of subgroup barrier.
 bool isSubGroupBarrier(StringRef S);
 
-/// Returns true if \p S is the name of subgroup rowslice extractelement.
+/// Returns true if \p S is the name of get_sub_group_slice_length.
+bool isGetSubGroupSliceLength(StringRef S);
+
+/// Returns true if \p S is the name of sub_group_rowslice_extractelement.
 bool isSubGroupRowSliceExtractElement(StringRef S);
 
-/// Returns true if \p S is the name of subgroup rowslice insertelement.
+/// Returns true if \p S is the name of sub_group_rowslice_insertelement.
 bool isSubGroupRowSliceInsertElement(StringRef S);
 
-/// Returns true if \p S is the name of subgroup rowslice
-/// extractelement/insertelement.
+/// Returns true if \p S is the name of sub_group_insert_rowslice_to_matrix.
+bool isSubGroupInsertRowSliceToMatrix(StringRef S);
+
+/// Returns true if \p S is the name of sub_group_rowslice_extractelement or
+/// sub_group_rowslice_insertelement.
 inline bool isSubGroupRowSliceAccessElement(StringRef S) {
   return isSubGroupRowSliceExtractElement(S) ||
          isSubGroupRowSliceInsertElement(S);

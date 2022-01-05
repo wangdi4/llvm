@@ -36,6 +36,7 @@ set(sources
   Intel_X86LowerMatrixIntrinsics.cpp # INTEL
   Intel_X86CFMA.cpp      # INTEL
   Intel_X86VecSpill.cpp  # INTEL
+  Intel_X86PreISelIntrinsicLowering.cpp  # INTEL
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp

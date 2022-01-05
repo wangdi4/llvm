@@ -41,6 +41,8 @@
 ; CHECK-NEXT:       X86 runtime feature initialization pass
 ; end INTEL_FEATURE_SW_ADVANCED
 ; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:     X86 Pre-ISel Intrinsic Lowering ;INTEL
+; CHECK-NEXT:     FunctionPass Manager ;INTEL
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier
