@@ -100,6 +100,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86LowerMatrixIntrinsicsPassPass(PR);
   initializeX86InstCombinePass(PR);
   initializeX86FeatureInitPassPass(PR);
+  initializeX86PreISelIntrinsicLoweringPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -549,6 +550,7 @@ bool X86PassConfig::addPreISel() {
 #endif // INTEL_FEATURE_SW_ADVANCED
   if (getOptLevel() == CodeGenOpt::Aggressive)
     addPass(createIVSplitLegacyPass());
+  addPass(createX86PreISelIntrinsicLoweringPass());
 #endif // INTEL_CUSTOMIZATION
   return true;
 }
