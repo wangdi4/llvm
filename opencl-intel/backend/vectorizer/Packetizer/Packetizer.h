@@ -16,12 +16,12 @@
 #define __PACKETIZER_H__
 
 #include "BuiltinLibInfo.h"
-#include "WIAnalysis.h"
-#include "Mangler.h"
-#include "SoaAllocaAnalysis.h"
 #include "Logger.h"
-#include "VectorizerCommon.h"
+#include "Mangler.h"
 #include "OclTune.h"
+#include "VectorizerCommon.h"
+#include "WIAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
@@ -99,7 +99,7 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<WIAnalysis>();
-    AU.addRequired<SoaAllocaAnalysis>();
+    AU.addRequired<SoaAllocaAnalysisLegacy>();
     AU.addRequired<BuiltinLibInfo>();
   }
 
@@ -485,7 +485,7 @@ private:
   WIAnalysis *m_depAnalysis;
 
   // @brief pointer to Soa alloca analysis performed for this function
-  SoaAllocaAnalysis *m_soaAllocaAnalysis;
+  SoaAllocaInfo *m_soaAllocaInfo;
 
   // Contains all the removed instructions. After packetizing completes, they are removed.
   DenseSet<Instruction *> m_removedInsts;

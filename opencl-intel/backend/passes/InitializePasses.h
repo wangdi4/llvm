@@ -62,7 +62,6 @@ void initializeLoopStridedCodeMotionPass(llvm::PassRegistry&);
 void initializeRelaxedPassPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
 void initializeLoopWIAnalysisPass(llvm::PassRegistry&);
-void initializeSoaAllocaAnalysisPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffersPass(llvm::PassRegistry &);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);

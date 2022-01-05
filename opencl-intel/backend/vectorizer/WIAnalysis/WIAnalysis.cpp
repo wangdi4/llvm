@@ -19,10 +19,11 @@
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/Analysis/PostDominators.h"
 
 #include <string>
 #include <stack>
@@ -32,7 +33,7 @@ namespace intel {
 char WIAnalysis::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 
@@ -134,8 +135,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
   }
 
   // Obtain SoaAllocaAnalysis of the function
-  m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
-  V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
+  m_soaAllocaInfo = &getAnalysis<SoaAllocaAnalysisLegacy>().getResult();
+  V_ASSERT(m_soaAllocaInfo && "Unable to get pass");
 
   m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   assert(m_DT && "Unable to get DominatorTreeWrapperPass pass");
@@ -859,8 +860,8 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const GetElementPtrInst* inst
 
   // SOA Alloca related pointer will be turned into SOA format.
   // Thus, it is allowed to assume: PTR + UNI = PTR
-  const bool  isIndirectGep = opPtr->getType() != inst->getType() &&
-    !m_soaAllocaAnalysis->isSoaAllocaScalarRelated(opPtr);
+  const bool isIndirectGep = opPtr->getType() != inst->getType() &&
+                             !m_soaAllocaInfo->isSoaAllocaScalarRelated(opPtr);
 
   if (isIndirectGep)
     return gep_conversion_for_indirection[depPtr][lastIndDep];
@@ -952,7 +953,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const SelectInst* inst) {
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const AllocaInst* inst) {
   // Check if alloca instruction can be converted to SOA-alloca
-  if( m_soaAllocaAnalysis->isSoaAllocaScalarRelated(inst) ) {
+  if (m_soaAllocaInfo->isSoaAllocaScalarRelated(inst)) {
     return WIAnalysis::PTR_CONSECUTIVE;
   }
   return WIAnalysis::RANDOM;

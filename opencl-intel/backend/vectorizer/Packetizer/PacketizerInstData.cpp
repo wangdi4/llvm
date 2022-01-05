@@ -372,9 +372,10 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
 
   // Create the dummy values and place them in VCMEntry
   Type* origType = origValue->getType();
-  Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
-    VectorizerUtils::convertSoaAllocaType(origType, m_packetWidth) :
-    FixedVectorType::get(origType, m_packetWidth);
+  Type *dummyType =
+      m_soaAllocaInfo->isSoaAllocaRelatedPointer(origValue)
+          ? VectorizerUtils::convertSoaAllocaType(origType, m_packetWidth)
+          : FixedVectorType::get(origType, m_packetWidth);
   V_PRINT(packetizer, "\t\tCreate Dummy Vector value/s (of type " << *dummyType << ")\n");
   Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
 
@@ -412,8 +413,10 @@ void PacketizeFunction::createDummyMultiScalarVals(Value *origValue, Value *mult
 
   // Create the dummy values and place them in VCMEntry
   Type* origType = origValue->getType();
-  Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
-    VectorizerUtils::convertSoaAllocaType(origType, m_packetWidth) : origType;
+  Type *dummyType =
+      m_soaAllocaInfo->isSoaAllocaRelatedPointer(origValue)
+          ? VectorizerUtils::convertSoaAllocaType(origType, m_packetWidth)
+          : origType;
   V_PRINT(packetizer, "\t\tCreate Dummy value/s (of type " << *dummyType << ")\n");
   Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
 

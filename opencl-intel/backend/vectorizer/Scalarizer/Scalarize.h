@@ -17,8 +17,8 @@
 
 #include "BuiltinLibInfo.h"
 #include "Logger.h"
-#include "SoaAllocaAnalysis.h"
 #include "VectorizerCommon.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Type.h"
@@ -58,7 +58,7 @@ public:
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<SoaAllocaAnalysis>();
+    AU.addRequired<SoaAllocaAnalysisLegacy>();
     AU.addRequired<BuiltinLibInfo>();
   }
 
@@ -222,7 +222,7 @@ private:
   void releaseAllSCMEntries();
 
   // @brief pointer to Soa alloca analysis performed for this function
-  SoaAllocaAnalysis *m_soaAllocaAnalysis;
+  SoaAllocaInfo *m_soaAllocaInfo;
 
   /// @brief An array of available SCMEntry's
   SCMEntry *m_SCMAllocationArray;

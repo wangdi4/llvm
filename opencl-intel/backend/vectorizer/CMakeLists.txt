@@ -25,7 +25,6 @@ add_custom_target(VectorizationInfoGen ALL
 
 include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "PostDominanceFrontier")
-include_directories(BEFORE "SoaAllocaAnalysis")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "WIAnalysis")
 include_directories(BEFORE "Predication")
@@ -77,7 +76,6 @@ set(TARGET_INCLUDE_FILES
   Resolver/Resolver.h
   Resolver/SpecialCaseBuiltinResolver.h
   Scalarizer/Scalarize.h
-  SoaAllocaAnalysis/SoaAllocaAnalysis.h
   Utils/FakeExtractInsert.h
   Utils/SimplifyGEP.h
   Utils/VecConfig.h
@@ -113,7 +111,6 @@ set(TARGET_SOURCE_FILES
   Resolver/SpecialCaseBuiltinResolver.cpp
   Scalarizer/PreScalarizeScan.cpp
   Scalarizer/Scalarize.cpp
-  SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
   Utils/VectorizerCommon.cpp
