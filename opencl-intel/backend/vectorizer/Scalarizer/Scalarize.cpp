@@ -25,6 +25,7 @@
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm::NameMangleAPI;
@@ -42,7 +43,7 @@ namespace intel {
 char intel::ScalarizeFunction::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
@@ -92,8 +93,8 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   V_PRINT(scalarizer, "\nStart scalarizing function: " << m_currFunc->getName() << "\n");
 
   // Obtain SoaAllocaAnalysis of the function
-  m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
-  V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
+  m_soaAllocaInfo = &getAnalysis<SoaAllocaAnalysisLegacy>().getResult();
+  V_ASSERT(m_soaAllocaInfo && "Unable to get pass");
 
   // obtain TagetData of the module
   m_pDL = &F.getParent()->getDataLayout();
@@ -961,12 +962,12 @@ void ScalarizeFunction::scalarizeInstruction(AllocaInst *AI) {
   V_PRINT(scalarizer, "\t\tAlloca instruction\n");
   V_ASSERT(AI && "instruction type dynamic cast failed");
 
-  if (m_soaAllocaAnalysis->isSoaAllocaVectorRelated(AI)) {
+  if (m_soaAllocaInfo->isSoaAllocaVectorRelated(AI)) {
     // Prepare empty SCM entry for the instruction
     SCMEntry *newEntry = getSCMEntry(AI);
 
     Type* allocaType = VectorizerUtils::convertSoaAllocaType(AI->getAllocatedType(), 0);
-    unsigned numElements = m_soaAllocaAnalysis->getSoaAllocaVectorWidth(AI);
+    unsigned numElements = m_soaAllocaInfo->getSoaAllocaVectorWidth(AI);
     V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
     Align alignment = AI->getAlign();// / numElements;
 
@@ -991,11 +992,11 @@ void ScalarizeFunction::scalarizeInstruction(GetElementPtrInst *GI) {
   V_PRINT(scalarizer, "\t\tGEP instruction\n");
   V_ASSERT(GI && "instruction type dynamic cast failed");
 
-  if (m_soaAllocaAnalysis->isSoaAllocaVectorRelated(GI)) {
+  if (m_soaAllocaInfo->isSoaAllocaVectorRelated(GI)) {
     // Prepare empty SCM entry for the instruction
     SCMEntry *newEntry = getSCMEntry(GI);
 
-    unsigned numElements = m_soaAllocaAnalysis->getSoaAllocaVectorWidth(GI);
+    unsigned numElements = m_soaAllocaInfo->getSoaAllocaVectorWidth(GI);
     V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
     SmallVector<Value*, 8> Idx;
@@ -1035,12 +1036,12 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
   V_PRINT(scalarizer, "\t\tLoad instruction\n");
   V_ASSERT(LI && "instruction type dynamic cast failed");
 
-  if (m_soaAllocaAnalysis->isSoaAllocaVectorRelated(LI)) {
+  if (m_soaAllocaInfo->isSoaAllocaVectorRelated(LI)) {
     // Prepare empty SCM entry for the instruction
     SCMEntry *newEntry = getSCMEntry(LI);
 
     // Get additional info from instruction
-    unsigned numElements = m_soaAllocaAnalysis->getSoaAllocaVectorWidth(LI);
+    unsigned numElements = m_soaAllocaInfo->getSoaAllocaVectorWidth(LI);
     V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
     // Obtain scalarized arguments
@@ -1128,12 +1129,12 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
   V_PRINT(scalarizer, "\t\tStore instruction\n");
   V_ASSERT(SI && "instruction type dynamic cast failed");
 
-  if (m_soaAllocaAnalysis->isSoaAllocaVectorRelated(SI)) {
+  if (m_soaAllocaInfo->isSoaAllocaVectorRelated(SI)) {
     // Prepare empty SCM entry for the instruction
     //SCMEntry *newEntry = getSCMEntry(SI);
 
     // Get additional info from instruction
-    unsigned numElements = m_soaAllocaAnalysis->getSoaAllocaVectorWidth(SI);
+    unsigned numElements = m_soaAllocaInfo->getSoaAllocaVectorWidth(SI);
     V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
     // Obtain scalarized arguments
@@ -1275,14 +1276,14 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[],
                                                Instruction * /*origInst*/) {
   V_PRINT(scalarizer, "\t\t\tObtaining scalar value... " << *origValue << "\n");
 
-  bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
+  bool isSoaAlloca = m_soaAllocaInfo->isSoaAllocaVectorRelated(origValue);
 
   V_ASSERT(origValue && "origValue is nullptr");
   FixedVectorType *origType = dyn_cast<FixedVectorType>(origValue->getType());
   V_ASSERT((origType || isSoaAlloca) && "All non SoaAlloca derived values must have a vector type!");
-  unsigned width = isSoaAlloca ?
-    m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
-    origType->getNumElements();
+  unsigned width = isSoaAlloca
+                       ? m_soaAllocaInfo->getSoaAllocaVectorWidth(origValue)
+                       : origType->getNumElements();
 
   if (NULL != retIsConstant) {
     // Set retIsConstant (return value) to True, if the origValue is not an instruction
@@ -1334,8 +1335,10 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[],
     // Generate a DRL: dummy values, which will be resolved after all scalarization is complete.
     V_PRINT(scalarizer, "\t\t\t*** Not found. Setting DRL. \n");
     V_ASSERT(origType && "origType should not be null");
-    Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
-      VectorizerUtils::convertSoaAllocaType(origValue->getType(), 0) : origType->getElementType();
+    Type *dummyType =
+        m_soaAllocaInfo->isSoaAllocaRelatedPointer(origValue)
+            ? VectorizerUtils::convertSoaAllocaType(origValue->getType(), 0)
+            : origType->getElementType();
     V_PRINT(scalarizer, "\t\tCreate Dummy Scalar value/s (of type " << *dummyType << ")\n");
     Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
     DRLEntry newDRLEntry;
@@ -1536,12 +1539,13 @@ void ScalarizeFunction::updateSCMEntryWithValues(ScalarizeFunction::SCMEntry *en
                                                  bool isOrigValueRemoved,
                                                  bool matchDbgLoc)
 {
-  bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(origValue);
+  bool isSoaAlloca = m_soaAllocaInfo->isSoaAllocaVectorRelated(origValue);
   V_ASSERT((origValue->getType()->isArrayTy() ||  origValue->getType()->isVectorTy() || isSoaAlloca) &&
     "only SoaAlloca derived or Vector values are supported");
-  unsigned width = isSoaAlloca ?
-    m_soaAllocaAnalysis->getSoaAllocaVectorWidth(origValue) :
-    cast<FixedVectorType>(origValue->getType())->getNumElements();
+  unsigned width =
+      isSoaAlloca
+          ? m_soaAllocaInfo->getSoaAllocaVectorWidth(origValue)
+          : cast<FixedVectorType>(origValue->getType())->getNumElements();
 
   entry->isOriginalVectorRemoved = isOrigValueRemoved;
 
@@ -1596,12 +1600,12 @@ void ScalarizeFunction::resolveDeferredInstructions()
     Instruction *vectorInst = dyn_cast<Instruction>(current.unresolvedInst);
     V_ASSERT(vectorInst && "DRL only handles unresolved instructions");
 
-    bool isSoaAlloca = m_soaAllocaAnalysis->isSoaAllocaVectorRelated(vectorInst);
+    bool isSoaAlloca = m_soaAllocaInfo->isSoaAllocaVectorRelated(vectorInst);
     FixedVectorType *currType = dyn_cast<FixedVectorType>(vectorInst->getType());
     V_ASSERT((currType || isSoaAlloca) && "Cannot have DRL of non-vector value that is non SoaAlloca derived value");
-    unsigned width = isSoaAlloca ?
-      m_soaAllocaAnalysis->getSoaAllocaVectorWidth(vectorInst) :
-      currType->getNumElements();
+    unsigned width = isSoaAlloca
+                         ? m_soaAllocaInfo->getSoaAllocaVectorWidth(vectorInst)
+                         : currType->getNumElements();
 
     SCMEntry *currentInstEntry = getSCMEntry(vectorInst);
 

@@ -24,9 +24,10 @@
 #include "InitializePasses.h"
 
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IRBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TypeSize.h"
 
@@ -68,7 +69,7 @@ char PacketizeFunction::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(PacketizeFunction, "packetize", "packetize functions", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
-OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
@@ -221,8 +222,8 @@ bool PacketizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_depAnalysis && "Unable to get pass");
 
     // Obtain SoaAllocaAnalysis of the function
-  m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
-  V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
+  m_soaAllocaInfo = &getAnalysis<SoaAllocaAnalysisLegacy>().getResult();
+  V_ASSERT(m_soaAllocaInfo && "Unable to get pass");
 
   // Prepare data structures for packetizing a new function (may still have
   // data left from previous function vectorization)
@@ -783,7 +784,7 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
     Value * multiOperands[MAX_PACKET_WIDTH];
     obtainMultiScalarValues(multiOperands, I->getOperand(op), I);
 
-    if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
+    if (m_soaAllocaInfo->isSoaAllocaScalarRelated(I)) {
       // Need to fix Load/Store instruction pointer operand
       fixSoaAllocaLoadStoreOperands(I, op, &multiOperands[0]);
     }
@@ -842,7 +843,7 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
 void PacketizeFunction::cloneNonPacketizableInst(Instruction *I, Instruction **duplicateInsts) {
   duplicateInsts[0] = nullptr;
   // Check if need special handling for clone
-  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
+  if (m_soaAllocaInfo->isSoaAllocaScalarRelated(I)) {
     // In case of GEP/Bitcast instructions that are related to SOA-alloca
     // clone instruction does not work as packetize pointer type is different
     // from scalar pointer type, thus need to create new instruction
@@ -1180,7 +1181,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
   }
 
-  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) {
+  if (m_soaAllocaInfo->isSoaAllocaScalarRelated(MO.Orig)) {
     // This is load/store from SOA-alloca instruction,
     // need to fix the index and the base:
     //   newBase = Bitcast(Base, scalar type)
@@ -1308,8 +1309,8 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   obtainMultiScalarValues(inAddr, MO.Ptr , MO.Orig);
 
   V_ASSERT((MO.Ptr->getType() == inAddr[0]->getType() ||
-    m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) &&
-    "scalar pointer should be same as original pointer");
+            m_soaAllocaInfo->isSoaAllocaScalarRelated(MO.Orig)) &&
+           "scalar pointer should be same as original pointer");
   PointerType *inPtr = dyn_cast<PointerType>(MO.Ptr->getType());
   V_ASSERT(inPtr && "unexpected non-pointer argument");
 
@@ -1378,8 +1379,8 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
   // Widen the load
   // BitCast the "scalar" pointer to a "vector" pointer
   V_ASSERT((MO.Ptr->getType() == SclrPtr[0]->getType() ||
-    m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) &&
-    "scalar pointer should be same as original pointer");
+            m_soaAllocaInfo->isSoaAllocaScalarRelated(MO.Orig)) &&
+           "scalar pointer should be same as original pointer");
   PointerType * PtrTy = dyn_cast<PointerType>(MO.Ptr->getType());
   V_ASSERT(PtrTy && "Pointer must be of pointer type");
   Type *ElemType = PtrTy->getElementType();
@@ -1492,7 +1493,7 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
     WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
     if (depBase == WIAnalysis::UNIFORM ||
         (depBase == WIAnalysis::PTR_CONSECUTIVE &&
-        m_soaAllocaAnalysis->isSoaAllocaScalarRelated(Base))) {
+         m_soaAllocaInfo->isSoaAllocaScalarRelated(Base))) {
       Index = Gep->getOperand(1);
       MO.IndexIsSigned = true;
       MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
@@ -1535,8 +1536,7 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
       }
       MO.Index = Index;
       MO.Base = Base;
-    }
-    else {
+    } else {
       V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
     }
   }
@@ -1770,7 +1770,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   V_ASSERT(origFunc && "Unexpected indirect function invocation");
   if (origFunc->isIntrinsic() &&
       origFunc->getIntrinsicID() == Intrinsic::memset) {
-    if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(CI))
+    if (m_soaAllocaInfo->isSoaAllocaScalarRelated(CI))
       packetizedMemsetSoaAllocaDerivedInst(CI);
     else
       duplicateNonPacketizableInst(CI);
@@ -2967,7 +2967,7 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
   V_PRINT(packetizer, "\t\tAlloca Instruction\n");
   V_ASSERT(AI && "instruction type dynamic cast failed");
 
-  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(AI)) {
+  if (m_soaAllocaInfo->isSoaAllocaScalarRelated(AI)) {
     // AllocaInst is supported as SOA-alloca, handle it.
     Type* allocaType = VectorizerUtils::convertSoaAllocaType(AI->getAllocatedType(), m_packetWidth);
     unsigned int alignment = AI->getAlignment() * m_packetWidth;

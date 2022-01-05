@@ -16,22 +16,22 @@
 #define __WIANALYSIS_H_
 
 #include "BuiltinLibInfo.h"
-#include "SoaAllocaAnalysis.h"
 #include "Logger.h"
 
-#include "llvm/IR/Instructions.h"
-#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
 
 #include <map>
 #include <queue>
@@ -185,7 +185,7 @@ private:
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Analysis pass preserve all
       AU.setPreservesAll();
-      AU.addRequired<SoaAllocaAnalysis>();
+      AU.addRequired<SoaAllocaAnalysisLegacy>();
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<PostDominatorTreeWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
@@ -199,7 +199,7 @@ private:
 
   private:
     // @brief pointer to Soa alloca analysis performed for this function
-    SoaAllocaAnalysis *m_soaAllocaAnalysis;
+    SoaAllocaInfo *m_soaAllocaInfo;
     /// Stores an updated list of all dependencies
     DenseMap<const Value*, WIDependancy> m_deps;
     /// Runtime services pointer
