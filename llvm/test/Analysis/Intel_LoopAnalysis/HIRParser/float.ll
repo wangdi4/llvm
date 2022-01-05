@@ -1,4 +1,6 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+
 
 ; Check parsing output for the loop
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
@@ -9,7 +11,8 @@
 ; CHECK: + END LOOP
 
 ; Verify that %A, %B and %n are marked as livein to region and loop.
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s --check-prefix=LIVEIN
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s --check-prefix=LIVEIN
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s --check-prefix=LIVEIN
 
 ; LIVEIN: LiveIns: %n(%n), %A(%A), %B(%B)
 

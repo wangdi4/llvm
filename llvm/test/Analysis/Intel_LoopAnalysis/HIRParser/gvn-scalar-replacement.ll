@@ -1,6 +1,8 @@
-; RUN: opt < %s -gvn -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -gvn -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="gvn,hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
-; Verify that gvn doesn't perform scalar replacement on @foo marked with "pre_loopopt" attribute but it does on identical @foo1 without the attribute.
+
+; Verify that gvn doesn't perform scalar replacement on @foo marked with "pre_loopopt" attribute but it does on identical @bar without the attribute.
 
 ; Src code-
 
@@ -14,7 +16,7 @@
 ;   }
 ; }
 
-; CHECK: function 'foo'
+; CHECK: foo
 
 ; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   %0 = (@B)[0][i1];
@@ -22,7 +24,7 @@
 ; CHECK: |   (@A)[0][i1] = %0 + %1;
 ; CHECK: + END LOOP
 
-; CHECK: function 'foo1'
+; CHECK: bar
 
 ; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   %1 = (@B)[0][i1 + 1];
@@ -57,7 +59,7 @@ for.end:                                          ; preds = %for.body
 
 attributes #0 = { "pre_loopopt" }
 
-define void @foo1() {
+define void @bar() {
 entry:
   br label %for.body
 

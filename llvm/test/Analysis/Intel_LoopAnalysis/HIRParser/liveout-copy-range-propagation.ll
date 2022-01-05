@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution | FileCheck %s
+; RUN: opt %s -passes="print<scalar-evolution>" -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: %k.0840 = phi i64 [ %inc, %for.inc190 ], [ 1, %entry ], !in.de.ssa !0
 ; CHECK-NEXT:  -->  {1,+,1}<%for.body184> U: [[URANGE:.*]] S: [[SRANGE:.*[)]]]

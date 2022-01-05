@@ -1,4 +1,6 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+
 
 ; Check parsing output for the loopnest verifying that the truncated IV of outer loop is reverse engineered correctly as a blob in inner loop upper.
 ; CHECK: + DO i1 = 0, %ub + -1, 1   <DO_LOOP>

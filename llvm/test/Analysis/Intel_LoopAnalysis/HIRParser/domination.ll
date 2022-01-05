@@ -1,4 +1,6 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+
 
 ; CHECK: + DO i1 = 0, 42, 1   <DO_LOOP>
 ; CHECK: |   (%kk)[0][-1 * i1 + 45] = %0 * i1 + (%nd6.promoted * %0);
