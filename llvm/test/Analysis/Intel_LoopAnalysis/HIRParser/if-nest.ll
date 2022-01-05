@@ -1,6 +1,6 @@
 ; Verify that we form the loop at O3.
 
-; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -analyze -hir-framework -hir-framework-debug=parser -xmain-opt-level=3 | FileCheck %s --check-prefix=O3
+; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -xmain-opt-level=3 | FileCheck %s --check-prefix=O3
 
 ; O3: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
 ; O3: |   %t.023.out1 = %t.023;

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that we can handle truncate operand greater than 64 bits by pasring it as a blob.
@@ -23,4 +23,4 @@ loop:
 
 exit:
   ret void
-} 
+}

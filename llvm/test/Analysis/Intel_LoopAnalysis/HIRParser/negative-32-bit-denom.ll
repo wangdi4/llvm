@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that the negative divisor of 32 bit udiv instruction (-2) in incoming

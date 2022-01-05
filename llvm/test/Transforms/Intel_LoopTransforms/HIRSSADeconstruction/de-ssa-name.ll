@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction" -S | FileCheck %s
 
 ; Check that an unnamed value's (%0 here) copy is provided an appropriate name.
 ; CHECK: %0

@@ -1,4 +1,4 @@
-; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
+; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-framework -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" 2>&1 -disable-output | FileCheck %s
 
 ; Verify that the the GEP %3 is conservatively parsed as (%g.addr.04)[0].1
@@ -7,7 +7,7 @@
 ; inductive phi %g.addr.04.
 
 ; Before this change it was being parsed as (%g)[i1].1.
- 
+
 ; This mismatch can only happen with opaque ptrs.
 
 ; CHECK: + DO i1 = 0, (-1 * ptrtoint.ptr.i64(%g) + ptrtoint.ptr.i64(%h) + -8)/u8, 1   <DO_LOOP>
