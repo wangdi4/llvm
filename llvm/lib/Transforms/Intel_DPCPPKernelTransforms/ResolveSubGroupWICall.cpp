@@ -11,7 +11,9 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveSubGroupWICall.h"
 #include "RuntimeService.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
@@ -119,6 +121,25 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M) {
        &ResolveSubGroupWICallPass::replaceGetSubGroupSize},
       {mangledGetMaxSubGroupSize(),
        &ResolveSubGroupWICallPass::replaceGetMaxSubGroupSize}};
+
+  // Add resolvers for subgroup slice builtins.
+  for (auto &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    StringRef FnName = F.getName();
+    if (isGetSubGroupSliceLength(FnName))
+      SubGroupFuncToResolverMap.insert(
+          {FnName.str(),
+           &ResolveSubGroupWICallPass::replaceGetSubGroupSliceLength});
+    if (isSubGroupRowSliceExtractElement(FnName))
+      SubGroupFuncToResolverMap.insert(
+          {FnName.str(),
+           &ResolveSubGroupWICallPass::replaceSubGroupRowSliceExtractElement});
+    if (isSubGroupInsertRowSliceToMatrix(FnName))
+      SubGroupFuncToResolverMap.insert(
+          {FnName.str(),
+           &ResolveSubGroupWICallPass::replaceSubGroupInsertRowSliceToMatrix});
+  }
 
   LLVM_DEBUG(dbgs() << "ResolveSGBarrier = " << ResolveSGBarrier << '\n');
   if (ResolveSGBarrier) {
@@ -256,6 +277,9 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M) {
     from->replaceAllUsesWith(to);
     from->eraseFromParent();
   }
+
+  for (auto *I : ExtraInstToRemove)
+    I->eraseFromParent();
 
   return !InstRepVec.empty();
 }
@@ -477,6 +501,136 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   Args.push_back(MemScope);
 
   return Builder.CreateCall(AtomicWIFenceF, Args, "");
+}
+
+// FIXME: Support subgroup rowslice emulation (-O0), so that the resolved value
+// of get_sub_group_slice_length.() matches the actual widen size.
+// Currently in the subgroup emulation path, VFVal would be emulation size,
+// while other slice builtins will assume VF == RowSliceLength == 1.
+Value *ResolveSubGroupWICallPass::replaceGetSubGroupSliceLength(
+    Instruction *InsertBefore, Value *VFVal, int32_t) {
+  auto *CI = cast<CallInst>(InsertBefore);
+  unsigned VF = cast<ConstantInt>(VFVal)->getZExtValue();
+  unsigned TotalElementCount =
+      cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue();
+  assert(VF != 0);
+  // ceil(TotalElementCount / VF)
+  return ConstantInt::get(CI->getType(), (TotalElementCount + VF - 1) / VF);
+}
+
+void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
+    CallInst *CI, unsigned RowSliceLength, IRBuilder<> &Builder,
+    SmallVectorImpl<Value *> &ParsedArgs) {
+  // %id = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> %mat, i32
+  //   12, i32 12, i64 %element.index)
+  assert(CI->arg_size() == 4);
+  auto *Matrix = CI->getArgOperand(0);
+  unsigned R = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+  unsigned C = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
+  auto *Index = CI->getArgOperand(3);
+  auto *Index32 = Builder.CreateSExtOrTrunc(Index, Builder.getInt32Ty());
+  auto *BaseId = Builder.CreateNSWMul(Index32, Builder.getInt32(RowSliceLength),
+                                      "rowslice.baseid");
+  auto *RowIndex =
+      Builder.CreateUDiv(BaseId, Builder.getInt32(C), "rowslice.row.index");
+  auto *ColIndex =
+      Builder.CreateURem(BaseId, Builder.getInt32(C), "rowslice.col.index");
+  ParsedArgs.append({Matrix, RowIndex, ColIndex,
+                     Builder.getInt32(RowSliceLength), Builder.getInt32(R),
+                     Builder.getInt32(C)});
+  // FIXME: Pass layout metadata from SPIR-V. Hardcode as rowmajor for now.
+  ParsedArgs.push_back(MetadataAsValue::get(
+      CI->getContext(), MDString::get(CI->getContext(), "matrix.rowmajor")));
+}
+
+Value *ResolveSubGroupWICallPass::replaceSubGroupRowSliceExtractElement(
+    Instruction *InsertBefore, Value *, int32_t) {
+  auto *ValType = InsertBefore->getType();
+  unsigned RowSliceLength = 1;
+  if (auto *VecValType = dyn_cast<FixedVectorType>(ValType))
+    RowSliceLength = VecValType->getNumElements();
+  // %id = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> %mat, i32
+  //   12, i32 12, i64 %element.index)
+  // %elem = call i32 @sub_group_rowslice_extractelement.i32(i64 %id)
+  // or
+  // %elem = call <16 x i32>
+  //   @_ZGVbN16u_sub_group_rowslice_extractelement.i32(i64 %id)
+  auto *CI = cast<CallInst>(InsertBefore);
+  auto *RowSliceId = CI->getArgOperand(0);
+  assert(RowSliceId->hasNUses(1) &&
+         "Each rowslice id value must be used only once");
+  IRBuilder<> Builder(InsertBefore);
+  SmallVector<Value *, 8> Args;
+  resolveGetSubGroupRowSliceId(cast<CallInst>(RowSliceId), RowSliceLength,
+                               Builder, Args);
+  auto *RowSliceType =
+      FixedVectorType::get(ValType->getScalarType(), RowSliceLength);
+  auto *MatrixType = Args.front()->getType();
+  auto *RowSlice =
+      Builder.CreateIntrinsic(Intrinsic::experimental_matrix_extract_row_slice,
+                              {RowSliceType, MatrixType}, Args);
+  // We need to remove the get_sub_group_rowslice_id call.
+  ExtraInstToRemove.push_back(cast<CallInst>(RowSliceId));
+  // Add an extra extractelement from <1 x T> for the scalar case.
+  if (RowSliceLength == 1)
+    return Builder.CreateExtractElement(RowSlice, Builder.getInt32(0));
+  return RowSlice;
+}
+
+Value *ResolveSubGroupWICallPass::replaceSubGroupInsertRowSliceToMatrix(
+    Instruction *InsertBefore, Value *, int32_t) {
+  // %id = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> %mat, i32
+  //   12, i32 12, i64 %element.index)
+  // call void @sub_group_rowslice_insertelement.i32(i64 %id, i32 %val)
+  // %mat.update = call <144 x i32>
+  //   @sub_group_insert_rowslice_to_matrix.v144i32(i64 %id)
+  // or
+  // call void
+  //   @_ZGVbN16u_sub_group_rowslice_insertelement.i32(i64 %id, <16 x i32> %val)
+  // %mat.update = call <144 x i32>
+  //   @sub_group_insert_rowslice_to_matrix.v144i32(i64 %id)
+  auto *CI = cast<CallInst>(InsertBefore);
+  auto *RowSliceId = CI->getArgOperand(0);
+  assert(RowSliceId->hasNUses(2) &&
+         "Each rowslice id value must be used exactly twice");
+  CallInst *SGRowSliceInsertElementCall = nullptr;
+  for (auto *U : RowSliceId->users()) {
+    auto *I = cast<CallInst>(U);
+    if (DPCPPKernelCompilationUtils::isSubGroupRowSliceInsertElement(
+            I->getCalledFunction()->getName())) {
+      SGRowSliceInsertElementCall = I;
+      break;
+    }
+  }
+  assert(SGRowSliceInsertElementCall &&
+         "Doesn't find sub_group_rowslice_insertelement use on rowslice id");
+  auto *SliceData = SGRowSliceInsertElementCall->getArgOperand(1);
+  unsigned RowSliceLength = 1;
+  auto *ValType = SliceData->getType();
+  if (auto *VecValType = dyn_cast<FixedVectorType>(ValType))
+    RowSliceLength = VecValType->getNumElements();
+  IRBuilder<> Builder(InsertBefore);
+  auto *RowSliceType =
+      FixedVectorType::get(ValType->getScalarType(), RowSliceLength);
+  // Create an extra insertelement into <1 x T> in the scalar case.
+  if (RowSliceLength == 1)
+    SliceData = Builder.CreateInsertElement(UndefValue::get(RowSliceType),
+                                            SliceData, Builder.getInt32(0));
+  SmallVector<Value *, 8> Args;
+  resolveGetSubGroupRowSliceId(cast<CallInst>(RowSliceId), RowSliceLength,
+                               Builder, Args);
+  // The second arg should be the data to be inserted.
+  Args.insert(Args.begin() + 1, SliceData);
+  auto *MatrixType = InsertBefore->getType();
+  auto *Matrix =
+      Builder.CreateIntrinsic(Intrinsic::experimental_matrix_insert_row_slice,
+                              {MatrixType, RowSliceType}, Args);
+
+  // We need to remove the sub_group_rowslice_insertelement call and the
+  // get_sub_group_rowslice_id call.
+  ExtraInstToRemove.push_back(SGRowSliceInsertElementCall);
+  ExtraInstToRemove.push_back(cast<CallInst>(RowSliceId));
+  return Matrix;
 }
 
 ConstantInt *ResolveSubGroupWICallPass::createVFConstant(LLVMContext &C,

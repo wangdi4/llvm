@@ -704,12 +704,23 @@ bool isSubGroupBarrier(StringRef S) {
          S == mangledSGBarrier(BarrierType::WithScope);
 }
 
+bool isGetSubGroupSliceLength(StringRef S) {
+  return S.equals(NAME_GET_SUB_GROUP_SLICE_LENGTH);
+}
+
 bool isSubGroupRowSliceExtractElement(StringRef S) {
-  return S.startswith(NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT);
+  // Might be vectorized as '_ZGVbN16u_sub_group_rowslice_extractelement'
+  return S.contains(NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT);
 }
 
 bool isSubGroupRowSliceInsertElement(StringRef S) {
-  return S.startswith(NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT);
+  // Might be vectorized as '_ZGVbN16uv_sub_group_rowslice_insertelement'
+  return S.contains(NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT);
+}
+
+bool isSubGroupInsertRowSliceToMatrix(StringRef S) {
+  // Has type mangle suffix.
+  return S.startswith(NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX);
 }
 
 template <reflection::TypePrimitiveEnum... ParamTys>
