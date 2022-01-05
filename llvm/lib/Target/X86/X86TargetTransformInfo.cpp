@@ -5742,7 +5742,7 @@ bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
   if (!TM.Options.IntelAdvancedOptim)
     return false;
 
-  if (!ST || !ST->hasVLX())
+  if (!ST || !ST->hasAVX2())
     return false;
 
   // Only handle fixed size integer/float array.

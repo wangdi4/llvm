@@ -439,8 +439,10 @@ TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
-  if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
+  if (TM->getOptLevel() != CodeGenOpt::None) { // INTEL
     addPass(createFoldLoadsToGatherPass()); // INTEL
+    addPass(createX86Gather2LoadPermutePass()); // INTEL
+  } // INTEL
 
   addPass(createX86LowerMatrixIntrinsicsPass()); // INTEL
   // We add both pass anyway and when these two passes run, we skip the pass
@@ -475,12 +477,6 @@ void X86PassConfig::addIRPasses() {
       addPass(createCFGuardCheckPass());
     }
   }
-
-#if INTEL_CUSTOMIZATION
-  if (TM->getOptLevel() > CodeGenOpt::None && TM->Options.IntelAdvancedOptim) {
-    addPass(createX86Gather2LoadPermutePass());
-  }
-#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86PassConfig::addInstSelector() {
