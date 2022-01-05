@@ -20,6 +20,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 #include <vector>
 
@@ -89,8 +90,7 @@ public:
   /// @return std::vector with global variable names
   std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty) const;
 
-  static std::vector<std::tuple<const char *, const char *, const char *>> &
-  getVectInfos();
+  static llvm::ArrayRef<llvm::VectItem> getVectInfos();
 
   static const StringSet<> &getVPlanMaskedFuncs();
 

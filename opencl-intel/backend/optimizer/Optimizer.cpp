@@ -170,12 +170,13 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 // Load Table-Gen'erated VectInfo.gen
-std::vector<std::tuple<const char *, const char *, const char *>> &
+static constexpr llvm::VectItem Vect[] = {
+  #include "VectInfo.gen"
+};
+static constexpr llvm::ArrayRef<llvm::VectItem> VectInfos(Vect);
+
+llvm::ArrayRef<llvm::VectItem>
 Optimizer::getVectInfos() {
-  static std::vector<std::tuple<const char *, const char *, const char *>>
-      VectInfos = {
-#include "VectInfo.gen"
-      };
   return VectInfos;
 }
 
