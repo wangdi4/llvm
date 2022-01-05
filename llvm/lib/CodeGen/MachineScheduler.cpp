@@ -1010,6 +1010,23 @@ void ScheduleDAGMILive::enterRegion(MachineBasicBlock *bb,
          "ShouldTrackLaneMasks requires ShouldTrackPressure");
 }
 
+#if INTEL_CUSTOMIZATION
+bool ScheduleDAGMILive::isHighRegPressLoop(MachineBasicBlock *MBB,
+                                 unsigned MaxPressure, unsigned Limit) const {
+  bool SelfLoop = MBB->isSuccessor(MBB);
+
+  // TODO: Currently we only handle small loop with single BB. Refine me by
+  // handling complex loop.
+  if (!SelfLoop)
+    return false;
+
+  // If current Max Reg Pressure is very closed to Limited Reg Pressure we
+  // see it as high reg pressure block. Because MIR scheduler may increase
+  // Reg Pressure later.
+  return MaxPressure + (Limit >> 3) >= Limit;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Setup the register pressure trackers for the top scheduled and bottom
 // scheduled regions.
 void ScheduleDAGMILive::initRegPressure() {
@@ -1073,6 +1090,8 @@ void ScheduleDAGMILive::initRegPressure() {
     RPTracker.getPressure().MaxSetPressure;
   for (unsigned i = 0, e = RegionPressure.size(); i < e; ++i) {
     unsigned Limit = RegClassInfo->getRegPressureSetLimit(i);
+    if (isHighRegPressLoop(BB, RegionPressure[i], Limit)) // INTEL
+      Limit = Limit - (Limit >> 3);                       // INTEL
     if (RegionPressure[i] > Limit) {
       LLVM_DEBUG(dbgs() << TRI->getRegPressureSetName(i) << " Limit " << Limit
                         << " Actual " << RegionPressure[i] << "\n");

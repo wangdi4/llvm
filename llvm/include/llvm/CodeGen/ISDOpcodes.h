@@ -1255,6 +1255,10 @@ enum NodeType {
   VECREDUCE_UMAX,
   VECREDUCE_UMIN,
 
+#if INTEL_CUSTOMIZATION
+  COMPLEX_MUL,
+#endif // INTEL_CUSTOMIZATION
+
 // Vector Predication
 #define BEGIN_REGISTER_VP_SDNODE(VPSDID, ...) VPSDID,
 #include "llvm/IR/VPIntrinsics.def"

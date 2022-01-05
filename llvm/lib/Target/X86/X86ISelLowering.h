@@ -1534,6 +1534,8 @@ namespace llvm {
 
 #if INTEL_CUSTOMIZATION
     unsigned getMaxSupportedInterleaveFactor() const override { return 8; }
+
+    bool CustomLowerComplexMultiply(Type *FloatTy) const override;
 #endif // INTEL_CUSTOMIZATION
 
     /// Lower interleaved load(s) into target specific

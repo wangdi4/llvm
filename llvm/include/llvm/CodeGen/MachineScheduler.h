@@ -506,6 +506,9 @@ protected:
 
   // Lesser helpers...
 
+  bool isHighRegPressLoop(MachineBasicBlock *MBB,                       // INTEL
+                          unsigned MaxPressure, unsigned Limit) const;  // INTEL
+
   void initRegPressure();
 
   void updatePressureDiffs(ArrayRef<RegisterMaskPair> LiveUses);
