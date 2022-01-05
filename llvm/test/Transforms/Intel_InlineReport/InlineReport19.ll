@@ -7,10 +7,12 @@
 ; certain benchmarks. Before enabling the new pass manager by default, we
 ; should determine how the heuristics in the new pass manager need to be
 ; tuned, including this one.
-; RUN: opt -inline -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
+; CMPLRLLVM-33738: We need to add inline-deferral now for the legacy pass
+; manager lines, because they can be used to drive the new pass manager.
+; RUN: opt -inline -inline-deferral -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-deferral -inline-report=0xe807 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-report=0xe886 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -inline-deferral -inline-report=0xe886 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)'  -inline-deferral -inline-report=0xe886 -dtrans-inline-heuristics -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s
 
 ; Test for inlining heuristic for stack computations.  All calls to @mypushptr

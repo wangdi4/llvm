@@ -1,13 +1,25 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -inline -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -enable-new-pm=0 -inline -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -inlinereportsetup -inline-report=0x186 < %s -S 2>&1 | opt -inline -inline-report=0x186 -S | opt -inlinereportemitter -inline-report=0x186 -S 2>&1 | FileCheck --check-prefix=CHECK-MD-OLD %s
+; RUN: opt -inlinereportsetup -inline-report=0x186 < %s -S 2>&1 | opt -enable-new-pm=0 -inline -inline-report=0x186 -S | opt -inlinereportemitter -inline-report=0x186 -S 2>&1 | FileCheck --check-prefix=CHECK-MD-OLD %s
 ; RUN: opt -passes=inlinereportsetup -inline-report=0x186 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0x186 -S | opt -passes=inlinereportemitter -inline-report=0x186 -S 2>&1 | FileCheck --check-prefix=CHECK-MD-NEW %s
 
 ; Check that @I241872, which before inlining, has two calls to itself, is
 ; inlined once and that the opt report correctly indicates the created
 ; callsites and inlining reasons.
+
+; NOTE: The old and new pass manager results differ because the old pass
+; manager has the following code in Inliner.cpp that is not replicated for
+; the new pass manager.
+; 
+; // Now that we have all of the call sites, move the ones to functions in the
+; // current SCC to the end of the list.
+; unsigned FirstCallInSCC = CallSites.size();
+; for (unsigned I = 0; I < FirstCallInSCC; ++I)
+;   if (Function *F = CallSites[I].first->getCalledFunction())
+;     if (SCCFunctions.count(F))
+;       std::swap(CallSites[I--], CallSites[--FirstCallInSCC]);
 
 ; Checks for old pass manager
 
@@ -23,8 +35,8 @@
 
 ; CHECK-NEW: COMPILE FUNC: I241872
 ; CHECK-NEW: INLINE: I241872{{.*}}<<Inlining is profitable>>
-; CHECK-NEW: I241872{{.*}}Not tested for inlining
-; CHECK-NEW: I241872{{.*}}Not tested for inlining
+; CHECK-NEW: I241872{{.*}}Callee has recursion
+; CHECK-NEW: I241872{{.*}}Callee has recursion
 ; CHECK-NEW: I241872{{.*}}Callee has recursion
 ; CHECK-NEW: COMPILE FUNC: I74060
 ; CHECK-NEW: I241872{{.*}}Callee has recursion
@@ -45,8 +57,8 @@
 ; CHECK-MD-NEW: I241872{{.*}}Callee has recursion
 ; CHECK-MD-NEW: COMPILE FUNC: I241872
 ; CHECK-MD-NEW: INLINE: I241872{{.*}}<<Inlining is profitable>>
-; CHECK-MD-NEW: I241872{{.*}}Not tested for inlining
-; CHECK-MD-NEW: I241872{{.*}}Not tested for inlining
+; CHECK-MD-NEW: I241872{{.*}}Callee has recursion
+; CHECK-MD-NEW: I241872{{.*}}Callee has recursion
 ; CHECK-MD-NEW: I241872{{.*}}Callee has recursion
 
 %struct.sm1 = type { i8, i8 }

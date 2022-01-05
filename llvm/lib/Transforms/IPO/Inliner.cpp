@@ -1188,6 +1188,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           inlineHistoryIncludes(&Callee, InlineHistoryID, InlineHistory)) {
         LLVM_DEBUG(dbgs() << "Skipping inlining due to history: "
                           << F.getName() << " -> " << Callee.getName() << "\n");
+        Report->setReasonNotInlined(CB, NinlrRecursive);  // INTEL
+        llvm::setMDReasonNotInlined(CB, NinlrRecursive);  // INTEL
         setInlineRemark(*CB, "recursive");
         continue;
       }
@@ -1202,6 +1204,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         LLVM_DEBUG(dbgs() << "Skipping inlining internal SCC edge from a node "
                              "previously split out of this SCC by inlining: "
                           << F.getName() << " -> " << Callee.getName() << "\n");
+        Report->setReasonNotInlined(CB, NinlrRecursive);  // INTEL
+        llvm::setMDReasonNotInlined(CB, NinlrRecursive);  // INTEL
         setInlineRemark(*CB, "recursive SCC split");
         continue;
       }
