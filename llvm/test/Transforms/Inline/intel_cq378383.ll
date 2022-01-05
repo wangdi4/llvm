@@ -1,8 +1,8 @@
-; RUN: opt -enable-new-pm=0 -inline -Os < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='default<Os>,inline' < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inline < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inline' < %s -S 2>&1 | FileCheck %s
 
 ; CQ378383: Test to see that a single branch with a test for a global against
-; a constant is tolerated when we are inlining with -Os.
+; a constant is tolerated when we are inlining functions with attribute optsize.
 
 ; ModuleID = 'sm.c'
 
