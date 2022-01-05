@@ -944,9 +944,90 @@ static void clearNotInvolvedGroups(
   }
 }
 
+// Check whether RTDD can happen before a relaxed non-perfect loopnest.
+// The pattern is matched by Geekbench6.0/Camera
+static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop,
+                             SmallSet<unsigned, 16> &PreLoopInstsLvalSBs) {
+  HLIf *If = dyn_cast<HLIf>(Loop->getLastChild());
+
+  if (!If) {
+    return false;
+  }
+
+  if (If->getNumThenChildren() != 1) {
+    return false;
+  }
+
+  const HLNode *FirstThenChild = If->getFirstThenChild();
+
+  InnermostLoop = dyn_cast<HLLoop>(FirstThenChild);
+
+  if (!InnermostLoop || !InnermostLoop->isInnermost()) {
+    return false;
+  }
+
+  for (const HLNode &Node :
+       make_range(Loop->child_begin(), std::prev(Loop->child_end()))) {
+    const HLInst *HInst = dyn_cast<HLInst>(&Node);
+    if (!HInst) {
+      return false;
+    }
+
+    const RegDDRef *Lval = HInst->getLvalDDRef();
+
+    if (!Lval->isTerminalRef()) {
+      return false;
+    } else {
+      PreLoopInstsLvalSBs.insert(Lval->getSymbase());
+    }
+  }
+
+  return true;
+}
+
 static bool
 canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
   return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true, false);
+}
+
+static void
+splitRefGroups(RefGroupVecTy &Groups,
+               DenseMap<const RegDDRef *, unsigned> &RefGroupIndex) {
+  unsigned GroupSize = Groups.size();
+
+  for (unsigned I = 0; I < GroupSize; ++I) {
+    if (Groups[I].size() < 2) {
+      continue;
+    }
+
+    for (unsigned J = 0, EE = Groups[I].size() - 1; J < EE; ++J) {
+      if (DDRefUtils::haveConstDimensionDistances(Groups[I][J],
+                                                  Groups[I][J + 1], false)) {
+        continue;
+      }
+
+      if (Groups[I][J]->getHLDDNode()->getParentLoop()->getNestingLevel() ==
+          Groups[I][J + 1]->getHLDDNode()->getParentLoop()->getNestingLevel()) {
+        continue;
+      }
+
+      Groups.resize(++GroupSize);
+
+      // Update the group index for the refs which will be in the new group
+      for (unsigned K = J + 1, End = Groups[I].size(); K < End; ++K) {
+        auto GroupI = RefGroupIndex.find(Groups[I][K]);
+        assert(GroupI != RefGroupIndex.end() &&
+               "Cannot find the group index\n");
+        GroupI->second = GroupSize - 1;
+        Groups.back().push_back(Groups[I][K]);
+      }
+
+      Groups[I].resize(J + 1);
+      break;
+    }
+  }
+
+  return;
 }
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
@@ -974,9 +1055,17 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   const HLLoop *InnermostLoop = Loop;
+  bool CanLoopBeRelaxed = false;
+  SmallSet<unsigned, 16> PreLoopInstsLvalSBs;
+
   if (!Loop->isInnermost() &&
       !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
-    return NON_PERFECT_LOOPNEST;
+    CanLoopBeRelaxed =
+        canLoopBeRelaxed(Loop, InnermostLoop, PreLoopInstsLvalSBs);
+
+    if (!CanLoopBeRelaxed) {
+      return NON_PERFECT_LOOPNEST;
+    }
   }
 
   bool ConstantTripCount = true;
@@ -1033,8 +1122,27 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   // Populate a reference-to-group-number map.
   DDRefIndexGrouping Grouping(Groups, Refs);
 
+  // Split the Group if the size of Group is larger than 2 and the elements are
+  // from different parent loops and they do not have constant distance
+  if (CanLoopBeRelaxed) {
+    splitRefGroups(Groups, Grouping.getIndex());
+  }
+
+  // Dump ref groups after split.
+  LLVM_DEBUG(dbgs() << "Ref groups after split:\n ";
+             for (unsigned I = 0; I < Groups.size(); ++I) {
+               auto &Group = Groups[I];
+               dbgs() << "Group " << I << " contains (" << Group.size()
+                      << ") refs:\n";
+               for (auto &Ref : Group) {
+                 Ref->dump();
+                 dbgs() << "\n";
+               }
+             });
+
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
   Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getIndex(), Tests);
+
   if (Ret != OK) {
     return Ret;
   }
@@ -1118,6 +1226,23 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
                       return (Ref->isFake() && !Ref->canUsePointeeSize());
                     })) {
       return UNKNOWN_ADDR_RANGE;
+    }
+
+    // Check whether any pre-loop inst's lval is used as a blob inside the
+    // memref. If yes, RT cannot be allowed to put before the relaxed loop,
+    // because the definition is after the use.
+    if (std::any_of(Groups[I].begin(), Groups[I].end(),
+                    [&](const RegDDRef *Ref) {
+                      for (auto BI = Ref->blob_begin(), E = Ref->blob_end();
+                           BI != E; ++BI) {
+                        const BlobDDRef *BlobRef = *BI;
+                        if (PreLoopInstsLvalSBs.count(BlobRef->getSymbase())) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    })) {
+      return NON_PERFECT_LOOPNEST;
     }
 
     bool IsWriteGroup =
