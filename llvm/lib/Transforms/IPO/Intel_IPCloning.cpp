@@ -5612,6 +5612,8 @@ IPCloningPass::IPCloningPass(bool AfterInl, bool EnableDTrans)
 
 PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  if (IPCloningAfterInl)
+    AfterInl = true;
   if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo))
     return PreservedAnalyses::all();
 
