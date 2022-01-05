@@ -674,7 +674,7 @@ public:
   /// Returns true if the target can match the @llvm.intel.complex.fmul
   /// intrinsic with the given type. Such an intrinsic is assumed will only be
   /// matched when "complex-limited-range" is in effect.
-  virtual bool hasComplexMultiply(Type *FloatTy) const {
+  virtual bool CustomLowerComplexMultiply(Type *FloatTy) const {
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2539,6 +2539,7 @@ public:
     case ISD::FMAXNUM_IEEE:
     case ISD::FMINIMUM:
     case ISD::FMAXIMUM:
+    case ISD::COMPLEX_MUL: // INTEL
       return true;
     default: return false;
     }
