@@ -692,6 +692,10 @@ def ftz : Flag<["-"], "ftz">, Flags<[NoXarchOption]>,
   HelpText<"Enable flush denormal results to zero">;
 def no_ftz : Flag<["-"], "no-ftz">, Flags<[NoXarchOption]>,
   HelpText<"Disable flush denormal results to zero">;
+def global_hoist : Flag<["-"], "global-hoist">, Flags<[NoXarchOption]>,
+  HelpText<"Enable external globals are load safe (default)">;
+def no_global_hoist : Flag<["-"], "no-global-hoist">, Flags<[NoXarchOption]>,
+  HelpText<"Disable external globals are load safe">;
 def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
   Flags<[CC1Option]>, HelpText<"Force certain functions using intrinsics to "
   "promote their architectures and make the intrinsic headers included by default">,
@@ -7529,6 +7533,10 @@ def _SLASH_Qftz : CLFlag<"Qftz">, Alias<ftz>,
   HelpText<"Enable flush denormal results to zero">;
 def _SLASH_Qftz_ : CLFlag<"Qftz-">, Alias<no_ftz>,
   HelpText<"Disable flush denormal results to zero">;
+def _SLASH_Qglobal_hoist : CLFlag<"Qglobal-hoist">, Alias<global_hoist>,
+  HelpText<"Enable external globals are load safe (default)">;
+def _SLASH_Qglobal_hoist_ : CLFlag<"Qglobal-hoist-">, Alias<no_global_hoist>,
+  HelpText<"Disable external globals are load safe">;
 def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
   Alias<finstrument_functions>, HelpText<"Generate calls to instrument "
   "function entry and exit">;

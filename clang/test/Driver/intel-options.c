@@ -845,3 +845,15 @@
 // RUN: %clang_cl -### /O0 --intel -fsycl %s 2>&1 \
 // RUN:   | FileCheck --check-prefix O0_UNUSED %s
 // O0_UNUSED: argument unused during compilation
+
+// -no-global-hoist and /Qglobal-hoist- should enable "-mllvm -global-loads-unsafe"
+// RUN: %clang -### -no-global-hoist %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang -### -global-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang -### -global-hoist -no-global-hoist %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang -### -no-global-hoist -global-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist- %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist /Qglobal-hoist- %s 2>&1 | FileCheck --check-prefix=GLOBAL-LOADS-UNSAFE %s
+// RUN: %clang_cl -### /Qglobal-hoist- /Qglobal-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
+// GLOBAL-LOADS-UNSAFE: clang{{.*}} "-mllvm" "-global-loads-unsafe"
+// NO-GLOBAL-LOADS-UNSAFE-NOT: "-mllvm" "-global-loads-unsafe"

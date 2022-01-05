@@ -1054,6 +1054,11 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                options::OPT_fno_vectorize))
     if (A->getOption().matches(options::OPT_fno_vectorize))
       addllvmOption("-disable-hir-vec-dir-insert");
+
+  // no-global-hoist
+  if (Args.hasFlag(options::OPT_no_global_hoist,
+                   options::OPT_global_hoist, false))
+    addllvmOption("-global-loads-unsafe");
 }
 #endif // INTEL_CUSTOMIZATION
 
