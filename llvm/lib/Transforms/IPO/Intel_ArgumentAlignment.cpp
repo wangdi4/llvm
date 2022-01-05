@@ -13,22 +13,22 @@
 // simplification and the call graph simplification passes will run to do a
 // constant propapagation. For example, consider the following function:
 //
-// define internal fastcc void @foo(i8*, i64) {
+// define internal fastcc void @foo(ptr, i64) {
 // entry:
-//   %2 = ptrtoint i8* %0 to i64
+//   %2 = ptrtoint ptr %0 to i64
 //   %3 = and i64 %2, 7
 //   %4 = icmp eq i64 %3, 0
 //   br i1 %4, label %if_bb, label %end
 //
 // if_bb:
-//   %5 = phi i8* [ %0, %entry ], [ %8, %else_bb ]
+//   %5 = phi ptr [ %0, %entry ], [ %8, %else_bb ]
 //   %6 = phi i1  [ %4, %entry ], [ %11, %else_bb ]
 //   br i1 %6, label %else_bb, label %end
 //
 // else_bb:
 //   %7 = sub i64 0, %1
-//   %8 = getelementptr inbounds i8, i8* %5, i64 %7
-//   %9 = ptrtoint i8* %8 to i64
+//   %8 = getelementptr inbounds i8, ptr %5, i64 %7
+//   %9 = ptrtoint ptr %8 to i64
 //   %10 = and i64 %9, 7
 //   %11 = icmp eq i64 %10, 0
 //   %12 = lshr i64 %7, 3
@@ -41,8 +41,8 @@
 //
 // define void @bar(i64, i64) {
 // entry:
-//   %2 = tail call noalias i8* @calloc(i64 %0, i64 8)
-//   tail call fastcc void @foo(i8* %2, i64 %1)
+//   %2 = tail call noalias ptr @calloc(i64 %0, i64 8)
+//   tail call fastcc void @foo(ptr %2, i64 %1)
 //   ret void
 // }
 //
@@ -59,27 +59,27 @@
 // the alignment is computed then replace the variable in the AND operation
 // with a constant. Function @foo will look as follows after the transformation.
 //
-// define internal fastcc void @foo(i8* %0, i64 %1) #0 {
+// define internal fastcc void @foo(ptr %0, i64 %1) #0 {
 // entry:
-//   %2 = ptrtoint i8* %0 to i64
+//   %2 = ptrtoint ptr %0 to i64
 //   %3 = and i64 8, 7
 //   %4 = icmp eq i64 %3, 0
 //   br i1 %4, label %if_bb, label %end
 //
 // if_bb:                                   ; preds = %else_bb, %entry
-//   %5 = phi i8* [ %0, %entry ], [ %8, %else_bb ]
+//   %5 = phi ptr [ %0, %entry ], [ %8, %else_bb ]
 //   %6 = phi i1 [ %4, %entry ], [ %11, %else_bb ]
 //   br i1 %6, label %else_bb, label %end
 //
 // else_bb:                                 ; preds = %if_bb
 //   %7 = sub i64 0, %1
-//   %8 = getelementptr inbounds i8, i8* %5, i64 %7
-//   %9 = ptrtoint i8* %8 to i64
+//   %8 = getelementptr inbounds i8, ptr %5, i64 %7
+//   %9 = ptrtoint ptr %8 to i64
 //   %10 = and i64 8, 7
 //   %11 = icmp eq i64 %10, 0
 //   %12 = lshr i64 %7, 3
 //   %13 = icmp ult i64 %12, 7
-//   tail call fastcc void @foo(i8* %8, i64 %7)
+//   tail call fastcc void @foo(ptr %8, i64 %7)
 //   br i1 %13, label %if_bb, label %end
 //
 // end:                                     ; preds = %else_bb, %if_bb, %entry
@@ -90,14 +90,14 @@
 // After this pass we run the instruction simplification and call graph
 // simplification to clean up the IR.
 //
-// define internal fastcc void @foo(i8* %0, i64 %1) #0 {
+// define internal fastcc void @foo(ptr %0, i64 %1) #0 {
 // entry:
 //   br label %if_bb
 //
 // if_bb:                                            ; preds = %entry, %if_bb
-//   %2 = phi i8* [ %0, %entry ], [ %4, %if_bb ]
+//   %2 = phi ptr [ %0, %entry ], [ %4, %if_bb ]
 //   %3 = sub i64 0, %1
-//   %4 = getelementptr inbounds i8, i8* %2, i64 %3
+//   %4 = getelementptr inbounds i8, ptr %2, i64 %3
 //   %5 = lshr i64 %3, 3
 //   %6 = icmp ult i64 %5, 7
 //   br i1 %6, label %if_bb, label %end
@@ -294,17 +294,17 @@ static bool isValidCompare(Instruction *Inst) {
 // Return true if the pointer in the input instruction refers to the input
 // argument. Else return false. This function anlayses the following:
 //
-// define internal fastcc void @foo(i8*, i64) {
+// define internal fastcc void @foo(ptr, i64) {
 //
 //    ...
 //
 // if_bb:
-//  %5 = phi i8* [ %0, %entry ], [ %8, %else_bb ]
+//  %5 = phi ptr [ %0, %entry ], [ %8, %else_bb ]
 //
 // else_bb:
 //   %7 = sub i64 0, %1
-//   %8 = getelementptr inbounds i8, i8* %5, i64 %7
-//   %9 = ptrtoint i8* %8 to i64
+//   %8 = getelementptr inbounds i8, ptr %5, i64 %7
+//   %9 = ptrtoint ptr %8 to i64
 //   ...
 // }
 //
@@ -326,7 +326,7 @@ static bool pointerRefersToArg(PtrToIntInst *Inst, Value *Arg) {
 // if so then return the PtrToInt instruction. The input Value is expected
 // to be an ICmpInst. This function looks for the following:
 //
-//   %9 = ptrtoint i8* %8 to i64
+//   %9 = ptrtoint ptr %8 to i64
 //   %10 = and i64 %9, 7
 //   %11 = icmp eq i64 %10, 0
 //
@@ -359,22 +359,22 @@ static PtrToIntInst *getPointerInstruction(Value *Val) {
 // a user is a PHI Node, all the incoming values for the PHI Node must be
 // the same alignment computation for the input Argument. For example:
 //
-// define internal fastcc void @foo(i8*, i64) {
+// define internal fastcc void @foo(ptr, i64) {
 // entry:
-//   %2 = ptrtoint i8* %0 to i64
+//   %2 = ptrtoint ptr %0 to i64
 //   %3 = and i64 %2, 7
 //   %4 = icmp eq i64 %3, 0
 //   br i1 %4, label %if_bb, label %end
 //
 // if_bb:
-//   %5 = phi i8* [ %0, %entry ], [ %8, %else_bb ]
+//   %5 = phi ptr [ %0, %entry ], [ %8, %else_bb ]
 //   %6 = phi i1  [ %4, %entry ], [ %11, %else_bb ]
 //   br i1 %6, label %else_bb, label %end
 //
 // else_bb:
 //   %7 = sub i64 0, %1
-//   %8 = getelementptr inbounds i8, i8* %5, i64 %7
-//   %9 = ptrtoint i8* %8 to i64
+//   %8 = getelementptr inbounds i8, ptr %5, i64 %7
+//   %9 = ptrtoint ptr %8 to i64
 //   %10 = and i64 %9, 7
 //   %11 = icmp eq i64 %10, 0
 //   %12 = lshr i64 %7, 3
@@ -442,8 +442,8 @@ static bool checkIfPHINodePointsToArgument(Instruction *Inst, Argument *Arg,
 // Traverse the input instruction and check if MOD is being
 // computed. Basically we are looking for the following:
 //
-//  define void foo(i8* %0) {
-//     %2 = ptrtoint i8* %0 to i64
+//  define void foo(ptr %0) {
+//     %2 = ptrtoint ptr %0 to i64
 //     %3 = and i64 %2, 7
 //     %4 = icmp eq i64 %3, 0
 //
@@ -474,22 +474,22 @@ static Instruction *checkIfModIsComputed(Instruction *Inst) {
 
 // Return true if the argument is used to compute data alignment. For example:
 //
-// define internal fastcc void @foo(i8*, i64) {
+// define internal fastcc void @foo(ptr, i64) {
 // entry:
-//   %2 = ptrtoint i8* %0 to i64
+//   %2 = ptrtoint ptr %0 to i64
 //   %3 = and i64 %2, 7
 //   %4 = icmp eq i64 %3, 0
 //   br i1 %4, label %if_bb, label %end
 //
 // if_bb:
-//   %5 = phi i8* [ %0, %entry ], [ %8, %else_bb ]
+//   %5 = phi ptr [ %0, %entry ], [ %8, %else_bb ]
 //   %6 = phi i1  [ %4, %entry ], [ %11, %else_bb ]
 //   br i1 %6, label %else_bb, label %end
 //
 // else_bb:
 //   %7 = sub i64 0, %1
-//   %8 = getelementptr inbounds i8, i8* %5, i64 %7
-//   %9 = ptrtoint i8* %8 to i64
+//   %8 = getelementptr inbounds i8, ptr %5, i64 %7
+//   %9 = ptrtoint ptr %8 to i64
 //   %10 = and i64 %9, 7
 //   %11 = icmp eq i64 %10, 0
 //   %12 = lshr i64 %7, 3
@@ -506,19 +506,8 @@ static Instruction *checkIfModIsComputed(Instruction *Inst) {
 static bool checkArgument(Argument *Arg, Function *Func,
                           SetVector<Instruction *> &InstSet) {
 
-  // If the argument is not a size multiple of 8, return false.
-  auto GetSourceType = [](Type *PtrTy) {
-    Type *CurrType = PtrTy;
-
-    while (CurrType && CurrType->isPointerTy())
-      CurrType = CurrType->getPointerElementType();
-
-    return CurrType;
-  };
-
-  Type *ArgSourceType = GetSourceType(Arg->getType());
-
-  if (!ArgSourceType->isIntegerTy(8))
+  // Argument must be a pointer
+  if (!Arg->getType()->isPointerTy())
     return false;
 
   for (User *User : Arg->users()) {
@@ -529,20 +518,22 @@ static bool checkArgument(Argument *Arg, Function *Func,
     // Collect the direct user of the input argument. Basically
     // look for this:
     //
-    //   %3 = ptrtoint i8* %0 to i64
+    //   %3 = ptrtoint ptr %0 to i64
     //   %4 = and i64 %3, 7
     //   %5 = icmp eq i64 %4, 0
+    //
+    // This modulo computation checks if the pointer is aligned by 8.
     if (Instruction *OutInst = checkIfModIsComputed(Inst)) {
 
       // Now look for other places were it is being done.
       // Basically look for this:
 
       // ...
-      //   %5 = phi i8* [ %0, %entry ], [ %8, %else_bb ]
+      //   %5 = phi ptr [ %0, %entry ], [ %8, %else_bb ]
       // ...
       //
-      //   %8 = getelementptr inbounds i8, i8* %5, i64 %7
-      //   %9 = ptrtoint i8* %8 to i64
+      //   %8 = getelementptr inbounds i8, ptr %5, i64 %7
+      //   %9 = ptrtoint ptr %8 to i64
       //   %10 = and i64 %9, 7
       //   %11 = icmp eq i64 %10, 0
       if (checkIfPHINodePointsToArgument(OutInst, Arg, InstSet))
@@ -651,14 +642,14 @@ isValidAllocSite(Value *AllocSite,
 // input function, and if the actual argument is the same as the
 // argument from the caller. This function looks for the following:
 //
-//   define void @foo(i8 *%0) {
+//   define void @foo(ptr %0) {
 //
 //     ...
-//     %100 = phi i8* [%200, %150], [%0, %1]
+//     %100 = phi ptr [%200, %150], [%0, %1]
 //     ...
 //
-//     %200 = getelementptr i8, i8* %100, i64 %199
-//     tail call void @foo(i8* %200)
+//     %200 = getelementptr i8, ptr %100, i64 %199
+//     tail call void @foo(ptr %200)
 //
 // In the example above, the actual argument (%200) is to the same block
 // of memory allocated for the formal argument (%0). In this case, return
@@ -685,17 +676,16 @@ static bool checkRecursiveCall(CallBase *CallSite, Function *Func,
 // Value. This Value starts as an argument and will reach to the call site of
 // the input function Func. For example:
 //
-// define void @bar(%_struct.test** %0) {
+// define void @bar(ptr %0) {
 //   ...
-//   %158 = getelementptr inbounds %_struct.test*, %_struct.test** %0, i64 1
-//   %159 = bitcast %_struct.test** %158 to i8*
-//   tail call fastcc void @foo(i8* nonnull %159)
+//   %158 = getelementptr inbounds ptr, ptr %0, i64 1
+//   tail call fastcc void @foo(ptr nonnull %158)
 //   ...
 // }
 //
-// Consider that Val is %0. The use of %0 is %158, then %159 and lands in the
-// call site of @foo. Since nothing modified %0 along the way, then it is safe
-// to assume that the memory that it is pointing to never changes.
+// Consider that Val is %0. The use of %0 is %158 and it lands in the call site
+// of @foo. Since nothing modified %0 along the way, then it is safe to assume
+// that the memory that it is pointing to never changes.
 static bool checkIfPtrIsModified(Value *Val, Function *Func) {
 
   if (!Val || !Func)
@@ -765,8 +755,8 @@ static bool checkIfPtrIsModified(Value *Val, Function *Func) {
 // alignment that is multiple of IntelArgAlignmentSize. This function looks
 // for the following:
 //
-// %44 = tail call noalias i8* @calloc(i64 %41, i64 8)
-// tail call fastcc void @foo(i8* %44)
+// %44 = tail call noalias ptr @calloc(i64 %41, i64 8)
+// tail call fastcc void @foo(ptr %44)
 //
 // The actual argument in the example above (%44) is a calloc with size
 // %41 * 8, return true in this case.
@@ -775,24 +765,23 @@ static bool checkIfPtrIsModified(Value *Val, Function *Func) {
 //
 // define void @baz() {
 //  ...
-//  %5 = alloca [4061 x %_struct.test*], align 16
+//  %5 = alloca [4061 x ptr], align 16
 //  ...
-//  %22 = getelementptr inbounds [4061 x %_struct.test*],
-//        [4061 x %_struct.test*]* %5, i64 0, i64 0
-//  call @bar(%_struct.test** nonnull %22)
+//  %22 = getelementptr inbounds [4061 x ptr],
+//        ptr %5, i64 0, i64 0
+//  call @bar(ptr nonnull %22)
 //  ...
 // }
 //
-// define void @bar(%_struct.test** %0) {
+// define void @bar(ptr %0) {
 //   ...
-//   %158 = getelementptr inbounds %_struct.test*, %_struct.test** %0, i64 1
-//   %159 = bitcast %_struct.test** %158 to i8*
-//   tail call fastcc void @foo(i8* nonnull %159)
+//   %158 = getelementptr inbounds ptr, ptr %0, i64 1
+//   tail call fastcc void @foo(ptr nonnull %158)
 //   ...
 // }
 //
 // @foo is the function we want to optimize in the example above. If we trace
-// the actual argument in the callsite of @foo (%159), we can see its
+// the actual argument in the callsite of @foo (%158), we can see its
 // definition in @baz (%5) is an alloca instruction with an alignment of 16.
 // Return true in this case.
 static bool
@@ -839,22 +828,18 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
   if (!CallSite || !Val)
     return false;
 
-  // Return the element type of a pointer or an element.
-  auto GetSourceType = [](Type *PtrTy) {
-    Type *CurrType = PtrTy;
+  // Collect the element type from an array or nested arrays
+  auto GetSourceArrayType = [](Type *InputTy) {
+    Type *CurrType = InputTy;
 
-    while (CurrType && (CurrType->isPointerTy() || CurrType->isArrayTy())) {
-
-      if (ArrayType *ArrTy = dyn_cast<ArrayType>(CurrType))
-        CurrType = ArrTy->getElementType();
-
-      else
-        CurrType = (cast<PointerType>(CurrType))->getPointerElementType();
+    while (CurrType && CurrType->isArrayTy()) {
+      ArrayType *ArrTy = cast<ArrayType>(CurrType);
+      CurrType = ArrTy->getElementType();
     }
     return CurrType;
   };
 
-  Type *CurrType = GetSourceType(Val->getType());
+  Type *CurrType = GetSourceArrayType(Val->getType());
   Value *CurrVal = Val;
 
   while (CurrVal) {
@@ -873,12 +858,10 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
       // address of malloc/calloc call.
       //
       // Ex:
-      // %ptr =  tail call noalias i8* @calloc(i64 %0, i64 8)
-      // %temp = tail call noalias i8* @malloc(i64 8)
-      // %bc1 = bitcast i8* %temp to i64**
-      // %bc2 = bitcast i8* %ptr to i64**
-      // store i64* %bc2, i64** %bc1
-      // %val = load i64*, i64** %bc1
+      // %ptr =  tail call noalias ptr @calloc(i64 %0, i64 8)
+      // %temp = tail call noalias ptr @malloc(i64 8)
+      // store ptr %ptr, ptr %temp
+      // %val = load ptr, ptr %temp
       Value *Val = LI->getPointerOperand();
       if (auto *BC = dyn_cast<BitCastInst>(Val))
         Val = BC->getOperand(0);
@@ -894,25 +877,23 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
 
     // Check if the value is a BitCast
     if (BitCastInst *Cast = dyn_cast<BitCastInst>(CurrVal)) {
-
-      // The BitCast must be converting to the type we need
-      if (GetSourceType(Cast->getDestTy()) != CurrType)
-        return false;
-
       // We already proved that the main argument we care about is a multiple
-      // of 8, so now just collect the bitcast and trace it.
-      CurrType = GetSourceType(Cast->getSrcTy());
+      // of 8, so now just collect the bitcast and trace it. BitCast
+      // instructions shouldn't be in case of opaque pointers, but if there
+      // is a BitCast instruction, then it should be a ptr to ptr cast.
+      CurrType = GetSourceArrayType(Cast->getSrcTy());
       CurrVal = Cast->getOperand(0);
       continue;
     }
 
     // Check if the Value is a GEP
     if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(CurrVal)) {
-      Type *SourceType = GetSourceType(GEP->getSourceElementType());
+      // The source type should be a pointer or an array of pointers
+      Type *SourceType = GetSourceArrayType(GEP->getSourceElementType());
 
       // We already proved that the main argument we care about is a multiple
-      // of 8, therefore the GEP will either point to an i8* or a type that
-      // will later be converted as an i8* by a BitCast.
+      // of 8, therefore the GEP will either point to an ptr or a type that
+      // will later be converted as an ptr by a BitCast.
       if (SourceType != CurrType)
         return false;
 
@@ -1043,27 +1024,27 @@ static bool replaceCompare(Use &U) {
 // Replace the users of the instructions that compute a MOD.
 // This will modify the IR as follows:
 //
-// define internal fastcc void @foo(i8* %0, i64 %1) #0 {
+// define internal fastcc void @foo(ptr %0, i64 %1) #0 {
 // entry:
-//   %2 = ptrtoint i8* %0 to i64
+//   %2 = ptrtoint ptr %0 to i64
 //   %3 = and i64 8, 7
 //   %4 = icmp eq i64 %3, 0
 //   br i1 %4, label %if_bb, label %end
 //
 // if_bb:                                   ; preds = %else_bb, %entry
-//   %5 = phi i8* [ %0, %entry ], [ %8, %else_bb ]
+//   %5 = phi ptr [ %0, %entry ], [ %8, %else_bb ]
 //   %6 = phi i1 [ %4, %entry ], [ %11, %else_bb ]
 //   br i1 %6, label %else_bb, label %end
 //
 // else_bb:                                 ; preds = %if_bb
 //   %7 = sub i64 0, %1
-//   %8 = getelementptr inbounds i8, i8* %5, i64 %7
-//   %9 = ptrtoint i8* %8 to i64
+//   %8 = getelementptr inbounds i8, ptr %5, i64 %7
+//   %9 = ptrtoint ptr %8 to i64
 //   %10 = and i64 8, 7
 //   %11 = icmp eq i64 %10, 0
 //   %12 = lshr i64 %7, 3
 //   %13 = icmp ult i64 %12, 7
-//   tail call fastcc void @foo(i8* %8, i64 %7)
+//   tail call fastcc void @foo(ptr %8, i64 %7)
 //   br i1 %13, label %if_bb, label %end
 //
 // end:                                     ; preds = %else_bb, %if_bb, %entry
