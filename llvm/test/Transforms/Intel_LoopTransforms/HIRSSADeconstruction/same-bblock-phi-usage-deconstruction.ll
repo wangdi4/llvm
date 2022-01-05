@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction" -S | FileCheck %s
 
 ; Check that we insert a liveout copy for the phi %0 which is indirectly used in the same bblock phi %1 ( %add21's SCEV form is: %3 - %4 + %0 ).
 ; CHECK: %hir.de.ssa.copy0.out = call i32 @llvm.ssa.copy.i32(i32 %0)
