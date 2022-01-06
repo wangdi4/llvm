@@ -991,6 +991,17 @@ public:
   /// attribute.
   bool contains(StringRef A) const { return TargetDepAttrs.count(A); }
 
+#if INTEL_CUSTOMIZATION
+  AttributeMask &merge(const AttributeMask &B) {
+    Attrs |= B.Attrs;
+
+    for (const auto &I : B.td_attrs())
+      TargetDepAttrs.insert(I);
+
+    return *this;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   using td_const_iterator = decltype(TargetDepAttrs)::const_iterator;
   using td_const_range = iterator_range<td_const_iterator>;
   td_const_range td_attrs() const {

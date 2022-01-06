@@ -68,6 +68,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       endif ()
 
       # Construct GIT_REPO from from GIT_REPO_PATH and GIT_REPO_NAME.
+      # As a workaround solution, force xmain-web to download vc-intrinsics from
+      # https://github.com/yubingex007-a11y/drivers.gpu.compute.vc-intrinsics
+      set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/yubingex007-a11y)
+      set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
+      set(LLVMGenXIntrinsics_GIT_TAG ab962a9a33b76242de6b6bf2c15deab37a97c1ff)
       set( LLVMGenXIntrinsics_GIT_REPO
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     endif (INTEL_CUSTOMIZATION)

@@ -137,7 +137,7 @@ struct SOAIndexInfoTy {
   // types that are not valid on the index type being used. This variable
   // holds the list of incompatible attributes that need to be removed
   // from function signatures and call sites for the cloned routines.
-  AttrBuilder IncompatibleTypeAttrs;
+  AttributeMask IncompatibleTypeAttrs;
 };
 
 // This structure holds the information about structure type that is going to be
