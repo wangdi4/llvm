@@ -9157,8 +9157,13 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromCondImpl(
     auto *LHS = getSCEV(WO->getLHS());
     if (Offset != 0)
       LHS = getAddExpr(LHS, getConstant(Offset));
+#if INTEL_CUSTOMIZATION
+    auto EL = computeExitLimitFromICmp(L, dyn_cast<ICmpInst>(ExitCond), Pred, LHS, getConstant(NewRHSC),
+                                       ControlsExit, AllowPredicates);
+#else
     auto EL = computeExitLimitFromICmp(L, Pred, LHS, getConstant(NewRHSC),
                                        ControlsExit, AllowPredicates);
+#endif // INTEL_CUSTOMIZATION
     if (EL.hasAnyInfo()) return EL;
   }
 
