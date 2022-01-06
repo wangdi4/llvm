@@ -6094,7 +6094,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
     return;
 
   if (isa<WRNVecLoopNode>(W) &&
-      ArrSecInfo.isVLAOrArraySectionWithVariableLengthOrOffset()) {
+      ArrSecInfo.isArraySectionWithVariableLengthOrOffset()) {
     assert(W->getVlaAllocaInsertPt() &&
            "SIMD constructs with variable size array section should have Vla "
            "Alloca Insertion point set.");
@@ -8936,7 +8936,7 @@ bool VPOParoptTransform::getIsVlaOrVlaSection(Item *I) {
   if (isa<ReductionItem>(I) && cast<ReductionItem>(I)->getIsArraySection())
     return cast<ReductionItem>(I)
         ->getArraySectionInfo()
-        .isVLAOrArraySectionWithVariableLengthOrOffset();
+        .isArraySectionWithVariableLengthOrOffset();
 
   Value *NumElements = nullptr;
   std::tie(std::ignore, NumElements, std::ignore) =

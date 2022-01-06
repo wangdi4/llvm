@@ -278,7 +278,7 @@ bool ArraySectionInfo::hasVariableStartingOffset() const {
   return false;
 }
 
-bool ArraySectionInfo::isVLAOrArraySectionWithVariableLengthOrOffset() const {
+bool ArraySectionInfo::isArraySectionWithVariableLengthOrOffset() const {
   return hasVariableStartingOffset() || isVariableLengthArraySection();
 }
 
