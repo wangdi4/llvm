@@ -118,6 +118,8 @@ class RAGreedy : public MachineFunctionPass,
 
   uint8_t CutOffInfo;
 
+  bool EnableHeuristic = false; // INTEL
+
 #ifndef NDEBUG
   static const char *const StageName[];
 #endif
