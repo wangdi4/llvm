@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "RegAllocGreedy.h"
 #include "AllocationOrder.h"
 #include "InterferenceCache.h"
 #include "LiveDebugVariables.h"
@@ -135,6 +136,7 @@ static cl::opt<bool> ConsiderLocalIntervalCost(
 static RegisterRegAlloc greedyRegAlloc("greedy", "greedy register allocator",
                                        createGreedyRegisterAllocator);
 
+<<<<<<< HEAD
 namespace {
 
 class RAGreedy : public MachineFunctionPass,
@@ -493,6 +495,8 @@ private:
 
 } // end anonymous namespace
 
+=======
+>>>>>>> c41610778bc7e0f57239264381c64b8503b21e75
 char RAGreedy::ID = 0;
 char &llvm::RAGreedyID = RAGreedy::ID;
 
