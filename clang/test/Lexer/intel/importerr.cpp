@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -fintel-ms-compatibility %s
+// RUN: %clang_cc1 -verify -fintel-compatibility -fms-compatibility %s
 // REQUIRES: system-windows
 
 #import <libid:GC0714F2-3D04-11D1-AE7D-00A0C90F26F4> // expected-error {{could not determine header file for this typelib}} 

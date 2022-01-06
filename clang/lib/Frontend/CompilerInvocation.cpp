@@ -4609,8 +4609,9 @@ static bool ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
                                   frontend::ActionKind Action,
                                   const FrontendOptions &FrontendOpts) {
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(OPT_fintel_ms_compatibility))
-      Opts.OutputFile = Args.getLastArgValue(OPT_o);
+  if (Args.hasArg(OPT_fintel_compatibility) &&
+      Args.hasArg(OPT_fms_compatibility))
+    Opts.OutputFile = Args.getLastArgValue(OPT_o);
 #endif // INTEL_CUSTOMIZATION
 
   unsigned NumErrorsBefore = Diags.getNumErrors();

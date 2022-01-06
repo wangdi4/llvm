@@ -3944,7 +3944,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // Fix for CQ379239: Emit debug location for return instruction, not
         // eliminated store.
        bool IsIntelandMSCompat =
-           getLangOpts().IntelCompat && getLangOpts().IntelMSCompat;
+           getLangOpts().IntelCompat && getLangOpts().MSVCCompat;
 #endif // INTEL_CUSTOMIZATION
         if (EmitRetDbgLoc && !AutoreleaseResult
 #if INTEL_CUSTOMIZATION

@@ -4,7 +4,7 @@
 
 // Test that #import with just header-file token works.
 
-//RUN: not %clang_cc1 -fintel-ms-compatibility \
+//RUN: not %clang_cc1 -fintel-compatibility -fms-compatibility \
 //RUN:  -show-import-processing %s > %t-check.txt 2>&1
 //RUN: FileCheck --input-file=%t-check.txt %s
 

@@ -2571,7 +2571,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     }
 #if INTEL_CUSTOMIZATION
 // Fix for CQ376508: attributes must be ignored after parenthesized initializer.
-    if (getLangOpts().IntelCompat && !getLangOpts().IntelMSCompat &&
+    if (getLangOpts().IntelCompat && !getLangOpts().MSVCCompat &&
         Tok.is(tok::kw___attribute)) {
       ParsedAttributes Attrs(AttrFactory);
       ParseGNUAttributes(Attrs);

@@ -3,7 +3,7 @@
 // Test that both forward and back slash base-path headers are filtered.
 #import <filenotdfound.dll> implementation_only
 
-//RUN: not %clang_cc1 -fintel-ms-compatibility \
+//RUN: not %clang_cc1 -fintel-compatibility -fms-compatibility \
 //RUN:  -header-base-path "d:\\foo\\bar\\" \
 //RUN:  -internal-isystem "d:\\foo\\bar\\something/include" \
 //RUN:  -internal-isystem "d:/ok/keepit" -Ikeepme \
@@ -15,7 +15,7 @@
 //BASE: warning: argument file generated: {{.*}}filenotdfound{{.*}}arg
 //BASE-NOT: {{foo|bar}}
 
-//RUN: not %clang_cc1 -fintel-ms-compatibility \
+//RUN: not %clang_cc1 -fintel-compatibility -fms-compatibility \
 //RUN:  -internal-isystem "d:\\foo\\bar\\something/include" \
 //RUN:  -internal-isystem "d:/ok/keepit" -Ikeepme \
 //RUN:  -internal-isystem "d:/foo/bar/another/include" \

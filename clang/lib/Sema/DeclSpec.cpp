@@ -991,7 +991,7 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
   }
 #if INTEL_CUSTOMIZATION
   // On non-MS mode '_unaligned' must be recognized, but just ignored.
-  if (Lang.IntelCompat && !Lang.IntelMSCompat && T == TQ_unaligned)
+  if (Lang.IntelCompat && !Lang.MSVCCompat && T == TQ_unaligned)
     return false;
 #endif // INTEL_CUSTOMIZATION
 

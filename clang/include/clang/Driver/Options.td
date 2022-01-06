@@ -6899,7 +6899,7 @@ def fintel_compatibility_doc
       HelpText<"Display help information for Intel C/C++ compatibility items">;
 def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">,
-  MarshallingInfoFlag<LangOpts<"IntelMSCompat">>;
+  Flags<[Ignored]>;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
   HelpText<"Enable Intel specific advanced optimizations">,
   MarshallingInfoFlag<CodeGenOpts<"IntelAdvancedOptim">>;
