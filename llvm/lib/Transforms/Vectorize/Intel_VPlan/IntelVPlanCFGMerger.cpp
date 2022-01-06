@@ -1799,8 +1799,7 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
       DestLI->addTopLevelLoop(NewLoop);
 
     NewLoop->copyHasNormalizedInductionFlag(L);
-
-    // TODO: Should OptReport also be copied here?
+    NewLoop->setOptReport(L->getOptReport());
 
     // Add all of the blocks in L to the new loop.
     for (auto BB : L->getBlocks())

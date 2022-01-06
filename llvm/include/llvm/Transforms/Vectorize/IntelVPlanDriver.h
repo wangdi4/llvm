@@ -123,6 +123,13 @@ protected:
   void addOptReportRemarksForMainPlan(WRNVecLoopNode *WRLp,
                                       const CfgMergerPlanDescr &MainPlanDescr);
 
+  // Utility to add remarks related to VPlan containing vectorized remainder
+  // loop.
+  void addOptReportRemarksForVecRemainder(const CfgMergerPlanDescr &PlanDescr);
+
+  // Utility to add remarks related to VPlan containing vectorized peel loop.
+  void addOptReportRemarksForVecPeel(const CfgMergerPlanDescr &PlanDescr);
+
   // Add the statistics related remarks collected from CG into given MainVPLoop.
   template <typename VPOCodeGenType>
   void addStatsFromCG(VPLoop *MainVPLoop, VPLoopInfo *VPLI,
