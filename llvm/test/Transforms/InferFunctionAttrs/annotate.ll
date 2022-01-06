@@ -205,7 +205,7 @@ declare i32 @abs(i32)
 declare i32 @access(i8*, i32)
 
 ; CHECK: declare double @acos(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
-declare double @acos(double)
+declare double @acos(double) readonly
 
 ; CHECK: declare float @acosf(float) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare float @acosf(float)
@@ -1068,6 +1068,7 @@ declare void @memset_pattern16(i8*, i8*, i64)
 
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN]] = { mustprogress nofree nounwind willreturn }
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN_WRITEONLY]] = { mustprogress nofree nounwind willreturn writeonly }
+; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN_READNONE]] = { mustprogress nofree nosync nounwind readnone willreturn }
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND]] = { nofree nounwind }
 ; CHECK-DAG: attributes [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN]] = { inaccessiblememonly mustprogress nofree nounwind willreturn }
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] = { mustprogress nofree nounwind readonly willreturn }
