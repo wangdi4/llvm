@@ -204,13 +204,8 @@ declare i32 @abs(i32)
 ; CHECK: declare noundef i32 @access(i8* nocapture noundef readonly, i32 noundef) [[NOFREE_NOUNWIND:#[0-9]+]]
 declare i32 @access(i8*, i32)
 
-<<<<<<< HEAD
 ; CHECK: declare double @acos(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
-declare double @acos(double)
-=======
-; CHECK: declare double @acos(double) [[NOFREE_NOUNWIND_WILLRETURN_READNONE:#[0-9]+]]
 declare double @acos(double) readonly
->>>>>>> 1eb5b6e85045d22720f177a02aaf7097930e4b4f
 
 ; CHECK: declare float @acosf(float) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare float @acosf(float)
