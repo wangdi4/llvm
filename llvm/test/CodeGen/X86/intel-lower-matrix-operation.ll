@@ -110,7 +110,7 @@ define <16 x i8> @test_fill_int8_rowmajor() {
 ; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
   ret <16 x i8> %0
 }
 
@@ -122,7 +122,7 @@ define <16 x i8> @test_fill_int8_packedb() {
 ; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.packed.b")
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup")
   ret <16 x i8> %0
 }
 
@@ -134,7 +134,7 @@ define <16 x i16> @test_fill_bf16_rowmajor() {
 ; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
   ret <16 x i16> %0
 }
 
@@ -146,7 +146,7 @@ define <16 x i16> @test_fill_bf16_packedb() {
 ; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.packed.b")
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup")
   ret <16 x i16> %0
 }
 
@@ -158,7 +158,7 @@ define <16 x float> @test_fill_float_rowmajor() {
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x float> @llvm.experimental.matrix.fill.v16f32(float 0.0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  %0 = call <16 x float> @llvm.experimental.matrix.fill.v16f32(float 0.0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
   ret <16 x float> %0
 }
 
@@ -170,7 +170,7 @@ define <16 x i32> @test_fill_i32_rowmajor() {
 ; CHECK-NEXT:    ret <16 x i32> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32 0, i32 4, i32 4, metadata !"matrix.rowmajor")
+  %0 = call <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
   ret <16 x i32> %0
 }
 
@@ -300,7 +300,7 @@ declare <4 x i32> @llvm.experimental.matrix.extract.row.slice.v15i32(<15 x i32>,
 declare <16 x i32> @llvm.experimental.matrix.insert.row.slice.v16i32(<16 x i32>, <4 x i32>, i32, i32, i32, i32, i32, metadata)
 declare <15 x i32> @llvm.experimental.matrix.insert.row.slice.v15i32(<15 x i32>, <4 x i32>, i32, i32, i32, i32, i32, metadata)
 
-declare <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8, i32, i32, metadata)
-declare <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16, i32, i32, metadata)
-declare <16 x float> @llvm.experimental.matrix.fill.v16f32(float, i32, i32, metadata)
-declare <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32, i32, i32, metadata)
+declare <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8, i32, i32, metadata, metadata)
+declare <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16, i32, i32, metadata, metadata)
+declare <16 x float> @llvm.experimental.matrix.fill.v16f32(float, i32, i32, metadata, metadata)
+declare <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32, i32, i32, metadata, metadata)

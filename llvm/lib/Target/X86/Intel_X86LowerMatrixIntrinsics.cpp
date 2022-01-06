@@ -435,7 +435,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixInsertRowSlice(
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
   // Transform
   // %fill = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4,
-  // i32 4, metadata !"matrix.packed.b")
+  // i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup")
   // into:
   // %tmp0 = call x86_amx @llvm.x86.tilezero.internal(i16 1, i16 16)
   // %tmp1 = call <16 x i8> @llvm.x86.cast.tile.to.vector.v16i8(x86_amx %tmp0)
