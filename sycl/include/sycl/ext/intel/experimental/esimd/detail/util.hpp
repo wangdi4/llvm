@@ -127,7 +127,7 @@ struct is_hf_type
           std::is_same<detail::half,
                        typename sycl::detail::remove_const_t<T>>::value> {};
 
-template <typename T, int N> struct is_hf_type<vector_type<T, N>> {
+template <typename T, int N> struct is_hf_type<raw_vector_type<T, N>> {
   static const bool value = is_hf_type<T>::value;
 };
 

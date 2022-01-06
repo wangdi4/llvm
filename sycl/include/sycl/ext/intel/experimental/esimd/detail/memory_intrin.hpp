@@ -1710,7 +1710,6 @@ __esimd_lsc_fence(__SEIEED::simd_mask_storage_t<N> pred)
 #else  // __SYCL_DEVICE_ONLY__
 {
   throw cl::sycl::feature_not_supported();
-  return 0;
 }
 #endif // __SYCL_DEVICE_ONLY__
 

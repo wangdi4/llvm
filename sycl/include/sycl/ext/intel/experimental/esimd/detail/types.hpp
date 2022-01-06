@@ -43,6 +43,12 @@ namespace detail {
 
 namespace csd = cl::sycl::detail;
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+using half = cl::sycl::detail::half_impl::StorageT;
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 template <int N>
 using uint_type_t = std::conditional_t<
     N == 1, uint8_t,
@@ -105,12 +111,6 @@ struct is_esimd_arithmetic_type<
                        decltype(std::declval<Ty>() * std::declval<Ty>()),
                        decltype(std::declval<Ty>() / std::declval<Ty>())>>
     : std::true_type {};
-
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-template <> struct is_esimd_arithmetic_type<bfloat16> : std::true_type {};
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 template <typename Ty>
 static inline constexpr bool is_esimd_arithmetic_type_v =
