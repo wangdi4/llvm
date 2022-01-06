@@ -198,12 +198,17 @@ declare double @__sinpi(double)
 ; CHECK: declare float @__sinpif(float)
 declare float @__sinpif(float)
 
+<<<<<<< HEAD
 ; CHECK: declare i32 @abs(i32) [[NOFREE_NOUNWIND_READONLY_WILLRETURN:#[0-9]+]] ;INTEL
+=======
+; CHECK: declare i32 @abs(i32) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare i32 @abs(i32)
 
 ; CHECK: declare noundef i32 @access(i8* nocapture noundef readonly, i32 noundef) [[NOFREE_NOUNWIND:#[0-9]+]]
 declare i32 @access(i8*, i32)
 
+<<<<<<< HEAD
 ; CHECK: declare double @acos(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @acos(double) readonly
 
@@ -220,11 +225,30 @@ declare float @acoshf(float)
 declare x86_fp80 @acoshl(x86_fp80)
 
 ; CHECK: declare x86_fp80 @acosl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @acos(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @acos(double)
+
+; CHECK: declare float @acosf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @acosf(float)
+
+; CHECK: declare double @acosh(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @acosh(double)
+
+; CHECK: declare float @acoshf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @acoshf(float)
+
+; CHECK: declare x86_fp80 @acoshl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @acoshl(x86_fp80)
+
+; CHECK: declare x86_fp80 @acosl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @acosl(x86_fp80)
 
 ; CHECK: declare noalias noundef i8* @aligned_alloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND:#[0-9]+]]
 declare i8* @aligned_alloc(i64, i64)
 
+<<<<<<< HEAD
 ; CHECK: declare double @asin(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @asin(double)
 
@@ -268,6 +292,51 @@ declare float @atanhf(float)
 declare x86_fp80 @atanhl(x86_fp80)
 
 ; CHECK: declare x86_fp80 @atanl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @asin(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @asin(double)
+
+; CHECK: declare float @asinf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @asinf(float)
+
+; CHECK: declare double @asinh(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @asinh(double)
+
+; CHECK: declare float @asinhf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @asinhf(float)
+
+; CHECK: declare x86_fp80 @asinhl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @asinhl(x86_fp80)
+
+; CHECK: declare x86_fp80 @asinl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @asinl(x86_fp80)
+
+; CHECK: declare double @atan(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @atan(double)
+
+; CHECK: declare double @atan2(double, double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @atan2(double, double)
+
+; CHECK: declare float @atan2f(float, float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @atan2f(float, float)
+
+; CHECK: declare x86_fp80 @atan2l(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @atan2l(x86_fp80, x86_fp80)
+
+; CHECK: declare float @atanf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @atanf(float)
+
+; CHECK: declare double @atanh(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @atanh(double)
+
+; CHECK: declare float @atanhf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @atanhf(float)
+
+; CHECK: declare x86_fp80 @atanhl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @atanhl(x86_fp80)
+
+; CHECK: declare x86_fp80 @atanl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @atanl(x86_fp80)
 
 ; CHECK: declare double @atof(i8* nocapture) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
@@ -292,6 +361,7 @@ declare void @bcopy(i8*, i8*, i64)
 ; CHECK: declare void @bzero(i8* nocapture writeonly, i64)  [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @bzero(i8*, i64)
 
+<<<<<<< HEAD
 ; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]] ;INTEL
 declare i8* @calloc(i64, i64)
 
@@ -311,6 +381,27 @@ declare double @ceil(double)
 declare float @ceilf(float)
 
 ; CHECK: declare x86_fp80 @ceill(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare i8* @calloc(i64, i64)
+
+; CHECK: declare double @cbrt(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @cbrt(double)
+
+; CHECK: declare float @cbrtf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @cbrtf(float)
+
+; CHECK: declare x86_fp80 @cbrtl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @cbrtl(x86_fp80)
+
+; CHECK: declare double @ceil(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @ceil(double)
+
+; CHECK: declare float @ceilf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @ceilf(float)
+
+; CHECK: declare x86_fp80 @ceill(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @ceill(x86_fp80)
 
 ; CHECK: declare noundef i32 @chmod(i8* nocapture noundef readonly, i16 noundef zeroext) [[NOFREE_NOUNWIND]]
@@ -325,6 +416,7 @@ declare void @clearerr(%opaque*)
 ; CHECK: declare noundef i32 @closedir(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
 declare i32 @closedir(%opaque*)
 
+<<<<<<< HEAD
 ; CHECK: declare double @copysign(double, double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @copysign(double, double)
 
@@ -350,11 +442,39 @@ declare float @coshf(float)
 declare x86_fp80 @coshl(x86_fp80)
 
 ; CHECK: declare x86_fp80 @cosl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @copysign(double, double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @copysign(double, double)
+
+; CHECK: declare float @copysignf(float, float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @copysignf(float, float)
+
+; CHECK: declare x86_fp80 @copysignl(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @copysignl(x86_fp80, x86_fp80)
+
+; CHECK: declare double @cos(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @cos(double)
+
+; CHECK: declare float @cosf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @cosf(float)
+
+; CHECK: declare double @cosh(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @cosh(double)
+
+; CHECK: declare float @coshf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @coshf(float)
+
+; CHECK: declare x86_fp80 @coshl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @coshl(x86_fp80)
+
+; CHECK: declare x86_fp80 @cosl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @cosl(x86_fp80)
 
 ; CHECK: declare noundef i8* @ctermid(i8* nocapture noundef) [[NOFREE_NOUNWIND]]
 declare i8* @ctermid(i8*)
 
+<<<<<<< HEAD
 ; CHECK: declare double @exp(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @exp(double)
 
@@ -389,6 +509,42 @@ declare double @fabs(double)
 declare float @fabsf(float)
 
 ; CHECK: declare x86_fp80 @fabsl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @exp(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @exp(double)
+
+; CHECK: declare double @exp2(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @exp2(double)
+
+; CHECK: declare float @exp2f(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @exp2f(float)
+
+; CHECK: declare x86_fp80 @exp2l(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @exp2l(x86_fp80)
+
+; CHECK: declare float @expf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @expf(float)
+
+; CHECK: declare x86_fp80 @expl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @expl(x86_fp80)
+
+; CHECK: declare double @expm1(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @expm1(double)
+
+; CHECK: declare float @expm1f(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @expm1f(float)
+
+; CHECK: declare x86_fp80 @expm1l(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @expm1l(x86_fp80)
+
+; CHECK: declare double @fabs(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @fabs(double)
+
+; CHECK: declare float @fabsf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @fabsf(float)
+
+; CHECK: declare x86_fp80 @fabsl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @fabsl(x86_fp80)
 
 ; CHECK: declare noundef i32 @fclose(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
@@ -406,6 +562,7 @@ declare i32 @ferror(%opaque*)
 ; CHECK: declare noundef i32 @fflush(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
 declare i32 @fflush(%opaque*)
 
+<<<<<<< HEAD
 ; CHECK: declare i32 @ffs(i32) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare i32 @ffs(i32)
 
@@ -415,6 +572,17 @@ declare i32 @ffsl(i64)
 
 ; CHECK-KNOWN: declare i32 @ffsll(i64) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 ; CHECK-UNKNOWN:  declare i32 @ffsll(i64){{$}}
+=======
+; CHECK: declare i32 @ffs(i32) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare i32 @ffs(i32)
+
+; CHECK-KNOWN: declare i32 @ffsl(i64) [[NOFREE_NOUNWIND_WILLRETURN]]
+; CHECK-UNKNOWN: declare i32 @ffsl(i64){{$}}
+declare i32 @ffsl(i64)
+
+; CHECK-KNOWN: declare i32 @ffsll(i64) [[NOFREE_NOUNWIND_WILLRETURN]]
+; CHECK-UNKNOWN: declare i32 @ffsll(i64){{$}}
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare i32 @ffsll(i64)
 
 ; CHECK: declare noundef i32 @fgetc(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
@@ -432,6 +600,7 @@ declare i32 @fileno(%opaque*)
 ; CHECK: declare void @flockfile(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
 declare void @flockfile(%opaque*)
 
+<<<<<<< HEAD
 ; CHECK: declare double @floor(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @floor(double)
 
@@ -439,6 +608,15 @@ declare double @floor(double)
 declare float @floorf(float)
 
 ; CHECK: declare x86_fp80 @floorl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @floor(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @floor(double)
+
+; CHECK: declare float @floorf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @floorf(float)
+
+; CHECK: declare x86_fp80 @floorl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @floorl(x86_fp80)
 
 ; CHECK: declare i32 @fls(i32)
@@ -450,6 +628,7 @@ declare i32 @flsl(i64)
 ; CHECK: declare i32 @flsll(i64)
 declare i32 @flsll(i64)
 
+<<<<<<< HEAD
 ; CHECK: declare double @fmax(double, double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @fmax(double, double)
 
@@ -475,6 +654,33 @@ declare double @fmod(double, double)
 declare float @fmodf(float, float)
 
 ; CHECK: declare x86_fp80 @fmodl(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @fmax(double, double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @fmax(double, double)
+
+; CHECK: declare float @fmaxf(float, float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @fmaxf(float, float)
+
+; CHECK: declare x86_fp80 @fmaxl(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @fmaxl(x86_fp80, x86_fp80)
+
+; CHECK: declare double @fmin(double, double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @fmin(double, double)
+
+; CHECK: declare float @fminf(float, float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @fminf(float, float)
+
+; CHECK: declare x86_fp80 @fminl(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @fminl(x86_fp80, x86_fp80)
+
+; CHECK: declare double @fmod(double, double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @fmod(double, double)
+
+; CHECK: declare float @fmodf(float, float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @fmodf(float, float)
+
+; CHECK: declare x86_fp80 @fmodl(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @fmodl(x86_fp80, x86_fp80)
 
 ; CHECK: declare noalias noundef %opaque* @fopen(i8* nocapture noundef readonly, i8* nocapture noundef readonly) [[NOFREE_NOUNWIND]]
@@ -581,6 +787,7 @@ declare i8* @gets(i8*)
 ; CHECK: declare noundef i32 @gettimeofday(%opaque* nocapture noundef, i8* nocapture noundef) [[NOFREE_NOUNWIND]]
 declare i32 @gettimeofday(%opaque*, i8*)
 
+<<<<<<< HEAD
 ; CHECK: declare i32 @isascii(i32) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare i32 @isascii(i32)
 
@@ -588,6 +795,15 @@ declare i32 @isascii(i32)
 declare i32 @isdigit(i32)
 
 ; CHECK: declare i64 @labs(i64) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare i32 @isascii(i32) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare i32 @isascii(i32)
+
+; CHECK: declare i32 @isdigit(i32) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare i32 @isdigit(i32)
+
+; CHECK: declare i64 @labs(i64) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare i64 @labs(i64)
 
 ; CHECK: declare noundef i32 @lchown(i8* nocapture noundef readonly, i32 noundef, i32 noundef) [[NOFREE_NOUNWIND]]
@@ -602,6 +818,7 @@ declare float @ldexpf(float, i32)
 ; CHECK: declare x86_fp80 @ldexpl(x86_fp80, i32 signext) [[NOFREE_WILLRETURN_READNONE]] ;INTEL
 declare x86_fp80 @ldexpl(x86_fp80, i32)
 
+<<<<<<< HEAD
 ; CHECK: declare i64 @llabs(i64) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare i64 @llabs(i64)
 
@@ -648,6 +865,54 @@ declare x86_fp80 @logbl(x86_fp80)
 declare float @logf(float)
 
 ; CHECK: declare x86_fp80 @logl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare i64 @llabs(i64) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare i64 @llabs(i64)
+
+; CHECK: declare double @log(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @log(double)
+
+; CHECK: declare double @log10(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @log10(double)
+
+; CHECK: declare float @log10f(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @log10f(float)
+
+; CHECK: declare x86_fp80 @log10l(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @log10l(x86_fp80)
+
+; CHECK: declare double @log1p(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @log1p(double)
+
+; CHECK: declare float @log1pf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @log1pf(float)
+
+; CHECK: declare x86_fp80 @log1pl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @log1pl(x86_fp80)
+
+; CHECK: declare double @log2(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @log2(double)
+
+; CHECK: declare float @log2f(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @log2f(float)
+
+; CHECK: declare x86_fp80 @log2l(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @log2l(x86_fp80)
+
+; CHECK: declare double @logb(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @logb(double)
+
+; CHECK: declare float @logbf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @logbf(float)
+
+; CHECK: declare x86_fp80 @logbl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @logbl(x86_fp80)
+
+; CHECK: declare float @logf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @logf(float)
+
+; CHECK: declare x86_fp80 @logl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @logl(x86_fp80)
 
 ; CHECK: declare noundef i32 @lstat(i8* nocapture noundef readonly, %opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
@@ -706,6 +971,7 @@ declare float @modff(float, float*)
 ; CHECK: declare x86_fp80 @modfl(x86_fp80, x86_fp80* nocapture) [[NOFREE_NOUNWIND_WILLRETURN]]
 declare x86_fp80 @modfl(x86_fp80, x86_fp80*)
 
+<<<<<<< HEAD
 ; CHECK: declare double @nearbyint(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @nearbyint(double)
 
@@ -713,6 +979,15 @@ declare double @nearbyint(double)
 declare float @nearbyintf(float)
 
 ; CHECK: declare x86_fp80 @nearbyintl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @nearbyint(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @nearbyint(double)
+
+; CHECK: declare float @nearbyintf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @nearbyintf(float)
+
+; CHECK: declare x86_fp80 @nearbyintl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @nearbyintl(x86_fp80)
 
 ; CHECK-LINUX: declare noundef i32 @open(i8* nocapture noundef readonly, i32 noundef, ...) [[NOFREE]]
@@ -737,6 +1012,7 @@ declare %opaque* @popen(i8*, i8*)
 ; CHECK: declare i32 @posix_memalign(i8**, i64, i64) [[NOFREE]]
 declare i32 @posix_memalign(i8**, i64, i64)
 
+<<<<<<< HEAD
 ; CHECK: declare double @pow(double, double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @pow(double, double)
 
@@ -744,6 +1020,15 @@ declare double @pow(double, double)
 declare float @powf(float, float)
 
 ; CHECK: declare x86_fp80 @powl(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @pow(double, double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @pow(double, double)
+
+; CHECK: declare float @powf(float, float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @powf(float, float)
+
+; CHECK: declare x86_fp80 @powl(x86_fp80, x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @powl(x86_fp80, x86_fp80)
 
 ; CHECK: declare noundef i64 @pread(i32 noundef, i8* nocapture noundef, i64 noundef, i64 noundef) [[NOFREE]]
@@ -795,6 +1080,7 @@ declare i32 @rename(i8*, i8*)
 ; CHECK: declare void @rewind(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
 declare void @rewind(%opaque*)
 
+<<<<<<< HEAD
 ; CHECK: declare double @rint(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @rint(double)
 
@@ -802,11 +1088,21 @@ declare double @rint(double)
 declare float @rintf(float)
 
 ; CHECK: declare x86_fp80 @rintl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @rint(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @rint(double)
+
+; CHECK: declare float @rintf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @rintf(float)
+
+; CHECK: declare x86_fp80 @rintl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @rintl(x86_fp80)
 
 ; CHECK: declare noundef i32 @rmdir(i8* nocapture noundef readonly) [[NOFREE_NOUNWIND]]
 declare i32 @rmdir(i8*)
 
+<<<<<<< HEAD
 ; CHECK: declare double @round(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @round(double)
 
@@ -814,6 +1110,15 @@ declare double @round(double)
 declare float @roundf(float)
 
 ; CHECK: declare x86_fp80 @roundl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @round(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @round(double)
+
+; CHECK: declare float @roundf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @roundf(float)
+
+; CHECK: declare x86_fp80 @roundl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @roundl(x86_fp80)
 
 ; CHECK: declare noundef i32 @scanf(i8* nocapture noundef readonly, ...) [[NOFREE_NOUNWIND]]
@@ -828,6 +1133,7 @@ declare i32 @setitimer(i32, %opaque*, %opaque*)
 ; CHECK: declare noundef i32 @setvbuf(%opaque* nocapture noundef, i8* noundef, i32 noundef, i64 noundef) [[NOFREE_NOUNWIND]]
 declare i32 @setvbuf(%opaque*, i8*, i32, i64)
 
+<<<<<<< HEAD
 ; CHECK: declare double @sin(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @sin(double)
 
@@ -844,6 +1150,24 @@ declare float @sinhf(float)
 declare x86_fp80 @sinhl(x86_fp80)
 
 ; CHECK: declare x86_fp80 @sinl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @sin(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @sin(double)
+
+; CHECK: declare float @sinf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @sinf(float)
+
+; CHECK: declare double @sinh(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @sinh(double)
+
+; CHECK: declare float @sinhf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @sinhf(float)
+
+; CHECK: declare x86_fp80 @sinhl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @sinhl(x86_fp80)
+
+; CHECK: declare x86_fp80 @sinl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @sinl(x86_fp80)
 
 ; CHECK: declare noundef i32 @snprintf(i8* noalias nocapture noundef writeonly, i64 noundef, i8* nocapture noundef readonly, ...) [[NOFREE_NOUNWIND]]
@@ -852,6 +1176,7 @@ declare i32 @snprintf(i8*, i64, i8*, ...)
 ; CHECK: declare noundef i32 @sprintf(i8* noalias nocapture noundef writeonly, i8* nocapture noundef readonly, ...) [[NOFREE_NOUNWIND]]
 declare i32 @sprintf(i8*, i8*, ...)
 
+<<<<<<< HEAD
 ; CHECK: declare double @sqrt(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @sqrt(double)
 
@@ -859,6 +1184,15 @@ declare double @sqrt(double)
 declare float @sqrtf(float)
 
 ; CHECK: declare x86_fp80 @sqrtl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @sqrt(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @sqrt(double)
+
+; CHECK: declare float @sqrtf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @sqrtf(float)
+
+; CHECK: declare x86_fp80 @sqrtl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @sqrtl(x86_fp80)
 
 ; CHECK: declare noundef i32 @sscanf(i8* nocapture noundef readonly, i8* nocapture noundef readonly, ...) [[NOFREE_NOUNWIND]]
@@ -972,6 +1306,7 @@ declare i64 @strxfrm(i8*, i8*, i64)
 ; CHECK: declare noundef i32 @system(i8* nocapture noundef readonly) [[NOFREE]]
 declare i32 @system(i8*)
 
+<<<<<<< HEAD
 ; CHECK: declare double @tan(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare double @tan(double)
 
@@ -988,6 +1323,24 @@ declare float @tanhf(float)
 declare x86_fp80 @tanhl(x86_fp80)
 
 ; CHECK: declare x86_fp80 @tanl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare double @tan(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @tan(double)
+
+; CHECK: declare float @tanf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @tanf(float)
+
+; CHECK: declare double @tanh(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @tanh(double)
+
+; CHECK: declare float @tanhf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @tanhf(float)
+
+; CHECK: declare x86_fp80 @tanhl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare x86_fp80 @tanhl(x86_fp80)
+
+; CHECK: declare x86_fp80 @tanl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @tanl(x86_fp80)
 
 ; CHECK: declare noundef i64 @times(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
@@ -999,6 +1352,7 @@ declare %opaque* @tmpfile()
 ; CHECK-LINUX: declare noalias noundef %opaque* @tmpfile64() [[NOFREE_NOUNWIND]]
 declare %opaque* @tmpfile64()
 
+<<<<<<< HEAD
 ; CHECK: declare i32 @toascii(i32) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
 declare i32 @toascii(i32)
 
@@ -1009,6 +1363,18 @@ declare double @trunc(double)
 declare float @truncf(float)
 
 ; CHECK: declare x86_fp80 @truncl(x86_fp80) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
+=======
+; CHECK: declare i32 @toascii(i32) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare i32 @toascii(i32)
+
+; CHECK: declare double @trunc(double) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare double @trunc(double)
+
+; CHECK: declare float @truncf(float) [[NOFREE_NOUNWIND_WILLRETURN]]
+declare float @truncf(float)
+
+; CHECK: declare x86_fp80 @truncl(x86_fp80) [[NOFREE_NOUNWIND_WILLRETURN]]
+>>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare x86_fp80 @truncl(x86_fp80)
 
 ; CHECK: declare noundef i32 @uname(%opaque* nocapture noundef) [[NOFREE_NOUNWIND]]
@@ -1067,8 +1433,6 @@ declare void @memset_pattern16(i8*, i8*, i64)
 
 
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN]] = { mustprogress nofree nounwind willreturn }
-; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN_WRITEONLY]] = { mustprogress nofree nounwind willreturn writeonly }
-; CHECK-DAG: attributes [[NOFREE_NOUNWIND_WILLRETURN_READNONE]] = { mustprogress nofree nosync nounwind readnone willreturn }
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND]] = { nofree nounwind }
 ; CHECK-DAG: attributes [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN]] = { inaccessiblememonly mustprogress nofree nounwind willreturn }
 ; CHECK-DAG: attributes [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] = { mustprogress nofree nounwind readonly willreturn }
