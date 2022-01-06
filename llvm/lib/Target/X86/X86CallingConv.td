@@ -1073,6 +1073,11 @@ def CC_SVML : CallingConv<[
   CCIfType<[v2i1, v4i1, v8i1, v16i1, v32i1],
            CCCustom<"CC_SVML_Mask">>
 ]>;
+
+def CC_Intel_Features_Init : CallingConv<[
+  CCIfType<[i32], CCAssignToReg<[EAX, ECX]>>,
+  CCIfType<[i64], CCAssignToReg<[RAX, RCX]>>
+]>;
 // endif INTEL_CUSTOMIZATION
 
 // X86-64 Intel OpenCL built-ins calling convention.
@@ -1166,6 +1171,8 @@ def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::SVML_Unified", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_256", CCDelegateTo<CC_SVML>>,
   CCIfCC<"CallingConv::SVML_Unified_512", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::Intel_Features_Init",
+    CCDelegateTo<CC_Intel_Features_Init>>,
 // endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<CC_X86_64>>,
   CCDelegateTo<CC_X86_32>
@@ -1353,6 +1360,15 @@ def CSR_Lin64_Unified_SVML_512 : CalleeSavedRegs<(add CSR_Lin64_Unified_SVML_GPR
                                                   (sequence "YMM%u", 16, 31),
                                                   (sequence "ZMM%u", 16, 31),
                                                   K4, K5, K6, K7)>;
+
+// For intel_cpu_features_init functions, all GPRs (except RAX which is used
+// for return value, and potentially RCX if it has 2 arguments) and common
+// vector registers are callee-saved.
+def CSR_32_Intel_Features_Init : CalleeSavedRegs<(add CSR_32, ECX, EDX,
+                                                  (sequence "XMM%u", 0, 7))>;
+def CSR_64_Intel_Features_Init : CalleeSavedRegs<(add CSR_Win64_NoSSE, RCX, RDX,
+                                                  R8, R9, R10, R11,
+                                                  (sequence "XMM%u", 0, 15))>;
 // endif INTEL_CUSTOMIZATION
 
 // Only R12 is preserved for PHP calls in HHVM.

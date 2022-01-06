@@ -617,6 +617,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(svml_unified_cc);
   KEYWORD(svml_unified_cc_256);
   KEYWORD(svml_unified_cc_512);
+  KEYWORD(intel_features_init_cc);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
   KEYWORD(win64cc);

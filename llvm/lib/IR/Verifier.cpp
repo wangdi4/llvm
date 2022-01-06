@@ -2494,6 +2494,7 @@ void Verifier::visitFunction(const Function &F) {
   case CallingConv::SVML_Unified:
   case CallingConv::SVML_Unified_256:
   case CallingConv::SVML_Unified_512:
+  case CallingConv::Intel_Features_Init:
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::PTX_Kernel:
   case CallingConv::PTX_Device:
