@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-framework -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -analyze -hir-framework -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework -enable-new-pm=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,print<hir-framework>" -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check region liveins/liveouts
 ; CHECK: Region 1
