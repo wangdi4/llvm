@@ -57,7 +57,7 @@ void TwoVersions(void);
 // LINUX-NEXT: br i1 %[[INIT_RESULT]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
 // LINUX: [[INIT_BODY]]:
-// LINUX-NEXT: call void @__intel_cpu_features_init_x()
+// LINUX-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX-NEXT: br label %[[INIT_CMP]]
 
 // LINUX: [[REST]]
@@ -78,7 +78,7 @@ void TwoVersions(void);
 // WINDOWS-NEXT: br i1 %[[INIT_RESULT]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
 // WINDOWS: [[INIT_BODY]]:
-// WINDOWS-NEXT: call void @__intel_cpu_features_init_x()
+// WINDOWS-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS-NEXT: br label %[[INIT_CMP]]
 
 // WINDOWS: [[REST]]
@@ -150,7 +150,7 @@ void TwoVersionsSameAttr(void);
 ATTR(cpu_dispatch(atom, ivybridge, knl))
 void ThreeVersionsSameAttr(void) {}
 // LINUX: define weak_odr void ()* @ThreeVersionsSameAttr.resolver()
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX: ret void ()* @ThreeVersionsSameAttr.Z
 // LINUX: ret void ()* @ThreeVersionsSameAttr.S
 // LINUX: ret void ()* @ThreeVersionsSameAttr.O
@@ -158,7 +158,7 @@ void ThreeVersionsSameAttr(void) {}
 // LINUX: unreachable
 
 // WINDOWS: define weak_odr dso_local void @ThreeVersionsSameAttr() comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS: call void @ThreeVersionsSameAttr.Z
 // WINDOWS-NEXT: ret void
 // WINDOWS: call void @ThreeVersionsSameAttr.S
@@ -172,7 +172,7 @@ void ThreeVersionsSameAttr(void) {}
 ATTR(cpu_dispatch(atom, ivybridge, knl))
 void NoSpecifics(void);
 // LINUX: define weak_odr void ()* @NoSpecifics.resolver()
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX: ret void ()* @NoSpecifics.Z
 // LINUX: ret void ()* @NoSpecifics.S
 // LINUX: ret void ()* @NoSpecifics.O
@@ -180,7 +180,7 @@ void NoSpecifics(void);
 // LINUX: unreachable
 
 // WINDOWS: define weak_odr dso_local void @NoSpecifics() comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS: call void @NoSpecifics.Z
 // WINDOWS-NEXT: ret void
 // WINDOWS: call void @NoSpecifics.S
@@ -193,7 +193,7 @@ void NoSpecifics(void);
 ATTR(cpu_dispatch(atom, generic, ivybridge, knl))
 void HasGeneric(void);
 // LINUX: define weak_odr void ()* @HasGeneric.resolver()
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX: ret void ()* @HasGeneric.Z
 // LINUX: ret void ()* @HasGeneric.S
 // LINUX: ret void ()* @HasGeneric.O
@@ -201,7 +201,7 @@ void HasGeneric(void);
 // LINUX-NOT: call void @llvm.trap
 
 // WINDOWS: define weak_odr dso_local void @HasGeneric() comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS: call void @HasGeneric.Z
 // WINDOWS-NEXT: ret void
 // WINDOWS: call void @HasGeneric.S
@@ -215,7 +215,7 @@ void HasGeneric(void);
 ATTR(cpu_dispatch(atom, generic, ivybridge, knl))
 void HasParams(int i, double d);
 // LINUX: define weak_odr void (i32, double)* @HasParams.resolver()
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX: ret void (i32, double)* @HasParams.Z
 // LINUX: ret void (i32, double)* @HasParams.S
 // LINUX: ret void (i32, double)* @HasParams.O
@@ -223,7 +223,7 @@ void HasParams(int i, double d);
 // LINUX-NOT: call void @llvm.trap
 
 // WINDOWS: define weak_odr dso_local void @HasParams(i32 %0, double %1) comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS: call void @HasParams.Z(i32 %0, double %1)
 // WINDOWS-NEXT: ret void
 // WINDOWS: call void @HasParams.S(i32 %0, double %1)
@@ -237,7 +237,7 @@ void HasParams(int i, double d);
 ATTR(cpu_dispatch(atom, generic, ivybridge, knl))
 int HasParamsAndReturn(int i, double d);
 // LINUX: define weak_odr i32 (i32, double)* @HasParamsAndReturn.resolver()
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX: ret i32 (i32, double)* @HasParamsAndReturn.Z
 // LINUX: ret i32 (i32, double)* @HasParamsAndReturn.S
 // LINUX: ret i32 (i32, double)* @HasParamsAndReturn.O
@@ -245,7 +245,7 @@ int HasParamsAndReturn(int i, double d);
 // LINUX-NOT: call void @llvm.trap
 
 // WINDOWS: define weak_odr dso_local i32 @HasParamsAndReturn(i32 %0, double %1) comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS: %[[RET:.+]] = musttail call i32 @HasParamsAndReturn.Z(i32 %0, double %1)
 // WINDOWS-NEXT: ret i32 %[[RET]]
 // WINDOWS: %[[RET:.+]] = musttail call i32 @HasParamsAndReturn.S(i32 %0, double %1)
@@ -259,14 +259,14 @@ int HasParamsAndReturn(int i, double d);
 ATTR(cpu_dispatch(atom, generic, pentium))
 int GenericAndPentium(int i, double d);
 // LINUX: define weak_odr i32 (i32, double)* @GenericAndPentium.resolver()
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX: ret i32 (i32, double)* @GenericAndPentium.O
 // LINUX: ret i32 (i32, double)* @GenericAndPentium.B
 // LINUX-NOT: ret i32 (i32, double)* @GenericAndPentium.A
 // LINUX-NOT: call void @llvm.trap
 
 // WINDOWS: define weak_odr dso_local i32 @GenericAndPentium(i32 %0, double %1) comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS: %[[RET:.+]] = musttail call i32 @GenericAndPentium.O(i32 %0, double %1)
 // WINDOWS-NEXT: ret i32 %[[RET]]
 // WINDOWS: %[[RET:.+]] = musttail call i32 @GenericAndPentium.B(i32 %0, double %1)
@@ -306,7 +306,7 @@ int DispatchFirst(void) { return 1; }
 ATTR(cpu_dispatch(generic, haswell, broadwell))
 int FullFeatures(void);
 // LINUX: define weak_odr i32 ()* @FullFeatures.resolver
-// LINUX: call void @__intel_cpu_features_init_x()
+// LINUX: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
 // LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 278765548
 // LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 278765548
@@ -317,7 +317,7 @@ int FullFeatures(void);
 // LINUX: ret i32 ()* @FullFeatures.V
 // LINUX: ret i32 ()* @FullFeatures.A
 // WINDOWS: define weak_odr dso_local i32 @FullFeatures() comdat
-// WINDOWS: call void @__intel_cpu_features_init_x()
+// WINDOWS: call intel_features_init_cc void @__intel_cpu_features_init_x()
 // WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
 // WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 278765548
 // WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 278765548

@@ -1770,6 +1770,9 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
     if (CC.hasValue())
       F->setCallingConv(CC.getValue());
   }
+
+  if (llvm::shouldUseIntelFeaturesInitCallConv(F->getName()))
+    F->setCallingConv(llvm::CallingConv::Intel_Features_Init);
 #endif // INTEL_CUSTOMIZATION
 }
 

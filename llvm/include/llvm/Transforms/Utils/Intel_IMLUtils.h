@@ -45,6 +45,9 @@ Optional<CallingConv::ID> getSVMLCallingConvByNameAndType(StringRef FnName,
 /// ICC-built SVML library. This function should be removed along with legacy
 /// SVML calling conventions, after we switch to new Xmain-built SVML libraries.
 CallingConv::ID getLegacyCSVMLCallingConvFromUnified(CallingConv::ID);
+
+/// Returns true if the function should use intel_features_init_cc.
+bool shouldUseIntelFeaturesInitCallConv(StringRef FuncName);
 }
 
 #endif // LLVM_TRANSFORMS_UTILS_INTEL_IMLUTILS_H

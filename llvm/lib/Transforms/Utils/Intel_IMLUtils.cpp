@@ -15,6 +15,7 @@
 
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -133,4 +134,13 @@ CallingConv::ID llvm::getLegacyCSVMLCallingConvFromUnified(CallingConv::ID CC) {
     default:
       llvm_unreachable("Expect one of unified SVML calling conventions");
   }
+}
+
+bool llvm::shouldUseIntelFeaturesInitCallConv(StringRef FuncName) {
+  static const StringSet<> FeatureInitFuncs = {
+      "__intel_cpu_features_init",      "__intel_cpu_features_init_x",
+      "__intel_cpu_features_init_body", "__intel_set_cpu_indicator",
+      "__libirc_set_cpu_feature",       "__libirc_isa_init_once",
+      "__libirc_get_feature_bitpos"};
+  return FeatureInitFuncs.contains(FuncName);
 }

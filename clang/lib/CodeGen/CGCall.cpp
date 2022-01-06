@@ -5813,6 +5813,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     else if (llvm::isSVMLCallingConv(FPtr->getCallingConv()))
       CI->setCallingConv(FPtr->getCallingConv());
   }
+
+  auto *CalleeF = dyn_cast<llvm::Function>(CalleePtr);
+  if (CalleeF && llvm::shouldUseIntelFeaturesInitCallConv(CalleeF->getName()))
+    CI->setCallingConv(llvm::CallingConv::Intel_Features_Init);
 #endif // INTEL_CUSTOMIZATION
 
   // Apply various metadata.

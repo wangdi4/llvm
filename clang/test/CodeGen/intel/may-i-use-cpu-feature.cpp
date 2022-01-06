@@ -16,7 +16,7 @@ bool usage() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -38,7 +38,7 @@ bool usage() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -60,7 +60,7 @@ bool usage_ext_0() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -82,7 +82,7 @@ bool usage_ext_0() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -105,7 +105,7 @@ bool usage_ext_1() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -127,7 +127,7 @@ bool usage_ext_1() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -149,7 +149,7 @@ bool usage_str_0() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -170,7 +170,7 @@ bool usage_str_0() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -192,7 +192,7 @@ bool usage_str_1() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -218,7 +218,7 @@ bool usage_str_1() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -247,7 +247,7 @@ bool zero_features_0() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -263,7 +263,7 @@ bool zero_features_0() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -282,7 +282,7 @@ bool zero_features_1() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -298,7 +298,7 @@ bool zero_features_1() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -317,7 +317,7 @@ bool zero_features_2() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
@@ -334,7 +334,7 @@ bool zero_features_2() {
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
   // CHECK: [[INIT_BODY]]:
-  // CHECK-NEXT: call void @__intel_cpu_features_init_x()
+  // CHECK-NEXT: call intel_features_init_cc void @__intel_cpu_features_init_x()
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
