@@ -1,4 +1,4 @@
-; RUN: opt < %s -O3 -enable-dtrans -prepare-for-lto -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -O3 -enable-dtrans -prepare-for-lto -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-npm-dtrans -passes='lto-pre-link<O3>' -S 2>&1 | FileCheck %s
 
 ; Check that the sequence of stores is not transformed into a llvm.memset,
