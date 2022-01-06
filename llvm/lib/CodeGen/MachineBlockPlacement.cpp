@@ -3226,10 +3226,9 @@ void MachineBlockPlacement::alignBlocks() {
     MachineBasicBlock *LayoutPred =
         &*std::prev(MachineFunction::iterator(ChainBB));
 
-<<<<<<< HEAD
     if (ChainBB->getAlignment() > Align) // INTEL
       continue; // INTEL
-=======
+
     auto DetermineMaxAlignmentPadding = [&]() {
       // Set the maximum bytes allowed to be emitted for alignment.
       unsigned MaxBytes;
@@ -3240,7 +3239,6 @@ void MachineBlockPlacement::alignBlocks() {
       ChainBB->setMaxBytesForAlignment(MaxBytes);
     };
 
->>>>>>> 73d92faa2fc00bff240a22a51974771cd03ed86a
     // Force alignment if all the predecessors are jumps. We already checked
     // that the block isn't cold above.
     if (!LayoutPred->isSuccessor(ChainBB)) {
