@@ -18183,7 +18183,8 @@ This is an overloaded intrinsic.
 ::
 
       declare <vectorty> @llvm.experimental.matrix.fill.*(
-          <type> %Input, i32 <Rows>, i32 <Cols>, metadata <Scope>)
+          <type> %Input, i32 <Rows>, i32 <Cols>,
+          metadata <Layout>, metadata <Scope>)
 
 Overview:
 """""""""
@@ -18195,8 +18196,10 @@ Arguments:
 The first argument ``%Input`` is a value of an integer or floating point type.
 The second and third arguments, ``<Rows>`` and ``<Cols>``, specify the
 number of rows and columns of the matrix, and must be positive, constant
-integers. The fourth argument ``<Scope>`` is a metadata string that specifies
-memory scope for operations on the matrix.
+integers.
+
+The fourth and fifth arguments are metadata strings which specify layout and
+memory scope of the matrix, respectively.
 
 Semantics:
 """"""""""

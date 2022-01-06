@@ -62,6 +62,7 @@ ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 ModulePass *createAddImplicitArgsLegacyPass();
 FunctionPass *createAddFastMathLegacyPass();
+ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();
 ModulePass *createResolveSubGroupWICallLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),

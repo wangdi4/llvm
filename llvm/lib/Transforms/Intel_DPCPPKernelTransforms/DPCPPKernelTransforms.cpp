@@ -46,6 +46,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeRedundantPhiNodeLegacyPass(Registry);
   initializeResolveMatrixWISliceLegacyPass(Registry);
   initializeResolveSubGroupWICallLegacyPass(Registry);
+  initializeResolveMatrixFillLegacyPass(Registry);
   initializeResolveWICallLegacyPass(Registry);
   initializeSetVectorizationFactorLegacyPass(Registry);
   initializeSGBarrierPropagateLegacyPass(Registry);
