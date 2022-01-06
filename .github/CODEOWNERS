@@ -191,6 +191,7 @@ sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
 /llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
 
+<<<<<<< HEAD
 # Front-end compiler
 clang/ @intel/dpcpp-cfe-reviewers
 
@@ -200,14 +201,13 @@ clang/**/Driver/ @intel/dpcpp-clang-driver-reviewers
 # LLVM-SPIRV translator
 llvm-spirv/ @intel/dpcpp-spirv-reviewers
 
+=======
+>>>>>>> 52796bc5fe99cf82ec5f7de369e47a95bc5e44d7
 # OpenCL deps
-opencl/ @intel/llvm-reviewers-runtime
-
-# OpenCL "offline" compiler
-opencl/opencl-aot/ @intel/dpcpp-tools-reviewers
+opencl/ @intel-restricted/llvm-reviewers-runtime
 
 # Device library
-libdevice/ @intel/llvm-reviewers-runtime
+libdevice/ @intel-restricted/llvm-reviewers-runtime
 
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
 /compiler-rt/lib/profile/ @robertcox-github @pvbattin
@@ -597,6 +597,7 @@ libdevice/ @intel/llvm-reviewers-runtime
 **/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake @vzakhari
 **/cmake/ @intel-restricted/cmplrllvm-cmake @vzakhari
 
+<<<<<<< HEAD
 # Documentation
 sycl/ReleaseNotes.md @intel/dpcpp-doc-reviewers
 sycl/doc/ @intel/dpcpp-doc-reviewers
@@ -628,3 +629,8 @@ SYCLLowerIR/ @intel/dpcpp-esimd-reviewers
 esimd/ @intel/dpcpp-esimd-reviewers
 sycl/include/sycl/ext/intel/experimental/esimd.hpp @intel/dpcpp-esimd-reviewers
 sycl/doc/extensions/ExplicitSIMD/ @intel/dpcpp-esimd-reviewers
+=======
+# XPTI instrumentation utilities
+xpti/ @intel-restricted/llvm-reviewers-runtime
+xptifw/ @intel-restricted/llvm-reviewers-runtime
+>>>>>>> 52796bc5fe99cf82ec5f7de369e47a95bc5e44d7
