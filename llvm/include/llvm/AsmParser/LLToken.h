@@ -152,6 +152,7 @@ enum Kind {
   kw_svml_unified_cc,     // INTEL
   kw_svml_unified_cc_256, // INTEL
   kw_svml_unified_cc_512, // INTEL
+  kw_intel_features_init_cc, // INTEL
   kw_arm_apcscc,
   kw_arm_aapcscc,
   kw_arm_aapcs_vfpcc,

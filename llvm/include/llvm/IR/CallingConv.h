@@ -274,6 +274,9 @@ namespace CallingConv {
     SVML_Unified = 108,
     SVML_Unified_256 = 109,
     SVML_Unified_512 = 110,
+
+    /// Used for feature init functions in libirc.
+    Intel_Features_Init = 111,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

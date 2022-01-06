@@ -333,6 +333,7 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::SVML_Unified:  Out << "svml_unified_cc"; break;
   case CallingConv::SVML_Unified_256: Out << "svml_unified_cc_256"; break;
   case CallingConv::SVML_Unified_512: Out << "svml_unified_cc_512"; break;
+  case CallingConv::Intel_Features_Init: Out << "intel_features_init_cc"; break;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::ARM_APCS:      Out << "arm_apcscc"; break;
   case CallingConv::ARM_AAPCS:     Out << "arm_aapcscc"; break;

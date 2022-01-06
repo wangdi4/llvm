@@ -99,6 +99,20 @@ static cl::opt<bool> EnableForceEmitMemoryFormBasicShuffle(
     "x86-force-emit-mem-form-basic-shuffle",
     cl::desc("Forcely emitting vmov{sl,sh,d}dup from memory."), cl::init(false),
     cl::Hidden);
+
+// Returns true if a calling convention has potentially overlap between it's
+// callee-saved registers and registers used for argument passing. In this case,
+// if a register is used for argument passing, it shouldn't be treated as a
+// callee saved register.
+static bool shouldDisableCalleeSavedRegisterForCallConv(CallingConv::ID CC) {
+  switch (CC) {
+    case CallingConv::X86_RegCall:
+    case CallingConv::Intel_Features_Init:
+      return true;
+    default:
+      return isSVMLCallingConv(CC);
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Call this when the user attempts to do something unsupported, like
@@ -3065,9 +3079,8 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // In some cases we need to disable registers from the default CSR list.
   // For example, when they are used for argument passing.
   bool ShouldDisableCalleeSavedRegister =
-      CallConv == CallingConv::X86_RegCall ||
 #if INTEL_CUSTOMIZATION
-      isSVMLCallingConv(CallConv) ||
+      shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
       MF.getFunction().hasFnAttribute("no_caller_saved_registers");
 
@@ -4215,9 +4228,8 @@ SDValue X86TargetLowering::LowerFormalArguments(
     }
   }
 
-  if (CallConv == CallingConv::X86_RegCall ||
 #if INTEL_CUSTOMIZATION
-      isSVMLCallingConv(CallConv) ||
+  if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
@@ -4777,8 +4789,7 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // In some calling conventions we need to remove the used physical registers
   // from the reg mask.
 #if INTEL_CUSTOMIZATION
-  if (CallConv == CallingConv::X86_RegCall || isSVMLCallingConv(CallConv) ||
-      HasNCSR) {
+  if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) || HasNCSR) {
 #endif // INTEL_CUSTOMIZATION
     const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 
