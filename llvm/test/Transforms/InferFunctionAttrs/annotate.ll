@@ -198,11 +198,7 @@ declare double @__sinpi(double)
 ; CHECK: declare float @__sinpif(float)
 declare float @__sinpif(float)
 
-<<<<<<< HEAD
 ; CHECK: declare i32 @abs(i32) [[NOFREE_NOUNWIND_READONLY_WILLRETURN:#[0-9]+]] ;INTEL
-=======
-; CHECK: declare i32 @abs(i32) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]]
->>>>>>> 29b6e967f3e99ac45340ea37a70262c70e4e7528
 declare i32 @abs(i32)
 
 ; CHECK: declare noundef i32 @access(i8* nocapture noundef readonly, i32 noundef) [[NOFREE_NOUNWIND:#[0-9]+]]
