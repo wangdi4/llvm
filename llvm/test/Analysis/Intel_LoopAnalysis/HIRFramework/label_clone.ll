@@ -1,15 +1,16 @@
 ; Check goto cloning
 ; TODO: this test is being throttled due to too many nested ifs but not due to presence of goto. Make detection of gotos stronger.
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-post-vec-complete-unroll -hir-cost-model-throttling=0 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
+; RUN: opt -hir-post-vec-complete-unroll -hir-cost-model-throttling=0 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="print<hir>,hir-post-vec-complete-unroll,print<hir>" -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK: Dump Before HIR PostVec Complete Unroll
+; CHECK: Function: main
 ; CHECK: goto [[LABEL0:L.*]];
 ; CHECK: goto [[LABEL1:L.*]];
 ; CHECK-DAG: [[LABEL0]]:
 ; CHECK-DAG: [[LABEL1]]:
 
-; CHECK: Dump After HIR PostVec Complete Unroll
+; CHECK: Function: main
 ; CHECK: goto [[LABEL0]]{{.*}}.[[NODE01:.*]];
 ; CHECK: goto [[LABEL1]]{{.*}}.[[NODE11:.*]];
 ; CHECK-DAG: <[[NODE01]]>{{.*}}[[LABEL0]]{{.*}}.[[NODE01]]:

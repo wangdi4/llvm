@@ -1,6 +1,7 @@
 ; RUN: opt -loopopt -O2 -hir-print-after-all < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='default<O2>' -loopopt -hir-print-after-all -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK: HIR SSA Deconstruction
+; CHECK: BEGIN REGION
 
 define void @foo(i8* nocapture %p, i32 %n) {
 entry:

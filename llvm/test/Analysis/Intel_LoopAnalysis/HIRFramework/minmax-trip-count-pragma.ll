@@ -1,4 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -enable-new-pm=0 < %s  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output  < %s  2>&1 | FileCheck %s
 
 ; Check that we recognize the min/max/avg loopcount metadata.
 ; Also verify that max trip count estimate is refined using max loopcount metadata.
