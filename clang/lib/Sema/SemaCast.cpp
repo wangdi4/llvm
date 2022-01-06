@@ -1693,7 +1693,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
       msg = 0;
 #if INTEL_CUSTOMIZATION
     // CQ#409860 report warning instead of error in compatibility mode.
-      if (Self.getLangOpts().IntelCompat && Self.getLangOpts().IntelMSCompat)
+      if (Self.getLangOpts().IntelCompat && Self.getLangOpts().MSVCCompat)
         return TC_Extension;
 #endif // INTEL_CUSTOMIZATION
       return TC_Failed;

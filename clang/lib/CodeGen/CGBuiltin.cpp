@@ -2160,7 +2160,10 @@ CodeGenFunction::EmitCpuFeaturesInit(llvm::Function *CalleeFunc) {
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, /*Variadic*/ false);
   llvm::FunctionCallee Func =
       CGM.CreateRuntimeFunction(FTy, "__intel_cpu_features_init_x");
-  Builder.CreateCall(Func);
+  cast<Function>(Func.getCallee())
+      ->setCallingConv(llvm::CallingConv::Intel_Features_Init);
+  llvm::CallInst *CI = Builder.CreateCall(Func);
+  CI->setCallingConv(llvm::CallingConv::Intel_Features_Init);
   Builder.CreateBr(LoopCond);
 
   // Leave the builder in the 'rest' of the function basic block.

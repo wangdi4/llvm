@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify %s
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -fintel-ms-compatibility -DMS -verify %s
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -fms-compatibility -DMS -verify %s
 // RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -pedantic -DPEDANTIC -verify %s
 
 class C {

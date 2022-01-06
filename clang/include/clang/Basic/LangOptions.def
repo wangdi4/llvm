@@ -91,8 +91,6 @@ LANGOPT(OpenMPTBBOnly,      1, 0, "Enable OpenMP TBB only")
 LANGOPT(OpenMPTBBDisabled,  1, 0, "Disable OpenMP TBB only")
 LANGOPT(IntelCompat       , 1, 0,
         "Enables or disables Intel Compiler compatibility mode")
-LANGOPT(IntelMSCompat     , 1, 0,
-        "Enables or disables Microsoft compatibility features that are not planned for clang/llvm trunk")
 LANGOPT(HLS               , 1, 0, "Intel FPGA High Level Synthesis")
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
 LANGOPT(Float128, 1, 0, "128 bit float support")

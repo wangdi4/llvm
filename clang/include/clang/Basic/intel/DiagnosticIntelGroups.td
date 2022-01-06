@@ -15,10 +15,6 @@ def IntelPragma : DiagGroup<"intel-pragma">;
 // A warning group for warnings about Intel compatibility extensions.
 def IntelCompat : DiagGroup<"intel-compat">;
 
-// A warning group for warnings about Intel MS compatibility extensions that are
-// not planned for clang/llvm trunk. CQ#367312.
-def IntelMSCompat : DiagGroup<"intel-ms-compat">;
-
 // A warning group for warnings if '#pragma ivdep' is used for FPGA emulator.
 def IvdepFPGAUsage : DiagGroup<"ivdep-usage">;
 

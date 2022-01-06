@@ -1395,7 +1395,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
 #if INTEL_CUSTOMIZATION
   // Fix for CQ368405: Prologue source correlation is missing.
-  if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
+  if (getLangOpts().IntelCompat && getLangOpts().MSVCCompat)
     if (auto *FD = dyn_cast_or_null<FunctionDecl>(D))
       if (auto *Body = dyn_cast_or_null<CompoundStmt>(FD->getBody()))
         // Emit a location at the start of the prologue.

@@ -470,8 +470,7 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
   }
 
 #if INTEL_CUSTOMIZATION
-  if ((Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128)
-    if (!getTriple().isSPIR())
+  if (Opts.IntelCompat && Opts.Float128 && !getTriple().isSPIR())
        HasFloat128 = true;
 #endif // INTEL_CUSTOMIZATION
 

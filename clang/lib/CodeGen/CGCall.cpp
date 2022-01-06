@@ -3944,7 +3944,7 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // Fix for CQ379239: Emit debug location for return instruction, not
         // eliminated store.
        bool IsIntelandMSCompat =
-           getLangOpts().IntelCompat && getLangOpts().IntelMSCompat;
+           getLangOpts().IntelCompat && getLangOpts().MSVCCompat;
 #endif // INTEL_CUSTOMIZATION
         if (EmitRetDbgLoc && !AutoreleaseResult
 #if INTEL_CUSTOMIZATION
@@ -5813,6 +5813,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     else if (llvm::isSVMLCallingConv(FPtr->getCallingConv()))
       CI->setCallingConv(FPtr->getCallingConv());
   }
+
+  auto *CalleeF = dyn_cast<llvm::Function>(CalleePtr);
+  if (CalleeF && llvm::shouldUseIntelFeaturesInitCallConv(CalleeF->getName()))
+    CI->setCallingConv(llvm::CallingConv::Intel_Features_Init);
 #endif // INTEL_CUSTOMIZATION
 
   // Apply various metadata.

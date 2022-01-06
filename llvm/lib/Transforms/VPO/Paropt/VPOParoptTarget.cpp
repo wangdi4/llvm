@@ -2475,10 +2475,22 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
     if (RedI->getIsF90DopeVector())
       continue;
 #endif // INTEL_CUSTOMIZATION
-    FoundProperItem = true;
 
-    if (RedI->getIsArraySection())
+    if (RedI->getIsArraySection()) {
+      // computeArraySectionTypeOffsetSize() may insert computations
+      // before the target region, if an array section dimension's
+      // lower bound or/and size is not constant. Since the dimension
+      // lb/size values definition may be dominated by the target region,
+      // we cannot easily use them before the target region.
+      // We need more sophisticated code here to be able to do that
+      // correctly. For now just support array sections with constant
+      // section specifiers.
+      const auto &ArrSecInfo = RedI->getArraySectionInfo();
+      if (ArrSecInfo.isArraySectionWithVariableLengthOrOffset())
+        continue;
+
       computeArraySectionTypeOffsetSize(W, *RedI, EntryCI);
+    }
 
     Type *BufTy = nullptr;
     Value *NumElems = nullptr;
@@ -2530,6 +2542,7 @@ bool VPOParoptTransform::addFastGlobalRedBufMap(WRegionNode *W) {
         isTargetSPIRV() ? vpo::ADDRESS_SPACE_GLOBAL : 0);
     NewBuf->addAttribute(VPOParoptAtomicFreeReduction::GlobalBufferAttr);
     addMapForValue(NewBuf, MapType, MapTypeVal, MapSize);
+    FoundProperItem = true;
   }
 
   if (!FoundProperItem)

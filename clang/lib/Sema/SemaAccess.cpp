@@ -1894,7 +1894,7 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
           Entity.getNamingClass() && isa<TypeDecl>(Entity.getTargetDecl()))
         Entity.setDiag(diag::warn_access_type);
       else if (getLangOpts().IntelCompat &&
-               ((!getLangOpts().IntelMSCompat && ParsingTemplateArg) ||
+               ((!getLangOpts().MSVCCompat && ParsingTemplateArg) ||
                 (CurContext->isDependentContext() &&
                  CodeSynthesisContexts.empty())))
         Entity.setDiag(diag::warn_access);

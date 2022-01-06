@@ -2975,7 +2975,7 @@ void Preprocessor::HandleImportDirective(SourceLocation HashLoc,
   if (!LangOpts.ObjC) {  // #import is standard for ObjC.
 #if INTEL_CUSTOMIZATION
 #ifdef _WIN32
-    if (LangOpts.IntelMSCompat)
+    if (LangOpts.IntelCompat && LangOpts.MSVCCompat)
       return HandleMicrosoftImportIntelDirective(HashLoc, ImportTok);
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION

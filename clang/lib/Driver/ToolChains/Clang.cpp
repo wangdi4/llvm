@@ -8443,8 +8443,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // problems for SPIRV translator.
   if (D.IsIntelMode() && !IsSYCLOffloadDevice)
     CmdArgs.push_back("-fintel-compatibility");
-  if (D.IsCLMode() && D.IsIntelMode())
-    CmdArgs.push_back("-fintel-ms-compatibility");
 
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
                    options::OPT_intel_mno_intrinsic_promote, false))

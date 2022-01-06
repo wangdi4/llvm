@@ -987,10 +987,10 @@ void CodeGenModule::Release() {
   if (getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
 #if INTEL_CUSTOMIZATION
-  if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo) {
-    if (getLangOpts().IntelMSCompat)
-      EmitMSDebugInfoMetadata();
-  }
+  if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo &&
+      getLangOpts().IntelCompat && getLangOpts().MSVCCompat)
+    EmitMSDebugInfoMetadata();
+
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (HasTargetCode)
@@ -1772,6 +1772,9 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
     if (CC.hasValue())
       F->setCallingConv(CC.getValue());
   }
+
+  if (llvm::shouldUseIntelFeaturesInitCallConv(F->getName()))
+    F->setCallingConv(llvm::CallingConv::Intel_Features_Init);
 #endif // INTEL_CUSTOMIZATION
 }
 

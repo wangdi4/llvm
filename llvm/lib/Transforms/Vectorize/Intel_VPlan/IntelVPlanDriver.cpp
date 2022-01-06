@@ -527,6 +527,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
                  "single iteration optimization", Plan);
     }
 
+  // VPLoop for the main vector loop in outgoing vectorized code.
+  VPLoop *MainVPLoop = nullptr;
+
   // Do the preparation for CG: create auxiliary loops and merge them into one
   // piece of CFG.
   if (VF > 1) {
@@ -557,6 +560,22 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
           VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
           VPMemRefTrans.transformSOAGEPs(PlanDescr.getVF());
         }
+
+      // Capture opt-report remarks for main VPLoop.
+      if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain) {
+        MainVPLoop = *(cast<VPlanVector>(Plan)->getVPLoopInfo()->begin());
+        addOptReportRemarksForMainPlan(WRLp, PlanDescr);
+      }
+
+      // Capture opt-report remarks for vectorized remainder loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
+          isa<VPlanVector>(Plan))
+        addOptReportRemarksForVecRemainder(PlanDescr);
+
+      // Capture opt-report remarks for vectorized peel loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel &&
+          isa<VPlanVector>(Plan))
+        addOptReportRemarksForVecPeel(PlanDescr);
     }
     LVP.emitPeelRemainderVPLoops(VF, UF);
   }
@@ -600,17 +619,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   CandLoopsVectorized++;
 
-  // VPLoop for the main vector loop in outgoing vectorized code.
-  VPLoop *MainVPLoop = nullptr;
-
-  // Capture opt-report remarks for main VPLoop.
-  for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
-    if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTMain) {
-      MainVPLoop =
-          *(cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo()->begin());
-      addOptReportRemarksForMainPlan(WRLp, PlanDescr);
-    }
-  }
+  // TODO: Move these to VPOCodeGen::finalizeLoop.
   addStatsFromCG<VPOCodeGen>(MainVPLoop, Plan->getVPLoopInfo(), &VCodeGen);
   VCodeGen.lowerVPlanOptReportRemarks();
 
@@ -991,6 +1000,45 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
   ORBuilder(*MainVPLoop, *VPLpInfo)
       .addRemark(OptReportVerbosity::Low, 15305u,
                  Twine(MainPlanDescr.getVF()).str());
+}
+
+void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
+    const CfgMergerPlanDescr &PlanDescr) {
+  assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTRemainder &&
+         "Only remainder loop plan descriptors expected here.");
+  auto *VPLI = cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo();
+  auto *OuterLp = *VPLI->begin();
+
+  // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
+  ORBuilder(*OuterLp, *VPLI).addOrigin(25519u);
+  if (PlanDescr.isNonMaskedVecRemainder())
+    // remark #15439: remainder loop was vectorized (unmasked)
+    ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15439u);
+  else
+    // remark #15440: remainder loop was vectorized (masked)
+    ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15440u);
+
+  // Add remark about VF
+  ORBuilder(*OuterLp, *VPLI)
+      .addRemark(OptReportVerbosity::Low, 15305u,
+                 Twine(PlanDescr.getVF()).str());
+}
+
+void VPlanDriverImpl::addOptReportRemarksForVecPeel(
+    const CfgMergerPlanDescr &PlanDescr) {
+  assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
+         "Only peel loop plan descriptors expected here.");
+  auto *VPLI = cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo();
+  auto *OuterLp = *VPLI->begin();
+
+  // remark #25518: PEELED LOOP FOR VECTORIZATION.
+  ORBuilder(*OuterLp, *VPLI).addOrigin(25518u);
+  // remark #15437: peel loop was vectorized
+  ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15437u);
+  // Add remark about VF
+  ORBuilder(*OuterLp, *VPLI)
+      .addRemark(OptReportVerbosity::Low, 15305u,
+                 Twine(PlanDescr.getVF()).str());
 }
 
 template <typename VPOCodeGenType>
