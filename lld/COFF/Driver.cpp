@@ -208,17 +208,11 @@ void LinkerDriver::addBuffer(std::unique_ptr<MemoryBuffer> mb,
     ctx.symtab.addFile(make<ArchiveFile>(ctx, mbref));
     break;
   case file_magic::bitcode:
-    if (lazy)
-      ctx.symtab.addFile(make<LazyObjFile>(ctx, mbref));
-    else
-      ctx.symtab.addFile(make<BitcodeFile>(ctx, mbref, "", 0));
+    ctx.symtab.addFile(make<BitcodeFile>(ctx, mbref, "", 0, lazy));
     break;
   case file_magic::coff_object:
   case file_magic::coff_import_library:
-    if (lazy)
-      ctx.symtab.addFile(make<LazyObjFile>(ctx, mbref));
-    else
-      ctx.symtab.addFile(make<ObjFile>(ctx, mbref));
+    ctx.symtab.addFile(make<ObjFile>(ctx, mbref, lazy));
     break;
   case file_magic::pdb:
     ctx.symtab.addFile(make<PDBInputFile>(ctx, mbref));
@@ -289,12 +283,17 @@ void LinkerDriver::addArchiveBuffer(MemoryBufferRef mb, StringRef symName,
   if (magic == file_magic::coff_object) {
     obj = make<ObjFile>(ctx, mb);
   } else if (magic == file_magic::bitcode) {
+<<<<<<< HEAD
     obj = make<BitcodeFile>(ctx, mb, parentName, offsetInArchive);
 #if INTEL_CUSTOMIZATION
   } else if (magic == file_magic::coff_cl_gl_object) {
     msGLFilesFound = true;
     return;
   #endif // INTEL_CUSTOMIZATION
+=======
+    obj =
+        make<BitcodeFile>(ctx, mb, parentName, offsetInArchive, /*lazy=*/false);
+>>>>>>> d496abbe2a03721d5d22a697a3a1c5961a55f7f2
   } else {
     error("unknown file type: " + mb.getBufferIdentifier());
     return;
