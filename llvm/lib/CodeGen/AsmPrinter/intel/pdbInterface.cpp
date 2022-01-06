@@ -716,6 +716,7 @@ size_t  pdb_get_signature(unsigned char * buf, size_t maxlen)
     BOOL ok;
 
     ok = (p_PDBQuerySignature2)(pdb_handle, &sig);
+    (void)ok; // INTEL
     ASSERT_PROD(ok, 0, 0, "could not query signature version 2\n");
     move_bytes(buf, (unsigned char *)&sig,sizeof(sig));
     return sizeof(sig);
