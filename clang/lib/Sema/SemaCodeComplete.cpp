@@ -6216,21 +6216,12 @@ QualType Sema::ProduceConstructorSignatureHelp(QualType Type,
             isInitListConstructor(FTD->getTemplatedDecl()))
           continue;
 
-<<<<<<< HEAD
-      AddTemplateOverloadCandidate(
-          FTD, DeclAccessPair::make(FTD, C->getAccess()),
-          /*ExplicitTemplateArgs=*/nullptr, Args, CandidateSet,
-          /*SuppressUserConversions=*/false,
-          /*PartialOverloading=*/true,
-          /*AllowExplicit=*/true);
-=======
         AddTemplateOverloadCandidate(
             FTD, DeclAccessPair::make(FTD, C->getAccess()),
             /*ExplicitTemplateArgs=*/nullptr, Args, CandidateSet,
             /*SuppressUserConversions=*/false,
             /*PartialOverloading=*/true);
       }
->>>>>>> 229c95ab661d89d29a64bff014229b7c6d3ee8a1
     }
     mergeCandidatesWithResults(*this, Results, CandidateSet, Loc, Args.size());
   }
