@@ -2397,11 +2397,32 @@ DevirtModule::lookUpFunctionValueInfo(Function *TheFn,
 
 bool DevirtModule::mustBeUnreachableFunction(
     Function *const F, ModuleSummaryIndex *ExportSummary) {
+#if INTEL_CUSTOMIZATION
+  // Returns true if BB has any side effect instruction. "llvm.trap()”
+  // call is considered as no-side effect instruction for now.
+  auto HasSideEffectBB = [](BasicBlock *BB) {
+    for (auto &I : *BB) {
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+        Function *CallF = CB->getCalledFunction();
+        if (CallF && CallF->getIntrinsicID() == Intrinsic::trap)
+          continue;
+      }
+      if (I.mayHaveSideEffects())
+        return true;
+    }
+    return false;
+  };
+#endif // INTEL_CUSTOMIZATION
   // First, learn unreachability by analyzing function IR.
   if (!F->isDeclaration()) {
     // A function must be unreachable if its entry block ends with an
     // 'unreachable'.
-    return isa<UnreachableInst>(F->getEntryBlock().getTerminator());
+#if INTEL_CUSTOMIZATION
+    // On xmain, a function is considered as unreachable only when no
+    // instruction has side effects.
+    return isa<UnreachableInst>(F->getEntryBlock().getTerminator()) &&
+           !HasSideEffectBB(&F->getEntryBlock());
+#endif // INTEL_CUSTOMIZATION
   }
   // Learn unreachability from ExportSummary if ExportSummary is present.
   return ExportSummary &&

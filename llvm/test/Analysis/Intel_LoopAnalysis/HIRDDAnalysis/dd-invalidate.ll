@@ -5,9 +5,10 @@
 
 ; The test is checking DD edges after invalidation.
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-loop-interchange -hir-dd-analysis -hir-runtime-dd -hir-loop-interchange -hir-dd-analysis -scoped-noalias-aa -analyze -print-after=hir-loop-interchange -hir-dd-analysis-verify=Innermost 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-loop-interchange -hir-dd-analysis -hir-runtime-dd -hir-loop-interchange -hir-dd-analysis -scoped-noalias-aa -analyze -print-after=hir-loop-interchange -hir-dd-analysis-verify=Innermost -enable-new-pm=0 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,print<hir>,print<hir-dd-analysis>,hir-runtime-dd,hir-loop-interchange,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Innermost -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK: IR Dump After HIR Loop Interchange
+; CHECK: Function
 ; CHECK: (%A)[i2][i1]
 
 ; CHECK: DD graph for function
@@ -15,7 +16,7 @@
 ; CHECK-DAG: [[SRC2:[0-9]+]]:[[DST2:[0-9]+]] (%B)[i1 + i2] --> (%A)[i2][i1] ANTI
 ; CHECK-DAG: [[SRC3:[0-9]+]]:[[DST3:[0-9]+]] (%A)[i2][i1] --> (%B)[i1 + i2] FLOW
 
-; CHECK: IR Dump After HIR Loop Interchange
+; CHECK: Function
 ; CHECK: (%A)[i1][i2]
 
 ; CHECK: DD graph for function

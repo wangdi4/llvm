@@ -10665,6 +10665,9 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
                             Other.GenericLoadInfoMap.end());
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
                                 Other.MultiElemLoadStoreInfo.end());
+  FunctionsRequireBadCastValidation.insert(
+      Other.FunctionsRequireBadCastValidation.begin(),
+      Other.FunctionsRequireBadCastValidation.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -10690,6 +10693,9 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
                             Other.GenericLoadInfoMap.end());
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
                                 Other.MultiElemLoadStoreInfo.end());
+  FunctionsRequireBadCastValidation.insert(
+      Other.FunctionsRequireBadCastValidation.begin(),
+      Other.FunctionsRequireBadCastValidation.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;

@@ -1,4 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -enable-new-pm=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that this case compiles successfully. We can have 'flowthrough' region liveouts which do not have any definition inside the region.
 ; In this loop, %t44 which is liveout of the loop is traced back to %t41 which is coming from outside the region.

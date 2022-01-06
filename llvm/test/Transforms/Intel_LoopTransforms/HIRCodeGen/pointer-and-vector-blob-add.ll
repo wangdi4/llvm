@@ -1,4 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -scoped-noalias-aa -hir-loop-reversal -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-cg -disable-output 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -scoped-noalias-aa -hir-loop-reversal -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-cg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-loop-reversal,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -aa-pipeline="scoped-noalias-aa,basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we successfully generate code for this case. An assert was
 ; triggered during codgen because we were trying to convert the pointer blob in
