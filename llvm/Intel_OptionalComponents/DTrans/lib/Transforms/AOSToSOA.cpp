@@ -2482,7 +2482,7 @@ private:
   // types that are not valid on the index type being used. This variable
   // holds the list of incompatible attributes that need to be removed
   // from function signatures and call sites for the cloned routines.
-  AttrBuilder IncompatiblePeelTypeAttrs;
+  AttributeMask IncompatiblePeelTypeAttrs;
 
   // A list of pointer conversion instructions (contains instructions that are
   // pointer to int, int to pointer, or pointer of original type to pointer of
