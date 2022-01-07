@@ -10073,7 +10073,7 @@ void VPWidenMemoryInstructionRecipe::execute(VPTransformState &State) {
         NewLI = Builder.CreateVectorReverse(NewLI, "reverse");
     }
 
-    State.set(getVPSingleValue(), NewLI, Part);
+    State.set(this, NewLI, Part);
   }
 }
 

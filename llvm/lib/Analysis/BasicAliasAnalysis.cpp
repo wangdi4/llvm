@@ -977,7 +977,7 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const CallBase *Call) {
   // than that.
   if (Call->onlyReadsMemory())
     Min = FMRB_OnlyReadsMemory;
-  else if (Call->doesNotReadMemory())
+  else if (Call->onlyWritesMemory())
     Min = FMRB_OnlyWritesMemory;
 
   if (Call->onlyAccessesArgMemory())
@@ -1010,7 +1010,7 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const Function *F) {
   // If the function declares it only reads memory, go with that.
   if (F->onlyReadsMemory())
     Min = FMRB_OnlyReadsMemory;
-  else if (F->doesNotReadMemory())
+  else if (F->onlyWritesMemory())
     Min = FMRB_OnlyWritesMemory;
 
   if (F->onlyAccessesArgMemory())
@@ -1171,7 +1171,7 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
         continue;
       }
       // Operand aliases 'Object' but call only writes into it.
-      if (Call->doesNotReadMemory(OperandNo)) {
+      if (Call->onlyWritesMemory(OperandNo)) {
         Result = setMod(Result);
         continue;
       }
