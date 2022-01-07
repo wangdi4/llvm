@@ -399,22 +399,6 @@ bool llvm::isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, StrDupLike, TLI).hasValue();
 }
 
-Constant *llvm::getInitialValueOfAllocation(const CallInst *Alloc,
-                                            const TargetLibraryInfo *TLI,
-                                            Type *Ty) {
-  assert(isAllocationFn(Alloc, TLI));
-
-  // malloc and aligned_alloc are uninitialized (undef)
-  if (isMallocLikeFn(Alloc, TLI) || isAlignedAllocLikeFn(Alloc, TLI))
-    return UndefValue::get(Ty);
-
-  // calloc zero initializes
-  if (isCallocLikeFn(Alloc, TLI))
-    return Constant::getNullValue(Ty);
-
-  return nullptr;
-}
-
 #if INTEL_CUSTOMIZATION
 /// isLibFreeFunction - Returns true if the function is a builtin free()
 bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
