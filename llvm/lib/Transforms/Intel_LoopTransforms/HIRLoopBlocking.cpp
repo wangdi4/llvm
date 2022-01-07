@@ -884,7 +884,8 @@ static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
 
     SmallVector<RegDDRef *, 8> DelinearizedRefs;
     SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
-    if (!DDRefUtils::delinearizeRefs(Refs, DelinearizedRefs, &GroupSizes)) {
+    if (!DDRefUtils::delinearizeRefs(Refs, DelinearizedRefs, &GroupSizes,
+                                     true)) {
       return NON_SIV;
     }
 

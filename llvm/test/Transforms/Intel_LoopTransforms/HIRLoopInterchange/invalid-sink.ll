@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
-;RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+;RUN: opt -O2 -enable-new-pm=0 -debug-only=hir-loop-interchange  -hir-loop-interchange -disable-output < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="default<O2>,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange -disable-output  < %s 2>&1 | FileCheck %s
 ;
 ;CHECK-NOT: Interchanged
 ;
