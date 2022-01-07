@@ -667,6 +667,59 @@ bool HIRSCCFormation::foundIntermediateSCCNode(
   return false;
 }
 
+bool HIRSCCFormation::isInvalidSCCEdge(const NodeTy *SrcNode,
+                                       const NodeTy *DstNode) const {
+  // Return true if the SCC edge is from an outer loop to inner loop and DstNode
+  // is not a loop header phi.
+  //
+  // This is problematic because we collapse SCC instructions into one temp in
+  // HIR. Before collapsing, there was no recursive definition of temp in the
+  // inner loop because a recursive definition requires a loop header phi (to
+  // complete def-use cycle), which the DstNode is not. But after collapsing we
+  // made the temp recursive in the inner loop which violates program semantics.
+  //
+  // For example, consider the edge from %t1 to %t2 in the SCC %t1 -> %t2 ->
+  // %t2.lcssa.
+  //
+  // OuterLoop:
+  //   %t1 = phi [ %init, %pre], [ %t2.lcssa, %latch]
+  //
+  //   InnerLoop:
+  //     %t3 = load
+  //     %t2 = add %t1, %t3
+  //   End InnerLoop
+  //     %t2.lcssa = phi [ %t2, %InnerLoop]
+  //
+  // End OuterLoop
+  //
+  // Before collasping, the last iteration value of %t2 was flowing out of
+  // InnerLoop. Collapsing %t1 and %t2 will make the add instruction like this-
+  // %t1 = %t1 + %t3
+  //
+  // Thus, it will update in every iteration of InnerLoop which is incorrect.
+
+  if (CurLoop->isInnermost()) {
+    return false;
+  }
+
+  auto *SrcLp = LI.getLoopFor(SrcNode->getParent());
+  auto *DstLp = LI.getLoopFor(DstNode->getParent());
+  assert(SrcLp && DstLp && "Could not find parent loop of SCC inst!");
+
+  if (SrcLp == DstLp) {
+    return false;
+  }
+
+  // Use in the loop header phi is always valid.
+  auto *DstPhi = dyn_cast<PHINode>(DstNode);
+
+  if (DstPhi && (DstPhi->getParent() == DstLp->getHeader())) {
+    return false;
+  }
+
+  return SrcLp->contains(DstLp);
+}
+
 bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
                                           const SCC &CurSCC) const {
 
@@ -680,6 +733,10 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
 
     if (!CurSCC.contains(UserInst)) {
       continue;
+    }
+
+    if (isInvalidSCCEdge(Node, UserInst)) {
+      return true;
     }
 
     // Found an SCC def-use edge. Now check if another SCC node lies between the

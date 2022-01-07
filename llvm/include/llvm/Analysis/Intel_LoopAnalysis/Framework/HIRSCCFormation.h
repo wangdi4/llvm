@@ -185,6 +185,10 @@ private:
       const Instruction *TargetNode, const SCC &CurSCC,
       SmallPtrSet<const BasicBlock *, 8> &VisitedBBs) const;
 
+  /// Returns true if the edge from \p SrcNode to \p DstNode represents an
+  /// invalid SCC edge.
+  bool isInvalidSCCEdge(const NodeTy *SrcNode, const NodeTy *DstNode) const;
+
   /// Returns true if there is live range overlap on SCC edges originating from
   /// \p Node.
   bool hasLiveRangeOverlap(const NodeTy *Node, const SCC &CurSCC) const;
