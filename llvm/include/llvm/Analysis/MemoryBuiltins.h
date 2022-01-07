@@ -188,6 +188,7 @@ Value *getMallocArraySize(CallInst *CI, const DataLayout &DL,
                           bool LookThroughSExt = false);
 
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 //  calloc Call Utility Functions.
 //
 
@@ -200,6 +201,8 @@ inline CallInst *extractCallocCall(Value *I, const TargetLibraryInfo *TLI) {
 
 
 //===----------------------------------------------------------------------===//
+=======
+>>>>>>> 4b0fc924a93c9138868df7215267a09ee63b35eb
 //  free Call Utility Functions.
 //
 
