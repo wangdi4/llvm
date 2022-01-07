@@ -173,6 +173,14 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
     }
     StringRef CPU = ArchMap.lookup(A->getValue());
     if (CPU.empty()) {
+#if INTEL_CUSTOMIZATION
+      // Handle 'other' /arch variations that are allowed for icx/Intel
+      std::string IntelCPU = getCPUForIntel(A->getValue(), Triple, true);
+      if (!IntelCPU.empty()) {
+        A->claim();
+        return IntelCPU;
+      }
+#endif // INTEL_CUSTOMIZATION
       std::vector<StringRef> ValidArchs{ArchMap.keys().begin(),
                                         ArchMap.keys().end()};
       sort(ValidArchs);
@@ -180,14 +188,6 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
           << A->getValue() << (Triple.getArch() == llvm::Triple::x86)
           << join(ValidArchs, ", ");
     }
-#if INTEL_CUSTOMIZATION
-    // Handle 'other' /arch variations that are allowed for icx/Intel
-    std::string IntelCPU = getCPUForIntel(A->getValue(), Triple, true);
-    if (!IntelCPU.empty()) {
-      A->claim();
-      return IntelCPU;
-    }
-#endif // INTEL_CUSTOMIZATION
     return std::string(CPU);
   }
 
