@@ -399,9 +399,6 @@ bool llvm::isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, StrDupLike, TLI).hasValue();
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
 Constant *llvm::getInitialValueOfAllocation(const CallBase *Alloc,
                                             const TargetLibraryInfo *TLI,
                                             Type *Ty) {
@@ -418,7 +415,7 @@ Constant *llvm::getInitialValueOfAllocation(const CallBase *Alloc,
   return nullptr;
 }
 
->>>>>>> 6b0ff0969d0563d5263d0df6b37028fc1659c97e
+#if INTEL_CUSTOMIZATION
 /// isLibFreeFunction - Returns true if the function is a builtin free()
 bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   if (isLibDeleteFunction(F, TLIFn))
