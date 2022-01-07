@@ -3,7 +3,9 @@
   ;   for(k=0; k<N; k++)
    ;      c[i][j] = c[i][j] + a[i][k] * b[k][j] + d[j] + d[j+1];
 ; REQUIRES: asserts
-; RUN: opt -O2 -loopopt -debug-only=hir-loop-interchange -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O2 -loopopt -debug-only=hir-loop-interchange -hir-loop-interchange -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="default<O2>,hir-loop-interchange" -aa-pipeline="basic-aa" -loopopt -debug-only=hir-loop-interchange -disable-output < %s 2>&1 | FileCheck %s
+;
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 1 3 2 )
 ;
