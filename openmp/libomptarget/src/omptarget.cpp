@@ -631,7 +631,6 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;
         }
-<<<<<<< HEAD
 #if INTEL_COLLAB
         // Obtain offset from the base address of PointerTgtPtrBegin.
         Device.DataMapMtx.lock();
@@ -642,7 +641,6 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
             (uint64_t)PtrLookup.Entry->HstPtrBase);
         Device.notifyIndirectAccess(PointerTgtPtrBegin, PtrOffset);
 #endif // INTEL_COLLAB
-=======
         void *Event = Pointer_TPR.MapTableEntry->getEvent();
         bool NeedNewEvent = Event == nullptr;
         if (NeedNewEvent && Device.createEvent(&Event) != OFFLOAD_SUCCESS) {
@@ -663,7 +661,6 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
         if (NeedNewEvent)
           Pointer_TPR.MapTableEntry->setEvent(Event);
         Pointer_TPR.MapTableEntry->unlock();
->>>>>>> 9584c6fa2fe216522b86ee5422147b511c73cb4a
       } else
         Device.ShadowMtx.unlock();
     }
