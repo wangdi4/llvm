@@ -1340,26 +1340,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         // made dead by this operation on other functions).
         Callee.removeDeadConstantUsers();
         if (Callee.use_empty() && !CG.isLibFunction(Callee)) {
-<<<<<<< HEAD
-          Calls->erase_if([&](const std::pair<CallBase *, int> &Call) {
-            return Call.first->getCaller() == &Callee;
-          });
-          MDReport->setDead(&Callee); // INTEL
-          // Clear the body and queue the function itself for deletion when we
-          // finish inlining and call graph updates.
-          // Note that after this point, it is an error to do anything other
-          // than use the callee's address or delete it.
-          Callee.dropAllReferences();
-          assert(!is_contained(DeadFunctions, &Callee) &&
-                 "Cannot put cause a function to become dead twice!");
-          DeadFunctions.push_back(&Callee);
-          ILIC->invalidateFunction(&Callee);         // INTEL
-          CalleeWasDeleted = true;
-=======
           if (Callee.hasLocalLinkage() || !Callee.hasComdat()) {
             Calls->erase_if([&](const std::pair<CallBase *, int> &Call) {
               return Call.first->getCaller() == &Callee;
             });
+            MDReport->setDead(&Callee); // INTEL
             // Clear the body and queue the function itself for deletion when we
             // finish inlining and call graph updates.
             // Note that after this point, it is an error to do anything other
@@ -1368,11 +1353,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
             assert(!is_contained(DeadFunctions, &Callee) &&
                    "Cannot put cause a function to become dead twice!");
             DeadFunctions.push_back(&Callee);
+            ILIC->invalidateFunction(&Callee);         // INTEL
             CalleeWasDeleted = true;
           } else {
             DeadFunctionsInComdats.push_back(&Callee);
           }
->>>>>>> 335a3163aab4ab3a52c7c15d03bcf1ce9ba79fbb
         }
       }
       if (CalleeWasDeleted)
