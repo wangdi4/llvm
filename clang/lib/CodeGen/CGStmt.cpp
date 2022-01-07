@@ -2501,29 +2501,6 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
     const TargetInfo::ConstraintInfo &Info, LValue InputValue,
     QualType InputType, std::string &ConstraintStr, SourceLocation Loc) {
   if (Info.allowsRegister() || !Info.allowsMemory()) {
-<<<<<<< HEAD
-    if (CodeGenFunction::hasScalarEvaluationKind(InputType)) {
-      Arg = EmitLoadOfLValue(InputValue, Loc).getScalarVal();
-    } else {
-      llvm::Type *Ty = ConvertType(InputType);
-      uint64_t Size = CGM.getDataLayout().getTypeSizeInBits(Ty);
-      if ((Size <= 64 && llvm::isPowerOf2_64(Size)) ||
-          getTargetHooks().isScalarizableAsmOperand(*this, Ty)) {
-        Ty = llvm::IntegerType::get(getLLVMContext(), Size);
-#if INTEL_COLLAB
-        llvm::PointerType *PTy = InputValue.getAddress(*this).getType();
-        Ty = llvm::PointerType::get(Ty, PTy->getAddressSpace());
-#else // INTEL_COLLAB
-        Ty = llvm::PointerType::getUnqual(Ty);
-#endif // INTEL_COLLAB
-
-        Arg = Builder.CreateLoad(
-            Builder.CreateBitCast(InputValue.getAddress(*this), Ty));
-      } else {
-        Arg = InputValue.getPointer(*this);
-        ConstraintStr += '*';
-      }
-=======
     if (CodeGenFunction::hasScalarEvaluationKind(InputType))
       return {EmitLoadOfLValue(InputValue, Loc).getScalarVal(), nullptr};
 
@@ -2532,12 +2509,16 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
     if ((Size <= 64 && llvm::isPowerOf2_64(Size)) ||
         getTargetHooks().isScalarizableAsmOperand(*this, Ty)) {
       Ty = llvm::IntegerType::get(getLLVMContext(), Size);
-      Ty = llvm::PointerType::getUnqual(Ty);
+#if INTEL_COLLAB
+        llvm::PointerType *PTy = InputValue.getAddress(*this).getType();
+        Ty = llvm::PointerType::get(Ty, PTy->getAddressSpace());
+#else // INTEL_COLLAB
+        Ty = llvm::PointerType::getUnqual(Ty);
+#endif // INTEL_COLLAB
 
       return {Builder.CreateLoad(
                   Builder.CreateBitCast(InputValue.getAddress(*this), Ty)),
               nullptr};
->>>>>>> e8b98a5216dbfdaa31f7016955f9586cef94a626
     }
   }
 

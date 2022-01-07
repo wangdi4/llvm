@@ -62,20 +62,13 @@ int f2() {
 
     // CHECK: store i32 6, i32* [[X]]
 
-    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull [[X]] ;INTEL
+    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull elementtype(i32) [[X]] ;INTEL
     // CHECK-NEXT: call void @foo()                                        ;INTEL
     // CHECK-NEXT: call void @objc_exception_try_exit                      ;INTEL
     // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]                        ;INTEL
 
     x++;
-<<<<<<< HEAD
     // ;INTEL  4 lines from here moved up verbatim
-=======
-    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull elementtype(i32) [[X]]
-    // CHECK-NEXT: call void @foo()
-    // CHECK-NEXT: call void @objc_exception_try_exit
-    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]
->>>>>>> e8b98a5216dbfdaa31f7016955f9586cef94a626
     foo();
   } @catch (id) {
     x--;
