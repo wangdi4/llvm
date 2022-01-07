@@ -511,17 +511,7 @@ Value *llvm::getMallocArraySize(CallInst *CI, const DataLayout &DL,
   return computeArraySize(CI, DL, TLI, LookThroughSExt);
 }
 
-<<<<<<< HEAD
-/// extractCallocCall - Returns the corresponding CallInst if the instruction
-/// is a calloc call.
-const CallInst *llvm::extractCallocCall(const Value *I,
-                                        const TargetLibraryInfo *TLI) {
-  return isCallocLikeFn(I, TLI) ? cast<CallInst>(I) : nullptr;
-}
-
 #if INTEL_CUSTOMIZATION
-=======
->>>>>>> 4b0fc924a93c9138868df7215267a09ee63b35eb
 /// isLibFreeFunction - Returns true if the function is a builtin free()
 bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   if (isLibDeleteFunction(F, TLIFn))
