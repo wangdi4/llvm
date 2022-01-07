@@ -678,6 +678,9 @@ def ax_EQ : CommaJoined<["-"], "ax=">,
   Alias<ax>;
 def _intel : Flag<["--"], "intel">, Flags<[NoXarchOption, CoreOption]>,
   HelpText<"Run in Intel Compiler mode">;
+def intel_config : Separate<["--"], "intel-config">,
+  Flags<[NoXarchOption, CoreOption, HelpHidden]>,
+  HelpText<"Specifies default Intel configuration file">;
 def shared_intel : Flag<["-"], "shared-intel">, Flags<[NoXarchOption]>,
   HelpText<"link Intel provided libraries dynamically">;
 def static_intel : Flag<["-"], "static-intel">, Flags<[NoXarchOption]>,
