@@ -567,20 +567,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setArgNoUndef(F, 1);
     return Changed;
-<<<<<<< HEAD
-  case LibFunc_reallocf:
-    Changed |= setRetNoUndef(F);
-    Changed |= setWillReturn(F);
-    Changed |= setArgNoUndef(F, 1);
-    return Changed;
 #if INTEL_CUSTOMIZATION
   case LibFunc_re_compile_fastmap:
     return Changed;
   case LibFunc_re_search_2:
     return Changed;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 348bc76e3548c52dbcd442590ca0a7f5b09b7534
   case LibFunc_read:
 #if INTEL_CUSTOMIZATION
   // NOTE: The libfunc read is an alias to _read in Windows
