@@ -4362,6 +4362,15 @@ void CGDebugInfo::EmitFuncDeclForCallSite(llvm::CallBase *CallOrInvoke,
       ReservedIdentifierStatus::NotReserved)
     return;
 
+#if INTEL_CUSTOMIZATION
+  // Do not emit a declaration subprogram for a cpu-dispatch/cpu-specific
+  // resolver function (that is not an ifunc). We can only get to here when
+  // -disable-cpudispatch-ifuncs is enabled as ifuncs don't get here.
+  if (CalleeDecl->isCPUDispatchMultiVersion() ||
+      CalleeDecl->isCPUSpecificMultiVersion())
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   // If there is no DISubprogram attached to the function being called,
   // create the one describing the function in order to have complete
   // call site debug info.
