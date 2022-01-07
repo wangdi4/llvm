@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveSubGroupWICall.h"
-#include "RuntimeService.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -17,6 +16,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
@@ -48,6 +48,10 @@ public:
 
   bool runOnModule(Module &M) override;
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
+  }
+
 private:
   ResolveSubGroupWICallPass Impl;
 };
@@ -55,8 +59,11 @@ private:
 
 char ResolveSubGroupWICallLegacy::ID = 0;
 
-INITIALIZE_PASS(ResolveSubGroupWICallLegacy, DEBUG_TYPE,
-                "Resolve Sub Group WI functions", false, false)
+INITIALIZE_PASS_BEGIN(ResolveSubGroupWICallLegacy, DEBUG_TYPE,
+                      "Resolve Sub Group WI functions", false, false)
+INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+INITIALIZE_PASS_END(ResolveSubGroupWICallLegacy, DEBUG_TYPE,
+                    "Resolve Sub Group WI functions", false, false)
 
 ResolveSubGroupWICallLegacy::ResolveSubGroupWICallLegacy(
     const SmallVector<Module *, 2> &BuiltinModules, bool ResolveSGBarrier)
@@ -65,7 +72,9 @@ ResolveSubGroupWICallLegacy::ResolveSubGroupWICallLegacy(
 }
 
 bool ResolveSubGroupWICallLegacy::runOnModule(Module &M) {
-  return Impl.runImpl(M);
+  BuiltinLibInfo *BLI =
+      &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
+  return Impl.runImpl(M, BLI);
 }
 
 ModulePass *llvm::createResolveSubGroupWICallLegacyPass(
@@ -78,19 +87,18 @@ ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(
     : ResolveSGBarrier(ResolveSGBarrier), BuiltinModules(BuiltinModules) {}
 
 PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
-                                                 ModuleAnalysisManager &) {
-  if (!runImpl(M))
+                                                 ModuleAnalysisManager &AM) {
+  BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
+  if (!runImpl(M, BLI))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
 
-bool ResolveSubGroupWICallPass::runImpl(Module &M) {
-  SmallVector<std::unique_ptr<Module>, 2> BIModuleList;
-  if (BuiltinModules.empty()) {
-    BIModuleList = loadBuiltinModulesFromCommandLine(M.getContext());
-    transform(BIModuleList, std::back_inserter(BuiltinModules),
-              [](auto &BIModule) { return BIModule.get(); });
-  }
+bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
+  if (BuiltinModules.empty())
+    BuiltinModules = BLI->getBuiltinModules();
+  RTService = BLI->getRuntimeService();
+  assert(RTService && "Invalid runtime service");
 
   // Get all kernels.
   FuncSet Kernels = getAllKernels(M);
@@ -467,7 +475,7 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   IRBuilder<> Builder(InsertBefore);
   CallInst *CI = cast<CallInst>(InsertBefore);
   std::string AtomicWIFenceName = mangledAtomicWorkItemFence();
-  auto *AtomicWIFenceBIF = RuntimeService::findFunctionInBuiltinModules(
+  auto *AtomicWIFenceBIF = RTService->findFunctionInBuiltinModules(
       BuiltinModules, AtomicWIFenceName);
   assert(AtomicWIFenceBIF && "atomic_work_item_fence not found in BI library!");
 

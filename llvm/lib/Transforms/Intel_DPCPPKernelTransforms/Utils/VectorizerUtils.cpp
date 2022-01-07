@@ -10,11 +10,11 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 #include "NameMangleAPI.h"
-#include "RuntimeService.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 namespace llvm {
 
@@ -362,10 +362,11 @@ static bool isShuffleVectorTruncate(ShuffleVectorInst *SVI) {
 
 namespace VectorizerUtils {
 
-bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
+bool CanVectorize::canVectorizeForVPO(Function &F, RuntimeService *RTService,
+                                      FuncSet &UnsupportedFuncs,
                                       bool EnableDirectCallVectorization,
                                       bool EnableSGDirectCallVectorization) {
-  if (hasVariableGetTIDAccess(F))
+  if (hasVariableGetTIDAccess(F, RTService))
     return false;
 
   if (!EnableDirectCallVectorization) {
@@ -380,11 +381,12 @@ bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
   return true;
 }
 
-bool CanVectorize::hasVariableGetTIDAccess(Function &F) {
+bool CanVectorize::hasVariableGetTIDAccess(Function &F,
+                                           RuntimeService *RTService) {
   for (auto &I : instructions(F)) {
     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
       bool Err;
-      std::tie(std::ignore, Err) = RuntimeService::isTIDGenerator(CI);
+      std::tie(std::ignore, Err, std::ignore) = RTService->isTIDGenerator(CI);
       // We are unable to vectorize this code because get_global_id is messed
       // up.
       if (Err)

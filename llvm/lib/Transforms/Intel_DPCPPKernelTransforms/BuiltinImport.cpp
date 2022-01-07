@@ -16,6 +16,7 @@
 #include "llvm/Linker/Linker.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
@@ -46,13 +47,16 @@ public:
     initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
   }
 
-  ~BuiltinImportLegacy() {}
-
   StringRef getPassName() const override { return "BuiltinImportLegacy"; }
 
-  bool runOnModule(Module &M) override;
+  bool runOnModule(Module &M) override {
+    BuiltinLibInfo *BLI =
+        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
+    return Impl.runImpl(M, BLI);
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     AU.addPreserved<ImplicitArgsAnalysisLegacy>();
   }
 };
@@ -63,10 +67,9 @@ char BuiltinImportLegacy::ID = 0;
 
 INITIALIZE_PASS_BEGIN(BuiltinImportLegacy, DEBUG_TYPE,
                       "DPCPP builtin import pass", false, false)
+INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_END(BuiltinImportLegacy, DEBUG_TYPE,
                     "DPCPP builtin import pass", false, false)
-
-bool BuiltinImportLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
 ModulePass *llvm::createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules, StringRef CPUPrefix) {
@@ -74,7 +77,7 @@ ModulePass *llvm::createBuiltinImportLegacyPass(
 }
 
 static Function *FindFunctionDef(const Function *F,
-                                 SmallVectorImpl<Module *> &Modules) {
+                                 ArrayRef<Module *> Modules) {
   assert(F && "Invalid function.");
   for (auto M : Modules) {
     assert(M && "Invalid module.");
@@ -88,7 +91,7 @@ static Function *FindFunctionDef(const Function *F,
 }
 
 static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
-                                     SmallVectorImpl<Module *> &Modules) {
+                                     ArrayRef<Module *> Modules) {
   assert(GV && "Invalid global variable.");
   for (auto M : Modules) {
     assert(M && "Invalid module.");
@@ -204,7 +207,7 @@ void BuiltinImportPass::GetCalledFunctions(const Function *F,
   }
 }
 
-static void ExploreOperand(Value *Op, SmallVectorImpl<Module *> &Modules,
+static void ExploreOperand(Value *Op, ArrayRef<Module *> Modules,
                            SetVector<GlobalValue *> &UsedFunctions,
                            SetVector<GlobalVariable *> &UsedGlobals) {
   // Operand may be a ConstantExpr, so we need to recursively check its
@@ -222,8 +225,7 @@ static void ExploreOperand(Value *Op, SmallVectorImpl<Module *> &Modules,
   }
 }
 
-void BuiltinImportPass::ExploreUses(Function *Root,
-                                    SmallVectorImpl<Module *> &Modules,
+void BuiltinImportPass::ExploreUses(Function *Root, ArrayRef<Module *> Modules,
                                     SetVector<GlobalValue *> &UsedFunctions,
                                     SetVector<GlobalVariable *> &UsedGlobals,
                                     FuncVec &SvmlFunctions) {
@@ -403,15 +405,12 @@ static void unifyMinLegalVectorWidthAttr(Module &M) {
   }
 }
 
-bool BuiltinImportPass::runImpl(Module &M) {
+bool BuiltinImportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   if (CPUPrefix.empty())
     CPUPrefix = OptCPUPrefix;
-  SmallVector<std::unique_ptr<Module>, 2> BIModuleList;
-  if (BuiltinModules.empty()) {
-    BIModuleList = loadBuiltinModulesFromCommandLine(M.getContext());
-    transform(BIModuleList, std::back_inserter(BuiltinModules),
-              [](auto &BIModule) { return BIModule.get(); });
-  }
+
+  if (BuiltinModules.empty())
+    BuiltinModules = BLI->getBuiltinModules();
 
   // Remember user module function pointers, so we could set linkonce_odr
   // to only imported functions.
@@ -559,8 +558,9 @@ bool BuiltinImportPass::runImpl(Module &M) {
   return true;
 }
 
-PreservedAnalyses BuiltinImportPass::run(Module &M, ModuleAnalysisManager &) {
-  if (!runImpl(M))
+PreservedAnalyses BuiltinImportPass::run(Module &M, ModuleAnalysisManager &AM) {
+  BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
+  if (!runImpl(M, BLI))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;

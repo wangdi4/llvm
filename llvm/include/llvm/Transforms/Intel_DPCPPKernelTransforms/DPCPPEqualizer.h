@@ -15,6 +15,8 @@
 
 namespace llvm {
 
+class BuiltinLibInfo;
+
 /// Adjust the given module to be processed by the BE.
 /// - replaces SPIR artifacts with Intel-implementation specific stuff.
 /// - updates LLVM IR to version supported by back-end compiler
@@ -28,7 +30,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
 private:
   /// Set block-literal-size attribute for enqueued kernels.

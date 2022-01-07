@@ -17,6 +17,8 @@
 
 namespace llvm {
 
+class BuiltinLibInfo;
+
 /// Import builtin function from builtin modules.
 class BuiltinImportPass : public PassInfoMixin<BuiltinImportPass> {
 public:
@@ -29,7 +31,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
 private:
   using FuncVec = SmallVector<Function *, 8>;
@@ -55,14 +57,14 @@ private:
   /// \param UsedFunctions functions used by the \p Root.
   /// \param UsedGlobals global variables used by the \p Root.
   /// \param SvmlFunctions Shared svml functions used by the \p Root.
-  void ExploreUses(Function *Root, SmallVectorImpl<Module *> &Modules,
+  void ExploreUses(Function *Root, ArrayRef<Module *> Modules,
                    SetVector<GlobalValue *> &UsedFunctions,
                    SetVector<GlobalVariable *> &UsedGlobals,
                    FuncVec &SvmlFunctions);
 
 private:
   /// Source module list - contains the source functions to import.
-  SmallVector<Module *, 2> BuiltinModules;
+  ArrayRef<Module *> BuiltinModules;
 
   /// Holds cpu perfix that would replace 'shared' substr in svml funcs.
   StringRef CPUPrefix;
