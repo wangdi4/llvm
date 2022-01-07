@@ -159,21 +159,6 @@ bool isAllocationLibFunc(LibFunc LF);
 //  malloc Call Utility Functions.
 //
 
-<<<<<<< HEAD
-/// extractMallocCall - Returns the corresponding CallInst if the instruction
-/// is a malloc call.  Since CallInst::CreateMalloc() only creates calls, we
-/// ignore InvokeInst here.
-const CallInst *
-extractMallocCall(const Value *I,
-                  function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
-inline CallInst *
-extractMallocCall(Value *I,
-                  function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
-  return const_cast<CallInst *>(extractMallocCall((const Value *) I, GetTLI));
-}
-
-=======
->>>>>>> 67a3331e4f6d339a09f07e823b4be8404a59d761
 /// getMallocAllocatedType - Returns the Type allocated by malloc call.
 /// The Type depends on the number of bitcast uses of the malloc call:
 ///   0: PointerType is the malloc calls' return type.
