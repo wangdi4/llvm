@@ -678,6 +678,9 @@ def ax_EQ : CommaJoined<["-"], "ax=">,
   Alias<ax>;
 def _intel : Flag<["--"], "intel">, Flags<[NoXarchOption, CoreOption]>,
   HelpText<"Run in Intel Compiler mode">;
+def intel_config : Separate<["--"], "intel-config">,
+  Flags<[NoXarchOption, CoreOption, HelpHidden]>,
+  HelpText<"Specifies default Intel configuration file">;
 def shared_intel : Flag<["-"], "shared-intel">, Flags<[NoXarchOption]>,
   HelpText<"link Intel provided libraries dynamically">;
 def static_intel : Flag<["-"], "static-intel">, Flags<[NoXarchOption]>,
@@ -6903,9 +6906,6 @@ def fintel_compatibility_help
 def fintel_compatibility_doc
     : Joined<[ "-" ], "fintel-compatibility-doc=">,
       HelpText<"Display help information for Intel C/C++ compatibility items">;
-def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
-  HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">,
-  Flags<[Ignored]>;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
   HelpText<"Enable Intel specific advanced optimizations">,
   MarshallingInfoFlag<CodeGenOpts<"IntelAdvancedOptim">>;

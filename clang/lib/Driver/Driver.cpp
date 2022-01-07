@@ -1626,6 +1626,25 @@ bool Driver::loadConfigFile() {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Processing the default configuration file as specified by the
+  // --intel-config option that is passed in exclusively by the icx/icpx
+  // wrapper.  This is only read in if the --config file has not been passed.
+  // TODO:  Allow for the clang driver to process the default config files
+  // (icpx.cfg, icx.cfg, etc) and not have them passed in by the wrapper.
+  if (CLOptions) {
+    SmallString<128> CfgFilePath(
+        CLOptions->getLastArgValue(options::OPT_intel_config));
+    if (CfgFilePath.size() > 0 && llvm::sys::fs::is_regular_file(CfgFilePath)) {
+      if (!readConfigFile(CfgFilePath))
+        // The default .cfg file can be empty, allow for more config processing
+        // if it is.
+        if (CfgOptions.get()->size() > 0)
+          return false;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // If config file is not specified explicitly, try to deduce configuration
   // from executable name. For instance, an executable 'armv7l-clang' will
   // search for config file 'armv7l-clang.cfg'.
@@ -6297,6 +6316,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   // TODO: Consider a more generic claiming for internal Intel options
   Args.ClaimAllArgs(options::OPT_i_no_use_libirc);
   Args.ClaimAllArgs(options::OPT_i_allow_all_opts);
+  Args.ClaimAllArgs(options::OPT_intel_config);
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: Linking separate translation units for SPIR-V is not supported yet.

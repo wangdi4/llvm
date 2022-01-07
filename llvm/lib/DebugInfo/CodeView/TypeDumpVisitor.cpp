@@ -579,7 +579,8 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
 
   auto Indices = OEMType.getTypeIndices();
   auto Data = OEMType.getData();
-  W->printNumber("Count", Indices.size());
+  uint32_t Size = Indices.size();
+  W->printNumber("Count", Size);
 
   if (OEMType.isF90DescribedArray()) {
     printTypeIndex("ElementType", Indices[0]);
