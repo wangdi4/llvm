@@ -423,6 +423,7 @@ bool llvm::isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI,
   return getAllocationData(V, StrDupLike, TLI, LookThroughBitCast).hasValue();
 }
 
+<<<<<<< HEAD
 static Value *computeArraySize(const CallInst *CI, const DataLayout &DL,
                                const TargetLibraryInfo *TLI,
                                bool LookThroughSExt = false) {
@@ -503,6 +504,8 @@ Value *llvm::getMallocArraySize(CallInst *CI, const DataLayout &DL,
 }
 
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 7052670e962ec50587b95af71bfd8fe4877f9732
 /// isLibFreeFunction - Returns true if the function is a builtin free()
 bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   if (isLibDeleteFunction(F, TLIFn))
