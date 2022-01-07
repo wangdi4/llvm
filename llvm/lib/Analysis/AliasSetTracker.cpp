@@ -788,7 +788,7 @@ AliasSetsPrinterPass::AliasSetsPrinterPass(raw_ostream &OS) : OS(OS) {}
 PreservedAnalyses AliasSetsPrinterPass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
   auto &AA = AM.getResult<AAManager>(F);
-  AliasSetTracker Tracker(AA);
+  AliasSetTracker Tracker(AA, PrintLoopCarriedAliasSets);  // INTEL
   OS << "Alias sets for function '" << F.getName() << "':\n";
   for (Instruction &I : instructions(F))
     Tracker.add(&I);
