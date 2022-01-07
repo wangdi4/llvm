@@ -113,9 +113,7 @@ config.substitutions.append(('%intel_mllvm', intel_mllvm))
 # end INTEL_CUSTOMIZATION
 
 llvm_config.feature_config(
-    [('--build-mode', {'DEBUG': 'debug'}),
-     ('--assertion-mode', {'ON': 'asserts'}),
-     ('--targets-built', {'AArch64': 'aarch64',
+    [('--targets-built', {'AArch64': 'aarch64',
                           'AMDGPU': 'amdgpu',
                           'ARM': 'arm',
                           'AVR': 'avr',
