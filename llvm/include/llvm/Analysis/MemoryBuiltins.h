@@ -65,17 +65,12 @@ bool isNoAliasFn(const Value *V, const TargetLibraryInfo *TLI);
 /// allocates uninitialized memory (such as malloc).
 bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 bool isMallocLikeFn(const Value *V,
-<<<<<<< HEAD
-                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
-                    bool LookThroughBitCast = false);
+                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 #if INTEL_CUSTOMIZATION
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., malloc).
 bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 #endif
-=======
-                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
->>>>>>> 5d1cfd43483bc82ddd735942a1a1f5be223f948b
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory with alignment (such as aligned_alloc).
@@ -94,8 +89,7 @@ bool isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
-bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                 bool LookThroughBitCast = false);
+bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., new).
@@ -129,14 +123,11 @@ bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory and throws if an allocation failed (e.g., new).
-<<<<<<< HEAD
-bool isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                   bool LookThroughBitCast = false);
+bool isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory (strdup, strndup).
-bool isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                    bool LookThroughBitCast = false);
+bool isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
@@ -149,13 +140,6 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 /// within MemoryBuiltins.cpp as 'AllocationFnData'.
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
-=======
-bool isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory (strdup, strndup).
-bool isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI);
->>>>>>> 5d1cfd43483bc82ddd735942a1a1f5be223f948b
 
 //===----------------------------------------------------------------------===//
 //  free Call Utility Functions.

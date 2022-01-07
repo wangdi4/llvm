@@ -240,7 +240,6 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   return Result;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -263,13 +262,8 @@ bool llvm::isAllocationLibFunc(LibFunc LF) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool hasNoAliasAttr(const Value *V, bool LookThroughBitCast) {
-  const auto *CB =
-      dyn_cast<CallBase>(LookThroughBitCast ? V->stripPointerCasts() : V);
-=======
 static bool hasNoAliasAttr(const Value *V) {
   const auto *CB = dyn_cast<CallBase>(V);
->>>>>>> 5d1cfd43483bc82ddd735942a1a1f5be223f948b
   return CB && CB->hasRetAttr(Attribute::NoAlias);
 }
 
@@ -339,11 +333,9 @@ bool llvm::isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
 
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
-bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                       bool LookThroughBitCast) {
+bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   bool IsNoBuiltinCall;
-  if (const Function *Callee =
-          getCalledFunction(V, LookThroughBitCast, IsNoBuiltinCall)) {
+  if (const Function *Callee = getCalledFunction(V, IsNoBuiltinCall)) {
     auto Data = getAllocationDataForFunction(Callee, OpNewLike, TLI);
     if (Data)
       return Data.getValue().AllocTy == OpNewLike;
@@ -492,14 +484,8 @@ bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
 const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
                                  bool CheckNoBuiltin) {
   bool IsNoBuiltinCall;
-<<<<<<< HEAD
-  const Function *Callee =
-      getCalledFunction(I, /*LookThroughBitCast=*/false, IsNoBuiltinCall);
-  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
-=======
   const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
-  if (Callee == nullptr || IsNoBuiltinCall)
->>>>>>> 5d1cfd43483bc82ddd735942a1a1f5be223f948b
+  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
     return nullptr;
 
   LibFunc TLIFn;
@@ -513,8 +499,7 @@ const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
 const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
                                    bool CheckNoBuiltin) {
   bool IsNoBuiltinCall;
-  const Function *Callee =
-      getCalledFunction(I, /*LookThroughBitCast=*/false, IsNoBuiltinCall);
+  const Function *Callee = getCalledFunction(I, IsNoBuiltinCall);
   if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
     return nullptr;
 
