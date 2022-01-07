@@ -28,7 +28,8 @@ FunctionPass *createBuiltinCallToInstLegacyPass();
 ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");
-ModulePass *createBuiltinLibInfoAnalysisLegacyPass();
+ImmutablePass *
+createBuiltinLibInfoAnalysisLegacyPass(ArrayRef<Module *> BuiltinModules = {});
 ModulePass *createCreateSimdVariantPropagationLegacyPass();
 ModulePass *createCoerceWin64TypesLegacyPass();
 ModulePass *
@@ -44,8 +45,8 @@ ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
-ModulePass *createGroupBuiltinLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules = {});
+ModulePass *
+createGroupBuiltinLegacyPass(ArrayRef<Module *> BuiltinModules = {});
 FunctionPass *createSoaAllocaAnalysisLegacyPass();
 ModulePass *createSplitBBonBarrierLegacyPass();
 ModulePass *createWIRelatedValueWrapperPass();

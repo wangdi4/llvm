@@ -12,16 +12,26 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_BUILTIN_LIB_INFO_ANALYSIS_H
 
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 namespace llvm {
 
-/// BuiltinLibInfo holds builtin runtime library.
+/// BuiltinLibInfo holds builtin modules and runtime service.
 class BuiltinLibInfo {
 public:
-  /// Load builtin runtime libraries from command line options.
-  void loadBuiltinModules(LLVMContext &Ctx);
+  BuiltinLibInfo(ArrayRef<Module *> BuiltinModules) {
+    BuiltinModuleRawPtrs.assign(BuiltinModules.begin(), BuiltinModules.end());
+    RTService.reset(new RuntimeService());
+  }
+
+  /// Load builtin modules from path specified by command line option.
+  /// This is only used for opt.
+  void loadBuiltinModules(Module &M);
 
   ArrayRef<Module *> getBuiltinModules() { return BuiltinModuleRawPtrs; };
+
+  const RuntimeService *getRuntimeService() const { return RTService.get(); }
+  RuntimeService *getRuntimeService() { return RTService.get(); }
 
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Module &M, const PreservedAnalyses &PA,
@@ -30,8 +40,12 @@ public:
   void print(raw_ostream &OS) const;
 
 private:
+  /// Vector of modules with built-in function implementations.
   SmallVector<std::unique_ptr<Module>, 2> BuiltinModules;
   SmallVector<Module *, 2> BuiltinModuleRawPtrs;
+
+  /// Runtime service.
+  std::unique_ptr<RuntimeService> RTService;
 };
 
 /// Analysis pass which loads builtin runtime library.
@@ -39,8 +53,13 @@ class BuiltinLibInfoAnalysis
     : public AnalysisInfoMixin<BuiltinLibInfoAnalysis> {
   friend AnalysisInfoMixin<BuiltinLibInfoAnalysis>;
   static AnalysisKey Key;
+  SmallVector<Module *, 2> BuiltinModules;
 
 public:
+  BuiltinLibInfoAnalysis(ArrayRef<Module *> BuiltinModules = {}) {
+    this->BuiltinModules.assign(BuiltinModules.begin(), BuiltinModules.end());
+  }
+
   using Result = BuiltinLibInfo;
 
   Result run(Module &M, ModuleAnalysisManager &AM);
@@ -53,25 +72,26 @@ class BuiltinLibInfoAnalysisPrinter
 
 public:
   explicit BuiltinLibInfoAnalysisPrinter(raw_ostream &OS) : OS(OS) {}
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 
 /// For legacy pass manager.
-class BuiltinLibInfoAnalysisLegacy : public ModulePass {
+class BuiltinLibInfoAnalysisLegacy : public ImmutablePass {
   BuiltinLibInfo BLInfo;
 
 public:
   static char ID;
 
-  BuiltinLibInfoAnalysisLegacy();
-
-  bool runOnModule(Module &M) override {
-    BLInfo.loadBuiltinModules(M.getContext());
-    return false;
-  }
+  BuiltinLibInfoAnalysisLegacy(ArrayRef<Module *> BuiltinModules = {});
 
   StringRef getPassName() const override {
     return "BuiltinLibInfoAnalysisLegacy";
+  }
+
+  bool doInitialization(Module &M) override {
+    BLInfo.loadBuiltinModules(M);
+    return false;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {

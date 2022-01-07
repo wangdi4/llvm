@@ -15,6 +15,8 @@
 
 namespace llvm {
 
+class RuntimeService;
+
 namespace VectorizerUtils {
 
 class CanVectorize {
@@ -22,19 +24,20 @@ public:
   /// Checks whether we can (as opposed to should) vectorize this function
   /// for VPO. \param F Function to check. \param UnsupportedFuncs
   /// Unsupported function obtained from getNonInlineUnsupportedFunctions.
+  /// \param RTService Runtime service.
   /// \param EnableDirectCallVectorization Whether to enable direct function
   /// call vectorization.
   /// \param EnableSGDirectCallVectorization Whether to enable direct
   /// subgroup function call vectorization. \returns true if the function
   /// can be vectorized.
   static bool
-  canVectorizeForVPO(Function &F,
+  canVectorizeForVPO(Function &F, RuntimeService *RTService,
                      DPCPPKernelCompilationUtils::FuncSet &UnsupportedFuncs,
                      bool EnableDirectCallVectorization = false,
                      bool EnableSGDirectCallVectorization = false);
 
   // Check if the function has variable access to get_global/loval_id(X)
-  static bool hasVariableGetTIDAccess(Function &F);
+  static bool hasVariableGetTIDAccess(Function &F, RuntimeService *RTService);
 
   // Get unsupported function in a module.
   // An unsupported function is function that contains

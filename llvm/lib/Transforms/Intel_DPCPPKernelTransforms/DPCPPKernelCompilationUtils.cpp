@@ -11,15 +11,11 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IRReader/IRReader.h"
-#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include "ImplicitArgsUtils.h"
@@ -151,33 +147,11 @@ const StringRef NAME_SUB_GROUP_INSERT_ROWSLICE_TO_MATRIX =
     "sub_group_insert_rowslice_to_matrix";
 } // namespace
 
-static cl::list<std::string>
-    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
-                          cl::desc("Builtin declarations (bitcode) libraries"),
-                          cl::value_desc("filename1,filename2"));
-
 static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
                                             cl::desc("Builtin VectInfo list"),
                                             cl::value_desc("filename"));
 
 namespace DPCPPKernelCompilationUtils {
-
-SmallVector<std::unique_ptr<Module>, 2>
-loadBuiltinModulesFromCommandLine(LLVMContext &Ctx) {
-  SmallVector<std::unique_ptr<Module>, 2> BuiltinModules;
-  for (auto &ModuleFile : OptBuiltinModuleFiles) {
-    if (ModuleFile.empty()) {
-      BuiltinModules.push_back(std::make_unique<Module>("empty", Ctx));
-    } else {
-      SMDiagnostic Err;
-      std::unique_ptr<Module> BuiltinModule =
-          getLazyIRFileModule(ModuleFile, Err, Ctx);
-      assert(BuiltinModule && "failed to load builtin lib from file");
-      BuiltinModules.push_back(std::move(BuiltinModule));
-    }
-  }
-  return BuiltinModules;
-}
 
 static unsigned CLVersionToVal(uint64_t Major, uint64_t Minor) {
   return Major * 100 + Minor * 10;

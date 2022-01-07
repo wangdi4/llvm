@@ -9,7 +9,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
@@ -17,24 +19,54 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-builtin-info-analysis"
 
+static cl::list<std::string>
+    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
+                          cl::desc("Builtin declarations (bitcode) libraries"),
+                          cl::value_desc("filename1,filename2"));
+
 INITIALIZE_PASS(BuiltinLibInfoAnalysisLegacy, DEBUG_TYPE,
                 "Builtin runtime library info", false, true)
 
 char BuiltinLibInfoAnalysisLegacy::ID = 0;
 
-BuiltinLibInfoAnalysisLegacy::BuiltinLibInfoAnalysisLegacy() : ModulePass(ID) {
+BuiltinLibInfoAnalysisLegacy::BuiltinLibInfoAnalysisLegacy(
+    ArrayRef<Module *> BuiltinModules)
+    : ImmutablePass(ID), BLInfo(BuiltinModules) {
   initializeBuiltinLibInfoAnalysisLegacyPass(*PassRegistry::getPassRegistry());
 }
 
-ModulePass *llvm::createBuiltinLibInfoAnalysisLegacyPass() {
-  return new BuiltinLibInfoAnalysisLegacy();
+ImmutablePass *llvm::createBuiltinLibInfoAnalysisLegacyPass(
+    ArrayRef<Module *> BuiltinModules) {
+  return new BuiltinLibInfoAnalysisLegacy(BuiltinModules);
 }
 
-void BuiltinLibInfo::loadBuiltinModules(LLVMContext &Ctx) {
-  BuiltinModules =
-      DPCPPKernelCompilationUtils::loadBuiltinModulesFromCommandLine(Ctx);
+void BuiltinLibInfo::loadBuiltinModules(Module &M) {
+  if (!BuiltinModuleRawPtrs.empty())
+    return;
+
+  auto &Ctx = M.getContext();
+  for (auto &ModuleFile : OptBuiltinModuleFiles) {
+    if (ModuleFile.empty()) {
+      BuiltinModules.push_back(std::make_unique<Module>("empty", Ctx));
+    } else {
+      SMDiagnostic Err;
+      std::unique_ptr<Module> BuiltinModule =
+          getLazyIRFileModule(ModuleFile, Err, Ctx);
+      assert(BuiltinModule && "failed to load builtin lib from file");
+      BuiltinModules.push_back(std::move(BuiltinModule));
+    }
+  }
   transform(BuiltinModules, std::back_inserter(BuiltinModuleRawPtrs),
-            [](auto &BM) { return BM.get(); });
+            [](auto &M) { return M.get(); });
+
+  // Builtin module may contain platform independent byte code, so we set triple
+  // and data layout in order to avoid warnings from linker.
+  for (auto &BM : BuiltinModules) {
+    BM->setTargetTriple(M.getTargetTriple());
+    BM->setDataLayout(M.getDataLayout());
+  }
+
+  RTService.reset(new RuntimeService());
 }
 
 bool BuiltinLibInfo::invalidate(Module &, const PreservedAnalyses &PA,
@@ -47,15 +79,15 @@ bool BuiltinLibInfo::invalidate(Module &, const PreservedAnalyses &PA,
 
 AnalysisKey BuiltinLibInfoAnalysis::Key;
 
-BuiltinLibInfo BuiltinLibInfoAnalysis::run(Module &M, ModuleAnalysisManager &) {
-  BuiltinLibInfo BLInfo;
-  BLInfo.loadBuiltinModules(M.getContext());
-  return BLInfo;
-}
-
 void BuiltinLibInfo::print(raw_ostream &OS) const {
   OS << "BuiltinLibInfo: number of builtin runtime libraries is "
-     << BuiltinModules.size() << "\n";
+     << BuiltinModuleRawPtrs.size() << "\n";
+}
+
+BuiltinLibInfo BuiltinLibInfoAnalysis::run(Module &M, ModuleAnalysisManager &) {
+  BuiltinLibInfo BLInfo(BuiltinModules);
+  BLInfo.loadBuiltinModules(M);
+  return BLInfo;
 }
 
 PreservedAnalyses

@@ -8,17 +8,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RuntimeService.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
-using namespace llvm::DPCPPKernelCompilationUtils;
-
-namespace llvm {
-namespace RuntimeService {
+using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 
 Function *
-findFunctionInBuiltinModules(const SmallVector<Module *, 2> &BuiltinModules,
-                             StringRef Name) {
+RuntimeService::findFunctionInBuiltinModules(ArrayRef<Module *> BuiltinModules,
+                                             StringRef Name) const {
   for (Module *M : BuiltinModules) {
     Function *RetFunction = M->getFunction(Name);
     if (RetFunction)
@@ -27,30 +25,33 @@ findFunctionInBuiltinModules(const SmallVector<Module *, 2> &BuiltinModules,
   return nullptr;
 }
 
-std::pair<bool, bool> isTIDGenerator(const CallInst *CI) {
+std::tuple<bool, bool, unsigned>
+RuntimeService::isTIDGenerator(const CallInst *CI) const {
   if (!CI || !CI->getCalledFunction())
-    return {false, false};
+    return {false, false, 0};
 
   StringRef FName = CI->getCalledFunction()->getName();
   if (!isGetGlobalId(FName) && !isGetLocalId(FName) &&
       !isGetSubGroupLocalId(FName))
-    return {false, false}; // not a get_***_id function.
+    return {false, false, 0}; // not a get_***_id function.
 
   // Early exit for subgroup TIDs that do not take any operands.
+  // Dummy Dim 0 as subgroup does not have a clear dimension.
   if (isGetSubGroupLocalId(FName))
-    return {true, false};
+    return {true, false, 0};
 
   // Go on checking the first argument for other TIDS.
-  Value *Dim = CI->getArgOperand(0);
+  Value *Op = CI->getArgOperand(0);
 
   // Check if the argument is constant - if not, we cannot determine if
   // the call will generate different IDs per different vectorization lanes.
-  if (!isa<ConstantInt>(Dim))
-    return {false, true};
+  if (!isa<ConstantInt>(Op))
+    return {false, true, 0};
+
+  // Report the dimension of the request.
+  auto Dim =
+      static_cast<unsigned>(cast<ConstantInt>(Op)->getValue().getZExtValue());
 
   // This is indeed a TID generator.
-  return {true, false};
+  return {true, false, Dim};
 }
-
-} // namespace RuntimeService
-} // namespace llvm

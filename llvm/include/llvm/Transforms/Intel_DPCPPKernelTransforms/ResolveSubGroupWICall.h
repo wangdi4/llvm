@@ -20,6 +20,9 @@
 
 namespace llvm {
 
+class BuiltinLibInfo;
+class RuntimeService;
+
 class ResolveSubGroupWICallPass
     : public PassInfoMixin<ResolveSubGroupWICallPass> {
 public:
@@ -30,7 +33,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
 private:
   Value *replaceGetSubGroupSize(Instruction *insertBefore, Value *VF,
@@ -136,7 +139,9 @@ private:
   // must be visible to emulation passes.
   bool ResolveSGBarrier;
 
-  SmallVector<Module *, 2> BuiltinModules;
+  ArrayRef<Module *> BuiltinModules;
+
+  RuntimeService *RTService;
 
   SmallVector<Instruction *, 8> ExtraInstToRemove;
 };
