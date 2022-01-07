@@ -1144,7 +1144,10 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
 
     // Add latch phi as operand to the header phi.
     VPInstruction *LastPhi = getOrCreateIndexInst(ExitPhi);
-    IndexStartPhi->addIncoming(LastPhi, ExitPhi->getParent());
+    VPBasicBlock *Latch = Loop.getLoopLatch();
+    assert(Plan.getDT()->dominates(ExitPhi->getParent(), Latch) &&
+           "Exit PHI's parent block should dominate loop latch.");
+    IndexStartPhi->addIncoming(LastPhi, Latch);
 
     // Create last value calculation instruction.
     Builder.setInsertPoint(PostExit);
