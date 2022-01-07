@@ -121,7 +121,7 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
   SmallVector<AttributeSet, 4> ParamAttrs;
   for (auto &Pair : enumerate(Clone->args())) {
     Type *ArgType = Pair.value().getType();
-    AttrBuilder AB = AttributeFuncs::typeIncompatible(ArgType);
+    AttributeMask AB = AttributeFuncs::typeIncompatible(ArgType);
     // The following attributes are rejected in community code.
     // But they are accepted via INTEL_CUSTOMIZATION macro. CodeGen
     // can't process these attributes for vector value.
@@ -129,7 +129,7 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
     AB.addAttribute(Attribute::ZExt);
     AB.addAttribute(Attribute::SExt);
     // For <VF x pointer> sret.
-    AB.addStructRetAttr(ArgType);
+    AB.addAttribute(Attribute::StructRet);
     AttributeSet ParamAttr = Attrs.getParamAttrs(Pair.index());
     ParamAttrs.push_back(ParamAttr.removeAttributes(Context, AB));
   }
