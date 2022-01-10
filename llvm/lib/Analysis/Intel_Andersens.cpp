@@ -1021,6 +1021,15 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
 //                  AliasAnalysis Interface Implementation
 //===---------------------------------------------------------------------===//
 
+/// Handle invalidation events in the new pass manager.
+bool AndersensAAResult::invalidate(Module &M, const PreservedAnalyses &PA,
+                                   ModuleAnalysisManager::Invalidator &Inv) {
+  // Check whether the analysis has been explicitly invalidated. Otherwise, it's
+  // stateless and remains preserved.
+  auto PAC = PA.getChecker<AndersensAA>();
+  return !PAC.preservedWhenStateless();
+}
+
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
                                      AAQueryInfo &AAQI)  {

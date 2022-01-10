@@ -2845,6 +2845,16 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(
       createModuleToPostOrderCGSCCPassAdaptor(PostOrderFunctionAttrsPass()));
 
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    // Andersen's IP alias analysis
+    // AndersensAA is stateless analysis that is not invalided by any passes.
+    // So, first invalidate it and then recompute AndersensAA again due
+    // to many changes in IR.
+    MPM.addPass(InvalidateAnalysisPass<AndersensAA>());
+    MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
+  }
+#endif // INTEL_CUSTOMIZATION
   // Require the GlobalsAA analysis for the module so we can query it within
   // MainFPM.
   MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
