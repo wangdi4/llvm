@@ -13,14 +13,18 @@
 ; CHECK: [[GID1:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z13get_global_idj(i32 1)
 ; CHECK: [[BND1:%[a-zA-Z._0-9]+]] = trunc i64 [[GID1]] to i32
 ; CHECK: store i32 [[BND1]], i32* [[LBNDPTR1:%[a-zA-Z._0-9]+]]
-; CHECK: store i32 [[BND1]], i32* [[UBNDPTR1:%[a-zA-Z._0-9]+]]
+; CHECK: [[MINUBPRED1:%.+]] = icmp slt i32 [[BND1]], [[UBV1:%[a-zA-Z._0-9]+]]
+; CHECK: [[MINUBV1:%.+]] = select i1 [[MINUBPRED1]], i32 [[BND1]], i32 [[UBV1]]
+; CHECK: store i32 [[MINUBV1]], i32* [[UBNDPTR1:%[a-zA-Z._0-9]+]]
 ; CHECK: [[LBND1:%[a-zA-Z._0-9]+]] = load i32, i32* [[LBNDPTR1]]
 ; CHECK: [[UBND1:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBNDPTR1]]
 ; CHECK: icmp sle i32 [[LBND1]], [[UBND1]]
 
 ; CHECK: [[BND0:%[a-zA-Z._0-9]+]] = trunc i64 [[GID0]] to i32
 ; CHECK: store i32 [[BND0]], i32* [[LBNDPTR0:%[a-zA-Z._0-9]+]]
-; CHECK: store i32 [[BND0]], i32* [[UBNDPTR0:%[a-zA-Z._0-9]+]]
+; CHECK: [[MINUBPRED0:%.+]] = icmp slt i32 [[BND0]], [[UBV0:%[a-zA-Z._0-9]+]]
+; CHECK: [[MINUBV0:%.+]] = select i1 [[MINUBPRED0]], i32 [[BND0]], i32 [[UBV0]]
+; CHECK: store i32 [[MINUBV0]], i32* [[UBNDPTR0:%[a-zA-Z._0-9]+]]
 ; CHECK: [[LBND0:%[a-zA-Z._0-9]+]] = load i32, i32* [[LBNDPTR0]]
 ; CHECK: [[UBND0:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBNDPTR0]]
 ; CHECK: icmp sle i32 [[LBND0]], [[UBND0]]

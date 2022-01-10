@@ -19,13 +19,11 @@
 ; CHECK: [[TEAMLBV:%.+]] = add i32 [[LOOPLBV]], [[OFFSET]]
 ; CHECK: store i32 [[TEAMLBV]], i32* [[LOOPLBP]]
 ; CHECK: store i32 [[TEAMLBV]], i32* [[TEAMLBP:%[A-Za-z0-9._]+]]
-; CHECK: store i32 [[LOOPUBV]], i32* [[TEAMUBP:%[A-Za-z0-9._]+]]
-; CHECK: br i1 {{.*}}, label %[[THEN:[A-Za-z0-9._]+]], label %[[ELSE:[A-Za-z0-9._]+]]
-
-; CHECK: [[THEN]]:
-; CHECK: br label %[[ELSE]]
-
-; CHECK: [[ELSE]]:
+; CHECK: [[TEAMUBV:%.+]] = add i32 [[TEAMLBV]], 1
+; CHECK: [[MINUBPRED:%.+]] = icmp slt i32 [[TEAMUBV]], [[LOOPUBV]]
+; CHECK: [[MINUBV:%.+]] = select i1 [[MINUBPRED]], i32 [[TEAMUBV]], i32 [[LOOPUBV]]
+; CHECK: store i32 [[MINUBV]], i32* [[LOOPUBP:%[A-Za-z0-9._]+]]
+; CHECK: store i32 [[MINUBV]], i32* [[TEAMUBP:%[A-Za-z0-9._]+]]
 ; CHECK: br label %[[TEAMDISPHDR:[A-Za-z0-9._]+]]
 
 ; CHECK: [[TEAMDISPHDR]]:
