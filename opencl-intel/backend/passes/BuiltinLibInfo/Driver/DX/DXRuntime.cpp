@@ -22,12 +22,10 @@
 
 namespace intel {
 
-DXRuntime::DXRuntime(
-  SmallVector<Module*, 2> runtimeModuleList,
-  unsigned packetWidth) :
-  m_packetizationWidth(packetWidth),
-  m_vfh(DXEntryDB) {
-    m_runtimeModulesList = runtimeModuleList;
+DXRuntime::DXRuntime(ArrayRef<Module *> runtimeModuleList, unsigned packetWidth)
+    : m_packetizationWidth(packetWidth), m_vfh(DXEntryDB) {
+  m_runtimeModulesList.assign(runtimeModuleList.begin(),
+                              runtimeModuleList.end());
 }
 
 Function* DXRuntime::findInRuntimeModule(StringRef Name) const {
@@ -91,7 +89,8 @@ bool DXRuntime::needsVPlanStyleMask(StringRef) const {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  intel::RuntimeServices* createDXRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList) {
-    return new intel::DXRuntime(runtimeModuleList, 4);
-  }
+intel::RuntimeServices *
+createDXRuntimeSupport(ArrayRef<Module *> runtimeModuleList) {
+  return new intel::DXRuntime(runtimeModuleList, 4);
+}
 }

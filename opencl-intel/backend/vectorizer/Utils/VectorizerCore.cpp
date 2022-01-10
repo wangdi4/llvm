@@ -26,6 +26,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -52,7 +54,8 @@ extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();
 extern "C" FunctionPass *createPacketizerPass(const CPUDetect *, unsigned int);
 extern "C" intel::ChooseVectorizationDimension* createChooseVectorizationDimension();
-extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
+extern "C" Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
+                                          std::string type);
 
 extern "C" FunctionPass* createAVX512ResolverPass();
 extern "C" FunctionPass *
@@ -184,6 +187,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
   TargetMachine* targetMachine = m_pConfig->GetTargetMachine();
   TargetLibraryInfoImpl TLII(Triple(M->getTargetTriple()));
 
+  ArrayRef<Module *> RtlModuleList = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                                         .getResult()
+                                         .getBuiltinModules();
   std::map<BasicBlock*, int> preVectorizationCosts; // used for statiscal purposes.
   // Emulate the entire pass-chain right here //
   //////////////////////////////////////////////
@@ -196,7 +202,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm1.add(createTargetTransformInfoWrapperPass(
                    targetMachine->getTargetIRAnalysis()));
     fpm1.add(new TargetLibraryInfoWrapperPass(TLII));
-    fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
+    fpm1.add(createBuiltinLibInfoAnalysisLegacyPass(RtlModuleList));
+    fpm1.add(createBuiltinLibInfoPass(RtlModuleList, ""));
 
     // Register lowerswitch
     fpm1.add(createLowerSwitchPass());
@@ -288,8 +295,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm2.add(createTargetTransformInfoWrapperPass(
                    targetMachine->getTargetIRAnalysis()));
     fpm2.add(new TargetLibraryInfoWrapperPass(TLII));
-    BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
-      createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "");
+    fpm2.add(createBuiltinLibInfoAnalysisLegacyPass(RtlModuleList));
+    BuiltinLibInfo *pBuiltinInfoPass =
+        (BuiltinLibInfo *)createBuiltinLibInfoPass(RtlModuleList, "");
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);
     fpm2.add(pBuiltinInfoPass);
 

@@ -12,20 +12,21 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "BuiltinLibInfo.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/DebugInfo.h>
-#include <llvm/IR/IntrinsicInst.h>
-#include <llvm/IR/Metadata.h>
-#include <llvm/Pass.h>
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 
 using namespace llvm;
 using namespace std;
@@ -47,7 +48,7 @@ public:
     bool runOnModule(Module &M) override;
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<BuiltinLibInfo>();
+      AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     }
 
     static char ID; // LLVM pass ID
@@ -174,8 +175,11 @@ Function* DebugInfoPass::findFunctionsInModule(StringRef funcName) const {
 bool DebugInfoPass::runOnModule(Module& M)
 {
     m_llvm_context = &M.getContext();
-    m_RtlModuleList = getAnalysis<intel::BuiltinLibInfo>().getBuiltinModules();
-    assert(m_RtlModuleList.size() != 0 && "Empty module list in DebugInfoPass::runOnModule");
+    ArrayRef<Module *> BuiltinModules =
+        getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+            .getResult()
+            .getBuiltinModules();
+    m_RtlModuleList.assign(BuiltinModules.begin(), BuiltinModules.end());
     m_pModule = &M;
 
     // Prime a DebugInfoFinder that can be queried about various bits of
@@ -570,7 +574,7 @@ void DebugInfoPass::insertDbgExitFunctionCall(Instruction* instr, Function* pFun
 }
 
 OCL_INITIALIZE_PASS_BEGIN(DebugInfoPass, "debug-info", "Debug Info", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(DebugInfoPass, "debug-info", "Debug Info", false, false)
 
 } // namespace intel {

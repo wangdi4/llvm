@@ -19,6 +19,7 @@
 #include "Logger.h"
 
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 
 using namespace llvm;
 
@@ -51,6 +52,7 @@ public:
     /// @brief Inform about usage/mofication/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<BuiltinLibInfo>();
+      AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     }
 
 private:

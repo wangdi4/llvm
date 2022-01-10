@@ -15,20 +15,21 @@
 #include "ChannelPipeTransformation.h"
 #include "ChannelPipeUtils.h"
 
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
-#include <llvm/ADT/DenseMap.h>
-#include <llvm/ADT/MapVector.h>
-#include <llvm/ADT/SetVector.h>
-#include <llvm/ADT/SmallPtrSet.h>
-#include <llvm/ADT/SmallString.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/Support/CommandLine.h>
-#include <llvm/Support/Debug.h>
-#include <llvm/Transforms/Utils/Cloning.h>
-#include <llvm/Transforms/Utils/ModuleUtils.h>
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
-#include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
 #include <OCLAddressSpace.h>
@@ -51,7 +52,7 @@ OCL_INITIALIZE_PASS_BEGIN(ChannelPipeTransformation,
                           "channel-pipe-transformation",
                           "Transform Intel FPGA channels into OpenCL 2.0 pipes",
                           false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(ChannelPipeTransformation,
                         "channel-pipe-transformation",
                         "Transform Intel FPGA channels into OpenCL 2.0 pipes",
@@ -834,7 +835,7 @@ ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {
 }
 
 bool ChannelPipeTransformation::runOnModule(Module &M) {
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
   auto *ChannelValueTy =
@@ -861,7 +862,7 @@ bool ChannelPipeTransformation::runOnModule(Module &M) {
 }
 
 void ChannelPipeTransformation::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfo>();
+  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
 }
 
 } // namespace intel

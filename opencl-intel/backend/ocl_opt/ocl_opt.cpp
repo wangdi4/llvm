@@ -62,6 +62,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
@@ -292,8 +293,8 @@ RuntimeServices("runtime",
                   cl::desc("Runtime services type (ocl/dx/rs)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
-
-extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
+extern "C" Pass *createBuiltinLibInfoPass(ArrayRef<Module *> builtinsList,
+                                          std::string type);
 
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,
                                  llvm::legacy::PassManager& passMgr) {
@@ -320,11 +321,9 @@ static void addMustHaveOCLPasses(llvm::LLVMContext& context,
       }
     }
   }
-  else {
-    runtimeModuleList.push_back(new Module("empty", context));
-  }
 
   // Always add the BuiltinLibInfo Pass to the Pass Manager
+  passMgr.add(createBuiltinLibInfoAnalysisLegacyPass(runtimeModuleList));
   passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, RuntimeServices));
   passMgr.add(createImplicitArgsAnalysisLegacyPass());
 }

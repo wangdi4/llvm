@@ -19,12 +19,13 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/NoFolder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
-#include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
 #include <OCLAddressSpace.h>
@@ -41,7 +42,7 @@ namespace intel {
 char PipeIOTransformation::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(PipeIOTransformation, "pipe-io-transformation",
                           "Transform pipes with io attributes", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(PipeIOTransformation, "pipe-io-transformation",
                         "Transform pipes with io attributes", false, false)
 }
@@ -389,7 +390,7 @@ bool PipeIOTransformation::runOnModule(Module &M) {
     return false; // no pipes in the module, nothing to do
 
   bool Changed = false;
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
   // Each io pipe has a unique id. PipeId is incremented whenever an io pipe is
@@ -424,7 +425,7 @@ bool PipeIOTransformation::runOnModule(Module &M) {
 }
 
 void PipeIOTransformation::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfo>();
+  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
 }
 
 } // namespace intel

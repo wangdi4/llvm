@@ -27,6 +27,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -36,7 +37,8 @@ namespace intel {
 /// Support for dynamic loading of modules under Linux
 char ChooseVectorizationDimension::ID = 0;
 
-extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
+extern "C" Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
+                                          std::string type);
 
 OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimension,
                           "ChooseVectorizationDimension",
@@ -267,9 +269,9 @@ void ChooseVectorizationDimensionImpl::setFinalDecision(int dim, bool canUniteWo
   m_canUniteWorkgroups = canUniteWorkGroups;
 }
 
-bool ChooseVectorizationDimensionImpl::run(
-    Function &F, const RuntimeServices *RTS,
-    const SmallVector<Module *, 2> &Builtins) {
+bool ChooseVectorizationDimensionImpl::run(Function &F,
+                                           const RuntimeServices *RTS,
+                                           ArrayRef<Module *> Builtins) {
   m_rtServices = RTS;
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
   int chosenVectorizationDimension = 0;
@@ -317,6 +319,7 @@ bool ChooseVectorizationDimensionImpl::run(
 
   // create function pass manager to run the WIAnalysis for each dimension.
   legacy::FunctionPassManager runWi(F.getParent());
+  runWi.add(createBuiltinLibInfoAnalysisLegacyPass(Builtins));
   runWi.add(createBuiltinLibInfoPass(Builtins, ""));
   for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
     if (dimExist[dim]) {
@@ -427,7 +430,6 @@ bool ChooseVectorizationDimensionImpl::run(
       intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE));
   return false;
 }
-
 
 char ChooseVectorizationDimensionModulePass::ID = 0;
 

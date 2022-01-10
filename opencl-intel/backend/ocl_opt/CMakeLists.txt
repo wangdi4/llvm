@@ -42,6 +42,7 @@ set(OCL_BE_PASSES
     SYCLPipesHack
     AddNTAttr
     ResolveVariableTIDCall
+    UndefExternalFuncs
 )
 
 # Dependencies of the passes

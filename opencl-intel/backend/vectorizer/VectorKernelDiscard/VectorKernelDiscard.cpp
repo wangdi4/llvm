@@ -22,6 +22,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace intel;
@@ -29,7 +30,7 @@ using namespace DPCPPKernelMetadataAPI;
 using namespace llvm;
 
 extern "C" {
-Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2>, std::string);
+Pass *createBuiltinLibInfoPass(ArrayRef<Module *>, std::string);
 FunctionPass *
 createWeightedInstCounter(bool, const Intel::OpenCL::Utils::CPUDetect *);
 }
@@ -43,7 +44,7 @@ char VectorKernelDiscard::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(VectorKernelDiscard, DEBUG_TYPE,
                           "Discard vectorized kernel per cost model",
                           false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(VectorKernelDiscard, DEBUG_TYPE,
                         "Discard vectorized kernel per cost model",
                         false, false)
@@ -55,12 +56,13 @@ VectorKernelDiscard::VectorKernelDiscard(const OptimizerConfig *Config)
 
 WeightedInstCounter *VectorKernelDiscard::addPassesToCalculateCost(
     legacy::FunctionPassManager &FPM, TargetMachine *TM,
-    TargetLibraryInfoImpl &TLI, bool IsScalar) {
+    TargetLibraryInfoImpl &TLI, ArrayRef<Module *> BuiltinModules,
+    bool IsScalar) {
   FPM.add(createTargetTransformInfoWrapperPass(
           TM->getTargetIRAnalysis()));
   FPM.add(new TargetLibraryInfoWrapperPass(TLI));
-  FPM.add(createBuiltinLibInfoPass(
-              getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
+  FPM.add(createBuiltinLibInfoAnalysisLegacyPass(BuiltinModules));
+  FPM.add(createBuiltinLibInfoPass(BuiltinModules, ""));
   WeightedInstCounter *Counter =
       (WeightedInstCounter *)createWeightedInstCounter(
           IsScalar, Config->GetCpuId());
@@ -72,13 +74,20 @@ bool VectorKernelDiscard::runOnModule(Module &M) {
   TargetMachine* TM = Config->GetTargetMachine();
   TargetLibraryInfoImpl TLI(Triple(M.getTargetTriple()));
 
+  ArrayRef<Module *> BuiltinModules =
+      getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+          .getResult()
+          .getBuiltinModules();
+
   llvm::legacy::FunctionPassManager ScalarFPM(&M);
   llvm::legacy::FunctionPassManager VectorFPM(&M);
 
   bool Changed = false;
 
-  auto *ScalarCounter = addPassesToCalculateCost(ScalarFPM, TM, TLI, true);
-  auto *VectorCounter = addPassesToCalculateCost(VectorFPM, TM, TLI, false);
+  auto *ScalarCounter =
+      addPassesToCalculateCost(ScalarFPM, TM, TLI, BuiltinModules, true);
+  auto *VectorCounter =
+      addPassesToCalculateCost(VectorFPM, TM, TLI, BuiltinModules, false);
 
   ScalarFPM.doInitialization();
   VectorFPM.doInitialization();

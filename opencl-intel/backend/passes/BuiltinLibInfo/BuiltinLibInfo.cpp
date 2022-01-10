@@ -22,7 +22,7 @@ namespace llvm {
 using namespace llvm;
 
 extern "C" {
-    llvm::Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> builtinsList, std::string type) {
+    Pass* createBuiltinLibInfoPass(ArrayRef<Module *> builtinsList, std::string type) {
     intel::BuiltinLibInfo::RuntimeServicesTypes rtType = intel::BuiltinLibInfo::RTS_OCL;
     if(type == "ocl") {
       rtType = intel::BuiltinLibInfo::RTS_OCL;
@@ -35,8 +35,8 @@ extern "C" {
     return new intel::BuiltinLibInfo(builtinsList, rtType);
   }
 
-  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
-  intel::RuntimeServices* createDXRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
+  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(ArrayRef<Module *> runtimeModuleList);
+  intel::RuntimeServices* createDXRuntimeSupport(ArrayRef<Module *> runtimeModuleList);
 }
 
 namespace intel{
@@ -45,10 +45,9 @@ namespace intel{
 
   OCL_INITIALIZE_PASS(BuiltinLibInfo, "builtin-lib-info", "Builtin Library Info", false, true)
 
-  BuiltinLibInfo::BuiltinLibInfo(SmallVector<Module*, 2> builtinsList, RuntimeServicesTypes type) :
+  BuiltinLibInfo::BuiltinLibInfo(ArrayRef<Module *> builtinsList, RuntimeServicesTypes type) :
     ImmutablePass(ID) {
-
-    m_BIModuleList = builtinsList;
+    m_BIModuleList.assign(builtinsList.begin(), builtinsList.end());
 
     initializeBuiltinLibInfoPass(*PassRegistry::getPassRegistry());
 

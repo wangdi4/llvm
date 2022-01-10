@@ -13,25 +13,38 @@
 // License.
 
 #include "UndefExternalFuncs.h"
-#include "llvm/Support/DynamicLibrary.h"
+#include "InitializePasses.h"
+#include "OCLPassSupport.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/DynamicLibrary.h"
 
 namespace intel {
 
-  char UndefExternalFuncs::ID = 0;
+OCL_INITIALIZE_PASS_BEGIN(UndefExternalFuncs, "UndefExternalFuncs",
+                          "Find undefined external functions", false, true)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+OCL_INITIALIZE_PASS_END(UndefExternalFuncs, "UndefExternalFuncs",
+                        "Find undefined external functions", false, true)
+
+char UndefExternalFuncs::ID = 0;
+
+UndefExternalFuncs::UndefExternalFuncs() : ModulePass(ID) {
+  initializeUndefExternalFuncsPass(*PassRegistry::getPassRegistry());
+}
+
+UndefExternalFuncs::UndefExternalFuncs(
+    std::vector<std::string> &undefinedExternalFunctions)
+    : UndefExternalFuncs() {
+  m_pUndefinedExternalFunctions = &undefinedExternalFunctions;
+  initializeUndefExternalFuncsPass(*PassRegistry::getPassRegistry());
+}
 
   bool UndefExternalFuncs::runOnModule(Module &M) {
-
-    m_RuntimeModules.clear();
-    intel::BuiltinLibInfo &BLI = getAnalysis<intel::BuiltinLibInfo>();
-    SmallVector<Module*, 2> Builtins = BLI.getBuiltinModules();
-    assert(!Builtins.empty() && "No builtin module");
-
-    for (SmallVector<Module*, 2>::iterator it = Builtins.begin(); it != Builtins.end(); ++it) {
-        assert(*it != nullptr && "UndefExternalFuncs::runOnModule has null ptr in Bltns");
-        m_RuntimeModules.push_back(*it);
-    }
+    ArrayRef<Module *> BuiltinModules = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult().getBuiltinModules();
+    m_RuntimeModules.assign(BuiltinModules.begin(), BuiltinModules.end());
+    assert(!BuiltinModules.empty() && "No builtin module");
 
     // Run on all defined function in the module
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -44,7 +57,7 @@ namespace intel {
         if ( pFunc->isIntrinsic() ) continue;
         bool found = SearchForFunction(std::string(pFunc->getName()));
         if( !found ) {
-          // The extenral function not found in any of the runtime libraries
+          // The extenal function not found in any of the runtime libraries
           // Report an error
           m_pUndefinedExternalFunctions->push_back((std::string)pFunc->getName() + " is undefined ");
         }
@@ -55,10 +68,9 @@ namespace intel {
   }
 
   bool UndefExternalFuncs::SearchForFunction(const std::string& name) {
-    for(std::vector<llvm::Module*>::iterator it = m_RuntimeModules.begin()
-        ,fi = m_RuntimeModules.end(); it != fi; ++it) {
+    for (auto *RTLModule : m_RuntimeModules) {
       // look for the required function in all the runtime modules
-      Function *pFunc = (*it)->getFunction(name);
+      Function *pFunc = RTLModule->getFunction(name);
 
       // Note that due to the lazy parsing of built-in modules the function
       // body might not be materialized yet and is reported
