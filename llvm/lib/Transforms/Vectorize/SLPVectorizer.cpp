@@ -11904,7 +11904,7 @@ private:
       auto *SclCondTy = CmpInst::makeCmpResultType(ScalarTy);
       auto *VecCondTy = cast<VectorType>(CmpInst::makeCmpResultType(VectorTy));
       VectorCost = TTI->getMinMaxReductionCost(VectorTy, VecCondTy,
-                                               /*unsigned=*/false, CostKind);
+                                               /*IsUnsigned=*/false, CostKind);
       CmpInst::Predicate RdxPred = getMinMaxReductionPredicate(RdxKind);
       ScalarCost = TTI->getCmpSelInstrCost(Instruction::FCmp, ScalarTy,
                                            SclCondTy, RdxPred, CostKind) +
