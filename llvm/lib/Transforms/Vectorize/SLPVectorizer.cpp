@@ -235,6 +235,12 @@ static cl::opt<bool> EnablePathSteering(
     "enable-path-steering", cl::init(true), cl::Hidden,
     cl::desc("Enable path-steering by the Multi-Node exploration ."));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> DotMultiNode(
+    "dot-slp-multi-node", cl::Hidden,
+    cl::desc("Dump DOT files with MultiNodes before applying their reorder"));
+#endif
+
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -5042,6 +5048,12 @@ BoUpSLP::GroupState BoUpSLP::getBestGroupForOpI(int OpI,
 
 // Perform the operand reordering according to 'BestGroups'.
 void BoUpSLP::applyMultiNodeOrder(ScheduleData *Bundle) {
+  LLVM_DEBUG(CurrentMultiNode->dump());
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (DotMultiNode)
+    CurrentMultiNode->dumpDot();
+#endif
+
   // Cluster Multi-Node instructions at the root to avoid scheduling isseus.
   scheduleMultiNodeInstrs();
 
@@ -10434,20 +10446,132 @@ LLVM_DUMP_METHOD void BoUpSLP::MultiNode::dumpDot() const {
     dbgs() << "Empty\n";
     return;
   }
-  const char *DumpFile = "/tmp/slp.dot";
-  dbgs() << DumpFile << "\n";
+  int FD = -1;
+  SmallString<128> Filename;
+  std::error_code EC =
+      sys::fs::createTemporaryFile("MultiNode", "dot", FD, Filename);
+  if (EC) {
+    errs() << "Cannot create temporary file: " << EC.message() << "!\n";
+    return;
+  }
+  dbgs() << Filename << "\n";
   std::error_code ec;
   std::set<std::pair<Value *, Value *>> edges;
-  raw_fd_ostream OS(DumpFile, ec, sys::fs::OF_Text);
+  raw_fd_ostream OS(Filename.str(), ec, sys::fs::OF_Text);
 
-  OS << "digraph DAG {";
-  for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
-    OS << "# OpI: " << OpI << ".\n";
-    for (int Lane = 0, Lanes = getNumLanes(); Lane != Lanes; ++Lane) {
+  OS << "digraph DAG {\n";
+  for (int Lane = 0, Lanes = getNumLanes(); Lane != Lanes; ++Lane) {
+    // Original graph.
+    SmallPtrSet<const Value *, 16> Nodes;
+    StringRef NameSuffix = "orig";
+    auto PrintNodeName = [&OS, &NameSuffix, Lane](const Value *V) {
+      OS << "\"" << Lane << ".";
+      V->printAsOperand(OS);
+      OS << "." << NameSuffix << "\"";
+    };
+    auto PrintEdge = [&](const Value *Src, const Instruction *Dst, int OpIdx) {
+      PrintNodeName(Src);
+      OS << "->";
+      PrintNodeName(Dst);
+      OS << "[label= \"" << OpIdx << "\"";
+      if (Dst->getOperand(OpIdx) != Src)
+        OS << " color=red";
+
+      OS << "];\n";
+    };
+    auto PrintInvisEdge = [&](const Value *Src, const Value *Dst) {
+      PrintNodeName(Src);
+      OS << "->";
+      PrintNodeName(Dst);
+      OS << "[style=invisible arrowhead=none];\n";
+      OS << "{rank=same; ";
+      PrintNodeName(Src);
+      OS << "; ";
+      PrintNodeName(Dst);
+      OS << ";}\n";
+    };
+    auto CreateNode = [&](const Value *V) {
+      if (!Nodes.insert(V).second)
+        return;
+      PrintNodeName(V);
+      OS << "[label=\"";
+      V->printAsOperand(OS);
+      if (auto *Inst = dyn_cast<Instruction>(V)) {
+        switch (Inst->getOpcode()) {
+        case Instruction::Add:
+          OS << " (+)";
+          break;
+        case Instruction::Sub:
+          OS << " (-)";
+          break;
+        default:
+          break;
+        }
+      }
+      OS << "\"];\n";
+    };
+    OS << "subgraph cluster_" << Lane << "_orig {\n";
+    OS << "label=\"Lane #" << Lane << " Original\";\n";
+    SmallPtrSet<const Instruction *, 8> ProcessedFrontiers;
+    for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
       const OperandData *Op = getOperand(Lane, OpI);
-      Op->dumpDot(OS, OpI);
+      auto *Frontier = Op->getFrontier();
+      if (!ProcessedFrontiers.insert(Frontier).second)
+        // Already dumped when processing some other Leaf.
+        continue;
+      assert(Frontier->getNumOperands() == 2);
+      auto *Op0 = Frontier->getOperand(0);
+      auto *Op1 = Frontier->getOperand(1);
+      CreateNode(Frontier);
+      CreateNode(Op0);
+      CreateNode(Op1);
+      PrintEdge(Op0, Frontier, 0);
+      PrintEdge(Op1, Frontier, 1);
+      // Draw invisble edge between operands to ensure left-to-right layout.
+      PrintInvisEdge(Op0, Op1);
     }
-    OS << "\n";
+    OS << "}\n";
+    OS << "subgraph cluster_" << Lane << "_reordered {\n";
+    OS << "label=\"Lane #" << Lane << " Reordered\";\n";
+    NameSuffix = "reordered";
+    Nodes.clear();
+    DenseMap<const Instruction *, std::pair<const Value *, const Value *>>
+        DrawnOps;
+    for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
+      const OperandData *Op = getOperand(Lane, OpI);
+      auto *Frontier = Op->getFrontier();
+      auto *V = Op->getValue();
+      CreateNode(Frontier);
+      CreateNode(V);
+      PrintEdge(V, Frontier, Op->getOperandNum());
+      if (Op->getOperandNum() == 0)
+        DrawnOps[Frontier].first = V;
+      else
+        DrawnOps[Frontier].second = V;
+    }
+    for (int OpI = 0, OpI_e = getNumOperands(); OpI != OpI_e; ++OpI) {
+      const OperandData *Op = getOperand(Lane, OpI);
+      auto *Frontier = Op->getFrontier();
+      std::pair<const Value *, const Value *> &Drawn = DrawnOps[Frontier];
+      if (!Drawn.first) {
+        auto *V = Frontier->getOperand(0);
+        Drawn.first = V;
+        CreateNode(V);
+        PrintEdge(V, Frontier, 0);
+      }
+      if (!Drawn.second) {
+        auto *V = Frontier->getOperand(1);
+        Drawn.second = V;
+        CreateNode(V);
+        PrintEdge(V, Frontier, 1);
+      }
+
+      // Draw invisble edge between operands to ensure left-to-right layout.
+      // Technically we might draw it multiple times as the same frontier could
+      // be referenced from multiple leafs, but it's invisible anyway.
+      PrintInvisEdge(Drawn.first, Drawn.second);
+    }
+    OS << "}\n";
   }
   OS << "}\n";
 }
