@@ -99,6 +99,7 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
     gNULTOFiles.clear();  // INTEL
     backwardReferences.clear();
     whyExtract.clear();
+    symAux.clear();
 
     tar = nullptr;
     in.reset();
