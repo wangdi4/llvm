@@ -1118,6 +1118,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::ROTR,             VT, Custom);
     }
 
+    setOperationAction(ISD::FSHL,       MVT::v16i8, Custom);
+    setOperationAction(ISD::FSHR,       MVT::v16i8, Custom);
+
     setOperationAction(ISD::STRICT_FSQRT,       MVT::v2f64, Legal);
     setOperationAction(ISD::STRICT_FADD,        MVT::v2f64, Legal);
     setOperationAction(ISD::STRICT_FSUB,        MVT::v2f64, Legal);
@@ -1317,6 +1320,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::ROTL, VT, Custom);
       setOperationAction(ISD::ROTR, VT, Custom);
     }
+
+    setOperationAction(ISD::FSHL,       MVT::v32i8, Custom);
+    setOperationAction(ISD::FSHR,       MVT::v32i8, Custom);
 
     // These types need custom splitting if their input is a 128-bit vector.
     setOperationAction(ISD::SIGN_EXTEND,       MVT::v8i64,  Custom);
@@ -1721,6 +1727,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::USUBSAT, VT, HasBWI ? Legal : Custom);
       setOperationAction(ISD::SSUBSAT, VT, HasBWI ? Legal : Custom);
     }
+
+    setOperationAction(ISD::FSHL,       MVT::v64i8, Custom);
+    setOperationAction(ISD::FSHR,       MVT::v64i8, Custom);
 
     if (Subtarget.hasDQI()) {
       setOperationAction(ISD::SINT_TO_FP, MVT::v8i64, Legal);
@@ -30647,6 +30656,7 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
   bool IsFSHR = Op.getOpcode() == ISD::FSHR;
 
   if (VT.isVector()) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     assert((Subtarget.hasVBMI2() || Subtarget.hasAVXCOMPRESS()) &&
@@ -30655,10 +30665,16 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
     assert(Subtarget.hasVBMI2() && "Expected VBMI2");
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
+=======
+    APInt APIntShiftAmt;
+    bool IsCstSplat = X86::isConstantSplat(Amt, APIntShiftAmt);
+>>>>>>> b5d2e232b8a11a932826b095d67c53e7564d7960
 
-    if (IsFSHR)
-      std::swap(Op0, Op1);
+    if (Subtarget.hasVBMI2() && EltSizeInBits > 8) {
+      if (IsFSHR)
+        std::swap(Op0, Op1);
 
+<<<<<<< HEAD
     APInt APIntShiftAmt;
     if (X86::isConstantSplat(Amt, APIntShiftAmt)) {
       uint64_t ShiftAmt = APIntShiftAmt.urem(EltSizeInBits);
@@ -30682,6 +30698,55 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
 #endif // INTEL_CUSTOMIZATION
     return getAVX512Node(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
                          {Op0, Op1, Amt}, DAG, Subtarget);
+=======
+      if (IsCstSplat) {
+        uint64_t ShiftAmt = APIntShiftAmt.urem(EltSizeInBits);
+        SDValue Imm = DAG.getTargetConstant(ShiftAmt, DL, MVT::i8);
+        return getAVX512Node(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, VT,
+                             {Op0, Op1, Imm}, DAG, Subtarget);
+      }
+      return getAVX512Node(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
+                           {Op0, Op1, Amt}, DAG, Subtarget);
+    }
+    assert((VT == MVT::v16i8 || VT == MVT::v32i8 || VT == MVT::v64i8) &&
+           "Unexpected funnel shift type!");
+
+    // fshl(x,y,z) -> unpack(y,x) << (z & (bw-1))) >> bw.
+    // fshr(x,y,z) -> unpack(y,x) >> (z & (bw-1))).
+    if (IsCstSplat)
+      return SDValue();
+
+    SDValue AmtMask = DAG.getConstant(EltSizeInBits - 1, DL, VT);
+    SDValue AmtMod = DAG.getNode(ISD::AND, DL, VT, Amt, AmtMask);
+
+    MVT ExtSVT = MVT::getIntegerVT(2 * EltSizeInBits);
+    MVT ExtVT = MVT::getVectorVT(ExtSVT, VT.getVectorNumElements() / 2);
+
+    // Split 256-bit integers on XOP/pre-AVX2 targets.
+    // Split 512-bit integers on non 512-bit BWI targets.
+    if ((VT.is256BitVector() && (Subtarget.hasXOP() || !Subtarget.hasAVX2())) ||
+        (VT.is512BitVector() && !Subtarget.useBWIRegs())) {
+      // Pre-mask the amount modulo using the wider vector.
+      Op = DAG.getNode(Op.getOpcode(), DL, VT, Op0, Op1, AmtMod);
+      return splitVectorOp(Op, DAG);
+    }
+
+    // Attempt to fold scalar shift as unpack(y,x) << zext(splat(z))
+    if (SDValue ScalarAmt = DAG.getSplatValue(AmtMod)) {
+      unsigned ShiftX86Opc = IsFSHR ? X86ISD::VSRLI : X86ISD::VSHLI;
+      SDValue Lo = DAG.getBitcast(ExtVT, getUnpackl(DAG, DL, VT, Op1, Op0));
+      SDValue Hi = DAG.getBitcast(ExtVT, getUnpackh(DAG, DL, VT, Op1, Op0));
+      ScalarAmt = DAG.getZExtOrTrunc(ScalarAmt, DL, MVT::i32);
+      Lo = getTargetVShiftNode(ShiftX86Opc, DL, ExtVT, Lo, ScalarAmt, Subtarget,
+                               DAG);
+      Hi = getTargetVShiftNode(ShiftX86Opc, DL, ExtVT, Hi, ScalarAmt, Subtarget,
+                               DAG);
+      return getPack(DAG, Subtarget, DL, VT, Lo, Hi, !IsFSHR);
+    }
+
+    // Fallback to generic expansion.
+    return SDValue();
+>>>>>>> b5d2e232b8a11a932826b095d67c53e7564d7960
   }
   assert(
       (VT == MVT::i8 || VT == MVT::i16 || VT == MVT::i32 || VT == MVT::i64) &&
