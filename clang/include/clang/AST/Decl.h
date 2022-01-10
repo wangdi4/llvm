@@ -53,11 +53,7 @@ namespace clang {
 
 class ASTContext;
 struct ASTTemplateArgumentListInfo;
-<<<<<<< HEAD
-class Attr;
 class CapturedStmt; //***INTEL
-=======
->>>>>>> ac2090d507a67d1e98594d081ce3951837d43f28
 class CompoundStmt;
 class DependentFunctionTemplateSpecializationInfo;
 class EnumDecl;
