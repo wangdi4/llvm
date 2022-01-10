@@ -79,13 +79,19 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
     if (m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) != 0)
     {
+      if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
+        g_pUserLogger->PrintError(
+            "Failed to load " + std::string(psModuleName) +
+            " with error message: " + m_dlModule.GetError());
+
 #ifdef _WIN32
-        const char* path = (GetDriverStorePathToLibrary() + psModuleName).c_str();
-        if (m_dlModule.Load(GetFullModuleNameForLoad(path)) != 0)
-        {
-            LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"), psModuleName, path);
-            return CL_COMPILER_NOT_AVAILABLE;
-        }
+      // This path is for loading clang from GPU driver.
+      const char *path = (GetDriverStorePathToLibrary() + psModuleName).c_str();
+      if (m_dlModule.Load(GetFullModuleNameForLoad(path)) != 0) {
+        LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"),
+                  psModuleName, path);
+        return CL_COMPILER_NOT_AVAILABLE;
+      }
 #else
         LOG_ERROR(TEXT("Can't find frontend library %s)"), psModuleName);
         return CL_COMPILER_NOT_AVAILABLE;

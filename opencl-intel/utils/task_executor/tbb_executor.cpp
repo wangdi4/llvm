@@ -235,6 +235,8 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
     if ( !LoadTBBLibrary() )
     {
         LOG_ERROR(TEXT("%s"), "Failed to load TBB library");
+        if (pUserLogger && pUserLogger->IsErrorLoggingEnabled())
+          pUserLogger->PrintError("Failed to load TBB library.");
         return 0;
     }
 

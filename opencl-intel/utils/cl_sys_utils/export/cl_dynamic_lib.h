@@ -43,14 +43,17 @@ namespace Intel { namespace OpenCL { namespace Utils
 
         // Loads a dynamically link library into process address space
         // Input
-        //        pLibName    - A pointer to null tirminated string that describes library file name
+        //        pLibName    - A pointer to null tirminated string that
+        //        describes library file name
         // Returns
         //        0  - if succesully loaded
         //        -1 - if the library is already loaded.
-        //        1  - if dlopen fails on linux.
-        //        System Error Codes - if LoadLibraryEx fails on windows. Please
-        //                             refer to microsoft documentation.
-        int     Load(const char* pLibName);
+        //        1  - if dlopen fails.
+        //             Linux: The reason will be record by m_errInfo.
+        //             Windows: If LoadLibraryEx fails on windows, System
+        //                      Error Codes will be recorded by m_errInfo.
+        //                      Please refer to microsoft documentation.
+        int Load(const char *pLibName);
 
         // Release all allocated resourses and unloads the library
         void    Close();
@@ -92,14 +95,18 @@ namespace Intel { namespace OpenCL { namespace Utils
         // Get function pointer from library handle
         static ptrdiff_t GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName);
 
-    protected:
+        const std::string GetError() { return m_vErrInfo; }
+
+      protected:
         void*            m_hLibrary;        // A handle to loaded library
 
         unsigned int     m_uiFuncCount;
         unsigned int*    m_pOffsetNames;    // A pointer to offsets of function names
         unsigned int*    m_pOffsetFunc;    // A pointer to offsets of functions
 
-        bool             m_bUnloadOnDestructor;
+        bool m_bUnloadOnDestructor;
+
+        std::string m_vErrInfo;
 
         static IAtExitCentralPoint* m_atexit_fn;
 

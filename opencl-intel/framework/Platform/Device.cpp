@@ -163,7 +163,11 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
     if (dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
             psDeviceAgentDllPath)) != 0)
     {
-        return CL_ERR_DEVICE_INIT_FAIL;
+      if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
+        g_pUserLogger->PrintError(
+            "Failed to load " + std::string(psDeviceAgentDllPath) +
+            " with error message: " + dlModule.GetError());
+      return CL_ERR_DEVICE_INIT_FAIL;
     }
 
     fn_clDevInitDeviceAgent* pFnClDevInitDeviceAgent = (fn_clDevInitDeviceAgent*)dlModule.GetFunctionPtrByName("clDevInitDeviceAgent");
