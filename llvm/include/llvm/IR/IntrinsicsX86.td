@@ -72,7 +72,9 @@ let TargetPrefix = "x86" in {
 
 // Read intel cpu core type, cpuid.1AH.eax[31:24]. This intrinsic may lazily
 // use cpuid to detect cpu core type and cache it into a global array in libirc
-// to minimize cost of frequently inquiring cpu core type. Read comments in
+// to minimize cost of frequently inquiring cpu core type. In such case, this
+// intrinsic may return 0 (not likely) due to cpu migration. You should check
+// returned core type if it must be non-zero on such targets. Read comments in
 // Intel_X86PreISelIntrinsicLowering.cpp:lowerFastCpuIdCoreType to know which
 // target it's capable to cache core type.
 let TargetPrefix = "x86" in {
