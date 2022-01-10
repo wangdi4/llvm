@@ -53,7 +53,6 @@ namespace clang {
 
 class ASTContext;
 struct ASTTemplateArgumentListInfo;
-class Attr;
 class CapturedStmt; //***INTEL
 class CompoundStmt;
 class DependentFunctionTemplateSpecializationInfo;
@@ -75,7 +74,6 @@ class TemplateArgumentList;
 class TemplateArgumentListInfo;
 class TemplateParameterList;
 class TypeAliasTemplateDecl;
-class TypeLoc;
 class UnresolvedSetImpl;
 class VarTemplateDecl;
 
