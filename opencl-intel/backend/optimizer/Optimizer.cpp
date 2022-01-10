@@ -485,6 +485,12 @@ static void populatePassesPostFailCheck(
   if (IsSYCL)
     PM.add(createTaskSeqAsyncHandlingLegacyPass());
 
+  // Support matrix fill and slice.
+  if (IsSYCL) {
+    PM.add(createResolveMatrixFillLegacyPass());
+    PM.add(createResolveMatrixWISliceLegacyPass());
+  }
+
   // Run few more passes after GenericAddressStaticResolution
   PM.add(createOclFunctionAttrsPass());
   PM.add(llvm::createUnifyFunctionExitNodesPass());
