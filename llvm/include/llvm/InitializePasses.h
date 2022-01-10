@@ -707,6 +707,7 @@ void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);
 void initializeBuiltinLibInfoAnalysisLegacyPass(PassRegistry &);
 void initializeCleanupWrappedKernelLegacyPass(PassRegistry &);
+void initializeCoerceTypesLegacyPass(PassRegistry &);
 void initializeCoerceWin64TypesLegacyPass(PassRegistry &);
 void initializeCreateSimdVariantPropagationLegacyPass(PassRegistry &);
 void initializeDataPerBarrierWrapperPass(PassRegistry &);

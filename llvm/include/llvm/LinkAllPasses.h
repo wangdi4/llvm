@@ -460,6 +460,7 @@ namespace {
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
+      (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();
       (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
       (void)llvm::createVectorVariantFillInLegacyPass();

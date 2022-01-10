@@ -80,6 +80,7 @@ ModulePass *createSGSizeAnalysisLegacyPass();
 ModulePass *createSGValueWidenLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createCleanupWrappedKernelLegacyPass();
+ModulePass *createCoerceTypesLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();
 ModulePass *createVectorVariantFillInLegacyPass();
 ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
