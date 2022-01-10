@@ -83,7 +83,7 @@ int template_test() {
 //DUMP: DeclRefExpr {{.*}} <col:34> 'unsigned int' NonTypeTemplateParm {{.*}} 'hint' 'unsigned int'
 //DUMP: DeclRefExpr {{.*}} <col:39> 'unsigned int' NonTypeTemplateParm {{.*}} 'size' 'unsigned int'
 //DUMP: ReturnStmt {{.*}} <line:62:3, col:15>
-//DUMP: ArraySubscriptExpr {{.*}} <col:10, col:15> '<dependent type>' lvalue
+//DUMP: ArraySubscriptExpr {{.*}} 'T' lvalue
 //DUMP: DeclRefExpr {{.*}} <col:10> 'T[size]' lvalue Var {{.*}} 'foo' 'T[size]'
 //DUMP: IntegerLiteral {{.*}} <col:14> 'int' 0
 //DUMP: FunctionDecl {{.*}} <line:58:1, line:63:1> line:58:3 {{.*}} run 'double ()'
