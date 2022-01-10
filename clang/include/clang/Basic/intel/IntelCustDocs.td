@@ -265,6 +265,54 @@ alias each other.
   }];
 }
 
+def MSVC2015TriviallyConstructibleBehaviorDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let RegressionTest = "SemaCXX/intel/cmplrs-7448.cpp";
+  let Owner = "zahiraam";
+  let Default = 0;
+  let Content = [{
+In Microsoft support for trivially copy constructable class with
+destructor was enabled for MSVC2017 (and up).
+
+.. code-block:: c++
+
+   template<typename T, typename ...Args>
+   struct itc {
+     static const bool v = __is_trivially_constructible(T, Args...);
+   };
+
+   class C1 {
+   public:
+	C1(const C1&) = default;
+	~C1(){}
+   };
+
+   static_assert(!itc<C1, const C1&>::v, "not a trivially copy constructable");
+   static_assert(!itc<C1, C1&&>::v, "not a trivially copy constructable");
+
+.. code-block:: console
+
+   $ cl t1.cpp
+   Microsoft (R) C/C++ Optimizing Compiler Version 19.00.24215.1 for x64
+   Copyright (C) Microsoft Corporation.  All rights reserved.
+
+   t1.cpp
+   t1.cpp(12): error C2338: not a trivially copy constructable
+   t1.cpp(13): error C2338: not a trivially copy constructable
+
+   $ cl -c t1.cpp
+   Microsoft (R) C/C++ Optimizing Compiler Version 19.16.27045 for x64
+   Copyright (C) Microsoft Corporation.  All rights reserved.
+
+   t1.cpp
+  }];
+  let UserContent = [{
+In Microsoft support for trivially copy constructable class with
+destructor was enabled for MSVC2017 (and up).
+  }];
+}
+
 // Intel Compatibility
 
 def InstantiateDefaultArgsDocs : Documentation {
