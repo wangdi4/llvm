@@ -61,6 +61,7 @@ ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
+FunctionPass *creatAddNTAttrLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
 FunctionPass *createAddFastMathLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();

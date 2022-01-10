@@ -447,6 +447,7 @@ namespace {
       (void)llvm::createLocalBuffersLegacyPass(false);
       (void)llvm::createAddFastMathLegacyPass();
       (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::creatAddNTAttrLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();

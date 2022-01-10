@@ -2,6 +2,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddFastMath.cpp
   AddFunctionAttrs.cpp
   AddImplicitArgs.cpp
+  AddNTAttr.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
   CoerceTypes.cpp

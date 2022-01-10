@@ -702,6 +702,7 @@ void initializeMachineOptReportEmitterPass(PassRegistry&);
 void initializeAddFastMathLegacyPass(PassRegistry &);
 void initializeAddFunctionAttrsLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);
+void initializeAddNTAttrLegacyPass(PassRegistry &);
 void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);
