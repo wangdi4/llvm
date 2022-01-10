@@ -30656,49 +30656,13 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
   bool IsFSHR = Op.getOpcode() == ISD::FSHR;
 
   if (VT.isVector()) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-    assert((Subtarget.hasVBMI2() || Subtarget.hasAVXCOMPRESS()) &&
-           "Expected VBMI2 or AVXCOMPRESS");
-#else // INTEL_FEATURE_ISA_AVX_COMPRESS
-    assert(Subtarget.hasVBMI2() && "Expected VBMI2");
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
-=======
     APInt APIntShiftAmt;
     bool IsCstSplat = X86::isConstantSplat(Amt, APIntShiftAmt);
->>>>>>> b5d2e232b8a11a932826b095d67c53e7564d7960
 
     if (Subtarget.hasVBMI2() && EltSizeInBits > 8) {
       if (IsFSHR)
         std::swap(Op0, Op1);
 
-<<<<<<< HEAD
-    APInt APIntShiftAmt;
-    if (X86::isConstantSplat(Amt, APIntShiftAmt)) {
-      uint64_t ShiftAmt = APIntShiftAmt.urem(EltSizeInBits);
-      SDValue Imm = DAG.getTargetConstant(ShiftAmt, DL, MVT::i8);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-      if (Subtarget.hasAVXCOMPRESS())
-        return DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL,
-                           Op0.getSimpleValueType(), Op0, Op1, Imm);
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
-      return getAVX512Node(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, VT,
-                           {Op0, Op1, Imm}, DAG, Subtarget);
-    }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_COMPRESS
-    if (Subtarget.hasAVXCOMPRESS())
-      return DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL,
-                         Op0.getSimpleValueType(), Op0, Op1, Amt);
-#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#endif // INTEL_CUSTOMIZATION
-    return getAVX512Node(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
-                         {Op0, Op1, Amt}, DAG, Subtarget);
-=======
       if (IsCstSplat) {
         uint64_t ShiftAmt = APIntShiftAmt.urem(EltSizeInBits);
         SDValue Imm = DAG.getTargetConstant(ShiftAmt, DL, MVT::i8);
@@ -30746,7 +30710,6 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
 
     // Fallback to generic expansion.
     return SDValue();
->>>>>>> b5d2e232b8a11a932826b095d67c53e7564d7960
   }
   assert(
       (VT == MVT::i8 || VT == MVT::i16 || VT == MVT::i32 || VT == MVT::i64) &&
