@@ -87,7 +87,7 @@ public:
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
                 DominatorTree *DT = nullptr, PhiValues *PV = nullptr,
                 unsigned OptLevel = 2u) // INTEL
-      : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) // INTEL
+      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) // INTEL
 #if INTEL_CUSTOMIZATION
   {
     setupWithOptLevel(OptLevel);
