@@ -3,6 +3,7 @@
 
 ; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll" -disable-output  2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that polynomial phi pase is parsed correctly.
 ; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
