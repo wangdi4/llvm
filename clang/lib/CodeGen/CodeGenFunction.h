@@ -77,11 +77,7 @@ class ObjCAtSynchronizedStmt;
 class ObjCAutoreleasePoolStmt;
 class OMPUseDevicePtrClause;
 class OMPUseDeviceAddrClause;
-<<<<<<< HEAD
-class ReturnsNonNullAttr;
 class IntelInlineAttr; // INTEL
-=======
->>>>>>> 12f2a1cd616f329f265277bbaca1df183966a1a4
 class SVETypeFlags;
 class OMPExecutableDirective;
 
