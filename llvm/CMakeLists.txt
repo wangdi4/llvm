@@ -327,7 +327,6 @@ endif()
 
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
 
@@ -341,10 +340,6 @@ if(NOT LLVM_TOOLS_INSTALL_DIR STREQUAL "bin")
     )
 endif()
 # end INTEL_CUSTOMIZATION
-=======
-set(LLVM_TOOLS_INSTALL_DIR "${CMAKE_INSTALL_BINDIR}" CACHE STRING
-    "Path for binary subdirectory (defaults to '${CMAKE_INSTALL_BINDIR}')")
->>>>>>> feeff8a37c35631f2cf15ca3639958ed1b179d4d
 mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
 
 set(LLVM_UTILS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE STRING
