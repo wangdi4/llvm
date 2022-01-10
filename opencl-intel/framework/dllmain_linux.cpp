@@ -60,6 +60,8 @@ void dll_init(void)
 
 void dll_fini(void)
 {
+    Intel::OpenCL::Utils::FrameworkUserLogger::Destroy();
+    Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
 // Disable it to avoid conflict with atexit() callback.
 #if 0
     // release the framework proxy object

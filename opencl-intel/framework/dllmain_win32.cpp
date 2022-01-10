@@ -84,6 +84,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
+    Intel::OpenCL::Utils::FrameworkUserLogger::Destroy();
+    Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
 		// release the framework proxy object
 		Intel::OpenCL::Framework::FrameworkProxy::Destroy();
 #ifdef _DEBUG

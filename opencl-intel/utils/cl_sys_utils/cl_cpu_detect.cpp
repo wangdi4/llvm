@@ -285,9 +285,16 @@ void CPUDetect::ResetCPU(ECPU cpuId,
     m_CPUFeatures["bmi2"] = false;
 }
 
+CPUDetect *CPUDetect::Instance = nullptr;
+CPUDetect::Deleter CPUDetect::InstanceDeleter{};
+
 CPUDetect *CPUDetect::GetInstance() {
-  static CPUDetect instance;
-  return &instance;
+  static CPUDetect *S = [] {
+    Instance = new CPUDetect;
+    return Instance;
+  }();
+
+  return S;
 }
 
 CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {

@@ -314,7 +314,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
                 return CL_INVALID_HANDLE;
             }
 
-            static std::vector<cl_context_properties> legalProperties = {
+            std::vector<cl_context_properties> legalProperties = {
                 CL_CONTEXT_PLATFORM,
                 CL_CONTEXT_INTEROP_USER_SYNC
             };

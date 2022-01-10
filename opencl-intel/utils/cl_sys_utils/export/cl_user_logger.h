@@ -35,7 +35,11 @@ public:
     /**
      * Constructor
      */
-    static FrameworkUserLogger& Instance();    
+    static FrameworkUserLogger *GetInstance();
+    static void Destroy() {
+      if (Instance)
+        delete Instance;
+    }
 
     /**
      * Destructor
@@ -107,6 +111,8 @@ private:
     std::ofstream m_logFile;
     std::ostream* m_pOutput;
     mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput    
+
+    static FrameworkUserLogger *Instance;
 };
 
 extern FrameworkUserLogger* g_pUserLogger;   // a global pointer to the logger, which be defined in each shared library (so LOG_ERROR can use the user logger)
