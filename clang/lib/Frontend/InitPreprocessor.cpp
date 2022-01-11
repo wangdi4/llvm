@@ -1075,7 +1075,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
   Builder.defineMacro("__USER_LABEL_PREFIX__", TI.getUserLabelPrefix());
 
-<<<<<<< HEAD
+  if (!LangOpts.MathErrno)
+    Builder.defineMacro("__NO_MATH_ERRNO__");
+
 #if INTEL_CUSTOMIZATION
   // CQ419573 - Always set __FINITE_MATH_ONLY__ to 0 for compatibility
   // with 'icc' and Intel runtime libraries. If this definition is set
@@ -1089,12 +1091,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // was expanded to include SYCL compilations as well.
   if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat &&
       !LangOpts.SYCLIsDevice && !LangOpts.SYCLIsHost)
-=======
-  if (!LangOpts.MathErrno)
-    Builder.defineMacro("__NO_MATH_ERRNO__");
-
-  if (LangOpts.FastMath || LangOpts.FiniteMathOnly)
->>>>>>> f282b6809105075b65974989459ee420ecd406e9
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");
