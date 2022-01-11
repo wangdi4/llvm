@@ -19,6 +19,7 @@
 #include "ChooseVectorizationDimension.h"
 #include "OCLPassSupport.h"
 #include "VecConfig.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 using namespace llvm;
@@ -27,6 +28,7 @@ namespace intel {
 class OCLVecCloneImpl : public VecCloneImpl {
 private:
   // Configuration options
+  ArrayRef<VectItem> VectInfos;
   const Intel::OpenCL::Utils::CPUDetect *CPUId;
   bool IsOCL;
 
@@ -58,7 +60,8 @@ private:
   };
 
 public:
-  OCLVecCloneImpl(const Intel::OpenCL::Utils::CPUDetect *CPUId, bool IsOCL);
+  OCLVecCloneImpl(ArrayRef<VectItem> VectInfos,
+                  const Intel::OpenCL::Utils::CPUDetect *CPUId, bool IsOCL);
 
   OCLVecCloneImpl();
 
@@ -76,7 +79,8 @@ protected:
 public:
   static char ID;
 
-  OCLVecClone(const Intel::OpenCL::Utils::CPUDetect *CPUId, bool IsOCL);
+  OCLVecClone(ArrayRef<VectItem> VectInfos,
+              const Intel::OpenCL::Utils::CPUDetect *CPUId, bool IsOCL);
 
   OCLVecClone();
 
