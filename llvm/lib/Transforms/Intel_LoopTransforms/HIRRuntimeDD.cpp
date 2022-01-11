@@ -1485,7 +1485,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
     TestIdx += 1;
   }
 
-  AttrBuilder AB;
+  AttrBuilder AB(LLVMContext);
   AB.addAttribute(Attribute::Speculatable)
       .addAttribute(Attribute::ReadOnly)
       .addAttribute(Attribute::ArgMemOnly);
