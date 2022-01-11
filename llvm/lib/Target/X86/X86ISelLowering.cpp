@@ -30657,16 +30657,37 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
     APInt APIntShiftAmt;
     bool IsCstSplat = X86::isConstantSplat(Amt, APIntShiftAmt);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    if ((Subtarget.hasVBMI2() || Subtarget.hasAVXCOMPRESS()) &&
+        EltSizeInBits > 8) {
+#else // INTEL_FEATURE_ISA_AVX_COMPRESS
     if (Subtarget.hasVBMI2() && EltSizeInBits > 8) {
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
       if (IsFSHR)
         std::swap(Op0, Op1);
 
       if (IsCstSplat) {
         uint64_t ShiftAmt = APIntShiftAmt.urem(EltSizeInBits);
         SDValue Imm = DAG.getTargetConstant(ShiftAmt, DL, MVT::i8);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+        if (Subtarget.hasAVXCOMPRESS())
+          return DAG.getNode(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL,
+                             Op0.getSimpleValueType(), Op0, Op1, Imm);
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
         return getAVX512Node(IsFSHR ? X86ISD::VSHRD : X86ISD::VSHLD, DL, VT,
                              {Op0, Op1, Imm}, DAG, Subtarget);
       }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+      if (Subtarget.hasAVXCOMPRESS())
+        return DAG.getNode(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL,
+                           Op0.getSimpleValueType(), Op0, Op1, Amt);
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
       return getAVX512Node(IsFSHR ? X86ISD::VSHRDV : X86ISD::VSHLDV, DL, VT,
                            {Op0, Op1, Amt}, DAG, Subtarget);
     }
