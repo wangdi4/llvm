@@ -1,8 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
-; Check that we do not do distribution for loops with conditional liveout
-; temps that need to be scalar expanded.
+; Check that distribution succeeds for loops with liveout temps under control flow.
+; %"prec4neg_1_$IJKL1.0" is loaded inside inside the if of the 2nd distributed loop.
 
 ; Before Distribution:
 
@@ -45,8 +45,28 @@
 
 ; After Distribution:
 
-; CHECK: BEGIN REGION
-; CHECK-NOT: modified
+; CHECK:   BEGIN REGION { modified }
+; CHECK:     + DO i1 = 0, (%"prec4neg_1_$NBLS_N0_fetch.1124" + -1)/u64, 1   <DO_LOOP>
+;             |   %min = (-64 * i1 + %"prec4neg_1_$NBLS_N0_fetch.1124" + -1 <= 63) ? -64 * i1 + %"prec4neg_1_$NBLS_N0_fetch.1124" + -1 : 63;
+;             |
+; CHECK:      |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
+;             |        ...
+; CHECK:      |   + END LOOP
+;             |
+;             |
+; CHECK:      |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
+; CHECK-NEXT: |   |   %mul.156 = (%.TempArray)[0][i2];
+; CHECK-NEXT: |   |   if (%mul.156 > %fetch.1169)
+; CHECK-NEXT: |   |   {
+; CHECK-NEXT: |   |      %"prec4neg_1_$IJKL1.0" = (%.TempArray1)[0][i2];
+; CHECK-NEXT: |   |      %"prec4neg_1_$SQRPOLD.0" = (%.TempArray3)[0][i2];
+; CHECK-NEXT: |   |      %mul.177 = (%.TempArray5)[0][i2];
+; CHECK-NEXT: |   |      %mul.178 = %"prec4neg_1_$SQRPOLD.0"  *  %mul.177;
+;             |   |      (%"prec4neg_1_$CONST")[%"prec4neg_1_$IJKL1.0" + -1] = %mul.178;
+;             |   |   }
+;             |   + END LOOP
+;             + END LOOP
+;          END REGION
 
 @neglect_ = external unnamed_addr global [24 x i8], align 32
 

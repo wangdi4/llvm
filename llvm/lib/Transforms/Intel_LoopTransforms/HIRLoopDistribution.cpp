@@ -187,10 +187,6 @@ bool HIRLoopDistribution::run() {
       }
     }
 
-    // Save the loop before checking Scalar Expansion. SCEX analysis requires
-    // processing PiBlocks which will modify HIR before we decide if
-    // transformation will happen. We'll revert to LoopClone as backup.
-    HLLoop *LoopClone = Lp->clone();
     SmallVector<PiBlockList, 8> NewOrdering;
     findDistPoints(Lp, PG, NewOrdering);
 
@@ -219,18 +215,6 @@ bool HIRLoopDistribution::run() {
         LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                           << "Number of temps required for distribution exceed "
                              "MaxArrayTempsAllowed\n");
-        continue;
-      }
-
-      // There are certain cases we can't handle involving liveout temps and
-      // SCEX reloading from temp arrays inside control flow. Bailout here.
-      if (SCEX.hasBadCandidate()) {
-        LLVM_DEBUG(
-            dbgs()
-            << "LOOP DISTRIBUTION: "
-            << "Cannot distribute for liveout scalar with control flow\n");
-        // Replace modified Loop with original loop
-        HLNodeUtils::replace(Lp, LoopClone);
         continue;
       }
 
@@ -592,48 +576,70 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *SrcRef,
   return IsSafeToRecompute && Level >= SrcRValLevel;
 }
 
-// Scalar expansion assumes we can re-load temps/globals once per
-// loop, disregarding control flow from the original loop. This may
-// cause inconsistencies for liveouts, e.g.
+// For SCEX store/loads for distributed loops, we don't want the default
+// behavior of loading at the beginning of each loop if the original def
+// is under an if node. Take the follow example:
 //
-// Orig_Loop:
-// if (pred)
-//   x = A[i]; <-- DistLoop1
-//   B[x] = 1; <-- DistLoop2
+// DISTLOOP1:
+//   if (x > 0)
+//     x = x+1
+//   -- distpoint --
+//     A[i] = B[x];
 //
-// DistLoop1:
-// if (pred)
-//   x = A[i];
-//
-// DistLoop2:
-// if (pred)
-//   B[x] = 1;
-// ...
-// Since x is used in DistLoop2, we need to load x before the first use
-// in of DistLoop2. However, if x is liveout, correct loading
-// of x in DistLoop2 from the value stored in DistLoop1 needs to happen
-// inside the if node. Otherwise the last value of x could be incorrect.
-// But since x could have additional uses, loading inside the if is
-// correct only if it's a single use.
+// Scalar Expansion inserts a temparray store after the definition
+// of x and a temparray load before the use of B[x]. However, because
+// the original use is under an if-node, we want the corresponding load
+// to be inside the if-node, as opposed to before the if, which is the
+// default node used by SCEX.
+static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
+                                     HLNode *FirstNode) {
+  HLIf *SrcParent = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
+  HLIf *DstParent = dyn_cast_or_null<HLIf>(Dst->getHLDDNode()->getParent());
 
-// Candidate is bad if:
-// 1) Candidate has multiple uses (TODO)
-// 2) Candidate is live out
-// 3) Candidate def is conditional
-bool ScalarExpansion::hasBadCandidate() const {
-  for (auto &Candidate : Candidates) {
-    unsigned SB = Candidate.getSymbase();
-    if (!Lp->isLiveOut(SB)) {
-      continue;
+  if (!SrcParent || !DstParent) {
+    return FirstNode;
+  }
+
+  // Find equivalent HLIf parent for both Src and Dst. In some cases the Dst
+  // can be in nested If nodes, so we traverse up the parent chain. Note that
+  // we do not handle cases where the Src is at a deeper if nest than the Dst.
+  // We assume that the incoming HIR does not assign the same temps in that
+  // case.
+  bool FoundEqualIf = false;
+  HLNode *DstNodeParent = cast<HLNode>(DstParent);
+  while (DstNodeParent && isa<HLIf>(DstNodeParent)) {
+    DstParent = cast<HLIf>(DstNodeParent);
+    if (HLNodeUtils::areEqualConditions(SrcParent, DstParent)) {
+      FoundEqualIf = true;
+      break;
     }
+    DstNodeParent = DstNodeParent->getParent();
+  }
 
-    for (auto &Src : Candidate.SrcRefs) {
-      if (!isa<HLLoop>(Src->getHLDDNode()->getParent())) {
+  if (!FoundEqualIf) {
+    return FirstNode;
+  }
+
+  auto isNodeInThenPath = [&](HLIf *If, HLNode *Node) -> bool {
+    for (auto ThenIt = If->then_begin(), ThenItEnd = If->then_end();
+         ThenIt != ThenItEnd; ++ThenIt) {
+      if (Node == &*ThenIt) {
         return true;
       }
     }
+    return false;
+  };
+
+  bool SrcPath = SrcParent->isThenChild(Src->getHLDDNode());
+  // DstPath is detached so we need to manually iterate the nodes
+  bool DstPath = isNodeInThenPath(DstParent, Dst->getHLDDNode());
+
+  if (SrcPath != DstPath) {
+    return FirstNode;
   }
-  return false;
+
+  return DstPath ? DstParent->getFirstThenChild()
+                 : DstParent->getFirstElseChild();
 }
 
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
@@ -722,16 +728,24 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
             Cand.SrcRefs.push_back(SrcRegRef);
           }
 
+          HLNode *FirstNode =
+              getInsertionNodeForIf(SrcRegRef, DstRef, Chunks[J].front());
+
           //  Loading is needed once per loop
           if (SymbaseLoopSet.count({SB, J})) {
+            // Revert to the default Chunk if we see this dependency with
+            // different insertion nodes
+            if (FirstNode != Cand.DstRefs.back().FirstNode) {
+              Cand.DstRefs.back().FirstNode = Chunks[J].front();
+            }
             continue;
           }
 
           // Push first ref in J group, this is where SrcRegRef should be loaded
           // or recomputed, once per group J.
-          Cand.DstRefs.push_back(
-              {DstRef, Chunks[J].front(), TempRedefined, DepInst});
-
+          Cand.DstRefs.push_back({DstRef, FirstNode, TempRedefined, DepInst});
+          LLVM_DEBUG(dbgs() << "SCEX candidate: "; Cand.dump();
+                     dbgs() << "\n";);
           SymbaseLoopSet.insert({SB, J});
         }
       }
@@ -743,8 +757,6 @@ void HIRLoopDistribution::replaceWithArrayTemp(
     unsigned LoopCount, ArrayRef<ScalarExpansion::Candidate> Candidates) {
 
   for (auto &Candidate : Candidates) {
-    RegDDRef *TmpArrayRef = nullptr;
-
     if (!Candidate.isTempRequired()) {
       HLInst *SrcInst = cast<HLInst>(Candidate.SrcRefs.front()->getHLDDNode());
 
@@ -766,6 +778,8 @@ void HIRLoopDistribution::replaceWithArrayTemp(
 
       continue;
     }
+
+    RegDDRef *TmpArrayRef = nullptr;
 
     // Create TEMP[i] = tx and insert
     for (RegDDRef *SrcRef : Candidate.SrcRefs) {
