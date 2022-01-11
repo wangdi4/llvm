@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/IPO/Intel_AggInliner.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/IR/Constants.h"
@@ -566,7 +567,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
   auto IsTinyAllocFreeCall = [this](const CallBase *Call) {
     auto &TLI = GetTLI(*Call->getFunction());
     // Check for alloc call.
-    if (isNoAliasFn(Call, &TLI))
+    if (isNoAliasCall(Call))
       return true;
 
     Function *F = Call->getCalledFunction();
@@ -755,7 +756,7 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
           if (NullPtrStore)
             return false;
           NullPtrStore = SI;
-        } else if (isNoAliasFn(ValOp, &GetTLI(*SI->getFunction()))) {
+        } else if (isNoAliasCall(ValOp)) {
           if (AllocPtrStore)
             return false;
           AllocPtrStore = SI;

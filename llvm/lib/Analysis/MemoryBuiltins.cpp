@@ -240,7 +240,6 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   return Result;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -263,13 +262,6 @@ bool llvm::isAllocationLibFunc(LibFunc LF) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool hasNoAliasAttr(const Value *V) {
-  const auto *CB = dyn_cast<CallBase>(V);
-  return CB && CB->hasRetAttr(Attribute::NoAlias);
-}
-
-=======
->>>>>>> 92d55e7336db8597e90eefcdd72bc33ef553a454
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
