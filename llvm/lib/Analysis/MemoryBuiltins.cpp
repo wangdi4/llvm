@@ -240,6 +240,7 @@ static Optional<AllocFnsTy> getAllocationSize(const Value *V,
   return Result;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -267,6 +268,8 @@ static bool hasNoAliasAttr(const Value *V) {
   return CB && CB->hasRetAttr(Attribute::NoAlias);
 }
 
+=======
+>>>>>>> 92d55e7336db8597e90eefcdd72bc33ef553a454
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
@@ -276,15 +279,6 @@ bool llvm::isAllocationFn(const Value *V, const TargetLibraryInfo *TLI) {
 bool llvm::isAllocationFn(
     const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
   return getAllocationData(V, AnyAlloc, GetTLI).hasValue();
-}
-
-/// Tests if a value is a call or invoke to a function that returns a
-/// NoAlias pointer (including malloc/calloc/realloc/strdup-like functions).
-bool llvm::isNoAliasFn(const Value *V, const TargetLibraryInfo *TLI) {
-  // it's safe to consider realloc as noalias since accessing the original
-  // pointer is undefined behavior
-  return isAllocationFn(V, TLI) ||
-         hasNoAliasAttr(V);
 }
 
 /// Tests if a value is a call or invoke to a library function that
