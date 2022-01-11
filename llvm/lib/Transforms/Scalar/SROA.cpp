@@ -1338,7 +1338,6 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   return true;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// \brief This updates the users of Inst with NewInst if Inst is a load.
 /// It also looks for GEPs along the way and traverses its users to
@@ -1397,10 +1396,7 @@ static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
 /// Not every line was changed, but the entire routine is under
 /// INTEL_CUSTOMIZATION, because any community changes to this routine will need
 /// to be manually merged.
-static void speculatePHINodeLoads(PHINode &PN) {
-=======
 static void speculatePHINodeLoads(IRBuilderTy &IRB, PHINode &PN) {
->>>>>>> 003ac239d862a232c8b97d67f4729af2b83e72b8
   LLVM_DEBUG(dbgs() << "    original: " << PN << "\n");
 
   // Get the AA tags and alignment to use from one of the loads.  It doesn't
@@ -1440,9 +1436,8 @@ static void speculatePHINodeLoads(IRBuilderTy &IRB, PHINode &PN) {
     Instruction *TI = Pred->getTerminator();
     IRB.SetInsertPoint(TI);
 
-<<<<<<< HEAD
     SmallPtrSet<LoadInst *, 4> NewLoads;
-    injectGEPsLoads(PredBuilder, cast<Instruction>(PN.user_back()), InVal,
+    injectGEPsLoads(IRB, cast<Instruction>(PN.user_back()), InVal,
       LoadTy, NewLoads);
     for (auto *NewLoad : NewLoads) {
       ++NumLoadsSpeculated;
@@ -1454,16 +1449,6 @@ static void speculatePHINodeLoads(IRBuilderTy &IRB, PHINode &PN) {
     }
 
     NewLoads.clear();
-=======
-    LoadInst *Load = IRB.CreateAlignedLoad(
-        LoadTy, InVal, Alignment,
-        (PN.getName() + ".sroa.speculate.load." + Pred->getName()));
-    ++NumLoadsSpeculated;
-    if (AATags)
-      Load->setAAMetadata(AATags);
-    NewPN->addIncoming(Load, Pred);
-    InjectedLoads[Pred] = Load;
->>>>>>> 003ac239d862a232c8b97d67f4729af2b83e72b8
   }
 
   // Rewrite all loads/loads-following-GEPs of the PN to use the new PHI.
