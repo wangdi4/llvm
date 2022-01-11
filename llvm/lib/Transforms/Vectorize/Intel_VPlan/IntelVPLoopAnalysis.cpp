@@ -653,7 +653,16 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
-    VPValue *V = Builder.createStore(&Final, AI);
+    VPLoadStoreInst *V = Builder.createStore(&Final, AI);
+#if INTEL_CUSTOMIZATION
+    if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
+      if (ExtDef->getOperandHIR()) {
+        unsigned ExtDefSym =
+            cast<VPBlob>(ExtDef->getOperandHIR())->getBlob()->getSymbase();
+        V->HIR().setSymbase(ExtDefSym);
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     linkValue(&E, V);
   }
   if (Exit && !E.getIsMemOnly())

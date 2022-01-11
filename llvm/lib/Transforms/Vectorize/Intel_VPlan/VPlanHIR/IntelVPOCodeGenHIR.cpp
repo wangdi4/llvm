@@ -3638,6 +3638,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond: {
     // Pseudo HIR generated to finalize conditional last private entity -
     // %priv.final = private-final-c %exit, %idx, %orig
@@ -3652,48 +3653,59 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // ; Extract final value and store back to original
     // %orig = extractelement %exit.vec, %lane
     //
-    auto *CondPrivateFinal = cast<VPPrivateFinalCond>(VPInst);
-    RegDDRef *VecExit = widenRef(CondPrivateFinal->getExit(), getVF());
-    RegDDRef *VecIndex = widenRef(CondPrivateFinal->getIndex(), getVF());
-
-    HLContainerTy CondPrivFinalInsts;
-
-    Function *IdxReduceFunc = Intrinsic::getDeclaration(
-        &HLNodeUtilities.getModule(), Intrinsic::vector_reduce_smax,
-        {VecIndex->getDestType()});
-    HLInst *IdxReduceCall = HLNodeUtilities.createCall(
-        IdxReduceFunc, {VecIndex->clone()}, "priv.idx.max");
-    CondPrivFinalInsts.push_back(*IdxReduceCall);
-
-    RegDDRef *MaxIdxBcast =
-        widenRef(IdxReduceCall->getLvalDDRef()->clone(), getVF());
-    HLInst *CmpInst = HLNodeUtilities.createCmp(
-        PredicateTy::ICMP_EQ, VecIndex->clone(), MaxIdxBcast, "priv.idx.cmp");
-    CondPrivFinalInsts.push_back(*CmpInst);
-
-    HLInst *BsfCall = createCTZCall(CmpInst->getLvalDDRef()->clone(),
-                                    Intrinsic::cttz, true, &CondPrivFinalInsts);
-
-    // Scalar result of private finalization should be written back to original
-    // private descriptor variable.
-    RegDDRef *OrigPrivDescr = getUniformScalarRef(CondPrivateFinal->getOrig());
-    HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
-        VecExit->clone(), BsfCall->getLvalDDRef()->clone(), "priv.extract",
-        OrigPrivDescr);
-    CondPrivFinalInsts.push_back(*PrivExtract);
-
-    // Make the original private descriptor non-linear since we have a
-    // definition to the temp in loop post-exit.
-    PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
-
-    addInst(&CondPrivFinalInsts);
-    addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
+    if (isa<VPPrivateFinalCond>(VPInst))
+      insertPrivateFinalCond<VPPrivateFinalCond>(VPInst);
+    else if (isa<VPPrivateFinalCondMem>(VPInst))
+      insertPrivateFinalCond<VPPrivateFinalCondMem>(VPInst);
     return;
   }
 
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
+}
+
+template <typename FinalInstType>
+void VPOCodeGenHIR::insertPrivateFinalCond(const VPInstruction *VPInst) {
+  auto *CondPrivateFinal = cast<FinalInstType>(VPInst);
+  RegDDRef *VecExit = widenRef(CondPrivateFinal->getExit(), getVF());
+  RegDDRef *VecIndex = widenRef(CondPrivateFinal->getIndex(), getVF());
+
+  HLContainerTy CondPrivFinalInsts;
+
+  Function *IdxReduceFunc = Intrinsic::getDeclaration(
+      &HLNodeUtilities.getModule(), Intrinsic::vector_reduce_smax,
+      {VecIndex->getDestType()});
+  HLInst *IdxReduceCall = HLNodeUtilities.createCall(
+      IdxReduceFunc, {VecIndex->clone()}, "priv.idx.max");
+  CondPrivFinalInsts.push_back(*IdxReduceCall);
+
+  RegDDRef *MaxIdxBcast =
+      widenRef(IdxReduceCall->getLvalDDRef()->clone(), getVF());
+  HLInst *CmpInst = HLNodeUtilities.createCmp(
+      PredicateTy::ICMP_EQ, VecIndex->clone(), MaxIdxBcast, "priv.idx.cmp");
+  CondPrivFinalInsts.push_back(*CmpInst);
+
+  HLInst *BsfCall = createCTZCall(CmpInst->getLvalDDRef()->clone(),
+                                  Intrinsic::cttz, true, &CondPrivFinalInsts);
+
+  // Scalar result of private finalization should be written back to original
+  // private descriptor variable.
+  RegDDRef *OrigPrivDescr = nullptr;
+  if (std::is_same<FinalInstType, VPPrivateFinalCond>::value)
+    OrigPrivDescr = getUniformScalarRef(CondPrivateFinal->getOrig());
+  HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+      VecExit->clone(), BsfCall->getLvalDDRef()->clone(), "priv.extract",
+      OrigPrivDescr);
+  CondPrivFinalInsts.push_back(*PrivExtract);
+
+  // Make the original private descriptor non-linear since we have a
+  // definition to the temp in loop post-exit.
+  PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
+
+  addInst(&CondPrivFinalInsts);
+  addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
+  return;
 }
 
 RegDDRef *VPOCodeGenHIR::generateCompareToZero(RegDDRef *Value,
