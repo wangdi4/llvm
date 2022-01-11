@@ -164,7 +164,7 @@
 ; CHECK-NEXT:       |   |      %unifcond = extractelement %all.zero.check,  0;
 ; CHECK-NEXT:       |   |      if (%unifcond == 1)
 ; CHECK-NEXT:       |   |      {
-; CHECK-NEXT:       |   |         goto BB12.296;
+; CHECK-NEXT:       |   |         goto BB12.[[BB:[0-9]+]];
 ; CHECK-NEXT:       |   |      }
 ; CHECK-NEXT:       |   |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select74);
 ; CHECK-NEXT:       |   |      %priv.idx.cmp = %select74 == %priv.idx.max;
@@ -172,7 +172,7 @@
 ; CHECK-NEXT:       |   |      %bsf = @llvm.cttz.i4(%bsfintmask,  1);
 ; CHECK-NEXT:       |   |      %tmp37 = extractelement %select76,  %bsf;
 ; CHECK-NEXT:       |   |      %phi.temp107 = %tmp37;
-; CHECK-NEXT:       |   |      BB12.296:
+; CHECK-NEXT:       |   |      BB12.[[BB]]:
 ; CHECK-NEXT:       |   |   }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
