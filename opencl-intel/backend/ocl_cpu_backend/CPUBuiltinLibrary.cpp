@@ -82,7 +82,7 @@ void CPUBuiltinLibrary::Load() {
   // Deploy case:
   // lib/
   //    clbltfnshared.rtl
-  //    intel64/ or ia32/
+  //    x64/ or x86/
   //        other libraries
 #if defined (_WIN32)
   std::string RTLSharedPath = PathStr + "..\\clbltfnshared.rtl";
