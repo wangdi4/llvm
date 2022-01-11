@@ -33,8 +33,10 @@ using namespace llvm;
 //        core_type = __detect_cpu_core_type_1n();
 // __cpu_core_type cached core type for each cpu indexed by IA32_TSC_AUX & 0xFF.
 // __detect_cpu_core_type_1n detect core type for cpu we are runing and update
-// __cpu_core_type array. Read comments in libirc/cpu_core_type.c for the detail
-// explanation about IA32_TSC_AUX.
+// __cpu_core_type array. Note that __detect_cpu_core_type_1n may return 0 (not
+// likely) if it can't bullet proof pid and core type it read was executed on
+// same core. Read comments in libirc/cpu_core_type.c for the detail explanation
+// about IA32_TSC_AUX.
 //
 // For other target, this function lowers
 //      %core_type = call i8 llvm.x86.intel.fast.cpuid.coretype

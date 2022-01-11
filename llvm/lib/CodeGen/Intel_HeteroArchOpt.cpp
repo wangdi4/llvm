@@ -260,13 +260,12 @@ void HeteroArchOpt::createMultiVersion() {
   IRBuilder<> IRB(NewEntryBB);
 
   // Create runtime check based on hybrid information enumeration leaf.
-  CallInst *CpuId = IRB.CreateIntrinsic(Intrinsic::x86_cpuid, None,
-                                        {IRB.getInt32(0x1a), IRB.getInt32(0)});
-  Value *EAX = IRB.CreateExtractValue(CpuId, 0, "eax");
+  CallInst *CoreType =
+      IRB.CreateIntrinsic(Intrinsic::x86_intel_fast_cpuid_coretype, None, None);
+  CoreType->getCalledFunction()->addFnAttr(CurFn->getFnAttribute("target-cpu"));
 
-  // Bits 31-24 is core type. 20H is intel atom. 40H is intel core.
-  Value *CoreType = IRB.CreateLShr(EAX, IRB.getInt32(24));
-  Value *IsCore = IRB.CreateICmpEQ(CoreType, IRB.getInt32(0x40));
+  // 20H is intel atom. 40H is intel core.
+  Value *IsCore = IRB.CreateICmpEQ(CoreType, IRB.getInt8(0x40));
 
   // True branch for core and False branch for atom.
   IRB.CreateCondBr(IsCore, OldEntryBB, VMap.getClone(OldEntryBB));

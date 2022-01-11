@@ -145,6 +145,12 @@
 ; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<llvm::AndersensAA> on [module]
+; CHECK-O23SZ-NEXT: Invalidating analysis: AndersensAA on [module]
+; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<llvm::AndersensAA, llvm::Module> on [module]
+; CHECK-O23SZ-NEXT: Running analysis: AndersensAA on [module]
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager

@@ -503,9 +503,7 @@ public:
 
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Module &M, const PreservedAnalyses &PA,
-                  ModuleAnalysisManager::Invalidator &Inv) {
-    return false;
-  }
+                  ModuleAnalysisManager::Invalidator &Inv);
 
 private:
   bool findNameInTable(StringRef rname, const char** name_table);

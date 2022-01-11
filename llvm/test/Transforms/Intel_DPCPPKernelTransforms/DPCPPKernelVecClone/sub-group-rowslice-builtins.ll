@@ -15,6 +15,10 @@ entry:
 ; CHECK-NEXT: [[RID1:%.*]] = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> [[MAT]], i32 12, i32 12, i64 [[INDEX]])
 ; CHECK-NEXT: call void @_ZGVbN16uv_sub_group_rowslice_insertelement.i32(i64 [[RID1]], <16 x i32> [[WIDEN_MUL]])
 ; CHECK-NEXT: [[MAT_UPDATE:%.*]] = call <144 x i32> @sub_group_insert_rowslice_to_matrix.v144i32(i64 [[RID1]])
+
+; CHECK-LABEL: simd.loop:
+; CHECK: call i32 @sub_group_rowslice_extractelement.i32(i64 %rowslice.id) #[[#ATTR0:]]
+; CHECK: call void @sub_group_rowslice_insertelement.i32(i64 %rowslice.id1, i32 %val) #[[#ATTR1:]]
   %rowslice.id = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i64 %element.index)
   %extract.elem = call i32 @sub_group_rowslice_extractelement.i32(i64 %rowslice.id)
   %val = mul i32 %extract.elem, 42
@@ -24,17 +28,18 @@ entry:
   ret void
 }
 
-declare i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32>, i32, i32, i64) #2
+declare i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32>, i32, i32, i64) #0
 
-declare i32 @sub_group_rowslice_extractelement.i32(i64) #0
+declare i32 @sub_group_rowslice_extractelement.i32(i64)
 
-declare void @sub_group_rowslice_insertelement.i32(i64, i32) #1
+declare void @sub_group_rowslice_insertelement.i32(i64, i32)
 
-declare <144 x i32> @sub_group_insert_rowslice_to_matrix.v144i32(i64) #2
+declare <144 x i32> @sub_group_insert_rowslice_to_matrix.v144i32(i64) #0
 
-attributes #0 = { "vector-variants"="_ZGVbM16u_sub_group_rowslice_extractelement.i32,_ZGVbN16u_sub_group_rowslice_extractelement.i32" "kernel-call-once" }
-attributes #1 = { "vector-variants"="_ZGVbM16uv_sub_group_rowslice_insertelement.i32,_ZGVbN16uv_sub_group_rowslice_insertelement.i32" "kernel-call-once" }
-attributes #2 = { "kernel-uniform-call" "opencl-vec-uniform-return" }
+; CHECK-DAG: attributes #[[#ATTR0]] = {{{.*}}"kernel-call-once" "vector-variants"="_ZGVbN16u_sub_group_rowslice_extractelement.i32,_ZGVbM16u_sub_group_rowslice_extractelement.i32" }
+; CHECK-DAG: attributes #[[#ATTR1]] = {{{.*}}"kernel-call-once" "vector-variants"="_ZGVbN16uv_sub_group_rowslice_insertelement.i32,_ZGVbM16uv_sub_group_rowslice_insertelement.i32" }
+
+attributes #0 = { "kernel-uniform-call" "opencl-vec-uniform-return" }
 
 !sycl.kernels = !{!0}
 

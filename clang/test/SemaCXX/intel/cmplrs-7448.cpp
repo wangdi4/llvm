@@ -1,5 +1,20 @@
-// RUN: %clang_cc1 -DWIN_TEST=1 -fsyntax-only -verify %s "-fms-compatibility" "-std=c++11"
+// RUN: %clang_cc1 -DWIN_TEST=1 -fsyntax-only -verify %s -fms-compatibility \
+// RUN: -std=c++11 -fintel-compatibility -fms-compatibility-version=19.00 \
+// RUN: -fintel-compatibility-enable=MSVC2015TriviallyConstructibleBehavior
+//
 // RUN: %clang_cc1 -fsyntax-only -verify %s "-std=c++11"
+//
+// RUN: %clang_cc1 -fsyntax-only -verify -fintel-compatibility %s "-std=c++11"
+// RUN: %clang_cc1 -fsyntax-only -verify -fintel-compatibility %s \
+// RUN: "-std=c++11" -fms-compatibility -fms-compatibility-version=19.10
+//
+// RUN: %clang_cc1 -fsyntax-only -verify -fintel-compatibility %s "-std=c++11" \
+// RUN: -fms-compatibility -fms-compatibility-version=19.00 \
+// RUN: -fintel-compatibility-disable=MSVC2015TriviallyConstructibleBehavior
+//
+// RUN: %clang_cc1 -fsyntax-only -verify %s -fms-compatibility \
+// RUN: -std=c++11 -fintel-compatibility -fms-compatibility-version=19.00
+
 // expected-no-diagnostics
 
 template<typename T, typename ...Args>

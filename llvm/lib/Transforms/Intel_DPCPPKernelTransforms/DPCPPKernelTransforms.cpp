@@ -16,11 +16,13 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeAddFastMathLegacyPass(Registry);
   initializeAddFunctionAttrsLegacyPass(Registry);
   initializeAddImplicitArgsLegacyPass(Registry);
+  initializeAddNTAttrLegacyPass(Registry);
   initializeBarrierInFunctionLegacyPass(Registry);
   initializeBuiltinCallToInstLegacyPass(Registry);
   initializeBuiltinImportLegacyPass(Registry);
   initializeBuiltinLibInfoAnalysisLegacyPass(Registry);
   initializeCleanupWrappedKernelLegacyPass(Registry);
+  initializeCoerceTypesLegacyPass(Registry);
   initializeCoerceWin64TypesLegacyPass(Registry);
   initializeCreateSimdVariantPropagationLegacyPass(Registry);
   initializeDataPerBarrierWrapperPass(Registry);

@@ -463,8 +463,8 @@ bool LoopInvariantCodeMotion::runOnLoop(
         for (const SmallSetVector<Value *, 8> &PointerMustAliases :
              collectPromotionCandidates(MSSA, AA, L)) {
           LocalPromoted |= promoteLoopAccessesToScalars(
-              PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC,
-              LI, DT, TLI, L, &MSSAU, &SafetyInfo, ORE);
+              PointerMustAliases, ExitBlocks, InsertPts, MSSAInsertPts, PIC, LI,
+              DT, TLI, TTI, L, &MSSAU, &SafetyInfo, ORE); // INTEL + TTI
         }
         Promoted |= LocalPromoted;
       } while (LocalPromoted);
@@ -1966,6 +1966,7 @@ bool llvm::promoteLoopAccessesToScalars(
     SmallVectorImpl<Instruction *> &InsertPts,
     SmallVectorImpl<MemoryAccess *> &MSSAInsertPts, PredIteratorCache &PIC,
     LoopInfo *LI, DominatorTree *DT, const TargetLibraryInfo *TLI,
+    const TargetTransformInfo *TTI, // INTEL
     Loop *CurLoop, MemorySSAUpdater *MSSAU, ICFLoopSafetyInfo *SafetyInfo,
     OptimizationRemarkEmitter *ORE) {
   // Verify inputs.
@@ -2177,7 +2178,18 @@ bool llvm::promoteLoopAccessesToScalars(
 
   // If we've still failed to prove we can sink the store, hoist the load
   // only, if possible.
-  if (!SafeToInsertStore && !FoundLoadToPromote)
+#if INTEL_CUSTOMIZATION
+  // Don't promote the load without the store when AVX512 HIR is enabled,
+  // it will create an extra loop carried phi, which HIR will try to break.
+  // Has negative effects on cpu2017 and Polyhedron.
+  // Partially reverts https://reviews.llvm.org/D113289.
+  // AVX2 benchmarks are affected less (total change is neutral)
+  auto TTIAVX512 =
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
+  bool NoNewLCDeps = TTI && TTI->isAdvancedOptEnabled(TTIAVX512);
+
+  if (!SafeToInsertStore && (!FoundLoadToPromote || NoNewLCDeps))
+#endif // INTEL_CUSTOMIZATION
     // If we cannot hoist the load either, give up.
     return false;
 

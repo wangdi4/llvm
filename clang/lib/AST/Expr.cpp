@@ -3797,7 +3797,10 @@ namespace {
     void VisitCXXBindTemporaryExpr(const CXXBindTemporaryExpr *E) {
       if (
 #if INTEL_CUSTOMIZATION
-          Context.getLangOpts().MSVCCompat ||
+          (Context.getLangOpts().isIntelCompat(
+               LangOptions::MSVC2015TriviallyConstructibleBehavior) &&
+           Context.getLangOpts().MSVCCompat &&
+           !Context.getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2017)) ||
 #endif // INTEL_CUSTOMIZATION
           E->getTemporary()->getDestructor()->isTrivial()) {
         Inherited::VisitStmt(E);

@@ -511,10 +511,8 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   Value *LBDiff = Builder.CreateMul(GroupId, Chunk);
   LB = Builder.CreateAdd(LB, LBDiff);
   Builder.CreateStore(LB, LowerBnd);
-  if (TeamLowerBnd) {
+  if (TeamLowerBnd)
     Builder.CreateStore(LB, TeamLowerBnd);
-    Builder.CreateStore(UB, TeamUpperBnd);
-  }
 
   // Compute new_team_ub
   ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
@@ -530,23 +528,15 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   Value *Compare = Builder.CreateICmp(
       IsSignedZTT ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT, NewUB, UB);
-  Instruction *ThenTerm = SplitBlockAndInsertIfThen(
-      Compare, InsertPt, false,
-      MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
-  BasicBlock *ThenBB = ThenTerm->getParent();
-  ThenBB->setName("then.bb.");
-  IRBuilder<> BuilderThen(ThenBB);
-  BuilderThen.SetInsertPoint(ThenBB->getTerminator());
-  BuilderThen.CreateStore(NewUB, UpperBnd);
+  Value *MinUB = Builder.CreateSelect(Compare, NewUB, UB);
+  Builder.CreateStore(MinUB, UpperBnd);
 
   if (TeamLowerBnd) {
     assert(!TeamLowerBnd == !TeamUpperBnd &&
            "genOCLDistParLoopBoundUpdateCode: team lower/upper bounds "
            "must be created together.");
 
-    BuilderThen.CreateStore(NewUB, TeamUpperBnd);
-
-    Builder.SetInsertPoint(InsertPt);
+    Builder.CreateStore(MinUB, TeamUpperBnd);
     TeamLB = Builder.CreateLoad(TeamLowerBnd->getAllocatedType(), TeamLowerBnd);
     TeamUB = Builder.CreateLoad(TeamUpperBnd->getAllocatedType(), TeamUpperBnd);
     TeamST = Builder.CreateLoad(TeamStride->getAllocatedType(), TeamStride);
@@ -834,14 +824,8 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
     Value *Compare = Builder.CreateICmp(
         IsSignedZTT ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT, NewUB, UB);
-    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
-        Compare, InsertPt, false,
-        MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
-    BasicBlock *ThenBB = ThenTerm->getParent();
-    ThenBB->setName("then.bb.");
-    IRBuilder<> BuilderThen(ThenBB);
-    BuilderThen.SetInsertPoint(ThenBB->getTerminator());
-    BuilderThen.CreateStore(NewUB, UpperBnd);
+    Value *MinUB = Builder.CreateSelect(Compare, NewUB, UB);
+    Builder.CreateStore(MinUB, UpperBnd);
   }
 }
 
@@ -1009,6 +993,7 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistribute(
 
   Instruction *TermInst = TeamDispHeaderBB->getTerminator();
 
+  // TODO: replace this with select and store.
   MinUB =
       new ICmpInst(TermInst, ICmpInst::ICMP_SLE, TmpUB, TmpUD, "team.ub.min");
 
@@ -1144,6 +1129,7 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
 
   Instruction *TermInst = DispatchHeaderBB->getTerminator();
 
+  // TODO: replace this with select and store.
   ICmpInst *MinUB =
       new ICmpInst(TermInst, ICmpInst::ICMP_SLE, TmpUB, UpperBndVal, "ub.min");
 

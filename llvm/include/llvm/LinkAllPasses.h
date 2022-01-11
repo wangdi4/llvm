@@ -447,6 +447,7 @@ namespace {
       (void)llvm::createLocalBuffersLegacyPass(false);
       (void)llvm::createAddFastMathLegacyPass();
       (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::creatAddNTAttrLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
@@ -460,6 +461,7 @@ namespace {
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
+      (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();
       (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
       (void)llvm::createVectorVariantFillInLegacyPass();

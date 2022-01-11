@@ -2,9 +2,7 @@
 ; INTEL -- This test blows up Andersens analysis so the run line is modified to
 ;          disable that.  This modification should be removed when CMPLRS-43111
 ;          is fixed.
-; INTEL -- The test blows up with loopopt turned on. Seems like it is related to
-;          changes in complete unroll behavior. Disabling loopopt for now.
-;INTEL RUN: opt < %s -O3 -S -enable-andersen=0 -loopopt=0 | FileCheck %s
+;INTEL RUN: opt < %s -O3 -S -enable-andersen=0 | FileCheck %s
 target datalayout = "e-m:e-p:32:32-i64:64-v128:64:128-a:0:32-n32-S64"
 target triple = "armv8-none-eabi"
 

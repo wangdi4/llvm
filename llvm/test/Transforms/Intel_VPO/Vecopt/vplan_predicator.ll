@@ -2436,6 +2436,132 @@ exit:
   ret void
 }
 
+define void @uniform_br_under_outer_mask_12(i1 %uniform) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_12
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br if
+; CHECK-EMPTY:
+; CHECK-NEXT:    if: # preds: entry
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
+; CHECK-EMPTY:
+; FIXME: "bb" isn't executed on the "if.else" path.
+; CHECK-NEXT:    [[BB0]]: # preds: if
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, if.else
+; CHECK-EMPTY:
+; CHECK-NEXT:      if.else: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:       [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:      if.then: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br bb
+; CHECK-EMPTY:
+; CHECK-NEXT:      bb: # preds: if.then
+; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:       [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: if.else, bb
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+;     D
+;    / \
+;   o   U
+;   |  / \
+;   +  o  o
+;    \ | /
+;      o
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = call i1 @varying(i32 %lane)
+  br i1 %varying, label %bb, label %if
+
+bb:
+  br label %exit
+
+if:
+  br i1 %uniform, label %if.then, label %if.else
+
+if.then:
+  br label %exit
+
+if.else:
+  br label %exit
+
+exit:
+  ret void
+}
+
+define void @uniform_br_under_outer_mask_13(i1 %uniform) {
+; CHECK-LABEL:  VPlan IR for: uniform_br_under_outer_mask_13
+; CHECK-NEXT:    entry: # preds:
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = call i32 [[VP_LANE]] i1 (i32)* @varying
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br bb
+; CHECK-EMPTY:
+; CHECK-NEXT:    bb: # preds: entry
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Uni] br if
+; CHECK-EMPTY:
+; CHECK-NEXT:    if: # preds: bb
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB0]]: # preds: if
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, if.else
+; CHECK-EMPTY:
+; CHECK-NEXT:      if.else: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:       [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:      if.then: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
+; CHECK-NEXT:       [DA: Uni] br exit
+; CHECK-EMPTY:
+; CHECK-NEXT:    exit: # preds: if.else, if.then
+; CHECK-NEXT:     [DA: Div] ret
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+;
+entry:
+;     D
+;    / \
+;   U   o
+;  / \  |
+;  o  o +
+;   \ |/
+;     o
+
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = call i1 @varying(i32 %lane)
+  br i1 %varying, label %if, label %bb
+
+bb:
+  br label %exit
+
+if:
+  br i1 %uniform, label %if.then, label %if.else
+
+if.then:
+  br label %exit
+
+if.else:
+  br label %exit
+
+exit:
+  ret void
+}
+
 declare i1 @varying(i32)
 declare i32 @llvm.vplan.laneid()
 declare i1 @allzero(i1) #0

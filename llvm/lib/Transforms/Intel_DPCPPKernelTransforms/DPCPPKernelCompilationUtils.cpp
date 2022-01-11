@@ -1733,6 +1733,37 @@ static void pushSGBlockBuiltinDivergentVectInfo(
   }
 }
 
+static void pushSGRowSliceBuiltinVectInfo(
+    std::vector<std::tuple<std::string, std::string, std::string>>
+        &ExtendedVectInfos) {
+  const static SmallVector<StringRef, 4> DataTypes = {"i8", "i32", "bf16", "f32"};
+  const static SmallVector<unsigned, 5> VFs = {4, 8, 16, 32, 64};
+  for (StringRef DataType : DataTypes) {
+    for (unsigned VF : VFs) {
+      // e.g. i32 @sub_group_rowslice_extractelement.i32(i64 %rowslice.id)
+      std::string ExtractElementBaseName =
+          (NAME_SUB_GROUP_ROWSLICE_EXTRACTELEMENT + "." + DataType).str();
+      // e.g. void @sub_group_rowslice_insertelement.i32(i64 %rowslice.id, i32
+      // %data)
+      std::string InsertElementBaseName =
+          (NAME_SUB_GROUP_ROWSLICE_INSERTELEMENT + "." + DataType).str();
+      // The first argument %rowslice.id is always uniform.
+      ExtendedVectInfos.push_back(
+          {ExtractElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbN" + Twine(VF) + "u_" + ExtractElementBaseName).str()});
+      ExtendedVectInfos.push_back(
+          {ExtractElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbM" + Twine(VF) + "u_" + ExtractElementBaseName).str()});
+      ExtendedVectInfos.push_back(
+          {InsertElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbN" + Twine(VF) + "uv_" + InsertElementBaseName).str()});
+      ExtendedVectInfos.push_back(
+          {InsertElementBaseName, std::string(KernelAttribute::CallOnce),
+           ("_ZGVbM" + Twine(VF) + "uv_" + InsertElementBaseName).str()});
+    }
+  }
+}
+
 void initializeVectInfoOnce(
     ArrayRef<VectItem> VectInfos,
     std::vector<std::tuple<std::string, std::string, std::string>>
@@ -1792,6 +1823,10 @@ void initializeVectInfoOnce(
                                         std::get<2>(Entry), std::get<3>(Entry),
                                         ExtendedVectInfos);
   }
+
+  // Add extra vector info for 'sub_group_rowslice_extractelement.*' and
+  // 'sub_group_rowslice_insertelement.*'
+  pushSGRowSliceBuiltinVectInfo(ExtendedVectInfos);
 }
 
 static std::string getFormatStr(Value *V) {

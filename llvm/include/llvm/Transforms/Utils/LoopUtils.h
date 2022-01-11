@@ -208,6 +208,7 @@ bool promoteLoopAccessesToScalars(
     const SmallSetVector<Value *, 8> &, SmallVectorImpl<BasicBlock *> &,
     SmallVectorImpl<Instruction *> &, SmallVectorImpl<MemoryAccess *> &,
     PredIteratorCache &, LoopInfo *, DominatorTree *, const TargetLibraryInfo *,
+    const TargetTransformInfo *, // INTEL
     Loop *, MemorySSAUpdater *, ICFLoopSafetyInfo *,
     OptimizationRemarkEmitter *);
 

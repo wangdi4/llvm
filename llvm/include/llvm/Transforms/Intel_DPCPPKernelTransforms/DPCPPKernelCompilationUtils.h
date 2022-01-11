@@ -408,13 +408,6 @@ bool isSubGroupRowSliceInsertElement(StringRef S);
 /// Returns true if \p S is the name of sub_group_insert_rowslice_to_matrix.
 bool isSubGroupInsertRowSliceToMatrix(StringRef S);
 
-/// Returns true if \p S is the name of sub_group_rowslice_extractelement or
-/// sub_group_rowslice_insertelement.
-inline bool isSubGroupRowSliceAccessElement(StringRef S) {
-  return isSubGroupRowSliceExtractElement(S) ||
-         isSubGroupRowSliceInsertElement(S);
-}
-
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
   return DPCPPKernelMetadataAPI::KernelList(M);
