@@ -1704,6 +1704,18 @@ example:
     a new pointer for the original function, which means that code that depends
     on function-pointer identity can break. So, any function annotated with
     ``jumptable`` must also be ``unnamed_addr``.
+.. INTEL_CUSTOMIZATION
+``"loopopt-pipeline"``
+    This attribute tells the optimizer to run loopopt framework passes for this
+    function. The precise effect of this attribute depends on its string value,
+    for which there currently are three legal possibilities:
+
+     * ``"none"`` - disable all loopopt framework based loop optimization.
+     * ``"light"`` - enable lightweight loopopt framework based loop optimization.
+     * ``"full"`` - enable all loopopt framework based loop optimization passes.
+
+    If this attribute is not specified, the default is ``"none"``.
+.. END INTEL_CUSTOMIZATION
 ``minsize``
     This attribute suggests that optimization passes and code generator
     passes make choices that keep the code size of this function as small

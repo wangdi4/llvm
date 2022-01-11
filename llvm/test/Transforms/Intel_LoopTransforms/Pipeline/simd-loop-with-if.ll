@@ -1,4 +1,4 @@
-; RUN: opt -O2 -loopopt -S -paropt=31 -pre-loopopt-vpo-passes=false -print-after=hir-temp-cleanup < %s 2>&1 | FileCheck %s
+; RUN: opt -O2 -S -paropt=31 -pre-loopopt-vpo-passes=false -print-after=hir-temp-cleanup < %s 2>&1 | FileCheck %s
 ; Note: -paropt=31 is an equivalent of -fiopenmp for the driver.
 
 ; Check that the loop will be recognized and vectorized inside loopopt without failures.
@@ -88,7 +88,7 @@ declare void @llvm.directive.region.exit(token) #2
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "loopopt-pipeline"="full" }
 attributes #1 = { argmemonly nounwind }
 attributes #2 = { nounwind }
 

@@ -16,6 +16,7 @@
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h" // INTEL
 #include "llvm/IR/OptBisect.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PassTimingInfo.h"
@@ -197,6 +198,7 @@ bool LPPassManager::runOnFunction(Function &F) {
 #ifdef EXPENSIVE_CHECKS
         uint64_t RefHash = StructuralHash(F);
 #endif
+        if (legacy::doesLoopOptPipelineAllowToRunWithDebug(P, F)) // INTEL
         LocalChanged = P->runOnLoop(CurrentLoop, *this);
 
 #ifdef EXPENSIVE_CHECKS

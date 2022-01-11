@@ -1,4 +1,4 @@
-; RUN: opt -disable-loop-unrolling -loopopt  -O2 -S -disable-hir-vec-dir-insert < %s | FileCheck %s
+; RUN: opt -disable-loop-unrolling -O2 -S -disable-hir-vec-dir-insert < %s | FileCheck %s
 
 ; Check that disabling of automatic unrolling in the pass builder is honored.
 
@@ -18,7 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = common local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 @A = common local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
-define void @foo(i32 %n) local_unnamed_addr {
+define void @foo(i32 %n) local_unnamed_addr "loopopt-pipeline"="full" {
 entry:
   br label %for.cond1.preheader.lr.ph
 
