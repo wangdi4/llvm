@@ -14,13 +14,14 @@
 
 #include "PipeSupport.h"
 
-#include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 #include "ICLDevBackendOptions.h"
 
+#include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/IRBuilder.h>
@@ -41,7 +42,7 @@ OCL_INITIALIZE_PASS_BEGIN(
     PipeSupport, "pipe-support",
     "Apply transformation required by pipe built-ins implementation",
     false, true)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 OCL_INITIALIZE_PASS_DEPENDENCY(ChannelPipeTransformation)
 OCL_INITIALIZE_PASS_END(
     PipeSupport, "pipe-support",
@@ -322,7 +323,7 @@ bool PipeSupport::runOnModule(Module &M) {
   if (!PipeTypes.hasPipeTypes())
     return false; // no pipes in the module, nothing to do
 
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
   std::stack<Function *, std::vector<Function *>> WorkList;
@@ -368,7 +369,7 @@ bool PipeSupport::runOnModule(Module &M) {
 }
 
 void PipeSupport::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfo>();
+  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
 }
 
 } // namespace intel

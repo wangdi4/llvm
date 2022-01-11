@@ -27,7 +27,7 @@ class DXRuntime : public RuntimeServices {
 public:
 
   /// @brief Constructor
-  DXRuntime(SmallVector<Module*, 2> runtimeModuleList, unsigned packetWidth);
+  DXRuntime(ArrayRef<Module *> runtimeModuleList, unsigned packetWidth);
 
   /// @brief Destructor
   ~DXRuntime() {}
@@ -119,7 +119,7 @@ private:
 
   /// @brief Pointer to runtime modules list
   /// (module with implementation of built-in functions)
-  SmallVector<Module*, 2> m_runtimeModulesList;
+  SmallVector<Module *, 2> m_runtimeModulesList;
 
   /// @brief Hold the requested packetization width
   /// (currently same one for all funcs)

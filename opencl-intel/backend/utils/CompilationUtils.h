@@ -781,7 +781,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     SmallVector<Module *, 2> RTLs;
 
   public:
-    OCLBuiltins(Module &TargetModule, const SmallVectorImpl<Module *> &RTLs)
+    OCLBuiltins(Module &TargetModule, ArrayRef<Module *> RTLs)
         : TargetModule(TargetModule), RTLs(RTLs.begin(), RTLs.end()) {}
 
     Function *get(StringRef Name) {

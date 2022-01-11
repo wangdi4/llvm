@@ -21,11 +21,16 @@
 using namespace std;
 using namespace Intel::OpenCL::Framework;
 
+MemoryObjectFactory *MemoryObjectFactory::Instance = nullptr;
+
 MemoryObjectFactory* MemoryObjectFactory::GetInstance()
 {
-	static MemoryObjectFactory sMemObjFactory;
+  static MemoryObjectFactory *S = [] {
+    Instance = new MemoryObjectFactory;
+    return Instance;
+  }();
 
-	return &sMemObjFactory;
+  return S;
 }
 
 bool MemoryObjectFactory::FactoryKey::operator<(const FactoryKey& _Right) const

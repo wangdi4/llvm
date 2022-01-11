@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <vector>
 
 #include "cl_config.h"
@@ -87,6 +88,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         CPUDeviceConfig(const CPUDeviceConfig&);
         CPUDeviceConfig& operator=(const CPUDeviceConfig&);
 
+        static std::mutex m_mutex;
+        static std::string  m_extensionsName;
         static std::vector<cl_name_version>  m_extensions;
         static std::vector<cl_name_version>  m_c_features;
 

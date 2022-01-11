@@ -24,6 +24,7 @@
 #pragma comment (lib, "cl_sys_utils.lib")
 
 using namespace Intel::OpenCL::Utils;
+using Intel::OpenCL::Utils::g_pUserLogger;
 
 namespace {
   OclDynamicLib *m_dlClangLib;
@@ -70,7 +71,12 @@ bool LoadCommonClang()
     clangPath += CCLANG_LIB_NAME;
 
     if (m_dlClangLib->Load(clangPath.c_str()) != 0) {
-      LogErrorA("Faild to load common clang from %s", clangPath.c_str());
+      LogErrorA("Failed to load common clang from %s", clangPath.c_str());
+      if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
+        g_pUserLogger->PrintError(
+            "Failed to load " + std::string(CCLANG_LIB_NAME) +
+            " with error info: " + m_dlClangLib->GetError());
+
       return false;
     }
   }

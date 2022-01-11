@@ -12,10 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <assert.h>
-#include <memory>
 #include "backend_wrapper.h"
 #include "cl_sys_info.h"
+#include "cl_user_logger.h"
+#include <assert.h>
+#include <memory>
 
 #if defined(_WIN32)
 #if defined(_M_X64)
@@ -26,6 +27,8 @@ const char* szOclCpuBackendDllName = "OclCpuBackEnd32";
 #else
 const char* szOclCpuBackendDllName = "OclCpuBackEnd";
 #endif
+
+using Intel::OpenCL::Utils::g_pUserLogger;
 
 namespace Intel{ namespace OpenCL { namespace CPUDevice {
 
@@ -46,7 +49,11 @@ cl_dev_err_code OpenCLBackendWrapper::LoadDll()
 
     if (m_dll.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(
             OS_DLL_POST(dllName).c_str())) != 0) {
-        return CL_DEV_ERROR_FAIL;
+      if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
+        g_pUserLogger->PrintError("Failed to load " +
+                                  std::string(OS_DLL_POST(dllName)) +
+                                  " with error message: " + m_dll.GetError());
+      return CL_DEV_ERROR_FAIL;
     }
 
     m_funcInit = (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFunctionPtrByName("InitDeviceBackend");

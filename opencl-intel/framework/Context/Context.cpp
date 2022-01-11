@@ -1864,7 +1864,7 @@ cl_mem_alloc_flags_intel Context::ParseUSMAllocProperties(
                 return flags;
             }
 
-            static std::vector<cl_context_properties> legalProperties = {
+            std::vector<cl_context_properties> legalProperties = {
                 CL_MEM_ALLOC_FLAGS_INTEL
             };
 

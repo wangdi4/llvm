@@ -20,6 +20,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 
 namespace  intel {
 
@@ -32,14 +33,15 @@ public:
   bool runOnModule(llvm::Module &M) override;
 
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfo>();
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     AU.setPreservesAll();
   }
 
 private:
-  WeightedInstCounter *addPassesToCalculateCost(
-      llvm::legacy::FunctionPassManager &FPM, TargetMachine *TM,
-      TargetLibraryInfoImpl &TLI, bool IsScalar);
+  WeightedInstCounter *
+  addPassesToCalculateCost(llvm::legacy::FunctionPassManager &FPM,
+                           TargetMachine *TM, TargetLibraryInfoImpl &TLI,
+                           ArrayRef<Module *> BuiltinModules, bool IsScalar);
 
   const OptimizerConfig* Config;
 };

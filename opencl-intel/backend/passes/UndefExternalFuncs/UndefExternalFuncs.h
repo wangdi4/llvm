@@ -15,9 +15,8 @@
 #ifndef __UNDEF_EXTERNAL_FUNCS_H__
 #define __UNDEF_EXTERNAL_FUNCS_H__
 
-#include "BuiltinLibInfo.h"
 #include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 
 using namespace llvm;
 
@@ -32,11 +31,13 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
+    UndefExternalFuncs();
+
+    /// @brief Constructor
     /// @param undefinedExternalFunctions container to fill with undefined function names
     /// @param runtimeModules conatiner for all the runtime BI modules to check if the
     ///     function supplied by them or not.
-    UndefExternalFuncs(std::vector<std::string> &undefinedExternalFunctions) :
-        ModulePass(ID), m_pUndefinedExternalFunctions(&undefinedExternalFunctions) {}
+    UndefExternalFuncs(std::vector<std::string> &undefinedExternalFunctions);
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const override {
@@ -53,7 +54,7 @@ namespace intel {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       // Analysis pass preserve all
       AU.setPreservesAll();
-      AU.addRequired<intel::BuiltinLibInfo>();
+      AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     }
 
   protected:
@@ -70,8 +71,7 @@ namespace intel {
 
     /// container of all the runtime modules which will be linked with the module
     /// JIT code, it supplies all the extenral functions implementations
-    std::vector<llvm::Module*> m_RuntimeModules;
-
+    SmallVector<Module *, 2> m_RuntimeModules;
   };
   
 } // namespace intel {

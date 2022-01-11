@@ -33,10 +33,9 @@ ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary,
     return (ptrdiff_t)func;
 }
 
-OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor) :
-    m_hLibrary(nullptr), m_bUnloadOnDestructor(bUnloadOnDestructor)
-{
-}
+OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor)
+    : m_hLibrary(nullptr), m_bUnloadOnDestructor(bUnloadOnDestructor),
+      m_vErrInfo("") {}
 
 OclDynamicLib::~OclDynamicLib()
 {
@@ -86,14 +85,9 @@ int OclDynamicLib::Load(const char* pLibName)
         strLibName = std::string(pLibName) + std::string(".") +
                                  std::string(VERSIONSTRING);
         m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
-        if ( nullptr == m_hLibrary )
-        {
-
-#ifdef _DEBUG
-            const char* e = dlerror();
-            printf("Error loading %s: %s\n", pLibName, e);
-#endif
-            return 1;
+        if (nullptr == m_hLibrary) {
+          m_vErrInfo = std::string(dlerror());
+          return 1;
         }
     }
 

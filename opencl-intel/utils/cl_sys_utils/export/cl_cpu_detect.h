@@ -286,6 +286,13 @@ private:
   std::string m_HostCPUString;
   const char *m_HostCPUBrandString;
   llvm::StringMap<bool> m_HostCPUFeatures;
+  static CPUDetect *Instance;
+  static struct Deleter {
+    ~Deleter() {
+      if (Instance)
+        delete Instance;
+    }
+  } InstanceDeleter;
 
   bool ShouldBypassCPUCheck() const;
 };

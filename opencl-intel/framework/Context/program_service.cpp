@@ -448,7 +448,7 @@ m_pDeviceProgram(pDeviceProgram), m_sOptions(szOptions)
 {
     if (m_pProg->GetContext()->IsEyeQEmulator())
     {
-        static const std::string unsafe_math_strs[] = {
+        static const char *unsafe_math_strs[] = {
             "-cl-mad-enable",
             "-cl-no-signed-zeros",
             "-cl-unsafe-math-optimizations",
@@ -459,15 +459,14 @@ m_pDeviceProgram(pDeviceProgram), m_sOptions(szOptions)
              i < sizeof(unsafe_math_strs)/sizeof(unsafe_math_strs[0]);
              ++i)
         {
-            std::string const &unsafe_math_str = unsafe_math_strs[i];
-            for (std::size_t unsafe_math_str_pos = m_sOptions.find(unsafe_math_str) ;
+            for (std::size_t unsafe_math_str_pos = m_sOptions.find(unsafe_math_strs[i]) ;
                  unsafe_math_str_pos != std::string::npos ;
-                 unsafe_math_str_pos = m_sOptions.find(unsafe_math_str))
+                 unsafe_math_str_pos = m_sOptions.find(unsafe_math_strs[i]))
             {
-                m_sOptions.erase(unsafe_math_str_pos, unsafe_math_str.length());
+                m_sOptions.erase(unsafe_math_str_pos, strlen(unsafe_math_strs[i]));
             }
         }
-        static const std::string denorms_are_zero = "-cl-denorms-are-zero";
+        static const char *denorms_are_zero = "-cl-denorms-are-zero";
         if (m_sOptions.find(denorms_are_zero) == std::string::npos)
         {
             m_sOptions += " ";

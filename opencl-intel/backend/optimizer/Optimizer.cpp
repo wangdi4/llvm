@@ -49,6 +49,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
@@ -129,9 +130,8 @@ llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
-llvm::Pass *
-createBuiltinLibInfoPass(SmallVector<Module *, 2> pRtlModuleList,
-                         std::string type);
+llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
+                                     std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(
     std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
@@ -315,11 +315,12 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createUnifyFunctionExitNodesPass());
 }
 
-static void populatePassesPreFailCheck(
-    llvm::legacy::PassManagerBase &PM, llvm::Module * /*M*/,
-    SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
-    const intel::OptimizerConfig *pConfig, bool isOcl20, bool isFpgaEmulator,
-    bool UnrollLoops, bool isSPIRV, bool UseVplan) {
+static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
+                                       llvm::Module * /*M*/, unsigned OptLevel,
+                                       const intel::OptimizerConfig *pConfig,
+                                       bool isOcl20, bool isFpgaEmulator,
+                                       bool UnrollLoops, bool isSPIRV,
+                                       bool UseVplan) {
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
@@ -483,6 +484,12 @@ static void populatePassesPostFailCheck(
 
   if (IsSYCL)
     PM.add(createTaskSeqAsyncHandlingLegacyPass());
+
+  // Support matrix fill and slice.
+  if (IsSYCL) {
+    PM.add(createResolveMatrixFillLegacyPass());
+    PM.add(createResolveMatrixWISliceLegacyPass());
+  }
 
   // Run few more passes after GenericAddressStaticResolution
   PM.add(createOclFunctionAttrsPass());
@@ -908,6 +915,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
     if (m_IsSYCL)
       m_PM.add(createSPIRVToOCL20Legacy());
     m_PM.add(llvm::createNameAnonGlobalPass());
+    m_PM.add(llvm::createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
     m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
     m_PM.add(createDPCPPEqualizerLegacyPass(m_RtlModules));
     Triple TargetTriple(m_M->getTargetTriple());
@@ -923,8 +931,8 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   materializerPM();
 
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
-                             isOcl20, m_IsFpgaEmulator, UnrollLoops, isSPIRV,
+  populatePassesPreFailCheck(m_PM, pModule, OptLevel, pConfig, isOcl20,
+                             m_IsFpgaEmulator, UnrollLoops, isSPIRV,
                              EnableVPlan);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and

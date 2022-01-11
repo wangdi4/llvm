@@ -43,7 +43,7 @@ public:
   ChooseVectorizationDimensionImpl();
 
   bool run(Function &F, const RuntimeServices *RTS,
-           const SmallVector<Module *, 2> &Builtins);
+           ArrayRef<Module *> Builtins);
 
   /// @brief Function for querying the vectorization dimension.
   unsigned getVectorizationDim() const {

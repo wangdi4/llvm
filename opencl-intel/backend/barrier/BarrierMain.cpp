@@ -64,7 +64,7 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
   PM.add(createPhiCanonicalizationLegacyPass());
   // Register barrier module passes
   PM.add(createRedundantPhiNodeLegacyPass());
-  PM.add(createGroupBuiltinLegacyPass(RtlModuleList));
+  PM.add(createGroupBuiltinLegacyPass());
   PM.add(createBarrierInFunctionLegacyPass());
 
   // Only run this when not debugging or when not in native (gdb) debugging

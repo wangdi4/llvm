@@ -33,6 +33,8 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
+std::mutex CPUDeviceConfig::m_mutex;
+std::string CPUDeviceConfig::m_extensionsName;
 std::vector<cl_name_version> CPUDeviceConfig::m_extensions;
 std::vector<cl_name_version> CPUDeviceConfig::m_c_features;
 
@@ -162,27 +164,22 @@ bool CPUDeviceConfig::IsDoubleSupported() const {
 
 const char* CPUDeviceConfig::GetExtensions() const
 {
-    static std::string extensions;
-    if (extensions.empty()) {
-        if (m_extensions.empty())
-            GetExtensionsWithVersion();
-
-        std::ostringstream oss;
-        for (auto extWithVer : m_extensions)
-            oss << extWithVer.name << " ";
-        extensions = oss.str();
-    }
-
-    return extensions.c_str();
+    GetExtensionsWithVersion();
+    return m_extensionsName.c_str();
 }
 
 const std::vector<cl_name_version>&
 CPUDeviceConfig::GetExtensionsWithVersion() const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (!m_extensions.empty())
       return m_extensions;
 
+    m_extensionsName.reserve(1024);
+    m_extensions.reserve(48);
+
 #define GET_EXT_VER(name, major, minor, patch)                                 \
+    m_extensionsName.append(std::string(name) + std::string(" "));             \
     m_extensions.emplace_back(                                                 \
         cl_name_version{CL_MAKE_VERSION(major, minor, patch), name})
 
@@ -278,6 +275,7 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
 
 const std::vector<cl_name_version>&
 CPUDeviceConfig::GetOpenCLCFeatures() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (!m_c_features.empty())
         return m_c_features;
 

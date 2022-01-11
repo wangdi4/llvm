@@ -110,6 +110,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
   PMBuilder.addExtension(
       EP, [&](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
         MPM.add(createParseAnnotateAttributesPass());
+        MPM.add(createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
         MPM.add(createDPCPPEqualizerLegacyPass());
         Triple TargetTriple(m_M->getTargetTriple());
         if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
@@ -176,7 +177,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
             m_RtlModules, /*ResolveSGBarrier*/ false));
         MPM.add(createPhiCanonicalizationLegacyPass());
         MPM.add(createRedundantPhiNodeLegacyPass());
-        MPM.add(createGroupBuiltinLegacyPass(m_RtlModules));
+        MPM.add(createGroupBuiltinLegacyPass());
         MPM.add(createBarrierInFunctionLegacyPass());
 
         // Resolve subgroup barriers after subgroup emulation passes

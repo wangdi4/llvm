@@ -8,10 +8,6 @@ set(TARGET_SOURCE_FILES
     UndefExternalFuncs.cpp
 )
 
-include_directories(
-  ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
-)
-
 add_opencl_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}

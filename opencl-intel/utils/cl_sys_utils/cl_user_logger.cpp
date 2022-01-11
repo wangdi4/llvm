@@ -214,29 +214,30 @@ void ApiLogger::EndApiFuncInternal()
     EndApiFuncEpilog();
 }
 
+static std::unordered_set<unsigned> stringParams = {
+    // clGetPlatformInfo
+    CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME,
+    CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_ICD_SUFFIX_KHR,
+    // clGetDeviceInfo
+    CL_DEVICE_IL_VERSION, CL_DEVICE_BUILT_IN_KERNELS, CL_DEVICE_NAME,
+    CL_DEVICE_VENDOR, CL_DRIVER_VERSION, CL_DEVICE_PROFILE,
+    CL_DEVICE_VERSION, CL_DEVICE_OPENCL_C_VERSION, CL_DEVICE_EXTENSIONS,
+    CL_DEVICE_IL_VERSION_KHR,
+    // clGetProgramInfo
+    CL_PROGRAM_SOURCE, CL_PROGRAM_IL, CL_PROGRAM_KERNEL_NAMES,
+    CL_PROGRAM_IL_KHR,
+    // clGetProgramBuildInfo
+    CL_PROGRAM_BUILD_OPTIONS, CL_PROGRAM_BUILD_LOG,
+    // clGetKernelInfo
+    CL_KERNEL_FUNCTION_NAME, CL_KERNEL_ATTRIBUTES,
+    // clGetKernelArgInfo
+    CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_NAME
+};
+
 void ApiLogger::PrintOutputParam(const string &name, unsigned paramName,
                                  const void *addr, size_t size, bool bIsPtr2Ptr,
                                  bool bIsUnsigned)
 {
-    static std::unordered_set<unsigned> stringParams = {
-        // clGetPlatformInfo
-        CL_PLATFORM_PROFILE, CL_PLATFORM_VERSION, CL_PLATFORM_NAME,
-        CL_PLATFORM_VENDOR, CL_PLATFORM_EXTENSIONS, CL_PLATFORM_ICD_SUFFIX_KHR,
-        // clGetDeviceInfo
-        CL_DEVICE_IL_VERSION, CL_DEVICE_BUILT_IN_KERNELS, CL_DEVICE_NAME,
-        CL_DEVICE_VENDOR, CL_DRIVER_VERSION, CL_DEVICE_PROFILE,
-        CL_DEVICE_VERSION, CL_DEVICE_OPENCL_C_VERSION, CL_DEVICE_EXTENSIONS,
-        CL_DEVICE_IL_VERSION_KHR,
-        // clGetProgramInfo
-        CL_PROGRAM_SOURCE, CL_PROGRAM_IL, CL_PROGRAM_KERNEL_NAMES,
-        CL_PROGRAM_IL_KHR,
-        // clGetProgramBuildInfo
-        CL_PROGRAM_BUILD_OPTIONS, CL_PROGRAM_BUILD_LOG,
-        // clGetKernelInfo
-        CL_KERNEL_FUNCTION_NAME, CL_KERNEL_ATTRIBUTES,
-        // clGetKernelArgInfo
-        CL_KERNEL_ARG_TYPE_NAME, CL_KERNEL_ARG_NAME
-    };
 
     if (!m_bLogApis)
     {
@@ -483,10 +484,10 @@ void ApiLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
     m_strStream << sParamTypeAndName << " = ";
 
     // Check if param name is num_events_in_wait_list or num_events.
-    static const std::string numEvents[2] = {"num_events_in_wait_list",
-                                             "num_events"};
-    static const size_t numEventsSize[2] = {numEvents[0].size(),
-                                            numEvents[1].size()};
+    static const char *numEvents[2] = {"num_events_in_wait_list",
+                                       "num_events"};
+    static const size_t numEventsSize[2] = {strlen(numEvents[0]),
+                                            strlen(numEvents[1])};
     std::string param(sParamTypeAndName);
     size_t paramSize = param.size();
     for (size_t i = 0; i < sizeof(numEvents)/sizeof(numEvents[0]); ++i) {

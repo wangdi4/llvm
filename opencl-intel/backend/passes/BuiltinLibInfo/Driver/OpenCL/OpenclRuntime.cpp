@@ -70,10 +70,11 @@ const char* BuiltinReturnByPtr[] = {
 };
 
 /// @brief Constructor which get arbitraty table as input
-OpenclRuntime::OpenclRuntime(SmallVector<Module*, 2> runtimeModuleList,
-                             const char  **scalarSelects) :
-m_packetizationWidth(0) {
-  m_runtimeModulesList = runtimeModuleList;
+OpenclRuntime::OpenclRuntime(ArrayRef<Module *> runtimeModuleList,
+                             const char **scalarSelects)
+    : m_packetizationWidth(0) {
+  m_runtimeModulesList.assign(runtimeModuleList.begin(),
+                              runtimeModuleList.end());
   initScalarSelectSet(scalarSelects);
   initDotMap();
 }

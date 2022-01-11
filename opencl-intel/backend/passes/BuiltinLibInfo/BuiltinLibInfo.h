@@ -37,7 +37,7 @@ public:
   /// @brief Constructor
   /// @param BuiltinsList List of builtin modules
   /// @param type Runtime service type
-  BuiltinLibInfo(SmallVector<Module*, 2> builtinsList, RuntimeServicesTypes type);
+  BuiltinLibInfo(ArrayRef<Module *> builtinsList, RuntimeServicesTypes type);
 
   /// @brief Empty Constructor
   BuiltinLibInfo() : ImmutablePass(ID), m_pRuntimeServices(nullptr) {
@@ -53,7 +53,7 @@ public:
 
   /// @brief returns built-ins module
   /// @return the builtin library module
-  SmallVector<Module*, 2> getBuiltinModules() const { return m_BIModuleList; }
+  ArrayRef<Module *> getBuiltinModules() const { return m_BIModuleList; }
 
   /// @brief returns runtime services
   /// @return the runtime services
@@ -63,7 +63,7 @@ public:
 private:
   /// This list holds the Builtin modules
   /// (pointers are not owned by this pass)
-  SmallVector<Module*, 2> m_BIModuleList;
+  SmallVector<Module *, 2> m_BIModuleList;
 
   /// This member holds Runtime Services instance.
   /// (is owned by this pass and should be deleted at destructor)

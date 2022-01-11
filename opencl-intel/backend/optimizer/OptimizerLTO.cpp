@@ -73,6 +73,9 @@ void OptimizerLTO::Optimize(llvm::raw_ostream &LogStream) {
   TLII.reset(new TargetLibraryInfoImpl(TargetTriple));
   FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
 
+  // Register module analysis with custom parameters.
+  MAM.registerPass([&] { return BuiltinLibInfoAnalysis(m_RtlModules); });
+
   // Register all the basic analyses with the managers.
   PB.registerModuleAnalyses(MAM);
   PB.registerCGSCCAnalyses(CGAM);
@@ -139,7 +142,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(PhiCanonicalization()));
     MPM.addPass(createModuleToFunctionPassAdaptor(RedundantPhiNode()));
-    MPM.addPass(GroupBuiltinPass(m_RtlModules));
+    MPM.addPass(GroupBuiltinPass());
     MPM.addPass(BarrierInFunction());
 
     // Resolve subgroup barriers after subgroup emulation passes

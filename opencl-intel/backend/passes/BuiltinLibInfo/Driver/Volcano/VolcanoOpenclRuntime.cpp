@@ -41,11 +41,9 @@ namespace intel {
     return false;
   }
 
-  VolcanoOpenclRuntime::VolcanoOpenclRuntime(SmallVector<Module*, 2> runtimeModuleList) :
-  OpenclRuntime(runtimeModuleList, volacanoScalarSelect)
-  {
-    
-  }
+  VolcanoOpenclRuntime::VolcanoOpenclRuntime(
+      ArrayRef<Module *> runtimeModuleList)
+      : OpenclRuntime(runtimeModuleList, volacanoScalarSelect) {}
 
   bool VolcanoOpenclRuntime::isTransposedReadImg(
       const std::string & /*funcName*/) const {
@@ -76,7 +74,8 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList) {
-    return new intel::VolcanoOpenclRuntime(runtimeModuleList);
-  }
+intel::RuntimeServices *
+createVolcanoOpenclRuntimeSupport(ArrayRef<Module *> runtimeModuleList) {
+  return new intel::VolcanoOpenclRuntime(runtimeModuleList);
+}
 }

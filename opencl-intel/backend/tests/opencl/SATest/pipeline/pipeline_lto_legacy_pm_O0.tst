@@ -13,6 +13,8 @@
 ; CHECK-NEXT:     Unify function exit nodes
 ; CHECK-NEXT:     Infer address spaces
 
+; CHECK:        BuiltinLibInfoAnalysisLegacy
+
 ; CHECK:        ModulePass Manager
 ; CHECK:          DPCPPEqualizerLegacy
 ; CHECK-NEXT:     DuplicateCalledKernels

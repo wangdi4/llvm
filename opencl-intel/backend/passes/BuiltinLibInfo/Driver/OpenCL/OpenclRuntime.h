@@ -33,7 +33,7 @@ class OpenclRuntime : public RuntimeServices {
 public:
 
   /// @brief Constructor which get arbitraty table as input
-  OpenclRuntime(SmallVector<Module*, 2> runtimeModuleList,
+  OpenclRuntime(ArrayRef<Module *> runtimeModuleList,
                 const char **scalarSelects);
 
   /// @brief Destructor
@@ -221,7 +221,7 @@ protected:
 
   /// @brief Pointer to runtime modules list
   /// (module with implementation of built-in functions)
-  SmallVector<Module*, 2> m_runtimeModulesList;
+  SmallVector<Module *, 2> m_runtimeModulesList;
 
   /// @brief Hold the requested packetization width
   /// (currently same one for all funcs)

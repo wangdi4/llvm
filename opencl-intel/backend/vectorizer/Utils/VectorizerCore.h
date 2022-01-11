@@ -19,9 +19,9 @@
 #include "Logger.h"
 #include "VecConfig.h"
 
-#include "llvm/Pass.h"
 #include "llvm/Analysis/LoopInfo.h"
-
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 
 namespace intel {
 
@@ -49,6 +49,7 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
+      AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
     }
 
     /// @brief Function for querying the vectorization result width

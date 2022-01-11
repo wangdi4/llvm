@@ -13,23 +13,23 @@
 // License.
 #include "SYCLPipesHack.h"
 
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/GlobalVariable.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Type.h>
-#include <llvm/Support/Debug.h>
-
-#include <PipeCommon.h>
-#include <InitializePasses.h>
-#include <OCLPassSupport.h>
-#include <OCLAddressSpace.h>
-#include <BuiltinLibInfo.h>
-#include <CompilationUtils.h>
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 
 #include "ChannelPipeTransformation/ChannelPipeUtils.h"
+#include "CompilationUtils.h"
+#include "InitializePasses.h"
+#include "OCLAddressSpace.h"
+#include "OCLPassSupport.h"
+#include "PipeCommon.h"
 
 #include <string>
 #include <set>
@@ -44,7 +44,7 @@ char SYCLPipesHack::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(SYCLPipesHack, "sycl-pipes-hack",
                     "Hack SYCL pipe objects and wire them to OpenCL pipes",
                     false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 OCL_INITIALIZE_PASS_END(SYCLPipesHack, "sycl-pipes-hack",
                     "Hack SYCL pipe objects and wire them to OpenCL pipes",
                     false, false)
@@ -125,7 +125,7 @@ SYCLPipesHack::SYCLPipesHack() : ModulePass(ID) {
 }
 
 bool SYCLPipesHack::runOnModule(Module &M) {
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
   // SYCL Program scope pipes are currently represented by global struct with 3
@@ -213,7 +213,7 @@ bool SYCLPipesHack::runOnModule(Module &M) {
 }
 
 void SYCLPipesHack::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfo>();
+  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
 }
 
 } // namespace intel

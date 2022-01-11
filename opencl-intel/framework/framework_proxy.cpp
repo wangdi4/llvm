@@ -649,33 +649,40 @@ FrameworkProxy* FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() const
 {
-    if (nullptr == m_pTaskExecutor)
-    {
-        // Initialize TaskExecutor
-        OclAutoMutex cs(&m_initializationMutex);
-        if (nullptr == m_pTaskExecutor)
-        {
-            LOG_INFO(TEXT("%s"), "Initialize Executor");
-            m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
-            auto deviceMode = m_pConfig->GetDeviceMode();
-            if (deviceMode == FPGA_EMU_DEVICE && m_pConfig->UseAutoMemory()) {
-                m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
-                &m_GPAData, m_pConfig->GetStackDefaultSize(), deviceMode);
-            } else {
-            // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE and
-            // CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE env variables
-            // as required stack for executor threads because local/private
-            // variables are located on stack.
-            size_t stackSize = m_pConfig->GetForcedLocalMemSize() +
-                               m_pConfig->GetForcedPrivateMemSize() +
-                               CPU_DEV_BASE_STACK_SIZE;
+  // teInitialize > 0 means task executor is initialized successfully.
+  // teInitialize == 0 means task executor is not initialized succcessfully.
+  static int teInitialized = 1;
+  if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
+    // Initialize TaskExecutor
+    OclAutoMutex cs(&m_initializationMutex);
+    if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
+      LOG_INFO(TEXT("%s"), "Initialize Executor");
+      m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
+      assert(m_pTaskExecutor);
+      auto deviceMode = m_pConfig->GetDeviceMode();
+      if (deviceMode == FPGA_EMU_DEVICE && m_pConfig->UseAutoMemory()) {
+        teInitialized = m_pTaskExecutor->Init(
+            g_pUserLogger, m_pConfig->GetNumTBBWorkers(), &m_GPAData,
+            m_pConfig->GetStackDefaultSize(), deviceMode);
+      } else {
+        // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE and
+        // CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE env variables
+        // as required stack for executor threads because local/private
+        // variables are located on stack.
+        size_t stackSize = m_pConfig->GetForcedLocalMemSize() +
+                           m_pConfig->GetForcedPrivateMemSize() +
+                           CPU_DEV_BASE_STACK_SIZE;
+        teInitialized =
             m_pTaskExecutor->Init(g_pUserLogger, m_pConfig->GetNumTBBWorkers(),
-                &m_GPAData, stackSize, deviceMode);
-            }
-        }
+                                  &m_GPAData, stackSize, deviceMode);
+      }
     }
+  }
 
-    return m_pTaskExecutor;
+  if (0 == teInitialized)
+    return nullptr;
+
+  return m_pTaskExecutor;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -686,6 +693,9 @@ bool FrameworkProxy::ActivateTaskExecutor() const
     ITaskExecutor* pTaskExecutor = GetTaskExecutor();
 
     OclAutoMutex cs(&m_initializationMutex);
+    // Quit as early as possible if task executor initialization fails.
+    if (nullptr == pTaskExecutor)
+      return false;
 
     if (nullptr == m_pTaskList)
     {

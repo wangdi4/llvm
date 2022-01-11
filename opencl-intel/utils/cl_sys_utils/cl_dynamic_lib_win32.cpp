@@ -28,10 +28,9 @@ ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const cha
     return (ptrdiff_t)GetProcAddress((HMODULE)hLibrary, szFuncName);
 }
 
-OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor) :
-    m_hLibrary(nullptr), m_bUnloadOnDestructor(bUnloadOnDestructor)
-{
-}
+OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor)
+    : m_hLibrary(nullptr), m_bUnloadOnDestructor(bUnloadOnDestructor),
+      m_vErrInfo("") {}
 
 OclDynamicLib::~OclDynamicLib()
 {
@@ -66,7 +65,9 @@ int OclDynamicLib::Load(const char* pLibName)
 
     if ( nullptr == m_hLibrary )
     {
-        return (int)GetLastError();
+      m_vErrInfo =
+          std::string("Windows error code: " + std::to_string(GetLastError()));
+      return 1;
     }
 
     // Library was succefully loaded

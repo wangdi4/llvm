@@ -38,20 +38,26 @@ namespace {
 BOOL LoadTaskExecutor()
 {
 	std::string tePath = std::string(MAX_PATH, '\0');
+        std::string teName(TASK_EXECUTOR_LIB_NAME);
 
         Intel::OpenCL::Utils::ConfigFile config(GetConfigFilePath());
 	Intel::OpenCL::Utils::GetModuleDirectory(&tePath[0], MAX_PATH);
-	tePath.resize(tePath.find_first_of('\0'));
-	tePath += TASK_EXECUTOR_LIB_NAME;
+        tePath.resize(tePath.find_first_of('\0'));
 
         if (config.Read<std::string>("CL_CONFIG_DEVICES", "cpu") == "fpga-emu") {
-            tePath += OUTPUT_EMU_SUFF;
+          teName += OUTPUT_EMU_SUFF;
         }
-        tePath += ".dll";
+        teName += ".dll";
+        tePath += teName;
 
-	if (m_dlTaskExecutor->Load(tePath.c_str()) != 0) {
-		return FALSE;
-	}
+        if (m_dlTaskExecutor->Load(tePath.c_str()) != 0) {
+          if (g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled())
+            g_pUserLogger->PrintError(
+                "Failed to load " + teName +
+                " with error message: " + m_dlTaskExecutor->GetError());
+
+          return FALSE;
+        }
 	return TRUE;
 }
 
@@ -78,6 +84,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
+    Intel::OpenCL::Utils::FrameworkUserLogger::Destroy();
+    Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
 		// release the framework proxy object
 		Intel::OpenCL::Framework::FrameworkProxy::Destroy();
 #ifdef _DEBUG

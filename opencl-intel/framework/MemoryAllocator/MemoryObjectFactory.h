@@ -58,6 +58,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 	{
 	public:
 		static MemoryObjectFactory* GetInstance();
+    static void Destroy() {
+      if (Instance)
+        delete Instance;
+    }
 
 		void	RegisterMemoryObjectCreator(cl_bitfield iSupportedDevices,
 											int iGfxSysSharing,
@@ -80,6 +84,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		};
 
 		std::map<FactoryKey, fn_MemoryObjectCreator*>	m_memObjMap;
+  private:
+    static MemoryObjectFactory *Instance;
 	};
 
 // This macro level constructs an object creator class name as a concatenation of a memory object class name and random number

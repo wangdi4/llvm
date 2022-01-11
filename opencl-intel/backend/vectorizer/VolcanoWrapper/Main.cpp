@@ -23,6 +23,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -33,8 +34,9 @@ char intel::Vectorizer::ID = 0;
 
 extern "C" Pass* createSpecialCaseBuiltinResolverPass();
 extern "C" FunctionPass* createVectorizerCorePass(const intel::OptimizerConfig*);
-extern "C" Pass* createBuiltinLibInfoPass(
-  llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
+extern "C" Pass *
+createBuiltinLibInfoPass(ArrayRef<llvm::Module *> pRtlModuleList,
+                         std::string type);
 
 namespace intel {
 
@@ -130,7 +132,12 @@ bool Vectorizer::runOnModule(Module &M)
                  targetMachine->getTargetIRAnalysis()));
   TargetLibraryInfoImpl TLII(Triple(M.getTargetTriple()));
   vectPM.add(new TargetLibraryInfoWrapperPass(TLII));
-  vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
+
+  ArrayRef<Module *> RtlModuleList = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                                         .getResult()
+                                         .getBuiltinModules();
+  vectPM.add(createBuiltinLibInfoAnalysisLegacyPass(RtlModuleList));
+  vectPM.add(createBuiltinLibInfoPass(RtlModuleList, ""));
   vectPM.add(vectCore);
 
   for (auto *F : scalarFuncsList)
@@ -200,7 +207,8 @@ bool Vectorizer::runOnModule(Module &M)
 
   {
     legacy::PassManager mpm;
-    mpm.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
+    mpm.add(createBuiltinLibInfoAnalysisLegacyPass(RtlModuleList));
+    mpm.add(createBuiltinLibInfoPass(RtlModuleList, ""));
     mpm.add(createSpecialCaseBuiltinResolverPass());
     mpm.run(M);
   }
