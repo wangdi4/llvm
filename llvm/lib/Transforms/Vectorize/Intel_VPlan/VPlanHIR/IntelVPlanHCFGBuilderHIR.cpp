@@ -72,25 +72,25 @@ static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
   assert(DescrRef->isAddressOf() &&
          "Original SIMD descriptor ref is not address of type.");
 
-  // Since we know descriptor ref is always address of type, set address-of to
-  // false for equality check. Reset to true after check.
-  const_cast<RegDDRef *>(DescrRef)->setAddressOf(false);
-  if (DescrRef->getDDRefUtils().areEqual(DescrRef, Ref)) {
-    const_cast<RegDDRef *>(DescrRef)->setAddressOf(true);
-    return true;
-  }
+  auto *RegRef = dyn_cast<RegDDRef>(Ref);
+  if (RegRef) {
+    if (!RegRef->isMemRef())
+      return false;
 
-  const_cast<RegDDRef *>(DescrRef)->setAddressOf(true);
-
-  // Special casing for incoming Ref of the form %s which was actually the Base
-  // CE of the memref %s[0]
-  auto *DescrRefCE = DescrRef->getBaseCE();
-  if (auto *BDDR = dyn_cast<BlobDDRef>(Ref)) {
-    auto *RefCE = BDDR->getSingleCanonExpr();
-    if (DescrRefCE->getCanonExprUtils().areEqual(DescrRefCE, RefCE))
+    // Since we know descriptor ref is always address of type, call dedicated
+    // compare.
+    if (DDRefUtils::areEqualWithoutAddressOf(DescrRef, RegRef))
       return true;
+  } else {
+    // Special casing for incoming Ref of the form %s which was actually the
+    // Base CE of the memref %s[0]
+    auto *DescrRefCE = DescrRef->getBaseCE();
+    if (auto *BDDR = dyn_cast<BlobDDRef>(Ref)) {
+      auto *RefCE = BDDR->getSingleCanonExpr();
+      if (CanonExprUtils::areEqual(DescrRefCE, RefCE))
+        return true;
+    }
   }
-
   return false;
 }
 
@@ -239,27 +239,32 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
     CurNode = NextNode;
   }
   // Collect nodes present in HLLoop's preheader.
-  auto PreRange = map_range(make_range(HLoop->pre_begin(), HLoop->pre_end()),
-                            [](HLNode &N) { return &N; });
+  auto PreRange = map_range(HLoop->preheaderNodes(), [](HLNode &N) { return &N; });
   PreLoopNodes.insert(PreRange.begin(), PreRange.end());
 
   // Collect nodes present in HLLoop's postexit.
-  auto PostRange = map_range(make_range(HLoop->post_begin(), HLoop->post_end()),
-                            [](HLNode &N) { return &N; });
-  PostLoopNodes.insert(PostRange.begin(), PostRange.end());
-  // Collect nodes between the HLLoop node and the end-SIMD clause directive.
   // In some cases the EndNode can reside in the loop post exit. Thus we might
   // miss it going by the nodes after the loop. See the
   // hir_simd_directives_preheader_postexit.ll for an example of such EndNode
   // placement.
-  CurNode = HLoop;
-  while (auto *NextNode = CurNode->getNextNode()) {
-    if (NextNode == EndNode)
+  bool EndFound = false;
+  for (HLNode &Node: HLoop->postExitNodes()) {
+    if (&Node == EndNode) {
+      EndFound = true;
       break;
-    PostLoopNodes.insert(NextNode);
-    CurNode = NextNode;
+    }
+    PostLoopNodes.insert(&Node);
   }
-
+  // Collect nodes between the HLLoop node and the end-SIMD clause directive.
+  if (!EndFound) {
+    CurNode = HLoop->getNextNode();
+    while (CurNode && CurNode != EndNode) {
+      PostLoopNodes.insert(CurNode);
+      CurNode = CurNode->getNextNode();
+    }
+    // TODO: uncomment after fixing CMPLRLLVM-33989.
+    // assert(CurNode && "can't find region end");
+  }
   auto getDescr = [this](RegDDRef *Ref) {
     // Check if Ref is any of explicit SIMD descriptors.
     DescrWithAliasesTy *Descr = getPrivateDescr(Ref);

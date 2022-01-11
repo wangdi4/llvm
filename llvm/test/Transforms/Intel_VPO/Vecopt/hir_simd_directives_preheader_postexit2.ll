@@ -50,12 +50,6 @@ define dso_local void @_Z3fooiiPfS_S_(i32 %n, i32 %m, float* nocapture readonly 
 ; CHECK-NEXT:    UpdateInstructions:
 ; CHECK-NEXT:    [[TMP1]] = [[TMP1]]  +  [[MUL90:%.*]]
 ; CHECK-NEXT:      InitValue: [[TMP1]]
-; CHECK-EMPTY:
-; This one is out of the simd region (line 28) and should not appear in the list.
-; CHECK-NEXT:    AliasRef: [[SUM_ANOTHER0:%.*]]
-; CHECK-NEXT:    UpdateInstructions:
-; CHECK-NEXT:    none
-;
 entry:
   %sum.red = alloca float, align 4
   %cmp31 = icmp sgt i32 %m, 0
