@@ -2615,8 +2615,10 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
   LLVMContext &Ctx = Clone->getContext();
 
   for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
-    if (Attrs.hasAttributesAtIndex(I))
-      NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
+    if (Attrs.hasAttributesAtIndex(I)) {
+      AttrBuilder AttrB(Ctx, Attrs.getAttributes(I));
+      NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, AttrB);
+    }
 
   for (unsigned I = 0; I < NumArgs; ++I) {
     auto *Arg = Call->getArgOperand(I);
@@ -2624,9 +2626,11 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
     if ((I >= ConstArgs.size()) || !ConstArgs[I]) {
       NewArgs.push_back(Arg);
 
-      if (Attrs.hasParamAttrs(I))
+      if (Attrs.hasParamAttrs(I)) {
+        AttrBuilder AttrB(Ctx, Attrs.getParamAttrs(I));
         NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs,
-                                               Attrs.getParamAttrs(I));
+                                               AttrBuilder(Ctx, Attrs.getParamAttrs(I)));
+      }
       ++NumNewArgs;
     }
   }
@@ -3054,9 +3058,12 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   LLVMContext &Ctx = F->getContext();
   unsigned NumNewArgs = 0;
 
-  for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
-    if (Attrs.hasAttributesAtIndex(I))
-      NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
+  for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex}) {
+    if (Attrs.hasAttributesAtIndex(I)) {
+      AttrBuilder AttrB(Ctx, Attrs.getAttributes(I));
+      NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, AttrBuilder(Ctx, Attrs.getAttributes(I)));
+    }
+  }
 
   for (unsigned I = 0; I < NParams; ++I) {
     const ConstantInt *C = ConstParams[I];
@@ -3075,8 +3082,8 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
       NewName << sep << "_";
 
       if (Attrs.hasParamAttrs(I)) {
-        NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs,
-                                               Attrs.getParamAttrs(I));
+        AttrBuilder AttrB(Ctx, Attrs.getParamAttrs(I));
+        NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs, AttrB);
       }
       ++NumNewArgs;
     }

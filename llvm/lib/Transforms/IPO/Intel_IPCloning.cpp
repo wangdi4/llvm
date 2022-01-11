@@ -3255,7 +3255,7 @@ static void changeCPUAttributes(Module &M) {
     assert(F.getFnAttribute("target-cpu").getValueAsString() ==
                "skylake-avx512" &&
            "Expecting skylake-avx512");
-    llvm::AttrBuilder Attrs;
+    llvm::AttrBuilder Attrs(F.getContext());
     F.removeFnAttr("target-cpu");
     F.removeFnAttr("target-features");
     Attrs.addAttribute("target-cpu", "core-avx2");

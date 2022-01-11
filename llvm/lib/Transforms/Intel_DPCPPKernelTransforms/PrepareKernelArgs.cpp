@@ -130,7 +130,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   // Copy attributes from the old kernel to the new one, and make the former
   // 'alwaysinline'.
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
-  AttrBuilder B(std::move(FnAttrs));
+  AttrBuilder B(F->getContext(), std::move(FnAttrs));
   NewF->addFnAttrs(B);
   F->removeFnAttr(Attribute::OptimizeNone);
   F->removeFnAttr(Attribute::NoInline);

@@ -4728,7 +4728,7 @@ CodeGenModule::CreateSVMLFunction(llvm::FunctionType *FTy, StringRef Name,
 void
 CodeGenModule::ConstructSVMLCallAttributes(StringRef Name,
                                            llvm::AttributeList &AttrList) {
-  llvm::AttrBuilder FuncAttrs;
+  llvm::AttrBuilder FuncAttrs(getLLVMContext());
   getDefaultFunctionAttributes(Name, /*HasOptNone*/ false,
                                /*AttrOnCallSite*/ true, FuncAttrs);
   AttrList = llvm::AttributeList::get(getLLVMContext(),

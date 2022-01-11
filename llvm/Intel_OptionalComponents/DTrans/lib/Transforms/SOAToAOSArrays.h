@@ -1352,8 +1352,9 @@ public:
 
   static void copyArgAttrs(Argument *From, Argument *To) {
     auto *F = To->getParent();
-    AttrBuilder AB(F->getAttributes(), To->getArgNo());
-    AB.merge(AttrBuilder(F->getAttributes(), From->getArgNo()));
+    AttrBuilder AB(F->getContext(), F->getAttributes(), To->getArgNo());
+    AB.merge(AttrBuilder(F->getContext(), F->getAttributes(),
+                         From->getArgNo()));
     if (AB.hasAttributes())
       To->addAttrs(AB);
   }

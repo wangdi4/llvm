@@ -1738,7 +1738,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   std::vector<Type *> RetTypes;
 
   // The existing function's return attributes.
-  AttrBuilder RAttrs(PAL.getRetAttrs());
+  AttrBuilder RAttrs(F->getContext(), PAL.getRetAttrs());
 
   // Remove any incompatible attributes, but only if we removed all return
   // values. Otherwise, ensure that we don't have any conflicting attributes
@@ -1891,13 +1891,13 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
 
     for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
       if (Attrs.hasAttributesAtIndex(I))
-        NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
+        NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, AttrBuilder(Ctx, Attrs.getAttributes(I)));
 
     for (unsigned I = 0; I < NParams; ++I) {
       Tys.push_back(FTy->getParamType(I));
       if (Attrs.hasParamAttrs(I))
         NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs,
-                                               Attrs.getParamAttrs(I));
+                                               AttrBuilder(Ctx, Attrs.getParamAttrs(I)));
       ++NumNewArgs;
     }
 
