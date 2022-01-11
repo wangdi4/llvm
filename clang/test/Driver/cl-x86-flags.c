@@ -66,7 +66,9 @@
 #endif
 #endif
 
-// RUN: %clang_cl -m32 -arch:avx2 --target=i386-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=avx2 %s
+// INTEL_CUSTOMIZATION
+// RUNx: %clang_cl -m32 -arch:avx2 --target=i386-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=avx2 %s
+// end INTEL_CUSTOMIZATION
 // avx2: invalid /arch: argument
 
 // RUN: %clang_cl -m32 -arch:AVX512F --target=i386-pc-windows /c /Fo%t.obj -Xclang -verify -DTEST_32_ARCH_AVX512F -- %s
@@ -106,7 +108,9 @@
 #endif
 #endif
 
-// RUN: %clang_cl -m64 -arch:avx2 --target=x86_64-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=avx264 %s
+// INTEL_CUSTOMIZATION
+// RUNx: %clang_cl -m64 -arch:avx2 --target=x86_64-pc-windows -### -- 2>&1 %s | FileCheck -check-prefix=avx264 %s
+// end INTEL_CUSTOMIZATION
 // avx264: invalid /arch: argument
 
 // RUN: %clang_cl -m64 -arch:AVX512F --target=i386-pc-windows /c /Fo%t.obj -Xclang -verify -DTEST_64_ARCH_AVX512F -- %s

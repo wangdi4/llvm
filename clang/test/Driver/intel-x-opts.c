@@ -61,6 +61,10 @@
 // RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHASWELL %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
+// RUN: %clang -### -c -xAVX2 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxAVX2 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCOREAVX2,ADV_OPT %s
 // XCOREAVX2: "-target-cpu" "core-avx2"
 
 // RUN: %clang -### -c -xCORE-AVX-I %s 2>&1 \

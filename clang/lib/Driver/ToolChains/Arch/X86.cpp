@@ -40,7 +40,8 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("sse4.1", "penryn")
               .CaseLower("sse4.2", "corei7")
               .CaseLower("sandybridge", "corei7-avx")
-              .CasesLower("core-avx2", "core_avx2", "haswell", "core-avx2")
+              .CasesLower("core-avx2", "core_avx2", "haswell", "avx2",
+                          "core-avx2")
               .CasesLower("core-avx-i", "core_avx_i", "ivybridge", "core-avx-i")
               .CasesLower("atom-ssse3", "atom_ssse3", "atom")
               .CasesLower("atom-sse4.2", "atom_sse4.2", "silvermont",
