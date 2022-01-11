@@ -336,10 +336,7 @@ bool KernelProperties::IsAutorun() const
     return m_bIsAutorun;
 }
 
-bool KernelProperties::TargetDevice() const
-{
-    return m_targetDevice;
-}
+DeviceMode KernelProperties::TargetDevice() const { return m_targetDevice; }
 
 bool KernelProperties::IsTask() const
 {
@@ -404,14 +401,14 @@ size_t KernelProperties::GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
          "kernel's private memory size must include barrier buffer size");
 
   // If there is no barrier buffer the private memory is reused by each WI.
-  // So it can run WG with max. possbile size.
-  size_t ret = wgSizeUpperBound;
+  // So it can run WG with max. possible size.
+  size_t maxWorkGroupSize = wgSizeUpperBound;
 
   // Return 0 if there is not enough private memory. But take into account what
   // in the vectorized JIT each lane has it's own private memory (not only barrier buffer).
   if(wgPrivateMemSizeUpperBound < GetPrivateMemorySize() * GetMinGroupSizeFactorial()) {
     // Private memory requirements exceed available resources.
-    ret = 0;
+    maxWorkGroupSize = 0;
   } else if(GetBarrierBufferSize() > 0) {
     // TODO: CSSD100016517 workaround:
     //       At the moment GetPrivateMemorySize() returns here the same value as GetBarrierBufferSize().
@@ -424,17 +421,18 @@ size_t KernelProperties::GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
     // Find out how much memory is left for barrier buffers.
     size_t leftForBuffers = wgPrivateMemSizeUpperBound - vecSharedPrivateMemory;
     // And use this value to compute maximum possible work-group size.
-    ret = leftForBuffers / GetBarrierBufferSize();
+    maxWorkGroupSize = leftForBuffers / GetBarrierBufferSize();
     // Take into account what max. WG size cannot exceed device limits.
-    ret = wgSizeUpperBound < ret ? wgSizeUpperBound : ret;
+    maxWorkGroupSize = wgSizeUpperBound < maxWorkGroupSize ? wgSizeUpperBound
+                                                           : maxWorkGroupSize;
   }
 
   // If max. work-group size is greater than the vector width prune it to
   // the closest multiple of the vector width.
-  if(ret > GetMinGroupSizeFactorial())
-    ret &= ~(GetMinGroupSizeFactorial() - 1);
+  if (maxWorkGroupSize > GetMinGroupSizeFactorial())
+    maxWorkGroupSize &= ~(GetMinGroupSizeFactorial() - 1);
 
-  return ret;
+  return maxWorkGroupSize;
 }
 
 bool KernelProperties::IsNonUniformWGSizeSupported() const

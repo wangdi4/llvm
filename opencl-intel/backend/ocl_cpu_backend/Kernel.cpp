@@ -129,11 +129,16 @@ Kernel::~Kernel() {
        i != e; ++i) {
     delete *i;
   }
-  while (!m_stackMem.empty()) {
-    auto s = m_stackMem.front();
+  m_stackMutex.lock();
+  for (std::vector<std::pair<void *, size_t>>::const_iterator
+           i = m_stackMem.begin(),
+           e = m_stackMem.end();
+       i != e; i++) {
+    auto s = (*i).first;
     free(s);
-    m_stackMem.pop();
   }
+  m_stackMem.clear();
+  m_stackMutex.unlock();
 
   for (auto &argInfo : m_explicitArgsInfo) {
     free(argInfo.name);
@@ -711,10 +716,14 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
                                 m_explicitArgsSizeInBytes, ss);
     std::cout << ss.str() << std::endl;
   }
+
+  bool isUniform = (pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1);
   IKernelJITContainer::JIT_PTR *kernel =
-      (IKernelJITContainer::JIT_PTR *)(size_t) ( pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1 ?
-                 pKernelUniformImplicitArgs->UniformJITEntryPoint :
-                 pKernelUniformImplicitArgs->NonUniformJITEntryPoint);
+      (IKernelJITContainer::JIT_PTR
+           *)(size_t)(isUniform
+                          ? pKernelUniformImplicitArgs->UniformJITEntryPoint
+                          : pKernelUniformImplicitArgs
+                                ->NonUniformJITEntryPoint);
 
   assert(kernel && "Kernel function is nullptr");
   // running the kernel with the specified args and (groupID, runtimeHandle)
@@ -729,11 +738,9 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   AfterExecution();
 #else
-  if (!m_useAutoMemory || m_pProps->TargetDevice() != FPGA_EMU_DEVICE ||
-      m_stackActualSize < m_stackDefaultSize)
+  if (!m_useAutoMemory || m_stackActualSize < m_stackDefaultSize)
     kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
   else {
-    bool isUniform = (pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1);
 #if defined(_WIN32)
     LPVOID primaryFiber = nullptr, fiber = nullptr;
     primaryFiber = ConvertThreadToFiber(nullptr);
@@ -751,25 +758,20 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     DeleteFiber(fiber);
     ConvertFiberToThread();
 #else
-    void *stackBase = AllocaStack(m_stackActualSize);
+    void *stackBase;
+    size_t allocatedSize = 0;
+    std::tie(stackBase, allocatedSize) = AllocaStack(m_stackActualSize);
+
     ucontext_t originalContext, newContext;
     getcontext(&newContext);
     newContext.uc_stack.ss_sp = stackBase;
-    newContext.uc_stack.ss_size = m_stackActualSize;
+    newContext.uc_stack.ss_size = allocatedSize;
     newContext.uc_link = &originalContext;
-    // workaround "might be clobbered" warning
-    if (isUniform)
-      makecontext(&newContext,
-                  (void (*)())(const_cast<void *>(
-                      pKernelUniformImplicitArgs->UniformJITEntryPoint)),
-                  3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
-    else
-      makecontext(&newContext,
-                  (void (*)())(const_cast<void *>(
-                      pKernelUniformImplicitArgs->NonUniformJITEntryPoint)),
-                  3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
+
+    makecontext(&newContext, (void (*)())(kernel), 3, pKernelUniformArgs,
+                pGroupID, pRuntimeHandle);
     swapcontext(&originalContext, &newContext);
-    ReleaseStack(stackBase);
+    ReleaseStack(stackBase, allocatedSize);
 #endif
   }
 #endif  // ENABLE_SDE
@@ -781,7 +783,7 @@ cl_dev_err_code Kernel::RestoreThreadState(ICLDevExecutionState &state) const {
   return CL_DEV_SUCCESS;
 }
 
-void* Kernel::AllocaStack(size_t size) const {
+std::pair<void *, size_t> Kernel::AllocaStack(size_t size) const {
   m_stackMutex.lock();
   if (m_stackMem.empty()) {
     m_stackMutex.unlock();
@@ -790,18 +792,35 @@ void* Kernel::AllocaStack(size_t size) const {
       std::cerr << "Error: System memory is out of resource\n";
       exit(1);
     }
-    return stackBase;
+    return std::make_pair(stackBase, size);
   }
 
-  void *stackBase = m_stackMem.front();
-  m_stackMem.pop();
+  for (std::vector<std::pair<void *, size_t>>::const_iterator
+           i = m_stackMem.begin(),
+           e = m_stackMem.end();
+       i != e; i++) {
+    std::pair<void *, size_t> stackMem = *i;
+    size_t stackSize = stackMem.second;
+    if (stackSize >= size) {
+      void *stackBase = stackMem.first;
+      m_stackMem.erase(i);
+      m_stackMutex.unlock();
+      return std::make_pair(stackBase, stackSize);
+    }
+  }
+
   m_stackMutex.unlock();
-  return stackBase;
+  void *stackBase = malloc(size);
+  if (!stackBase) {
+    std::cerr << "Error: System memory is out of resource\n";
+    exit(1);
+  }
+  return std::make_pair(stackBase, size);
 }
 
-void Kernel::ReleaseStack(void* stackBase) const {
+void Kernel::ReleaseStack(void *stackBase, size_t size) const {
   m_stackMutex.lock();
-  m_stackMem.push(stackBase);
+  m_stackMem.push_back(std::make_pair(stackBase, size));
   m_stackMutex.unlock();
 }
 

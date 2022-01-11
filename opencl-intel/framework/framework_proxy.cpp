@@ -660,7 +660,7 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
       m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
       assert(m_pTaskExecutor);
       auto deviceMode = m_pConfig->GetDeviceMode();
-      if (deviceMode == FPGA_EMU_DEVICE && m_pConfig->UseAutoMemory()) {
+      if (m_pConfig->UseAutoMemory()) {
         teInitialized = m_pTaskExecutor->Init(
             g_pUserLogger, m_pConfig->GetNumTBBWorkers(), &m_GPAData,
             m_pConfig->GetStackDefaultSize(), deviceMode);
