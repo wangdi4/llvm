@@ -732,8 +732,8 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
   //     No other stores are allowed.
   //  3. All loads of "V" are tracked using TrackUses.
   //
-  auto AnalyzeGV = [this, &TrackUses](Value *V, ICItemSet &InlineCalls,
-                                      Function *&AccessFunction) -> bool {
+  auto AnalyzeGV = [&TrackUses](Value *V, ICItemSet &InlineCalls,
+                                Function *&AccessFunction) -> bool {
     StoreInst *NullPtrStore = nullptr;
     StoreInst *AllocPtrStore = nullptr;
     SmallPtrSet<Value *, MaxNumInstructionsVisited> Visited;
