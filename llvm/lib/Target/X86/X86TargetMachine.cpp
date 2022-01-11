@@ -100,6 +100,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86LowerMatrixIntrinsicsPassPass(PR);
   initializeX86InstCombinePass(PR);
   initializeX86FeatureInitPassPass(PR);
+  initializeX86SplitLongBlockPassPass(PR);
   initializeX86PreISelIntrinsicLoweringPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -621,6 +622,11 @@ void X86PassConfig::addPreEmitPass() {
 void X86PassConfig::addPreEmitPass2() {
   const Triple &TT = TM->getTargetTriple();
   const MCAsmInfo *MAI = TM->getMCAsmInfo();
+
+#if INTEL_CUSTOMIZATION
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createX86SplitLongBlockPass());
+#endif // INTEL_CUSTOMIZATION
 
   // The X86 Speculative Execution Pass must run after all control
   // flow graph modifying passes. As a result it was listed to run right before

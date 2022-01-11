@@ -171,6 +171,8 @@ extern char &X86InstCombineID;
 /// Return a pass that generate amx intrinsics for matrix intrinsics.
 FunctionPass *createX86LowerMatrixIntrinsicsPass();
 
+FunctionPass *createX86SplitLongBlockPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -223,6 +225,7 @@ void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
+void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
