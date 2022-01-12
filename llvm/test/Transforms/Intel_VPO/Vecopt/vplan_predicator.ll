@@ -1979,7 +1979,7 @@ define void @uniform_br_under_outer_mask_6(i1 %uniform) {
 ; CHECK-NEXT:       [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
 ; CHECK-NEXT:       [DA: Uni] br exit
 ; CHECK-EMPTY:
-; CHECK-NEXT:    exit: # preds: if.else2, if.then2
+; CHECK-NEXT:    exit: # preds: if.then2, if.else2
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
@@ -2449,7 +2449,6 @@ define void @uniform_br_under_outer_mask_12(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
-; FIXME: "bb" isn't executed on the "if.else" path.
 ; CHECK-NEXT:    [[BB0]]: # preds: if
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
@@ -2457,17 +2456,17 @@ define void @uniform_br_under_outer_mask_12(i1 %uniform) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      if.else: # preds: [[BB0]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM_NOT]]
-; CHECK-NEXT:       [DA: Uni] br exit
+; CHECK-NEXT:       [DA: Uni] br bb
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      if.then: # preds: [[BB0]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
 ; CHECK-NEXT:       [DA: Uni] br bb
 ; CHECK-EMPTY:
-; CHECK-NEXT:      bb: # preds: if.then
-; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_VARYING]]
-; CHECK-NEXT:       [DA: Uni] br exit
+; CHECK-NEXT:    bb: # preds: if.then, if.else
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Uni] br exit
 ; CHECK-EMPTY:
-; CHECK-NEXT:    exit: # preds: if.else, bb
+; CHECK-NEXT:    exit: # preds: bb
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
@@ -2529,7 +2528,7 @@ define void @uniform_br_under_outer_mask_13(i1 %uniform) {
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_IF_BR_VP_UNIFORM]]
 ; CHECK-NEXT:       [DA: Uni] br exit
 ; CHECK-EMPTY:
-; CHECK-NEXT:    exit: # preds: if.else, if.then
+; CHECK-NEXT:    exit: # preds: if.then, if.else
 ; CHECK-NEXT:     [DA: Div] ret
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
