@@ -9579,6 +9579,9 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   if (IsFPGADepUnbundle)
     TypeArg = "o";
 
+  if (InputType == types::TY_Archive && getToolChain().getTriple().isSPIR())
+    TypeArg = "aoo";
+
   // Get the type.
   CmdArgs.push_back(TCArgs.MakeArgString(Twine("-type=") + TypeArg));
 
@@ -10463,4 +10466,39 @@ void AppendFooter::ConstructJob(Compilation &C, const JobAction &JA,
       JA, *this, ResponseFileSupport::None(),
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
       CmdArgs, None));
+}
+
+void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
+                                    const InputInfo &Output,
+                                    const InputInfoList &Inputs,
+                                    const llvm::opt::ArgList &TCArgs,
+                                    const char *LinkingOutput) const {
+  InputInfoList ForeachInputs;
+  ArgStringList CmdArgs;
+
+  assert(Inputs.size() == 1 &&
+         "Only one input expected to spirv-to-ir-wrapper");
+
+  // Input File
+  for (const auto &I : Inputs) {
+    if (I.getType() == types::TY_Archive)
+      ForeachInputs.push_back(I);
+    addArgs(CmdArgs, TCArgs, {I.getFilename()});
+  }
+
+  // Output File
+  addArgs(CmdArgs, TCArgs, {"-o", Output.getFilename()});
+
+  auto Cmd = std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::None(),
+      TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
+      CmdArgs, None);
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        TCArgs.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+    tools::SYCL::constructLLVMForeachCommand(
+        C, JA, std::move(Cmd), ForeachInputs, Output, this, "",
+        types::getTypeTempSuffix(types::TY_Tempfilelist), ParallelJobs);
+  } else
+    C.addCommand(std::move(Cmd));
 }
