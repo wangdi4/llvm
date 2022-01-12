@@ -845,6 +845,9 @@ public:
   uint64_t getWINum() const {
     return WINum;
   }
+  bool isAtomicFreeReduction() const {
+    return getWGNum();
+  }
 };
 
 /// Per-device global entry table
@@ -1498,6 +1501,7 @@ struct RTLOptionTy {
 
   /// Oversubscription rate for reduction kernels
   uint32_t ReductionSubscriptionRate = 16;
+  bool ReductionSubscriptionRateIsDefault = true;
 
   /// Forced kernel width only for internal experiments
   uint32_t ForcedKernelWidth = 0;
@@ -1789,8 +1793,10 @@ struct RTLOptionTy {
       int32_t Value = std::stoi(Env);
       // '0' is a special value meaning to use regular default ND-range
       // for kernels with reductions.
-      if (Value >= 0 && Value <= 0xFFFF)
+      if (Value >= 0 && Value <= 0xFFFF) {
         ReductionSubscriptionRate = Value;
+        ReductionSubscriptionRateIsDefault = false;
+      }
     }
 
     // Forced kernel width
@@ -5246,7 +5252,11 @@ static void decideKernelGroupArguments(
       if (KInfo && KInfo->getHasTeamsReduction() &&
           // Only do this for discrete devices.
           DeviceInfo->isDiscreteDevice(DeviceId) &&
-          DeviceInfo->Option.ReductionSubscriptionRate)
+          DeviceInfo->Option.ReductionSubscriptionRate &&
+          // Do not use this heuristic for kernels that use
+          // atomic-free reductions. We want to maximize
+          // LWS for such kernels.
+          !KInfo->isAtomicFreeReduction())
         maxGroupSize = kernelWidth;
 
       assert(!maxGroupSizeForced && !maxGroupCountForced);
@@ -5278,11 +5288,17 @@ static void decideKernelGroupArguments(
   if (!maxGroupCountForced) {
     if (KInfo && KInfo->getHasTeamsReduction() &&
         DeviceInfo->Option.ReductionSubscriptionRate) {
-      if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+      if (DeviceInfo->isDiscreteDevice(DeviceId) &&
+          (!KInfo->isAtomicFreeReduction() ||
+           !DeviceInfo->Option.ReductionSubscriptionRateIsDefault)) {
         // Do not apply ReductionSubscriptionRate for non-discrete devices.
         // But we have to avoid the regular SubscriptionRate in the else
         // clause. Basically, for non-discrete devices, the reduction
         // subscription rate is 1.
+        //
+        // Also use reduction subscription rate 1 for kernels using
+        // atomic-free reductions, unless user forced reduction subscription
+        // rate via environment.
         groupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
         groupCounts[0] = (std::max)(groupCounts[0], 1u);
       }
