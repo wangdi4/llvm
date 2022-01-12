@@ -120,6 +120,7 @@ bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 /// allocates memory and throws if an allocation failed (e.g., new).
 bool isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
+<<<<<<< HEAD
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory (strdup, strndup).
 bool isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI);
@@ -136,6 +137,8 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> b56f6f1913a8061bfd8e704cd2794150660a859d
 //===----------------------------------------------------------------------===//
 //  free Call Utility Functions.
 //
