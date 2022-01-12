@@ -905,12 +905,9 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   // Initialize TTI
   m_PM.add(createTargetTransformInfoWrapperPass(
       targetMachine->getTargetIRAnalysis()));
-  m_PM.add(createTargetTransformInfoWrapperPass(
-      targetMachine->getTargetIRAnalysis()));
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
   TargetLibraryInfoImpl TLII(Triple(pModule->getTargetTriple()));
-  m_PM.add(new TargetLibraryInfoWrapperPass(TLII));
   m_PM.add(new TargetLibraryInfoWrapperPass(TLII));
 
   auto materializerPM = [this]() {
@@ -919,7 +916,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
     m_PM.add(llvm::createNameAnonGlobalPass());
     m_PM.add(llvm::createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
     m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
-    m_PM.add(createDPCPPEqualizerLegacyPass(m_RtlModules));
+    m_PM.add(createDPCPPEqualizerLegacyPass());
     Triple TargetTriple(m_M->getTargetTriple());
     if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
       if (TargetTriple.isOSLinux())

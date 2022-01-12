@@ -233,7 +233,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
     // Barrier passes begin.
     MPM.add(createPhiCanonicalizationLegacyPass());
     MPM.add(createRedundantPhiNodeLegacyPass());
-    MPM.add(createGroupBuiltinLegacyPass(m_RtlModules));
+    MPM.add(createGroupBuiltinLegacyPass());
     MPM.add(createBarrierInFunctionLegacyPass());
     // Resolve subgroup barriers after subgroup emulation passes
     MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
