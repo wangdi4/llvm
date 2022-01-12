@@ -170,23 +170,28 @@ static bool isSVMLIntArgumentMask(ASTContext &Context, QualType ArgType,
 // value is a legit SVML struct (that is, can be passed in registers in the SVML
 // calling convention).
 // In such structs, all fields should have the same type, and it should be a
-// integer, floating-point, or vector type. The type of the fields is returned
-// in Base, and the number of fields is returned in NumValues.
+// integer, floating-point or vector type. SVML structs can be nested but their
+// leaf fields must be of the same type. The type of the fields is returned in
+// Base, and the number of fields is returned in NumValues.
 // This differs from HVA in that we don't define different sets of eligible base
 // types for different ABIs, and integers are also eligible.
 static bool isSVMLStructure(ASTContext &Context, const RecordDecl *RD,
                             const Type *&Base, uint64_t &NumValues) {
   if (!RD->isStruct() || RD->field_empty())
     return false;
-  Base = RD->field_begin()->getType().getTypePtr();
-  NumValues = 0;
   for (const FieldDecl *Field : RD->fields()) {
-    NumValues += 1;
     QualType T = Field->getType();
-    if (Base != T.getTypePtr())
+    if (T->isVectorType() || T->isRealFloatingType() || T->isIntegerType()) {
+      if (Base == nullptr)
+        Base = T.getTypePtr();
+      if (Base != T.getTypePtr())
+        return false;
+      ++NumValues;
+    } else if (!(T->isStructureType() &&
+                 isSVMLStructure(Context, T->getAs<RecordType>()->getDecl(),
+                                 Base, NumValues))) {
       return false;
-    if (!(T->isVectorType() || T->isRealFloatingType() || T->isIntegerType()))
-      return false;
+    }
   }
   return true;
 }
