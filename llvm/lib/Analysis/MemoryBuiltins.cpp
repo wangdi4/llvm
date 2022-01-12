@@ -82,20 +82,20 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
     {LibFunc_valloc,                            {MallocLike,       1,  0, -1, -1}},
     {LibFunc_Znwj,                              {OpNewLike,        1,  0, -1, -1}}, // new(unsigned int)
     {LibFunc_ZnwjRKSt9nothrow_t,                {MallocLike,       2,  0, -1, -1}}, // new(unsigned int, nothrow)
-    {LibFunc_ZnwjSt11align_val_t,               {OpNewLike,        2,  0, -1, -1}}, // new(unsigned int, align_val_t)
-    {LibFunc_ZnwjSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1, -1}}, // new(unsigned int, align_val_t, nothrow)
+    {LibFunc_ZnwjSt11align_val_t,               {OpNewLike,        2,  0, -1,  1}}, // new(unsigned int, align_val_t)
+    {LibFunc_ZnwjSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1,  1}}, // new(unsigned int, align_val_t, nothrow)
     {LibFunc_Znwm,                              {OpNewLike,        1,  0, -1, -1}}, // new(unsigned long)
     {LibFunc_ZnwmRKSt9nothrow_t,                {MallocLike,       2,  0, -1, -1}}, // new(unsigned long, nothrow)
-    {LibFunc_ZnwmSt11align_val_t,               {OpNewLike,        2,  0, -1, -1}}, // new(unsigned long, align_val_t)
-    {LibFunc_ZnwmSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1, -1}}, // new(unsigned long, align_val_t, nothrow)
+    {LibFunc_ZnwmSt11align_val_t,               {OpNewLike,        2,  0, -1,  1}}, // new(unsigned long, align_val_t)
+    {LibFunc_ZnwmSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1,  1}}, // new(unsigned long, align_val_t, nothrow)
     {LibFunc_Znaj,                              {OpNewLike,        1,  0, -1, -1}}, // new[](unsigned int)
     {LibFunc_ZnajRKSt9nothrow_t,                {MallocLike,       2,  0, -1, -1}}, // new[](unsigned int, nothrow)
-    {LibFunc_ZnajSt11align_val_t,               {OpNewLike,        2,  0, -1, -1}}, // new[](unsigned int, align_val_t)
-    {LibFunc_ZnajSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1, -1}}, // new[](unsigned int, align_val_t, nothrow)
+    {LibFunc_ZnajSt11align_val_t,               {OpNewLike,        2,  0, -1,  1}}, // new[](unsigned int, align_val_t)
+    {LibFunc_ZnajSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1,  1}}, // new[](unsigned int, align_val_t, nothrow)
     {LibFunc_Znam,                              {OpNewLike,        1,  0, -1, -1}}, // new[](unsigned long)
     {LibFunc_ZnamRKSt9nothrow_t,                {MallocLike,       2,  0, -1, -1}}, // new[](unsigned long, nothrow)
-    {LibFunc_ZnamSt11align_val_t,               {OpNewLike,        2,  0, -1, -1}}, // new[](unsigned long, align_val_t)
-    {LibFunc_ZnamSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1, -1}}, // new[](unsigned long, align_val_t, nothrow)
+    {LibFunc_ZnamSt11align_val_t,               {OpNewLike,        2,  0, -1,  1}}, // new[](unsigned long, align_val_t)
+    {LibFunc_ZnamSt11align_val_tRKSt9nothrow_t, {MallocLike,       3,  0, -1,  1}}, // new[](unsigned long, align_val_t, nothrow)
     {LibFunc_msvc_new_int,                      {OpNewLike,        1,  0, -1, -1}}, // new(unsigned int)
     {LibFunc_msvc_new_int_nothrow,              {MallocLike,       2,  0, -1, -1}}, // new(unsigned int, nothrow)
     {LibFunc_msvc_new_longlong,                 {OpNewLike,        1,  0, -1, -1}}, // new(unsigned long long)
@@ -303,15 +303,6 @@ bool llvm::isAlignedAllocLikeFn(
   return getAllocationData(V, AlignedAllocLike, GetTLI)
       .hasValue();
 }
-/// Gets the alignment argument for an aligned_alloc-like function
-Value *llvm::getAllocAlignment(const CallBase *V,
-                               const TargetLibraryInfo *TLI) {
-  const Optional<AllocFnsTy> FnData = getAllocationData(V, AnyAlloc, TLI);
-  if (!FnData.hasValue() || FnData->AlignParam < 0) {
-    return nullptr;
-  }
-  return V->getOperand(FnData->AlignParam);
-}
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
@@ -392,6 +383,18 @@ bool llvm::isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 /// allocates memory (strdup, strndup).
 bool llvm::isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, StrDupLike, TLI).hasValue();
+}
+
+
+Value *llvm::getAllocAlignment(const CallBase *V,
+                               const TargetLibraryInfo *TLI) {
+  assert(isAllocationFn(V, TLI));
+
+  const Optional<AllocFnsTy> FnData = getAllocationData(V, AnyAlloc, TLI);
+  if (!FnData.hasValue() || FnData->AlignParam < 0) {
+    return nullptr;
+  }
+  return V->getOperand(FnData->AlignParam);
 }
 
 Constant *llvm::getInitialValueOfAllocation(const CallBase *Alloc,
