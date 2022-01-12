@@ -1908,6 +1908,53 @@ Value *SCEVExpander::expandCodeForImpl(const SCEV *SH, Type *Ty, bool Root) {
   return V;
 }
 
+#if INTEL_CUSTOMIZATION
+/// See if nsw/nuw flags can be preserved in I, in the context where value I
+/// will replace S. Notice that I is Value*, and Offset
+/// is the offset from SE's ValueOffsetMap. I.e. S -> {I, Offset}
+static bool canPreservePoisonFlags(const SCEV *S, const ConstantInt* Offset,
+                                   const Instruction *I) {
+  // We narrow down only to "add" operations with two operands.
+
+  // Offset shouldn't exist because we are looking for match of operands
+  // of SCEV and I.
+  if (Offset)
+    return false;
+
+  auto *AS = dyn_cast<SCEVAddExpr>(S);
+  if (!AS || !isa<OverflowingBinaryOperator>(I) ||
+      I->getOpcode() != Instruction::Add)
+    return false;
+  if (AS->getNumOperands() != 2)
+    return false;
+
+  bool SCEVLostPoisonFlags =
+      (I->hasNoSignedWrap() && !AS->hasNoSignedWrap()) ||
+      (I->hasNoUnsignedWrap() && !AS->hasNoUnsignedWrap());
+
+  if (SCEVLostPoisonFlags)
+    return false;
+
+  // Make sure that I's operands and SCEV's operands are the same
+  // to be conservative in preserving nsw/nuw flags.
+  const Value* Op0 = I->getOperand(0);
+  const Value* Op1 = I->getOperand(1);
+
+  const SCEV* S0 = AS->getOperand(0);
+  const SCEV* S1 = AS->getOperand(1);
+
+  // We only care when SCEV's two operands are SCEVConstant or SCEVUnknown
+  const Value* V0 = isa<SCEVConstant>(S0) ? cast<SCEVConstant>(S0)->getValue() :
+                    isa<SCEVUnknown>(S0) ? cast<SCEVUnknown>(S0)->getValue() :
+                    nullptr;
+  const Value* V1 = isa<SCEVConstant>(S1) ? cast<SCEVConstant>(S1)->getValue() :
+                    isa<SCEVUnknown>(S1) ? cast<SCEVUnknown>(S1)->getValue() :
+                    nullptr;
+
+  return Op0 == V0 && Op1 == V1 || Op0 == V1 && Op1 == V0;
+}
+#endif // INTEL_CUSTOMIZATION
+
 ScalarEvolution::ValueOffsetPair
 SCEVExpander::FindValueInExprValueMap(const SCEV *S,
                                       const Instruction *InsertPt) {
@@ -2015,9 +2062,23 @@ Value *SCEVExpander::expand(const SCEV *S) {
     // copies of the instruction (with potentially different flags).  As such,
     // we need to drop any poison generating flags unless we can prove that
     // said flags must be valid for all new users.
+#if INTEL_CUSTOMIZATION
+    // if (auto *I = dyn_cast<Instruction>(V))
+    //   if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I)) {
+    //     I->dropPoisonGeneratingFlags();
+    //   }
+
+    // Dropping poison generating flags maximally has a detrimental
+    // effect on subsequent optimizations, in particular on loopopt.
+    // So, we narrow the condition of hasPoisonGeneratingFlags().
+    // For Nary operation, if both S and I are add and
+    // have poison-generating flags,
+    // flags are not dropped when possible.
     if (auto *I = dyn_cast<Instruction>(V))
-      if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I))
-        I->dropPoisonGeneratingFlags();
+      if (I->hasPoisonGeneratingFlags() && !programUndefinedIfPoison(I) &&
+          !canPreservePoisonFlags(S, VO.second, I))
+          I->dropPoisonGeneratingFlags();
+#endif // INTEL_CUSTOMIZATION
 
     if (VO.second) {
       if (PointerType *Vty = dyn_cast<PointerType>(V->getType())) {

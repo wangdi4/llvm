@@ -15,10 +15,9 @@ using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
 
 Function *
-RuntimeService::findFunctionInBuiltinModules(ArrayRef<Module *> BuiltinModules,
-                                             StringRef Name) const {
+RuntimeService::findFunctionInBuiltinModules(StringRef FuncName) const {
   for (Module *M : BuiltinModules) {
-    Function *RetFunction = M->getFunction(Name);
+    Function *RetFunction = M->getFunction(FuncName);
     if (RetFunction)
       return RetFunction;
   }

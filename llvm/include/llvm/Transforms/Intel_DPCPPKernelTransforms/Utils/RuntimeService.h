@@ -20,10 +20,13 @@ namespace llvm {
 /// functions.
 class RuntimeService {
 public:
+  RuntimeService(ArrayRef<Module *> BuiltinModules) {
+    this->BuiltinModules.assign(BuiltinModules.begin(), BuiltinModules.end());
+  }
+
   /// Find a function in the runtime's built-in modules.
-  /// \ Name Function name to look for.
-  Function *findFunctionInBuiltinModules(ArrayRef<Module *> BuiltinModules,
-                                         StringRef Name) const;
+  /// \ FuncName Function name to look for.
+  Function *findFunctionInBuiltinModules(StringRef FuncName) const;
 
   /// Check if \p CI is an TID generator with constant operator.
   /// \returns a tuple of
@@ -31,6 +34,9 @@ public:
   ///   * true if there is an error that its argument is not constant.
   ///   * dimension of the TID generator.
   std::tuple<bool, bool, unsigned> isTIDGenerator(const CallInst *CI) const;
+
+private:
+  SmallVector<Module *, 2> BuiltinModules;
 };
 
 } // namespace llvm

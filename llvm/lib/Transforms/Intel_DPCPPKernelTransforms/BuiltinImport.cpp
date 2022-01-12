@@ -105,9 +105,9 @@ static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
   return nullptr;
 }
 
-BuiltinImportPass::BuiltinImportPass(
-    const SmallVector<Module *, 2> &BuiltinModules, StringRef CPUPrefix)
-    : BuiltinModules(BuiltinModules), CPUPrefix(CPUPrefix) {
+BuiltinImportPass::BuiltinImportPass(const SmallVector<Module *, 2> &,
+                                     StringRef CPUPrefix)
+    : CPUPrefix(CPUPrefix) {
   initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
 }
 
@@ -408,9 +408,7 @@ static void unifyMinLegalVectorWidthAttr(Module &M) {
 bool BuiltinImportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   if (CPUPrefix.empty())
     CPUPrefix = OptCPUPrefix;
-
-  if (BuiltinModules.empty())
-    BuiltinModules = BLI->getBuiltinModules();
+  BuiltinModules = BLI->getBuiltinModules();
 
   // Remember user module function pointers, so we could set linkonce_odr
   // to only imported functions.

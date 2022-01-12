@@ -112,11 +112,6 @@ static cl::opt<unsigned> TinyTripCountThreshold(
     cl::desc("Don't vectorize loops with a constant "
              "trip count that is smaller than this value."));
 
-static cl::opt<bool> VPlanAssumeMaskedFabsProfitable(
-    "vplan-assume-masked-fabs-profitable", cl::init(false), cl::Hidden,
-    cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic assuming "
-             "profitability."));
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> PrintHIRAfterVPlan(
     "print-hir-after-vplan", cl::init(false),
@@ -646,23 +641,6 @@ void HandledCheck::visit(HLDDNode *Node) {
       }
 
       StringRef CalledFunc = Fn->getName();
-      Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
-
-      // Prevent vectorization of loop if masked fabs intrinsic vectorization is
-      // not profitable specifically for non-AVX512 targets. Check JIRA :
-      // CMPLRLLVM-11468.
-      bool IsUnprofitableFabs = ID == Intrinsic::fabs &&
-                                !VPlanAssumeMaskedFabsProfitable &&
-                                !CG->targetHasIntelAVX512();
-      if (isa<HLIf>(Inst->getParent()) && VF > 1 && IsUnprofitableFabs) {
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
-                                  "fabs intrinsic for non-AVX512.\n");
-        IsHandled = false;
-        return;
-      }
-
       // Quick hack to avoid loops containing fabs in 447.dealII from becoming
       // vectorized due to bug in unrolling. The problem involves loop index
       // variable that spans outside the array range, resulting in segfault.

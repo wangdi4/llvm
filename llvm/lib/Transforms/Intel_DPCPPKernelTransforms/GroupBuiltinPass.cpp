@@ -57,8 +57,7 @@ INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_END(GroupBuiltinLegacy, DEBUG_TYPE, "Handle WorkGroup BI calls",
                     false, false)
 
-GroupBuiltinLegacy::GroupBuiltinLegacy(ArrayRef<Module *> BuiltinModules)
-    : ModulePass(ID), Impl(std::move(BuiltinModules)) {
+GroupBuiltinLegacy::GroupBuiltinLegacy(ArrayRef<Module *>) : ModulePass(ID) {
   initializeGroupBuiltinLegacyPass(*PassRegistry::getPassRegistry());
 }
 
@@ -325,8 +324,6 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
          "Unsupported pointer size");
   SizeT = IntegerType::get(*Context, PointerSizeInBits);
 
-  if (BuiltinModules.empty())
-    BuiltinModules = BLI->getBuiltinModules();
   RTService = BLI->getRuntimeService();
   assert(RTService && "Invalid runtime service");
 
@@ -455,8 +452,7 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
     // c. Create function declaration object (unless the module contains it
     // already)
     // Get the new function declaration out of built-in module list.
-    Function *LibFunc =
-        RTService->findFunctionInBuiltinModules(BuiltinModules, newFuncName);
+    Function *LibFunc = RTService->findFunctionInBuiltinModules(newFuncName);
     assert(LibFunc && "WG builtin is not supported in built-in module");
     Function *NewFunc = importFunctionDecl(this->M, LibFunc);
     assert(NewFunc && "Non-function object with the same signature "
@@ -492,8 +488,8 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
       std::string FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
       // Create function
       // Get the new function declaration out of built-in modules list.
-      Function *LibFunc = RTService->findFunctionInBuiltinModules(
-          BuiltinModules, FinalizeFuncName);
+      Function *LibFunc =
+          RTService->findFunctionInBuiltinModules(FinalizeFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
       Function *FinalizeFunc = importFunctionDecl(this->M, LibFunc);
       assert(FinalizeFunc && "Non-function object with the same signature "

@@ -149,5 +149,5 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(AddNTAttrLegacy, DEBUG_TYPE,
                     "add non-temporal attribute", false, false)
 
-FunctionPass *llvm::creatAddNTAttrLegacyPass() { return new AddNTAttrLegacy(); }
+FunctionPass *llvm::createAddNTAttrLegacyPass() { return new AddNTAttrLegacy(); }
 

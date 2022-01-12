@@ -83,8 +83,8 @@ ModulePass *llvm::createResolveSubGroupWICallLegacyPass(
 }
 
 ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(
-    const SmallVector<Module *, 2> &BuiltinModules, bool ResolveSGBarrier)
-    : ResolveSGBarrier(ResolveSGBarrier), BuiltinModules(BuiltinModules) {}
+    const SmallVector<Module *, 2> &, bool ResolveSGBarrier)
+    : ResolveSGBarrier(ResolveSGBarrier) {}
 
 PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
                                                  ModuleAnalysisManager &AM) {
@@ -95,8 +95,6 @@ PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
 }
 
 bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
-  if (BuiltinModules.empty())
-    BuiltinModules = BLI->getBuiltinModules();
   RTService = BLI->getRuntimeService();
   assert(RTService && "Invalid runtime service");
 
@@ -131,6 +129,7 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
        &ResolveSubGroupWICallPass::replaceGetMaxSubGroupSize}};
 
   // Add resolvers for subgroup slice builtins.
+  SmallPtrSet<Function *, 2> SubGroupRowSliceInsertElementFuncs;
   for (auto &F : M) {
     if (!F.isDeclaration())
       continue;
@@ -147,6 +146,11 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
       SubGroupFuncToResolverMap.insert(
           {FnName.str(),
            &ResolveSubGroupWICallPass::replaceSubGroupInsertRowSliceToMatrix});
+    // We don't parse sub_group_rowslice_insertelement directly, but we need to
+    // clean-up dead sub_group_rowslice_insertelement calls (who receive an
+    // undef value as the rowslice id argument) at the end.
+    if (isSubGroupRowSliceInsertElement(FnName))
+      SubGroupRowSliceInsertElementFuncs.insert(&F);
   }
 
   LLVM_DEBUG(dbgs() << "ResolveSGBarrier = " << ResolveSGBarrier << '\n');
@@ -288,6 +292,17 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
 
   for (auto *I : ExtraInstToRemove)
     I->eraseFromParent();
+
+  // sub_group_rowslice_insertelement calls are well parsed if they are linked
+  // to an sub_group_insert_rowslice_to_matrix call via the rowslice id.
+  // However, there might be some sub_group_rowslice_insertelement calls left
+  // over, because they have an "undef" rowslice id argument.
+  // e.g.
+  // call void @_ZGVbM8uv_sub_group_rowslice_insertelement.i32(i64 undef, ...)
+  // These calls are just no-ops. We need to make sure they are also removed.
+  for (auto *F : SubGroupRowSliceInsertElementFuncs)
+    for (auto *U : make_early_inc_range(F->users()))
+      cast<CallInst>(U)->eraseFromParent();
 
   return !InstRepVec.empty();
 }
@@ -475,8 +490,8 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   IRBuilder<> Builder(InsertBefore);
   CallInst *CI = cast<CallInst>(InsertBefore);
   std::string AtomicWIFenceName = mangledAtomicWorkItemFence();
-  auto *AtomicWIFenceBIF = RTService->findFunctionInBuiltinModules(
-      BuiltinModules, AtomicWIFenceName);
+  auto *AtomicWIFenceBIF =
+      RTService->findFunctionInBuiltinModules(AtomicWIFenceName);
   assert(AtomicWIFenceBIF && "atomic_work_item_fence not found in BI library!");
 
   auto *AtomicWIFenceF = importFunctionDecl(M, AtomicWIFenceBIF);
@@ -527,11 +542,41 @@ Value *ResolveSubGroupWICallPass::replaceGetSubGroupSliceLength(
 }
 
 void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
-    CallInst *CI, unsigned RowSliceLength, IRBuilder<> &Builder,
+    Value *RowSliceId, unsigned RowSliceLength, IRBuilder<> &Builder,
     SmallVectorImpl<Value *> &ParsedArgs) {
+  CallInst *CI = nullptr;
+  // After vectorization, the rowslice id might become a PHI node selecting
+  // between the get_sub_group_rowslice_id call and an undef value.
+  // clang-format off
+  // e.g.
+  // pred.call.if69vector_func:                        ; preds = %VPlannedBB30vector_func
+  //   %57 = call i64 @get_sub_group_rowslice_id.v256i32.i64(<256 x i32> %extractsubvec.vector_func, i32 16, i32 16, i64 %uni.phi18vector_func) #8
+  //   br label %pred.call.continue70vector_func
+  // pred.call.continue70vector_func:                  ; preds = %pred.call.if69vector_func, %VPlannedBB30vector_func
+  //   %58 = phi i64 [ undef, %VPlannedBB30vector_func ], [ %57, %pred.call.if69vector_func ]
+  //   %59 = call <8 x i32> @_ZGVbM8u_sub_group_rowslice_extractelement.i32(i64 %58, <8 x i32> %maskext32vector_func) #10
+  // clang-format on
+  if (auto *PHI = dyn_cast<PHINode>(RowSliceId)) {
+    // If we ignore the undef value, the result of the PHI must be the the
+    // get_sub_group_rowslice_id call,
+    assert(PHI->hasConstantOrUndefValue() &&
+           "The incoming value of the PHI representing the rowslice id must be "
+           "either 'undef' or a get_sub_group_rowslice_id call");
+    // Find the get_sub_group_rowslice_id call.
+    for (auto &Incoming : PHI->incoming_values())
+      if (CI = dyn_cast<CallInst>(Incoming.get()))
+        break;
+    assert(CI && "get_sub_group_rowslice_id call is not found");
+    // We need to remove the PHI node (before removing the
+    // get_sub_group_rowslice_id call inst).
+    ExtraInstToRemove.push_back(PHI);
+  } else {
+    CI = cast<CallInst>(RowSliceId);
+  }
   // %id = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> %mat, i32
   //   12, i32 12, i64 %element.index)
-  assert(CI->arg_size() == 4);
+  assert(CI->arg_size() == 4 &&
+         "A get_sub_group_rowslice_id call must have exactly 4 args.");
   auto *Matrix = CI->getArgOperand(0);
   unsigned R = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned C = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
@@ -549,6 +594,8 @@ void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
   // FIXME: Pass layout metadata from SPIR-V. Hardcode as rowmajor for now.
   ParsedArgs.push_back(MetadataAsValue::get(
       CI->getContext(), MDString::get(CI->getContext(), "matrix.rowmajor")));
+  // We need to remove the get_sub_group_rowslice_id call.
+  ExtraInstToRemove.push_back(CI);
 }
 
 Value *ResolveSubGroupWICallPass::replaceSubGroupRowSliceExtractElement(
@@ -569,16 +616,13 @@ Value *ResolveSubGroupWICallPass::replaceSubGroupRowSliceExtractElement(
          "Each rowslice id value must be used only once");
   IRBuilder<> Builder(InsertBefore);
   SmallVector<Value *, 8> Args;
-  resolveGetSubGroupRowSliceId(cast<CallInst>(RowSliceId), RowSliceLength,
-                               Builder, Args);
+  resolveGetSubGroupRowSliceId(RowSliceId, RowSliceLength, Builder, Args);
   auto *RowSliceType =
       FixedVectorType::get(ValType->getScalarType(), RowSliceLength);
   auto *MatrixType = Args.front()->getType();
   auto *RowSlice =
       Builder.CreateIntrinsic(Intrinsic::experimental_matrix_extract_row_slice,
                               {RowSliceType, MatrixType}, Args);
-  // We need to remove the get_sub_group_rowslice_id call.
-  ExtraInstToRemove.push_back(cast<CallInst>(RowSliceId));
   // Add an extra extractelement from <1 x T> for the scalar case.
   if (RowSliceLength == 1)
     return Builder.CreateExtractElement(RowSlice, Builder.getInt32(0));
@@ -612,6 +656,9 @@ Value *ResolveSubGroupWICallPass::replaceSubGroupInsertRowSliceToMatrix(
   }
   assert(SGRowSliceInsertElementCall &&
          "Doesn't find sub_group_rowslice_insertelement use on rowslice id");
+  // The sub_group_rowslice_insertelement call needs to be removed first.
+  ExtraInstToRemove.push_back(SGRowSliceInsertElementCall);
+
   auto *SliceData = SGRowSliceInsertElementCall->getArgOperand(1);
   unsigned RowSliceLength = 1;
   auto *ValType = SliceData->getType();
@@ -625,19 +672,13 @@ Value *ResolveSubGroupWICallPass::replaceSubGroupInsertRowSliceToMatrix(
     SliceData = Builder.CreateInsertElement(UndefValue::get(RowSliceType),
                                             SliceData, Builder.getInt32(0));
   SmallVector<Value *, 8> Args;
-  resolveGetSubGroupRowSliceId(cast<CallInst>(RowSliceId), RowSliceLength,
-                               Builder, Args);
+  resolveGetSubGroupRowSliceId(RowSliceId, RowSliceLength, Builder, Args);
   // The second arg should be the data to be inserted.
   Args.insert(Args.begin() + 1, SliceData);
   auto *MatrixType = InsertBefore->getType();
   auto *Matrix =
       Builder.CreateIntrinsic(Intrinsic::experimental_matrix_insert_row_slice,
                               {MatrixType, RowSliceType}, Args);
-
-  // We need to remove the sub_group_rowslice_insertelement call and the
-  // get_sub_group_rowslice_id call.
-  ExtraInstToRemove.push_back(SGRowSliceInsertElementCall);
-  ExtraInstToRemove.push_back(cast<CallInst>(RowSliceId));
   return Matrix;
 }
 

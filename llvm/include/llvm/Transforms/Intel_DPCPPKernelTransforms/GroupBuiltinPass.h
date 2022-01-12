@@ -26,22 +26,17 @@ class RuntimeService;
 /// It provides that their execution will be synchronized across all WIs
 class GroupBuiltinPass : public PassInfoMixin<GroupBuiltinPass> {
 public:
-  static StringRef name() { return "GroupBuiltin"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
-  explicit GroupBuiltinPass(ArrayRef<Module *> BuiltinModuleList = {})
-      : BuiltinModules(BuiltinModuleList){};
+  explicit GroupBuiltinPass(ArrayRef<Module *> BuiltinModuleList = {}){};
 
 private:
   /// This module
   Module *M;
 
-  /// This is a list of built-in modules
-  ArrayRef<Module *> BuiltinModules;
-
+  /// Runtime service.
   RuntimeService *RTService;
 
   /// This context
