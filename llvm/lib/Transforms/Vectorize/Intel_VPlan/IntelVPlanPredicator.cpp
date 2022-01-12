@@ -648,51 +648,28 @@ void VPlanPredicator::linearizeRegion() {
     LLVM_DEBUG(dbgs() << "\nAlready dropped divergent edges:");
     for (auto *Pred : RemovedDivergentEdges) {
       LLVM_DEBUG(dbgs() << " " << Pred->getName());
-      // Check if Pred is in the same linearized sub-graph that the CurrBlock
-      // is. In other words, do we reach any of the remaining edges when going
-      // through Pred's single successors chain?
-      //
-      // We rely on the fact that the only preserved uniform control flow under
-      // a top-level divergent condition is if the subregions formed by it are
-      // isolated. However, I don't know a nice way to assert for that here. Any
-      // improvements in that area in shouldPreserveOutgoingEdges have to be
-      // accompanied with a change here as well.
-      VPBasicBlock *LastProcessed = Pred;
-      int LastProcessedIdx = BlockOrdering.getIndex(LastProcessed);
-      auto It = df_begin(LastProcessed);
-      auto End = df_end(LastProcessed);
-      while  (It != End) {
-        int Idx = BlockOrdering.getIndex(*It);
-        if (Idx >= CurrBlockIndex) {
+      // Ensure that all preds where edges were dropped can reach this block on
+      // all pathes from them. Add new edges if necessary.
+      auto It = df_begin(Pred);
+      auto End = df_end(Pred);
+      while (It != End) {
+        if (any_of(It->getSuccessors(),
+                   [&BlockOrdering, CurrBlockIndex](const VPBasicBlock *Succ) {
+                     return BlockOrdering.getIndex(Succ) < CurrBlockIndex;
+                   })) {
+          // Not a leaf in the subgraph processed so far.
+          ++It;
+          continue;
+        }
+
+        if (BlockOrdering.getIndex(*It) >= CurrBlockIndex) {
+          // Block is outside the subgraph we're currently working on.
           It.skipChildren();
           continue;
         }
-        if (Idx > LastProcessedIdx) {
-          LastProcessed = *It;
-          LastProcessedIdx = Idx;
-        }
-        ++It;
-      }
 
-      if (is_contained(LastProcessed->getSuccessors(), CurrBlock)) {
-        // Nothing to do.
-        //
-        // Indeed, the LastProcessed-CurrBlock edge is one of the following:
-        //   - Uniform edge (e.g. exiting edge of an inner loop). No successors
-        //     fixup is needed.
-        //   - Remaining divergent edge. Successors were fixed up in a loop
-        //     processing such kind of edges.
-        //   - New edge connecting this block to a linearized chain created on
-        //     one of the previous iterations of this loop. Successors were
-        //     fixed up during edge creation (else part of this condition).
-      } else {
-        // Pred was processed as part of some other linearization chain. Need to
-        // merge it with the current one.
-        //
-        // Note: we are in the process of iterating over
-        // RemovedDivergentEdgesMap[CurrBlock]. Since CurrBlock is passed at the
-        // destination to keep no invalidation happens.
-        DropDivergentEdgesFromAndLinkWith(LastProcessed, CurrBlock);
+        DropDivergentEdgesFromAndLinkWith(*It, CurrBlock);
+        It.skipChildren();
       }
     }
 

@@ -552,6 +552,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   friend class VPLiveInOutCreator;
   friend class VPOCodeGenHIR;
   friend class VPOCodeGen;
+  friend class VPLoopEntityList;
 
 private:
   // Hold the DDRef or IV information related to this external definition.

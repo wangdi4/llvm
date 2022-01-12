@@ -179,7 +179,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   // operations during initialization and finalization. Walking the VPlan
   // instructions will not work as this check is done before we insert entity
   // related instructions.
-  if (LE->hasInMemoryReductionInduction() || LE->hasInMemoryLiveoutPrivate())
+  if (LE->hasInMemoryReductionInduction())
     return false;
 
   // Check whether all reductions are supported

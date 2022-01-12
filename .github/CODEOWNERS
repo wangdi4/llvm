@@ -330,13 +330,13 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @aelovikov-intel @skozhukh @sguggill @karthik-senthil
 
 # JIRA: CMPLRLLVM->LLVM Loop Optimizer
-/llvm/include/llvm/Transforms/Intel_LoopTransforms/ @johnluenng
-/llvm/include/llvm/Analysis/Intel_LoopAnalysis/ @johnluenng
-/llvm/lib/Transforms/Intel_LoopTransforms/ @johnluenng
-/llvm/lib/Analysis/Intel_LoopAnalysis/ @johnluenng
-/llvm/test/Transforms/Intel_LoopCarriedCSE/ @johnluenng
-/llvm/test/Transforms/Intel_LoopTransforms/ @johnluenng
-/llvm/test/Analysis/Intel_LoopAnalysis/ @johnluenng
+/llvm/include/llvm/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
+/llvm/include/llvm/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
+/llvm/lib/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
+/llvm/lib/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
+/llvm/test/Transforms/Intel_LoopCarriedCSE/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
+/llvm/test/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
+/llvm/test/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211 @fismail2
 
 # JIRA: CMPLRLLVM->LLVM PAROPT
 /llvm/include/llvm/Analysis/VPO/ @intel-restricted/cmplrllvm-llvm-paropt

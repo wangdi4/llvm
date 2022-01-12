@@ -948,6 +948,9 @@ private:
     HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
   }
 
+  template <typename FinalInstType>
+  void insertPrivateFinalCond(const VPInstruction *VPInst);
+
   void makeSymLiveInForParentLoops(unsigned Sym) {
     auto *ParentLoop = MainLoop->getParentLoop();
     while (ParentLoop != nullptr) {
