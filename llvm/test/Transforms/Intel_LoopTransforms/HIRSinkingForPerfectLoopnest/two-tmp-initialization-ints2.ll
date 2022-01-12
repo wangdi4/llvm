@@ -1,0 +1,144 @@
+; Verify that the test won't hit the assertion. We only allow one pre-loop copy inst candidate.
+; In this test case, there are two pre-loop copy insts %4 = 0 and %5 = 0. Sinking does not happen in this case.
+;
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -print-after=hir-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+;
+;*** IR Dump Before HIR Sinking For Perfect Loopnest (hir-sinking-for-perfect-loopnest) ***
+;Function: matrix_mul_matrix
+;
+;<0>          BEGIN REGION { }
+;<53>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<54>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<11>               |   |   %4 = 0;
+;<12>               |   |   %5 = 0;
+;<55>               |   |
+;<55>               |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<17>               |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
+;<21>               |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
+;<23>               |   |   |   %5 = %5  +  (%7 * %10);
+;<26>               |   |   |   %12 = (%A)[zext.i32.i64(%N) * i2 + i3];
+;<28>               |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
+;<30>               |   |   |   %4 = %4  +  (%12 * %13);
+;<55>               |   |   + END LOOP
+;<55>               |   |
+;<38>               |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
+;<39>               |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
+;<54>               |   + END LOOP
+;<53>               + END LOOP
+;<0>          END REGION
+;
+;*** IR Dump After HIR Sinking For Perfect Loopnest (hir-sinking-for-perfect-loopnest) ***
+;Function: matrix_mul_matrix
+;
+; CHECK:     BEGIN REGION { }
+; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+; CHECK:           |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+; CHECK:           |   |   %4 = 0;
+; CHECK:           |   |   %5 = 0;
+; CHECK:           |   |
+; CHECK:           |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+; CHECK:           |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
+; CHECK:           |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
+; CHECK:           |   |   |   %5 = %5  +  (%7 * %10);
+; CHECK:           |   |   |   %12 = (%A)[zext.i32.i64(%N) * i2 + i3];
+; CHECK:           |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
+; CHECK:           |   |   |   %4 = %4  +  (%12 * %13);
+; CHECK:           |   |   + END LOOP
+; CHECK:           |   |
+; CHECK:           |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
+; CHECK:           |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
+; CHECK:           |   + END LOOP
+; CHECK:           + END LOOP
+; CHECK:     END REGION
+;
+;Module Before HIR
+; ModuleID = 't.c'
+source_filename = "t.c"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nofree norecurse nosync nounwind uwtable
+define dso_local void @matrix_mul_matrix(i32 %N, i32* noalias nocapture %C, i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %D) local_unnamed_addr #0 {
+entry:
+  %cmp981 = icmp sgt i32 %N, 0
+  br i1 %cmp981, label %for.cond1.preheader.preheader, label %for.end44
+
+for.cond1.preheader.preheader:                    ; preds = %entry
+  %0 = zext i32 %N to i64
+  br label %for.body3.preheader
+
+for.body3.preheader:                              ; preds = %for.inc42, %for.cond1.preheader.preheader
+  %indvars.iv102 = phi i64 [ 0, %for.cond1.preheader.preheader ], [ %indvars.iv.next103, %for.inc42 ]
+  %1 = mul nsw i64 %indvars.iv102, %0
+  br label %for.body10.lr.ph
+
+for.body10.lr.ph:                                 ; preds = %for.inc39, %for.body3.preheader
+  %indvars.iv95 = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next96, %for.inc39 ]
+  %2 = add nuw nsw i64 %indvars.iv95, %1
+  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %2
+  %arrayidx7 = getelementptr inbounds i32, i32* %D, i64 %2
+  %3 = mul nsw i64 %indvars.iv95, %0
+  br label %for.body10
+
+for.body10:                                       ; preds = %for.body10.lr.ph, %for.body10
+  %indvars.iv = phi i64 [ 0, %for.body10.lr.ph ], [ %indvars.iv.next, %for.body10 ]
+  %4 = phi i32 [ 0, %for.body10.lr.ph ], [ %add38, %for.body10 ]
+  %5 = phi i32 [ 0, %for.body10.lr.ph ], [ %add24, %for.body10 ]
+  %6 = add nuw nsw i64 %indvars.iv, %1
+  %arrayidx14 = getelementptr inbounds i32, i32* %A, i64 %6
+  %7 = load i32, i32* %arrayidx14, align 4, !tbaa !3
+  %8 = mul nsw i64 %indvars.iv, %0
+  %9 = add nuw nsw i64 %8, %indvars.iv95
+  %arrayidx18 = getelementptr inbounds i32, i32* %B, i64 %9
+  %10 = load i32, i32* %arrayidx18, align 4, !tbaa !3
+  %mul19 = mul nsw i32 %10, %7
+  %add24 = add nsw i32 %5, %mul19
+  %11 = add nuw nsw i64 %indvars.iv, %3
+  %arrayidx28 = getelementptr inbounds i32, i32* %A, i64 %11
+  %12 = load i32, i32* %arrayidx28, align 4, !tbaa !3
+  %arrayidx32 = getelementptr inbounds i32, i32* %B, i64 %6
+  %13 = load i32, i32* %arrayidx32, align 4, !tbaa !3
+  %mul33 = mul nsw i32 %13, %12
+  %add38 = add nsw i32 %4, %mul33
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %0
+  br i1 %exitcond.not, label %for.inc39, label %for.body10, !llvm.loop !7
+
+for.inc39:                                        ; preds = %for.body10
+  %add24.lcssa = phi i32 [ %add24, %for.body10 ]
+  %add38.lcssa = phi i32 [ %add38, %for.body10 ]
+  store i32 %add24.lcssa, i32* %arrayidx, align 4, !tbaa !3
+  store i32 %add38.lcssa, i32* %arrayidx7, align 4, !tbaa !3
+  %indvars.iv.next96 = add nuw nsw i64 %indvars.iv95, 1
+  %exitcond101.not = icmp eq i64 %indvars.iv.next96, %0
+  br i1 %exitcond101.not, label %for.inc42, label %for.body10.lr.ph, !llvm.loop !9
+
+for.inc42:                                        ; preds = %for.inc39
+  %indvars.iv.next103 = add nuw nsw i64 %indvars.iv102, 1
+  %exitcond107.not = icmp eq i64 %indvars.iv.next103, %0
+  br i1 %exitcond107.not, label %for.end44.loopexit, label %for.body3.preheader, !llvm.loop !10
+
+for.end44.loopexit:                               ; preds = %for.inc42
+  br label %for.end44
+
+for.end44:                                        ; preds = %for.end44.loopexit, %entry
+  ret void
+}
+
+attributes #0 = { nofree norecurse nosync nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="nocona" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sse,+sse2,+sse3,+x87" "unsafe-fp-math"="true" }
+
+!llvm.module.flags = !{!0, !1}
+!llvm.ident = !{!2}
+
+!0 = !{i32 1, !"wchar_size", i32 4}
+!1 = !{i32 7, !"uwtable", i32 1}
+!2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
+!3 = !{!4, !4, i64 0}
+!4 = !{!"int", !5, i64 0}
+!5 = !{!"omnipotent char", !6, i64 0}
+!6 = !{!"Simple C/C++ TBAA"}
+!7 = distinct !{!7, !8}
+!8 = !{!"llvm.loop.mustprogress"}
+!9 = distinct !{!9, !8}
+!10 = distinct !{!10, !8}

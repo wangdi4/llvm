@@ -382,12 +382,20 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
   RegDDRef *RRef = Inst->getRvalDDRef();
 
   if (Inst->isCopyInst()) {
+    // TmpInitializationInst is for collecting the copy inst before the loop,
+    // such as %t = 0. Only allow one TmpInitializationInst candidate.
+    // TODO: enable multiple TmpInitializationInst candidates and pre-loop store
+    // insts.
+    if (TmpInitializationInst) {
+      return false;
+    }
+
     // Once copy inst has been found, compare the rval with the store inst's
     // rval. If there are equal, the copy inst will be the candidate
     // TmpInitializationInst. If there is no PreLoopStoreInst existed, it might
     // be the case without pre loop store inst. We will check this pattern in
     // the gatherPostloopInsts().
-    if (((!TmpInitializationInst) && PreLoopStoreInst &&
+    if ((PreLoopStoreInst &&
          DDRefUtils::areEqual(PreLoopStoreInst->getRvalDDRef(), RRef)) ||
         (!PreLoopStoreInst && Inst->getRvalDDRef()->isConstant())) {
       TmpInitializationInst = Inst;
