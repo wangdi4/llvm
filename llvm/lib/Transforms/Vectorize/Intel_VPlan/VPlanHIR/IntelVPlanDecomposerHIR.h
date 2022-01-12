@@ -258,6 +258,7 @@ private:
     VPValue *visitUMaxExpr(const SCEVUMaxExpr *Expr);
     VPValue *visitSMinExpr(const SCEVSMinExpr *Expr);
     VPValue *visitUMinExpr(const SCEVUMinExpr *Expr);
+    VPValue *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr);
     VPValue *visitUnknown(const SCEVUnknown *Expr);
     VPValue *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
   };

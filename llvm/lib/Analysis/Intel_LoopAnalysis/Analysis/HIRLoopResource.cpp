@@ -291,6 +291,8 @@ public:
     visitMinMaxExpr(UMinBlob);
   }
 
+  void visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr) {}
+
   void visitUnknown(const SCEVUnknown *Unknown) {}
 
   void visitCouldNotCompute(const SCEVCouldNotCompute *CNC) {

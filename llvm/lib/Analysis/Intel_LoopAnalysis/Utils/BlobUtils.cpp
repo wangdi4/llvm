@@ -477,6 +477,8 @@ public:
 
   void visitConstant(const SCEVConstant *Constant) {}
 
+  void visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr) {}
+
   void visitUnknown(const SCEVUnknown *Unknown) {}
 
   void visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
