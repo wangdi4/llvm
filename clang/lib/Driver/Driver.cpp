@@ -4337,7 +4337,7 @@ class OffloadingActionBuilder final {
         // We will pass the device action as a host dependence, so we don't
         // need to do anything else with them.
         CudaDeviceActions.clear();
-        return ABRT_Success;
+        return CompileDeviceOnly ? ABRT_Ignore_Host : ABRT_Success;
       }
 
       // By default, we produce an action for each device arch.
@@ -4370,6 +4370,7 @@ class OffloadingActionBuilder final {
       assert(DeviceLinkerInputs.size() == GpuArchList.size() &&
              "Linker inputs and GPU arch list sizes do not match.");
 
+      ActionList Actions;
       // Append a new link action for each device.
       unsigned I = 0;
       for (auto &LI : DeviceLinkerInputs) {
@@ -4381,22 +4382,29 @@ class OffloadingActionBuilder final {
         OffloadAction::DeviceDependences DeviceLinkDeps;
         DeviceLinkDeps.add(*DeviceLinkAction, *ToolChains[0],
             GpuArchList[I], AssociatedOffloadKind);
-        AL.push_back(C.MakeAction<OffloadAction>(DeviceLinkDeps,
-            DeviceLinkAction->getType()));
+        Actions.push_back(C.MakeAction<OffloadAction>(
+            DeviceLinkDeps, DeviceLinkAction->getType()));
         ++I;
       }
       DeviceLinkerInputs.clear();
 
       // Create a host object from all the device images by embedding them
-      // in a fat binary.
+      // in a fat binary for mixed host-device compilation. For device-only
+      // compilation, creates a fat binary.
       OffloadAction::DeviceDependences DDeps;
-      auto *TopDeviceLinkAction =
-          C.MakeAction<LinkJobAction>(AL, types::TY_Object);
-      DDeps.add(*TopDeviceLinkAction, *ToolChains[0],
-          nullptr, AssociatedOffloadKind);
-
-      // Offload the host object to the host linker.
-      AL.push_back(C.MakeAction<OffloadAction>(DDeps, TopDeviceLinkAction->getType()));
+      if (!CompileDeviceOnly || !BundleOutput.hasValue() ||
+          BundleOutput.getValue()) {
+        auto *TopDeviceLinkAction = C.MakeAction<LinkJobAction>(
+            Actions,
+            CompileDeviceOnly ? types::TY_HIP_FATBIN : types::TY_Object);
+        DDeps.add(*TopDeviceLinkAction, *ToolChains[0], nullptr,
+                  AssociatedOffloadKind);
+        // Offload the host object to the host linker.
+        AL.push_back(
+            C.MakeAction<OffloadAction>(DDeps, TopDeviceLinkAction->getType()));
+      } else {
+        AL.append(Actions);
+      }
     }
 
     Action* appendLinkHostActions(ActionList &AL) override { return AL.back(); }
@@ -6085,17 +6093,20 @@ public:
     }
   }
 
-  void makeHostLinkAction(ActionList &LinkerInputs) {
-    // Build a list of device linking actions.
-    ActionList DeviceAL;
+  void appendDeviceLinkActions(ActionList &AL) {
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
       if (!SB->isValid())
         continue;
-      SB->appendLinkDeviceActions(DeviceAL);
+      SB->appendLinkDeviceActions(AL);
     }
+  }
 
+  Action *makeHostLinkAction(ActionList &LinkerInputs) {
+    // Build a list of device linking actions.
+    ActionList DeviceAL;
+    appendDeviceLinkActions(DeviceAL);
     if (DeviceAL.empty())
-      return;
+      return nullptr;
 
     // Let builders add host linking actions.
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
@@ -6609,6 +6620,13 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   }
 
   // Add a link action if necessary.
+
+  if (LinkerInputs.empty()) {
+    Arg *FinalPhaseArg;
+    if (getFinalPhase(Args, &FinalPhaseArg) == phases::Link)
+      OffloadBuilder.appendDeviceLinkActions(Actions);
+  }
+
   if (!LinkerInputs.empty()) {
     OffloadBuilder.makeHostLinkAction(LinkerInputs);
     types::ID LinkType(types::TY_Image);
