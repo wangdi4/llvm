@@ -6356,6 +6356,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Go ahead and claim usage of --dpcpp
   Args.ClaimAllArgs(options::OPT__dpcpp);
@@ -6374,6 +6375,8 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     Diag(clang::diag::warn_drv_spirv_linking_multiple_inputs_unsupported);
   }
 
+=======
+>>>>>>> dbb8d086377ba3a81e44c471840bdbd982c00a35
   handleArguments(C, Args, Inputs, Actions);
 
   // When compiling for -fsycl, generate the integration header files and the
@@ -6471,15 +6474,8 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       // Queue linker inputs.
       if (Phase == phases::Link) {
         assert(Phase == PL.back() && "linking must be final compilation step.");
-        // Compilation phases are setup per language, however for SPIR-V the
-        // final linking phase is meaningless since the compilation phase
-        // produces the final binary.
-        // FIXME: OpenCL - we could strip linking phase out from OpenCL
-        // compilation phases if we could verify it is not needed by any target.
-        if (!C.getDefaultToolChain().getTriple().isSPIRV()) {
-          LinkerInputs.push_back(Current);
-          Current = nullptr;
-        }
+        LinkerInputs.push_back(Current);
+        Current = nullptr;
         break;
       }
 
