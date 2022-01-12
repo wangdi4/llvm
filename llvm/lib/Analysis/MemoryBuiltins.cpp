@@ -77,53 +77,6 @@ struct AllocFnsTy {
 // FIXME: certain users need more information. E.g., SimplifyLibCalls needs to
 // know which functions are nounwind, noalias, nocapture parameters, etc.
 static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
-<<<<<<< HEAD
-  {LibFunc_malloc,              {MallocLike,  1, 0,  -1}},
-  {LibFunc_vec_malloc,          {MallocLike,  1, 0,  -1}},
-  {LibFunc_valloc,              {MallocLike,  1, 0,  -1}},
-  {LibFunc_Znwj,                {OpNewLike,   1, 0,  -1}}, // new(unsigned int)
-  {LibFunc_ZnwjRKSt9nothrow_t,  {MallocLike,  2, 0,  -1}}, // new(unsigned int, nothrow)
-  {LibFunc_ZnwjSt11align_val_t, {OpNewLike,   2, 0,  -1}}, // new(unsigned int, align_val_t)
-  {LibFunc_ZnwjSt11align_val_tRKSt9nothrow_t, // new(unsigned int, align_val_t, nothrow)
-                                {MallocLike,  3, 0,  -1}},
-  {LibFunc_Znwm,                {OpNewLike,   1, 0,  -1}}, // new(unsigned long)
-  {LibFunc_ZnwmRKSt9nothrow_t,  {MallocLike,  2, 0,  -1}}, // new(unsigned long, nothrow)
-  {LibFunc_ZnwmSt11align_val_t, {OpNewLike,   2, 0,  -1}}, // new(unsigned long, align_val_t)
-  {LibFunc_ZnwmSt11align_val_tRKSt9nothrow_t, // new(unsigned long, align_val_t, nothrow)
-                                {MallocLike,  3, 0,  -1}},
-  {LibFunc_Znaj,                {OpNewLike,   1, 0,  -1}}, // new[](unsigned int)
-  {LibFunc_ZnajRKSt9nothrow_t,  {MallocLike,  2, 0,  -1}}, // new[](unsigned int, nothrow)
-  {LibFunc_ZnajSt11align_val_t, {OpNewLike,   2, 0,  -1}}, // new[](unsigned int, align_val_t)
-  {LibFunc_ZnajSt11align_val_tRKSt9nothrow_t, // new[](unsigned int, align_val_t, nothrow)
-                                {MallocLike,  3, 0,  -1}},
-  {LibFunc_Znam,                {OpNewLike,   1, 0,  -1}}, // new[](unsigned long)
-  {LibFunc_ZnamRKSt9nothrow_t,  {MallocLike,  2, 0,  -1}}, // new[](unsigned long, nothrow)
-  {LibFunc_ZnamSt11align_val_t, {OpNewLike,   2, 0,  -1}}, // new[](unsigned long, align_val_t)
-  {LibFunc_ZnamSt11align_val_tRKSt9nothrow_t, // new[](unsigned long, align_val_t, nothrow)
-                                 {MallocLike,  3, 0,  -1}},
-  {LibFunc_msvc_new_int,         {OpNewLike,   1, 0,  -1}}, // new(unsigned int)
-  {LibFunc_msvc_new_int_nothrow, {MallocLike,  2, 0,  -1}}, // new(unsigned int, nothrow)
-  {LibFunc_msvc_new_longlong,         {OpNewLike,   1, 0,  -1}}, // new(unsigned long long)
-  {LibFunc_msvc_new_longlong_nothrow, {MallocLike,  2, 0,  -1}}, // new(unsigned long long, nothrow)
-  {LibFunc_msvc_new_array_int,         {OpNewLike,   1, 0,  -1}}, // new[](unsigned int)
-  {LibFunc_msvc_new_array_int_nothrow, {MallocLike,  2, 0,  -1}}, // new[](unsigned int, nothrow)
-  {LibFunc_msvc_new_array_longlong,         {OpNewLike,   1, 0,  -1}}, // new[](unsigned long long)
-  {LibFunc_msvc_new_array_longlong_nothrow, {MallocLike,  2, 0,  -1}}, // new[](unsigned long long, nothrow)
-  {LibFunc_aligned_alloc,       {AlignedAllocLike, 2, 1,  -1}},
-  {LibFunc_memalign,            {AlignedAllocLike, 2, 1,  -1}},
-  {LibFunc_calloc,              {CallocLike,  2, 0,   1}},
-  {LibFunc_vec_calloc,          {CallocLike,  2, 0,   1}},
-  {LibFunc_realloc,             {ReallocLike, 2, 1,  -1}},
-  {LibFunc_vec_realloc,         {ReallocLike, 2, 1,  -1}},
-  {LibFunc_reallocf,            {ReallocLike, 2, 1,  -1}},
-  {LibFunc_strdup,              {StrDupLike,  1, -1, -1}},
-  {LibFunc_strndup,             {StrDupLike,  2, 1,  -1}},
-  {LibFunc___kmpc_alloc_shared, {MallocLike,  1, 0,  -1}},
-#if INTEL_CUSTOMIZATION
-  {LibFunc_free, {FreeLike, 1, 0, -1}}, // free(i8*)
-#endif //INTEL_CUSTOMIZATION
-  // TODO: Handle "int posix_memalign(void **, size_t, size_t)"
-=======
     {LibFunc_malloc,                            {MallocLike,       1,  0, -1, -1}},
     {LibFunc_vec_malloc,                        {MallocLike,       1,  0, -1, -1}},
     {LibFunc_valloc,                            {MallocLike,       1,  0, -1, -1}},
@@ -161,8 +114,10 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
     {LibFunc_strdup,                            {StrDupLike,       1, -1, -1, -1}},
     {LibFunc_strndup,                           {StrDupLike,       2,  1, -1, -1}},
     {LibFunc___kmpc_alloc_shared,               {MallocLike,       1,  0, -1, -1}},
+#if INTEL_CUSTOMIZATION
+    {LibFunc_free,                              {FreeLike,         1,  0, -1, -1}}, // free(i8*)
+#endif //INTEL_CUSTOMIZATION
     // TODO: Handle "int posix_memalign(void **, size_t, size_t)"
->>>>>>> fb936595faa44ad9c8d8550b05ea95e7be5f4703
 };
 
 static const Function *getCalledFunction(const Value *V,
