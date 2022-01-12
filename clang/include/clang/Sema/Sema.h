@@ -10774,6 +10774,8 @@ public:
   /// addSYCLIntelPipeIOAttr - Adds a pipe I/O attribute to a particular
   /// declaration.
   void addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &CI, Expr *ID);
+  SYCLIntelPipeIOAttr *MergeSYCLIntelPipeIOAttr(Decl *D,
+                                                const SYCLIntelPipeIOAttr &A);
 
   /// AddSYCLIntelFPGAMaxConcurrencyAttr - Adds a max_concurrency attribute to a
   /// particular declaration.
