@@ -116,10 +116,6 @@ bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 /// reallocates memory (e.g., realloc).
 bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory and throws if an allocation failed (e.g., new).
-bool isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
-
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
