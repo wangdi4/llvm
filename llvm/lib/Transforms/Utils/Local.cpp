@@ -506,7 +506,7 @@ bool llvm::wouldInstructionBeTriviallyDead(Instruction *I,
     }
   }
 
-  if (isAllocLikeFn(I, TLI))
+  if (isAllocationFn(I, TLI) && isAllocRemovable(cast<CallBase>(I), TLI))
     return true;
 
   if (CallInst *CI = isFreeCall(I, TLI))
