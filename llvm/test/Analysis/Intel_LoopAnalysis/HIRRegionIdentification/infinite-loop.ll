@@ -6,7 +6,8 @@
 ; XFAIL: *
 
 ; REQUIRES: asserts
-; RUN: opt < %s -analyze -hir-region-identification -debug-only=hir-region-identification 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -debug-only=hir-region-identification 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="print<hir-region-identification>" -debug-only=hir-region-identification 2>&1 | FileCheck %s
 
 ; Verify that we detect and skip an infinite loop.
 ; CHECK: Unreachable/Infinite loops not supported
