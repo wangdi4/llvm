@@ -121,11 +121,18 @@ private:
                                  Instruction *insertBefore, Value *actPar);
 
   ConstantInt *createVFConstant(LLVMContext &, const DataLayout &, size_t VF);
-  // Parses info from the get_sub_group_rowslice_id call CI.
-  // By appending `%mat`, `%row.index`, `%col.index`, `i32 immarg VF`, `i32
-  // immarg R`, `i32 immarg C` to ParsedArgs. The values are created on
+
+  // Parses info from the `RowSliceId`, which might be an
+  // get_sub_group_rowslice_id call itself, or a PHI node selecting from the
+  // call.
+  // By appending `%mat`, `%row.index`, `%col.index`, `i32 immarg VF`,
+  // `i32 immarg R`, `i32 immarg C` to ParsedArgs. The values are created on
   // demand via Builder.
-  void resolveGetSubGroupRowSliceId(CallInst *CI, unsigned RowSliceLength,
+  // If `RowSliceId` is a PHI node, the PHI node and the corresponding call inst
+  // are added to `ExtraInstToRemove`;
+  // Otherwise (`RowSliceId` is already an call inst), the call inst will be added
+  // to `ExtraInstToRemove`.
+  void resolveGetSubGroupRowSliceId(Value *RowSliceId, unsigned RowSliceLength,
                                     IRBuilder<> &Builder,
                                     SmallVectorImpl<Value *> &ParsedArgs);
 
