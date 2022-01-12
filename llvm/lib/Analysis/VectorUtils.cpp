@@ -672,7 +672,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
     if (ArgGep) {
 
       Value *Stride = getStrideFromPointer(CallArg, SE, OrigLoop);
-      AttrBuilder AttrList;
+      AttrBuilder AttrList(CI->getContext());
 
       if (Stride) {
         // 2nd and 3rd args to sincos should always be pointers, but assert just

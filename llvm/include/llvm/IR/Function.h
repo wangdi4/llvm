@@ -898,7 +898,7 @@ public:
   /// Indicate the Function was compiled by the Fortran compiler or is
   /// a Fortran specific libFunc.
   void setFortran() {
-    llvm::AttrBuilder Attrs;
+    llvm::AttrBuilder Attrs(getContext());
     Attrs.addAttribute("intel-lang", "fortran");
     addFnAttrs(Attrs);
   };
