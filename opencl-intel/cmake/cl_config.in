@@ -137,7 +137,7 @@
 #             should also be set as the max private and local memory for WG execution.
 #       False: the stack size for kernel execution is under control of
 #              CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE and CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE.
-#       NOTE: Only support FPGA Emulator device. Usage of this configuration
+#       NOTE: Support CPU and FPGA Emulator device. Usage of this configuration
 #             option may also require compiling your application with enough
 #             size of stack.
 #

@@ -116,6 +116,10 @@ TEST_F(PrivateMemSizeTest, OutOfResources) {
 
   printf("cl_device_private_mem_size_test_out_of_resources\n");
 
+  // set auto memory to false and get out of resource error with huge private
+  // memory
+  ASSERT_TRUE(SETENV("CL_CONFIG_AUTO_MEMORY", "false"));
+
   cl_ulong stackSize = trySetStackSize(STACK_SIZE);
   ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
 
@@ -128,6 +132,8 @@ TEST_F(PrivateMemSizeTest, OutOfResources) {
 
   ASSERT_NO_FATAL_FAILURE(
       testBody(expectedPrivateMemSize, programSources, true));
+
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }
 
 TEST_F(PrivateMemSizeTest, WithoutVectorizer) {
@@ -163,6 +169,8 @@ TEST_F(PrivateMemSizeTest, WithoutVectorizer) {
 }
 
 TEST_F(PrivateMemSizeTest, SmallStackSize) {
+  ASSERT_TRUE(SETENV("CL_CONFIG_AUTO_MEMORY", "false"));
+
   cl_ulong stackSize = trySetStackSize(1024 * 1024);
   ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
 
@@ -181,6 +189,45 @@ TEST_F(PrivateMemSizeTest, SmallStackSize) {
       tbb::global_control::active_value(tbb::global_control::thread_stack_size);
   ASSERT_EQ(activeStackSize,
             stackSize + CPU_DEV_LCL_MEM_SIZE + CPU_DEV_BASE_STACK_SIZE);
+
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
+}
+
+TEST_F(PrivateMemSizeTest, LargeStackSizeWithAutoMemory) {
+  std::string programSources =
+      "__kernel void test(__global int* o)\n"
+      "{\n"
+      "    const int size = (STACK_SIZE/2) / sizeof(int);\n" // (STACK_SIZE/2)MB
+                                                             // of private
+                                                             // memory
+      "    printf(\"SIZE: %d \\n\", size);\n"
+      "    __private volatile int buf[size];\n"
+      "    int gid = get_global_id(0);\n"
+      "    for (int i = 0; i < size; ++i)\n"
+      "        buf[i] = gid;\n"
+      "    o[gid] = buf[gid + 1] + 2;\n"
+      "}";
+
+  printf("cl_device_private_mem_size_test_with_auto_memory\n");
+
+  // set auto memory to true and there is no out of resource error with huge
+  // private memory
+  ASSERT_TRUE(SETENV("CL_CONFIG_AUTO_MEMORY", "true"));
+
+  cl_ulong stackSize = trySetStackSize(STACK_SIZE);
+  ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
+
+  bool enabledVectorizer = vectorizerMode(true);
+  ASSERT_TRUE(CheckCondition("vectorizerMode", enabledVectorizer == true));
+
+  cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE);
+  ASSERT_TRUE(
+      CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
+
+  ASSERT_NO_FATAL_FAILURE(
+      testBody(expectedPrivateMemSize, programSources, false));
+
+  ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }
 
 void PrivateMemSizeTest::testBody(cl_ulong expectedPrivateMemSize,

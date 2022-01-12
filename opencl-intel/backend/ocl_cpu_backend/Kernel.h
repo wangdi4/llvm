@@ -330,8 +330,8 @@ protected:
   void DebugPrintUniformKernelArgs(const UniformKernelArgs *Arguments,
                                    size_t offsetToImplicit,
                                    std::ostream &OS) const;
-  void *AllocaStack(size_t size) const;
-  void ReleaseStack(void*) const;
+  std::pair<void *, size_t> AllocaStack(size_t size) const;
+  void ReleaseStack(void *, size_t) const;
 
   std::string m_name;
   unsigned int m_CSRMask;  // Mask to be applied to set the execution flags
@@ -346,7 +346,7 @@ protected:
   // RuntimeService. Refcounted
   RuntimeServiceSharedPtr m_RuntimeService;
 
-  mutable std::queue<void*> m_stackMem;
+  mutable std::vector<std::pair<void *, size_t>> m_stackMem;
   mutable std::mutex m_stackMutex;
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;

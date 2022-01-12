@@ -188,7 +188,7 @@ public:
     /**
      * @returns target device for the platform
      */
-    virtual bool TargetDevice() const;
+    virtual DeviceMode TargetDevice() const;
 
     /**
      * @returns true if the specified kernel is a single-work item kernel

@@ -176,15 +176,16 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_int iCmdStatus, cl_int iCompletio
         // Nothing to do, not expected to be here at all
         m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, ulTimer);
         m_Event->SetEventState(EVENT_STATE_ISSUED_TO_DEVICE);
-        LogDebugA("Command - SUBMITTED TO DEVICE  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
+        LOG_DEBUG("Command - SUBMITTED TO DEVICE  : %s (Id: %d)\n",
+                  GetCommandName(), m_Event->GetId());
         break;
 
     case CL_RUNNING:
-        LogDebugA("Command - RUNNING  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
-        m_Event->AddProfilerMarker("RUNNING", ITT_SHOW_RUNNING_MARKER);
-        if ( m_Event->m_bProfilingEnabled )
-        {
-            m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
+      LOG_DEBUG("Command - RUNNING  : %s (Id: %d)\n", GetCommandName(),
+                m_Event->GetId());
+      m_Event->AddProfilerMarker("RUNNING", ITT_SHOW_RUNNING_MARKER);
+      if (m_Event->m_bProfilingEnabled) {
+        m_Event->SetProfilingInfo(CL_PROFILING_COMMAND_START, ulTimer);
         }
         m_Event->SetEventState(EVENT_STATE_EXECUTING_ON_DEVICE);
         break;
@@ -213,11 +214,13 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_int iCmdStatus, cl_int iCompletio
         // Is error
         if (CL_FAILED(iCompletionResult))
         {
-              LogErrorA("Command - DONE - Failure  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
+          LOG_ERROR("Command - DONE - Failure  : %s (Id: %d)\n",
+                    GetCommandName(), m_Event->GetId());
         }
         else
         {
-              LogDebugA("Command - DONE - SUCCESS : %s (Id: %d)", GetCommandName(), m_Event->GetId());
+          LOG_DEBUG("Command - DONE - SUCCESS : %s (Id: %d)\n",
+                    GetCommandName(), m_Event->GetId());
         }
         m_returnCode = iCompletionResult;
         res = CommandDone();
@@ -358,11 +361,13 @@ void Command::prepare_command_descriptor( cl_dev_cmd_type type, void* params, si
 
 cl_err_code Command::Cancel()
 {
-    LogDebugA("Command - Cancel for %s (Id: %d)", GetCommandName(), m_Event->GetId());
+  LOG_DEBUG("Command - Cancel for %s (Id: %d)\n", GetCommandName(),
+            m_Event->GetId());
 
-    NotifyCmdStatusChanged(CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE,
+                         Intel::OpenCL::Utils::HostTime());
 
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 
 void Command::GPA_InitCommand()
@@ -577,7 +582,8 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(const SharedPtr<FissionableDevice>& 
 
     // Sending 1 command to the device where the buffer is located now
     // Color will be changed only when command is submitted in the device
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
     cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
     return CL_DEV_SUCCEEDED(devErr) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
 }
@@ -928,7 +934,8 @@ cl_err_code MapMemObjCommand::Execute()
 
     // Change status of the command to Gray before handle by the device
     // Color will be changed only when command is submitted in the device
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
     cl_dev_cmd_list device_cmd_list = m_clDevCmdListId;
     if (m_pActualMappingDevice != m_pDevice)
     {
@@ -997,22 +1004,26 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
         err = Command::EnqueueSelf( CL_FALSE, uNumEventsInWaitList, cpEeventWaitList, &intermediate_pEvent, apiLogger);
         if (CL_FAILED(err))
         {
-            LogErrorA("Command - Command::EnqueueSelf: %s (Id: %d) failed, Err: %x", GetCommandName(), m_Event->GetId(), err);
-            // enqueue unsuccessful - 'this' still alive
-            m_pPostfixCommand = postfix; // restore
-            return err;
+          LOG_ERROR(
+              "Command - Command::EnqueueSelf: %s (Id: %d) failed, Err: %x\n",
+              GetCommandName(), m_Event->GetId(), err);
+          // enqueue unsuccessful - 'this' still alive
+          m_pPostfixCommand = postfix; // restore
+          return err;
         }
 
         err = postfix->EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent, apiLogger);
         if (CL_FAILED(err))
         {
-            LogErrorA("Command - ostfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event->GetId(), err);
-            // oops, unsuccessfull, but we need to schedule postfix in any case as user need to get back
-            // pEvent and be able to make other commands dependent on it
-            if (nullptr != pEvent)
-            {
-                // add manually and leave postfix floating
-                postfix->ErrorEnqueue( &intermediate_pEvent, pEvent, err );
+          LOG_ERROR(
+              "Command - ostfix->EnqueueSelf: %s (Id: %d) failed, Err: %x\n",
+              postfix->GetCommandName(), m_Event->GetId(), err);
+          // oops, unsuccessfull, but we need to schedule postfix in any case as
+          // user need to get back pEvent and be able to make other commands
+          // dependent on it
+          if (nullptr != pEvent) {
+            // add manually and leave postfix floating
+            postfix->ErrorEnqueue(&intermediate_pEvent, pEvent, err);
             }
             else
             {
@@ -1227,7 +1238,8 @@ cl_err_code UnmapMemObjectCommand::Execute()
     prepare_command_descriptor( CL_DEV_CMD_UNMAP, m_pMappedRegion, sizeof(cl_dev_cmd_param_map));
 
     // Color will be changed only when command is submitted in the device
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
 
     // we need to synchronize backing store data with host map data, but this
     // should be done immediately before command execution on device to support
@@ -1500,8 +1512,9 @@ cl_err_code NativeKernelCommand::Execute()
     {
         return res;
     }
-    
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
 
     // Fill command descriptor
     cl_dev_cmd_desc *m_pDevCmd = &m_DevCmd;
@@ -1692,7 +1705,7 @@ cl_err_code NDRangeKernelCommand::Init()
     }
 
     const SharedPtr<Context>& pContext = m_pKernel->GetContext();
-    bool ThrowOOR = !(pContext->IsFPGAEmulator() && pContext->UseAutoMemory());
+    bool ThrowOOR = !(pContext->UseAutoMemory());
 
     // Query kernel info to validate input params
     size_t szCompiledWorkGroupMaxSize = m_pDeviceKernel->GetKernelWorkGroupSize();
@@ -1700,6 +1713,8 @@ cl_err_code NDRangeKernelCommand::Init()
     {
       // Kernel cannot run if its max. possible work-group size is zero.
       // No enough private memory size.
+      LOG_DEBUG(TEXT("%s"), TEXT("Maximum workgroup size is 0, and returns "
+                                 "CL_OUT_OF_RESOURCES error.\n"));
       return CL_OUT_OF_RESOURCES;
     }
 
@@ -1769,6 +1784,10 @@ cl_err_code NDRangeKernelCommand::Init()
         {
             // according to spec this is not an invalid WG size error, but it will be manifested
             // as out of resources. No enough private memory.
+            LOG_DEBUG(
+                "Total number of work items computed (%d) exceeds maximum "
+                "workgroup size (%d). Returns CL_OUT_OF_RESOURCES error.\n",
+                szWorkGroupSize, szCompiledWorkGroupMaxSize);
             return CL_OUT_OF_RESOURCES;
         }
 
@@ -1803,9 +1822,10 @@ cl_err_code NDRangeKernelCommand::Init()
 
     cl_ulong stImplicitSize = m_pDeviceKernel->GetKernelLocalMemSize();
     stImplicitSize += stTotalLocalSize;
-    if ( stImplicitSize > m_pDevice->GetMaxLocalMemorySize() )
-    {
-        res = CL_OUT_OF_RESOURCES;
+    if (ThrowOOR && stImplicitSize > m_pDevice->GetMaxLocalMemorySize()) {
+      LOG_DEBUG("Local memory size (%d) exceeds the maximum size (%d)\n",
+                stImplicitSize, m_pDevice->GetMaxLocalMemorySize());
+      res = CL_OUT_OF_RESOURCES;
     }
 
     if ( CL_FAILED(res) )
@@ -1972,7 +1992,8 @@ cl_err_code NDRangeKernelCommand::Execute()
     // Sending the queue command
     // TODO: Handle the case were buffers are located in different device.
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
 
     return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &m_pDevCmd, 1);
 }
@@ -2210,7 +2231,8 @@ cl_err_code ReadMemObjCommand::Execute()
         m_pDst, m_szOrigin, m_szDstOrigin, m_szRegion, m_szDstRowPitch, m_szDstSlicePitch, m_szMemObjRowPitch, m_szMemObjSlicePitch,
         CL_DEV_CMD_READ );
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
     // Sending 1 command to the device where the buffer is located now
 
     return m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &pDevCmd, 1);
@@ -2437,8 +2459,10 @@ cl_err_code WriteMemObjCommand::Init()
         m_pTempBuffer = ALIGNED_MALLOC(sizeToAlloc, WRITE_MEM_OBJ_ALLOC_ALIGNMENT);
         if ( nullptr == m_pTempBuffer )
         {
-            LogErrorA("Can't allocate temporary storage for blockng command (%s)", GetCommandName());
-            return CL_OUT_OF_HOST_MEMORY;
+          LOG_ERROR(
+              "Can't allocate temporary storage for blockng command (%s)\n",
+              GetCommandName());
+          return CL_OUT_OF_HOST_MEMORY;
         }
 
         // Copy data
@@ -2522,7 +2546,8 @@ cl_err_code WriteMemObjCommand::Execute()
                       m_szSrcSlicePitch, m_szMemObjRowPitch,
                       m_szMemObjSlicePitch, CL_DEV_CMD_WRITE);
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
     // Sending 1 command to the device where the buffer is located now
     cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, &pDevCmd, 1);
     if ( CL_DEV_FAILED(errDev) )
@@ -2555,13 +2580,14 @@ cl_err_code WriteMemObjCommand::CommandDone()
  ******************************************************************/
 cl_err_code RuntimeCommand::Execute()
 {
-    LogDebugA("Command - DONE  : %s (Id: %d)", GetCommandName(), m_Event->GetId());
-    NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
-                           Intel::OpenCL::Utils::HostTime());
-    CommandDone();
-    NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
-                           Intel::OpenCL::Utils::HostTime());
-    return m_returnCode;
+  LOG_DEBUG("Command - DONE  : %s (Id: %d)\n", GetCommandName(),
+            m_Event->GetId());
+  NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+  CommandDone();
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+  return m_returnCode;
 }
 
 
@@ -2680,7 +2706,8 @@ cl_err_code FillMemObjCommand::Execute()
     prepare_command_descriptor((m_commandType == CL_DEV_CMD_FILL_BUFFER) ? CL_DEV_CMD_FILL_BUFFER : CL_DEV_CMD_FILL_IMAGE, 
                                 &m_fillCmdParams, sizeof(cl_dev_cmd_param_fill));
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
 
     // Sending 1 command to the device where the buffer is located now
     cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
@@ -2794,7 +2821,8 @@ cl_err_code MigrateSVMMemCommand::Execute()
 
     prepare_command_descriptor(CL_DEV_CMD_SVM_MIGRATE, &m_migrateCmdParams, sizeof(cl_dev_cmd_param_migrate));
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
 
     // Sending 1 command to the target device
     cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
@@ -2901,7 +2929,8 @@ cl_err_code MigrateMemObjCommand::Execute()
 
     prepare_command_descriptor(CL_DEV_CMD_MIGRATE, &m_migrateCmdParams, sizeof(cl_dev_cmd_param_migrate));
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
+              m_Event->GetId());
 
     // Sending 1 command to the target device
     cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
@@ -2984,7 +3013,7 @@ cl_err_code MigrateUSMMemCommand::Execute()
     prepare_command_descriptor(CL_DEV_CMD_USM_MIGRATE, &m_migrateCmdParams,
                                sizeof(m_migrateCmdParams));
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(),
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
               m_Event->GetId());
 
     SharedPtr<Context> queueContext = m_pContextModule->GetContext(
@@ -3081,7 +3110,7 @@ cl_err_code AdviseUSMMemCommand::Execute()
     prepare_command_descriptor(CL_DEV_CMD_USM_ADVISE, &m_adviseCmdParams,
                                sizeof(m_adviseCmdParams));
 
-    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(),
+    LOG_DEBUG("Command - EXECUTE: %s (Id: %d)\n", GetCommandName(),
               m_Event->GetId());
 
     // Sending 1 command to the target device
@@ -3216,19 +3245,24 @@ void PrePostFixRuntimeCommand::ErrorEnqueue(cl_event* intermediate_pEvent, cl_ev
  ******************************************************************/
 void PrePostFixRuntimeCommand::DoAction()
 {
-    LogDebugA("PrePostFixRuntimeCommand - DoAction Started: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
+  LOG_DEBUG("PrePostFixRuntimeCommand - DoAction Started: "
+            "PrePostFixRuntimeCommand for %s (Id: %d)\n",
+            GetCommandName(), m_Event->GetId());
 
-    m_returnCode = CL_SUCCESS;
+  m_returnCode = CL_SUCCESS;
 
-    NotifyCmdStatusChanged(CL_RUNNING,  m_returnCode, Intel::OpenCL::Utils::HostTime());
+  NotifyCmdStatusChanged(CL_RUNNING, m_returnCode,
+                         Intel::OpenCL::Utils::HostTime());
 
-    m_returnCode = ( PREFIX_MODE == m_working_mode ) ?
-                        m_relatedUserCommand->PrefixExecute() 
-                        :
-                        m_relatedUserCommand->PostfixExecute();
+  m_returnCode = (PREFIX_MODE == m_working_mode)
+                     ? m_relatedUserCommand->PrefixExecute()
+                     : m_relatedUserCommand->PostfixExecute();
 
-    LogDebugA("PrePostFixRuntimeCommand - DoAction Finished: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
-    NotifyCmdStatusChanged(CL_COMPLETE, m_returnCode, Intel::OpenCL::Utils::HostTime());
+  LOG_DEBUG("PrePostFixRuntimeCommand - DoAction Finished: "
+            "PrePostFixRuntimeCommand for %s (Id: %d)\n",
+            GetCommandName(), m_Event->GetId());
+  NotifyCmdStatusChanged(CL_COMPLETE, m_returnCode,
+                         Intel::OpenCL::Utils::HostTime());
 }
 
 /******************************************************************
@@ -3236,8 +3270,11 @@ void PrePostFixRuntimeCommand::DoAction()
  ******************************************************************/
 void PrePostFixRuntimeCommand::CancelAction()
 {
-    LogDebugA("PrePostFixRuntimeCommand - DoAction Canceled: PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
-    NotifyCmdStatusChanged(CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE, Intel::OpenCL::Utils::HostTime());
+  LOG_DEBUG("PrePostFixRuntimeCommand - DoAction Canceled: "
+            "PrePostFixRuntimeCommand for %s (Id: %d)\n",
+            GetCommandName(), m_Event->GetId());
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_DEVICE_NOT_AVAILABLE,
+                         Intel::OpenCL::Utils::HostTime());
 }
 
 /******************************************************************
@@ -3250,13 +3287,16 @@ cl_err_code PrePostFixRuntimeCommand::Execute()
 
     if (!ok)
     {
-        LogDebugA("PrePostFixRuntimeCommand - Execute: Task submission failed for PrePostFixRuntimeCommand for %s (Id: %d)", GetCommandName(), m_Event->GetId());
+      LOG_DEBUG("PrePostFixRuntimeCommand - Execute: Task submission failed "
+                "for PrePostFixRuntimeCommand for %s (Id: %d)\n",
+                GetCommandName(), m_Event->GetId());
 
-        ret = CL_OUT_OF_RESOURCES;
-        m_returnCode = ret;    
-        NotifyCmdStatusChanged(CL_COMPLETE, ret, Intel::OpenCL::Utils::HostTime());
+      ret = CL_OUT_OF_RESOURCES;
+      m_returnCode = ret;
+      NotifyCmdStatusChanged(CL_COMPLETE, ret,
+                             Intel::OpenCL::Utils::HostTime());
 
-        return m_returnCode;
+      return m_returnCode;
     }
 
     return CL_NOT_READY;
