@@ -1,9 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: asserts, intel_feature_sw_advanced
 
-; Test for checking that the simple Intel partial inliner didn't work
-; in this case. It should fail because the iteration doesn't stop in
-; NULL.
+; This test case checks that the partial inlining wasn't applied because the
+; condition to stop the iteration isn't NULL.
 ;
 ; This test case is very simple. In C++ it can be seen as follows:
 ;
