@@ -452,6 +452,14 @@ private:
   /// Determine the most "relevant" loop for the given SCEV.
   const Loop *getRelevantLoop(const SCEV *);
 
+  Value *expandSMaxExpr(const SCEVNAryExpr *S);
+
+  Value *expandUMaxExpr(const SCEVNAryExpr *S);
+
+  Value *expandSMinExpr(const SCEVNAryExpr *S);
+
+  Value *expandUMinExpr(const SCEVNAryExpr *S);
+
   Value *visitConstant(const SCEVConstant *S) { return S->getValue(); }
 
   Value *visitPtrToIntExpr(const SCEVPtrToIntExpr *S);
@@ -478,9 +486,15 @@ private:
 
   Value *visitUMinExpr(const SCEVUMinExpr *S);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual Value *visitUnknown(const SCEVUnknown *S) { return S->getValue(); }
 #endif // INTEL_CUSTOMIZATION
+=======
+  Value *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S);
+
+  Value *visitUnknown(const SCEVUnknown *S) { return S->getValue(); }
+>>>>>>> 82fb4f4b223d78e86647f3576e41e3086ab42cd5
 
   void rememberInstruction(Value *I);
 
