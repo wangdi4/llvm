@@ -2440,7 +2440,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
         return DeclGroupPtrTy();
       }
       Actions.ActOnOpenMPDeclareTargetName(
-          FD, Loc, OMPDeclareTargetDeclAttr::MT_To, DTCI.DT);
+          FD, Loc, OMPDeclareTargetDeclAttr::MT_To, DTCI);
       Actions.ActOnFinishedOpenMPDeclareTargetContext(DTCI);
       Actions.ActOnOpenMPEndDeclareTargetDirective();
       return Ptr;
