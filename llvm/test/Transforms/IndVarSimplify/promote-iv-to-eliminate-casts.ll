@@ -188,7 +188,10 @@ define void @promote_latch_condition_decrementing_loop_01(i32* %p, i32* %a) {
 ; CHECK-LABEL: @promote_latch_condition_decrementing_loop_01(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[LEN:%.*]] = load i32, i32* [[P:%.*]], align 4, !range [[RNG0:![0-9]+]]
-; CHECK-NEXT:    [[LEN_MINUS_1:%.*]] = add i32 [[LEN]], -1
+; INTEL_CUSTOMIZATION
+; Keeping nsw here was proved to be safe
+; CHECK-NEXT:    [[LEN_MINUS_1:%.*]] = add nsw i32 [[LEN]], -1
+; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[ZERO_CHECK:%.*]] = icmp eq i32 [[LEN]], 0
 ; CHECK-NEXT:    br i1 [[ZERO_CHECK]], label [[LOOPEXIT:%.*]], label [[PREHEADER:%.*]]
 ; CHECK:       preheader:
