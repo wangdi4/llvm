@@ -305,33 +305,51 @@ bool HIRLoopFormation::populatedPostexitNodes(HLLoop *HLoop, HLIf *ParentIf,
   auto PostEndIt =
       !PredicateInversion ? ParentIf->then_end() : ParentIf->else_end();
 
+  HLInst *RegionExitInst = nullptr;
   bool HasPostexit = (PostBegIt != PostEndIt);
+
   for (auto It = PostBegIt; It != PostEndIt; ++It) {
     auto *Node = &*It;
 
-    if (!isa<HLInst>(Node)) {
-      // Loop may not be formed for the sibling so look for loop header label
-      // instead.
-      if (auto *Label = dyn_cast<HLLabel>(Node)) {
-        if (LI.isLoopHeader(Label->getSrcBBlock())) {
-          HasPostSiblingLoop = true;
-          // Use the postexit nodes as next loop's preheader because
-          // instructions are more likely to have been hoisted than sinked in
-          // the incoming IR.
-          HasPostexit = false;
-          break;
-        }
+    if (auto *Inst = dyn_cast<HLInst>(Node)) {
+
+      // Keep track of region exit intrinsic to make sure it stays in the
+      // postexit of this loop rather than moving it to the preheader of
+      // post-sibling loop which would be incorrect.
+      auto *Intrin = dyn_cast<IntrinsicInst>(Inst->getLLVMInstruction());
+      if (Intrin &&
+          Intrin->getIntrinsicID() == Intrinsic::directive_region_exit) {
+        RegionExitInst = Inst;
       }
 
-      // This could happen for deferred ZTT candidates.
-      if (isa<HLLoop>(Node)) {
-        HasPostSiblingLoop = true;
-        HasPostexit = false;
-        break;
-      }
-
-      return false;
+      continue;
     }
+
+    // Handle the case of post-sibling loop.
+    // If this utility is called in HIRLoopFormation phase, then the
+    // post-sibling loop may not be formed so we look for loop header label. If
+    // the utility was called from HIRFramework phase (for processing deferred
+    // ZTT candidates), we will find a HLLoop.
+    auto *Label = dyn_cast<HLLabel>(Node);
+
+    if (isa<HLLoop>(Node) ||
+        (Label && LI.isLoopHeader(Label->getSrcBBlock()))) {
+
+      HasPostSiblingLoop = true;
+
+      // Use RegionExitInst to mark the end of this loop's postexit.
+      if (RegionExitInst) {
+        PostEndIt = std::next(RegionExitInst->getIterator());
+
+      } else {
+        // Use the postexit nodes as next loop's preheader because instructions
+        // are more likely to have been hoisted than sinked in the incoming IR.
+        HasPostexit = false;
+      }
+      break;
+    }
+
+    return false;
   }
 
   if (HasPostexit) {

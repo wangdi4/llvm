@@ -262,8 +262,7 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
       PostLoopNodes.insert(CurNode);
       CurNode = CurNode->getNextNode();
     }
-    // TODO: uncomment after fixing CMPLRLLVM-33989.
-    // assert(CurNode && "can't find region end");
+    assert(CurNode && "can't find region end");
   }
   auto getDescr = [this](RegDDRef *Ref) {
     // Check if Ref is any of explicit SIMD descriptors.
