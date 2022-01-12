@@ -286,6 +286,7 @@ libdevice/ @intel-restricted/llvm-reviewers-runtime
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp @kmitropo @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.cpp @aelovikov-intel @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.h @aelovikov-intel @mamasten @offsake
+/llvm/test/Transforms/Intel_VPO/Vecopt/predicator/ @aelovikov-intel @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.cpp @karthik-senthil @mamasten
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.h @karthik-senthil @mamasten
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.cpp @karthik-senthil @sguggill
