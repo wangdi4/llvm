@@ -139,8 +139,6 @@ private:
   // must be visible to emulation passes.
   bool ResolveSGBarrier;
 
-  ArrayRef<Module *> BuiltinModules;
-
   RuntimeService *RTService;
 
   SmallVector<Instruction *, 8> ExtraInstToRemove;

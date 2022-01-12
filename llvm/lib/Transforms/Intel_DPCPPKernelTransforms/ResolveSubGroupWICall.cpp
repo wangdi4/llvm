@@ -83,8 +83,8 @@ ModulePass *llvm::createResolveSubGroupWICallLegacyPass(
 }
 
 ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(
-    const SmallVector<Module *, 2> &BuiltinModules, bool ResolveSGBarrier)
-    : ResolveSGBarrier(ResolveSGBarrier), BuiltinModules(BuiltinModules) {}
+    const SmallVector<Module *, 2> &, bool ResolveSGBarrier)
+    : ResolveSGBarrier(ResolveSGBarrier) {}
 
 PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
                                                  ModuleAnalysisManager &AM) {
@@ -95,8 +95,6 @@ PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
 }
 
 bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
-  if (BuiltinModules.empty())
-    BuiltinModules = BLI->getBuiltinModules();
   RTService = BLI->getRuntimeService();
   assert(RTService && "Invalid runtime service");
 
@@ -475,8 +473,8 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   IRBuilder<> Builder(InsertBefore);
   CallInst *CI = cast<CallInst>(InsertBefore);
   std::string AtomicWIFenceName = mangledAtomicWorkItemFence();
-  auto *AtomicWIFenceBIF = RTService->findFunctionInBuiltinModules(
-      BuiltinModules, AtomicWIFenceName);
+  auto *AtomicWIFenceBIF =
+      RTService->findFunctionInBuiltinModules(AtomicWIFenceName);
   assert(AtomicWIFenceBIF && "atomic_work_item_fence not found in BI library!");
 
   auto *AtomicWIFenceF = importFunctionDecl(M, AtomicWIFenceBIF);

@@ -387,8 +387,7 @@ void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
 }
 
 bool DPCPPEqualizerPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
-  if (BuiltinModules.empty())
-    BuiltinModules = BLI->getBuiltinModules();
+  BuiltinModules = BLI->getBuiltinModules();
 
   // form kernel list in the module.
   formKernelsMetadata(M);

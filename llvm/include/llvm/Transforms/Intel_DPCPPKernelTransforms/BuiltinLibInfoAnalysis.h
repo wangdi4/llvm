@@ -21,7 +21,8 @@ class BuiltinLibInfo {
 public:
   BuiltinLibInfo(ArrayRef<Module *> BuiltinModules) {
     BuiltinModuleRawPtrs.assign(BuiltinModules.begin(), BuiltinModules.end());
-    RTService.reset(new RuntimeService());
+    if (!BuiltinModuleRawPtrs.empty())
+      RTService.reset(new RuntimeService(BuiltinModuleRawPtrs));
   }
 
   /// Load builtin modules from path specified by command line option.

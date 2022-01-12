@@ -22,10 +22,7 @@ class BuiltinLibInfo;
 /// - updates LLVM IR to version supported by back-end compiler
 class DPCPPEqualizerPass : public PassInfoMixin<DPCPPEqualizerPass> {
 public:
-  explicit DPCPPEqualizerPass(ArrayRef<Module *> BuiltinModules = {})
-      : BuiltinModules(BuiltinModules) {}
-
-  static StringRef name() { return "DPCPPEqualizerPass"; }
+  explicit DPCPPEqualizerPass(ArrayRef<Module *> BuiltinModules = {}) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
