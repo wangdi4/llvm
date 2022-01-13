@@ -5,7 +5,7 @@
 ; inner loop with break
 define dso_local i64 @_Z3fooPlS_() local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -30,24 +30,24 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB4]], [[BB5:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP2]] = phi  [ i64 [[RET_LPRIV_PROMOTED0:%.*]], [[BB4]] ],  [ i64 [[VP0]], [[BB5]] ]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 -1, [[BB4]] ],  [ i64 [[VP_PRIV_IDX_BB:%.*]], [[BB5]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 -1, [[BB4]] ],  [ i64 [[VP_PRIV_IDX_BB7:%.*]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_023]] = phi  [ i64 [[VP__OMP_IV_LOCAL_023_IND_INIT]], [[BB4]] ],  [ i64 [[VP_ADD9]], [[BB5]] ]
-; CHECK-NEXT:     i64 [[VP__PRE:%.*]] = add i64 [[VP2]] i64 1
+; CHECK-NEXT:     i64 [[VP__PRE:%.*]] = add i64 [[VP__OMP_IV_LOCAL_023]] i64 1
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB0]], [[BB7:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 [[VP__PRE]], [[BB0]] ],  [ i64 0, [[BB7]] ]
 ; CHECK-NEXT:     i64 [[VP_INNER_IV:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_INC:%.*]], [[BB7]] ]
-; CHECK-NEXT:     i1 [[VP_TOBOOL:%.*]] = icmp eq i64 [[VP3]] i64 0
+; CHECK-NEXT:     i1 [[VP_TOBOOL:%.*]] = icmp eq i64 [[VP_INNER_IV]] i64 0
 ; CHECK-NEXT:     br i1 [[VP_TOBOOL]], [[BB7]], [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB6]]
-; CHECK-NEXT:       i1 [[VP_TOBOOL3:%.*]] = icmp eq i64 [[VP3]] i64 0
+; CHECK-NEXT:       i1 [[VP_TOBOOL3:%.*]] = icmp eq i64 [[VP_INNER_IV]] i64 0
 ; CHECK-NEXT:       br i1 [[VP_TOBOOL3]], [[BB7]], [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB8]]
-; CHECK-NEXT:       i64 [[VP__LCSSA1:%.*]] = phi  [ i64 [[VP3]], [[BB8]] ]
-; CHECK-NEXT:       i64 [[VP1]] = add i64 [[VP__LCSSA1]] i64 [[VP2]]
+; CHECK-NEXT:       i64 [[VP_INNER_IV_LCSSA:%.*]] = phi  [ i64 [[VP_INNER_IV]], [[BB8]] ]
+; CHECK-NEXT:       i64 [[VP1]] = add i64 [[VP_INNER_IV_LCSSA]] i64 1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB6]], [[BB8]]
@@ -59,7 +59,7 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr {
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB]] = phi  [ i64 [[VP__OMP_IV_LOCAL_023]], [[BB1]] ],  [ i64 [[VP_PRIV_IDX_HDR]], [[BB2]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB7]] = phi  [ i64 [[VP__OMP_IV_LOCAL_023]], [[BB1]] ],  [ i64 [[VP_PRIV_IDX_HDR]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP0]] = phi  [ i64 [[VP1]], [[BB1]] ],  [ i64 [[VP2]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP_ADD9]] = add i64 [[VP__OMP_IV_LOCAL_023]] i64 [[VP__OMP_IV_LOCAL_023_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND32:%.*]] = icmp eq i64 [[VP_ADD9]] i64 100
@@ -67,7 +67,7 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB5]]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_023_IND_FINAL]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i64 [[VP__PRIV_FINAL]] = private-final-c i64 [[VP0]] i64 [[VP_PRIV_IDX_BB]] i64 [[RET_LPRIV_PROMOTED0]]
+; CHECK-NEXT:     i64 [[VP__PRIV_FINAL]] = private-final-c i64 [[VP0]] i64 [[VP_PRIV_IDX_BB7]] i64 [[RET_LPRIV_PROMOTED0]]
 ; CHECK-NEXT:     br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
@@ -92,21 +92,21 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %cleanup
   %1 = phi i64 [ %ret.lpriv.promoted, %DIR.OMP.SIMD.2 ], [ %4, %cleanup ]
   %.omp.iv.local.023 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add9, %cleanup ]
-  %.pre = add i64 %1, 1
+  %.pre = add i64 %.omp.iv.local.023, 1
   br label %for.body
 
 for.body:                                         ; preds = %omp.inner.for.body, %for.inc
   %2 = phi i64 [ %.pre, %omp.inner.for.body ], [ 0, %for.inc ]
   %inner_iv = phi i64 [ 0, %omp.inner.for.body ], [ %inc, %for.inc ]
-  %tobool = icmp eq i64 %2, 0
+  %tobool = icmp eq i64 %inner_iv, 0
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %tobool3 = icmp eq i64 %2, 0
+  %tobool3 = icmp eq i64 %inner_iv, 0
   br i1 %tobool3, label %for.inc, label %if.then4
 
 if.then4:                                         ; preds = %if.then
-  %3 = add i64 %2, %1
+  %3 = add i64 %inner_iv, 1
   br label %cleanup
 
 for.inc:                                          ; preds = %for.body, %if.end

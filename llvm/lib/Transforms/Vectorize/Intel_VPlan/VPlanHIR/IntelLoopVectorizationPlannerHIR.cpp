@@ -141,14 +141,19 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
     for (VPInstruction &Inst : *BB) {
       // Entities code and CG need to be uplifted to handle vector type
       // inductions and reductions.
-      if (LE->getReduction(&Inst) || LE->getInduction(&Inst))
+      if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
         if (isa<VectorType>(Inst.getType())) {
           LLVM_DEBUG(dbgs() << "LVP: Vector type reduction/induction currently"
                             << " not supported.\n"
                             << Inst << "\n");
           return false;
         }
-
+      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
+        // Some liveouts are left unrecognized due to unvectorizable use-def
+        // chains.
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
+        return false;
+      }
       // Specialization for handling sincos functions in CG is done based on
       // underlying HIR. Privatization for such sincos cannot be implemented
       // until it is uplifted to be fully VPValue-based.

@@ -44,11 +44,11 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK-NEXT:     br i1 [[VP_TOBOOL]], [[BB1]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:       i1 [[VP_TOBOOL3:%.*]] = icmp eq i64 [[VP2]] i64 0
+; CHECK-NEXT:       i1 [[VP_TOBOOL3:%.*]] = icmp eq i64 [[VP1]] i64 0
 ; CHECK-NEXT:       br i1 [[VP_TOBOOL3]], [[BB7:BB[0-9]+]], [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB8]]: # preds: [[BB6]]
-; CHECK-NEXT:         i64 [[VP3:%.*]] = add i64 [[VP2]] i64 10
+; CHECK-NEXT:         i64 [[VP3:%.*]] = add i64 [[VP1]] i64 10
 ; CHECK-NEXT:         br [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB6]], [[BB8]]
@@ -108,11 +108,11 @@ for.body:                                         ; preds = %omp.inner.for.body,
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %tobool3 = icmp eq i64 %2, 0
+  %tobool3 = icmp eq i64 %1, 0
   br i1 %tobool3, label %if.end, label %if.then4
 
 if.then4:                                         ; preds = %if.then
-  %3 = add i64 %2, 10
+  %3 = add i64 %1, 10
   br label %if.end
 
 if.end:                                           ; preds = %if.then4, %if.then
