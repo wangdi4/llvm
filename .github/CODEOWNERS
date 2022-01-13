@@ -25,6 +25,9 @@
 /llvm/include/llvm/Passes/ @andykaylor
 /llvm/include/llvm/Support/ @andykaylor
 
+# CFE: Team owns everything in Clang unless otherwise specified.
+/clang/* @ErichKeane @mikerice1969 @aaronballman
+
 # JIRA: CMPLRLLVM->LLVM Driver
 /clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver
 
