@@ -2935,6 +2935,14 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     Constraints += InputConstraint;
   }
 
+  // Append the "input" part of inout constraints.
+  for (unsigned i = 0, e = InOutArgs.size(); i != e; i++) {
+    ArgTypes.push_back(InOutArgTypes[i]);
+    ArgElemTypes.push_back(InOutArgElemTypes[i]);
+    Args.push_back(InOutArgs[i]);
+  }
+  Constraints += InOutConstraints;
+
   // Labels
   SmallVector<llvm::BasicBlock *, 16> Transfer;
   llvm::BasicBlock *Fallthrough = nullptr;
@@ -2952,19 +2960,11 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
         ArgElemTypes.push_back(nullptr);
         if (!Constraints.empty())
           Constraints += ',';
-        Constraints += 'X';
+        Constraints += 'i';
       }
       Fallthrough = createBasicBlock("asm.fallthrough");
     }
   }
-
-  // Append the "input" part of inout constraints last.
-  for (unsigned i = 0, e = InOutArgs.size(); i != e; i++) {
-    ArgTypes.push_back(InOutArgTypes[i]);
-    ArgElemTypes.push_back(InOutArgElemTypes[i]);
-    Args.push_back(InOutArgs[i]);
-  }
-  Constraints += InOutConstraints;
 
   bool HasUnwindClobber = false;
 

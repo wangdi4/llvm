@@ -173,18 +173,6 @@ InlineAdvice::InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
       DLoc(CB.getDebugLoc()), Block(CB.getParent()), ORE(ORE),
       IsInliningRecommended(IsInliningRecommended), IC(IC) {} // INTEL
 
-void InlineAdvisor::markFunctionAsDeleted(Function *F) {
-  assert((!DeletedFunctions.count(F)) &&
-         "Cannot put cause a function to become dead twice!");
-  DeletedFunctions.insert(F);
-}
-
-void InlineAdvisor::freeDeletedFunctions() {
-  for (auto *F : DeletedFunctions)
-    delete F;
-  DeletedFunctions.clear();
-}
-
 void InlineAdvice::recordInlineStatsIfNeeded() {
   if (Advisor->ImportedFunctionsStats)
     Advisor->ImportedFunctionsStats->recordInline(*Caller, *Callee);
@@ -199,7 +187,6 @@ void InlineAdvice::recordInlining() {
 void InlineAdvice::recordInliningWithCalleeDeleted() {
   markRecorded();
   recordInlineStatsIfNeeded();
-  Advisor->markFunctionAsDeleted(Callee);
   recordInliningWithCalleeDeletedImpl();
 }
 
@@ -563,8 +550,6 @@ InlineAdvisor::~InlineAdvisor() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-
-  freeDeletedFunctions();
 }
 
 #if INTEL_CUSTOMIZATION
