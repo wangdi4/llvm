@@ -6356,7 +6356,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Go ahead and claim usage of --dpcpp
   Args.ClaimAllArgs(options::OPT__dpcpp);
@@ -6367,16 +6366,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   Args.ClaimAllArgs(options::OPT_intel_config);
 #endif // INTEL_CUSTOMIZATION
 
-  // FIXME: Linking separate translation units for SPIR-V is not supported yet.
-  // It can be done either by LLVM IR linking before conversion of the final
-  // linked module to SPIR-V or external SPIR-V linkers can be used e.g.
-  // spirv-link.
-  if (C.getDefaultToolChain().getTriple().isSPIRV() && Inputs.size() > 1) {
-    Diag(clang::diag::warn_drv_spirv_linking_multiple_inputs_unsupported);
-  }
-
-=======
->>>>>>> dbb8d086377ba3a81e44c471840bdbd982c00a35
   handleArguments(C, Args, Inputs, Actions);
 
   // When compiling for -fsycl, generate the integration header files and the
