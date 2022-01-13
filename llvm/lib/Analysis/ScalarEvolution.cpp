@@ -10900,8 +10900,8 @@ static bool HasSameValue(const SCEV *A, const SCEV *B) {
 }
 
 #if INTEL_CUSTOMIZATION
-/// Returns true if \p Scev can be proven to not be signed/unsigned min using
-/// no-wrap flags. This is done by checking NSW/NUW flags on both Scev and
+/// Returns true if \p Scev can be proven to not be signed min using
+/// no-wrap flags. This is done by checking the NSW flag on both Scev and
 /// (Scev - 1). Scev is allowed to be SCEVUnknown to handle cases like this-
 /// Scev: %t
 /// (Scev - 1): (-1 + %t)<nsw>
@@ -10912,14 +10912,13 @@ static bool HasSameValue(const SCEV *A, const SCEV *B) {
 ///
 /// Even though (Scev - 1) has nsw, the addition of 1 in Scev can wrap around
 /// and make it signed min.
-bool isNotRangeMinUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev,
-                              bool IsSignedRange) {
-
+/// This approach does not work for unsigned ranges, as -1 addition will
+/// always wrap for ranges that contain any nonzero values.
+bool isNotSignedMinUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev) {
   auto *NAryScev = dyn_cast<SCEVNAryExpr>(Scev);
 
   if (!isa<SCEVUnknown>(Scev) &&
-      (!NAryScev || !NAryScev->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
-                                                            : SCEV::FlagNUW)))
+      (!NAryScev || !NAryScev->getNoWrapFlags(SCEV::FlagNSW)))
     return false;
 
   // Create (Scev - 1) by passing 'any wrap' flag which is the default
@@ -10931,8 +10930,7 @@ bool isNotRangeMinUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev,
   auto *NAryScevMinusOne = dyn_cast<SCEVNAryExpr>(ScevMinusOne);
 
   return NAryScevMinusOne &&
-         NAryScevMinusOne->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
-                                                        : SCEV::FlagNUW);
+         NAryScevMinusOne->getNoWrapFlags(SCEV::FlagNSW);
 }
 
 /// Returns true if \p Scev can be proven to not be signed/unsigned max using
@@ -11193,7 +11191,7 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
       Pred = ICmpInst::ICMP_SLT;
       Changed = true;
     } else if (!getSignedRangeMin(LHS).isMinSignedValue() || // INTEL
-               isNotRangeMinUsingNoWrap(*this, LHS, true)) { // INTEL
+               isNotSignedMinUsingNoWrap(*this, LHS)) { // INTEL
       LHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), LHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SLT;
@@ -11202,7 +11200,7 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     break;
   case ICmpInst::ICMP_SGE:
     if (!getSignedRangeMin(RHS).isMinSignedValue() || // INTEL
-        isNotRangeMinUsingNoWrap(*this, RHS, true)) { // INTEL
+        isNotSignedMinUsingNoWrap(*this, RHS)) { // INTEL
       RHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), RHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SGT;
@@ -11222,16 +11220,14 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
                        SCEV::FlagNUW);
       Pred = ICmpInst::ICMP_ULT;
       Changed = true;
-    } else if (!getUnsignedRangeMin(LHS).isMinValue() ||      // INTEL
-               isNotRangeMinUsingNoWrap(*this, LHS, false)) { // INTEL
+    } else if (!getUnsignedRangeMin(LHS).isMinValue()) {
       LHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), LHS);
       Pred = ICmpInst::ICMP_ULT;
       Changed = true;
     }
     break;
   case ICmpInst::ICMP_UGE:
-    if (!getUnsignedRangeMin(RHS).isMinValue() ||      // INTEL
-        isNotRangeMinUsingNoWrap(*this, RHS, false)) { // INTEL
+    if (!getUnsignedRangeMin(RHS).isMinValue()) {
       RHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), RHS);
       Pred = ICmpInst::ICMP_UGT;
       Changed = true;
