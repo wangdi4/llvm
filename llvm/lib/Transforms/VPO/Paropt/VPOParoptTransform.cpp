@@ -3967,10 +3967,11 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   assert((IsInit || SrcBegin) && "Null source address for reduction fini.");
   BasicBlock *BodyBB = nullptr, *DoneBB = nullptr;
 
-  auto GenArrSecLoopBegin = [NumElements, IsInit, &DT, &BodyBB, DestElementTy, &W,
-                             &DoneBB, &DestEnd,
+  auto GenArrSecLoopBegin = [&RedI, NumElements, IsInit, &DT, &BodyBB,
+                             DestElementTy, &W, &DoneBB, &DestEnd,
                              this](IRBuilder<> &Builder, Value *DestBegin,
-                                   Value *SrcBegin, Instruction *SplitPt, StringRef BBNameSuffix = "") {
+                                   Value *SrcBegin, Instruction *SplitPt,
+                                   StringRef BBNameSuffix = "") {
     auto *EntryBB = SplitPt->getParent();
     DestEnd = Builder.CreateGEP(DestElementTy, DestBegin, NumElements);
     auto IsEmpty = Builder.CreateICmpEQ(
@@ -3979,7 +3980,11 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     BodyBB = SplitBlock(EntryBB, SplitPt, DT, LI);
     BodyBB->setName((IsInit ? "red.init.body" : "red.update.body") + BBNameSuffix);
 
-    if (AtomicFreeRedGlobalUpdateInfos.count(W) && !IsInit) {
+    if (AtomicFreeRedGlobalUpdateInfos.count(W) &&
+#ifdef INTEL_CUSTOMIZATION
+        !RedI->getIsF90DopeVector() &&
+#endif // INTEL_CUSTOMIZATION
+        !IsInit) {
       DoneBB = AtomicFreeRedGlobalUpdateInfos.lookup(W).LatchBB;
     } else {
       DoneBB = SplitBlock(BodyBB, BodyBB->getTerminator(), DT, LI);
