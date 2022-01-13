@@ -63,7 +63,11 @@ OclBuiltinImpl wait_group_events_private_impl = OclBuiltinImpl<wait_group_events
 
 // Type sets used by different per-WI helpers
 // All types
-list<OclType> work_group_types_all = [v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
+list<OclType> work_group_types_all = [v1i8, v4i8, v8i8, v16i8, v32i8, v64i8,
+                                      v1u8, v4u8, v8u8, v16u8, v32u8, v64u8,
+                                      v1i16, v4i16, v8i16, v16i16, v32i16, v64i16,
+                                      v1u16, v4u16, v8u16, v16u16, v32u16, v64u16,
+                                      v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
                                       v1u32, v4u32, v8u32, v16u32, v32u32, v64u32,
                                       v1i64, v4i64, v8i64, v16i64, v32i64, v64i64,
                                       v1u64, v4u64, v8u64, v16u64, v32u64, v64u64,
@@ -76,21 +80,25 @@ list<OclType> work_group_types_int = [v1i32, v4i32, v8i32, v16i32, v32i32, v64i3
 list<OclType> work_group_types_float = [v1f32, v4f32, v8f32, v16f32, v32f32, v64f32,
                                         v1f64, v4f64, v8f64, v16f64, v32f64, v64f64];
 // Scalar types
-list<OclType> work_group_scalar_types_all = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
+list<OclType> work_group_scalar_types_all = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
 list<OclType> work_group_scalar_types_int = [v1i32, v1u32, v1i64, v1u64];
 list<OclType> work_group_scalar_types_float = [v1f32, v1f64];
 // Vector types
-list<OclType> work_group_vector_types_all = [v4i32, v8i32, v16i32, v32i32, v64i32,
+list<OclType> work_group_vector_types_all = [v4i8, v8i8, v16i8, v32i8, v64i8,
+                                             v4u8, v8u8, v16u8, v32u8, v64u8,
+                                             v4i16, v8i16, v16i16, v32i16, v64i16,
+                                             v4u16, v8u16, v16u16, v32u16, v64u16,
+                                             v4i32, v8i32, v16i32, v32i32, v64i32,
                                              v4u32, v8u32, v16u32, v32u32, v64u32,
                                              v4i64, v8i64, v16i64, v32i64, v64i64,
                                              v4u64, v8u64, v16u64, v32u64, v64u64,
                                              v4f32, v8f32, v16f32, v32f32, v64f32,
                                              v4f64, v8f64, v16f64, v32f64, v64f64];
-list<OclType> work_group_vector_types_all4 =  [v4i32, v4u32, v4i64, v4u64, v4f32, v4f64];
-list<OclType> work_group_vector_types_all8 =  [v8i32, v8u32, v8i64, v8u64, v8f32, v8f64];
-list<OclType> work_group_vector_types_all16 = [v16i32, v16u32, v16i64, v16u64, v16f32, v16f64];
-list<OclType> work_group_vector_types_all32 = [v32i32, v32u32, v32i64, v32u64, v32f32, v32f64];
-list<OclType> work_group_vector_types_all64 = [v64i32, v64u32, v64i64, v64u64, v64f32, v64f64];
+list<OclType> work_group_vector_types_all4 =  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64, v4f32, v4f64];
+list<OclType> work_group_vector_types_all8 =  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64];
+list<OclType> work_group_vector_types_all16 = [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64];
+list<OclType> work_group_vector_types_all32 = [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64, v32f32, v32f64];
+list<OclType> work_group_vector_types_all64 = [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64, v64f32, v64f64];
 
 list<OclType> work_group_vector_types_int = [v4i32, v8i32, v16i32, v32i32, v64i32,
                                              v4u32, v8u32, v16u32, v32u32, v64u32,
@@ -430,7 +438,7 @@ OclBuiltinImpl work_group_broadcast_scalar_helper = OclBuiltinImpl<work_group_br
   }]>;
 
 // work_group_broadcast_vector
-OclBuiltinImpl work_group_broadcast_vector_helper = OclBuiltinImpl<work_group_broadcast_helper, [v4i32, v8i32, v16i32, v4u32, v8u32, v16u32, v4i64, v8i64, v16i64, v4u64, v8u64, v16u64, v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl work_group_broadcast_vector_helper = OclBuiltinImpl<work_group_broadcast_helper, [v4i8, v8i8, v16i8, v4u8, v8u8, v16u8, v4i16, v8i16, v16i16, v4u16, v8u16, v16u16, v4i32, v8i32, v16i32, v4u32, v8u32, v16u32, v4i64, v8i64, v16i64, v4u64, v8u64, v16u64, v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, [{
    if ($Arg2VarName <= $Arg1VarName && $Arg1VarName < $Arg2VarName + vec_step($Arg0VarName)) {
       uint offset = $Arg1VarName - $Arg2VarName;
       $Arg0ugentype _mask = ($Arg0ugentype)(offset);
@@ -474,7 +482,7 @@ OclBuiltinImpl work_group_broadcast_vector_helper_64 = OclBuiltinImpl<work_group
   }]>;
 
 // Masked work_group_broadcast_vector
-OclBuiltinImpl work_group_broadcast_mask_helper = OclBuiltinImpl<work_group_broadcast_helper_mask, [v4i32, v8i32, v16i32, v4u32, v8u32, v16u32, v4i64, v8i64, v16i64, v4u64, v8u64, v16u64, v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, [{
+OclBuiltinImpl work_group_broadcast_mask_helper = OclBuiltinImpl<work_group_broadcast_helper_mask, [v4i8, v8i8, v16i8, v4u8, v8u8, v16u8, v4i16, v8i16, v16i16, v4u16, v8u16, v16u16, v4i32, v8i32, v16i32, v4u32, v8u32, v16u32, v4i64, v8i64, v16i64, v4u64, v8u64, v16u64, v4f32, v8f32, v16f32, v4f64, v8f64, v16f64], 0, [{
    // No need to check the mask here
    if ($Arg2VarName <= $Arg1VarName && $Arg1VarName < $Arg2VarName + vec_step($Arg0VarName)) {
       uint offset = $Arg1VarName - $Arg2VarName;
