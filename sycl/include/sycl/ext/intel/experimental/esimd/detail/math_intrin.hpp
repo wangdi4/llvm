@@ -1567,7 +1567,4 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
-=======
 #undef __ESIMD_raw_vec_t
->>>>>>> eb4b52914bf9feb5be1163558145db1b8a2c3f4a
