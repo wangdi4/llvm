@@ -191,8 +191,7 @@ static bool isSVMLStructure(ASTContext &Context, QualType Ty, const Type *&Base,
         return false;
       ++NumValues;
     } else if (!(T->isStructureType() &&
-                 isSVMLStructure(Context, T->getAs<RecordType>()->getDecl(),
-                                 Base, NumValues))) {
+                 isSVMLStructure(Context, T, Base, NumValues))) {
       return false;
     }
   }
