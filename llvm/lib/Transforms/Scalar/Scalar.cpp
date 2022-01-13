@@ -132,7 +132,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeNontemporalStoreWrapperPassPass(Registry);
 #endif // INTEL_FEATURE_SW_ADVANCED
   initializeIndirectCallConvLegacyPassPass(Registry);
-  initializeStdContainerOptPass(Registry);
+  initializeStdContainerOptLegacyPassPass(Registry);
   initializeTbaaMDPropagationLegacyPassPass(Registry);
   initializeCleanupFakeLoadsLegacyPassPass(Registry);
   initializeMultiVersioningWrapperPass(Registry);
@@ -352,6 +352,10 @@ void LLVMAddScopedNoAliasAAPass(LLVMPassManagerRef PM) {
 #if INTEL_CUSTOMIZATION
 void LLVMAddStdContainerAAPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createStdContainerAAWrapperPass());
+}
+
+void LLVMAddStdContainerOptPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createStdContainerOptPass());
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -215,6 +215,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
+#include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #if !INTEL_COLLAB

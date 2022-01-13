@@ -229,6 +229,7 @@
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
+; CHECK-O-NEXT: Running pass: StdContainerOptPass ;INTEL
 ; CHECK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-LTO-NOT: Running pass: EliminateAvailableExternallyPass
