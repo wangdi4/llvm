@@ -1240,10 +1240,13 @@ public:
 private:
   /// Set fields to define PrivateKind for the imported private.
   /// Sometimes it can differ from one that was set by user. E.g. the
-  /// "conditional" modifier can be set on the private that assigned in both
-  /// branches of an IF statement. But those assignments can be merged into one
-  /// select instruction.
-  void updateKind(const VPLoop *Loop);
+  /// "conditional" modifier can be set on the private that is assigned in both
+  /// branches of an IF statement but those assignments can be merged into one
+  /// select instruction and the assignment becomes unconditional. This is a
+  /// simple correction of the user declaration to generate more effective code.
+  /// Returns true if the update was successful and false if we were unable
+  /// to recognize it.
+  bool updateKind(VPLoopEntityList *LE);
 
   // Type of memory.
   Type *AllocatedType = nullptr;
