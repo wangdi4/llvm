@@ -4,10 +4,6 @@
 ; can't be packed together. This test verifies that new layout doesn't pack
 ; fields 1 and 4 using bit-fields.
 
-; TODO: The test is disabled because the AsmWriter to not currently find all
-; the structure types to be emitted when printing IR.
-; XFAIL: *
-
 ;  RUN: opt < %s -opaque-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -dtrans-dyncloneop 2>&1 | FileCheck %s
 ;  RUN: opt < %s -opaque-pointers -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-dyncloneop' 2>&1 | FileCheck %s
 
