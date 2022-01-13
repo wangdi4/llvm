@@ -13,7 +13,11 @@ let NeedForwardDecl = 1 in {
     def work_group_any_mask : OclBuiltin<"work_group_any", (outs gentype:$ret), (ins gentype:$predicate, u32gentype:$mask), [], [], 1, 0>;
   }
 
-  let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
+  let Types = [ v1i8, v4i8, v8i8, v16i8, v32i8, v64i8,
+                v1u8, v4u8, v8u8, v16u8, v32u8, v64u8,
+                v1i16, v4i16, v8i16, v16i16, v32i16, v64i16,
+                v1u16, v4u16, v8u16, v16u16, v32u16, v64u16,
+                v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
                 v1u32, v4u32, v8u32, v16u32, v32u32, v64u32,
                 v1i64, v4i64, v8i64, v16i64, v32i64, v64i64,
                 v1u64, v4u64, v8u64, v16u64, v32u64, v64u64,
@@ -34,7 +38,11 @@ let NeedForwardDecl = 1 in {
     def work_group_scan_inclusive_max : OclBuiltin<"work_group_scan_inclusive_max", (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
   }
 
-  let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32,
+  let Types = [ v4i8, v8i8, v16i8, v32i8, v64i8,
+                v4u8, v8u8, v16u8, v32u8, v64u8,
+                v4i16, v8i16, v16i16, v32i16, v64i16,
+                v4u16, v8u16, v16u16, v32u16, v64u16,
+                v4i32, v8i32, v16i32, v32i32, v64i32,
                 v4u32, v8u32, v16u32, v32u32, v64u32,
                 v4i64, v8i64, v16i64, v32i64, v64i64,
                 v4u64, v8u64, v16u64, v32u64, v64u64,
@@ -63,7 +71,7 @@ def work_group_all_vect_info : VectInfo<[v1i32], work_group_all, work_group_all,
 def work_group_all_mask_vect_info : VectInfo<[v1i32], work_group_all, work_group_all_mask, work_group_all_mask, work_group_all_mask, work_group_all_mask, work_group_all_mask>;
 def work_group_any_vect_info : VectInfo<[v1i32], work_group_any, work_group_any, work_group_any, work_group_any, work_group_any, work_group_any>;
 def work_group_any_mask_vect_info : VectInfo<[v1i32], work_group_any, work_group_any_mask, work_group_any_mask, work_group_any_mask, work_group_any_mask, work_group_any_mask>;
-let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
   def work_group_broadcast1d_vect_info : VectInfo<[], work_group_broadcast1d, work_group_broadcast1d, work_group_broadcast1d, work_group_broadcast1d, work_group_broadcast1d, work_group_broadcast1d>;
   def work_group_broadcast2d_vect_info : VectInfo<[], work_group_broadcast2d, work_group_broadcast2d, work_group_broadcast2d, work_group_broadcast2d, work_group_broadcast2d, work_group_broadcast2d>;
   def work_group_broadcast3d_vect_info : VectInfo<[], work_group_broadcast3d, work_group_broadcast3d, work_group_broadcast3d, work_group_broadcast3d, work_group_broadcast3d, work_group_broadcast3d>;
@@ -159,7 +167,11 @@ let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32 ],
   def work_group_any_helper_mask : OclBuiltin<"work_group_any", (outs gentype:$ret), (ins gentype:$predicate, u32gentype:$mask, ppgentype:$accum), [], [], 1, 0>;
 }
 
-let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
+let Types = [ v1i8, v4i8, v8i8, v16i8, v32i8, v64i8,
+              v1u8, v4u8, v8u8, v16u8, v32u8, v64u8,
+              v1i16, v4i16, v8i16, v16i16, v32i16, v64i16,
+              v1u16, v4u16, v8u16, v16u16, v32u16, v64u16,
+              v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
               v1u32, v4u32, v8u32, v16u32, v32u32, v64u32,
               v1i64, v4i64, v8i64, v16i64, v32i64, v64i64,
               v1u64, v4u64, v8u64, v16u64, v32u64, v64u64,
@@ -169,7 +181,11 @@ let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32,
   def work_group_broadcast_helper : OclBuiltin<"work_group_broadcast", (outs gentype:$ret), (ins gentype:$src, size_t:$linear_local_id, size_t:$linear_id, ppgentype:$accum), [], [], 1, 0>;
 }
 
-let Types = [ v4i32, v8i32, v16i32, v32i32, v64i32,
+let Types = [ v1i8, v4i8, v8i8, v16i8, v32i8, v64i8,
+              v1u8, v4u8, v8u8, v16u8, v32u8, v64u8,
+              v1i16, v4i16, v8i16, v16i16, v32i16, v64i16,
+              v1u16, v4u16, v8u16, v16u16, v32u16, v64u16,
+              v4i32, v8i32, v16i32, v32i32, v64i32,
               v4u32, v8u32, v16u32, v32u32, v64u32,
               v4i64, v8i64, v16i64, v32i64, v64i64,
               v4u64, v8u64, v16u64, v32u64, v64u64,
