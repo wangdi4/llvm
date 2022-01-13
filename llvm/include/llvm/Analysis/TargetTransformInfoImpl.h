@@ -268,6 +268,7 @@ public:
     return false;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI) const {
     // By default, This function will return !isLegalMaskedGather.
@@ -301,6 +302,16 @@ public:
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool forceScalarizeMaskedGather(VectorType *DataType, Align Alignment) const {
+    return false;
+  }
+
+  bool forceScalarizeMaskedScatter(VectorType *DataType,
+                                   Align Alignment) const {
+    return false;
+  }
+>>>>>>> 552eb372cb8198c64caf13da34ca70af894485c8
 
   bool isLegalMaskedCompressStore(Type *DataType) const { return false; }
 
