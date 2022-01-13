@@ -374,9 +374,10 @@ VPInduction *VPLoopEntityList::addInduction(
 VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
-                                        VPValue *AI, bool ValidMemOnly) {
-  VPPrivate *Priv =
-      new VPPrivate(FinalI, std::move(Aliases), K, Explicit, ValidMemOnly);
+                                        Type *AllocatedTy, VPValue *AI,
+                                        bool ValidMemOnly) {
+  auto *Priv = new VPPrivate(FinalI, std::move(Aliases), K, Explicit,
+                             AllocatedTy, ValidMemOnly);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, FinalI);
   linkValue(PrivateMap, Priv, AI);
@@ -389,9 +390,8 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
                                         VPPrivate::PrivateKind K, bool Explicit,
                                         Type *AllocatedTy, VPValue *AI,
                                         bool ValidMemOnly) {
-  VPPrivate *Priv =
-      new VPPrivate(Tag, std::move(Aliases), K, Explicit,
-                    AllocatedTy, ValidMemOnly);
+  auto *Priv = new VPPrivate(Tag, std::move(Aliases), K, Explicit, AllocatedTy,
+                             ValidMemOnly);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -1405,9 +1405,10 @@ void VPLoopEntityList::analyzeImplicitLastPrivates() {
       std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
       // Add new private with empty alias list
       VPEntityAliasesTy EmptyAliases;
-      auto Priv = addPrivate(&Inst, EmptyAliases, Kind,
-                             /* Explicit */ false, /* AI */ nullptr,
-                             /* MemOnly */ false);
+      VPPrivate *Priv =
+          addPrivate(&Inst, EmptyAliases, Kind,
+                     /* Explicit */ false, Inst.getType(), /* AI */ nullptr,
+                     /* MemOnly */ false);
       linkValue(Priv, HeaderPhi);
     }
 }
@@ -1950,7 +1951,7 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
                          AllocatedTy, AllocaInst);
   else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
-    LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocaInst,
+    LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocatedTy, AllocaInst,
                    isMemOnly());
   } else
     LE->addPrivate(PTag, PtrAliases, K, IsExplicit, AllocatedTy, AllocaInst,
