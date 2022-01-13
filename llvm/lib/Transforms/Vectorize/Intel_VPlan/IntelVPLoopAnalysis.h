@@ -311,9 +311,11 @@ public:
   using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
 
   VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
-            bool Explicit, bool IsMemOnly = false, unsigned char Id = Private)
+            bool Explicit, Type *AllocatedTy, bool IsMemOnly = false,
+            unsigned char Id = Private)
       : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
-        TagOrExit(ExitI), Aliases(std::move(InAliases)) {}
+        TagOrExit(ExitI), Aliases(std::move(InAliases)),
+        AllocatedType(AllocatedTy) {}
 
   VPPrivate(PrivateTag PTag, VPEntityAliasesTy &&InAliases, PrivateKind K,
             bool Explicit, Type *AllocatedType, bool IsMemOnly = false,
@@ -504,7 +506,8 @@ public:
   /// and explicit.
   VPPrivate *addPrivate(VPInstruction *ExitI, VPEntityAliasesTy &PtrAliases,
                         VPPrivate::PrivateKind K, bool Explicit,
-                        VPValue *AI = nullptr, bool ValidMemOnly = false);
+                        Type *AllocatedTy, VPValue *AI = nullptr,
+                        bool ValidMemOnly = false);
 
   /// Add private corresponding to \p Alloca along with the specified private
   /// tag. Also store other relavant attributes of the private like the
@@ -947,6 +950,12 @@ public:
   // preheader, not in lifetimestart/end.
   static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop);
 
+  iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
+  getUpdateVPInsts() {
+    return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
+  }
+  void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
+
 protected:
   VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
 
@@ -956,6 +965,7 @@ protected:
     Importing = true;
     Alias.reset();
     HasAlias = false;
+    UpdateVPInsts.clear();
   }
   VPValue *AllocaInst = nullptr;
   bool ValidMemOnly = false;
@@ -963,6 +973,8 @@ protected:
   // NOTE: We assume that a descriptor can have only one valid alias
   Optional<DescrAlias> Alias;
   bool HasAlias = false;
+  /// Instruction(s) in VPlan that update the variable
+  SmallVector<VPInstruction *, 4> UpdateVPInsts;
 };
 
 /// Intermediate reduction descriptor. This is a temporary data to keep
@@ -983,10 +995,6 @@ public:
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
   bool getLinearIndex() const { return IsLinearIndex; }
-  iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
-  getUpdateVPInsts() {
-    return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
-  }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -996,7 +1004,6 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
-  void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
   /// Clear the content.
@@ -1004,7 +1011,6 @@ public:
     BaseT::clear();
     StartPhi = nullptr;
     Start = nullptr;
-    UpdateVPInsts.clear();
     Exit = nullptr;
     K = RecurKind::None;
     RT = nullptr;
@@ -1048,8 +1054,6 @@ private:
 
   VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
   VPValue *Start = nullptr;
-  /// Instruction(s) in VPlan that update the reduction variable
-  SmallVector<VPInstruction *, 4> UpdateVPInsts;
   VPInstruction *Exit = nullptr;
   RecurKind K = RecurKind::None;
   Type *RT = nullptr;
@@ -1177,7 +1181,6 @@ private:
   VPValue *StartVal = nullptr;
   VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;
-  SmallVector<VPInstruction *, 4> UpdateVPInsts; // TODO: unpopulated
   unsigned IndOpcode = Instruction::BinaryOpsEnd;
   bool IsExplicitInduction = false; // TODO: unpopulated
 };

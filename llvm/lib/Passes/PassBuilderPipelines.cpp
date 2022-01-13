@@ -138,6 +138,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
+#include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
 #if !INTEL_COLLAB
@@ -501,6 +502,10 @@ extern cl::opt<bool> RunPreLoopOptVPOPasses;
 extern cl::opt<bool> RunPostLoopOptVPOPasses;
 extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
 extern cl::opt<bool> EnableVPOParoptTargetInline;
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> EnableStdContainerOpt;
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
@@ -2075,6 +2080,8 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     MPM.addPass(PartialInlinerPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableStdContainerOpt)
+    MPM.addPass(createModuleToFunctionPassAdaptor(StdContainerOptPass()));
   MPM.addPass(createModuleToFunctionPassAdaptor(CleanupFakeLoadsPass()));
 #endif // INTEL_CUSTOMIZATION
 

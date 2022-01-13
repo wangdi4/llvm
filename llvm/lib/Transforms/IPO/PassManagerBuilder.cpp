@@ -270,9 +270,10 @@ static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     cl::desc("Enable register promotion for global vars outside of the LTO."));
 
 // Std Container Optimization at -O2 and above.
-static cl::opt<bool> EnableStdContainerOpt("enable-std-container-opt",
-                                           cl::init(true), cl::Hidden,
-                                           cl::desc("Enable Std Container Optimization"));
+cl::opt<bool>
+    EnableStdContainerOpt("enable-std-container-opt", cl::init(true),
+                          cl::Hidden,
+                          cl::desc("Enable Std Container Optimization"));
 
 static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
                                     cl::Hidden,

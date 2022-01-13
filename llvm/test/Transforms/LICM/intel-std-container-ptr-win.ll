@@ -1,7 +1,8 @@
 ; RUN: opt < %s   -tbaa  -std-container-alias   -basiccg -domtree -basic-aa -aa -std-container-opt  -loops  -loop-rotate -licm   -S | FileCheck %s
+; RUN: opt < %s -passes="std-container-opt,loop-rotate,loop-mssa(licm)" -S | FileCheck %s
 
 ; The compiler is exptected to hoisted out the load a[i][k] out of the loop j. 
-; The header file vecotor is pre-process under windows.
+; The header file vector is pre-process under windows.
 ; #include <vector>
 ; #define CONST_VECSIZE 2050
 ; 
