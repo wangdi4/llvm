@@ -299,6 +299,7 @@ private:
     BasicBlock *ExitBB = nullptr;
     PHINode *IVPhi = nullptr;
     Instruction *LocalId = nullptr;
+    Instruction *EntryBarrier = nullptr;
   };
   struct GlobalUpdateInfo {
     BasicBlock *EntryBB = nullptr;
