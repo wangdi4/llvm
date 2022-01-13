@@ -336,7 +336,8 @@ counts for a target region that requires cross-team reduction updates.
 '0' disables special handling for kernels with reductions, so
 ``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE`` takes the effect.
 
-**Default**: 8 for discrete devices, 1 for non-discrete devices
+**Default**: 8 for discrete devices, 1 for non-discrete devices or/and
+for kernels that use atomic-free reductions.
 
 ``LIBOMPTARGET_LEVEL0_KERNEL_WIDTH=<Width>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -429,7 +430,8 @@ counts for a target region that requires cross-team reduction updates.
 '0' disables special handling for kernels with reductions, so
 ``LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE`` takes the effect.
 
-**Default**: 8 for discrete devices, 1 for non-discrete devices
+**Default**: 8 for discrete devices, 1 for non-discrete devices or/and
+for kernels that use atomic-free reductions.
 
 ``LIBOMPTARGET_ENABLE_SIMD=<Enable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

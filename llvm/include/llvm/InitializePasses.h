@@ -549,7 +549,7 @@ void initializeXRayInstrumentationPass(PassRegistry&);
 // Pass for alias analysis for STL templates
 void initializeStdContainerAAWrapperPassPass(PassRegistry &);
 // Pass for alias metadata propagation
-void initializeStdContainerOptPass(PassRegistry &);
+void initializeStdContainerOptLegacyPassPass(PassRegistry &);
 // Pass for TBAA metadata propagation
 void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics

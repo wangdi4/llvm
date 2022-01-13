@@ -32,7 +32,6 @@ target device_triples = "spir64"
 ; CHECK: %[[PRIV_VAL:[^,]+]] = load i32, i32* %[[SRC_PTR_TO]]
 ; CHECK: store i32 %[[PRIV_VAL]], i32 addrspace(3)* %[[DST_PTR_TO]]
 ; CHECK-LABEL: red.update.done.to.tree:
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii
 ; CHECK-COUNT-7: lshr
 ; CHECK: add
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:

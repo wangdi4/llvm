@@ -71,8 +71,7 @@ double4_avx __ocl_svml_l9_sincos4 (double4_avx a, double4_avx* c) {
   return a;
 }
 
-// TODO: Enable the check after supporting nested struct
-// define dso_local svml_unified_cc_256 %struct.int4x2_avx @__ocl_svml_e9_udivrem4(<2 x i64> %{{.*}}, <2 x i64> %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 %struct.int4x2_avx @__ocl_svml_e9_udivrem4(<2 x i64> %{{.*}}, <2 x i64> %{{.*}})
 __attribute__((intel_ocl_bicc))
 int4x2_avx __ocl_svml_e9_udivrem4 (int4_avx a, int4_avx b) {
   int4x2_avx ret;

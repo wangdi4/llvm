@@ -1,6 +1,6 @@
-//===- StdContainerOpt.h - Std Container Optimization Pass -------*- C++ -*-===//
+// StdContainerOpt.h -- Std Container Optimization Pass --
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -19,12 +19,12 @@
 
 namespace llvm {
 
-/// Performs the pass which process the std container intrinsic
-//  to generate the alias metadata.
 class StdContainerOptPass : public PassInfoMixin<StdContainerOptPass> {
 public:
+  StdContainerOptPass(){};
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
+
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_SCALAR_STDCONTAINEROPT_H

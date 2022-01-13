@@ -283,6 +283,9 @@ public:
   uint64_t getWINum() const {
     return WINum;
   }
+  bool isAtomicFreeReduction() const {
+    return getWGNum();
+  }
 };
 
 /// Keep entries table per device.
@@ -816,6 +819,7 @@ struct RTLOptionTy {
   // For kernels that compute cross-WG reductions the number of computed WGs
   // is reduced by this factor.
   size_t ReductionSubscriptionRate = 1;
+  bool ReductionSubscriptionRateIsDefault = true;
 
 #if INTEL_INTERNAL_BUILD
   /// Forced GWS/LWS only for internal experiments
@@ -910,8 +914,10 @@ struct RTLOptionTy {
       // Set some reasonable limits.
       // '0' is a special value meaning to use regular default ND-range
       // for kernels with reductions.
-      if (Value >= 0 && Value <= 0xFFFF)
+      if (Value >= 0 && Value <= 0xFFFF) {
         ReductionSubscriptionRate = Value;
+        ReductionSubscriptionRateIsDefault = false;
+      }
     }
 
     /// Read LIBOMPTARGET_PLUGIN_PROFILE
@@ -4025,7 +4031,11 @@ static void decideKernelGroupArguments(
             // Only do this for discrete devices.
             DeviceInfo->isDiscreteDevice(DeviceId) &&
 #endif // INTEL_CUSTOMIZATION
-            DeviceInfo->Option.ReductionSubscriptionRate)
+            DeviceInfo->Option.ReductionSubscriptionRate &&
+            // Do not use this heuristic for kernels that use
+            // atomic-free reductions. We want to maximize
+            // LWS for such kernels.
+            !KInfo->isAtomicFreeReduction())
           maxGroupSize = kernelWidth;
 
         assert(!maxGroupSizeForced && !maxGroupCountForced);
@@ -4065,9 +4075,19 @@ static void decideKernelGroupArguments(
         DeviceInfo->Option.ReductionSubscriptionRate) {
 #if INTEL_CUSTOMIZATION
       if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+        // Do not apply ReductionSubscriptionRate for non-discrete devices.
+        // But we have to avoid the regular SubscriptionRate in the else
+        // clause. Basically, for non-discrete devices, the reduction
+        // subscription rate is 1.
 #endif // INTEL_CUSTOMIZATION
-      GroupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
-      GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
+      if (!KInfo->isAtomicFreeReduction() ||
+          !DeviceInfo->Option.ReductionSubscriptionRateIsDefault) {
+        // Use reduction subscription rate 1 for kernels using
+        // atomic-free reductions, unless user forced reduction subscription
+        // rate via environment.
+        GroupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
+        GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
+      }
 #if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
