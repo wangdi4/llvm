@@ -14,7 +14,7 @@ define i32 @main() #0 !dbg !7 {
 ; CHECK-NOT: !dbg
 ; CHECK-NEXT:    store i16 4735, i16* [[TMP0]], align 2
 ; CHECK-NOT: !dbg
-; CHECK-NEXT:    call void asm sideeffect "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}"(i8* [[TMP1]])
+; CHECK-NEXT:    call void asm sideeffect "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}"(i8* elementtype(i8) [[TMP1]])
 ; CHECK-NOT: !dbg
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 2, i8* [[TMP1]])
 ; CHECK-NEXT:    ret i32 0, !dbg [[DBG11:![0-9]+]]
