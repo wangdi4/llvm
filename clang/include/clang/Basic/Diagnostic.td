@@ -169,7 +169,4 @@ include "DiagnosticParseKinds.td"
 include "DiagnosticRefactoringKinds.td"
 include "DiagnosticSemaKinds.td"
 include "DiagnosticSerializationKinds.td"
-<<<<<<< HEAD
 include "intel/DiagnosticIntel.td" // INTEL
-=======
->>>>>>> c4db521cea32fcfb714d1a622e0efce69a564a28
