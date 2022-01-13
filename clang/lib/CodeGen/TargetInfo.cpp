@@ -175,9 +175,12 @@ static bool isSVMLIntArgumentMask(ASTContext &Context, QualType ArgType,
 // Base, and the number of fields is returned in NumValues.
 // This differs from HVA in that we don't define different sets of eligible base
 // types for different ABIs, and integers are also eligible.
-static bool isSVMLStructure(ASTContext &Context, const RecordDecl *RD,
-                            const Type *&Base, uint64_t &NumValues) {
-  if (!RD->isStruct() || RD->field_empty())
+static bool isSVMLStructure(ASTContext &Context, QualType Ty, const Type *&Base,
+                            uint64_t &NumValues) {
+  if (!Ty->isStructureOrClassType())
+    return false;
+  const RecordDecl *RD = cast<RecordType>(Ty)->getDecl();
+  if (RD->field_empty())
     return false;
   for (const FieldDecl *Field : RD->fields()) {
     QualType T = Field->getType();
@@ -194,6 +197,21 @@ static bool isSVMLStructure(ASTContext &Context, const RecordDecl *RD,
     }
   }
   return true;
+}
+
+// Handle classification of struct arguments/return value for an SVML function.
+// \p FreeSSERegs is modified accordingly. \p Base and \p NumElts should be
+// computed by isSVMLStructure() based on the type of the value to be
+// classified. \p IsReturn needs to be set to true for return values, and false
+// for arguments.
+static ABIArgInfo classifySVMLStructure(const Type *Base, uint64_t NumElts,
+                                        unsigned &FreeSSERegs, bool IsReturn) {
+  bool UseSSERegs = Base->isRealFloatingType() || Base->isVectorType();
+  assert((!UseSSERegs || FreeSSERegs >= NumElts) &&
+         "Too many fields in SVML structure");
+  if (UseSSERegs)
+    FreeSSERegs -= NumElts;
+  return IsReturn ? ABIArgInfo::getDirect() : ABIArgInfo::getExpand();
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1605,6 +1623,14 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
 
   const Type *Base = nullptr;
   uint64_t NumElts = 0;
+
+#if INTEL_CUSTOMIZATION
+  if (State.CC == llvm::CallingConv::SVML_Unified &&
+      isSVMLStructure(getContext(), RetTy, Base, NumElts))
+    return classifySVMLStructure(Base, NumElts, State.FreeSSERegs,
+                                 /*IsReturn=*/true);
+#endif // INTEL_CUSTOMIZATION
+
   if ((State.CC == llvm::CallingConv::X86_VectorCall ||
        State.CC == llvm::CallingConv::X86_RegCall) &&
       isHomogeneousAggregate(RetTy, Base, NumElts)) {
@@ -1903,6 +1929,9 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   bool IsFastCall = State.CC == llvm::CallingConv::X86_FastCall;
   bool IsRegCall = State.CC == llvm::CallingConv::X86_RegCall;
   bool IsVectorCall = State.CC == llvm::CallingConv::X86_VectorCall;
+#if INTEL_CUSTOMIZATION
+  bool IsSVMLCall = State.CC == llvm::CallingConv::SVML_Unified;
+#endif // INTEL_CUSTOMIZATION
 
   Ty = useFirstFieldIfTransparentUnion(Ty);
   TypeInfo TI = getContext().getTypeInfo(Ty);
@@ -1923,6 +1952,13 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   // to other targets.
   const Type *Base = nullptr;
   uint64_t NumElts = 0;
+
+#if INTEL_CUSTOMIZATION
+  if (IsSVMLCall && isSVMLStructure(getContext(), Ty, Base, NumElts))
+    return classifySVMLStructure(Base, NumElts, State.FreeSSERegs,
+                                 /*IsReturn=*/false);
+#endif // INTEL_CUSTOMIZATION
+
   if ((IsRegCall || IsVectorCall) &&
       isHomogeneousAggregate(Ty, Base, NumElts)) {
     if (State.FreeSSERegs >= NumElts) {
@@ -1985,6 +2021,12 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   }
 
   if (const VectorType *VT = Ty->getAs<VectorType>()) {
+#if INTEL_CUSTOMIZATION
+    if (IsSVMLCall && State.FreeSSERegs > 0) {
+      --State.FreeSSERegs;
+      return ABIArgInfo::getDirect();
+    }
+#endif // INTEL_CUSTOMIZATION
     // On Windows, vectors are passed directly if registers are available, or
     // indirectly if not. This avoids the need to align argument memory. Pass
     // user-defined vector types larger than 512 bits indirectly for simplicity.
@@ -2066,6 +2108,12 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   } else
     State.FreeRegs = DefaultNumRegisterParameters;
 
+#if INTEL_CUSTOMIZATION
+  bool IsSVMLCall = State.CC == llvm::CallingConv::SVML_Unified;
+  if (IsSVMLCall)
+    State.FreeSSERegs = 8;
+#endif // INTEL_CUSTOMIZATION
+
   if (!::classifyReturnType(getCXXABI(), FI, *this)) {
     FI.getReturnInfo() = classifyReturnType(FI.getReturnType(), State);
   } else if (FI.getReturnInfo().isIndirect()) {
@@ -2094,7 +2142,21 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     if (State.IsPreassigned.test(I))
       continue;
 
-    Args[I].info = classifyArgumentType(Args[I].type, State);
+#if INTEL_CUSTOMIZATION
+    if (IsSVMLCall &&
+        isSVMLIntArgumentMask(getContext(), Args[I].type, FI.getReturnType())) {
+      // If the argument is an AVX512 mask in an SVML function, it should be
+      // casted to an i1 vector passed in k registers.
+      assert(getTarget().getTargetOpts().FeatureMap.lookup("avx512f") &&
+             "Integer argument can only be present on scalar functions or "
+             "AVX512 functions in SVML");
+      Args[I].info = ABIArgInfo::getDirect(llvm::VectorType::get(
+          llvm::Type::getInt1Ty(CGT.getLLVMContext()),
+          llvm::ElementCount::getFixed(Context.getIntWidth(Args[I].type))));
+    } else {
+      Args[I].info = classifyArgumentType(Args[I].type, State);
+    }
+#endif // INTEL_CUSTOMIZATION
     UsedInAlloca |= (Args[I].info.getKind() == ABIArgInfo::InAlloca);
   }
 
@@ -4049,6 +4111,8 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   bool IsRegCall = CallingConv == llvm::CallingConv::X86_RegCall;
 #if INTEL_CUSTOMIZATION
   bool IsSVMLCall = CallingConv == llvm::CallingConv::SVML_Unified;
+  const Type *Base = nullptr;
+  uint64_t NumElts = 0;
 #endif // INTEL_CUSTOMIZATION
 
   // Keep track of the number of assigned registers.
@@ -4057,10 +4121,7 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   unsigned NeededInt, NeededSSE;
 
   if (!::classifyReturnType(getCXXABI(), FI, *this)) {
-#if INTEL_CUSTOMIZATION
-    if ((IsSVMLCall || IsRegCall) &&
-        FI.getReturnType()->getTypePtr()->isRecordType() &&
-#endif // INTEL_CUSTOMIZATION
+    if (IsRegCall && FI.getReturnType()->getTypePtr()->isRecordType() &&
         !FI.getReturnType()->getTypePtr()->isUnionType()) {
       FI.getReturnInfo() =
           classifyRegCallStructType(FI.getReturnType(), NeededInt, NeededSSE);
@@ -4078,6 +4139,12 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
       // Complex Long Double Type is passed in Memory when Regcall
       // calling convention is used.
       FI.getReturnInfo() = getIndirectReturnResult(FI.getReturnType());
+#if INTEL_CUSTOMIZATION
+    else if (IsSVMLCall &&
+             isSVMLStructure(Context, FI.getReturnType(), Base, NumElts))
+      FI.getReturnInfo() =
+          classifySVMLStructure(Base, NumElts, FreeSSERegs, /*IsReturn=*/true);
+#endif // INTEL_CUSTOMIZATION
     else
       FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
   }
@@ -4099,9 +4166,7 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
        it != ie; ++it, ++ArgNo) {
     bool IsNamedArg = ArgNo < NumRequiredArgs;
 
-#if INTEL_CUSTOMIZATION
-    if ((IsSVMLCall || IsRegCall) && it->type->isStructureOrClassType())
-#endif // INTEL_CUSTOMIZATION
+    if (IsRegCall && it->type->isStructureOrClassType())
       it->info = classifyRegCallStructType(it->type, NeededInt, NeededSSE);
 #if INTEL_CUSTOMIZATION
     else if (IsSVMLCall &&
@@ -4111,6 +4176,12 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
       it->info = ABIArgInfo::getDirect(llvm::VectorType::get(
           llvm::Type::getInt1Ty(CGT.getLLVMContext()),
           llvm::ElementCount::getFixed(Context.getIntWidth(it->type))));
+      NeededInt = 0;
+      NeededSSE = 0;
+    } else if (IsSVMLCall &&
+               isSVMLStructure(Context, it->type, Base, NumElts)) {
+      it->info =
+          classifySVMLStructure(Base, NumElts, FreeSSERegs, /*IsReturn=*/false);
       NeededInt = 0;
       NeededSSE = 0;
     }
@@ -4417,17 +4488,8 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
   uint64_t NumElts = 0;
 
 #if INTEL_CUSTOMIZATION
-  if (IsSVMLCall && Ty->isStructureType()) {
-    const RecordDecl *RD = Ty->getAs<RecordType>()->getDecl();
-    if (isSVMLStructure(getContext(), RD, Base, NumElts)) {
-      bool UseSSERegs = Base->isRealFloatingType() || Base->isVectorType();
-      if (!(UseSSERegs && FreeSSERegs < NumElts)) {
-        if (UseSSERegs)
-          FreeSSERegs -= NumElts;
-        return IsReturnType ? ABIArgInfo::getDirect() : ABIArgInfo::getExpand();
-      }
-    }
-  }
+  if (IsSVMLCall && isSVMLStructure(getContext(), Ty, Base, NumElts))
+    return classifySVMLStructure(Base, NumElts, FreeSSERegs, IsReturnType);
 #endif // INTEL_CUSTOMIZATION
 
   // vectorcall adds the concept of a homogenous vector aggregate, similar to
