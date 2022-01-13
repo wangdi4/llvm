@@ -108,9 +108,17 @@ enum class GroupOperation : uint32_t {
   ExclusiveScan = 2
 };
 
-enum class MatrixLayout { RowMajor, ColumnMajor, PackedA, PackedB };
+enum class MatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  PackedA = 2,
+  PackedB = 3
+};
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 1c9f9f852f7eaa367fdf92fdfe00fc0d838bf09b
 // TODO: replace the following W/A with a better solution when we have it.
 // The following structure is used to represent the joint matrix type in the
 // LLVM IR. The structure has a pointer to a multidimensional array member which
@@ -130,7 +138,10 @@ template <typename T, std::size_t R, std::size_t C, MatrixLayout U,
 struct __spirv_JointMatrixINTEL {
   T (*Value)[R][C][static_cast<size_t>(U) + 1][static_cast<size_t>(S) + 1];
 };
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 1c9f9f852f7eaa367fdf92fdfe00fc0d838bf09b
 
 } // namespace __spv
 
