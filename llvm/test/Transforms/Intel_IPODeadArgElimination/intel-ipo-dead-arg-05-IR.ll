@@ -3,7 +3,7 @@
 
 ; This test case checks that IPO simplified dead argument elimination won't
 ; be performed since function @foo is set as naked. This is the same
-; test case as intel-ipo-dead-arg-08.ll but it checks the IR.
+; test case as intel-ipo-dead-arg-05.ll but it checks the IR.
 
 ; CHECK: define internal float @foo(float* %0, float* %1, i64 %2, i64 %3) #1 {
 ; CHECK-NEXT:   %5 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %2, i64 %3, float* nonnull elementtype(float) %0, i64 %2)
