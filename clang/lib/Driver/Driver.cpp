@@ -5089,7 +5089,10 @@ class OffloadingActionBuilder final {
         auto *SYCLDeviceLibsUnbundleAction =
             C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
         addDeviceDepences(SYCLDeviceLibsUnbundleAction);
-        DeviceLinkObjects.push_back(SYCLDeviceLibsUnbundleAction);
+
+        auto *ConvertSPIRVAction = C.MakeAction<SpirvToIrWrapperJobAction>(
+            SYCLDeviceLibsUnbundleAction, types::TY_Tempfilelist);
+        DeviceLinkObjects.push_back(ConvertSPIRVAction);
         PerflibAdded = true;
       };
       // Only add the MKL static lib if used with -static or is Windows.
