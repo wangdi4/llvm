@@ -2937,9 +2937,10 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       (!IsArraySection || (NumElems && isa<ConstantInt>(NumElems)));
   if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArraySection) {
     if (GenTreeUpdate) {
-      Builder.SetInsertPoint(AtomicFreeRedLocalUpdateInfos.lookup(W)
-                                 .LocalId->getParent()
-                                 ->getTerminator());
+      assert(AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier &&
+             "No existing tree update barrier found");
+      Builder.SetInsertPoint(
+          AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier);
       Type *BufTy = nullptr;
       std::tie(BufTy, std::ignore, std::ignore) =
           VPOParoptUtils::getItemInfo(RedI);
@@ -2967,9 +2968,14 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
 
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).ExitBB->getTerminator());
-      auto *Final =
-          Builder.CreateLoad(RedStore->getOperand(0)->getType(), LocalPtr);
-      Builder.CreateStore(Final, RedStore->getPointerOperand());
+      auto *RedValType = RedStore->getValueOperand()->getType();
+      auto *RedVarPtr = RedStore->getPointerOperand();
+      auto *LocalVal = Builder.CreateLoad(RedValType, LocalPtr);
+      auto *CurLocal = Builder.CreateLoad(RedValType, RedVarPtr);
+      auto *RedOp = cast<Instruction>(
+          genReductionScalarOp(RedI, Builder, RedValType, CurLocal, LocalVal));
+
+      Builder.CreateStore(RedOp, RedVarPtr);
       RedStore->setOperand(1, LocalPtr);
     }
     // do not generate another loop if we already have one
@@ -3032,14 +3038,6 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
         (IsArraySection ? PreheaderBB : EntryBB)->getTerminator();
     Builder.SetInsertPoint(InsertPt);
 
-    auto *EntryBarrierCI = VPOParoptUtils::genCall(
-        "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
-        {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
-         ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
-         ConstantInt::get(Builder.getInt32Ty(), spirv::SequentiallyConsistent |
-                                                    spirv::WorkgroupMemory)},
-        InsertPt);
-    EntryBarrierCI->getCalledFunction()->setConvergent();
     LocalSize->moveBefore(InsertPt);
     LocalId->moveBefore(InsertPt);
     IVInit = cast<Instruction>(Builder.CreateLShr(
@@ -3076,14 +3074,16 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
     } else {
       LocalPtr = Rhs2->getPointerOperand();
     }
-    auto *BarrierCI = VPOParoptUtils::genCall(
+    auto *EntryBarrierCI = VPOParoptUtils::genCall(
         "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
         {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
          ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
          ConstantInt::get(Builder.getInt32Ty(), spirv::SequentiallyConsistent |
                                                     spirv::WorkgroupMemory)},
         Builder.GetInsertBlock()->getTerminator());
-    BarrierCI->getCalledFunction()->setConvergent();
+    EntryBarrierCI->getCalledFunction()->setConvergent();
+    if (!IsArraySection)
+      AtomicFreeRedLocalUpdateInfos[W].EntryBarrier = EntryBarrierCI;
   }
 
   Builder.SetInsertPoint(HeaderBB, HeaderBB->begin());
@@ -3193,7 +3193,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
       auto *MTC =
           Builder.CreateICmpNE(LocalId, ConstantInt::getNullValue(SizeTy));
-      SplitBlockAndInsertIfThen(MTC, RedOp, false, nullptr, DT, LI, ExitBB2);
+      SplitBlockAndInsertIfThen(MTC, LocalVal, false, nullptr, DT, LI, ExitBB2);
       Builder.SetInsertPoint(ExitBB2);
       auto *ExitBB1 = ExitBB->getTerminator()->getSuccessor(1);
 
@@ -3967,10 +3967,11 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   assert((IsInit || SrcBegin) && "Null source address for reduction fini.");
   BasicBlock *BodyBB = nullptr, *DoneBB = nullptr;
 
-  auto GenArrSecLoopBegin = [NumElements, IsInit, &DT, &BodyBB, DestElementTy, &W,
-                             &DoneBB, &DestEnd,
+  auto GenArrSecLoopBegin = [&RedI, NumElements, IsInit, &DT, &BodyBB,
+                             DestElementTy, &W, &DoneBB, &DestEnd,
                              this](IRBuilder<> &Builder, Value *DestBegin,
-                                   Value *SrcBegin, Instruction *SplitPt, StringRef BBNameSuffix = "") {
+                                   Value *SrcBegin, Instruction *SplitPt,
+                                   StringRef BBNameSuffix = "") {
     auto *EntryBB = SplitPt->getParent();
     DestEnd = Builder.CreateGEP(DestElementTy, DestBegin, NumElements);
     auto IsEmpty = Builder.CreateICmpEQ(
@@ -3979,7 +3980,11 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     BodyBB = SplitBlock(EntryBB, SplitPt, DT, LI);
     BodyBB->setName((IsInit ? "red.init.body" : "red.update.body") + BBNameSuffix);
 
-    if (AtomicFreeRedGlobalUpdateInfos.count(W) && !IsInit) {
+    if (AtomicFreeRedGlobalUpdateInfos.count(W) &&
+#ifdef INTEL_CUSTOMIZATION
+        !RedI->getIsF90DopeVector() &&
+#endif // INTEL_CUSTOMIZATION
+        !IsInit) {
       DoneBB = AtomicFreeRedGlobalUpdateInfos.lookup(W).LatchBB;
     } else {
       DoneBB = SplitBlock(BodyBB, BodyBB->getTerminator(), DT, LI);

@@ -68,9 +68,9 @@ target device_triples = "spir64"
 ; CHECK-LABEL: atomic.free.red.local.update.update.exit:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: %[[MTT:[^,]+]] = icmp ne i64 %[[LOCAL_ID]], 0
+; CHECK: br i1 %[[MTT]]
 ; CHECK: %[[LOCAL_VAL:[^,]+]] = load i32, i32 addrspace(3)* %[[LOCAL_BUF_PTR]]
 ; CHECK: %[[CUR_GLOBAL_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_PTR:[^,]+]], align 4
-; CHECK: br i1 %[[MTT]]
 ; CHECK: %[[NEW_GLOBAL_VAL:[^,]+]] = add i32 %[[CUR_GLOBAL_VAL]], %[[LOCAL_VAL]]
 ; CHECK: store i32 %[[NEW_GLOBAL_VAL]], i32 addrspace(1)* %[[GLOBAL_PTR]]
 ; CHECK-NOT: call spir_func void @__kmpc_atomic_{{.*}}_add(

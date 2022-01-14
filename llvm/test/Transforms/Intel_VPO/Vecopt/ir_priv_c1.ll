@@ -5,7 +5,7 @@
 ; outer loop
 define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: _Z3fooPiiS_:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: _Z3fooPiiS_:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -29,7 +29,7 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB3]], [[BB4:BB[0-9]+]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 -1, [[BB3]] ],  [ i64 [[VP_PRIV_IDX_BB:%.*]], [[BB4]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 -1, [[BB3]] ],  [ i64 [[VP_PRIV_IDX_BB3:%.*]], [[BB4]] ]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB4]] ]
 ; CHECK-NEXT:     double [[VP_CONV734]] = phi  [ double [[D_LPRIV_PROMOTED0:%.*]], [[BB3]] ],  [ double [[VP_CONV735]], [[BB4]] ]
 ; CHECK-NEXT:     i1 [[VP_TOBOOL:%.*]] = icmp eq i64 [[VP_INDVARS_IV]] i64 25
@@ -37,11 +37,11 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:       double [[VP_CI:%.*]] = sitofp i64 [[VP_INDVARS_IV]] to double
-; CHECK-NEXT:       double [[VP_ADD6]] = fdiv double [[VP_CI]] double [[VP_CONV734]]
+; CHECK-NEXT:       double [[VP_ADD6]] = fdiv double [[VP_CI]] double [[D_LPRIV_PROMOTED0]]
 ; CHECK-NEXT:       br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB0]], [[BB1]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB]] = phi  [ i64 [[VP_PRIV_IDX_HDR]], [[BB0]] ],  [ i64 [[VP_INDVARS_IV]], [[BB1]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB3]] = phi  [ i64 [[VP_PRIV_IDX_HDR]], [[BB0]] ],  [ i64 [[VP_INDVARS_IV]], [[BB1]] ]
 ; CHECK-NEXT:     double [[VP_CONV735]] = phi  [ double [[VP_CONV734]], [[BB0]] ],  [ double [[VP_ADD6]], [[BB1]] ]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 171
@@ -49,7 +49,7 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     double [[VP_CONV735_PRIV_FINAL]] = private-final-c double [[VP_CONV735]] i64 [[VP_PRIV_IDX_BB]] double [[D_LPRIV_PROMOTED0]]
+; CHECK-NEXT:     double [[VP_CONV735_PRIV_FINAL]] = private-final-c double [[VP_CONV735]] i64 [[VP_PRIV_IDX_BB3]] double [[D_LPRIV_PROMOTED0]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -80,7 +80,7 @@ omp.inner.for.body:                               ; preds = %if.end, %DIR.OMP.SI
 
 if.then:                                          ; preds = %omp.inner.for.body
   %ci = sitofp i64 %indvars.iv to double
-  %add6 = fdiv double %ci, %conv734
+  %add6 = fdiv double %ci, %d.lpriv.promoted
   br label %if.end
 
 if.end:                                           ; preds = %omp.inner.for.body, %if.then

@@ -1092,10 +1092,9 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
       Plan.getVPConstant(ConstantInt::get(InductionHeaderPhi->getType(), -1));
 
   VPBuilder::InsertPointGuard Guard(Builder);
-  if (Private.hasExitInstr() && isa<VPPHINode>(Private.getExitInst())) {
+  if (Private.hasExitInstr()) {
 
     // We have registerized private.
-    auto ExitPhi = cast<VPPHINode>(Private.getExitInst());
     VPPHINode *HeaderPhi = getRecurrentVPHINode(Private);
     assert(HeaderPhi && "Expected non-null header phi");
 
@@ -1152,9 +1151,10 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
     };
 
     // Add latch phi as operand to the header phi.
-    VPInstruction *LastPhi = getOrCreateIndexInst(ExitPhi);
+    VPInstruction *PrivExitInst = Private.getExitInst();
+    VPInstruction *LastPhi = getOrCreateIndexInst(PrivExitInst);
     VPBasicBlock *Latch = Loop.getLoopLatch();
-    assert(Plan.getDT()->dominates(ExitPhi->getParent(), Latch) &&
+    assert(Plan.getDT()->dominates(LastPhi->getParent(), Latch) &&
            "Exit PHI's parent block should dominate loop latch.");
     IndexStartPhi->addIncoming(LastPhi, Latch);
 
@@ -1164,8 +1164,8 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
                         ? cast<VPValue>(Builder.createLoad(
                               Private.getAllocatedType(), PrivateMem, nullptr,
                               "loaded.priv"))
-                        : cast<VPValue>(ExitPhi);
-    StringRef ExitName = ExitPhi ? ExitPhi->getName() : "";
+                        : cast<VPValue>(PrivExitInst);
+    StringRef ExitName = PrivExitInst ? PrivExitInst->getName() : "";
     Twine Name = ExitName + ".priv.final";
     VPValue *Orig = HeaderPhi->getIncomingValue(Loop.getLoopPreheader());
     VPInstruction *Final;
@@ -1173,7 +1173,9 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
       Final = Builder.create<VPPrivateFinalCondMem>(Name, Exit, LastPhi, Orig);
     else
       Final = Builder.create<VPPrivateFinalCond>(Name, Exit, LastPhi, Orig);
-    processFinalValue(Private, AI, Builder, *Final, Exit->getType(), Exit);
+
+    VPValue* StoreMem = Private.getIsMemOnly() ? AI : nullptr;
+    processFinalValue(Private, StoreMem, Builder, *Final, Exit->getType(), Exit);
     return;
   }
 
@@ -1350,38 +1352,157 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
   LLVM_DEBUG(Preheader->dump());
 }
 
-// Detect whether Inst is linked to a conditional private. That means it is a
-// VPPHINode and either has a VPPHINode from the loop header as operand or is
-// operand of VPPHINode from the loop header.
-// Returns pair: if the VPPHINode from header is found then
-// <headerPhi, PrivateKind::Conditional> and <nullptr, PrivateKind::Last>
-// otherwise.
-static std::pair<VPValue *, VPPrivate::PrivateKind>
-getPrivateKind(const VPInstruction *Inst, const VPBasicBlock *HeaderBB) {
+// Check whether last private phi has correct users. The correct user is
+// either phi or select instructions, or hir-copy, or \p ExitI. Other uses mean
+// that we have a dependency between loop iterations and thus we can't vectorize
+// the loop.
+static bool checkLastPrivPhiUsers(const VPPHINode *VPhi,
+                                  const VPInstruction *ExitI) {
+  SmallVector<const VPInstruction *, 4> Worklist;
+  SmallPtrSet<const VPValue *, 4> Visited;
 
-  if (auto Phi = dyn_cast<VPPHINode>(Inst)) {
+  Worklist.push_back(VPhi);
+  Visited.insert(ExitI);
 
-    auto isHeaderPhi = [HeaderBB](const VPValue *V) {
-      if (auto I = dyn_cast<VPPHINode>(V))
-        if (I->getParent() == HeaderBB)
-          return true;
+  while (!Worklist.empty()) {
+    const VPInstruction *Cur = Worklist.pop_back_val();
+    // If it's not ExitI and not phi and not hir-copy and not select with 0th
+    // operand not in the visited set then it's an incorrect use.
+    if (Cur != ExitI && !isa<VPPHINode>(Cur) && !isa<VPHIRCopyInst>(Cur) &&
+        !(Cur->getOpcode() == Instruction::Select &&
+          Visited.count(Cur->getOperand(0)) == 0)) {
+      LLVM_DEBUG(dbgs() << "Incorrect use of private: \n");
+      LLVM_DEBUG(Cur->dump());
       return false;
-    };
+    }
+    if (!Visited.insert(Cur).second)
+      continue;
+    for (auto *U : Cur->users()) {
+      if (auto *I = dyn_cast<VPInstruction>(U)) {
+        Worklist.push_back(I);
+      } else {
+        // This means it's a second liveout.
+        LLVM_DEBUG(dbgs() << "Second liveout of conditional private phi: \n");
+        LLVM_DEBUG(Cur->dump());
+        return false;
+      }
+    }
+  }
+  return true;
+}
 
-    auto IterO = llvm::find_if(Phi->operands(), isHeaderPhi);
-    if (IterO != Phi->op_end())
-      return std::make_pair(*IterO, VPPrivate::PrivateKind::Conditional);
+// Return true if the \p ExitI does not have any recurrent phi in its operand
+// chain, except inductions.
+//
+static bool checkUncondLastPrivOperands(const VPInstruction *ExitI,
+                                        VPLoopEntityList *LE) {
+  SmallVector<const VPInstruction *, 4> Worklist;
+  SmallPtrSet<const VPInstruction *, 4> Visited;
 
-    auto Iter = llvm::find_if(Phi->users(), isHeaderPhi);
-    if (Iter != Phi->user_end())
-      return std::make_pair(*Iter, VPPrivate::PrivateKind::Conditional);
+  const VPBasicBlock *HeaderBB = LE->getLoop().getHeader();
+
+  Worklist.push_back(ExitI);
+  while (!Worklist.empty()) {
+    const VPInstruction *Cur = Worklist.pop_back_val();
+    if (auto VPhi = dyn_cast<VPPHINode>(Cur)) {
+      if (VPhi->getParent() == HeaderBB && !LE->getInduction(VPhi)) {
+        LLVM_DEBUG(
+            dbgs()
+            << "Incorrect recurrent operand of unconditional private: \n");
+        LLVM_DEBUG(Cur->dump());
+        return false;
+      }
+    }
+    if (!Visited.insert(Cur).second)
+      continue;
+    for (auto *Op : Cur->operands())
+      if (auto *VInst = dyn_cast<VPInstruction>(Op)) {
+        if (VInst->getOpcode() == Instruction::Load) {
+          // Skip a load, it produces a new value that does not use operands
+          // directly.
+          continue;
+        }
+        Worklist.push_back(VInst);
+      }
+  }
+  return true;
+}
+
+// Calculate kind of a last private, using its exit instruction \p Inst. Returns
+// optional pair <VPValue*, PrivateKind>. For conditonal last privates the
+// pair.first is the VPHINode from the loop header and PrivateKind is
+// VPPrivate::PrivateKind::Conditional. For unconditional last privates the pair
+// is <nullptr, PrivateKind::Last>, and for non-vectorizable cases the return
+// value is None.
+
+using PrivKindPair = Optional<std::pair<VPValue *, VPPrivate::PrivateKind>>;
+
+static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
+  const VPBasicBlock *HeaderBB = LE->getLoop().getHeader();
+  auto IsHeaderPhi = [HeaderBB](const VPValue *V) {
+    auto *I = dyn_cast<VPPHINode>(V);
+    return I && I->getParent() == HeaderBB;
+  };
+
+  if (IsHeaderPhi(Inst)) {
+    if (LE->getInduction(Inst)) {
+      // Second exit of the induction can be classified as non conditional
+      // lastprivate.
+      return PrivKindPair(std::make_pair(Inst, VPPrivate::PrivateKind::Last));
+    }
+    // TODO: create a check for operands of the header phi, there should be no
+    // cross iteration dependencies.
+    return None;
   }
 
-  return std::make_pair(nullptr, VPPrivate::PrivateKind::Last);
+  auto Iter = llvm::find_if(Inst->users(), IsHeaderPhi);
+  if (Iter != Inst->user_end()) {
+    // If it's used in a header phi then it should be conditional. In such cases
+    // we allow the uses only in the header and outside of the loop, i.e. only
+    // two uses. Preventing, e.g., case like below (%exitI is declared as last
+    // private).
+    //
+    //    %header_phi = phi [%start_val], [%exitI]
+    //    %cond = some_comparison ...
+    //    %exitI = select %cond, %some_other, %header_phi
+    //    store %exitI, %some_ptr
+    //
+    // 1) According to OMP standard, the %exitI has undefined values in the
+    //    masked lanes (at least on the first vector itertaion).
+    // 2) Consider the following mask at some vector interation and
+    //    the values that will be stored by scalar execution.
+    //    iter#    0, 1,  2,  3,  4,  5,  6, 7
+    //    mask  =  0, 0,  1,  0,  0,  1,  0, 1
+    //    exitI =  p, p, v2, v2, v2, v5, v5, v7
+    //    Here p is value from the last lane of the previous vector iteration,
+    //    vN are the values calculated in the corresponding lanes)
+    //
+    // I.e. the values in the masked lanes should be filled in with the values
+    // from the latest previous unmasked lane. It's not simple to place such
+    // values correctly in the vector register, and even that is possible to
+    // implement the resulting code will be very slow. Until we don't have
+    // support for such code generation (and the proper cost model) we bail out.
+    //
+    if (Inst->getNumUsers() != 2)
+      return PrivKindPair(
+          std::make_pair(nullptr, VPPrivate::PrivateKind::NonLast));
+
+    if (checkLastPrivPhiUsers(cast<VPPHINode>(*Iter), Inst))
+      return PrivKindPair(
+          std::make_pair(*Iter, VPPrivate::PrivateKind::Conditional));
+
+    return None;
+  }
+
+  // A value which is assigned uconditionally. We consider it as a safe
+  // last private if does not use any recurrence, except known inductions.
+  if (checkUncondLastPrivOperands(Inst, LE))
+    return PrivKindPair(std::make_pair(nullptr, VPPrivate::PrivateKind::Last));
+
+  return None;
 }
 
 void VPLoopEntityList::analyzeImplicitLastPrivates() {
-  VPBasicBlock *HeaderBB = Loop.getHeader();
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB) {
 
@@ -1399,10 +1520,15 @@ void VPLoopEntityList::analyzeImplicitLastPrivates() {
       if (const VPInduction *Ind = getInduction(&Inst))
         if (&Inst == getInductionLoopExitInstr(Ind))
           continue;
+      PrivKindPair PrivPair = getPrivateKind(&Inst, this);
+      if (!PrivPair)
+        // Liveout is not recognized as last private, will bailout later.
+        continue;
 
       VPPrivate::PrivateKind Kind;
       VPValue *HeaderPhi;
-      std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
+      std::tie(HeaderPhi, Kind) = *PrivPair;
+
       // Add new private with empty alias list
       VPEntityAliasesTy EmptyAliases;
       VPPrivate *Priv =
@@ -1924,21 +2050,26 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   return LoopExitVPI;
 }
 
-void PrivateDescr::updateKind(const VPLoop *Loop) {
+bool PrivateDescr::updateKind(VPLoopEntityList *LE) {
   if (ExitInst && ExitInst->getOpcode() != Instruction::Store) {
     setIsMemOnly(false);
+    PrivKindPair PrivPair = getPrivateKind(ExitInst, LE);
+    if (!PrivPair)
+      return false;
     VPPrivate::PrivateKind Kind = VPPrivate::PrivateKind::Last;
-    std::tie(std::ignore, Kind) = getPrivateKind(ExitInst, Loop->getHeader());
+    std::tie(std::ignore, Kind) = *PrivPair;
     IsLast = Kind >= VPPrivate::PrivateKind::Last;
     IsConditional = Kind == VPPrivate::PrivateKind::Conditional;
   }
+  return true;
 }
 
 void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   using PrivKind = VPPrivate::PrivateKind;
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-  updateKind(Loop);
+  if (!updateKind(LE))
+    return;
 
   PrivKind K = IsLast ? (IsConditional ? PrivKind::Conditional : PrivKind::Last)
                       : PrivKind::NonLast;

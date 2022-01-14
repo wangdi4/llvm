@@ -1473,8 +1473,9 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
           return false;
         }
       } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
-        // All liveouts should be recognized via legality at this point.
-        assert(false && "Unrecognized liveout found.");
+        // Some liveouts are left unrecognized due to unvectorizable use-def
+        // chains.
+        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.");
         return false;
       }
     }
