@@ -933,7 +933,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   assert(TI.getCharWidth() == 8 && "Only support 8-bit char so far");
   Builder.defineMacro("__CHAR_BIT__", Twine(TI.getCharWidth()));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#366613 - define macro __LONG_DOUBLE_SIZE__ in IntelCompat mode.
   if (LangOpts.IntelCompat) {
@@ -944,13 +943,12 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__I__", "1j");
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   Builder.defineMacro("__BOOL_WIDTH__", Twine(TI.getBoolWidth()));
   Builder.defineMacro("__SHRT_WIDTH__", Twine(TI.getShortWidth()));
   Builder.defineMacro("__INT_WIDTH__", Twine(TI.getIntWidth()));
   Builder.defineMacro("__LONG_WIDTH__", Twine(TI.getLongWidth()));
   Builder.defineMacro("__LLONG_WIDTH__", Twine(TI.getLongLongWidth()));
->>>>>>> bf7d9970ba0ac5ecfa1a469086f5789de5c94e3f
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
   DefineTypeSize("__SHRT_MAX__", TargetInfo::SignedShort, TI, Builder);
