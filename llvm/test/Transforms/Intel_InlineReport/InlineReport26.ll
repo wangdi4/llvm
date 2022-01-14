@@ -329,6 +329,18 @@ attributes #6 = { noreturn }
 ; CHECK-NEW: EXTERN: abort
 ; CHECK-NEW: EXTERN: abort
 
+; CHECK-NEW-LABEL: COMPILE FUNC: myopen
+; CHECK-NEW: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-NEW: EXTERN: warn_open_too_many_arguments
+; CHECK-NEW: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-NEW: myopen2{{.*}}Callee has noinline attribute
+; CHECK-NEW: llvm.va_arg_pack{{.*}}Callee is intrinsic
+; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
+
+; CHECK-NEW-LABEL: COMPILE FUNC: myopener
+; CHECK-NEW: llvm.va_arg_pack{{.*}}Callee is intrinsic
+; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
+
 ; CHECK-NEW-LABEL: COMPILE FUNC: main
 ; CHECK-NEW: INLINE: myopener{{.*}}Callee is always inline
 ; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
@@ -338,6 +350,18 @@ attributes #6 = { noreturn }
 ; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute]]
 ; CHECK-NEW: EXTERN: abort
 
+; CHECK-MD-LABEL: COMPILE FUNC: myopen
+; CHECK-MD: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-MD: EXTERN: warn_open_too_many_arguments
+; CHECK-MD: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-MD: myopen2{{.*}}Callee has noinline attribute
+; CHECK-MD: llvm.va_arg_pack{{.*}}Callee is intrinsic
+; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
+
+; CHECK-MD-LABEL: COMPILE FUNC: myopener
+; CHECK-MD: llvm.va_arg_pack{{.*}}Callee is intrinsic
+
+; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
 ; CHECK-MD-LABEL: COMPILE FUNC: myopen2
 ; CHECK-MD: EXTERN: abort
 ; CHECK-MD: EXTERN: abort
