@@ -10069,7 +10069,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
         ",+SPV_INTEL_fpga_dsp_control"
         ",+SPV_INTEL_arithmetic_fence"
-        ",+SPV_INTEL_runtime_aligned"
         ",+SPV_INTEL_task_sequence"; // INTEL
 #if INTEL_CUSTOMIZATION
     if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd)) {
@@ -10081,13 +10080,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     if (!C.getDriver().isFPGAEmulationMode()) {
 #endif // INTEL_CUSTOMIZATION
-      // Enable SPV_INTEL_usm_storage_classes only for FPGA hardware,
-      // since it adds new storage classes that represent global_device and
-      // global_host address spaces, which are not supported for all
-      // targets. With the extension disabled the storage classes will be
-      // lowered to CrossWorkgroup storage class that is mapped to just
-      // global address space.
-      ExtArg += ",+SPV_INTEL_usm_storage_classes";
+      // Enable several extensions on FPGA H/W exclusively
+      ExtArg += ",+SPV_INTEL_usm_storage_classes"
+                ",+SPV_INTEL_runtime_aligned";
 #if INTEL_CUSTOMIZATION
       // Disable optnone for FPGA hardware
       ExtArg += ",-SPV_INTEL_optnone";
