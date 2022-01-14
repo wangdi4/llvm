@@ -1049,15 +1049,10 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   // Try to simplify some other binary operator values.
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
-<<<<<<< HEAD
-    assert(Preference != WantBlockAddress
-            && "A binary operator creating a block address?");
-
-    ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
-=======
     if (Preference != WantInteger)
       return false;
->>>>>>> acb8de565eaa2638d18362085085deb4628435b4
+
+    ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
       PredValueInfoTy LHSVals;
       computeValueKnownInPredecessorsImpl(BO->getOperand(0), BB, LHSVals,
