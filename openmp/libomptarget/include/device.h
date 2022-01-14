@@ -257,6 +257,7 @@ typedef std::map<__tgt_bin_desc *, PendingCtorDtorListsTy>
     PendingCtorsDtorsPerLibrary;
 #if INTEL_COLLAB
 typedef std::vector<std::set<void *>> UsedPtrsTy;
+typedef std::vector<__omp_offloading_fptr_map_t> FnPtrsTy;
 #endif // INTEL_COLLAB
 
 struct DeviceTy {
@@ -279,6 +280,8 @@ struct DeviceTy {
   std::mutex UsedPtrsMtx;
   std::map<int32_t, std::vector<void *>> LambdaPtrs;
   std::mutex LambdaPtrsMtx;
+  std::mutex FnPtrMapMtx;
+  FnPtrsTy FnPtrs;
 #endif // INTEL_COLLAB
 
   // NOTE: Once libomp gains full target-task support, this state should be
@@ -426,6 +429,7 @@ struct DeviceTy {
   int32_t commandBatchEnd(int32_t BatchLevel = 1);
   void kernelBatchBegin(uint32_t MaxKernels);
   void kernelBatchEnd(void);
+  int32_t set_function_ptr_map(void);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return
