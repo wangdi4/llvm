@@ -2561,6 +2561,8 @@ public:
     case ISD::SHL:
     case ISD::SRL:
     case ISD::SRA:
+    case ISD::ROTL:
+    case ISD::ROTR:
     case ISD::SDIV:
     case ISD::UDIV:
     case ISD::SREM:
@@ -2680,9 +2682,9 @@ public:
                       getApproximateEVTForLLT(ToTy, DL, Ctx));
   }
 
-  /// Return true if sign-extension of value \p V from FromTy to ToTy is
-  /// cheaper than zero-extension, where \p V can be SDValue() if unknown.
-  virtual bool isSExtCheaperThanZExt(EVT FromTy, EVT ToTy, SDValue V) const {
+  /// Return true if sign-extension from FromTy to ToTy is cheaper than
+  /// zero-extension.
+  virtual bool isSExtCheaperThanZExt(EVT FromTy, EVT ToTy) const {
     return false;
   }
 
