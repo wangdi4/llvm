@@ -47,6 +47,7 @@ void SYCLInstallationDetector::print(llvm::raw_ostream &OS) const {
   }
 }
 
+<<<<<<< HEAD
 const char *SYCL::Linker::constructLLVMSpirvCommand(
     Compilation &C, const JobAction &JA, const InputInfo &Output,
     StringRef OutputFilePrefix, bool ToBc, const char *InputFileName) const {
@@ -87,6 +88,8 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(
   return OutputFileName;
 }
 
+=======
+>>>>>>> 979bf95c995db6078ae3696d16b4030b8f29ef79
 static void addFPGATimingDiagnostic(std::unique_ptr<Command> &Cmd,
                                     Compilation &C) {
   const char *Msg = C.getArgs().MakeArgString(
@@ -424,22 +427,11 @@ void SYCL::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     return;
   }
 
-  // We want to use llvm-spirv linker to link spirv binaries before putting
-  // them into the fat object.
-  // Each command outputs different files.
   InputInfoList SpirvInputs;
   for (const auto &II : Inputs) {
     if (!II.isFilename())
       continue;
-    if (!Args.getLastArgValue(options::OPT_fsycl_device_obj_EQ)
-             .equals_insensitive("spirv"))
-      SpirvInputs.push_back(II);
-    else {
-      const char *LLVMSpirvOutputFile = constructLLVMSpirvCommand(
-          C, JA, Output, Prefix, true, II.getFilename());
-      SpirvInputs.push_back(InputInfo(types::TY_LLVM_BC, LLVMSpirvOutputFile,
-                                      LLVMSpirvOutputFile));
-    }
+    SpirvInputs.push_back(II);
   }
 
   constructLLVMLinkCommand(C, JA, Output, Args, SubArchName, Prefix,
