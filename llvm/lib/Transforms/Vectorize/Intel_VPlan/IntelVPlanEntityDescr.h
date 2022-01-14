@@ -185,10 +185,6 @@ template <typename Value> class DescrWithAliases : public DescrValue<Value> {
   /// Vector of Aliases for particular private value.
   SmallVector<std::unique_ptr<DescrValue<Value>>, 8> Aliases;
 
-  inline decltype(auto) aliases() const {
-    return map_range(Aliases, [](auto &UPtr) { return UPtr.get(); });
-  }
-
 protected:
   // Required by descendent in IntelVPlanHCFGBuilderHIR.h
   DescrWithAliases(Value *RefV, DescrKind K) : DescrValue<Value>(RefV, K) {}
@@ -223,6 +219,10 @@ public:
     DescrValue<Value>::operator=(std::move(Other));
     std::swap(Aliases, Other.Aliases);
     return *this;
+  }
+
+  inline decltype(auto) aliases() const {
+    return map_range(Aliases, [](auto &UPtr) { return UPtr.get(); });
   }
 
   /// Add new alias for private value.

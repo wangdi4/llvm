@@ -773,32 +773,47 @@ VPOVectorizationLegality::getLiveOutPhiOperand(const PHINode *Phi) const {
 //
 // We detect two potential cases for private aliases here.
 //
-// 1) %LoopPreheader:
+// 1) LoopPreheader:
 //        %alias = load %private
 //        ...
-//    %LoopHeader:
+//    LoopHeader:
 //        %priv_phi = phi [%alias, %LoopPreheader], ...
 //
-// 2) %LoopPreheader:
+// 2) LoopPreheader:
 //        ...
-//    %LoopHeader:
+//    LoopHeader:
 //        %priv_phi = phi [%some_const, %LoopPreheader], [%liveout_phi, %Latch]
 //        ...
-//    %Body:
+//    Body:
 //        %priv = something
 //        ...
-//    %Latch (or any other block)
+//    Latch (or any other block)
 //        %liveout_phi = phi [%priv_phi, %LoopHeader], [%priv, %Body]
 //        ...
-//    %LoopExit:
+//    LoopExit:
 //        %lcssa_phi = phi [%liveout_phi, %Latch]
 //        store %lcssa.phi, %private
+//
+// 3) LoopPreheader:
+//        %alias = load %private
+//        ...
+//    LoopHeader:
+//        %priv_phi = phi [%alias, %loop_preheader], [%priv_exit, %latch]
+//        ...
+//    Latch:
+//       %priv_exit = some_inst
+//       ...
+//    outside_loop:
+//       ; no store to %private, just using %priv_exit
 //
 // In the first case, if the load from private is used in the phi then phi is
 // alias for private.
 // In the second case, we can have a check for both phis, from loop header and
 // liveout phi from latch. The loop header phi is checked when the check in the
 // first case does not work, e.g. the incoming value is constant.
+// In the third case, if the load from private is used in the phi then phi is
+// alias for private. The live out value is not stored into private but we can
+// check the use in the header phi and propagate alias-ness from that phi.
 //
 // No other data dependency checks are done because we do this for simd loops
 // only.
@@ -808,16 +823,24 @@ bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
     return false;
   bool IsHeaderPhi = Phi->getParent() == TheLoop->getHeader();
   const Instruction *LiveOut = Phi;
+  const BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
+
+  auto CheckPhiPreheaderOperand =
+      [PreheaderBB, this](const Instruction *LOut, const PHINode *Phi) {
+        const Value *PHIncomingVal = Phi->getIncomingValueForBlock(PreheaderBB);
+        if (auto *Priv = findPrivateOrAlias(PHIncomingVal)) {
+          updatePrivateExitInst(Priv, LOut);
+          return true;
+        }
+        return false;
+      };
+
   if (IsHeaderPhi) {
-    const BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
-    const Value *PHIncomingVal = Phi->getIncomingValueForBlock(PreheaderBB);
     LiveOut = getLiveOutPhiOperand(Phi);
     if (!LiveOut)
       return false;
-    if (auto *Priv = findPrivateOrAlias(PHIncomingVal)) {
-      updatePrivateExitInst(Priv, LiveOut);
+    if (CheckPhiPreheaderOperand(LiveOut, Phi))
       return true;
-    }
     if (!isa<PHINode>(LiveOut))
       return false;
   } else if (!isLiveOut(Phi))
@@ -828,6 +851,17 @@ bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
     updatePrivateExitInst(Priv, LiveOut);
     return true;
   }
+  // Check whether the LiveOut is used by a header phi and that phi is alias for
+  // a lastprivate. The case 3) above.
+  auto HeaderUserIt = llvm::find_if(
+      LiveOut->users(), [LoopHdr = TheLoop->getHeader()](const User *U) {
+        auto HdrPhi = dyn_cast<PHINode>(U);
+        return HdrPhi && HdrPhi->getParent() == LoopHdr;
+      });
+  if (HeaderUserIt != LiveOut->user_end()) {
+    return CheckPhiPreheaderOperand(LiveOut, cast<PHINode>(*HeaderUserIt));
+  }
+
   return false;
 }
 

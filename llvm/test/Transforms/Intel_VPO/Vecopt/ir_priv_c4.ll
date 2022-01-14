@@ -4,7 +4,7 @@
 
 define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture readonly %arr2) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
@@ -12,13 +12,11 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-NEXT:    Linked values: i64 [[VP__OMP_IV_LOCAL_015]], i64 [[VP_ADD5]], i64 [[VP__OMP_IV_LOCAL_015_IND_INIT:%.*]], i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i64* [[RET_LPRIV0:%.*]], i64* [[VP_RET_LPRIV:%.*]],
+; CHECK-NEXT:    Exit instr: i64 [[VP_RET_LCSSA26:%.*]] = phi  [ i64 [[VP_RET_LCSSA25:%.*]], [[BB0]] ],  [ i64 [[VP_RET:%.*]], [[BB1:BB[0-9]+]] ]
+; CHECK-NEXT:    Linked values: i64 [[VP_RET_LCSSA26]], i64* [[RET_LPRIV0:%.*]], i64 [[VP_RET_LCSSA25]], i64* [[VP_RET_LPRIV:%.*]], i64 [[VP_RET_LCSSA26_PRIV_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: i64* [[RET_LPRIV0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Exit instr: i64 [[VP_RET_LCSSA26:%.*]] = phi  [ i64 [[VP_RET_LCSSA25:%.*]], [[BB0]] ],  [ i64 [[VP_RET:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: i64 [[VP_RET_LCSSA26]], i64 [[VP_RET_LCSSA25]], i64 [[VP_RET_LCSSA26_PRIV_FINAL:%.*]],
-; CHECK:         [[BB2:BB[0-9]+]]: # preds:
+; CHECK-NEXT:    [[BB2:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -29,7 +27,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB3]], [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_RET_LCSSA25]] = phi  [ i64 [[RET_LPRIV_PROMOTED0:%.*]], [[BB3]] ],  [ i64 [[VP_RET_LCSSA26]], [[BB4]] ]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 -1, [[BB3]] ],  [ i64 [[VP_PRIV_IDX_BB:%.*]], [[BB4]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 -1, [[BB3]] ],  [ i64 [[VP_PRIV_IDX_BB4:%.*]], [[BB4]] ]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015]] = phi  [ i64 [[VP__OMP_IV_LOCAL_015_IND_INIT]], [[BB3]] ],  [ i64 [[VP_ADD5]], [[BB4]] ]
 ; CHECK-NEXT:     i64* [[VP_PTRIDX:%.*]] = getelementptr inbounds i64* [[ARR20:%.*]] i64 [[VP__OMP_IV_LOCAL_015]]
 ; CHECK-NEXT:     i64 [[VP0:%.*]] = load i64* [[VP_PTRIDX]]
@@ -52,7 +50,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-NEXT:       br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB0]], [[BB1]]
-; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB]] = phi  [ i64 [[VP_PRIV_IDX_HDR]], [[BB0]] ],  [ i64 [[VP__OMP_IV_LOCAL_015]], [[BB1]] ]
+; CHECK-NEXT:     i64 [[VP_PRIV_IDX_BB4]] = phi  [ i64 [[VP_PRIV_IDX_HDR]], [[BB0]] ],  [ i64 [[VP__OMP_IV_LOCAL_015]], [[BB1]] ]
 ; CHECK-NEXT:     i64 [[VP_RET_LCSSA26]] = phi  [ i64 [[VP_RET_LCSSA25]], [[BB0]] ],  [ i64 [[VP_RET]], [[BB1]] ]
 ; CHECK-NEXT:     i64 [[VP_ADD5]] = add i64 [[VP__OMP_IV_LOCAL_015]] i64 [[VP__OMP_IV_LOCAL_015_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND27:%.*]] = icmp eq i64 [[VP_ADD5]] i64 100
@@ -60,7 +58,7 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture readonly %arr1, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_015_IND_FINAL]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i64 [[VP_RET_LCSSA26_PRIV_FINAL]] = private-final-c i64 [[VP_RET_LCSSA26]] i64 [[VP_PRIV_IDX_BB]] i64 [[RET_LPRIV_PROMOTED0]]
+; CHECK-NEXT:     i64 [[VP_RET_LCSSA26_PRIV_FINAL]] = private-final-c i64 [[VP_RET_LCSSA26]] i64 [[VP_PRIV_IDX_BB4]] i64 [[RET_LPRIV_PROMOTED0]]
 ; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
