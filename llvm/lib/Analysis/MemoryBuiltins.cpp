@@ -263,10 +263,6 @@ bool llvm::isAllocationLibFunc(LibFunc LF) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-//===----------------------------------------------------------------------===//
-//  Properties of allocation functions
-//
-
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
@@ -373,10 +369,6 @@ bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
   return getAllocationDataForFunction(F, ReallocLike, TLI).hasValue();
 }
 
-
-//===----------------------------------------------------------------------===//
-//  Properties of allocation functions
-//
 bool llvm::isAllocRemovable(const CallBase *CB, const TargetLibraryInfo *TLI) {
   assert(isAllocationFn(CB, TLI));
 
