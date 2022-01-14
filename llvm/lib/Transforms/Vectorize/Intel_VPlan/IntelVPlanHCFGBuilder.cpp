@@ -531,6 +531,24 @@ public:
       Descriptor.setDtor(NonPODCurValue->getDtor());
       Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
     }
+    SmallVector<VPInstruction *, 4> AliasUpdates;
+    for (auto *Alias : CurValue->aliases()) {
+      auto *VAliasRef =
+          Builder.getOrCreateVPOperand(const_cast<Value *>(Alias->getRef()));
+      if (auto *VI = dyn_cast<VPInstruction>(VAliasRef))
+        AliasUpdates.push_back(VI);
+      for (const Instruction *UpdateInst : Alias->getUpdateInstructions()) {
+        LLVM_DEBUG(dbgs() << "Adding update inst:"; UpdateInst->print(dbgs()));
+        AliasUpdates.push_back(cast<VPInstruction>(Builder.getOrCreateVPOperand(
+            const_cast<Instruction *>(UpdateInst))));
+      }
+    }
+    // TODO: consider combininig collectMemoryAliases with value-aliases
+    // gathering.
+    Descriptor.setAlias(nullptr /*AliasInit*/, AliasUpdates);
+    for (auto UpdateInst : CurValue->getUpdateInstructions())
+      Descriptor.addUpdateVPInst(cast<VPInstruction>(
+          Builder.getOrCreateVPOperand(const_cast<Instruction *>(UpdateInst))));
   }
 };
 
@@ -615,18 +633,18 @@ bool VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   PCFGBuilder.buildCFG();
   // Converting loop enities.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (VPlanPrintLegality) {
+    Legal->dump(dbgs());
+  }
+#endif
+
   PCFGBuilder.convertEntityDescriptors(Legal, SE, Cvts);
   return true;
 }
 
 void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   using BaseConverter = VPLoopEntitiesConverterTempl<Loop2VPLoopMapper>;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (VPlanPrintLegality) {
-    Legal->dump(dbgs());
-  }
-#endif
 
   Loop2VPLoopMapper Mapper(TheLoop, Plan);
   for (auto &Cvt : Cvts) {

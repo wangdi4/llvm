@@ -13,13 +13,11 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: double* [[D_LPRIV0:%.*]], double* [[VP_D_LPRIV:%.*]],
+; CHECK-NEXT:    Exit instr: double [[VP_CONV735:%.*]] = phi  [ double [[VP_CONV734:%.*]], [[BB0]] ],  [ double [[VP_ADD6:%.*]], [[BB1:BB[0-9]+]] ]
+; CHECK-NEXT:    Linked values: double [[VP_CONV735]], double* [[D_LPRIV0:%.*]], double [[VP_CONV734]], double* [[VP_D_LPRIV:%.*]], double [[VP_CONV735_PRIV_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: double* [[D_LPRIV0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Exit instr: double [[VP_CONV735:%.*]] = phi  [ double [[VP_CONV734:%.*]], [[BB0]] ],  [ double [[VP_ADD6:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: double [[VP_CONV735]], double [[VP_CONV734]], double [[VP_CONV735_PRIV_FINAL:%.*]],
-; CHECK:         [[BB2:BB[0-9]+]]: # preds:
+; CHECK-NEXT:    [[BB2:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]

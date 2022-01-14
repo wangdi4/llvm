@@ -2082,8 +2082,20 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
                          AllocatedTy, AllocaInst);
   else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
-    LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocatedTy, AllocaInst,
-                   isMemOnly());
+    if (LE->getReduction(ExitInst)) {
+      // In case a reduction (even auto-recognized) is declared as a
+      // last private we will have a duplication and assert. Skipping private
+      // importing for now.
+      // TODO: 1) implement a check for such duplication before importing, 2)
+      // pass a message to optreport.
+      LLVM_DEBUG(dbgs() << "Skipping already imported private for ";
+                 AllocaInst->printAsOperand(dbgs()););
+      return;
+    }
+    auto Priv = LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocatedTy,
+                               AllocaInst, isMemOnly());
+    for (VPInstruction *I : UpdateVPInsts)
+      LE->linkValue(Priv, I);
   } else
     LE->addPrivate(PTag, PtrAliases, K, IsExplicit, AllocatedTy, AllocaInst,
                    isMemOnly());
@@ -2098,14 +2110,36 @@ void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                                         const VPLoop *Loop) {
   setIsMemOnly(true);
 
-  for (auto It : PtrAliases) {
-    if (Loop->isLiveOut(It.second)) {
-      ExitInst = It.second;
-      break;
+  VPPHINode *VPhi = nullptr;
+  if (HasAlias)
+    for (VPInstruction *It : Alias.getValue().UpdateVPInsts)
+      UpdateVPInsts.push_back(It);
+
+  // Go through update instructions to find liveout and/or header phi.
+  const VPBasicBlock *LHeader = Loop->getHeader();
+  for (VPInstruction *It : UpdateVPInsts) {
+    if (Loop->isLiveOut(It)) {
+      // Check that we don't have two different liveouts.
+      assert((!ExitInst || It == ExitInst) && "Second liveout of private");
+      ExitInst = It;
     }
+    auto HdrUseIt = llvm::find_if(It->users(), [LHeader](VPUser *U) {
+      auto Phi = dyn_cast<VPPHINode>(U);
+      return Phi && Phi->getParent() == LHeader;
+    });
+    if (HdrUseIt != It->user_end()) {
+      // Check that we don't have two different recurrent phis.
+      assert((!VPhi || VPhi == *HdrUseIt) && "second recurrent phi");
+      VPhi = cast<VPPHINode>(*HdrUseIt);
+    }
+  }
+  if (VPhi) {
+    UpdateVPInsts.push_back(VPhi);
+    // check for is conditional??
   }
   if (ExitInst) {
     PTag = VPPrivate::PrivateTag::PTRegisterized;
+    setIsMemOnly(false);
     return;
   }
 

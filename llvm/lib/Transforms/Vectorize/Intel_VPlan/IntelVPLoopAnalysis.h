@@ -696,6 +696,19 @@ public:
   // loop and is not known as reduction/induction.
   void analyzeImplicitLastPrivates();
 
+  void linkValue(VPLoopEntity *E, VPValue *Val) {
+    if (auto Red = dyn_cast<VPReduction>(E))
+      linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPIndexReduction>(E))
+      linkValue(ReductionMap, Red, Val);
+    else if (auto Ind = dyn_cast<VPInduction>(E))
+      linkValue(InductionMap, Ind, Val);
+    else if (auto Priv = dyn_cast<VPPrivate>(E))
+      linkValue(PrivateMap, Priv, Val);
+    else
+      llvm_unreachable("Unknown loop entity");
+  }
+
 private:
   VPlanVector &Plan;
   VPLoop &Loop;
@@ -761,19 +774,6 @@ private:
       Map[Val] = Descr;
       Descr->addLinkedVPValue(Val);
     }
-  }
-
-  void linkValue(VPLoopEntity *E, VPValue *Val) {
-    if (auto Red = dyn_cast<VPReduction>(E))
-      linkValue(ReductionMap, Red, Val);
-    else if (auto Red = dyn_cast<VPIndexReduction>(E))
-      linkValue(ReductionMap, Red, Val);
-    else if (auto Ind = dyn_cast<VPInduction>(E))
-      linkValue(InductionMap, Ind, Val);
-    else if (auto Priv = dyn_cast<VPPrivate>(E))
-      linkValue(PrivateMap, Priv, Val);
-    else
-      llvm_unreachable("Unknown loop entity");
   }
 
   // Create private memory allocator for VPLoopEntity if the corresponding

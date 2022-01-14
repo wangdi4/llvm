@@ -1615,6 +1615,17 @@ public:
     Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
+    if (HIRVectorizationLegality::DescrValueTy *Alias =
+            CurValue.getValidAlias()) {
+      SmallVector<VPInstruction *, 4> AliasUpdates;
+      for (auto *UpdateInst : Alias->getUpdateInstructions())
+        AliasUpdates.push_back(
+            cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
+      Descriptor.setAlias(nullptr /*AliasInit*/, AliasUpdates);
+    }
+    for (auto UpdateInst: CurValue.getUpdateInstructions())
+      Descriptor.addUpdateVPInst(
+          cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
   }
 
   void operator()(PrivateDescr &Descriptor,

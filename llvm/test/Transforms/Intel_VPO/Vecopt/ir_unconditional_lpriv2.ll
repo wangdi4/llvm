@@ -6,7 +6,7 @@
 ;
 define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-LABEL:  VPlan after live in/out lists creation:
-; CHECK-NEXT:  VPlan IR for: simd_loop:omp.inner.for.body
+; CHECK-NEXT:  VPlan IR for: simd_loop:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -24,12 +24,13 @@ define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp sgt i32 [[VP0]] i32 0
 ; CHECK-NEXT:     i32 [[VP_PRIV_OUTGOING:%.*]] = select i1 [[VP_CMP3]] i32 [[VP0]] i32 0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i32 [[VP_PRIV_OUTGOING_PRIV_FINAL:%.*]] = private-final-uc i32 [[VP_PRIV_OUTGOING]]
+; CHECK-NEXT:     store i32 [[VP_PRIV_OUTGOING_PRIV_FINAL]] i32* [[PRIVATE0:%.*]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -50,7 +51,7 @@ define void @simd_loop(i32* %A, i32* %B) {
 ;
 ; CHECK:  define void @simd_loop(i32* [[A0]], i32* [[B0:%.*]]) {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PRIVATE0:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    [[PRIVATE0]] = alloca i32, align 4
 ; CHECK-NEXT:    [[PRIVATE_VEC0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[PRIVATE_VEC_BC0:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC0]] to i32*
 ; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR0:%.*]] = getelementptr i32, i32* [[PRIVATE_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
@@ -80,6 +81,25 @@ define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV0:%.*]] = extractelement <4 x i32> [[TMP2]], i64 3
+; CHECK-NEXT:    store i32 [[EXTRACTED_PRIV0]], i32* [[PRIVATE0]], align 1
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    br label [[FINAL_MERGE0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  final.merge:
+; CHECK-NEXT:    [[UNI_PHI50:%.*]] = phi i32 [ [[EXTRACTED_PRIV0]], [[VPLANNEDBB40]] ]
+; CHECK-NEXT:    [[UNI_PHI60:%.*]] = phi i64 [ 1024, [[VPLANNEDBB40]] ]
+; CHECK-NEXT:    br label [[OMP_LOOP_EXIT0:%.*]]
+;
+; CHECK:       omp.loop.exit:
+; CHECK-NEXT:    [[DOT_LCSSA0]] = phi i32 [ [[UNI_PHI50]], [[FINAL_MERGE0]] ]
+; CHECK-NEXT:    store i32 [[DOT_LCSSA0]], i32* [[PRIVATE0]], align 8
+; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_10:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.SIMD.1:
+; CHECK-NEXT:    ret void
+; CHECK-NEXT:  }
 ;
 entry:
   %private = alloca i32, align 4

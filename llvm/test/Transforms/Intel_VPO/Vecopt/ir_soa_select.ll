@@ -4,9 +4,9 @@
 
 ; CHECK-LABEL: Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:   Private tag: InMemory
-; CHECK-NEXT:   Linked values: <2 x i32>* %tmp.priv,
-; CHECK-NEXT:  Memory: <2 x i32>* %tmp.priv
+; CHECK-NEXT:    Exit instr: <2 x i32> [[VP__:%.*]] = select i1 [[VP_CMP3:%.*]] <2 x i32> [[VP0:%.*]] <2 x i32> zeroinitializer
+; CHECK-NEXT:    Linked values: <2 x i32> [[VP__]], <2 x i32>* [[TMP_PRIV0:%.*]],
+; CHECK-NEXT:   Memory: <2 x i32>* [[TMP_PRIV0]]
 
 ; CHECK-LABEL: simd_loop
 ; CHECK: %[[CmpRes:.*]] = icmp sgt <4 x i32> %{{.*}}, zeroinitializer
