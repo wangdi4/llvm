@@ -47,49 +47,6 @@ void SYCLInstallationDetector::print(llvm::raw_ostream &OS) const {
   }
 }
 
-<<<<<<< HEAD
-const char *SYCL::Linker::constructLLVMSpirvCommand(
-    Compilation &C, const JobAction &JA, const InputInfo &Output,
-    StringRef OutputFilePrefix, bool ToBc, const char *InputFileName) const {
-  // Construct llvm-spirv command.
-  // The output is a bc file or vice versa depending on the -r option usage
-  // llvm-spirv -r -o a_kernel.bc a_kernel.spv
-  // llvm-spirv -o a_kernel.spv a_kernel.bc
-  ArgStringList CmdArgs;
-  const char *OutputFileName = nullptr;
-  if (ToBc) {
-    std::string TmpName =
-        C.getDriver().GetTemporaryPath(OutputFilePrefix.str() + "-spirv", "bc");
-    OutputFileName = C.addTempFile(C.getArgs().MakeArgString(TmpName));
-    CmdArgs.push_back("-r");
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(OutputFileName);
-  } else {
-#if INTEL_CUSTOMIZATION
-    // Workaround for old GPU driver version
-    CmdArgs.push_back("-spirv-max-version=1.3");
-#else  // INTEL_CUSTOMIZATION
-    CmdArgs.push_back("-spirv-max-version=1.4");
-#endif // INTEL_CUSTOMIZATION
-    CmdArgs.push_back("-spirv-ext=+all");
-    CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
-    CmdArgs.push_back("-spirv-allow-extra-diexpressions");
-    CmdArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(Output.getFilename());
-  }
-  CmdArgs.push_back(InputFileName);
-
-  SmallString<128> LLVMSpirvPath(C.getDriver().Dir);
-  llvm::sys::path::append(LLVMSpirvPath, "llvm-spirv");
-  const char *LLVMSpirv = C.getArgs().MakeArgString(LLVMSpirvPath);
-  C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileUTF8(), LLVMSpirv, CmdArgs, None));
-  return OutputFileName;
-}
-
-=======
->>>>>>> 979bf95c995db6078ae3696d16b4030b8f29ef79
 static void addFPGATimingDiagnostic(std::unique_ptr<Command> &Cmd,
                                     Compilation &C) {
   const char *Msg = C.getArgs().MakeArgString(
