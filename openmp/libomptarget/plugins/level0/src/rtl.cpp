@@ -2034,6 +2034,7 @@ class RTLDeviceInfoTy {
     }
   }; // MemStatTy
 
+public:
   /// Looks up an external global variable with the given \p Name
   /// and \p Size in the device environment for device \p DeviceId.
   void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
@@ -2045,7 +2046,7 @@ class RTLDeviceInfoTy {
   /// (*Size), otherwise, the found variable's size is returned
   /// via \p Size.
   void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t *Size);
-public:
+
   uint32_t NumDevices = 0;
   uint32_t SubDeviceLevels = 1; // L0 API does not support recursive queries
   uint32_t NumRootDevices = 0;
@@ -2331,8 +2332,8 @@ public:
       ze_kernel_handle_t Kernel, uint32_t DeviceId);
 
   /// Enqueue copy command
-  int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, void *Src, size_t Size,
-                         bool Locked = false);
+  int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, const void *Src,
+                         size_t Size, bool Locked = false);
 
   /// Allocate memory from pool
   void *poolAlloc(int32_t DeviceId, size_t Size, int32_t Kind,
@@ -3367,7 +3368,7 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
 
 /// Enqueue memory copy
 int32_t RTLDeviceInfoTy::enqueueMemCopy(
-    int32_t DeviceId, void *Dst, void *Src, size_t Size, bool Locked) {
+    int32_t DeviceId, void *Dst, const void *Src, size_t Size, bool Locked) {
   auto cmdList = getLinkCopyCmdList(DeviceId);
   auto cmdQueue = getLinkCopyCmdQueue(DeviceId);
 
@@ -6122,6 +6123,82 @@ EXTERN void __tgt_rtl_kernel_batch_end(int32_t DeviceId) {
   DeviceInfo->BatchCmdQueues[DeviceId].MaxCommands = 0;
 }
 
+EXTERN int32_t __tgt_rtl_set_function_ptr_map(
+    int32_t DeviceId, uint64_t Size,
+    const __omp_offloading_fptr_map_t *FnPtrs) {
+  if (Size == 0)
+    return OFFLOAD_SUCCESS;
+
+  ScopedTimerTy Timer(DeviceId, "Function pointers init");
+  void *DeviceMapSizeVarAddr = DeviceInfo->getVarDeviceAddr(
+      DeviceId, "__omp_offloading_fptr_map_size", sizeof(uint64_t));
+
+  // getVarDeviceAddr() will return the device pointer size
+  // in DeviceMapPtrVarSize.
+  size_t DeviceMapPtrVarSize = 0;
+  void *DeviceMapPtrVarAddr = DeviceInfo->getVarDeviceAddr(
+      DeviceId, "__omp_offloading_fptr_map_p", &DeviceMapPtrVarSize);
+  if (!DeviceMapSizeVarAddr || !DeviceMapPtrVarAddr)
+    return OFFLOAD_FAIL;
+
+  // Allocate memory for the function pointers map on the device,
+  // and transfer the host map to the allocated memory.
+  size_t FnPtrMapSizeInBytes = Size * sizeof(__omp_offloading_fptr_map_t);
+  void *FnPtrMapMem = allocDataExplicit(DeviceId, FnPtrMapSizeInBytes,
+                                        DeviceInfo->AllocKinds[DeviceId]);
+  if (!FnPtrMapMem)
+    return OFFLOAD_FAIL;
+
+  DeviceInfo->DataMutexes[DeviceId].lock();
+  DeviceInfo->OwnedMemory[DeviceId].push_back(FnPtrMapMem);
+  DeviceInfo->DataMutexes[DeviceId].unlock();
+
+  if (DebugLevel >= 2) {
+    DP("Transferring function pointers table (%" PRIu64
+       " entries) to the device: {\n", Size);
+    // Limit the number of printed entries with (DebugLevel * 5).
+    uint64_t PrintEntriesNum =
+        std::min<uint64_t>(Size, static_cast<uint64_t>(DebugLevel) * 5);
+    for (uint64_t I = 0; I < PrintEntriesNum; ++I) {
+      DP("\t{ " DPxMOD ", " DPxMOD " }\n",
+         DPxPTR(FnPtrs[I].host_ptr), DPxPTR(FnPtrs[I].tgt_ptr));
+    }
+    if (PrintEntriesNum < Size)
+      DP("\t... increase LIBOMPTARGET_DEBUG to see more entries ...\n");
+    DP("}\n");
+  }
+
+  if (DeviceInfo->enqueueMemCopy(
+          DeviceId, FnPtrMapMem, FnPtrs, FnPtrMapSizeInBytes) !=
+      OFFLOAD_SUCCESS)
+    return OFFLOAD_FAIL;
+
+  // Initialize __omp_offloading_fptr_map_p global with the value of
+  // FnPtrMapMem.
+  if (DeviceMapPtrVarSize != sizeof(void *)) {
+    // Device pointer size is different from the host pointer size.
+    // This is worth to mention, but the address transfer below
+    // should be correct (given that __omp_offloading_fptr_map_p is
+    // nullptr initially).
+    DP("Warning: device pointer size is %zu, host pointer size is %zu.\n",
+       DeviceMapPtrVarSize, static_cast<size_t>(sizeof(void *)));
+  }
+  size_t PtrTransferSize =
+      std::min<size_t>(DeviceMapPtrVarSize, sizeof(void *));
+  if (DeviceInfo->enqueueMemCopy(
+          DeviceId, DeviceMapPtrVarAddr, &FnPtrMapMem, PtrTransferSize) !=
+      OFFLOAD_SUCCESS)
+    return OFFLOAD_FAIL;
+
+  // Initialize __omp_offloading_fptr_map_size with the table size.
+  if (DeviceInfo->enqueueMemCopy(
+          DeviceId, DeviceMapSizeVarAddr, &Size, sizeof(uint64_t)) !=
+      OFFLOAD_SUCCESS)
+    return OFFLOAD_FAIL;
+
+  return OFFLOAD_SUCCESS;
+}
+
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
     int32_t DeviceId, const char *Name, size_t Size) {
   DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
@@ -6251,7 +6328,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     Entry.Base.name = nullptr;
 
     if (NameSize == 0) {
-      DP("Warning: offload entry (%zu) with 0 size.\n", I);
+      DP("Warning: offload entry (%zu) with 0 name size.\n", I);
       break;
     }
     if (NameTgtAddr == nullptr) {
@@ -6276,14 +6353,14 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
          "Warning:  current name is '%s'.\n",
          PreviousName, Entry.Base.name);
       break;
-    } else if (Cmp == 0 && (PreviousIsVar || Entry.Base.addr)) {
+    } else if (Cmp == 0 && (PreviousIsVar || Entry.Base.size)) {
       // The names are equal. This should never happen for
       // offload variables, but we allow this for offload functions.
       DP("Warning: duplicate names (%s) in offload table.\n", PreviousName);
       break;
     }
     PreviousName = Entry.Base.name;
-    PreviousIsVar = (Entry.Base.addr != nullptr);
+    PreviousIsVar = (Entry.Base.size != 0);
   }
 
   if (I != DeviceNumEntries) {

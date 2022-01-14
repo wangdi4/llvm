@@ -92,6 +92,11 @@ enum OpenMPOffloadingDeclareTargetFlags {
   OMP_DECLARE_TARGET_CTOR = 0x02,
   /// Mark the entry as being a global destructor.
   OMP_DECLARE_TARGET_DTOR = 0x04
+#if INTEL_COLLAB
+  ,
+  /// Mark the entry as being a function pointer.
+  OMP_DECLARE_TARGET_FPTR = 0x8
+#endif // INTEL_COLLAB
 };
 
 enum OpenMPOffloadingRequiresDirFlags {
@@ -266,6 +271,11 @@ struct __tgt_target_table {
 };
 
 #if INTEL_COLLAB
+typedef struct __omp_offloading_fptr_map_t {
+  uint64_t host_ptr; // key
+  uint64_t tgt_ptr;  // value
+} __omp_offloading_fptr_map_t;
+
 #ifdef __cplusplus
 
 #if _WIN32

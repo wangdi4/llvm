@@ -208,6 +208,13 @@ typedef enum omp_pause_resource_t {
   omp_pause_hard = 2
 } omp_pause_resource_t;
 
+// Host to target pointer mapping type for user functions
+// that may be called indirectly.
+typedef struct __omp_offloading_fptr_map_t {
+  ulong host_ptr;
+  ulong tgt_ptr;
+} __omp_offloading_fptr_map_t;
+
 ///
 /// Task state
 ///
@@ -835,6 +842,19 @@ EXTERN void ompx_nbarrier_signal(
     uint nbarrier_id, uint num_producers, uint num_consumers, uint op_type,
     uint fence_type);
 
+///
+/// OpenMP indirect() clause support.
+///
+
+/// Translate \p FnPtr identifying a host function into a function pointer
+/// identifying its device counterpart.
+/// If \p FnPtr matches an address of any host function
+/// declared as 'declare target indirect', then the API
+/// must return an address of the same function compiled
+/// for the device. If \p FnPtr does not match an address
+/// of any host function, then the API returns \p FnPtr
+/// unchanged.
+EXTERN void *__kmpc_target_translate_fptr(void *FnPtr);
 
 ///
 /// Device runtime initialization
