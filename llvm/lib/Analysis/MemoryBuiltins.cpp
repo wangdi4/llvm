@@ -56,16 +56,12 @@ enum AllocType : uint8_t {
   CallocLike         = 1<<3, // allocates + bzero
   ReallocLike        = 1<<4, // reallocates
   StrDupLike         = 1<<5,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   FreeLike = 1 << 6,   // free
   DeleteLike = 1 << 7, // delete
 #endif //INTEL_CUSTOMIZATION
-  MallocOrCallocLike = MallocLike | CallocLike | AlignedAllocLike,
-=======
   MallocOrOpNewLike  = MallocLike | OpNewLike,
   MallocOrCallocLike = MallocLike | OpNewLike | CallocLike | AlignedAllocLike,
->>>>>>> cd36b29ec75469a0e424bdf4003e5b718252bacd
   AllocLike          = MallocOrCallocLike | StrDupLike,
   AnyAlloc           = AllocLike | ReallocLike
 };
