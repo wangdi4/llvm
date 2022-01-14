@@ -1337,26 +1337,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       bool CalleeWasDeleted = false;
       if (Callee.isDiscardableIfUnused() && Callee.hasZeroLiveUses() &&
           !CG.isLibFunction(Callee)) {
-<<<<<<< HEAD
-        Calls->erase_if([&](const std::pair<CallBase *, int> &Call) {
-          return Call.first->getCaller() == &Callee;
-        });
-        MDReport->setDead(&Callee); // INTEL
-        // Clear the body and queue the function itself for deletion when we
-        // finish inlining and call graph updates.
-        // Note that after this point, it is an error to do anything other
-        // than use the callee's address or delete it.
-        Callee.dropAllReferences();
-        assert(!is_contained(DeadFunctions, &Callee) &&
-               "Cannot put cause a function to become dead twice!");
-        DeadFunctions.push_back(&Callee);
-        ILIC->invalidateFunction(&Callee); // INTEL
-        CalleeWasDeleted = true;
-=======
         if (Callee.hasLocalLinkage() || !Callee.hasComdat()) {
           Calls->erase_if([&](const std::pair<CallBase *, int> &Call) {
             return Call.first->getCaller() == &Callee;
           });
+          MDReport->setDead(&Callee); // INTEL
           // Clear the body and queue the function itself for deletion when we
           // finish inlining and call graph updates.
           // Note that after this point, it is an error to do anything other
@@ -1365,11 +1350,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           assert(!is_contained(DeadFunctions, &Callee) &&
                  "Cannot put cause a function to become dead twice!");
           DeadFunctions.push_back(&Callee);
+          ILIC->invalidateFunction(&Callee); // INTEL
           CalleeWasDeleted = true;
         } else {
+          MDReport->setDead(&Callee); // INTEL
           DeadFunctionsInComdats.push_back(&Callee);
+          ILIC->invalidateFunction(&Callee); // INTEL
         }
->>>>>>> 9a0fe1b0fc23098d961750eb5310f307f4bb5ee5
       }
       if (CalleeWasDeleted)
         Advice->recordInliningWithCalleeDeleted();
