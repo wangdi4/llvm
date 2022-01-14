@@ -49,6 +49,10 @@ class Type;
 class UndefValue;
 class Value;
 
+//===----------------------------------------------------------------------===//
+//  Properties of allocation functions
+//
+
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
@@ -122,42 +126,6 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
 
-//===----------------------------------------------------------------------===//
-//  free Call Utility Functions.
-//
-
-/// isLibFreeFunction - Returns true if the function is a builtin free()
-bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
-
-#if INTEL_CUSTOMIZATION
-/// isLibDeleteFunction - Returns true if the function is a builtin delete()
-bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
-
-/// isFreeCall - Returns non-null if the value is a call to the free(). Skip
-/// IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
-const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
-                           bool CheckNoBuiltin = true);
-
-inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI,
-                            bool CheckNoBuiltin = true) {
-  return const_cast<CallInst *>(
-      isFreeCall((const Value *) I, TLI, CheckNoBuiltin));
-}
-
-/// isDeleteCall - Returns non-null if the value is a call to the
-/// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
-/// false (dtrans).
-const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI,
-                             bool CheckNoBuiltin = true);
-
-inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
-                              bool CheckNoBuiltin = true) {
-  return const_cast<CallInst *>(
-      isDeleteCall((const Value *) I, TLI, CheckNoBuiltin));
-}
-#endif // INTEL_CUSTOMIZATION
-
-//===----------------------------------------------------------------------===//
 //  Properties of allocation functions
 //
 
@@ -187,6 +155,41 @@ Optional<APInt> getAllocSize(const CallBase *CB,
 Constant *getInitialValueOfAllocation(const CallBase *Alloc,
                                       const TargetLibraryInfo *TLI,
                                       Type *Ty);
+
+//===----------------------------------------------------------------------===//
+//  free Call Utility Functions.
+//
+
+#if INTEL_CUSTOMIZATION
+/// isLibFreeFunction - Returns true if the function is a builtin free()
+bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
+
+/// isLibDeleteFunction - Returns true if the function is a builtin delete()
+bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
+
+/// isFreeCall - Returns non-null if the value is a call to the free(). Skip
+/// IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
+const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
+                           bool CheckNoBuiltin = true);
+
+inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI,
+                            bool CheckNoBuiltin = true) {
+  return const_cast<CallInst *>(
+      isFreeCall((const Value *) I, TLI, CheckNoBuiltin));
+}
+
+/// isDeleteCall - Returns non-null if the value is a call to the
+/// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
+/// false (dtrans).
+const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI,
+                             bool CheckNoBuiltin = true);
+
+inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
+                              bool CheckNoBuiltin = true) {
+  return const_cast<CallInst *>(
+      isDeleteCall((const Value *) I, TLI, CheckNoBuiltin));
+}
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.
