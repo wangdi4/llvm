@@ -49,6 +49,10 @@ class Type;
 class UndefValue;
 class Value;
 
+//===----------------------------------------------------------------------===//
+//  Properties of allocation functions
+//
+
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
@@ -123,6 +127,7 @@ bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 //  free Call Utility Functions.
 //
 
@@ -158,6 +163,8 @@ inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
+=======
+>>>>>>> 83338d5032424741accb1e851408021b47b84c08
 //  Properties of allocation functions
 //
 
@@ -187,6 +194,20 @@ Optional<APInt> getAllocSize(const CallBase *CB,
 Constant *getInitialValueOfAllocation(const CallBase *Alloc,
                                       const TargetLibraryInfo *TLI,
                                       Type *Ty);
+
+//===----------------------------------------------------------------------===//
+//  free Call Utility Functions.
+//
+
+/// isLibFreeFunction - Returns true if the function is a builtin free()
+bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
+
+/// isFreeCall - Returns non-null if the value is a call to the builtin free()
+const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI);
+
+inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI) {
+  return const_cast<CallInst*>(isFreeCall((const Value*)I, TLI));
+}
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.
