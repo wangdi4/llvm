@@ -68,6 +68,7 @@ bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 #endif
 
 /// Tests if a value is a call or invoke to a library function that
+<<<<<<< HEAD
 /// allocates uninitialized memory with alignment (such as aligned_alloc).
 bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
@@ -99,6 +100,8 @@ bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
 #endif // INTEL_CUSTOMIZATION
 
 /// Tests if a value is a call or invoke to a library function that
+=======
+>>>>>>> ee02cf0797712bb3a4b0686f185794fcb0fd3d9e
 /// allocates memory similar to malloc or calloc.
 bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
