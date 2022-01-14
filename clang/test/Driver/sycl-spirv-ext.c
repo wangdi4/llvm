@@ -51,12 +51,8 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_dsp_control
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arithmetic_fence
-<<<<<<< HEAD
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_runtime_aligned
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_task_sequence ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone ;INTEL
-=======
->>>>>>> 365197131faccfc755b519c1cddf6f285712e20a
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_bfloat16_conversion
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_joint_matrix
@@ -88,13 +84,8 @@
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_dsp_control
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_arithmetic_fence
-<<<<<<< HEAD
-// CHECK-FPGA-HW-SAME:,+SPV_INTEL_runtime_aligned
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_task_sequence ;INTEL
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_optnone ;INTEL
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_usm_storage_classes ;INTEL
+// CHECK-FPGA-HW-SAME:,+SPV_INTEL_runtime_aligned
 // CHECK-FPGA-HW-SAME:,-SPV_INTEL_optnone" ;INTEL
-=======
-// CHECK-FPGA-HW-SAME:,+SPV_INTEL_usm_storage_classes
-// CHECK-FPGA-HW-SAME:,+SPV_INTEL_runtime_aligned"
->>>>>>> 365197131faccfc755b519c1cddf6f285712e20a
