@@ -126,45 +126,6 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
 
-//===----------------------------------------------------------------------===//
-<<<<<<< HEAD
-//  free Call Utility Functions.
-//
-
-/// isLibFreeFunction - Returns true if the function is a builtin free()
-bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
-
-#if INTEL_CUSTOMIZATION
-/// isLibDeleteFunction - Returns true if the function is a builtin delete()
-bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
-
-/// isFreeCall - Returns non-null if the value is a call to the free(). Skip
-/// IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
-const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
-                           bool CheckNoBuiltin = true);
-
-inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI,
-                            bool CheckNoBuiltin = true) {
-  return const_cast<CallInst *>(
-      isFreeCall((const Value *) I, TLI, CheckNoBuiltin));
-}
-
-/// isDeleteCall - Returns non-null if the value is a call to the
-/// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
-/// false (dtrans).
-const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI,
-                             bool CheckNoBuiltin = true);
-
-inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
-                              bool CheckNoBuiltin = true) {
-  return const_cast<CallInst *>(
-      isDeleteCall((const Value *) I, TLI, CheckNoBuiltin));
-}
-#endif // INTEL_CUSTOMIZATION
-
-//===----------------------------------------------------------------------===//
-=======
->>>>>>> 83338d5032424741accb1e851408021b47b84c08
 //  Properties of allocation functions
 //
 
@@ -199,15 +160,36 @@ Constant *getInitialValueOfAllocation(const CallBase *Alloc,
 //  free Call Utility Functions.
 //
 
+#if INTEL_CUSTOMIZATION
 /// isLibFreeFunction - Returns true if the function is a builtin free()
 bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
 
-/// isFreeCall - Returns non-null if the value is a call to the builtin free()
-const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI);
+/// isLibDeleteFunction - Returns true if the function is a builtin delete()
+bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
 
-inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI) {
-  return const_cast<CallInst*>(isFreeCall((const Value*)I, TLI));
+/// isFreeCall - Returns non-null if the value is a call to the free(). Skip
+/// IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
+const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
+                           bool CheckNoBuiltin = true);
+
+inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI,
+                            bool CheckNoBuiltin = true) {
+  return const_cast<CallInst *>(
+      isFreeCall((const Value *) I, TLI, CheckNoBuiltin));
 }
+
+/// isDeleteCall - Returns non-null if the value is a call to the
+/// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
+/// false (dtrans).
+const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI,
+                             bool CheckNoBuiltin = true);
+
+inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
+                              bool CheckNoBuiltin = true) {
+  return const_cast<CallInst *>(
+      isDeleteCall((const Value *) I, TLI, CheckNoBuiltin));
+}
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.
