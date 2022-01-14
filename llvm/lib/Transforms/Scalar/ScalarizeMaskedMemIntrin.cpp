@@ -1313,8 +1313,14 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
       scalarizeMaskedStore(DL, CI, DTU, ModifiedDT);
       return true;
     case Intrinsic::masked_gather: {
+      MaybeAlign MA =
+          cast<ConstantInt>(CI->getArgOperand(1))->getMaybeAlignValue();
+      Type *LoadTy = CI->getType();
+      Align Alignment = DL.getValueOrABITypeAlignment(MA,
+                                                      LoadTy->getScalarType());
 #if INTEL_CUSTOMIZATION
-      if (!TTI.shouldScalarizeMaskedGather(CI))
+      if (!TTI.shouldScalarizeMaskedGather(CI) &&
+          !TTI.forceScalarizeMaskedGather(cast<VectorType>(LoadTy), Alignment))
 #endif // INTEL_CUSTOMIZATION
         return false;
       scalarizeMaskedGather(DL, CI, DTU, ModifiedDT, TTI);
@@ -1326,7 +1332,9 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
       Type *StoreTy = CI->getArgOperand(0)->getType();
       Align Alignment = DL.getValueOrABITypeAlignment(MA,
                                                       StoreTy->getScalarType());
-      if (TTI.isLegalMaskedScatter(StoreTy, Alignment))
+      if (TTI.isLegalMaskedScatter(StoreTy, Alignment) &&
+          !TTI.forceScalarizeMaskedScatter(cast<VectorType>(StoreTy),
+                                           Alignment))
         return false;
       scalarizeMaskedScatter(DL, CI, DTU, ModifiedDT, TTI);
       return true;

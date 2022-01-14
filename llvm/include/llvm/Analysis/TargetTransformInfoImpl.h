@@ -302,6 +302,15 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
+  bool forceScalarizeMaskedGather(VectorType *DataType, Align Alignment) const {
+    return false;
+  }
+
+  bool forceScalarizeMaskedScatter(VectorType *DataType,
+                                   Align Alignment) const {
+    return false;
+  }
+
   bool isLegalMaskedCompressStore(Type *DataType) const { return false; }
 
   bool isLegalMaskedExpandLoad(Type *DataType) const { return false; }

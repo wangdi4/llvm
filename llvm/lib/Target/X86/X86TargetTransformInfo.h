@@ -246,6 +246,10 @@ public:
   bool isLegalMaskedStore(Type *DataType, Align Alignment);
   bool isLegalNTLoad(Type *DataType, Align Alignment);
   bool isLegalNTStore(Type *DataType, Align Alignment);
+  bool forceScalarizeMaskedGather(VectorType *VTy, Align Alignment);
+  bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment) {
+    return forceScalarizeMaskedGather(VTy, Alignment);
+  }
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);
