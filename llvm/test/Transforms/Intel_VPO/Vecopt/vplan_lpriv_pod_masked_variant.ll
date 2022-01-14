@@ -15,6 +15,7 @@ define i32 @main() {
 ;
 ; CHECK:          i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_X_PRIV_FINAL:%.*]] = private-final-uc i32 [[VP_X]]
+; CHECK-NEXT:     store i32 [[VP_X_PRIV_FINAL]] i32* [[XP0:%.*]]
 ; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
 ;
 ; CHECK:       VPlan after emitting masked variant:
@@ -47,13 +48,14 @@ define i32 @main() {
 ;
 ; CHECK:          [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = private-final-masked i32 [[VP4]] i1 [[VP3]] i32 live-in0
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP8]] i32* [[XP0]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB12:BB[0-9]+]]
 ; CHECK:       External Uses:
 ; CHECK-NEXT:  Id: 0     [[X_LCSSA0:.*]] = phi i32 [ [[X0:.*]], [[LATCH0:.*]] ] i32 [[VP8]] -> i32 [[X0]]
 ;
 ; CHECK-LABEL: VPlan after private finalization instructions transformation:
 ; CHECK:           new_latch:
-; CHECK-NEXT:       [DA: Div] i32 [[VP__BLEND_BB310:%.*]] = blend [ i32 [[VP10:%.*]], i1 true ], [ i32 [[VP_X_1]], i1 [[VP3]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP__BLEND_BB310:%.*]] = blend [ i32 [[VP10:%.*]], i1 true ], [ i32 [[VP_X_1:%.*]], i1 [[VP3:%.*]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_IV_NEXT_1]] = add i32 [[VP_IV_1]] i32 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP5]] = icmp ult i32 [[VP_IV_NEXT_1]] i32 128
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP6]] = all-zero-check i1 [[VP5]]
@@ -67,6 +69,7 @@ define i32 @main() {
 ;
 ; CHECK:           [[BB14]]: # preds: [[BB15]], [[BB11]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP15:%.*]] = phi  [ i32 [[VP10]], [[BB11]] ],  [ i32 [[VP8]], [[BB15]] ]
+; CHECK-NEXT:       [DA: Uni] store i32 [[VP15]] i32* [[XP0]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB12]]
 ;
 ;========= generated code
@@ -85,6 +88,7 @@ define i32 @main() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB18:
 ; CHECK-NEXT:    [[UNI_PHI200:%.*]] = phi i32 [ [[UNI_PHI80:%.*]], [[VPLANNEDBB170:%.*]] ], [ [[PRIV_EXTRACT0]], [[VPLANNEDBB190]] ]
+; CHECK-NEXT:    store i32 [[UNI_PHI200]], i32* [[XP0]], align 1
 ;
 entry:
   %xp = alloca i32, align 4

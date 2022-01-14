@@ -13,13 +13,11 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr {
 ; CHECK-NEXT:    Linked values: i64 [[VP__OMP_IV_LOCAL_023]], i64 [[VP_ADD9]], i64 [[VP__OMP_IV_LOCAL_023_IND_INIT:%.*]], i64 [[VP__OMP_IV_LOCAL_023_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i64* [[RET_LPRIV0:%.*]], i64* [[VP_RET_LPRIV:%.*]],
+; CHECK-NEXT:    Exit instr: i64 [[VP0:%.*]] = phi  [ i64 [[VP1:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP2:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:    Linked values: i64 [[VP0]], i64* [[RET_LPRIV0:%.*]], i64 [[VP2]], i64* [[VP_RET_LPRIV:%.*]], i64 [[VP__PRIV_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: i64* [[RET_LPRIV0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Exit instr: i64 [[VP0:%.*]] = phi  [ i64 [[VP1:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP2:%.*]], [[BB2:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: i64 [[VP0]], i64 [[VP2]], i64 [[VP__PRIV_FINAL:%.*]],
-; CHECK:         [[BB3:BB[0-9]+]]: # preds:
+; CHECK-NEXT:    [[BB3:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]

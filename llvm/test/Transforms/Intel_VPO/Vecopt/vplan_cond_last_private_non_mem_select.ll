@@ -14,13 +14,11 @@ define void @main(i64 %call.i, i8* %call1) {
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV114]], i64 [[VP_INDVARS_IV_NEXT115]], i64 [[VP_INDVARS_IV114_IND_INIT:%.*]], i64 [[VP_INDVARS_IV114_IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i16* [[RET_I_LPRIV0:%.*]], i16* [[VP_RET_I_LPRIV:%.*]],
+; CHECK-NEXT:    Exit instr: i16 [[VP0:%.*]] = phi  [ i16 [[VP__LCSSA109:%.*]], [[BB0]] ],  [ i16 [[VP_SPEC_SELECT_LCSSA:%.*]], [[BB1:BB[0-9]+]] ]
+; CHECK-NEXT:    Linked values: i16 [[VP0]], i16* [[RET_I_LPRIV0:%.*]], i16 [[VP__LCSSA109]], i16* [[VP_RET_I_LPRIV:%.*]], i16 [[VP__PRIV_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: i16* [[RET_I_LPRIV0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Exit instr: i16 [[VP0:%.*]] = phi  [ i16 [[VP__LCSSA109:%.*]], [[BB0]] ],  [ i16 [[VP_SPEC_SELECT_LCSSA:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: i16 [[VP0]], i16 [[VP__LCSSA109]], i16 [[VP__PRIV_FINAL:%.*]],
-; CHECK:         [[BB2:BB[0-9]+]]: # preds:
+; CHECK-NEXT:    [[BB2:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
