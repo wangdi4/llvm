@@ -1749,13 +1749,7 @@ public:
   }
 
   /// Extract the alignment of the return value.
-  MaybeAlign getRetAlign() const {
-    if (auto Align = Attrs.getRetAlignment())
-      return Align;
-    if (const Function *F = getCalledFunction())
-      return F->getAttributes().getRetAlignment();
-    return None;
-  }
+  MaybeAlign getRetAlign() const { return Attrs.getRetAlignment(); }
 
   /// Extract the alignment for a call or parameter (0=unknown).
   MaybeAlign getParamAlign(unsigned ArgNo) const {
