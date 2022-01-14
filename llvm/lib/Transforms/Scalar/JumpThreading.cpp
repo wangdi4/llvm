@@ -966,8 +966,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   // Handle some boolean conditions.
   if (I->getType()->getPrimitiveSizeInBits() == 1) {
     using namespace PatternMatch;
-
-    assert(Preference == WantInteger && "One-bit non-integer type?");
+    if (Preference != WantInteger)
+      return false;
     // X | true -> true
     // X & false -> false
     Value *Op0, *Op1;
@@ -1049,10 +1049,15 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   // Try to simplify some other binary operator values.
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
+<<<<<<< HEAD
     assert(Preference != WantBlockAddress
             && "A binary operator creating a block address?");
 
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
+=======
+    if (Preference != WantInteger)
+      return false;
+>>>>>>> acb8de565eaa2638d18362085085deb4628435b4
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
       PredValueInfoTy LHSVals;
       computeValueKnownInPredecessorsImpl(BO->getOperand(0), BB, LHSVals,
@@ -1078,7 +1083,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   // Handle compare with phi operand, where the PHI is defined in this block.
   if (CmpInst *Cmp = dyn_cast<CmpInst>(I)) {
-    assert(Preference == WantInteger && "Compares only produce integers");
+    if (Preference != WantInteger)
+      return false;
     Type *CmpType = Cmp->getType();
     Value *CmpLHS = Cmp->getOperand(0);
     Value *CmpRHS = Cmp->getOperand(1);
