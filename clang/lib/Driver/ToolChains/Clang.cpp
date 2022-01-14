@@ -10068,6 +10068,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_long_constant_composite"
         ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
         ",+SPV_INTEL_fpga_dsp_control"
+<<<<<<< HEAD
         ",+SPV_INTEL_arithmetic_fence"
         ",+SPV_INTEL_runtime_aligned"
         ",+SPV_INTEL_task_sequence"; // INTEL
@@ -10093,6 +10094,14 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       ExtArg += ",-SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+        ",+SPV_INTEL_arithmetic_fence";
+    ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
+    if (!C.getDriver().isFPGAEmulationMode())
+      // Enable several extensions on FPGA H/W exclusively
+      ExtArg += ",+SPV_INTEL_usm_storage_classes"
+                ",+SPV_INTEL_runtime_aligned";
+>>>>>>> 365197131faccfc755b519c1cddf6f285712e20a
     else
       // Don't enable several freshly added extensions on FPGA H/W
       ExtArg += ",+SPV_INTEL_token_type"
