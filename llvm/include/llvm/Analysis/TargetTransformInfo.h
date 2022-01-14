@@ -672,7 +672,7 @@ public:
   bool isLegalMaskedScatter(Type *DataType, Align Alignment) const;
   /// Return true if the target supports masked gather.
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const;
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI) const;
   bool shouldOptGatherToLoadPermute(Type *ArrayElemTy, uint64_t ArrayNum,
@@ -688,7 +688,7 @@ public:
       bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// Return true if the target forces scalarizing of llvm.masked.gather
   /// intrinsics.
   bool forceScalarizeMaskedGather(VectorType *Type, Align Alignment) const;
@@ -696,7 +696,6 @@ public:
   /// intrinsics.
   bool forceScalarizeMaskedScatter(VectorType *Type, Align Alignment) const;
 
->>>>>>> 552eb372cb8198c64caf13da34ca70af894485c8
   /// Return true if the target supports masked compress store.
   bool isLegalMaskedCompressStore(Type *DataType) const;
   /// Return true if the target supports masked expand load.
@@ -1647,7 +1646,7 @@ public:
   virtual bool isLegalNTLoad(Type *DataType, Align Alignment) = 0;
   virtual bool isLegalMaskedScatter(Type *DataType, Align Alignment) = 0;
   virtual bool isLegalMaskedGather(Type *DataType, Align Alignment) = 0;
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   virtual bool shouldScalarizeMaskedGather(CallInst *CI) = 0;
   virtual bool shouldOptGatherToLoadPermute(Type *ArrayElemTy,
@@ -1663,12 +1662,11 @@ public:
       bool UndefPassThru, Type *&ArrayElemTy, uint64_t &ArrayNum,
       unsigned &GatherNum, unsigned &WidenNum) const = 0;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   virtual bool forceScalarizeMaskedGather(VectorType *DataType,
                                           Align Alignment) = 0;
   virtual bool forceScalarizeMaskedScatter(VectorType *DataType,
                                            Align Alignment) = 0;
->>>>>>> 552eb372cb8198c64caf13da34ca70af894485c8
   virtual bool isLegalMaskedCompressStore(Type *DataType) = 0;
   virtual bool isLegalMaskedExpandLoad(Type *DataType) = 0;
   virtual bool enableOrderedReductions() = 0;
@@ -2099,7 +2097,6 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment) override {
     return Impl.isLegalMaskedGather(DataType, Alignment);
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI) override {
     return Impl.shouldScalarizeMaskedGather(CI);
@@ -2127,7 +2124,6 @@ public:
         GatherNum, WidenNum);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   bool forceScalarizeMaskedGather(VectorType *DataType,
                                   Align Alignment) override {
     return Impl.forceScalarizeMaskedGather(DataType, Alignment);
@@ -2136,7 +2132,6 @@ public:
                                    Align Alignment) override {
     return Impl.forceScalarizeMaskedScatter(DataType, Alignment);
   }
->>>>>>> 552eb372cb8198c64caf13da34ca70af894485c8
   bool isLegalMaskedCompressStore(Type *DataType) override {
     return Impl.isLegalMaskedCompressStore(DataType);
   }

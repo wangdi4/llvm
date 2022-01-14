@@ -5432,8 +5432,9 @@ InstructionCost X86TTIImpl::getGatherScatterOpCost(
         forceScalarizeMaskedGather(cast<VectorType>(SrcVTy),
                                    Align(Alignment)))) ||
       (Opcode == Instruction::Store &&
-<<<<<<< HEAD
-       !isLegalMaskedScatter(SrcVTy, Align(Alignment)))) {
+       (!isLegalMaskedScatter(SrcVTy, Align(Alignment)) &&
+        forceScalarizeMaskedScatter(cast<VectorType>(SrcVTy),
+                                    Align(Alignment))))) {
     unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
     return getGSScalarCost(Opcode, FixedVectorType::get(PtrTy, VF), SrcVTy,
                            VariableMask, Alignment, AddressSpace);
@@ -5456,13 +5457,6 @@ InstructionCost X86TTIImpl::getGatherScatterOpCost(
     return getLoadPermuteCost(ArrayElemTy, ArrayNum, GatherNum, WidenNum);
 
 #endif // INTEL_CUSTOMIZATION
-=======
-       (!isLegalMaskedScatter(SrcVTy, Align(Alignment)) ||
-        forceScalarizeMaskedScatter(cast<VectorType>(SrcVTy),
-                                    Align(Alignment)))))
-    return getGSScalarCost(Opcode, SrcVTy, VariableMask, Alignment,
-                           AddressSpace);
->>>>>>> 552eb372cb8198c64caf13da34ca70af894485c8
 
   return getGSVectorCost(Opcode, SrcVTy, Ptr, Alignment, AddressSpace);
 }
