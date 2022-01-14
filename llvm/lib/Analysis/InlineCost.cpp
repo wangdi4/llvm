@@ -3236,6 +3236,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
     return {InlineResult::failure("noinline call site attribute") // INTEL
                 .setIntelInlReason(NinlrNoinlineCallsite)};       // INTEL
 
+<<<<<<< HEAD
   // Don't inline functions if one does not have any stack protector attribute
   // but the other does.
   if (Caller->hasStackProtectorFnAttr() && !Callee->hasStackProtectorFnAttr())
@@ -3249,6 +3250,8 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
         "caller requested no stack protector")          // INTEL
         .setIntelInlReason(NinlrStackProtectMismatch);  // INTEL
 
+=======
+>>>>>>> 2bc57d85ebf244f19a3046295b58eb8c667f947d
   return None;
 }
 
