@@ -36,12 +36,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
-<<<<<<< HEAD
 #include "llvm/InitializePasses.h"  // INTEL
-#include "llvm/SYCLLowerIR/LowerESIMD.h"
-=======
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
->>>>>>> 42122370fd56cb074c4ca45e27f457f2db644d17
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
