@@ -49,10 +49,6 @@ class Type;
 class UndefValue;
 class Value;
 
-//===----------------------------------------------------------------------===//
-//  Properties of allocation functions
-//
-
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
@@ -114,6 +110,7 @@ bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 /// reallocates memory (e.g., realloc).
 bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -126,6 +123,23 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+//===----------------------------------------------------------------------===//
+//  free Call Utility Functions.
+//
+
+/// isLibFreeFunction - Returns true if the function is a builtin free()
+bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
+
+/// isFreeCall - Returns non-null if the value is a call to the builtin free()
+const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI);
+
+inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI) {
+  return const_cast<CallInst*>(isFreeCall((const Value*)I, TLI));
+}
+
+//===----------------------------------------------------------------------===//
+>>>>>>> dac82b53e22deb0d8282ff407fb4c13d01d31fe3
 //  Properties of allocation functions
 //
 
@@ -157,6 +171,7 @@ Constant *getInitialValueOfAllocation(const CallBase *Alloc,
                                       Type *Ty);
 
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 //  free Call Utility Functions.
 //
 
@@ -192,6 +207,8 @@ inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
+=======
+>>>>>>> dac82b53e22deb0d8282ff407fb4c13d01d31fe3
 //  Utility functions to compute size of objects.
 //
 
