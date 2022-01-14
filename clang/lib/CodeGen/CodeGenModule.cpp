@@ -4155,12 +4155,16 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   llvm::Type *ResolverType;
   GlobalDecl ResolverGD;
 #if INTEL_CUSTOMIZATION
-  if (getTarget().supportsIFunc() && !getCodeGenOpts().DisableCpuDispatchIFuncs)
+  if (getTarget().supportsIFunc() &&
+      !getCodeGenOpts().DisableCpuDispatchIFuncs) {
 #endif // INTEL_CUSTOMIZATION
     ResolverType = llvm::FunctionType::get(
         llvm::PointerType::get(DeclTy,
                                Context.getTargetAddressSpace(FD->getType())),
         false);
+    assert(ResolverName.endswith(".resolver") &&
+           "CPUDispatch IFunc resolver doesn't end with .resolver?");
+  }
   else {
     ResolverType = DeclTy;
     ResolverGD = GD;
