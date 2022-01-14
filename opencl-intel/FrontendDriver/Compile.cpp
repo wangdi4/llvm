@@ -123,15 +123,13 @@ const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   bool bProfiling   = false,
-       bRelaxedMath = false,
-       bNoOpts      = false;
+       bRelaxedMath = false;
 
   llvm::SmallVector<llvm::StringRef, 8> splittedOptions;
   llvm::StringRef(m_pProgDesc->pszOptions).split(splittedOptions, " ");
   for (const auto opt : splittedOptions) {
     if (opt.str() == "-profiling") bProfiling = true;
     if (opt.str() == "-cl-fast-relaxed-math") bRelaxedMath = true;
-    if (opt.str() == "-cl-opt-disable") bNoOpts = true;
   }
 
   std::stringstream options;
