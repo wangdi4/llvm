@@ -39,6 +39,10 @@ sycl/doc/extensions/ @intel-restricted/llvm-reviewers-runtime
 sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
 
 # JIRA: CMPLRLLVM->LLVM Code Generator
+/clang/include/clang/Basic/BuiltinsX86.def @phoebewang
+/clang/include/clang/Basic/BuiltinsX86_64.def @phoebewang
+/clang/lib/Basic/Targets/X86.h @phoebewang
+/clang/lib/Basic/Targets/X86.cpp @phoebewang
 /clang/lib/Headers/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
