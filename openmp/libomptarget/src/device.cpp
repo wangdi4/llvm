@@ -719,8 +719,16 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   DataMapMtx.lock();
 
   for (auto &HT : HostDataToTargetMap) {
+#if INTEL_COLLAB
+    if (!HT.isDynRefCountInf() ||
+        // Function pointers has zero size, and we do not have to manifest
+        // them, because program code is always resident on the device.
+        HT.HstPtrBegin == HT.HstPtrEnd)
+      continue;
+#else // INTEL_COLLAB
     if (!HT.isDynRefCountInf())
       continue;
+#endif // INTEL_COLLAB
 
     void *TgtPtrBegin = reinterpret_cast<void *>(HT.TgtPtrBegin);
 
@@ -1125,6 +1133,16 @@ void DeviceTy::kernelBatchBegin(uint32_t MaxKernels) {
 void DeviceTy::kernelBatchEnd(void) {
   if (RTL->kernel_batch_end)
     RTL->kernel_batch_end(RTLDeviceID);
+}
+
+int32_t DeviceTy::set_function_ptr_map() {
+  std::lock_guard<std::mutex> Lock(FnPtrMapMtx);
+  uint64_t Size = FnPtrs.size();
+  if (Size == 0)
+    return OFFLOAD_SUCCESS;
+  if (!RTL->set_function_ptr_map)
+    return OFFLOAD_FAIL;
+  return RTL->set_function_ptr_map(RTLDeviceID, Size, FnPtrs.data());
 }
 #endif // INTEL_COLLAB
 
