@@ -352,8 +352,8 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
     SmallVector<Value *, 8> IdxList(GEPOp->idx_begin(), GEPOp->idx_end());
 
     ConstantFolder Folder;
-    return Folder.CreateGetElementPtr(PipeTy->getPointerElementType(),
-                                      cast<Constant>(Pipe), IdxList);
+    return Folder.FoldGEP(PipeTy->getPointerElementType(), cast<Constant>(Pipe),
+                          IdxList);
   }
 
   // Temporary constant PtrToInt operator that uses channels may be created in
