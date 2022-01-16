@@ -5432,7 +5432,7 @@ InstructionCost X86TTIImpl::getGatherScatterOpCost(
         forceScalarizeMaskedGather(cast<VectorType>(SrcVTy),
                                    Align(Alignment)))) ||
       (Opcode == Instruction::Store &&
-       (!isLegalMaskedScatter(SrcVTy, Align(Alignment)) &&
+       (!isLegalMaskedScatter(SrcVTy, Align(Alignment)) ||
         forceScalarizeMaskedScatter(cast<VectorType>(SrcVTy),
                                     Align(Alignment))))) {
     unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
