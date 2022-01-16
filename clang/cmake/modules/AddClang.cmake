@@ -1,4 +1,3 @@
-include(GNUInstallDirs)
 include(LLVMDistributionSupport)
 
 function(clang_tablegen)
@@ -125,7 +124,7 @@ macro(add_clang_library name)
           ${export_to_clangtargets}
           LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
           ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-          RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+          RUNTIME DESTINATION bin)
 
         if (NOT LLVM_ENABLE_IDE)
           add_llvm_install_targets(install-${lib}
