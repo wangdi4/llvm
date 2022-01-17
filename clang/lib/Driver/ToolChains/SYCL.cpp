@@ -255,14 +255,11 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
 #if INTEL_CUSTOMIZATION
     auto isOMPDeviceLib = [&C](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
-      StringRef LibPostfix = ".o";
       bool IsMSVC = HostTC->getTriple().isWindowsMSVCEnvironment();
-      if (IsMSVC && C.getDriver().IsCLMode())
-        LibPostfix = ".obj";
       StringRef InputFilename =
           llvm::sys::path::filename(StringRef(II.getFilename()));
       if (!InputFilename.startswith("libomp-") ||
-          !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
+          (InputFilename.count('-') < 2))
         return false;
       size_t PureLibNameLen = InputFilename.find_last_of('-');
       // Skip the prefix "libomp-"
@@ -290,14 +287,18 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
-      if (II.getType() == types::TY_Tempfilelist) {
+#if INTEL_CUSTOMIZATION
+      if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+      } else if (II.getType() == types::TY_Tempfilelist ||
+                 (getToolChain().getTriple().isSPIR() &&
+                  II.getType() == types::TY_Archive)) {
+        // Archives are expected to be unbundled as 'aoo' which means it is
+        // a list of files, so treat them accordingly for llvm-link acceptance
+#endif // INTEL_CUSTOMIZATION
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
         Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
-#if INTEL_CUSTOMIZATION
-      } else if (isOMPDeviceLib(II)) {
-        OMPObjs.push_back(II.getFilename());
-#endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(II.getFilename());
       } else
