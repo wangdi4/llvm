@@ -185,6 +185,20 @@ public:
   }
 };
 
+template <> class SYCLConfig<SYCL_RT_WARNING_LEVEL> {
+  using BaseT = SYCLConfigBase<SYCL_RT_WARNING_LEVEL>;
+
+public:
+  static unsigned int get() {
+    static unsigned int Level = []() {
+      const char *ValStr = BaseT::getRawValue();
+      int SignedLevel = ValStr ? std::atoi(ValStr) : 0;
+      return SignedLevel >= 0 ? SignedLevel : 0;
+    }();
+    return Level;
+  }
+};
+
 template <> class SYCLConfig<SYCL_PARALLEL_FOR_RANGE_ROUNDING_TRACE> {
   using BaseT = SYCLConfigBase<SYCL_PARALLEL_FOR_RANGE_ROUNDING_TRACE>;
 
