@@ -1,4 +1,5 @@
-; RUN: opt -disable-loop-unrolling -O2 -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -disable-loop-unrolling -O2 -S < %s | FileCheck %s
+; RUN: opt -disable-loop-unrolling -passes='default<O2>' -S < %s | FileCheck %s
 ;
 ; Check loop unrolling metadata is honored despite automatic unrolling
 ; being disabled in the pass builder.

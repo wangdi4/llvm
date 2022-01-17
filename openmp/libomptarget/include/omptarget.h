@@ -757,6 +757,17 @@ EXTERN int __tgt_get_target_memory_info(
 // TODO: remove this if we choose to modify device image description.
 EXTERN void __tgt_add_build_options(
     const char *compile_options, const char *link_options);
+
+// Check if reduction scratch is supported
+EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t device_id);
+
+// Allocate per-hw-thread reducion scratch
+EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
+    int64_t device_id, size_t obj_size, int32_t alloc_kind);
+
+// Free per-hw-thread reduction scratch
+EXTERN void __tgt_target_free_per_hw_thread_scratch(
+    int64_t device_id, void *ptr);
 #endif // INTEL_COLLAB
 
 #if INTEL_COLLAB
