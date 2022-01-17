@@ -22,11 +22,8 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-=======
 #include "llvm/Analysis/InstSimplifyFolder.h"
->>>>>>> e00158ed5c5dfd15497751941b740f814de065ac
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
