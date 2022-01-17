@@ -1093,6 +1093,25 @@ int32_t DeviceTy::set_function_ptr_map() {
     return OFFLOAD_FAIL;
   return RTL->set_function_ptr_map(RTLDeviceID, Size, FnPtrs.data());
 }
+
+int32_t DeviceTy::supportsPerHWThreadScratch(void) {
+  if (RTL->alloc_per_hw_thread_scratch)
+    return 1;
+  else
+    return 0;
+}
+
+void *DeviceTy::allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind) {
+  if (RTL->alloc_per_hw_thread_scratch)
+    return RTL->alloc_per_hw_thread_scratch(RTLDeviceID, ObjSize, AllocKind);
+  else
+    return nullptr;
+}
+
+void DeviceTy::freePerHWThreadScratch(void *Ptr) {
+  if (RTL->free_per_hw_thread_scratch)
+    RTL->free_per_hw_thread_scratch(RTLDeviceID, Ptr);
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

@@ -416,6 +416,12 @@ struct DeviceTy {
   void kernelBatchBegin(uint32_t MaxKernels);
   void kernelBatchEnd(void);
   int32_t set_function_ptr_map(void);
+  // Check if reduction scratch is supported
+  int32_t supportsPerHWThreadScratch(void);
+  // Allocate per-hw-thread reduction scratch
+  void *allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind);
+  // Free per-hw-thread reduction scratch
+  void freePerHWThreadScratch(void *Ptr);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

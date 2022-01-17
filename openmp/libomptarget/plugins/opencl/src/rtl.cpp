@@ -54,6 +54,16 @@
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
 #endif // INTEL_CUSTOMIZATION
 
+// FIXME: remove this when build starts using the latest upstream OpenCL header.
+#ifndef CL_DEVICE_IP_VERSION_INTEL
+#define CL_DEVICE_IP_VERSION_INTEL                          0x4250
+#define CL_DEVICE_ID_INTEL                                  0x4251
+#define CL_DEVICE_NUM_SLICES_INTEL                          0x4252
+#define CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL            0x4253
+#define CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL               0x4254
+#define CL_DEVICE_NUM_THREADS_PER_EU_INTEL                  0x4255
+#endif
+
 #ifdef _WIN32
 // TODO: enable again if XDEPS-3027 is resolved
 #define OCL_KERNEL_BEGIN(ID)
@@ -462,6 +472,7 @@ enum ExtensionStatusTy : uint8_t {
 // A descriptor of OpenCL extensions with their statuses.
 struct ExtensionsTy {
   ExtensionStatusTy UnifiedSharedMemory = ExtensionStatusUnknown;
+  ExtensionStatusTy DeviceAttributeQuery = ExtensionStatusUnknown;
 #if INTEL_CUSTOMIZATION
   ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
   ExtensionStatusTy SuggestedGroupSize = ExtensionStatusUnknown;
@@ -1122,6 +1133,18 @@ struct RTLOptionTy {
   }
 }; // RTLOptionTy
 
+/// Device property
+struct DevicePropertiesTy {
+  cl_uint DeviceId = 0;
+  cl_uint NumSlices = 0;
+  cl_uint NumSubslicesPerSlice = 0;
+  cl_uint NumEUsPerSubslice = 0;
+  cl_uint NumThreadsPerEU = 0;
+  cl_uint NumHWThreads = 0;
+
+  int32_t getDeviceProperties(cl_device_id ID);
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
   /// Type of the device version of the offload table.
@@ -1163,6 +1186,7 @@ public:
   std::vector<int32_t> maxExecutionUnits;
   std::vector<size_t> maxWorkGroupSize;
   std::vector<cl_ulong> MaxMemAllocSize;
+  std::vector<DevicePropertiesTy> DeviceProperties;
 
   // A vector of descriptors of OpenCL extensions for each device.
   std::vector<ExtensionsTy> Extensions;
@@ -2091,6 +2115,13 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
     UnifiedSharedMemory = ExtensionStatusEnabled;
     DP("Extension UnifiedSharedMemory enabled.\n");
   }
+
+  if (DeviceAttributeQuery == ExtensionStatusUnknown &&
+      Extensions.find("cl_intel_device_attribute_query") != std::string::npos) {
+    DeviceAttributeQuery = ExtensionStatusEnabled;
+    DP("Extension DeviceAttributeQuery enabled.\n");
+  }
+
 #if INTEL_CUSTOMIZATION
   // Check if the extension was not explicitly disabled, i.e.
   // that its current status is unknown.
@@ -2119,6 +2150,25 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
                 });
 
   return CL_SUCCESS;
+}
+
+int32_t DevicePropertiesTy::getDeviceProperties(cl_device_id ID) {
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_ID_INTEL, sizeof(cl_uint),
+                   &DeviceId, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_SLICES_INTEL,
+                   sizeof(cl_uint), &NumSlices, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID,
+                   CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL, sizeof(cl_uint),
+                   &NumSubslicesPerSlice, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL,
+                   sizeof(cl_uint), &NumEUsPerSubslice, nullptr);
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_NUM_THREADS_PER_EU_INTEL,
+                   sizeof(cl_uint), &NumThreadsPerEU, nullptr);
+
+  NumHWThreads =
+      NumSlices * NumSubslicesPerSlice * NumEUsPerSubslice * NumThreadsPerEU;
+
+  return OFFLOAD_SUCCESS;
 }
 
 // FIXME: move this to llvm/BinaryFormat/ELF.h and elf.h:
@@ -2253,6 +2303,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->maxExecutionUnits.resize(DeviceInfo->NumDevices);
   DeviceInfo->maxWorkGroupSize.resize(DeviceInfo->NumDevices);
   DeviceInfo->MaxMemAllocSize.resize(DeviceInfo->NumDevices);
+  DeviceInfo->DeviceProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->Extensions.resize(DeviceInfo->NumDevices);
   DeviceInfo->Queues.resize(DeviceInfo->NumDevices);
   DeviceInfo->QueuesInOrder.resize(DeviceInfo->NumDevices, nullptr);
@@ -2368,7 +2419,14 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
     return OFFLOAD_FAIL;
   }
 
-  DeviceInfo->Extensions[device_id].getExtensionsInfoForDevice(device_id);
+  auto &Extension = DeviceInfo->Extensions[device_id];
+  Extension.getExtensionsInfoForDevice(device_id);
+
+  if (Extension.DeviceAttributeQuery == ExtensionStatusEnabled) {
+    if (OFFLOAD_SUCCESS !=
+        DeviceInfo->DeviceProperties[device_id].getDeviceProperties(deviceID))
+      return OFFLOAD_FAIL;
+  }
 
   OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
                 DeviceInfo->Names[device_id].data(),
@@ -4766,6 +4824,55 @@ EXTERN int32_t __tgt_rtl_set_function_ptr_map(
                        /*event=*/nullptr);
 
   return OFFLOAD_SUCCESS;
+}
+
+EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
+    int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {
+  void *Mem = nullptr;
+  cl_uint NumHWThreads = DeviceInfo->DeviceProperties[DeviceId].NumHWThreads;
+
+  if (NumHWThreads == 0)
+    return Mem;
+
+  // Only support USM
+  cl_int RC;
+  auto Context = DeviceInfo->getContext(DeviceId);
+  auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
+  auto Device = DeviceInfo->Devices[DeviceId];
+  size_t AllocSize = ObjSize * NumHWThreads;
+
+  switch (AllocKind) {
+  case TARGET_ALLOC_HOST:
+    CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
+                     getAllocMemProperties(AllocSize, MaxSize)->data(),
+                     AllocSize, 0 /* Align */);
+    break;
+  case TARGET_ALLOC_SHARED:
+    CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
+                     getAllocMemProperties(AllocSize, MaxSize)->data(),
+                     AllocSize, 0 /* Align */);
+    break;
+  case TARGET_ALLOC_DEVICE:
+  default:
+    CALL_CL_EXT_RVRC(DeviceId, Mem, clDeviceMemAllocINTEL, RC, Context, Device,
+                     getAllocMemProperties(AllocSize, MaxSize)->data(),
+                     AllocSize, 0 /* Align */);
+  }
+
+  if (RC != CL_SUCCESS) {
+    DP("Failed to allocate per-hw-thread scratch space.\n");
+    return nullptr;
+  }
+
+  DP("Allocated %zu byte per-hw-thread scratch space at " DPxMOD "\n",
+     AllocSize, DPxPTR(Mem));
+
+  return Mem;
+}
+
+EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
+  auto Context = DeviceInfo->getContext(DeviceId);
+  CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, Context, Ptr);
 }
 #ifdef __cplusplus
 }

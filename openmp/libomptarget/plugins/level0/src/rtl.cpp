@@ -6199,6 +6199,40 @@ EXTERN int32_t __tgt_rtl_set_function_ptr_map(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
+    int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {
+  void *Mem = nullptr;
+  auto &P = DeviceInfo->DeviceProperties[DeviceId];
+  uint32_t NumHWThreads = P.numThreadsPerEU * P.numEUsPerSubslice *
+      P.numSubslicesPerSlice * P.numSlices;
+  size_t AllocSize = ObjSize * NumHWThreads;
+  if (AllocKind == TARGET_ALLOC_DEFAULT)
+    AllocKind = TARGET_ALLOC_DEVICE;
+
+  // Use common pool for now. We can consider using a dedicated pool if desired.
+  if (DeviceInfo->Option.Flags.UseMemoryPool)
+    Mem = DeviceInfo->poolAlloc(DeviceId, AllocSize, AllocKind);
+
+  bool InPool = false;
+  if (Mem)
+    InPool = true;
+  else
+    Mem = allocDataExplicit(DeviceId, ObjSize * NumHWThreads, AllocKind);
+
+  if (Mem) {
+    DeviceInfo->MemAllocInfo[DeviceId]->add(
+        Mem, Mem, AllocSize, AllocKind, InPool);
+    DP("Allocated %zu byte per-hw-thread scratch space at " DPxMOD "\n",
+       AllocSize, DPxPTR(Mem));
+  }
+
+  return Mem;
+}
+
+EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
+  DeviceInfo->dataDelete(DeviceId, Ptr);
+}
+
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
     int32_t DeviceId, const char *Name, size_t Size) {
   DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
