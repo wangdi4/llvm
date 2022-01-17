@@ -416,6 +416,7 @@ void InlineReportBuilder::beginFunction(Function *F) {
   LanguageStr.append(llvm::getLanguageStr(F));
   auto LanguageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LanguageStr));
   FIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
+  addCallback(F, FIR);
   return;
 }
 
