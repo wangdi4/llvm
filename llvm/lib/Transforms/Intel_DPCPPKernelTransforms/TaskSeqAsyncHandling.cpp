@@ -63,8 +63,10 @@ public:
 
   bool run() {
     findAllAsyncBuiltins();
+    collectAsyncFuncs();
     createBlockLiteralTypes();
     createAsyncFunctionInvokes();
+    generateInvokeMappers();
     generateBuiltinBodies();
     return Changed;
   }
@@ -82,18 +84,24 @@ private:
   void generateGetBodies();
   void generateAsyncBodies();
 
+  /// For each __spirv_TaskSequenceAsync template instance, there may be several
+  /// async functions passed to it. Collect all of them. E.g.,
+  ///   int foo(int, int);
+  //    int bar(int, int);
+  //    __spirv_TaskSequenceAsync(..., foo, ...)
+  //    __spirv_TaskSequenceAsync(..., bar, ...)
+  void collectAsyncFuncs();
+
+  /// For each __spirv_TaskSequenceAsync template instance, generate a function.
+  /// It accept an async function passed to __spirv_TaskSequenceAsync, and
+  /// return the corresponding block invoke function.
+  void generateInvokeMappers();
+
   void generateBuiltinBodies() {
     generateCreateTaskSeqBodies();
     generateReleaseTaskSeqBodies();
     generateGetBodies();
     generateAsyncBodies();
-  }
-
-  Function *getCalledAsyncFunc(Function *F) {
-    // All users of a F are expected to be same, and all of them are expected
-    // to call a same async function. Thus, get AsyncFunc from any of them.
-    CallInst *CI = cast<CallInst>(*F->user_begin());
-    return cast<Function>(CI->getArgOperand(1)->stripPointerCasts());
   }
 
   StructType *getLiteralType(Function *F) {
@@ -107,6 +115,21 @@ private:
     // The suffix is used to identify a block invoke, so don't change it.
     return (F->getName() + "._block_invoke_kernel").str();
   }
+
+  FunctionType *getBlockInvokeType() {
+    auto *RetTy = Type::getVoidTy(Ctx);
+    auto *PtrTy = Type::getInt8PtrTy(Ctx);
+    auto *FTy = FunctionType::get(RetTy, {PtrTy}, false);
+    return FTy;
+  }
+
+  static std::string getBlockInvokeMapperName(Function *F) {
+    return (F->getName() + ".block_invoke_mapper").str();
+  }
+
+  /// A map between __spirv_TaskSequenceAsync template instances and async
+  /// functions (the 2nd arg) passed to them.
+  DenseMap<Function *, SmallVector<Function *>> AsyncFuncMap;
 
   DenseMap<Function *, StructType *> LiteralMap;
   FunctionVector Creates;
@@ -133,6 +156,66 @@ void Impl::findAllAsyncBuiltins() {
       Creates.push_back(&F);
     else if (FName.startswith(BuiltinReleaseTaskSeqPattern))
       Releases.push_back(&F);
+  }
+}
+
+void Impl::collectAsyncFuncs() {
+  for (Function *F : Asyncs) {
+    SmallSetVector<Function *, 8> AsyncFuncs;
+    for (auto *U : F->users()) {
+      auto *CI = cast<CallInst>(U);
+      assert(CI->getCalledFunction() == F &&
+             "__spirv_TaskSequenceAsync isn't directly called?");
+      auto *AsyncFunc =
+          cast<Function>(CI->getArgOperand(1)->stripPointerCasts());
+      AsyncFuncs.insert(AsyncFunc);
+    }
+    AsyncFuncMap[F] = AsyncFuncs.takeVector();
+  }
+}
+
+void Impl::generateInvokeMappers() {
+  for (Function *F : Asyncs) {
+    auto *VoidPtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+    auto *MapperType = FunctionType::get(VoidPtrTy, {VoidPtrTy}, false);
+    auto MapperName = getBlockInvokeMapperName(F);
+    auto MapperCallee = M.getOrInsertFunction(MapperName, MapperType);
+    auto *Mapper = cast<Function>(MapperCallee.getCallee());
+
+    Mapper->addFnAttr(Attribute::AlwaysInline);
+    Mapper->setLinkage(GlobalValue::InternalLinkage);
+
+    auto Entry = BasicBlock::Create(Ctx, "entry");
+    Entry->insertInto(Mapper);
+
+    auto &AsyncFuncs = AsyncFuncMap[F];
+    assert(!AsyncFuncs.empty() && "__spirv_TaskSequenceAsync wasn't called?");
+
+    IRB.SetInsertPoint(Entry);
+
+    auto *IntPtrTy = IntegerType::getIntNTy(Ctx, sizeof(intptr_t) * 8);
+    auto *AsyncFuncVar = IRB.CreatePtrToInt(Mapper->getArg(0), IntPtrTy);
+
+    // Set the first block invoke as the default value.
+    auto AsyncIt = AsyncFuncs.begin();
+    auto *BlockInvoke = M.getFunction(getInovkeName(*AsyncIt));
+    Value *LastVal = BlockInvoke;
+
+    // Select the proper invoke based on the given async function using 'icmp'
+    // and 'select'. Switch instruction won't work here because a ConstantExpr
+    // 'ptrtoint (%block.invoke)' isn't a ConstantInt, while 'switch' only
+    // accepts ConstantInt's as its value.
+    auto E = AsyncFuncs.end();
+    for (++AsyncIt; AsyncIt != E; ++AsyncIt) {
+      auto *AsyncFuncVal = ConstantExpr::getPtrToInt(*AsyncIt, IntPtrTy);
+      auto *Cmp = IRB.CreateICmp(CmpInst::ICMP_EQ, AsyncFuncVar, AsyncFuncVal);
+      BlockInvoke = M.getFunction(getInovkeName(*AsyncIt));
+      auto *Select = IRB.CreateSelect(Cmp, BlockInvoke, LastVal);
+      LastVal = Select;
+    }
+
+    auto *RetBC = IRB.CreatePointerCast(LastVal, VoidPtrTy);
+    IRB.CreateRet(RetBC);
   }
 }
 
@@ -291,7 +374,7 @@ void Impl::generateAsyncBodies() {
 
   // void __spirv_TaskSequenceAsyncINTEL(
   //     task_sequence *obj, f_t *f, size_t id, unsigned capacity, ...) {
-  //   // Get invoke;
+  //   // Get invoke by calling the created invoke mapper;
   //   // Create literal;
   //   __async((void *)obj, capacity, (void *)invoke, (void *)literal);
   // }
@@ -301,14 +384,16 @@ void Impl::generateAsyncBodies() {
   FunctionCallee BackendAsync = getBackendAsync();
   for (Function *F : Asyncs) {
     StructType *LiteralType = getLiteralType(F);
-    Function *AsyncFunc = getCalledAsyncFunc(F);
-    Function *AsyncInvoke = M.getFunction(getInovkeName(AsyncFunc));
-    assert(AsyncInvoke &&
-           "No invoke function found. Is createAsyncFunctionInvokes called?");
 
     auto *Entry = BasicBlock::Create(Ctx);
     Entry->insertInto(F);
     IRB.SetInsertPoint(Entry);
+
+    auto *BlockInvokeMapper = M.getFunction(getBlockInvokeMapperName(F));
+    auto *AsyncFunc = IRB.CreatePointerCast(F->getArg(1), VoidPtrTy);
+    auto *AsyncInvoke =
+        IRB.CreateCall(BlockInvokeMapper->getFunctionType(), BlockInvokeMapper,
+                       {AsyncFunc}, "block.invoke");
 
     auto *Literal =
         IRB.CreateAlloca(LiteralType, /*ArraySize*/ nullptr, "literal");
@@ -384,57 +469,56 @@ void Impl::createAsyncFunctionInvokes() {
   auto *Int32Ty = Type::getInt32Ty(Ctx);
   auto *Zero = ConstantInt::get(Int32Ty, 0);
   for (Function *F : Asyncs) {
-    Function *AsyncFunc = getCalledAsyncFunc(F);
     StructType *LiteralType = getLiteralType(F);
 
-    auto *RetTy = Type::getVoidTy(Ctx);
-    auto *PtrTy = Type::getInt8PtrTy(Ctx);
-    auto *FTy = FunctionType::get(RetTy, {PtrTy}, false);
-    FunctionCallee FuncInvokeCallee =
-        M.getOrInsertFunction(getInovkeName(AsyncFunc), FTy);
-    Function *FuncInvoke = cast<Function>(FuncInvokeCallee.getCallee());
-
-    auto *Entry = BasicBlock::Create(Ctx);
-    Entry->insertInto(FuncInvoke);
-    IRB.SetInsertPoint(Entry);
-    auto *Literal = IRB.CreatePointerCast(
-        FuncInvoke->getArg(0), LiteralType->getPointerTo(), "literal");
-
-    SmallVector<Value *> Args;
-    Args.reserve(AsyncFunc->getFunctionType()->getNumParams());
-
-    // Load arguments
-    unsigned ResPtrIdx = LiteralType->getNumElements() - 1;
-    constexpr unsigned LiteralParamStartIdx = 3;
-    for (unsigned i = LiteralParamStartIdx; i < ResPtrIdx; ++i) {
-      auto *ArgPtr = IRB.CreateGEP(LiteralType, Literal,
-                                   {Zero, ConstantInt::get(Int32Ty, i)});
-      auto *Arg = IRB.CreateLoad(LiteralType->getElementType(i), ArgPtr);
-      Args.push_back(Arg);
-    }
-
-    auto *Invoke =
-        IRB.CreateCall(AsyncFunc->getFunctionType(), AsyncFunc, Args);
-
-    auto *AsyncFuncRetTy = Invoke->getType();
-
-    // Save result
-    if (!AsyncFuncRetTy->isVoidTy()) {
-      auto *ResPtrPtr = IRB.CreateGEP(
-          LiteralType, Literal, {Zero, ConstantInt::get(Int32Ty, ResPtrIdx)});
-      auto *ResPtr =
-          IRB.CreateLoad(LiteralType->getElementType(ResPtrIdx), ResPtrPtr);
-      auto *ResPtrBC =
-          IRB.CreatePointerCast(ResPtr, AsyncFuncRetTy->getPointerTo());
-      IRB.CreateStore(Invoke, ResPtrBC);
-    }
-    IRB.CreateRetVoid();
-
+    auto *FTy = getBlockInvokeType();
     auto &DL = M.getDataLayout();
     auto LiteralSize = DL.getTypeStoreSize(LiteralType).getFixedSize();
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(FuncInvoke);
-    KIMD.BlockLiteralSize.set(LiteralSize);
-    Kernels.push_back(FuncInvoke);
+    for (Function *AsyncFunc : AsyncFuncMap[F]) {
+      FunctionCallee FuncInvokeCallee =
+          M.getOrInsertFunction(getInovkeName(AsyncFunc), FTy);
+      Function *FuncInvoke = cast<Function>(FuncInvokeCallee.getCallee());
+
+      auto *Entry = BasicBlock::Create(Ctx);
+      Entry->insertInto(FuncInvoke);
+      IRB.SetInsertPoint(Entry);
+      auto *Literal = IRB.CreatePointerCast(
+          FuncInvoke->getArg(0), LiteralType->getPointerTo(), "literal");
+
+      SmallVector<Value *> Args;
+      Args.reserve(AsyncFunc->getFunctionType()->getNumParams());
+
+      // Load arguments
+      unsigned ResPtrIdx = LiteralType->getNumElements() - 1;
+      constexpr unsigned LiteralParamStartIdx = 3;
+      for (unsigned i = LiteralParamStartIdx; i < ResPtrIdx; ++i) {
+        auto *ArgPtr = IRB.CreateGEP(LiteralType, Literal,
+                                     {Zero, ConstantInt::get(Int32Ty, i)});
+        auto *Arg = IRB.CreateLoad(LiteralType->getElementType(i), ArgPtr);
+        Args.push_back(Arg);
+      }
+
+      auto *Invoke =
+          IRB.CreateCall(AsyncFunc->getFunctionType(), AsyncFunc, Args);
+
+      auto *AsyncFuncRetTy = Invoke->getType();
+
+      // Save result
+      if (!AsyncFuncRetTy->isVoidTy()) {
+        auto *ResPtrPtr = IRB.CreateGEP(
+            LiteralType, Literal, {Zero, ConstantInt::get(Int32Ty, ResPtrIdx)});
+        auto *ResPtr =
+            IRB.CreateLoad(LiteralType->getElementType(ResPtrIdx), ResPtrPtr);
+        auto *ResPtrBC =
+            IRB.CreatePointerCast(ResPtr, AsyncFuncRetTy->getPointerTo());
+        IRB.CreateStore(Invoke, ResPtrBC);
+      }
+      IRB.CreateRetVoid();
+
+      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(FuncInvoke);
+      KIMD.BlockLiteralSize.set(LiteralSize);
+      Kernels.push_back(FuncInvoke);
+    }
   }
   KernelMD.set(Kernels);
 }
