@@ -525,7 +525,9 @@ bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
 }
 
 static bool isUMaxBlob(BlobTy Blob) { return isa<SCEVUMaxExpr>(Blob); }
-static bool isUMinBlob(BlobTy Blob) { return isa<SCEVUMinExpr>(Blob); }
+static bool isUMinBlob(BlobTy Blob) {
+  return isa<SCEVUMinExpr>(Blob) || isa<SCEVSequentialUMinExpr>(Blob);
+}
 
 /// Returns true if this Blob represents a min/max expr with an AddRec
 /// Operand.
@@ -1424,6 +1426,9 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
     } else if (isa<SCEVUMinExpr>(NArySCEV)) {
       OS << "umin(";
       OpStr = ", ";
+    } else if (isa<SCEVSequentialUMinExpr>(NArySCEV)) {
+      OS << "umin_seq(";
+      OpStr = ", ";
     } else {
       llvm_unreachable("Blob contains AddRec!");
     }
@@ -2262,7 +2267,8 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
     return parseAddRec(RecSCEV, CE, Level, IndicateFailure);
 
-  } else if (isa<SCEVMinMaxExpr>(SC) || isa<SCEVPtrToIntExpr>(SC)) {
+  } else if (isa<SCEVMinMaxExpr>(SC) || isa<SCEVSequentialMinMaxExpr>(SC) ||
+             isa<SCEVPtrToIntExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
     return parseBlob(SC, CE, Level, 0, IndicateFailure);
   }
