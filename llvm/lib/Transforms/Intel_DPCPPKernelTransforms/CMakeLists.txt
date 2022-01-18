@@ -62,6 +62,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/VectorVariantLowering.cpp
   VFAnalysis.cpp
+  WorkItemAnalysis.cpp
 
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp

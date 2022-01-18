@@ -5,7 +5,7 @@
 // CHECK-NOT: !kernel_arg_host_accessible
 // CHECK-NOT: !kernel_arg_pipe_depth
 // CHECK-NOT: !kernel_arg_pipe_io
-// INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 #include "Inputs/sycl.hpp"
 

@@ -91,9 +91,15 @@ class LinuxLocalTI(DefaultTargetInfo):
         super(LinuxLocalTI, self).__init__(full_config)
 
     def add_cxx_compile_flags(self, flags):
+        # INTEL_CUSTOMIZATION
+        # Disable fast float point in libcxx lit testing since Werror
+        # "comparison with NaN always evaluates to false in fast floating point
+        # modes" will break tests build
         flags += ['-D__STDC_FORMAT_MACROS',
                   '-D__STDC_LIMIT_MACROS',
-                  '-D__STDC_CONSTANT_MACROS']
+                  '-D__STDC_CONSTANT_MACROS',
+                  '-ffp-model=precise']
+        # end INTEL_CUSTOMIZATION
 
     def add_cxx_link_flags(self, flags):
         enable_threads = ('libcpp-has-no-threads' not in
