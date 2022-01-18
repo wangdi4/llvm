@@ -4132,8 +4132,6 @@ EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     }
   }
 
-  DeviceInfo->initBatchCmdQueue(DeviceId);
-
   DeviceInfo->Initialized[DeviceId] = true;
 
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
@@ -6116,6 +6114,8 @@ EXTERN int32_t __tgt_rtl_command_batch_end(
 
 EXTERN void __tgt_rtl_kernel_batch_begin(int32_t DeviceId,
                                          uint32_t MaxKernels) {
+  if (!DeviceInfo->BatchCmdQueues[DeviceId].CmdList)
+    DeviceInfo->initBatchCmdQueue(DeviceId);
   DeviceInfo->BatchCmdQueues[DeviceId].MaxCommands = MaxKernels;
 }
 
