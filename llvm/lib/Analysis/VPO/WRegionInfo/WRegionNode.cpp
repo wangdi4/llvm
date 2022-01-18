@@ -774,6 +774,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
     break;
+  case QUAL_EXT_DO_CONCURRENT:
+    setIsDoConcurrent(true);
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }
@@ -2354,6 +2357,18 @@ bool WRegionNode::canHaveCollapse() const {
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNDistribute:
+  case WRNGenericLoop:
+    return true;
+  }
+
+  return false;
+}
+
+bool WRegionNode::canHaveDoConcurrent() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNTeams:
   case WRNGenericLoop:
     return true;
   }

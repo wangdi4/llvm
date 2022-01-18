@@ -600,6 +600,8 @@ private:
   EXPR NumTeams;
   Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default;
+  bool IsDoConcurrent;
+
 #if INTEL_CUSTOMIZATION
   uint64_t ConfiguredThreadLimit = 0;
 #endif // INTEL_CUSTOMIZATION
@@ -613,6 +615,7 @@ protected:
   void setNumTeams(EXPR E) override { NumTeams = E; }
   void setNumTeamsType(Type *T) override { NumTeamsTy = T; }
   void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -626,6 +629,8 @@ public:
   EXPR getNumTeams() const override  { return NumTeams; }
   Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+
 #if INTEL_CUSTOMIZATION
   void setConfiguredThreadLimit(uint64_t TL) override {
     ConfiguredThreadLimit = TL;
@@ -756,6 +761,7 @@ private:
   uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
   bool HasTeamsReduction = false;
+  bool IsDoConcurrent;
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -764,6 +770,7 @@ protected:
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
   void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) override {
     Defaultmap[C] = B;
   }
@@ -799,6 +806,8 @@ protected:
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+
   WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const override {
     return Defaultmap[C];
   }
@@ -2012,6 +2021,7 @@ private:
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
   int MappedDir;
+  bool IsDoConcurrent;
 
 public:
   WRNGenericLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -2020,6 +2030,7 @@ protected:
   void setLoopBind(WRNLoopBindKind LB) override { LoopBind = LB; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
   void setCollapse(int N) override { Collapse = N; }
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
 
 public:
   DEFINE_GETTER(SharedClause, getShared, Shared)
@@ -2030,6 +2041,7 @@ public:
   DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
 
   int getCollapse() const override { return Collapse; }
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
 
   WRNLoopBindKind getLoopBind() const override { return LoopBind; }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
