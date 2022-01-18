@@ -44,7 +44,7 @@
 ; CHECK-NEXT:          |      %baz8 = @baz(%extract.1.7);
 ; CHECK-NEXT:          |      %serial.temp5 = insertelement %serial.temp5,  %baz8,  1;
 ; CHECK-NEXT:          |   }
-; CHECK-NEXT:          |   (<2 x i32>*)(%arr)[i1] = %serial.temp5; Mask = @{%.vec4}
+; CHECK-NEXT:          |   (<2 x i32>*)(%arr)[i1] = %serial.temp5, Mask = @{%.vec4};
 ; CHECK-NEXT:          |   %mask.0.10 = extractelement %.vec4,  0;
 ; CHECK-NEXT:          |   if (%mask.0.10 == 1)
 ; CHECK-NEXT:          |   {

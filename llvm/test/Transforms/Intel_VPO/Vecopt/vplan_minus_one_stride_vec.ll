@@ -43,7 +43,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; HIRCHECK-NEXT:          |   %.vec2 = %reverse > 10;
 ; HIRCHECK-NEXT:          |   %reverse3 = shufflevector %.vec2,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; HIRCHECK-NEXT:          |   %reverse4 = shufflevector %reverse + 1,  undef,  <i32 3, i32 2, i32 1, i32 0>;
-; HIRCHECK-NEXT:          |   (<4 x i64>*)(%larr)[-1 * i1 + -3] = %reverse4; Mask = @{%reverse3}
+; HIRCHECK-NEXT:          |   (<4 x i64>*)(%larr)[-1 * i1 + -3] = %reverse4, Mask = @{%reverse3};
 ; HIRCHECK-NEXT:          + END LOOP
 ;
 entry:

@@ -28,7 +28,7 @@ define void @foo(i64* nocapture readonly %lp, double* nocapture %darr, i64* noca
 ; CHECK-NEXT:       {
 ; CHECK-NEXT:          %.unifload = (%lp)[0];
 ; CHECK-NEXT:       }
-; CHECK-NEXT:       (<4 x double>*)(%darr)[i1 + %.unifload] = %.vec2; Mask = @{%.vec1}
+; CHECK-NEXT:       (<4 x double>*)(%darr)[i1 + %.unifload] = %.vec2, Mask = @{%.vec1};
 ; CHECK-NEXT:  END LOOP
 ;
 entry:

@@ -33,11 +33,11 @@
 ; CHECK-NEXT:   %.vec4 = (<4 x i32>*)(@ek)[0][-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3> + 101][sext.i32.i64(%jo) + 1];
 ; CHECK-NEXT:   %.vec5 = %reverse3 == %.vec4;
 ; CHECK-NEXT:   %reverse6 = shufflevector %.vec5,  undef,  <i32 3, i32 2, i32 1, i32 0>;
-; CHECK-NEXT:   %.vec7 = (<4 x i32>*)(@f)[0][-1 * i1 + 96]; Mask = @{%reverse6}
+; CHECK-NEXT:   %.vec7 = (<4 x i32>*)(@f)[0][-1 * i1 + 96], Mask = @{%reverse6};
 ; CHECK-NEXT:   %reverse8 = shufflevector %.vec7,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; CHECK-NEXT:   %reverse9 = shufflevector %.vec5,  undef,  <i32 3, i32 2, i32 1, i32 0>;
 ; CHECK-NEXT:   %reverse10 = shufflevector %reverse8,  undef,  <i32 3, i32 2, i32 1, i32 0>;
-; CHECK-NEXT:   (<4 x i32>*)(@d)[0][-1 * i1 + 97] = %reverse10; Mask = @{%reverse9}
+; CHECK-NEXT:   (<4 x i32>*)(@d)[0][-1 * i1 + 97] = %reverse10, Mask = @{%reverse9};
 ; CHECK-NEXT:   %phi.temp = %.vec1;
 ; CHECK-NEXT:  END LOOP
 ; CHECK:       %no.addr.022 = @llvm.vector.reduce.add.v4i32(%.vec1);

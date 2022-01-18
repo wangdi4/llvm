@@ -39,7 +39,7 @@ define void @foo(i32* %arr, i32 %n1) {
 ;
 ; CHECK-LIN:        DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-LIN-NEXT:     %.vec = %n1 != 0;
-; CHECK-LIN-NEXT:     (<4 x i32>*)(%arr)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{%.vec}
+; CHECK-LIN-NEXT:     (<4 x i32>*)(%arr)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{%.vec};
 ; CHECK-LIN-NEXT:   END LOOP
 ;
 ; CHECK-UNI:        DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>

@@ -102,10 +102,10 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-NEXT:         |   %.vec = %n0 < i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:         |   %.vec2 = %.vec  ^  -1;
 ; CHECK-NEXT:         |   %.replicated.elts = shufflevector %.vec2,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
-; CHECK-NEXT:         |   %.vec3 = (<8 x i64>*)(%larr2)[2 * i1]; Mask = @{%.replicated.elts}
+; CHECK-NEXT:         |   %.vec3 = (<8 x i64>*)(%larr2)[2 * i1], Mask = @{%.replicated.elts};
 ; CHECK-NEXT:         |   %.copy = %.vec3;
 ; CHECK-NEXT:         |   %.replicated.elts4 = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
-; CHECK-NEXT:         |   %.vec5 = (<8 x i64>*)(%larr1)[2 * i1]; Mask = @{%.replicated.elts4}
+; CHECK-NEXT:         |   %.vec5 = (<8 x i64>*)(%larr1)[2 * i1], Mask = @{%.replicated.elts4};
 ; CHECK-NEXT:         |   %.copy7 = %.vec5;
 ; CHECK-NEXT:         |   %.replicated.elts8 = shufflevector %.vec,  undef,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
 ; CHECK-NEXT:         |   %select = (%.replicated.elts8 == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? %.copy7 : %.copy;

@@ -33,14 +33,14 @@
 ; VPCHECK-NEXT:   |   %.vec1 = %.vec  *  i1 + <i32 0, i32 1, i32 2, i32 3>;
 ; VPCHECK-NEXT:   |   %.vec2 = (<4 x i32>*)(@b)[0][i1];
 ; VPCHECK-NEXT:   |   %.vec3 = %constant + %.vec1 >= %.vec2;
-; VPCHECK-NEXT:   |   %.vec4 = (<4 x i32>*)(@c)[0][i1]; Mask = @{%.vec3}
+; VPCHECK-NEXT:   |   %.vec4 = (<4 x i32>*)(@c)[0][i1], Mask = @{%.vec3};
 ; VPCHECK-NEXT:   |   %.vec5 = %.vec4  *  2;
-; VPCHECK-NEXT:   |   %.vec6 = (<4 x i32>*)(@d)[0][i1]; Mask = @{%.vec3}
+; VPCHECK-NEXT:   |   %.vec6 = (<4 x i32>*)(@d)[0][i1], Mask = @{%.vec3};
 ; VPCHECK-NEXT:   |   %.vec8 = i1 + -1 * %constant + <i32 0, i32 1, i32 2, i32 3> + %.vec5 < %.vec6;
 ; VPCHECK-NEXT:   |   %.vec9 = %.vec3  &  %.vec8;
 ; VPCHECK-NEXT:   |   %.vec10 = %.vec4  *  2;
 ; VPCHECK-NEXT:   |   %.vec11 = %.vec  *  i1 + <i32 0, i32 1, i32 2, i32 3>;
-; VPCHECK-NEXT:   |   (<4 x i32>*)(@e)[0][i1] = %.vec10 + %.vec11; Mask = @{%.vec9}
+; VPCHECK-NEXT:   |   (<4 x i32>*)(@e)[0][i1] = %.vec10 + %.vec11, Mask = @{%.vec9};
 ; VPCHECK-NEXT:   + END LOOP
 
 ; Check LLVM-IR after HIR CG and SROA to ensure no PHIs are added for masked temps.
