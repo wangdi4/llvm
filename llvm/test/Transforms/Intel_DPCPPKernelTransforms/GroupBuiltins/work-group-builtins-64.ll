@@ -574,6 +574,78 @@ declare <32 x double> @_Z20work_group_broadcastDv32_dmmm(<32 x double> %src, i64
 declare <64 x double> @_Z20work_group_broadcastDv64_dmmm(<64 x double> %src, i64 %local_id_x, i64 %local_id_y, i64 %local_id_z) #3
 
 ; Function Attrs: nounwind
+declare signext i8 @_Z20work_group_broadcastcmmPc(i8 signext %src, i64 %linear_local_id, i64 %linear_id, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z20work_group_broadcastDv4_cmmPS_(<4 x i8> %src, i64 %linear_local_id, i64 %linear_id, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z20work_group_broadcastDv8_cmmPS_(<8 x i8> %src, i64 %linear_local_id, i64 %linear_id, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z20work_group_broadcastDv16_cmmPS_(<16 x i8> %src, i64 %linear_local_id, i64 %linear_id, <16 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i8> @_Z20work_group_broadcastDv32_cmmPS_(<32 x i8> %src, i64 %linear_local_id, i64 %linear_id, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z20work_group_broadcastDv64_cmmPS_(<64 x i8> %src, i64 %linear_local_id, i64 %linear_id, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i8 @_Z20work_group_broadcasthmmPh(i8 zeroext %src, i64 %linear_local_id, i64 %linear_id, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z20work_group_broadcastDv4_hmmPS_(<4 x i8> %src, i64 %linear_local_id, i64 %linear_id, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z20work_group_broadcastDv8_hmmPS_(<8 x i8> %src, i64 %linear_local_id, i64 %linear_id, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z20work_group_broadcastDv16_hmmPS_(<16 x i8> %src, i64 %linear_local_id, i64 %linear_id, <16 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i8> @_Z20work_group_broadcastDv32_hmmPS_(<32 x i8> %src, i64 %linear_local_id, i64 %linear_id, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z20work_group_broadcastDv64_hmmPS_(<64 x i8> %src, i64 %linear_local_id, i64 %linear_id, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare signext i16 @_Z20work_group_broadcastsmmPs(i16 signext %src, i64 %linear_local_id, i64 %linear_id, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z20work_group_broadcastDv4_smmPS_(<4 x i16> %src, i64 %linear_local_id, i64 %linear_id, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z20work_group_broadcastDv8_smmPS_(<8 x i16> %src, i64 %linear_local_id, i64 %linear_id, <8 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i16> @_Z20work_group_broadcastDv16_smmPS_(<16 x i16> %src, i64 %linear_local_id, i64 %linear_id, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z20work_group_broadcastDv32_smmPS_(<32 x i16> %src, i64 %linear_local_id, i64 %linear_id, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z20work_group_broadcastDv64_smmPS_(<64 x i16> %src, i64 %linear_local_id, i64 %linear_id, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i16 @_Z20work_group_broadcasttmmPt(i16 zeroext %src, i64 %linear_local_id, i64 %linear_id, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z20work_group_broadcastDv4_tmmPS_(<4 x i16> %src, i64 %linear_local_id, i64 %linear_id, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z20work_group_broadcastDv8_tmmPS_(<8 x i16> %src, i64 %linear_local_id, i64 %linear_id, <8 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i16> @_Z20work_group_broadcastDv16_tmmPS_(<16 x i16> %src, i64 %linear_local_id, i64 %linear_id, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z20work_group_broadcastDv32_tmmPS_(<32 x i16> %src, i64 %linear_local_id, i64 %linear_id, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z20work_group_broadcastDv64_tmmPS_(<64 x i16> %src, i64 %linear_local_id, i64 %linear_id, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
 declare i32 @_Z20work_group_broadcastimmPi(i32 %src, i64 %linear_local_id, i64 %linear_id, i32* %accum) #5
 
 ; Function Attrs: nounwind
