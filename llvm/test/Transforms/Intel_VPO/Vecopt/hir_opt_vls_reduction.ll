@@ -27,7 +27,7 @@
 ; CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       |   %.vls.load = undef;
 ; CHECK-NEXT:       |   %.copy1 = %phi.temp;
-; CHECK-NEXT:       |   %.vls.load = (<16 x i32>*)(@arr1)[0][3 * i1]; Mask = @{<i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>}
+; CHECK-NEXT:       |   %.vls.load = (<16 x i32>*)(@arr1)[0][3 * i1], Mask = @{<i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>};
 ; CHECK-NEXT:       |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 3, i32 6, i32 9>;
 ; CHECK-NEXT:       |   %vls.extract2 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 4, i32 7, i32 10>;
 ; CHECK-NEXT:       |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 2, i32 5, i32 8, i32 11>;

@@ -115,8 +115,8 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK:              |      |   %.vec4 = %.vec == 0;
 ; CHECK:              |      |   %.vec5 = %.vec4  ^  -1;
 ; CHECK:              |      |   %.copy6 = 0;
-; CHECK:              |      |   %.vec7 = (<4 x i32>*)(%s1)[0][i2 + 1]; Mask = @{%.vec4}
-; CHECK:              |      |   (<4 x i32>*)(%s1)[0][i2 + 1] = %.vec7 + -1; Mask = @{%.vec4}
+; CHECK:              |      |   %.vec7 = (<4 x i32>*)(%s1)[0][i2 + 1], Mask = @{%.vec4};
+; CHECK:              |      |   (<4 x i32>*)(%s1)[0][i2 + 1] = %.vec7 + -1, Mask = @{%.vec4};
 ; CHECK:              |      |   %select = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp2 : i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK:              |      |   %select8 = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp : %.copy6;
 ; CHECK:              |      |   %phi.temp = %select8;

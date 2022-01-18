@@ -84,7 +84,7 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK:               + DO i1 = 0, 67, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:          |   %.vec = (<4 x i32>*)(@q)[0][i1 + 1];
 ; CHECK-NEXT:          |   %.vec3 = %.vec == 0;
-; CHECK-NEXT:          |   (<4 x i32>*)(@s)[0] = %add; Mask = @{%.vec3}
+; CHECK-NEXT:          |   (<4 x i32>*)(@s)[0] = %add, Mask = @{%.vec3};
 ; CHECK-NEXT:          |   %.copy4 = %add;
 ; CHECK-NEXT:          |   %select = (%.vec3 == <i1 true, i1 true, i1 true, i1 true>) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %phi.temp1;
 ; CHECK-NEXT:          |   %select5 = (%.vec3 == <i1 true, i1 true, i1 true, i1 true>) ? %.copy4 : %phi.temp;

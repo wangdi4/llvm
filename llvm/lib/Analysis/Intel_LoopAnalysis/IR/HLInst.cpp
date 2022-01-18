@@ -266,6 +266,12 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   printEndOpcode(OS);
 
+  if (MaskDDRef) {
+    OS << ", Mask = @{";
+    MaskDDRef->print(OS, false);
+    OS << "}";
+  }
+
   OS << ";";
 
   unsigned NumOperandBundles = getNumOperandBundles();
@@ -293,12 +299,6 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   assert((OpIt == E) && "We missed printing HLInst operand(s)!");
-
-  if (MaskDDRef) {
-    OS << " Mask = @{";
-    MaskDDRef->print(OS, false);
-    OS << "}";
-  }
 
   if (Detailed) {
     FastMathFlags FMF;
