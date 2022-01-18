@@ -96,14 +96,18 @@ extern "C" LLVM_BACKEND_API double __trunctfdf2(long double a);
 extern "C" LLVM_BACKEND_API long double __extendsftf2(float a);
 extern "C" LLVM_BACKEND_API long double __extenddftf2(double a);
 
-#ifdef _WIN64
+#if defined(_WIN64)
+#if defined(__clang__)
 // division for int128
 typedef int ti_int __attribute__((mode(TI)));
 typedef unsigned tu_int __attribute__((mode(TI)));
 extern "C" LLVM_BACKEND_API tu_int  __udivmodti4(tu_int, tu_int, tu_int*);
 extern "C" LLVM_BACKEND_API tu_int  __udivti3(tu_int, tu_int);
 extern "C" LLVM_BACKEND_API ti_int  __divti3(ti_int, ti_int);
-#endif
+#else // defined(__clang__)
+#pragma message("warning: 128-bit int division support is disabled for non-clang-like compiler.")
+#endif // defined(__clang__)
+#endif // defined(_WIN64)
 
 // _chkstk routine used by Cygwin/MingW environments
 #ifdef _WIN32
@@ -213,7 +217,7 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("__extendsftf2", __extendsftf2)
     REGISTER_BI_FUNCTION("__extenddftf2", __extenddftf2)
 #endif
-#ifdef _WIN64
+#if defined(_WIN64) && defined(__clang__)
     REGISTER_BI_FUNCTION("__udivmodti4", __udivmodti4)
     REGISTER_BI_FUNCTION("__udivti3", __udivti3)
     REGISTER_BI_FUNCTION("__divti3", __divti3)
